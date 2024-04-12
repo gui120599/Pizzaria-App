@@ -15,6 +15,7 @@
 
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
 </head>
 
 <body class="font-sans antialiased">
@@ -40,7 +41,9 @@
                 class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 transition-margin ease-in-out duration-300">
                 <div class="container mx-auto px-4 pt-2 pb-4">
                     {{ $slot }}
+
                 </div>
+
             </main>
             <div>
                 <x-toats></x-toats>
@@ -64,6 +67,7 @@
 
     <script type="module">
         $(document).ready(function() {
+
             $('.data').mask('00/00/0000');
             $('.time').mask('00:00:00');
             $('.date_time').mask('00/00/0000 00:00:00');

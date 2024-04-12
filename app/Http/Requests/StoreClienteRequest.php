@@ -23,7 +23,7 @@ class StoreClienteRequest extends FormRequest
     {
         return [
             'cliente_nome' => 'required|string|max:255',
-            'cliente_data_nascimento' => 'required|date',
+            'cliente_data_nascimento' => 'nullable|date',
             'cliente_tipo' => 'required|string|max:255',
             'cliente_cpf' => 'nullable|string|max:20', // Pode ser nulo, mas se fornecido, deve ser uma string com no máximo 20 caracteres
             'cliente_rg' => 'nullable|string|max:20',

@@ -16,9 +16,9 @@
         <input type="text" placeholder="Buscar"
             class="text-[15px] ml-4 w-full bg-transparent border-none focus:border-transparent focus:ring-0">
     </div>-->
-    <x-nav-link :href="route('produto')" :active="request()->routeIs('produto')">
-        <i class='bx bxs-badge-dollar'></i>
-        <span class="text-[15px] ml-4 text-gray-200">{{ __('Vender') }}</span>
+    <x-nav-link :href="route('pedido')" :active="request()->routeIs('pedido')">
+        <i class="bx bx-basket"></i>
+        <span class="text-[15px] ml-4 text-gray-200">{{ __('Pedidos') }}</span>
     </x-nav-link>
     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
         <i class='bx bxs-dashboard'></i>
@@ -82,6 +82,10 @@
         <x-nav-link :href="route('opcoes_entregas')" :active="request()->routeIs('opcoes_entregas')">
             <i class='bx bx-package'></i>
             <span class="text-[15px] ml-4 text-gray-200">{{ __('Opções de Entrega') }}</span>
+        </x-nav-link>
+        <x-nav-link :href="route('mesa')" :active="request()->routeIs('mesa.index')">
+            <i class='bx bx-chair'></i>
+            <span class="text-[15px] ml-4 text-gray-200">{{ __('Mesas') }}</span>
         </x-nav-link>
     </div>
     <hr class="h-px my-2 border-0 dark:bg-gray-700">

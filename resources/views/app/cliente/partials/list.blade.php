@@ -33,7 +33,7 @@
                                 <span>{{ $cliente->cliente_nome }}</span>
                             </td>
                             <td>{{ $cliente->cliente_data_nascimento->format('d/m/Y') }}</td>
-                            {{-- <td>
+                            <td>
                             <div class="flex items-center justify-center space-x-2">
                                  <x-primary-button onclick="window.location.href = '{{ route('mov_cliente.edit', ['mov_cliente' => $cliente]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
                                     <form action="{{ route('mov_cliente.destroy', ['id' => $cliente]) }}" method="post">
@@ -42,7 +42,7 @@
                                         <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-primary-button>
                                     </form> 
                             </div>
-                        </td> --}}
+                        </td>
                         </tr>
                     @endforeach
                 @else

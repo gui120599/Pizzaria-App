@@ -32,9 +32,9 @@ class Cliente extends Model
 
     protected $casts = [
         'cliente_data_nascimento' => 'date',
-        'created_at'=> 'datetime',
-        'updated_at'=> 'datetime',
-        'deleted_at'=> 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
     public function saveFoto($foto)
@@ -44,5 +44,10 @@ class Cliente extends Model
         $foto->move($caminho, $nomeArquivo);
         $this->cliente_foto = $nomeArquivo;
         $this->save();
+    }
+
+    public function pedidos()
+    {
+        return $this->hasMany(Pedido::class, 'pedido_cliente_id');
     }
 }

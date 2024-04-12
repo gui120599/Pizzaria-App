@@ -15,7 +15,7 @@ class MesaController extends Controller
     public function index()
     {
         $mesas = Mesa::all();
-        return view('app.mesa.index', ['mesas' => $mesas]);
+        return view('app.mesa', ['mesas' => $mesas]);
     }
 
     /**
@@ -67,7 +67,7 @@ class MesaController extends Controller
         ]);
 
         // Redireciona para a página da mesa recém-atualizada
-        return redirect()->route('mesa.index')->with('success', 'Mesa atualizada com sucesso!');
+        return redirect()->route('mesa')->with('success', 'Mesa atualizada com sucesso!');
     }
 
     /**
@@ -77,7 +77,7 @@ class MesaController extends Controller
     {
         $mesa->delete();
 
-        return redirect()->route('mesa.index')->with('success', 'Mesa inativada com sucesso!');
+        return redirect()->route('mesa')->with('success', 'Mesa inativada com sucesso!');
     }
 
     /**

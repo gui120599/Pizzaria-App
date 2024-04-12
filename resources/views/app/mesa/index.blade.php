@@ -2,7 +2,7 @@
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight flex items-center space-x-2">
             <i class='bx bx-chair'></i>
-            <a href="{{ route('mesa.index') }}">{{ __('Mesas') }}</a>
+            <a href="{{ route('mesa') }}">{{ __('Mesas') }}</a>
         </h2>
     </x-slot>
 

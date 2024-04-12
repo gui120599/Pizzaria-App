@@ -65,4 +65,10 @@ class Produto extends Model
             ->selectRaw('SUM(CASE WHEN mov_tipo = "ENTRADA" THEN mov_quantidade ELSE -mov_quantidade END) as saldo')
             ->groupBy('mov_produto_id');
     }
+
+    public function pedidos()
+    {
+        return $this->belongsToMany(Pedido::class, 'itens_pedidos', 'item_pedido_produto_id', 'item_pedido_pedido_id')
+            ->withPivot('quantidade', 'valor', 'observacao', 'status', 'usuario_removeu');
+    }
 }

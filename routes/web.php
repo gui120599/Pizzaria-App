@@ -4,11 +4,13 @@ use App\Http\Controllers\CaixaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\MovimentacaoProdutoController;
 use App\Http\Controllers\OpcoesEntregasController;
 use App\Http\Controllers\OpcoesPagamentoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MesaController;
+use App\Http\Controllers\PedidoController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,9 +28,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [Dashboard::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -92,7 +92,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/Ativar-OpcoesEntregas/{id}', [OpcoesEntregasController::class, 'active'])->name('opcoes_entregas.active');
     Route::delete('/OpcoesEntregas/{id}', [OpcoesEntregasController::class, 'destroy'])->name('opcoes_entregas.destroy');
 
-    Route::get('/Mesa', [MesaController::class, 'index'])->name('mesa.index');
+    Route::get('/Mesa', [MesaController::class, 'index'])->name('mesa');
     Route::get('/Mesa-Inativas', [MesaController::class, 'inactive'])->name('mesa.inactive');
     Route::get('/Mesa/Create', [MesaController::class, 'create'])->name('mesa.create');
     Route::post('/Mesa', [MesaController::class, 'store'])->name('mesa.store');
@@ -101,6 +101,15 @@ Route::middleware('auth')->group(function () {
     Route::patch('/Mesa/{mesa}', [MesaController::class, 'update'])->name('mesa.update');
     Route::delete('/Mesa/{mesa}', [MesaController::class, 'destroy'])->name('mesa.destroy');
     Route::get('/Ativar-Mesa/{id}', [MesaController::class, 'active'])->name('mesa.active');
+
+    Route::get('/Pedido', [PedidoController::class, 'index'])->name('pedido');
+    Route::get('/Pedido/Create', [PedidoController::class, 'create'])->name('pedido.create');
+    Route::post('/Pedido', [PedidoController::class, 'store'])->name('pedido.store');
+    Route::get('/Pedido/{pedido}', [PedidoController::class, 'show'])->name('pedido.show');
+    Route::get('/Pedido/{pedido}/Edit', [PedidoController::class, 'edit'])->name('pedido.edit');
+    Route::patch('/Pedido/{pedido}', [PedidoController::class, 'update'])->name('pedido.update');
+    Route::delete('/Pedido/{pedido}', [PedidoController::class, 'destroy'])->name('pedido.destroy');
+    Route::post('/iniciar-pedido', [PedidoController::class, 'iniciarPedido'])->name('pedido.iniciar');
 });
 
 require __DIR__ . '/auth.php';

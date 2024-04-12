@@ -278,6 +278,7 @@
     </script>
     <script type="module">
         $(document).ready(function() {
+            
             // Função para calcular e atualizar os campos de preços
             $('#produto_valor_percentual_venda').on('input', () => {
                 var percentualVenda = parseFloat($('#produto_valor_percentual_venda').val().replace(',',
