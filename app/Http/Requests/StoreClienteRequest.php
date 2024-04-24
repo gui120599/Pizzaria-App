@@ -27,7 +27,7 @@ class StoreClienteRequest extends FormRequest
             'cliente_tipo' => 'required|string|max:255',
             'cliente_cpf' => 'nullable|string|max:20', // Pode ser nulo, mas se fornecido, deve ser uma string com no máximo 20 caracteres
             'cliente_rg' => 'nullable|string|max:20',
-            'cliente_cnpj' => 'nullable|string|max:20',
+            'cliente_cnpj' => $this->tipoPessoaJuridica() ? 'required|string' : 'nullable|string',
             'cliente_celular' => 'nullable|string|max:20',
             'cliente_email' => 'nullable|email|max:255',
             'cliente_endereco' => 'nullable|string|max:255',
@@ -42,6 +42,11 @@ class StoreClienteRequest extends FormRequest
     // Método auxiliar para verificar se o tipo de pessoa é física
     private function tipoPessoaFisica(): bool
     {
-        return $this->input('cliente_tipo') === 'Pessoa Física';
+        return $this->input('cliente_tipo') === 'Física';
+    }
+    // Método auxiliar para verificar se o tipo de pessoa é Juridica
+    private function tipoPessoaJuridica(): bool
+    {
+        return $this->input('cliente_tipo') === 'Jurídica';
     }
 }

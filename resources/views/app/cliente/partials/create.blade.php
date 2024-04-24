@@ -24,14 +24,7 @@
 
                     </div>
                     <div class="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
-                        <div class="col-span-1">
-                            <x-input-label for="cliente_data_nascimento" :value="__('Data Nascimento')" />
-                            <x-text-input id="cliente_data_nascimento" name="cliente_data_nascimento" type="text"
-                                class="data mt-1 w-full" autocomplete="off"
-                                value="{{ old('cliente_data_nascimento') }}" />
-                            <x-input-error class="mt-2" :messages="$errors->get('cliente_data_nascimento')"/>
-                        </div>
-                        <div class="col-span-1">
+                        <div class="col-span-2">
                             <x-input-label for="cliente_tipo" :value="__('Tipo')" />
                             <select id="cliente_tipo" name="cliente_tipo" type="text"
                                 class="mt-1 w-full border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm cursor-pointer"
@@ -41,21 +34,28 @@
                             </select>
                             <x-input-error :messages="$errors->get('cliente_tipo')" class="mt-2" />
                         </div>
-                        <div id="fisica" class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
-                            <div class="">
+                        <div id="fisica" class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4">
+                            <div class="md:col-span-1">
                                 <x-input-label for="cliente_cpf" :value="__('CPF')" />
                                 <x-text-input id="cliente_cpf" name="cliente_cpf" type="text" class="cpf mt-1 w-full"
                                     autocomplete="off" autofocus value="{{ old('cliente_cpf') }}" />
                                 <x-input-error :messages="$errors->get('cliente_cpf')" class="mt-2" />
                             </div>
-                            <div class="">
+                            <div class="md:col-span-1">
+                                <x-input-label for="cliente_data_nascimento" :value="__('Data Nascimento')" />
+                                <x-text-input id="cliente_data_nascimento" name="cliente_data_nascimento" type="text"
+                                    class="data mt-1 w-full" autocomplete="off"
+                                    value="{{ old('cliente_data_nascimento') }}" />
+                                <x-input-error class="mt-2" :messages="$errors->get('cliente_data_nascimento')" />
+                            </div>
+                            <div class="md:col-span-1">
                                 <x-input-label for="cliente_rg" :value="__('RG')" />
                                 <x-text-input id="cliente_rg" name="cliente_rg" type="text" class="rg mt-1 w-full"
                                     autocomplete="off" autofocus value="{{ old('cliente_rg') }}" />
                                 <x-input-error :messages="$errors->get('cliente_rg')" class="mt-2" />
                             </div>
                         </div>
-                        <div id="juridica" class="hidden md:col-span-2">
+                        <div id="juridica" class="md:col-span-2">
                             <x-input-label for="cliente_cnpj" :value="__('CNPJ')" />
                             <x-text-input id="cliente_cnpj" name="cliente_cnpj" type="text" class="cnpj mt-1 w-full"
                                 autocomplete="off" autofocus value="{{ old('cliente_cnpj') }}" />
@@ -174,6 +174,7 @@
     </script>
     <script type="module">
         $(document).ready(function() {
+            selecionaTipoPessoa();
 
             //Função define campos tipo de cliente cpf ou cnpj
             $('#cliente_tipo').change(function(e) {
@@ -182,11 +183,11 @@
                     .toLowerCase(); // Garante que é minúsculo e sem espaços extras
                 console.log(tipo);
                 switch (tipo) {
-                    case 'juridica':
+                    case 'jurídica':
                         $("#fisica").hide();
                         $("#juridica").show();
                         break;
-                    case 'fisica':
+                    case 'física':
                         $("#fisica").show();
                         $("#juridica").hide();
                         break;
@@ -194,6 +195,35 @@
             });
 
         });
+
+        function selecionaTipoPessoa() {
+            const tipo1 = `{{ old('cliente_tipo') }}`; // Certifique-se de colocar aspas em volta de '{{ old('cliente_tipo') }}'
+            if (tipo1 !== '' && tipo1 !== null) {
+                $('#cliente_tipo').val(tipo1);
+                switch (tipo1.trim().toLowerCase()) {
+                    case 'jurídica':
+                        $("#fisica").hide();
+                        $("#juridica").show();
+                        break;
+                    case 'física':
+                        $("#fisica").show();
+                        $("#juridica").hide();
+                        break;
+                }
+            } else {
+                const tipo = $('#cliente_tipo').val().trim().toLowerCase();
+                switch (tipo) {
+                    case 'jurídica':
+                        $("#fisica").hide();
+                        $("#juridica").show();
+                        break;
+                    case 'física':
+                        $("#fisica").show();
+                        $("#juridica").hide();
+                        break;
+                }
+            }
+        }
     </script>
 
 

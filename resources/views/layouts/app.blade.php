@@ -30,7 +30,7 @@
             <!-- Barra de navegação superior fixa -->
             @if (isset($header))
                 <header class="bg-transparent">
-                    <div class="max-w-7xl mx-auto pt-4 px-4 sm:px-6 lg:px-8 ">
+                    <div class="mx-auto p-1">
                         {{ $header }}
                     </div>
                 </header>
@@ -39,7 +39,7 @@
             <!-- Page Content -->
             <main
                 class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 transition-margin ease-in-out duration-300">
-                <div class="container mx-auto px-4 pt-2 pb-4">
+                <div class="container mx-auto">
                     {{ $slot }}
 
                 </div>

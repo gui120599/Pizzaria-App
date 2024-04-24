@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Pedido;
 use App\Http\Requests\StorePedidoRequest;
 use App\Http\Requests\UpdatePedidoRequest;
+use App\Models\Categoria;
 use App\Models\Cliente;
 use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
@@ -23,7 +24,8 @@ class PedidoController extends Controller
         $opcoes_pagamento = OpcoesPagamento::all();
         $opcoes_entregas = OpcoesEntregas::all();
         $produtos = Produto::all();
-        return view('app.pedido.index',['pedidos' => $pedidos, 'clientes' => $clientes, 'opcoes_entregas' => $opcoes_entregas, 'opcoes_pagamento' => $opcoes_pagamento]);
+        $categorias = Categoria::all();
+        return view('app.pedido.index',['pedidos' => $pedidos, 'clientes' => $clientes, 'opcoes_entregas' => $opcoes_entregas, 'opcoes_pagamento' => $opcoes_pagamento, 'produtos' => $produtos, 'categorias' => $categorias]);
     }
 
     /**

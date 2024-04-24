@@ -13,7 +13,7 @@
                     <th class="">Cod.</th>
                     <th class="w-2/6 px-1 md:px-4">Cliente</th>
                     <th class=" px-1 md:px-4">Data Nasc.</th>
-                    {{-- <th class="px-1 md:px-4">Opções</th> --}}
+                    <th class="px-1 md:px-4">Opções</th>
                 </tr>
             </thead>
             <tbody>
@@ -32,7 +32,8 @@
 
                                 <span>{{ $cliente->cliente_nome }}</span>
                             </td>
-                            <td>{{ $cliente->cliente_data_nascimento->format('d/m/Y') }}</td>
+                            <td>{{ $cliente->cliente_data_nascimento ? $cliente->cliente_data_nascimento->format('d/m/Y') : '' }}</td>
+
                             <td>
                             <div class="flex items-center justify-center space-x-2">
                                  <x-primary-button onclick="window.location.href = '{{ route('cliente.edit', ['cliente' => $cliente]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
@@ -47,7 +48,7 @@
                     @endforeach
                 @else
                     <tr>
-                        <td colspan="3" class="text-center py-4">Nenhuma cliente encontrada.</td>
+                        <td colspan="3" class="text-center py-4">Nenhum cliente encontrado.</td>
                     </tr>
                 @endif
             </tbody>

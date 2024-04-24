@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight flex items-center space-x-2">
-            <i class='bx bxs-t-shirt'></i>
+            <i class='bx bx-user'></i>
             <a href="{{ route('cliente') }}">{{ __('Clientes') }}</a>
         </h2>
         <nav class="bg-transparent border-b border-gray-100">
