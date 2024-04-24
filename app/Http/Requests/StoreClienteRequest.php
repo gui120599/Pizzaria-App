@@ -23,7 +23,7 @@ class StoreClienteRequest extends FormRequest
     {
         return [
             'cliente_nome' => 'required|string|max:255',
-            'cliente_data_nascimento' => 'nullable|date',
+            'cliente_data_nascimento' => $this->tipoPessoaFisica() ? 'required|date' : 'nullable|date',
             'cliente_tipo' => 'required|string|max:255',
             'cliente_cpf' => 'nullable|string|max:20', // Pode ser nulo, mas se fornecido, deve ser uma string com no máximo 20 caracteres
             'cliente_rg' => 'nullable|string|max:20',
@@ -38,5 +38,10 @@ class StoreClienteRequest extends FormRequest
             'cliente_cep' => 'nullable|string|max:15',
             'cliente_foto' => 'image|mimes:jpeg,png,jpg,gif|max:2048', // Exemplo de validação para imagem
         ];
+    }
+    // Método auxiliar para verificar se o tipo de pessoa é física
+    private function tipoPessoaFisica(): bool
+    {
+        return $this->input('cliente_tipo') === 'Pessoa Física';
     }
 }

@@ -36,8 +36,8 @@
                             <select id="cliente_tipo" name="cliente_tipo" type="text"
                                 class="mt-1 w-full border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm cursor-pointer"
                                 autocomplete="off">
-                                <option value="Fisica">Pessoa Fisica</option>
-                                <option value="Juridica">Pessoa Jurídica</option>
+                                <option value="Física">Pessoa Física</option>
+                                <option value="Jurídica">Pessoa Jurídica</option>
                             </select>
                             <x-input-error :messages="$errors->get('cliente_tipo')" class="mt-2" />
                         </div>
