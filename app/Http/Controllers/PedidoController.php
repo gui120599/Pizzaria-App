@@ -25,7 +25,14 @@ class PedidoController extends Controller
         $opcoes_entregas = OpcoesEntregas::all();
         $produtos = Produto::all();
         $categorias = Categoria::all();
-        return view('app.pedido.index',['pedidos' => $pedidos, 'clientes' => $clientes, 'opcoes_entregas' => $opcoes_entregas, 'opcoes_pagamento' => $opcoes_pagamento, 'produtos' => $produtos, 'categorias' => $categorias]);
+        return view('app.pedido.index',[
+            'pedidos' => $pedidos, 
+            'clientes' => $clientes, 
+            'opcoes_entregas' => $opcoes_entregas, 
+            'opcoes_pagamento' => $opcoes_pagamento, 
+            'produtos' => $produtos, 
+            'categorias' => $categorias
+        ]);
     }
 
     /**

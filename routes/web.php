@@ -5,6 +5,7 @@ use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\Dashboard;
+use App\Http\Controllers\ItensPedidoController;
 use App\Http\Controllers\MovimentacaoProdutoController;
 use App\Http\Controllers\OpcoesEntregasController;
 use App\Http\Controllers\OpcoesPagamentoController;
@@ -110,6 +111,11 @@ Route::middleware('auth')->group(function () {
     Route::patch('/Pedido/{pedido}', [PedidoController::class, 'update'])->name('pedido.update');
     Route::delete('/Pedido/{pedido}', [PedidoController::class, 'destroy'])->name('pedido.destroy');
     Route::post('/iniciar-pedido', [PedidoController::class, 'iniciarPedido'])->name('pedido.iniciar');
+
+    Route::post('/ItemPedido', [ItensPedidoController::class, 'store'])->name('item_pedido.store');
+    Route::post('/ItemPedido/AtualizarQtdValor', [ItensPedidoController::class, 'AtualizarQtdValor'])->name('item_pedido.update_qtd_valor');
+    Route::post('/ItemPedido/AtualizarObservacao', [ItensPedidoController::class, 'AtualizarObservacao'])->name('item_pedido.update_observacao');
+    Route::post('/ItemPedido/RemoverItem', [ItensPedidoController::class, 'RemoverItem'])->name('item_pedido.remove');
 });
 
 require __DIR__ . '/auth.php';
