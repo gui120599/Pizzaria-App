@@ -164,118 +164,120 @@
                 <div class="bg-white p-1">
                     <p>Itens do Pedido</p>
                 </div>
-                <div class="border-y px-2">
-                    <div class="flex items-center justify-between ">
-                        <div class="flex flex-row items-center">
-                            <span id="remove_item" class="cursor-pointer" data-item_id="1">
-                                <i
-                                    class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
+                <div id="itens_pedido_container">
+                    <div class="border-y px-2">
+                        <div class="flex items-center justify-between ">
+                            <div class="flex flex-row items-center">
+                                <span id="remove_item" class="cursor-pointer" data-item_id="1">
+                                    <i
+                                        class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
+                                </span>
+                                <img id="imagem-preview" class="h-8 object-cover rounded-lg "
+                                    src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">
+                                <span>Pizza</span>
+                            </div>
+                            <span data-item_id="1"
+                                class="toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
+                                <i class="bx bx-chevron-up "></i>
                             </span>
-                            <img id="imagem-preview" class="h-8 object-cover rounded-lg "
-                                src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">
-                            <span>Pizza</span>
                         </div>
-                        <span data-item_id="1"
-                            class="toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
-                            <i class="bx bx-chevron-up "></i>
-                        </span>
-                    </div>
-                    <div id="item_pedido_1" class="px-5 pb-2 hidden bg-white">
-                        <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
-                        <div class="flex items-stretch justify-evenly">
-                            <button type="button" id="minus-btn"
-                                class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                data-item_id="1" data-produto_preco_venda="45.99">-</button>
-                            <input type="text" id="item_pedido_quantidade" name="item_pedido_quantidade"
-                                value="1"
-                                class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
-                                readonly>
-                            <button type="button" id="plus-btn"
-                                class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                data-item_id="1" data-produto_preco_venda="45.99">+</button>
+                        <div id="item_pedido_1" class="px-5 pb-2 hidden bg-white">
+                            <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
+                            <div class="flex items-stretch justify-evenly">
+                                <button type="button" id="minus-btn"
+                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                    data-item_id="1" data-produto_preco_venda="45.99">-</button>
+                                <input type="text" id="item_pedido_quantidade" name="item_pedido_quantidade"
+                                    value="1"
+                                    class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
+                                    readonly>
+                                <button type="button" id="plus-btn"
+                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                    data-item_id="1" data-produto_preco_venda="45.99">+</button>
+                            </div>
+                            <x-input-label for="item_pedido_observacao" :value="__('Observação')" />
+                            <x-text-area id="item_pedido_observacao" name="item_pedido_observacao" type="text"
+                                class="mt-1 w-full" autocomplete="off" rows="5" data-item_id="1" />
+                            <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
+                            <x-text-input id="item_pedido_valor" name="item_pedido_valor" type="text"
+                                class="mt-1 w-full" autocomplete="off" readonly />
                         </div>
-                        <x-input-label for="item_pedido_observacao" :value="__('Observação')" />
-                        <x-text-area id="item_pedido_observacao" name="item_pedido_observacao" type="text"
-                            class="mt-1 w-full" autocomplete="off" rows="5" data-item_id="1" />
-                        <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
-                        <x-text-input id="item_pedido_valor" name="item_pedido_valor" type="text"
-                            class="mt-1 w-full" autocomplete="off" readonly />
                     </div>
-                </div>
-                <div class="border-y px-2">
-                    <div class="flex items-center justify-between ">
-                        <div class="flex flex-row items-center">
-                            <span id="remove_item" class="cursor-pointer" data-item_id="1">
-                                <i
-                                    class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
+                    <div class="border-y px-2">
+                        <div class="flex items-center justify-between ">
+                            <div class="flex flex-row items-center">
+                                <span id="remove_item" class="cursor-pointer" data-item_id="1">
+                                    <i
+                                        class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
+                                </span>
+                                <img id="imagem-preview" class="h-8 object-cover rounded-lg "
+                                    src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">
+                                <span>Pizza</span>
+                            </div>
+                            <span data-item_id="2"
+                                class="toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
+                                <i class="bx bx-chevron-up "></i>
                             </span>
-                            <img id="imagem-preview" class="h-8 object-cover rounded-lg "
-                                src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">
-                            <span>Pizza</span>
                         </div>
-                        <span data-item_id="2"
-                            class="toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
-                            <i class="bx bx-chevron-up "></i>
-                        </span>
-                    </div>
-                    <div id="item_pedido_2" class="px-5 pb-2 hidden bg-white">
-                        <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
-                        <div class="flex items-stretch justify-evenly">
-                            <button type="button" id="minus-btn"
-                                class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                data-item_id="1" data-produto_preco_venda="45.99">-</button>
-                            <input type="text" id="item_pedido_quantidade" name="item_pedido_quantidade"
-                                value="1"
-                                class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
-                                readonly>
-                            <button type="button" id="plus-btn"
-                                class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                data-item_id="1" data-produto_preco_venda="45.99">+</button>
+                        <div id="item_pedido_2" class="px-5 pb-2 hidden bg-white">
+                            <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
+                            <div class="flex items-stretch justify-evenly">
+                                <button type="button" id="minus-btn"
+                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                    data-item_id="1" data-produto_preco_venda="45.99">-</button>
+                                <input type="text" id="item_pedido_quantidade" name="item_pedido_quantidade"
+                                    value="1"
+                                    class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
+                                    readonly>
+                                <button type="button" id="plus-btn"
+                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                    data-item_id="1" data-produto_preco_venda="45.99">+</button>
+                            </div>
+                            <x-input-label for="item_pedido_observacao" :value="__('Observação')" />
+                            <x-text-area id="item_pedido_observacao" name="item_pedido_observacao" type="text"
+                                class="mt-1 w-full" autocomplete="off" rows="5" data-item_id="1" />
+                            <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
+                            <x-text-input id="item_pedido_valor" name="item_pedido_valor" type="text"
+                                class="mt-1 w-full" autocomplete="off" readonly />
                         </div>
-                        <x-input-label for="item_pedido_observacao" :value="__('Observação')" />
-                        <x-text-area id="item_pedido_observacao" name="item_pedido_observacao" type="text"
-                            class="mt-1 w-full" autocomplete="off" rows="5" data-item_id="1" />
-                        <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
-                        <x-text-input id="item_pedido_valor" name="item_pedido_valor" type="text"
-                            class="mt-1 w-full" autocomplete="off" readonly />
                     </div>
-                </div>
-                <div class="border-y px-2">
-                    <div class="flex items-center justify-between ">
-                        <div class="flex flex-row items-center">
-                            <span id="remove_item" class="cursor-pointer" data-item_id="1">
-                                <i
-                                    class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
+                    <div class="border-y px-2">
+                        <div class="flex items-center justify-between ">
+                            <div class="flex flex-row items-center">
+                                <span id="remove_item" class="cursor-pointer" data-item_id="1">
+                                    <i
+                                        class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
+                                </span>
+                                <img id="imagem-preview" class="h-8 object-cover rounded-lg "
+                                    src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">
+                                <span>Pizza</span>
+                            </div>
+                            <span data-item_id="3"
+                                class="toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
+                                <i class="bx bx-chevron-up "></i>
                             </span>
-                            <img id="imagem-preview" class="h-8 object-cover rounded-lg "
-                                src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">
-                            <span>Pizza</span>
                         </div>
-                        <span data-item_id="3"
-                            class="toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
-                            <i class="bx bx-chevron-up "></i>
-                        </span>
-                    </div>
-                    <div id="item_pedido_3" class="px-5 pb-2 hidden bg-white">
-                        <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
-                        <div class="flex items-stretch justify-evenly">
-                            <button type="button" id="minus-btn"
-                                class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                data-item_id="1" data-produto_preco_venda="45.99">-</button>
-                            <input type="text" id="item_pedido_quantidade" name="item_pedido_quantidade"
-                                value="1"
-                                class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
-                                readonly>
-                            <button type="button" id="plus-btn"
-                                class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                data-item_id="1" data-produto_preco_venda="45.99">+</button>
+                        <div id="item_pedido_3" class="px-5 pb-2 hidden bg-white">
+                            <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
+                            <div class="flex items-stretch justify-evenly">
+                                <button type="button" id="minus-btn"
+                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                    data-item_id="1" data-produto_preco_venda="45.99">-</button>
+                                <input type="text" id="item_pedido_quantidade" name="item_pedido_quantidade"
+                                    value="1"
+                                    class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
+                                    readonly>
+                                <button type="button" id="plus-btn"
+                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                    data-item_id="1" data-produto_preco_venda="45.99">+</button>
+                            </div>
+                            <x-input-label for="item_pedido_observacao" :value="__('Observação')" />
+                            <x-text-area id="item_pedido_observacao" name="item_pedido_observacao" type="text"
+                                class="mt-1 w-full" autocomplete="off" rows="5" data-item_id="1" />
+                            <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
+                            <x-text-input id="item_pedido_valor" name="item_pedido_valor" type="text"
+                                class="mt-1 w-full" autocomplete="off" readonly />
                         </div>
-                        <x-input-label for="item_pedido_observacao" :value="__('Observação')" />
-                        <x-text-area id="item_pedido_observacao" name="item_pedido_observacao" type="text"
-                            class="mt-1 w-full" autocomplete="off" rows="5" data-item_id="1" />
-                        <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
-                        <x-text-input id="item_pedido_valor" name="item_pedido_valor" type="text"
-                            class="mt-1 w-full" autocomplete="off" readonly />
                     </div>
                 </div>
             </div>
@@ -283,39 +285,39 @@
         @csrf
     </form>
     <script>
-        document.getElementById('plus-btn').addEventListener('click', function() {
-            // Obtém o elemento de entrada de quantidade
-            var item_pedido_quantidadeInput = document.getElementById('item_pedido_quantidade');
-            // Obtém o valor atual e converte para um número
-            var currentValue = parseFloat(item_pedido_quantidadeInput.value);
-            // Verifica se o valor atual é 0.5
-            if (currentValue === 0.5) {
-                // Se for 0.5, incrementa em 0.5
-                currentValue += 0.5;
-            } else {
-                // Se não for 0.5, incrementa em 1
-                currentValue += 1;
-            }
-            // Define o novo valor do campo de entrada, convertendo para string
-            item_pedido_quantidadeInput.value = currentValue.toString();
-        });
+        /* document.getElementById('plus-btn').addEventListener('click', function() {
+                            // Obtém o elemento de entrada de quantidade
+                            var item_pedido_quantidadeInput = document.getElementById('item_pedido_quantidade');
+                            // Obtém o valor atual e converte para um número
+                            var currentValue = parseFloat(item_pedido_quantidadeInput.value);
+                            // Verifica se o valor atual é 0.5
+                            if (currentValue === 0.5) {
+                                // Se for 0.5, incrementa em 0.5
+                                currentValue += 0.5;
+                            } else {
+                                // Se não for 0.5, incrementa em 1
+                                currentValue += 1;
+                            }
+                            // Define o novo valor do campo de entrada, convertendo para string
+                            item_pedido_quantidadeInput.value = currentValue.toString();
+                        });
 
-        document.getElementById('minus-btn').addEventListener('click', function() {
-            // Obtém o elemento de entrada de quantidade
-            var item_pedido_quantidadeInput = document.getElementById('item_pedido_quantidade');
-            // Obtém o valor atual e converte para um número
-            var currentValue = parseFloat(item_pedido_quantidadeInput.value);
-            // Verifica se o valor atual é 1 ou 0.5
-            if (currentValue === 1 || currentValue === 0.5) {
-                // Se for 1 ou 0.5, define o valor como 0.5
-                currentValue = 0.5;
-            } else {
-                // Se não for 1 ou 0.5, decrementa em 1
-                currentValue -= 1;
-            }
-            // Define o novo valor do campo de entrada, convertendo para string
-            item_pedido_quantidadeInput.value = currentValue.toString();
-        });
+                        document.('minus-btn').addEventListener('click', function() {
+                            // Obtém o elemento de entrada de quantidade
+                            var item_pedido_quantidadeInput = document.getElementById('item_pedido_quantidade');
+                            // Obtém o valor atual e converte para um número
+                            var currentValue = parseFloat(item_pedido_quantidadeInput.value);
+                            // Verifica se o valor atual é 1 ou 0.5
+                            if (currentValue === 1 || currentValue === 0.5) {
+                                // Se for 1 ou 0.5, define o valor como 0.5
+                                currentValue = 0.5;
+                            } else {
+                                // Se não for 1 ou 0.5, decrementa em 1
+                                currentValue -= 1;
+                            }
+                            // Define o novo valor do campo de entrada, convertendo para string
+                            item_pedido_quantidadeInput.value = currentValue.toString();
+                        });*/
 
 
         function selecionarCliente(id, nome) {
@@ -361,7 +363,8 @@
 
     <script type="module">
         $(document).ready(function() {
-            //IniciarPedido();
+            IniciarPedido();
+
             $('#opcao_entrega_1').attr('checked', true);
             $('#endereco_entrega').hide();
 
@@ -420,6 +423,7 @@
                         // Lidar com a resposta
                         if (response) {
                             console.log(response);
+                            ListarItenPedido();
                         } else {
                             alert('Erro ao iniciar o pedido. Por favor, tente novamente 1.');
                         }
@@ -431,123 +435,6 @@
                         );
                     }
                 });
-            });
-
-
-            //Abre o form do item do pedido
-            $(".toogle_item").click(function(e) {
-                e.preventDefault();
-                const item_id = $(this).data('item_id');
-                const itemPedido = $("#item_pedido_" + item_id);
-
-                // Verifica se o item já está visível
-                if (itemPedido.is(":visible")) {
-                    // Se estiver visível, contrai o elemento com slideup
-                    itemPedido.slideUp();
-                    $(this).addClass('rotate-180');
-                } else {
-                    // Se não estiver visível, expande o elemento com slidedown
-                    itemPedido.slideDown();
-                    $(this).removeClass('rotate-180');
-                }
-            });
-
-            //Altera a quantidade e valor do produto
-            $("#minus-btn").click(function(e) {
-                e.preventDefault();
-                const id = $(this).data('item_id');
-                const item_pedido_quantidade = parseFloat($("#item_pedido_quantidade").val());
-                const produto_preco_venda = $(this).data('produto_preco_venda');
-                var item_pedido_valor = item_pedido_quantidade * produto_preco_venda;
-                item_pedido_valor = item_pedido_valor.toFixed(2); // Limita a duas casas decimais
-                $.ajax({
-                    type: "POST",
-                    url: "{{ route('item_pedido.update_qtd_valor') }}",
-                    data: {
-                        id,
-                        item_pedido_quantidade,
-                        item_pedido_valor,
-                        '_token': '{{ csrf_token() }}'
-                    },
-                    dataType: "json",
-                    success: function(response) {
-                        console.log(response);
-                    },
-                    error: function() {
-                        alert('Erro ao atualizar o item do pedido')
-                    }
-                });
-
-            });
-            $("#plus-btn").click(function(e) {
-                e.preventDefault();
-                const id = $(this).data('item_id');
-                const item_pedido_quantidade = parseFloat($("#item_pedido_quantidade").val());
-                const produto_preco_venda = $(this).data('produto_preco_venda');
-                var item_pedido_valor = item_pedido_quantidade * produto_preco_venda;
-                item_pedido_valor = item_pedido_valor.toFixed(2); // Limita a duas casas decimais
-                $.ajax({
-                    type: "POST",
-                    url: "{{ route('item_pedido.update_qtd_valor') }}",
-                    data: {
-                        id,
-                        item_pedido_quantidade,
-                        item_pedido_valor,
-                        '_token': '{{ csrf_token() }}'
-                    },
-                    dataType: "json",
-                    success: function(response) {
-                        console.log(response);
-                    },
-                    error: function() {
-                        alert('Erro ao atualizar o item do pedido')
-                    }
-                });
-            });
-
-            //Altera a observação do item do produto
-            $("#item_pedido_observacao").change(function (e) { 
-                e.preventDefault();
-                const id = $(this).data('item_id');
-                const item_pedido_observacao = $(this).val();
-                $.ajax({
-                    type: "POST",
-                    url: "{{ route('item_pedido.update_observacao') }}",
-                    data: {
-                        id,
-                        item_pedido_observacao,
-                        '_token': '{{ csrf_token() }}'
-                    },
-                    dataType: "json",
-                    success: function(response) {
-                        console.log(response);
-                    },
-                    error: function() {
-                        alert('Erro ao atualizar o item do pedido')
-                    }
-                });
-            });
-
-            //Remove item do pedido
-            $("#remove_item").click(function (e) { 
-                e.preventDefault();
-                const id = $(this).data('item_id');
-                $.ajax({
-                    type: "POST",
-                    url: "{{ route('item_pedido.remove') }}",
-                    data: {
-                        id,
-                        '_token': '{{ csrf_token() }}'
-                    },
-                    dataType: "json",
-                    success: function(response) {
-                        console.log(response);
-                    },
-                    error: function() {
-                        alert('Erro ao atualizar o item do pedido')
-                    }
-                });
-                
             });
 
 
@@ -567,12 +454,250 @@
                     if (response && response.pedido_id) {
                         $("#pedido_id").val(response.pedido_id);
                         $("#pedido_id_titulo").text("Nº: " + response.pedido_id);
+                        ListarItenPedido();
                     } else {
                         alert('Erro ao iniciar o pedido. Por favor, tente novamente 1.');
                     }
                 },
                 error: function() {
                     alert('Erro ao iniciar o pedido. Por favor, tente novamente 2.');
+                }
+            });
+        }
+
+        //Lista Itens do Pedido
+        function ListarItenPedido() {
+            const item_pedido_pedido_id = $("#pedido_id").val();
+            $.ajax({
+                type: "GET",
+                url: "{{ route('itens_pedido.lista') }}",
+                data: {
+                    item_pedido_pedido_id,
+                    '_token': '{{ csrf_token() }}'
+                },
+                dataType: "JSON",
+                success: function(response) {
+                    console.log(response);
+
+                    // Limpe o conteúdo atual antes de adicionar os novos itens
+                    $('#itens_pedido_container').empty();
+
+                    // Verifique se há itens de pedido encontrados na resposta
+                    if (response.length > 0) {
+                        // Itere sobre cada item retornado na resposta
+                        $.each(response, function(index, item) {
+                            // Crie o HTML para o item de pedido e o produto associado
+                            var itemHtml = `
+                                <div class="border-y px-2 py-1 cursor-pointer hover:bg-gray-200">
+                                    <div class="grid grid-cols-6 items-center">
+                                        <span id="remove_item" class="col-span-1 cursor-pointer mx-auto" data-item_id="${item.id}">
+                                            <i class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
+                                        </span>
+                                        <div class="col-span-4 flex flex-row items-start space-x-2">
+                                            <img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" src="/img/fotos_produtos/${item.produto.produto_foto}" alt="Imagem Padrão">
+                                            <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.produto_descricao}<p>R$ ${item.produto.produto_preco_venda} Qtd. ${item.item_pedido_quantidade}</p></span>
+                                        </div>
+                                        <span data-item_id="${item.id}" class="col-span-1 mx-auto toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
+                                            <i class="bx bx-chevron-up "></i>
+                                        </span>
+                                    </div>
+                                    <div id="item_pedido_${item.id}" class="px-5 pb-2 hidden bg-white">
+                                        <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
+                                        <div class="flex items-stretch justify-evenly">
+                                            <button type="button" id="minus-btn"
+                                                class="minus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                                data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">-</button>
+                                            <input type="text" id="item_pedido_quantidade_${item.id}" name="item_pedido_quantidade"
+                                                value="1"
+                                                class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
+                                                readonly>
+                                            <button type="button" id="plus-btn"
+                                                class="plus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                                data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">+</button>
+                                        </div>
+                                        <x-input-label for="item_pedido_observacao" :value="__('Observação')" />`;
+                            if (item.item_pedido_observacao === null) {
+                                itemHtml +=
+                                    `<textarea class="item_pedido_observacao border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm mt-1 w-full" rows="5" id="item_pedido_observacao" name="item_pedido_observacao" autocomplete="off" data-item_id="${item.id}"></textarea>`;
+                            } else {
+                                itemHtml +=
+                                    `<textarea class="item_pedido_observacao border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm mt-1 w-full" rows="5" id="item_pedido_observacao" name="item_pedido_observacao" autocomplete="off" data-item_id="${item.id}">${item.item_pedido_observacao}</textarea>`;
+                            }
+                            itemHtml += `
+                                        <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
+                                        <x-text-input id="item_pedido_valor_${item.id}" name="item_pedido_valor" type="text"
+                                            class="mt-1 w-full" value="${item.produto.produto_preco_venda}" autocomplete="off" readonly />
+                                    </div>
+                                </div>
+                            `;
+
+                            // Adicione o HTML do item de pedido ao container
+                            $('#itens_pedido_container').append(itemHtml);
+                        });
+                    } else {
+                        // Se não houver itens de pedido inseridos, exiba uma mensagem indicando isso
+                        $('#itens_pedido_container').html(
+                            '<p>Nenhum produto inserido encontrado para este pedido</p>');
+                    }
+
+                    //Abre o form do item do pedido
+                    $(".toogle_item").click(function(e) {
+                        e.preventDefault();
+                        console.log('foi');
+                        const item_id = $(this).data('item_id');
+                        const itemPedido = $("#item_pedido_" + item_id);
+                        const produtoNome = $("#produto_nome_" + item_id);
+
+                        // Verifica se o item já está visível
+                        if (itemPedido.is(":visible")) {
+                            // Se estiver visível, contrai o elemento com slideup
+                            itemPedido.slideUp();
+                            $(this).addClass('rotate-180');
+                            produtoNome.removeClass("overflow-ellipsis");
+                        } else {
+                            // Se não estiver visível, expande o elemento com slidedown
+                            itemPedido.slideDown();
+                            $(this).removeClass('rotate-180');
+                            produtoNome.addClass("overflow-ellipsis");
+                        }
+                    });
+
+                    //Altera a quantidade e valor do produto
+                    $(".minus-btn").click(function(e) {
+                        e.preventDefault();
+                        const id = $(this).data('item_id');
+                        const produto_preco_venda = $(this).data('produto_preco_venda');
+                        // Obtém o elemento de entrada de quantidade
+                        var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
+                        // Obtém o valor atual e converte para um número
+                        var currentValue = parseFloat(item_pedido_quantidade);
+                        // Verifica se o valor atual é 1 ou 0.5
+                        if (currentValue === 1 || currentValue === 0.5) {
+                            // Se for 1 ou 0.5, define o valor como 0.5
+                            currentValue = 0.5;
+                        } else {
+                            // Se não for 1 ou 0.5, decrementa em 1
+                            currentValue -= 1;
+                        }
+                        // Define o novo valor do campo de entrada, convertendo para string
+                        $("#item_pedido_quantidade_" + id).val(currentValue.toString());
+                        item_pedido_quantidade = currentValue;
+
+                        var item_pedido_valor = currentValue * produto_preco_venda;
+                        item_pedido_valor = item_pedido_valor.toFixed(
+                            2); // Limita a duas casas decimais
+                        $("#item_pedido_valor_" + id).val(item_pedido_valor);
+                        $.ajax({
+                            type: "POST",
+                            url: "{{ route('item_pedido.update_qtd_valor') }}",
+                            data: {
+                                id,
+                                item_pedido_quantidade,
+                                item_pedido_valor,
+                                '_token': '{{ csrf_token() }}'
+                            },
+                            dataType: "json",
+                            success: function(response) {
+                                console.log(response);
+                            },
+                            error: function() {
+                                alert('Erro ao atualizar o item do pedido')
+                            }
+                        });
+
+                    });
+                    $(".plus-btn").click(function(e) {
+                        e.preventDefault();
+                        const id = $(this).data('item_id');
+                        const produto_preco_venda = $(this).data('produto_preco_venda');
+                        // Obtém o elemento de entrada de quantidade
+                        var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
+                        // Obtém o valor atual e converte para um número
+                        var currentValue = parseFloat(item_pedido_quantidade);
+                        // Verifica se o valor atual é 0.5
+                        if (currentValue === 0.5) {
+                            // Se for 0.5, incrementa em 0.5
+                            currentValue += 0.5;
+                        } else {
+                            // Se não for 0.5, incrementa em 1
+                            currentValue += 1;
+                        }
+                        // Define o novo valor do campo de entrada, convertendo para string
+                        $("#item_pedido_quantidade_" + id).val(currentValue.toString());
+                        item_pedido_quantidade = currentValue;
+
+                        var item_pedido_valor = currentValue * produto_preco_venda;
+                        item_pedido_valor = item_pedido_valor.toFixed(
+                            2); // Limita a duas casas decimais
+                        $("#item_pedido_valor_" + id).val(item_pedido_valor);
+                        $.ajax({
+                            type: "POST",
+                            url: "{{ route('item_pedido.update_qtd_valor') }}",
+                            data: {
+                                id,
+                                item_pedido_quantidade,
+                                item_pedido_valor,
+                                '_token': '{{ csrf_token() }}'
+                            },
+                            dataType: "json",
+                            success: function(response) {
+                                console.log(response);
+                            },
+                            error: function() {
+                                alert('Erro ao atualizar o item do pedido')
+                            }
+                        });
+                    });
+
+                    //Altera a observação do item do produto
+                    $(".item_pedido_observacao").change(function(e) {
+                        e.preventDefault();
+                        const id = $(this).data('item_id');
+                        const item_pedido_observacao = $(this).val();
+                        $.ajax({
+                            type: "POST",
+                            url: "{{ route('item_pedido.update_observacao') }}",
+                            data: {
+                                id,
+                                item_pedido_observacao,
+                                '_token': '{{ csrf_token() }}'
+                            },
+                            dataType: "json",
+                            success: function(response) {
+                                console.log(response);
+                            },
+                            error: function() {
+                                alert('Erro ao atualizar o item do pedido')
+                            }
+                        });
+                    });
+
+                    //Remove item do pedido
+                    $("#remove_item").click(function(e) {
+                        e.preventDefault();
+                        const id = $(this).data('item_id');
+                        $.ajax({
+                            type: "POST",
+                            url: "{{ route('item_pedido.remove') }}",
+                            data: {
+                                id,
+                                '_token': '{{ csrf_token() }}'
+                            },
+                            dataType: "json",
+                            success: function(response) {
+                                console.log(response);
+                                ListarItenPedido();
+                            },
+                            error: function() {
+                                alert('Erro ao atualizar o item do pedido')
+                            }
+                        });
+
+                    });
+
+                },
+                error: function() {
+                    alert('Erro ao listar itens');
                 }
             });
         }

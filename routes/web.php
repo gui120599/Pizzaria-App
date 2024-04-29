@@ -116,6 +116,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemPedido/AtualizarQtdValor', [ItensPedidoController::class, 'AtualizarQtdValor'])->name('item_pedido.update_qtd_valor');
     Route::post('/ItemPedido/AtualizarObservacao', [ItensPedidoController::class, 'AtualizarObservacao'])->name('item_pedido.update_observacao');
     Route::post('/ItemPedido/RemoverItem', [ItensPedidoController::class, 'RemoverItem'])->name('item_pedido.remove');
+    Route::get('/ItemPedido/ListarItensPedido', [ItensPedidoController::class, 'listarProdutosInseridosNoPedido'])->name('itens_pedido.lista');
 });
 
 require __DIR__ . '/auth.php';

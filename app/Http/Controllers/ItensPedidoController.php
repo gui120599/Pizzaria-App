@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ItensPedido;
 use App\Http\Requests\StoreItensPedidoRequest;
 use App\Http\Requests\UpdateItensPedidoRequest;
+use Illuminate\Http\Request;
 
 class ItensPedidoController extends Controller
 {
@@ -47,9 +48,26 @@ class ItensPedidoController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(ItensPedido $itensPedido)
+    public function listarProdutosInseridosNoPedido(Request $request) // Adicione $request como parâmetro
     {
-        //
+        // Obtenha o ID do pedido da requisição
+        $item_pedido_pedido_id = $request->item_pedido_pedido_id;
+
+        // Encontre todos os itens de pedido para o pedido específico que estão no status 'INSERIDO'
+        $itensPedidoInseridos = ItensPedido::with('produto') // Carregue o relacionamento 'produto'
+            ->where('item_pedido_pedido_id', $item_pedido_pedido_id)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->get();
+
+        // Verifique se há itens de pedido encontrados
+        if ($itensPedidoInseridos->isEmpty()) {
+            // Se não houver itens de pedido inseridos, retorne uma resposta vazia ou uma mensagem de erro, conforme necessário
+            return response()->json(['message' => 'Nenhum produto inserido encontrado para este pedido'], 200);
+        }
+
+        // Retorne os itens de pedido inseridos encontrados
+        return response()->json($itensPedidoInseridos, 200);
+        //return response()->json($request, 200);
     }
 
     /**
@@ -70,33 +88,33 @@ class ItensPedidoController extends Controller
 
     public function AtualizarQtdValor(UpdateItensPedidoRequest $request)
     {
-    
+
         // Encontrar o item de pedido pelo ID
         $itemPedido = ItensPedido::findOrFail($request->id);
-    
+
         // Atualizar os campos do item de pedido
         $itemPedido->update([
             'item_pedido_quantidade' => $request->input('item_pedido_quantidade'),
             'item_pedido_valor' => $request->input('item_pedido_valor'),
         ]);
-    
+
         // Retornar uma resposta de sucesso
-        return response()->json(['message' => 'Atualização bem-sucedida'], 200);
+        return response()->json(['message' => 'Atualização de quantidade e valor bem-sucedida'], 200);
 
         //return response()->json($itemPedido);
     }
 
     public function AtualizarObservacao(UpdateItensPedidoRequest $request)
     {
-    
+
         // Encontrar o item de pedido pelo ID
         $itemPedido = ItensPedido::findOrFail($request->id);
-    
+
         // Atualizar os campos do item de pedido
         $itemPedido->update([
             'item_pedido_observacao' => $request->input('item_pedido_observacao')
         ]);
-    
+
         // Retornar uma resposta de sucesso
         return response()->json(['message' => 'Atualização bem-sucedida'], 200);
 
@@ -105,15 +123,15 @@ class ItensPedidoController extends Controller
 
     public function RemoverItem(UpdateItensPedidoRequest $request)
     {
-    
+
         // Encontrar o item de pedido pelo ID
         $itemPedido = ItensPedido::findOrFail($request->id);
-    
+
         // Atualizar os campos do item de pedido
         $itemPedido->update([
             'item_pedido_status' => 'REMOVIDO'
         ]);
-    
+
         // Retornar uma resposta de sucesso
         return response()->json(['message' => 'Remoção bem-sucedida'], 200);
 
