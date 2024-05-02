@@ -12,7 +12,7 @@
     <form action="{{ route('pedido.store') }}" method="post" class="space-y-6 mt-2" enctype="multipart/form-data">
 
         <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
-            <x-text-input id="pedido_id" hidden></x-text-input>
+            <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
             {{-- PRODUTOS --}}
             <div class="sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
@@ -158,168 +158,47 @@
                     class="mt-1 w-full" autocomplete="off" />
                 <x-text-input id="pedido_descricao_pagamento" name="pedido_descricao_pagamento" type="text"
                     class="mt-1 w-full" autocomplete="off" hidden />
+
+                {{-- Valores --}}
+                <hr class="h-px my-1 border-0 bg-gray-200">
+                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
+                    <i class='bx bx-dollar-circle' ></i>
+                    <span>{{ __('Valores') }}</span>
+                </p>
+                <div class="grid grid-cols-1 lg:grid-cols-3 space-x-1">
+                    <div class="col-span-1">
+                        <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
+                    <x-text-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
+                        class="mt-1 w-full" autocomplete="off" value="0.00" readonly/>
+                    </div>
+                    <div class="col-span-1">
+                        <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
+                    <x-text-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
+                        class="mt-1 w-full" autocomplete="off" value="0.00" />
+                    </div>
+                    <div class="col-span-1">
+                        <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
+                    <x-text-input id="pedido_valor_total" name="pedido_valor_total" type="text"
+                        class="mt-1 w-full" autocomplete="off" value="0.00" readonly/>
+                    </div>
+                </div>
             </div>
 
-            <div class="h-[35rem] overflow-auto sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border">
+            <div class="sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border">
                 <div class="bg-white p-1">
                     <p>Itens do Pedido</p>
                 </div>
-                <div id="itens_pedido_container">
-                    <div class="border-y px-2">
-                        <div class="flex items-center justify-between ">
-                            <div class="flex flex-row items-center">
-                                <span id="remove_item" class="cursor-pointer" data-item_id="1">
-                                    <i
-                                        class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
-                                </span>
-                                <img id="imagem-preview" class="h-8 object-cover rounded-lg "
-                                    src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">
-                                <span>Pizza</span>
-                            </div>
-                            <span data-item_id="1"
-                                class="toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
-                                <i class="bx bx-chevron-up "></i>
-                            </span>
-                        </div>
-                        <div id="item_pedido_1" class="px-5 pb-2 hidden bg-white">
-                            <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
-                            <div class="flex items-stretch justify-evenly">
-                                <button type="button" id="minus-btn"
-                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                    data-item_id="1" data-produto_preco_venda="45.99">-</button>
-                                <input type="text" id="item_pedido_quantidade" name="item_pedido_quantidade"
-                                    value="1"
-                                    class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
-                                    readonly>
-                                <button type="button" id="plus-btn"
-                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                    data-item_id="1" data-produto_preco_venda="45.99">+</button>
-                            </div>
-                            <x-input-label for="item_pedido_observacao" :value="__('Observação')" />
-                            <x-text-area id="item_pedido_observacao" name="item_pedido_observacao" type="text"
-                                class="mt-1 w-full" autocomplete="off" rows="5" data-item_id="1" />
-                            <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
-                            <x-text-input id="item_pedido_valor" name="item_pedido_valor" type="text"
-                                class="mt-1 w-full" autocomplete="off" readonly />
-                        </div>
-                    </div>
-                    <div class="border-y px-2">
-                        <div class="flex items-center justify-between ">
-                            <div class="flex flex-row items-center">
-                                <span id="remove_item" class="cursor-pointer" data-item_id="1">
-                                    <i
-                                        class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
-                                </span>
-                                <img id="imagem-preview" class="h-8 object-cover rounded-lg "
-                                    src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">
-                                <span>Pizza</span>
-                            </div>
-                            <span data-item_id="2"
-                                class="toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
-                                <i class="bx bx-chevron-up "></i>
-                            </span>
-                        </div>
-                        <div id="item_pedido_2" class="px-5 pb-2 hidden bg-white">
-                            <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
-                            <div class="flex items-stretch justify-evenly">
-                                <button type="button" id="minus-btn"
-                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                    data-item_id="1" data-produto_preco_venda="45.99">-</button>
-                                <input type="text" id="item_pedido_quantidade" name="item_pedido_quantidade"
-                                    value="1"
-                                    class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
-                                    readonly>
-                                <button type="button" id="plus-btn"
-                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                    data-item_id="1" data-produto_preco_venda="45.99">+</button>
-                            </div>
-                            <x-input-label for="item_pedido_observacao" :value="__('Observação')" />
-                            <x-text-area id="item_pedido_observacao" name="item_pedido_observacao" type="text"
-                                class="mt-1 w-full" autocomplete="off" rows="5" data-item_id="1" />
-                            <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
-                            <x-text-input id="item_pedido_valor" name="item_pedido_valor" type="text"
-                                class="mt-1 w-full" autocomplete="off" readonly />
-                        </div>
-                    </div>
-                    <div class="border-y px-2">
-                        <div class="flex items-center justify-between ">
-                            <div class="flex flex-row items-center">
-                                <span id="remove_item" class="cursor-pointer" data-item_id="1">
-                                    <i
-                                        class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
-                                </span>
-                                <img id="imagem-preview" class="h-8 object-cover rounded-lg "
-                                    src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">
-                                <span>Pizza</span>
-                            </div>
-                            <span data-item_id="3"
-                                class="toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
-                                <i class="bx bx-chevron-up "></i>
-                            </span>
-                        </div>
-                        <div id="item_pedido_3" class="px-5 pb-2 hidden bg-white">
-                            <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
-                            <div class="flex items-stretch justify-evenly">
-                                <button type="button" id="minus-btn"
-                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                    data-item_id="1" data-produto_preco_venda="45.99">-</button>
-                                <input type="text" id="item_pedido_quantidade" name="item_pedido_quantidade"
-                                    value="1"
-                                    class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
-                                    readonly>
-                                <button type="button" id="plus-btn"
-                                    class="w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                    data-item_id="1" data-produto_preco_venda="45.99">+</button>
-                            </div>
-                            <x-input-label for="item_pedido_observacao" :value="__('Observação')" />
-                            <x-text-area id="item_pedido_observacao" name="item_pedido_observacao" type="text"
-                                class="mt-1 w-full" autocomplete="off" rows="5" data-item_id="1" />
-                            <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
-                            <x-text-input id="item_pedido_valor" name="item_pedido_valor" type="text"
-                                class="mt-1 w-full" autocomplete="off" readonly />
-                        </div>
-                    </div>
+                <div id="itens_pedido_container" class="h-[35rem] overflow-auto">
                 </div>
             </div>
         </div>
         @csrf
+        <x-primary-button>
+            {{ __('Finalizar Pedido') }}
+        </x-primary-button>
     </form>
+
     <script>
-        /* document.getElementById('plus-btn').addEventListener('click', function() {
-                            // Obtém o elemento de entrada de quantidade
-                            var item_pedido_quantidadeInput = document.getElementById('item_pedido_quantidade');
-                            // Obtém o valor atual e converte para um número
-                            var currentValue = parseFloat(item_pedido_quantidadeInput.value);
-                            // Verifica se o valor atual é 0.5
-                            if (currentValue === 0.5) {
-                                // Se for 0.5, incrementa em 0.5
-                                currentValue += 0.5;
-                            } else {
-                                // Se não for 0.5, incrementa em 1
-                                currentValue += 1;
-                            }
-                            // Define o novo valor do campo de entrada, convertendo para string
-                            item_pedido_quantidadeInput.value = currentValue.toString();
-                        });
-
-                        document.('minus-btn').addEventListener('click', function() {
-                            // Obtém o elemento de entrada de quantidade
-                            var item_pedido_quantidadeInput = document.getElementById('item_pedido_quantidade');
-                            // Obtém o valor atual e converte para um número
-                            var currentValue = parseFloat(item_pedido_quantidadeInput.value);
-                            // Verifica se o valor atual é 1 ou 0.5
-                            if (currentValue === 1 || currentValue === 0.5) {
-                                // Se for 1 ou 0.5, define o valor como 0.5
-                                currentValue = 0.5;
-                            } else {
-                                // Se não for 1 ou 0.5, decrementa em 1
-                                currentValue -= 1;
-                            }
-                            // Define o novo valor do campo de entrada, convertendo para string
-                            item_pedido_quantidadeInput.value = currentValue.toString();
-                        });*/
-
-
         function selecionarCliente(id, nome) {
             document.getElementById("pedido_cliente_id").value = id;
             document.getElementById("pedido_cliente_nome").value = nome;
@@ -363,6 +242,7 @@
 
     <script type="module">
         $(document).ready(function() {
+            //$(".toggleSideBar").trigger("click");
             IniciarPedido();
 
             $('#opcao_entrega_1').attr('checked', true);
@@ -490,14 +370,14 @@
                             var itemHtml = `
                                 <div class="border-y px-2 py-1 cursor-pointer hover:bg-gray-200">
                                     <div class="grid grid-cols-6 items-center">
-                                        <span id="remove_item" class="col-span-1 cursor-pointer mx-auto" data-item_id="${item.id}">
+                                        <span id="remove_item" class="col-span-6 cursor-pointer flex justify-end" data-item_id="${item.id}">
                                             <i class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
                                         </span>
-                                        <div class="col-span-4 flex flex-row items-start space-x-2">
+                                        <div class="col-span-6 flex flex-row items-start space-x-2">
                                             <img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" src="/img/fotos_produtos/${item.produto.produto_foto}" alt="Imagem Padrão">
-                                            <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.produto_descricao}<p>R$ ${item.produto.produto_preco_venda} Qtd. ${item.item_pedido_quantidade}</p></span>
+                                            <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.produto_descricao}<p>R$ <span id="item_valor_view_${item.id}">${item.produto.produto_preco_venda}</span> Qtd. <span id="item_qtd_view_${item.id}">${item.item_pedido_quantidade}</span></p></span>
                                         </div>
-                                        <span data-item_id="${item.id}" class="col-span-1 mx-auto toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
+                                        <span data-item_id="${item.id}" class="col-span-6 mx-auto toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
                                             <i class="bx bx-chevron-up "></i>
                                         </span>
                                     </div>
@@ -565,10 +445,12 @@
                     //Altera a quantidade e valor do produto
                     $(".minus-btn").click(function(e) {
                         e.preventDefault();
+
                         const id = $(this).data('item_id');
                         const produto_preco_venda = $(this).data('produto_preco_venda');
                         // Obtém o elemento de entrada de quantidade
                         var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
+
                         // Obtém o valor atual e converte para um número
                         var currentValue = parseFloat(item_pedido_quantidade);
                         // Verifica se o valor atual é 1 ou 0.5
@@ -582,11 +464,19 @@
                         // Define o novo valor do campo de entrada, convertendo para string
                         $("#item_pedido_quantidade_" + id).val(currentValue.toString());
                         item_pedido_quantidade = currentValue;
+                        // Atualiza a quantidade da vizualização
+                        if (item_pedido_quantidade === 0.5) {
+                            $("#item_qtd_view_" + id).html('Meia');
+                        } else {
+                            $("#item_qtd_view_" + id).html(item_pedido_quantidade);
+                        }
 
                         var item_pedido_valor = currentValue * produto_preco_venda;
                         item_pedido_valor = item_pedido_valor.toFixed(
                             2); // Limita a duas casas decimais
                         $("#item_pedido_valor_" + id).val(item_pedido_valor);
+                        //Atualiza valor na vizualização
+                        $("#item_valor_view_" + id).html(item_pedido_valor);
                         $.ajax({
                             type: "POST",
                             url: "{{ route('item_pedido.update_qtd_valor') }}",
@@ -612,6 +502,7 @@
                         const produto_preco_venda = $(this).data('produto_preco_venda');
                         // Obtém o elemento de entrada de quantidade
                         var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
+
                         // Obtém o valor atual e converte para um número
                         var currentValue = parseFloat(item_pedido_quantidade);
                         // Verifica se o valor atual é 0.5
@@ -625,11 +516,20 @@
                         // Define o novo valor do campo de entrada, convertendo para string
                         $("#item_pedido_quantidade_" + id).val(currentValue.toString());
                         item_pedido_quantidade = currentValue;
+                        // Atualiza a quantidade da vizualização
+                        if (item_pedido_quantidade === 0.5) {
+                            $("#item_qtd_view_" + id).html('Meia');
+                        } else {
+                            $("#item_qtd_view_" + id).html(item_pedido_quantidade);
+                        }
+
 
                         var item_pedido_valor = currentValue * produto_preco_venda;
                         item_pedido_valor = item_pedido_valor.toFixed(
                             2); // Limita a duas casas decimais
                         $("#item_pedido_valor_" + id).val(item_pedido_valor);
+                        //Atualiza valor na vizualização
+                        $("#item_valor_view_" + id).html(item_pedido_valor);
                         $.ajax({
                             type: "POST",
                             url: "{{ route('item_pedido.update_qtd_valor') }}",
@@ -702,6 +602,5 @@
             });
         }
     </script>
-
 
 </section>

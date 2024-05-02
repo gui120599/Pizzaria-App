@@ -63,7 +63,7 @@ class PedidoController extends Controller
      */
     public function store(StorePedidoRequest $request)
     {
-        //
+        dd($request);
     }
 
     /**
