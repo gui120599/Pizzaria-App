@@ -48,6 +48,7 @@
             <div>
                 <x-toats></x-toats>
             </div>
+            <button class="abrir-modal hidden">Modal</button>
         </div>
     </div>
     <!-- Modal -->
@@ -56,14 +57,13 @@
         <div class="bg-white rounded shadow-lg w-11/12 xl:w-1/2" style="max-height: 80vh; overflow-y: auto;">
             <!-- Modal Header -->
             <div class="border-b px-4 py-2 flex justify-between items-center">
-                @yield('title_modal')
+                <div id="modal-title">@yield('title_modal')</div>
                 <i class='bx bxs-x-circle fechar-modal cursor-pointer text-4xl' id="fechar-modal"></i>
             </div>
             <!--Modal Body -->
-            @yield('content_modal')
+            <div id="modal-body">@yield('content_modal')</div>
         </div>
     </div>
-
 
     <script type="module">
         $(document).ready(function() {
@@ -81,6 +81,18 @@
             $('.cnpj').mask('00.000.000/0000-00');
             $('.money').mask('#.##0,00', {
                 reverse: true
+            });
+
+            //Função abrir e fechar modal
+            //Função abrir e fechar modal
+            const modalContainer = $('.modal-container');
+
+            $('.abrir-modal').click(function() {
+                modalContainer.toggleClass("hidden");
+            });
+
+            $('.fechar-modal, .cancelar-modal').click(function() {
+                modalContainer.toggleClass("hidden");
             });
         });
 
@@ -104,33 +116,6 @@
         // Chama a função ao carregar a página e redimensionar a tela
         window.addEventListener('load', updateSidebarPosition);
         window.addEventListener('resize', updateSidebarPosition);
-
-
-        //Função abrir e fechar modal
-        const abrirModal = document.querySelector('.abrir-modal');
-        const fecharModal = document.querySelector('.fechar-modal');
-        const cancelarModal = document.querySelector('.cancelar-modal');
-        const modalContainer = document.querySelector('.modal-container');
-
-        if (abrirModal) {
-            abrirModal.addEventListener("click", () => {
-                modalContainer.classList.toggle(
-                    "hidden"); // O botão existe, então você pode adicionar o evento de click.
-            });
-        }
-        if (fecharModal) {
-            fecharModal.addEventListener("click", () => {
-
-                modalContainer.classList.toggle(
-                    "hidden"); // O botão existe, então você pode adicionar o evento de click.
-            });
-            cancelarModal.addEventListener("click", () => {
-
-                modalContainer.classList.toggle(
-                    "hidden"); // O botão existe, então você pode adicionar o evento de click.
-            });
-
-        }
     </script>
 </body>
 

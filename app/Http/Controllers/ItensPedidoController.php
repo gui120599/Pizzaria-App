@@ -70,6 +70,35 @@ class ItensPedidoController extends Controller
         //return response()->json($request, 200);
     }
 
+    public function calcularValorTotalPedido(Request $request)
+    {
+        // Obtenha o ID do pedido da requisição
+        $item_pedido_pedido_id = $request->item_pedido_pedido_id;
+
+        // Encontre todos os itens de pedido para o pedido específico que estão no status 'INSERIDO'
+        $itensPedidoInseridos = ItensPedido::where('item_pedido_pedido_id', $item_pedido_pedido_id)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->get();
+
+        // Verifique se há itens de pedido encontrados
+        if ($itensPedidoInseridos->isEmpty()) {
+            // Se não houver itens de pedido inseridos, retorne uma resposta vazia ou uma mensagem de erro, conforme necessário
+            return response()->json(['message' => 'Nenhum produto inserido encontrado para este pedido'], 200);
+        }
+
+        // Inicialize o valor total do pedido como 0
+        $valorTotalPedido = 0.00;
+
+        // Itere sobre os itens do pedido e adicione o valor de cada item ao valor total do pedido
+        foreach ($itensPedidoInseridos as $item) {
+            $valorTotalPedido += $item->item_pedido_valor;
+        }
+
+        // Retorne o valor total do pedido
+        return response()->json(['valor_total_pedido' => $valorTotalPedido], 200);
+    }
+
+
     /**
      * Show the form for editing the specified resource.
      */

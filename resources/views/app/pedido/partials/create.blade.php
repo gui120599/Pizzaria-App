@@ -1,12 +1,8 @@
 <section>
     <header>
-        <h2 class="text-lg font-medium text-gray-900">
+        <h4 class="text-lg font-medium text-gray-900">
             {{ __('Novo Pedido') }} - <span id="pedido_id_titulo"></span>
-        </h2>
-
-        <p class="mt-1 text-sm text-gray-600">
-            {{ __('Insira os dados para um novo pedido.') }}
-        </p>
+        </h4>
     </header>
 
     <form action="{{ route('pedido.store') }}" method="post" class="space-y-6 mt-2" enctype="multipart/form-data">
@@ -34,7 +30,7 @@
                 <div class="overflow-auto h-[20rem] sm:h-[18rem] md:h-[25rem] snap-y">
                     @foreach ($categorias as $categoria)
                         <div class="mb-4" id="categoria_{{ $categoria->id }}">
-                            <h2 class="text-white text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
+                            <h2 class="text-gray-700 text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
                             @if ($categoria->produtos->isEmpty())
                                 <p class="text-gray-400">Não há produtos disponíveis nesta categoria.</p>
                             @else
@@ -59,7 +55,8 @@
                                                         @endif
                                                     </div>
                                                     <div class="flex h-16 flex-col justify-between">
-                                                        <p class="text-gray-900 font-bold text-sm md:text-xs uppercase">
+                                                        <p
+                                                            class="text-gray-900 font-bold text-sm md:text-xs uppercase produto_descricao">
                                                             {{ $produto->produto_descricao }}
                                                         </p>
                                                         <span class="text-green-500 text-xl">
@@ -92,6 +89,9 @@
 
             <div
                 class="sm:col-span-4 lg:col-span-3 col-span-6 relative md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
+                {{-- GARÇOM ID --}}
+                <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" type="text"
+                    class="mt-1 w-full" value="{{ Auth::user()->id }}" autocomplete="off" hidden />
                 {{-- CLIENTE ID --}}
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
                     <i class='bx bx-user'></i>
@@ -122,8 +122,8 @@
 
                     @foreach ($opcoes_entregas as $opcao_entrega)
                         <label for="opcao_entrega_{{ $opcao_entrega->id }}" class="flex items-center cursor-pointer">
-                            <input type="radio" id="opcao_entrega_{{ $opcao_entrega->id }}" name="tipo_entrega"
-                                value="{{ $opcao_entrega->id }}"
+                            <input type="radio" id="opcao_entrega_{{ $opcao_entrega->id }}"
+                                name="pedido_opcaoentrega_id" value="{{ $opcao_entrega->id }}"
                                 class="form-radio text-green-500 h-5 w-5 cursor-pointer">
                             <span class="ml-2 text-gray-700">{{ $opcao_entrega->opcaoentrega_nome }}</span>
                         </label>
@@ -162,24 +162,24 @@
                 {{-- Valores --}}
                 <hr class="h-px my-1 border-0 bg-gray-200">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class='bx bx-dollar-circle' ></i>
+                    <i class='bx bx-dollar-circle'></i>
                     <span>{{ __('Valores') }}</span>
                 </p>
-                <div class="grid grid-cols-1 lg:grid-cols-3 space-x-1">
+                <div class="grid grid-cols-1 lg:grid-cols-3 space-x-2">
                     <div class="col-span-1">
                         <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
-                    <x-text-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
-                        class="mt-1 w-full" autocomplete="off" value="0.00" readonly/>
+                        <x-text-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
+                            class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
                     </div>
                     <div class="col-span-1">
                         <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
-                    <x-text-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
-                        class="mt-1 w-full" autocomplete="off" value="0.00" />
+                        <x-text-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
+                            class="money mt-1 w-full" autocomplete="off" value="0.00" />
                     </div>
                     <div class="col-span-1">
                         <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
-                    <x-text-input id="pedido_valor_total" name="pedido_valor_total" type="text"
-                        class="mt-1 w-full" autocomplete="off" value="0.00" readonly/>
+                        <x-text-input id="pedido_valor_total" name="pedido_valor_total" type="text"
+                            class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
                     </div>
                 </div>
             </div>
@@ -242,15 +242,32 @@
 
     <script type="module">
         $(document).ready(function() {
-            //$(".toggleSideBar").trigger("click");
+            $(".toggleSideBar").trigger("click");
             IniciarPedido();
 
             $('#opcao_entrega_1').attr('checked', true);
             $('#endereco_entrega').hide();
 
 
+            // Função para filtrar os produtos com base na descrição digitada
+            $('#buscar').on('input', function() {
+                const descricao = $(this).val()
+            .toLowerCase(); // Obtenha o valor do campo de busca em minúsculas
+                $('.produto').each(function() { // Itera sobre cada produto
+                    const descricaoProduto = $(this).find('.produto_descricao').text()
+                .toLowerCase(); // Obtenha a descrição do produto em minúsculas
+                    if (descricaoProduto.includes(
+                        descricao)) { // Verifique se a descrição do produto inclui a descrição digitada
+                        $(this).show(); // Se sim, mostre o produto
+                    } else {
+                        $(this).hide(); // Se não, esconda o produto
+                    }
+                });
+            });
+
+
             // Verifica se o valor do input selecionado é "Entregar"
-            $('input[name="tipo_entrega"]').change(function() {
+            $('input[name="pedido_opcaoentrega_id"]').change(function() {
                 if ($(this).val() == 3) {
                     $('#endereco_entrega').slideDown(); // Mostra o elemento com ID "endereco_entrega"
                 } else {
@@ -288,37 +305,138 @@
                 const item_pedido_quantidade = 1;
                 const item_pedido_valor = $(this).data('produto_valor');
                 const item_pedido_status = 'INSERIDO';
+
+                // Verifica se o produto já está na lista de itens do pedido no HTML
+                const itemPedidoExistente = $(
+                    `#itens_pedido_container [data-item_produto_id="${item_pedido_produto_id}"]`);
+
+                if (itemPedidoExistente.length > 0) {
+                    // Se o produto já estiver na lista de itens, aumente a quantidade
+                    $(".abrir-modal").trigger("click");
+                    $("#modal-title").html(`<h2>OLÁ {{ Auth::user()->name }}</h2>`);
+                    $("#modal-body").html(`
+                    <div
+                        <div class="p-2 flex items-center>"
+                        <!-- Ícone de atenção -->
+                        <i class="bx bx-info-circle text-4xl text-yellow-500"></i>
+                        <!-- Mensagem -->
+                        <div class="ml-4">
+                            <h4 class="text-xl font-bold">Atenção</h4>
+                            <p>Produto já lançado neste pedido!</p>
+                        </div>
+                    </div>
+                        
+                    `);
+
+                } else {
+                    // Se o produto não estiver na lista de itens, adicione um novo item ao pedido
+                    $.ajax({
+                        type: "POST",
+                        url: "{{ route('item_pedido.store') }}",
+                        data: {
+                            item_pedido_produto_id,
+                            item_pedido_pedido_id,
+                            item_pedido_quantidade,
+                            item_pedido_valor,
+                            '_token': '{{ csrf_token() }}'
+                        },
+                        dataType: "json",
+                        success: function(response) {
+                            // Lidar com a resposta
+                            if (response) {
+                                console.log(response);
+                                ListarItenPedido();
+                                ValorTotalItensPedido();
+
+                            } else {
+                                alert(
+                                    'Erro ao iniciar o pedido. Por favor, tente novamente 1.'
+                                );
+                            }
+
+                        },
+                        error: function() {
+                            alert(
+                                'Erro ao adicionar produto ao pedido. Por favor, tente novamente .'
+                            );
+                        }
+                    });
+                }
+            });
+
+            //Remove item do pedido
+            $(".remove_item").click(function(e) {
+                e.preventDefault();
+                const id = $(this).data('item_id');
+                const item_pedido_valor = $(this).data('produto_valor');
                 $.ajax({
                     type: "POST",
-                    url: "{{ route('item_pedido.store') }}",
+                    url: "{{ route('item_pedido.remove') }}",
                     data: {
-                        item_pedido_produto_id,
-                        item_pedido_pedido_id,
-                        item_pedido_quantidade,
-                        item_pedido_valor,
+                        id,
                         '_token': '{{ csrf_token() }}'
                     },
                     dataType: "json",
                     success: function(response) {
-                        // Lidar com a resposta
-                        if (response) {
-                            console.log(response);
-                            ListarItenPedido();
-                        } else {
-                            alert('Erro ao iniciar o pedido. Por favor, tente novamente 1.');
-                        }
-
+                        console.log(response);
+                        ListarItenPedido();
+                        ValorTotalItensPedido();
                     },
                     error: function() {
-                        alert(
-                            'Erro ao adicionar produto ao pedido. Por favor, tente novamente .'
-                        );
+                        alert('Erro ao atualizar o item do pedido')
                     }
                 });
+
+            });
+
+            let pedido_valor_desconto; // Variável global para armazenar o valor do desconto
+
+            // Função que atualiza o valor total quando insere qualquer valor no campo de desconto
+            $("#pedido_valor_desconto").keyup(function(e) {
+                // Obter o valor do desconto e substituir vírgulas por pontos antes de converter para um número
+                pedido_valor_desconto = parseFloat($(this).val().replace(',', '.'));
+                pedido_valor_desconto = pedido_valor_desconto.toFixed(2);
+
+                // Se o valor do desconto não for um número válido, defina-o como 0.00
+                if (isNaN(pedido_valor_desconto)) {
+                    pedido_valor_desconto = 0.00;
+                }
+
+                // Obter o valor total dos itens
+                const valorTotalPedido = parseFloat($("#pedido_valor_itens").val());
+
+                // Calcular o novo valor total subtraindo o desconto
+                const novoValorTotal = valorTotalPedido - pedido_valor_desconto;
+
+                // Atualizar o elemento na sua página com o novo valor total
+                $("#pedido_valor_total").val(novoValorTotal.toFixed(2));
+            });
+
+            // Função que executa quando o campo de desconto recebe foco
+            $("#pedido_valor_desconto").focus(function(e) {
+                e.preventDefault();
+                // Armazena o valor atual do campo de desconto e limpa o campo
+                pedido_valor_desconto = $(this).val();
+                $(this).val("");
+            });
+
+            // Função que executa quando o campo de desconto perde o foco
+            $("#pedido_valor_desconto").blur(function(e) {
+                e.preventDefault();
+                // Verifica se o valor do desconto é diferente de vazio ou "0.00" ou "0,00"
+                if (pedido_valor_desconto !== "" || pedido_valor_desconto !== "0.00" ||
+                    pedido_valor_desconto !== "0,00") {
+                    // Se for diferente, restaura o valor anterior do campo de desconto
+                    $(this).val(pedido_valor_desconto);
+                } else {
+                    // Se for vazio ou "0.00" ou "0,00", define o valor como "0.00"
+                    $(this).val("0.00");
+                }
             });
 
 
         });
+
 
         function IniciarPedido() {
             // Fazer uma requisição AJAX para iniciar o pedido
@@ -368,9 +486,9 @@
                         $.each(response, function(index, item) {
                             // Crie o HTML para o item de pedido e o produto associado
                             var itemHtml = `
-                                <div class="border-y px-2 py-1 cursor-pointer hover:bg-gray-200">
+                                <div class="border-y px-2 py-1 cursor-pointer hover:bg-gray-200" data-item_produto_id="${item.produto.id}">
                                     <div class="grid grid-cols-6 items-center">
-                                        <span id="remove_item" class="col-span-6 cursor-pointer flex justify-end" data-item_id="${item.id}">
+                                        <span class="remove_item col-span-6 cursor-pointer flex justify-end" data-item_id="${item.id}" data-produto_valor="${item.produto.produto_preco_venda}">
                                             <i class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
                                         </span>
                                         <div class="col-span-6 flex flex-row items-start space-x-2">
@@ -477,6 +595,7 @@
                         $("#item_pedido_valor_" + id).val(item_pedido_valor);
                         //Atualiza valor na vizualização
                         $("#item_valor_view_" + id).html(item_pedido_valor);
+
                         $.ajax({
                             type: "POST",
                             url: "{{ route('item_pedido.update_qtd_valor') }}",
@@ -489,6 +608,7 @@
                             dataType: "json",
                             success: function(response) {
                                 console.log(response);
+                                ValorTotalItensPedido();
                             },
                             error: function() {
                                 alert('Erro ao atualizar o item do pedido')
@@ -530,6 +650,7 @@
                         $("#item_pedido_valor_" + id).val(item_pedido_valor);
                         //Atualiza valor na vizualização
                         $("#item_valor_view_" + id).html(item_pedido_valor);
+
                         $.ajax({
                             type: "POST",
                             url: "{{ route('item_pedido.update_qtd_valor') }}",
@@ -542,6 +663,7 @@
                             dataType: "json",
                             success: function(response) {
                                 console.log(response);
+                                ValorTotalItensPedido();
                             },
                             error: function() {
                                 alert('Erro ao atualizar o item do pedido')
@@ -573,9 +695,10 @@
                     });
 
                     //Remove item do pedido
-                    $("#remove_item").click(function(e) {
+                    $(".remove_item").click(function(e) {
                         e.preventDefault();
                         const id = $(this).data('item_id');
+                        const item_pedido_valor = $(this).data('produto_valor');
                         $.ajax({
                             type: "POST",
                             url: "{{ route('item_pedido.remove') }}",
@@ -587,6 +710,7 @@
                             success: function(response) {
                                 console.log(response);
                                 ListarItenPedido();
+                                ValorTotalItensPedido();
                             },
                             error: function() {
                                 alert('Erro ao atualizar o item do pedido')
@@ -595,9 +719,49 @@
 
                     });
 
+
+
                 },
                 error: function() {
                     alert('Erro ao listar itens');
+                }
+            });
+        }
+
+        // Busca o valor total dos itens do pedido
+        function ValorTotalItensPedido() {
+            const item_pedido_pedido_id = $("#pedido_id").val();
+            $.ajax({
+                type: "GET",
+                url: "{{ route('calcular_valor_total_pedido') }}",
+                data: {
+                    item_pedido_pedido_id,
+                    '_token': '{{ csrf_token() }}'
+                },
+                dataType: "JSON",
+                success: function(response) {
+                    if (response.hasOwnProperty('valor_total_pedido')) {
+                        const valorTotalPedido = parseFloat(response.valor_total_pedido);
+                        //Atualizar um elemento na sua página com o valor total dos itens
+                        $("#pedido_valor_itens").val(valorTotalPedido.toFixed(2));
+
+                        // Obter o valor do desconto e substituir vírgulas por pontos antes de converter para um número
+                        const pedido_valor_desconto = parseFloat($("#pedido_valor_desconto").val().replace(',',
+                            '.'));
+
+                        // Calcular o novo valor total subtraindo o desconto
+                        const novoValorTotal = valorTotalPedido - pedido_valor_desconto;
+
+                        // Atualizar o elemento na sua página com o novo valor total
+                        $("#pedido_valor_total").val(novoValorTotal.toFixed(2));
+                    } else {
+                        // Caso não haja valor total do pedido, defina o valor como 0.00
+                        $("#pedido_valor_itens").val("0.00");
+                        $("#pedido_valor_total").val("0.00");
+                    }
+                },
+                error: function() {
+                    alert('Erro ao obter o valor total do pedido.');
                 }
             });
         }

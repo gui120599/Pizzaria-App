@@ -117,6 +117,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemPedido/AtualizarObservacao', [ItensPedidoController::class, 'AtualizarObservacao'])->name('item_pedido.update_observacao');
     Route::post('/ItemPedido/RemoverItem', [ItensPedidoController::class, 'RemoverItem'])->name('item_pedido.remove');
     Route::get('/ItemPedido/ListarItensPedido', [ItensPedidoController::class, 'listarProdutosInseridosNoPedido'])->name('itens_pedido.lista');
+    Route::get('/calcular-valor-total-pedido', [ItensPedidoController::class, 'calcularValorTotalPedido'])->name('calcular_valor_total_pedido');
 });
 
 require __DIR__ . '/auth.php';
