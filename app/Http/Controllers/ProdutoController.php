@@ -127,6 +127,7 @@ class ProdutoController extends Controller
 
     // Redireciona para a página do produto atualizado
     return redirect()->route('produto')->with('success', 'Produto atualizado com sucesso!');
+    //dd($produto);
 }
 
 

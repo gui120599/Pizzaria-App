@@ -15,7 +15,7 @@ class MesaController extends Controller
     public function index()
     {
         $mesas = Mesa::all();
-        return view('app.mesa', ['mesas' => $mesas]);
+        return view('app.mesa.index', ['mesas' => $mesas]);
     }
 
     /**

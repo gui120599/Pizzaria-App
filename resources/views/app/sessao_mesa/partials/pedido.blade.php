@@ -103,16 +103,6 @@
                 <x-text-input id="pedido_cliente_nome" name="pedido_cliente_nome" type="text" class="mt-1 w-full"
                     autocomplete="off" placeholder="Nome do Cliente" />
                 <x-input-error :messages="$errors->updatePassword->get('pedido_cliente_id')" class="mt-2" />
-                <div id="lista_clientes"
-                    class="absolute w-full bg-white rounded-lg px-2 py-3 shadow-lg shadow-green-400/10 hidden overflow-auto max-h-96 md:max-h-80 lg:max-h-72 border">
-                    @foreach ($clientes as $cliente)
-                        <div id="linha_cliente"
-                            class="border-b-2 hover:bg-teal-700 hover:text-white rounded-lg p-2 cursor-pointer transition duration-150 ease-in-out"
-                            onclick="selecionarCliente({{ $cliente->id }},'{{ $cliente->cliente_nome }}')">
-                            {{ $cliente->id }} - {{ $cliente->cliente_nome }}
-                        </div>
-                    @endforeach
-                </div>
                 {{-- TIPO DE ENTREGA --}}
                 <hr class="h-px my-1 border-0 bg-gray-200">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">

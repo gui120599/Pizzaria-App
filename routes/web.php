@@ -12,6 +12,8 @@ use App\Http\Controllers\OpcoesPagamentoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MesaController;
 use App\Http\Controllers\PedidoController;
+use App\Http\Controllers\SessaoMesaController;
+use App\Models\SessaoMesa;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -107,7 +109,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/Pedido/Create', [PedidoController::class, 'create'])->name('pedido.create');
     Route::post('/Pedido', [PedidoController::class, 'store'])->name('pedido.store');
     Route::get('/Pedido/{pedido}', [PedidoController::class, 'show'])->name('pedido.show');
-    Route::get('/Pedido/{pedido}/Edit', [PedidoController::class, 'edit'])->name('pedido.edit');
+    Route::post('/Pedido/{id}/Edit', [PedidoController::class, 'SalvarPedido'])->name('pedido.salvar_pedido');
     Route::patch('/Pedido/{pedido}', [PedidoController::class, 'update'])->name('pedido.update');
     Route::delete('/Pedido/{pedido}', [PedidoController::class, 'destroy'])->name('pedido.destroy');
     Route::post('/iniciar-pedido', [PedidoController::class, 'iniciarPedido'])->name('pedido.iniciar');
@@ -118,6 +120,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemPedido/RemoverItem', [ItensPedidoController::class, 'RemoverItem'])->name('item_pedido.remove');
     Route::get('/ItemPedido/ListarItensPedido', [ItensPedidoController::class, 'listarProdutosInseridosNoPedido'])->name('itens_pedido.lista');
     Route::get('/calcular-valor-total-pedido', [ItensPedidoController::class, 'calcularValorTotalPedido'])->name('calcular_valor_total_pedido');
+
+    Route::get('/SessaoMesa/{mesa_id}/Abrir-Sessao', [SessaoMesaController::class, 'index'])->name('sessaoMesa');
+    Route::get('/SessaoMesa/{mesa_id}/Pedido-Mesa', [SessaoMesaController::class, 'PedidoMesa'])->name('sessaoMesa.pedidoMesa');
+    Route::get('/SessaoMesa-Inativas', [SessaoMesaController::class, 'inactive'])->name('sessaoMesa.inactive');
+    Route::get('/SessaoMesa/Create', [SessaoMesaController::class, 'create'])->name('sessaoMesa.create');
+    Route::post('/Abrir-SessaoMesa', [SessaoMesaController::class, 'AbrirSessaoMesa'])->name('sessaoMesa.abrir');
+    Route::get('/SessaoMesa/{sessaoMesa}', [SessaoMesaController::class, 'show'])->name('sessaoMesa.show');
+    Route::get('/SessaoMesa/{sessaoMesa}/Edit', [SessaoMesaController::class, 'edit'])->name('sessaoMesa.edit');
+    Route::patch('/SessaoMesa/{sessaoMesa}', [SessaoMesaController::class, 'update'])->name('sessaoMesa.update');
+    Route::delete('/SessaoMesa/{sessaoMesa}', [SessaoMesaController::class, 'destroy'])->name('sessaoMesa.destroy');
+    Route::get('/Ativar-SessaoMesa/{id}', [SessaoMesaController::class, 'active'])->name('sessaoMesa.active');
+
 });
 
 require __DIR__ . '/auth.php';

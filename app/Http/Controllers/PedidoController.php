@@ -10,6 +10,7 @@ use App\Models\Cliente;
 use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\Produto;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class PedidoController extends Controller
@@ -25,12 +26,12 @@ class PedidoController extends Controller
         $opcoes_entregas = OpcoesEntregas::all();
         $produtos = Produto::all();
         $categorias = Categoria::all();
-        return view('app.pedido.index',[
-            'pedidos' => $pedidos, 
-            'clientes' => $clientes, 
-            'opcoes_entregas' => $opcoes_entregas, 
-            'opcoes_pagamento' => $opcoes_pagamento, 
-            'produtos' => $produtos, 
+        return view('app.pedido.index', [
+            'pedidos' => $pedidos,
+            'clientes' => $clientes,
+            'opcoes_entregas' => $opcoes_entregas,
+            'opcoes_pagamento' => $opcoes_pagamento,
+            'produtos' => $produtos,
             'categorias' => $categorias
         ]);
     }
@@ -44,11 +45,11 @@ class PedidoController extends Controller
         $pedido = new Pedido();
         $pedido->pedido_status = 'INICIADO'; // Definir o status do pedido como 'INICIADO'
         $pedido->save();
-    
+
         // Retornar o ID do pedido em formato JSON
         return response()->json(['pedido_id' => $pedido->id]);
     }
-    
+
 
     /**
      * Show the form for creating a new resource.
@@ -88,6 +89,30 @@ class PedidoController extends Controller
     public function update(UpdatePedidoRequest $request, Pedido $pedido)
     {
         //
+    }
+
+    /**
+     * Salvar um pedido após ele ser inciado
+     */
+    public function SalvarPedido(UpdatePedidoRequest $request, Pedido $pedido, string|int $id)
+    {
+        $pedido = $pedido->find($id);
+        $pedido->update([
+            'pedido_cliente_id' => $request->input("pedido_cliente_id"),
+            'pedido_sessao_mesa_id' => $request->input("pedido_mesa_id"),
+            'pedido_usuario_garcom_id' => $request->input("pedido_usuario_garcom_id"),
+            'pedido_opcaoentrega_id' => $request->input("pedido_opcaoentrega_id"),
+            'pedido_descricao_pagamento' => $request->input("pedido_descricao_pagamento"),
+            'pedido_observacao_pagamento' => $request->input("pedido_observacao_pagamento"),
+            'pedido_endereco_entrega' => $request->input("pedido_endereco_entrega"),
+            'pedido_valor_itens' => $request->input("pedido_valor_itens") ? str_replace(',', '.', $request->input('pedido_valor_itens')) : '0.00',
+            'pedido_valor_desconto' => $request->input("pedido_valor_desconto") ? str_replace(',', '.', $request->input('pedido_valor_desconto')) : '0.00',
+            'pedido_valor_total' => $request->input("pedido_valor_total") ? str_replace(',', '.', $request->input('pedido_valor_total')) : '0.00',
+            'pedido_status' => "ABERTO",
+            'pedido_datahora_abertura' => Carbon::now() // Define a data e hora de abertura do pedido
+        ]);
+
+        return redirect()->route('dashboard')->with('success', 'Pedido aberto com sucesso!');
     }
 
     /**
