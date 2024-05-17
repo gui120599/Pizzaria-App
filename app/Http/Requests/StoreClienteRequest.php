@@ -23,7 +23,7 @@ class StoreClienteRequest extends FormRequest
     {
         return [
             'cliente_nome' => 'required|string|max:255',
-            'cliente_data_nascimento' => $this->tipoPessoaFisica() ? 'nullable|date' : 'nullable|date',
+            'cliente_data_nascimento' => $this->tipoPessoaFisica() ? 'nullable|string|max:20' : '2000-01-01',
             'cliente_tipo' => 'required|string|max:255',
             'cliente_cpf' => 'nullable|string|max:20', // Pode ser nulo, mas se fornecido, deve ser uma string com no máximo 20 caracteres
             'cliente_rg' => 'nullable|string|max:20',
