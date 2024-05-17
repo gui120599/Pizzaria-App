@@ -23,7 +23,8 @@
                     <div class="md:col-span-4">
                         <x-input-label for="produto_codimentacao" :value="__('Codimentação do Produto')" />
                         <x-text-input id="produto_codimentacao" name="produto_codimentacao" type="text"
-                            class="mt-1 w-full" autocomplete="off" value="{{ old('produto_codimentacao') }}" autofocus />
+                            class="mt-1 w-full" autocomplete="off" value="{{ old('produto_codimentacao') }}"
+                            autofocus />
                         <x-input-error :messages="$errors->updatePassword->get('produto_codimentacao')" class="mt-2" />
                     </div>
                     <div class="md:col-span-2">
@@ -90,8 +91,9 @@
 
                 <div class="lg:col-span-2 md:col-span-3">
                     <x-input-label for="produto_codigo_beneficio_fiscal_uf" :value="__('Código Benefício Fiscal na UF do Produto')" />
-                    <x-text-input id="produto_codigo_beneficio_fiscal_uf" name="produto_codigo_beneficio_fiscal_uf" type="text" class="mt-1 w-full"
-                        autocomplete="off" value="{{ old('produto_codigo_beneficio_fiscal_uf') }}" />
+                    <x-text-input id="produto_codigo_beneficio_fiscal_uf" name="produto_codigo_beneficio_fiscal_uf"
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ old('produto_codigo_beneficio_fiscal_uf') }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_codigo_beneficio_fiscal_uf')" class="mt-2" />
                 </div>
 
@@ -123,7 +125,8 @@
                 <div class="lg:col-span-1 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_venda" :value="__('Venda %')" />
                     <x-text-input id="produto_valor_percentual_venda" name="produto_valor_percentual_venda"
-                        type="text" class="mt-1 w-full" autocomplete="off" value="{{ old('produto_valor_percentual_venda') }}" />
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ old('produto_valor_percentual_venda') }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_venda')" class="mt-2" />
                 </div>
 
@@ -137,7 +140,8 @@
                 <div class="lg:col-span-1 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_comissao" :value="__('Comissão %')" />
                     <x-text-input id="produto_valor_percentual_comissao" name="produto_valor_percentual_comissao"
-                        type="text" class="mt-1 w-full" autocomplete="off" value="{{ old('produto_valor_percentual_comissao') }}" />
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ old('produto_valor_percentual_comissao') }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_comissao')" class="mt-2" />
                 </div>
 
@@ -160,7 +164,7 @@
             <div class="col-span-full">
                 <hr class="h-px my-1 border-0 bg-gray-200">
                 <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700">
-                    <i class='bx bx-dollar' ></i>
+                    <i class='bx bx-dollar'></i>
                     <span>{{ __('Impostos') }}</span>
                 </h2>
             </div>
@@ -168,22 +172,25 @@
 
                 <div class="lg:col-span-2 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_icms" :value="__('ICMS %')" />
-                    <x-text-input id="produto_valor_percentual_icms" name="produto_valor_percentual_icms" type="text"
-                        class="mt-1 w-full" autocomplete="off" value="{{ old('produto_valor_percentual_icms') }}" />
+                    <x-text-input id="produto_valor_percentual_icms" name="produto_valor_percentual_icms"
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ old('produto_valor_percentual_icms') }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_icms')" class="mt-2" />
                 </div>
 
                 <div class="lg:col-span-2 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_cofins" :value="__('COFINS %')" />
-                    <x-text-input id="produto_valor_percentual_cofins" name="produto_valor_percentual_cofins" type="text"
-                        class="mt-1 w-full" autocomplete="off" value="{{ old('produto_valor_percentual_cofins') }}" />
+                    <x-text-input id="produto_valor_percentual_cofins" name="produto_valor_percentual_cofins"
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ old('produto_valor_percentual_cofins') }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_cofins')" class="mt-2" />
                 </div>
 
                 <div class="lg:col-span-2 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_pis" :value="__('PIS %')" />
-                    <x-text-input id="produto_valor_percentual_pis" name="produto_valor_percentual_pis" type="text"
-                        class="mt-1 w-full" autocomplete="off" value="{{ old('produto_valor_percentual_pis') }}" />
+                    <x-text-input id="produto_valor_percentual_pis" name="produto_valor_percentual_pis"
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ old('produto_valor_percentual_pis') }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_pis')" class="mt-2" />
                 </div>
             </div>
@@ -278,7 +285,7 @@
     </script>
     <script type="module">
         $(document).ready(function() {
-            
+
             // Função para calcular e atualizar os campos de preços
             $('#produto_valor_percentual_venda').on('input', () => {
                 var percentualVenda = parseFloat($('#produto_valor_percentual_venda').val().replace(',',
@@ -308,13 +315,18 @@
             //Quando função on pois dá conflito com a mask o resultado sai incorreto
             $('#produto_preco_venda').change(function(e) {
                 e.preventDefault();
-                var precoVenda = parseFloat($('#produto_preco_venda').val().replace(',', '.')) || 0;
-                var precoCusto = parseFloat($('#produto_preco_custo').val().replace(',', '.')) || 0;
+                var precoVenda = parseFloat($('#produto_preco_venda').val().replace(',', '.')) || 0.00;
+                var precoCusto = parseFloat($('#produto_preco_custo').val().replace(',', '.')) || 0.00;
 
                 // Verificar se há um valor válido no campo de preço de venda
                 if (!isNaN(precoVenda) && precoVenda !== 0) {
-                    // Calcular o percentual de venda
-                    var percentualVenda = ((precoVenda - precoCusto) / precoCusto) * 100;
+                    // Calcular o percentual de venda apenas se o preço de custo for diferente de zero
+                    var percentualVenda;
+                    if (precoCusto !== 0) {
+                        percentualVenda = ((precoVenda - precoCusto) / precoCusto) * 100;
+                    } else {
+                        percentualVenda = 100;
+                    }
 
                     // Formatando o valor com duas casas decimais
                     percentualVenda = percentualVenda.toFixed(2);
@@ -326,6 +338,7 @@
                     $('#produto_valor_percentual_venda').val('');
                 }
             });
+
 
             //CALCULA A PORCENTAGEM DA COMISSÃO
             $('#produto_preco_comissao').change(function(e) {

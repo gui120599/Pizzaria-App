@@ -1,17 +1,11 @@
 <section>
-    <header>
-        <h4 class="text-lg font-medium text-gray-900">
-            {{ __('Novo Pedido') }} - <span id="pedido_id_titulo"></span>
-        </h4>
-    </header>
-
     <form id="formPedido" action="{{ route('pedido.salvar_pedido', 1) }}" method="post" class="space-y-6 mt-2"
         enctype="multipart/form-data">
 
         <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
-            <x-text-input name="pedido_id" id="pedido_id"></x-text-input>
+            <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
             {{-- PRODUTOS --}}
-            <div class="sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
+            <div class="h-[30dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
                     <i class='bx bxs-map-pin'></i>
                     <span>{{ __('Produtos') }}</span>
@@ -28,7 +22,7 @@
                         @endforeach
                     </div>
                 </div>
-                <div class="overflow-auto h-[20rem] sm:h-[18rem] md:h-[25rem] snap-y">
+                <div class="h-[110%] lg:h-[76%] xl:h-[83%] 2xl:h-[87%] overflow-auto snap-y">
                     @foreach ($categorias as $categoria)
                         <div class="mb-4" id="categoria_{{ $categoria->id }}">
                             <h2 class="text-gray-700 text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
@@ -86,6 +80,9 @@
                         }
                     }
                 </script>
+                <x-primary-button class="hidden sm:block w-full">
+                    {{ __('Finalizar Pedido') }}
+                </x-primary-button>
             </div>
 
             <div
@@ -165,37 +162,52 @@
                 <div class="bg-white p-1">
                     <p>Itens do Pedido</p>
                 </div>
-                <div id="itens_pedido_container" class="h-[35rem] overflow-auto">
+                <div class="relative h-[30dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] overflow-auto">
+                    <!-- Ícone de carregamento e mensagem -->
+                    <div id="carregando"
+                        class="hidden absolute inset-0 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
+                        <div class="text-center">
+                            <i class='bx bx-loader-circle bx-spin bx-rotate-90 text-5xl'></i>
+                            <p>Carregando Produtos</p>
+                        </div>
+                    </div>
+
+                    <div id="itens_pedido_container" class="">
+
+
+                        <!-- Conteúdo -->
+                        <p class="p-2 text-center">Nenhum produto lançado no pedido!</p>
+                    </div>
                 </div>
                 {{-- Valores --}}
-                <hr class="h-px my-1 border-0 bg-gray-200">
-                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class='bx bx-dollar-circle'></i>
-                    <span>{{ __('Valores') }}</span>
-                </p>
-                <div class="grid grid-cols-1 lg:grid-cols-3 lg:space-x-2">
-                    <div class="col-span-1">
-                        <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
-                        <x-text-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
-                            class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
-                    </div>
-                    <div class="col-span-1">
-                        <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
-                        <x-text-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
-                            class="money mt-1 w-full" autocomplete="off" value="0.00" />
-                    </div>
-                    <div class="col-span-1">
-                        <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
-                        <x-text-input id="pedido_valor_total" name="pedido_valor_total" type="text"
-                            class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                <div class="bg-white p-1">
+                    <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
+                        <i class='bx bx-dollar-circle'></i>
+                        <span>{{ __('Valores') }}</span>
+                    </p>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 lg:space-x-2">
+                        <div class="col-span-1">
+                            <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
+                            <x-money-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
+                                class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                        </div>
+                        <div class="col-span-1">
+                            <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
+                            <x-money-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
+                                class="money mt-1 w-full" autocomplete="off" value="0.00" />
+                        </div>
+                        <div class="col-span-1">
+                            <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
+                            <x-money-input id="pedido_valor_total" name="pedido_valor_total" type="text"
+                                class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        @csrf
-        <x-primary-button>
-            {{ __('Finalizar Pedido') }}
-        </x-primary-button>
+            @csrf
+            <x-primary-button class="block sm:hidden w-full">
+                {{ __('Finalizar Pedido') }}
+            </x-primary-button>
     </form>
 
     <script>
@@ -326,21 +338,18 @@
 
                 } else {
                     // Se o produto não estiver na lista de itens, adicione um novo item ao pedido
+
+                    //Verifica se o pedido está aberto
                     const pedido_id = $("#pedido_id").val();
-                    console.log(pedido_id);
                     if (pedido_id === "") {
-                        if (IniciarPedido()) {
-                            setTimeout(() => {
-                                AdicionarProduto($(this));
-                            }, 200);
-                            
-                        }
+                        //Se não estiver ele abre um novo e já adiciona o produto clicado
+                        IniciarPedido($(this));
 
                     } else {
-                        AdicionarProduto($(this));
+                        //Se o pedido já estiver aberto ele apenas adiciona o produto clicado
+                        AdicionarProdutoemPedidoIniciado($(this));
 
                     }
-
                 }
             });
 
@@ -417,7 +426,47 @@
 
         });
 
-        function AdicionarProduto(elemento) {
+
+        function IniciarPedidoeAdicionarProduto(elemento, pedido_id) {
+            const item_pedido_produto_id = elemento.data('produto_id');
+            const item_pedido_pedido_id = pedido_id;
+            const item_pedido_quantidade = 1;
+            const item_pedido_valor = elemento.data('produto_valor');
+            const item_pedido_status = 'INSERIDO';
+            $.ajax({
+                type: "POST",
+                url: "{{ route('item_pedido.store') }}",
+                data: {
+                    item_pedido_produto_id,
+                    item_pedido_pedido_id,
+                    item_pedido_quantidade,
+                    item_pedido_valor,
+                    '_token': '{{ csrf_token() }}'
+                },
+                dataType: "json",
+                success: function(response) {
+                    // Lidar com a resposta
+                    if (response) {
+                        console.log(response);
+                        ListarItenPedido();
+                        ValorTotalItensPedido();
+
+                    } else {
+                        alert(
+                            'Erro ao iniciar o pedido. Por favor, tente novamente 1.'
+                        );
+                    }
+
+                },
+                error: function() {
+                    alert(
+                        'Erro ao adicionar produto ao pedido. Por favor, tente novamente .'
+                    );
+                }
+            });
+        }
+
+        function AdicionarProdutoemPedidoIniciado(elemento) {
             const item_pedido_produto_id = elemento.data('produto_id');
             const item_pedido_pedido_id = $("#pedido_id").val();
             const item_pedido_quantidade = 1;
@@ -457,7 +506,7 @@
         }
 
 
-        function IniciarPedido() {
+        function IniciarPedido(elemento) {
             const form = document.getElementById('formPedido');
             var route = '{{ route('pedido.salvar_pedido', 14) }}';
 
@@ -476,8 +525,8 @@
                         $("#pedido_id_titulo").text("Nº: " + response.pedido_id);
                         form.action = route.replace('14', response
                             .pedido_id
-                        ); // altera a route do formulario com o numero do pedido para atualização no controller
-                        ListarItenPedido();
+                        );
+                        IniciarPedidoeAdicionarProduto(elemento, response.pedido_id)
                     } else {
                         alert('Erro ao iniciar o pedido. Por favor, tente novamente 1.');
                     }
@@ -490,6 +539,7 @@
 
         //Lista Itens do Pedido
         function ListarItenPedido() {
+            $("#carregando").removeClass('hidden');
             const item_pedido_pedido_id = $("#pedido_id").val();
             $.ajax({
                 type: "GET",
@@ -556,11 +606,13 @@
 
                             // Adicione o HTML do item de pedido ao container
                             $('#itens_pedido_container').append(itemHtml);
+                            $("#carregando").addClass('hidden');
                         });
                     } else {
                         // Se não houver itens de pedido inseridos, exiba uma mensagem indicando isso
                         $('#itens_pedido_container').html(
-                            '<p>Nenhum produto inserido encontrado para este pedido</p>');
+                            '<p class="p-2">Nenhum produto encontrado para este pedido</p>');
+                        $("#carregando").addClass('hidden');
                     }
 
                     //Abre o form do item do pedido
@@ -743,8 +795,6 @@
                         });
 
                     });
-
-
 
                 },
                 error: function() {

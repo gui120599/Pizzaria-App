@@ -114,6 +114,25 @@ class PedidoController extends Controller
 
         return redirect()->route('dashboard')->with('success', 'Pedido aberto com sucesso!');
     }
+    /**
+     * Salvar um pedido de uma mesa após ele ser inciado
+     */
+    public function SalvarPedidoMesa(UpdatePedidoRequest $request, Pedido $pedido, string|int $id)
+    {
+        $pedido = $pedido->find($id);
+        $pedido->update([
+            'pedido_sessao_mesa_id' => $request->input("pedido_sessao_mesa_id"),
+            'pedido_usuario_garcom_id' => $request->input("pedido_usuario_garcom_id"),
+            'pedido_opcaoentrega_id' => 1, // 1 é o codigo de "Comer no Local"
+            'pedido_valor_itens' => $request->input("pedido_valor_itens") ? str_replace(',', '.', $request->input('pedido_valor_itens')) : '0.00',
+            'pedido_valor_desconto' => $request->input("pedido_valor_desconto") ? str_replace(',', '.', $request->input('pedido_valor_desconto')) : '0.00',
+            'pedido_valor_total' => $request->input("pedido_valor_total") ? str_replace(',', '.', $request->input('pedido_valor_total')) : '0.00',
+            'pedido_status' => "ABERTO",
+            'pedido_datahora_abertura' => Carbon::now() // Define a data e hora de abertura do pedido
+        ]);
+
+        return redirect()->route('dashboard')->with('success', 'Pedido aberto com sucesso!');
+    }
 
     /**
      * Remove the specified resource from storage.

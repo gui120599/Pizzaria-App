@@ -110,6 +110,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/Pedido', [PedidoController::class, 'store'])->name('pedido.store');
     Route::get('/Pedido/{pedido}', [PedidoController::class, 'show'])->name('pedido.show');
     Route::post('/Pedido/{id}/Edit', [PedidoController::class, 'SalvarPedido'])->name('pedido.salvar_pedido');
+    Route::post('/Pedido-Mesa/{id}/Edit', [PedidoController::class, 'SalvarPedidoMesa'])->name('pedido.salvar_pedido_mesa');
     Route::patch('/Pedido/{pedido}', [PedidoController::class, 'update'])->name('pedido.update');
     Route::delete('/Pedido/{pedido}', [PedidoController::class, 'destroy'])->name('pedido.destroy');
     Route::post('/iniciar-pedido', [PedidoController::class, 'iniciarPedido'])->name('pedido.iniciar');

@@ -23,7 +23,9 @@ class SessaoMesa extends Model
 
     public function mesa()
     {
-        return $this->belongsTo(Mesa::class, 'sessao_mesa_mesa_id');
+        return $this->belongsTo(Mesa::class, 'sessao_mesa_mesa_id')->withDefault([
+            'mesa_nome' => 'Sem Mesa'
+        ]);;
     }
 
     public function cliente()

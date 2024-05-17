@@ -1,17 +1,16 @@
 <section>
-    <header>
-        <h4 class="text-lg font-medium text-gray-900">
-            {{ __('Novo Pedido') }} - <span id="pedido_id_titulo"></span>
-        </h4>
-    </header>
 
-    <form id="formPedido" action="{{ route('pedido.salvar_pedido', 1) }}" method="post" class="space-y-6 mt-2"
+    <form id="formPedido" action="{{ route('pedido.salvar_pedido_mesa', 1) }}" method="post" class="space-y-6 mt-2"
         enctype="multipart/form-data">
 
         <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
             <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
+            <x-text-input name="pedido_sessao_mesa_id" id="pedido_sessao_mesa_id" value="{{ $sessao_mesa->id }}"
+                hidden></x-text-input>
+            <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" value="{{ Auth::user()->id }}"
+                hidden />
             {{-- PRODUTOS --}}
-            <div class="sm:col-span-4 lg:col-span-5 col-span-6 md:space-y-2 ">
+            <div class="h-[30dvh] md:h-[67dvh] lg:h-[60dvh] xl:h-[68dvh] 2xl:h-[74dvh] sm:col-span-4 lg:col-span-5 col-span-6 md:space-y-2 ">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
                     <i class='bx bxs-map-pin'></i>
                     <span>{{ __('Produtos') }}</span>
@@ -28,7 +27,7 @@
                         @endforeach
                     </div>
                 </div>
-                <div class="overflow-auto h-[20rem] sm:h-[18rem] md:h-[25rem] snap-y">
+                <div class="h-[110%] lg:h-[76%] xl:h-[83%] 2xl:h-[87%] overflow-auto snap-y">
                     @foreach ($categorias as $categoria)
                         <div class="mb-4" id="categoria_{{ $categoria->id }}">
                             <h2 class="text-gray-700 text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
@@ -86,49 +85,66 @@
                         }
                     }
                 </script>
+                
+                <x-primary-button class="hidden sm:block w-full">
+                    {{ __('Finalizar Pedido') }}
+                </x-primary-button>
             </div>
 
             <div
-                class="sm:col-span-4 lg:col-span-3 col-span-6 relative md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
-                <div class="bg-slate-100 border ">
+                class="sm:col-span-4 lg:col-span-3 col-span-6 relative md:space-y-2 md:border-l md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
+                <div class="sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border">
                     <div class="bg-white p-1">
                         <p>Itens do Pedido</p>
                     </div>
-                    <div id="itens_pedido_container" class="h-[35rem] overflow-auto">
+                    <div class="relative h-[30dvh] md:h-[67dvh] lg:h-[60dvh] xl:h-[68dvh] 2xl:h-[74dvh] overflow-auto">
+                        <!-- Ícone de carregamento e mensagem -->
+                        <div id="carregando"
+                            class="hidden absolute inset-0 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
+                            <div class="text-center">
+                                <i class='bx bx-loader-circle bx-spin bx-rotate-90 text-5xl'></i>
+                                <p>Carregando Produtos</p>
+                            </div>
+                        </div>
+
+                        <div id="itens_pedido_container" class="">
+
+
+                            <!-- Conteúdo -->
+                            <p class="p-2 text-center">Nenhum produto lançado no pedido!</p>
+                        </div>
                     </div>
                     {{-- Valores --}}
-                    <hr class="h-px my-1 border-0 bg-gray-200">
-                    <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                        <i class='bx bx-dollar-circle'></i>
-                        <span>{{ __('Valores') }}</span>
-                    </p>
-                    <div class="grid grid-cols-1 lg:grid-cols-3 lg:space-x-2">
-                        <div class="col-span-1">
-                            <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
-                            <x-text-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
-                                class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
-                        </div>
-                        <div class="col-span-1">
-                            <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
-                            <x-text-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
-                                class="money mt-1 w-full" autocomplete="off" value="0.00" />
-                        </div>
-                        <div class="col-span-1">
-                            <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
-                            <x-text-input id="pedido_valor_total" name="pedido_valor_total" type="text"
-                                class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                    <div class="bg-white p-1">
+                        <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
+                            <i class='bx bx-dollar-circle'></i>
+                            <span>{{ __('Valores') }}</span>
+                        </p>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 lg:space-x-2">
+                            <div class="col-span-1">
+                                <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
+                                <x-money-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
+                                    class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                            </div>
+                            <div class="col-span-1">
+                                <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
+                                <x-money-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
+                                    class="money mt-1 w-full" autocomplete="off" value="0.00" />
+                            </div>
+                            <div class="col-span-1">
+                                <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
+                                <x-money-input id="pedido_valor_total" name="pedido_valor_total" type="text"
+                                    class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                            </div>
                         </div>
                     </div>
                 </div>
-
             </div>
-
-
+            @csrf
+            <x-primary-button class="block sm:hidden w-full">
+                {{ __('Finalizar Pedido') }}
+            </x-primary-button>
         </div>
-        @csrf
-        <x-primary-button>
-            {{ __('Finalizar Pedido') }}
-        </x-primary-button>
     </form>
 
     <script>
@@ -176,7 +192,6 @@
     <script type="module">
         $(document).ready(function() {
             $(".toggleSideBar").trigger("click");
-            IniciarPedido();
 
             $('#opcao_entrega_1').attr('checked', true);
             $('#endereco_entrega').hide();
@@ -235,10 +250,6 @@
             $(".produto").click(function(e) {
                 e.preventDefault();
                 const item_pedido_produto_id = $(this).data('produto_id');
-                const item_pedido_pedido_id = $("#pedido_id").val();
-                const item_pedido_quantidade = 1;
-                const item_pedido_valor = $(this).data('produto_valor');
-                const item_pedido_status = 'INSERIDO';
 
                 // Verifica se o produto já está na lista de itens do pedido no HTML
                 const itemPedidoExistente = $(
@@ -249,52 +260,33 @@
                     $(".abrir-modal").trigger("click");
                     $("#modal-title").html(`<h2>OLÁ {{ Auth::user()->name }}</h2>`);
                     $("#modal-body").html(`
-                    <div
-                        <div class="p-2 flex items-center>"
-                        <!-- Ícone de atenção -->
-                        <i class="bx bx-info-circle text-4xl text-yellow-500"></i>
-                        <!-- Mensagem -->
-                        <div class="ml-4">
-                            <h4 class="text-xl font-bold">Atenção</h4>
-                            <p>Produto já lançado neste pedido!</p>
-                        </div>
+                <div
+                    <div class="p-2 flex items-center>"
+                    <!-- Ícone de atenção -->
+                    <i class="bx bx-info-circle text-4xl text-yellow-500"></i>
+                    <!-- Mensagem -->
+                    <div class="ml-4">
+                        <h4 class="text-xl font-bold">Atenção</h4>
+                        <p>Produto já lançado neste pedido!</p>
                     </div>
-                        
-                    `);
+                </div>
+                    
+                `);
 
                 } else {
                     // Se o produto não estiver na lista de itens, adicione um novo item ao pedido
-                    $.ajax({
-                        type: "POST",
-                        url: "{{ route('item_pedido.store') }}",
-                        data: {
-                            item_pedido_produto_id,
-                            item_pedido_pedido_id,
-                            item_pedido_quantidade,
-                            item_pedido_valor,
-                            '_token': '{{ csrf_token() }}'
-                        },
-                        dataType: "json",
-                        success: function(response) {
-                            // Lidar com a resposta
-                            if (response) {
-                                console.log(response);
-                                ListarItenPedido();
-                                ValorTotalItensPedido();
 
-                            } else {
-                                alert(
-                                    'Erro ao iniciar o pedido. Por favor, tente novamente 1.'
-                                );
-                            }
+                    //Verifica se o pedido está aberto
+                    const pedido_id = $("#pedido_id").val();
+                    if (pedido_id === "") {
+                        //Se não estiver ele abre um novo e já adiciona o produto clicado
+                        IniciarPedido($(this));
 
-                        },
-                        error: function() {
-                            alert(
-                                'Erro ao adicionar produto ao pedido. Por favor, tente novamente .'
-                            );
-                        }
-                    });
+                    } else {
+                        //Se o pedido já estiver aberto ele apenas adiciona o produto clicado
+                        AdicionarProdutoemPedidoIniciado($(this));
+
+                    }
                 }
             });
 
@@ -372,9 +364,88 @@
         });
 
 
-        function IniciarPedido() {
+        function IniciarPedidoeAdicionarProduto(elemento, pedido_id) {
+            const item_pedido_produto_id = elemento.data('produto_id');
+            const item_pedido_pedido_id = pedido_id;
+            const item_pedido_quantidade = 1;
+            const item_pedido_valor = elemento.data('produto_valor');
+            const item_pedido_status = 'INSERIDO';
+            $.ajax({
+                type: "POST",
+                url: "{{ route('item_pedido.store') }}",
+                data: {
+                    item_pedido_produto_id,
+                    item_pedido_pedido_id,
+                    item_pedido_quantidade,
+                    item_pedido_valor,
+                    '_token': '{{ csrf_token() }}'
+                },
+                dataType: "json",
+                success: function(response) {
+                    // Lidar com a resposta
+                    if (response) {
+                        console.log(response);
+                        ListarItenPedido();
+                        ValorTotalItensPedido();
+
+                    } else {
+                        alert(
+                            'Erro ao iniciar o pedido. Por favor, tente novamente 1.'
+                        );
+                    }
+
+                },
+                error: function() {
+                    alert(
+                        'Erro ao adicionar produto ao pedido. Por favor, tente novamente .'
+                    );
+                }
+            });
+        }
+
+        function AdicionarProdutoemPedidoIniciado(elemento) {
+            const item_pedido_produto_id = elemento.data('produto_id');
+            const item_pedido_pedido_id = $("#pedido_id").val();
+            const item_pedido_quantidade = 1;
+            const item_pedido_valor = elemento.data('produto_valor');
+            const item_pedido_status = 'INSERIDO';
+            $.ajax({
+                type: "POST",
+                url: "{{ route('item_pedido.store') }}",
+                data: {
+                    item_pedido_produto_id,
+                    item_pedido_pedido_id,
+                    item_pedido_quantidade,
+                    item_pedido_valor,
+                    '_token': '{{ csrf_token() }}'
+                },
+                dataType: "json",
+                success: function(response) {
+                    // Lidar com a resposta
+                    if (response) {
+                        console.log(response);
+                        ListarItenPedido();
+                        ValorTotalItensPedido();
+
+                    } else {
+                        alert(
+                            'Erro ao iniciar o pedido. Por favor, tente novamente 1.'
+                        );
+                    }
+
+                },
+                error: function() {
+                    alert(
+                        'Erro ao adicionar produto ao pedido. Por favor, tente novamente .'
+                    );
+                }
+            });
+        }
+
+
+        function IniciarPedido(elemento) {
             const form = document.getElementById('formPedido');
-            var route = '{{ route('pedido.salvar_pedido', 14) }}';
+            var route = '{{ route('pedido.salvar_pedido_mesa', 14) }}';
 
             // Fazer uma requisição AJAX para iniciar o pedido
             $.ajax({
@@ -390,8 +461,9 @@
                         $("#pedido_id").val(response.pedido_id);
                         $("#pedido_id_titulo").text("Nº: " + response.pedido_id);
                         form.action = route.replace('14', response
-                        .pedido_id); // altera a route do formulario com o numero do pedido para atualização no controller
-                        ListarItenPedido();
+                            .pedido_id
+                        );
+                        IniciarPedidoeAdicionarProduto(elemento, response.pedido_id)
                     } else {
                         alert('Erro ao iniciar o pedido. Por favor, tente novamente 1.');
                     }
@@ -404,6 +476,7 @@
 
         //Lista Itens do Pedido
         function ListarItenPedido() {
+            $("#carregando").removeClass('hidden');
             const item_pedido_pedido_id = $("#pedido_id").val();
             $.ajax({
                 type: "GET",
@@ -425,34 +498,34 @@
                         $.each(response, function(index, item) {
                             // Crie o HTML para o item de pedido e o produto associado
                             var itemHtml = `
-                                <div class="border-y px-2 py-1 cursor-pointer hover:bg-gray-200" data-item_produto_id="${item.produto.id}">
-                                    <div class="grid grid-cols-6 items-center">
-                                        <span class="remove_item col-span-6 cursor-pointer flex justify-end" data-item_id="${item.id}" data-produto_valor="${item.produto.produto_preco_venda}">
-                                            <i class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
-                                        </span>
-                                        <div class="col-span-6 flex flex-row items-start space-x-2">
-                                            <img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" src="/img/fotos_produtos/${item.produto.produto_foto}" alt="Imagem Padrão">
-                                            <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.produto_descricao}<p>R$ <span id="item_valor_view_${item.id}">${item.produto.produto_preco_venda}</span> Qtd. <span id="item_qtd_view_${item.id}">${item.item_pedido_quantidade}</span></p></span>
-                                        </div>
-                                        <span data-item_id="${item.id}" class="col-span-6 mx-auto toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
-                                            <i class="bx bx-chevron-up "></i>
-                                        </span>
+                            <div class="border-y px-2 py-1 cursor-pointer hover:bg-gray-200" data-item_produto_id="${item.produto.id}">
+                                <div class="grid grid-cols-6 items-center">
+                                    <span class="remove_item col-span-6 cursor-pointer flex justify-end" data-item_id="${item.id}" data-produto_valor="${item.produto.produto_preco_venda}">
+                                        <i class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
+                                    </span>
+                                    <div class="col-span-6 flex flex-row items-start space-x-2">
+                                        <img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" src="/img/fotos_produtos/${item.produto.produto_foto}" alt="Imagem Padrão">
+                                        <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.produto_descricao}<p>R$ <span id="item_valor_view_${item.id}">${item.produto.produto_preco_venda}</span> Qtd. <span id="item_qtd_view_${item.id}">${item.item_pedido_quantidade}</span></p></span>
                                     </div>
-                                    <div id="item_pedido_${item.id}" class="px-5 pb-2 hidden bg-white">
-                                        <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
-                                        <div class="flex items-stretch justify-evenly">
-                                            <button type="button" id="minus-btn"
-                                                class="minus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">-</button>
-                                            <input type="text" id="item_pedido_quantidade_${item.id}" name="item_pedido_quantidade"
-                                                value="1"
-                                                class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
-                                                readonly>
-                                            <button type="button" id="plus-btn"
-                                                class="plus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">+</button>
-                                        </div>
-                                        <x-input-label for="item_pedido_observacao" :value="__('Observação')" />`;
+                                    <span data-item_id="${item.id}" class="col-span-6 mx-auto toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
+                                        <i class="bx bx-chevron-up "></i>
+                                    </span>
+                                </div>
+                                <div id="item_pedido_${item.id}" class="px-5 pb-2 hidden bg-white">
+                                    <x-input-label for="item_pedido_quantidade" :value="__('Quantidade')" />
+                                    <div class="flex items-stretch justify-evenly">
+                                        <button type="button" id="minus-btn"
+                                            class="minus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                            data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">-</button>
+                                        <input type="text" id="item_pedido_quantidade_${item.id}" name="item_pedido_quantidade"
+                                            value="1"
+                                            class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
+                                            readonly>
+                                        <button type="button" id="plus-btn"
+                                            class="plus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                            data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">+</button>
+                                    </div>
+                                    <x-input-label for="item_pedido_observacao" :value="__('Observação')" />`;
                             if (item.item_pedido_observacao === null) {
                                 itemHtml +=
                                     `<textarea class="item_pedido_observacao border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm mt-1 w-full" rows="5" id="item_pedido_observacao" name="item_pedido_observacao" autocomplete="off" data-item_id="${item.id}"></textarea>`;
@@ -461,20 +534,22 @@
                                     `<textarea class="item_pedido_observacao border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm mt-1 w-full" rows="5" id="item_pedido_observacao" name="item_pedido_observacao" autocomplete="off" data-item_id="${item.id}">${item.item_pedido_observacao}</textarea>`;
                             }
                             itemHtml += `
-                                        <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
-                                        <x-text-input id="item_pedido_valor_${item.id}" name="item_pedido_valor" type="text"
-                                            class="mt-1 w-full" value="${item.produto.produto_preco_venda}" autocomplete="off" readonly />
-                                    </div>
+                                    <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
+                                    <x-text-input id="item_pedido_valor_${item.id}" name="item_pedido_valor" type="text"
+                                        class="mt-1 w-full" value="${item.produto.produto_preco_venda}" autocomplete="off" readonly />
                                 </div>
-                            `;
+                            </div>
+                        `;
 
                             // Adicione o HTML do item de pedido ao container
                             $('#itens_pedido_container').append(itemHtml);
+                            $("#carregando").addClass('hidden');
                         });
                     } else {
                         // Se não houver itens de pedido inseridos, exiba uma mensagem indicando isso
                         $('#itens_pedido_container').html(
-                            '<p>Nenhum produto inserido encontrado para este pedido</p>');
+                            '<p class="p-2">Nenhum produto encontrado para este pedido</p>');
+                        $("#carregando").addClass('hidden');
                     }
 
                     //Abre o form do item do pedido
@@ -657,8 +732,6 @@
                         });
 
                     });
-
-
 
                 },
                 error: function() {

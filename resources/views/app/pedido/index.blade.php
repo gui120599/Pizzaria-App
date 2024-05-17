@@ -2,7 +2,7 @@
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight flex items-center space-x-2">
             <i class="bx bx-basket"></i>
-            <a href="{{ route('pedido') }}">{{ __('Pedidos') }}</a>
+            <a href="{{ route('pedido') }}">{{ __('Novo Pedido') }} - <span id="pedido_id_titulo"></span></a>
         </h2>
         <nav class="bg-transparent border-b border-gray-100">
             <!-- Primary Navigation Menu -->
@@ -11,18 +11,17 @@
                     <!-- Navigation Links -->
                     <div class="space-x-8 sm:ms-10 flex ">
                         <div class="nav-link active cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
-                            data-section="cadastrar-pedido-section">
-                            <div class="flex items-center">
-                                <i class='bx bx-plus me-2'></i>
-                                {{ __('Novo Pedido') }}
-                            </div>
-                        </div>
-
-                        <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
                             data-section="pedidos-section">
                             <div class="flex items-center">
                                 <i class="bx bx-basket"></i>
                                 {{ __('Pedidos') }}
+                            </div>
+                        </div>
+                        <div class="nav-link  cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                            data-section="cadastrar-pedido-section">
+                            <div class="flex items-center">
+                                <i class='bx bx-plus me-2'></i>
+                                {{ __('Novo Pedido') }}
                             </div>
                         </div>
                     </div>
@@ -32,7 +31,7 @@
     </x-slot>
 
     <div class="py-2">
-        <div class=" mx-auto sm:px-6 lg:px-8 ">
+        <div class="sections mx-auto px-2 ">
             <div class="p-2 bg-white shadow sm:rounded-lg cadastrar-pedido-section">
                 <div class="w-full">
                     @include('app.pedido.partials.create')
@@ -59,14 +58,14 @@
     <script type="module">
         $(document).ready(function() {
             // Oculta todas as seções ao carregar a página
-            $('.pedidos-section').hide();
+            $('.cadastrar-pedido-section').hide();
 
             // Mostra a seção correspondente quando um link da navegação é clicado
             $('.nav-link').click(function() {
                 var targetSection = $(this).data('section');
 
                 // Oculta todas as seções e mostra apenas a correspondente
-                $('.max-w-7xl .bg-white').hide();
+                $('.sections .shadow').hide();
                 $('.' + targetSection).show();
 
                 // Destaca visualmente o link ativo
