@@ -11,7 +11,7 @@
         <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
             <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
             {{-- PRODUTOS --}}
-            <div class="sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
+            <div class="sm:col-span-4 lg:col-span-5 col-span-6 md:space-y-2 ">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
                     <i class='bx bxs-map-pin'></i>
                     <span>{{ __('Produtos') }}</span>
@@ -35,7 +35,7 @@
                             @if ($categoria->produtos->isEmpty())
                                 <p class="text-gray-400">Não há produtos disponíveis nesta categoria.</p>
                             @else
-                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 ">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-4 ">
                                     @foreach ($categoria->produtos as $produto)
                                         <div class="relative snap-end ">
                                             <div class="produto cursor-pointer hover:shadow-lg"
@@ -90,98 +90,40 @@
 
             <div
                 class="sm:col-span-4 lg:col-span-3 col-span-6 relative md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
-                {{-- GARÇOM ID --}}
-                <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" type="text"
-                    class="mt-1 w-full" value="{{ Auth::user()->id }}" autocomplete="off" hidden />
-                {{-- CLIENTE ID --}}
-                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class='bx bx-user'></i>
-                    <span>{{ __('Cliente') }}</span>
-                </p>
-                <x-text-input id="pedido_cliente_id" name="pedido_cliente_id" type="text" class="mt-1 w-full"
-                    autocomplete="off" hidden />
-                <x-text-input id="pedido_cliente_nome" name="pedido_cliente_nome" type="text" class="mt-1 w-full"
-                    autocomplete="off" placeholder="Nome do Cliente" />
-                <x-input-error :messages="$errors->updatePassword->get('pedido_cliente_id')" class="mt-2" />
-                {{-- TIPO DE ENTREGA --}}
-                <hr class="h-px my-1 border-0 bg-gray-200">
-                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class='bx bxs-map-pin'></i>
-                    <span>{{ __('Entrega') }}</span>
-                </p>
-                <div class="flex flex-nowrap flex-col xl:flex-row items-start justify-between space-y-2 md:space-y-0">
+                <div class="bg-slate-100 border ">
+                    <div class="bg-white p-1">
+                        <p>Itens do Pedido</p>
+                    </div>
+                    <div id="itens_pedido_container" class="h-[35rem] overflow-auto">
+                    </div>
+                    {{-- Valores --}}
+                    <hr class="h-px my-1 border-0 bg-gray-200">
+                    <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
+                        <i class='bx bx-dollar-circle'></i>
+                        <span>{{ __('Valores') }}</span>
+                    </p>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 lg:space-x-2">
+                        <div class="col-span-1">
+                            <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
+                            <x-text-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
+                                class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                        </div>
+                        <div class="col-span-1">
+                            <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
+                            <x-text-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
+                                class="money mt-1 w-full" autocomplete="off" value="0.00" />
+                        </div>
+                        <div class="col-span-1">
+                            <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
+                            <x-text-input id="pedido_valor_total" name="pedido_valor_total" type="text"
+                                class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                        </div>
+                    </div>
+                </div>
 
-                    @foreach ($opcoes_entregas as $opcao_entrega)
-                        <label for="opcao_entrega_{{ $opcao_entrega->id }}" class="flex items-center cursor-pointer">
-                            <input type="radio" id="opcao_entrega_{{ $opcao_entrega->id }}"
-                                name="pedido_opcaoentrega_id" value="{{ $opcao_entrega->id }}"
-                                class="form-radio text-green-500 h-5 w-5 cursor-pointer">
-                            <span class="ml-2 text-gray-700">{{ $opcao_entrega->opcaoentrega_nome }}</span>
-                        </label>
-                    @endforeach
-                </div>
-                {{-- ENDERECO ENTREGA --}}
-                <div class="md:col-span-3 col-span-1" id="endereco_entrega">
-                    <x-input-label for="pedido_endereco_entrega" :value="__('Endereço para Entrega')" />
-                    <x-text-input id="pedido_endereco_entrega" name="pedido_endereco_entrega" type="text"
-                        class="mt-1 w-full" autocomplete="off" />
-                </div>
-                {{-- TIPO DE pagamento --}}
-                <hr class="h-px my-1 border-0 bg-gray-200">
-                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class="bx bxs-credit-card"></i>
-                    <span>{{ __('Pagamento') }}</span>
-                </p>
-                <div class="grid grid-cols-1 xl:grid-cols-3 space-y-1" id="tipo_pagamento">
-                    @foreach ($opcoes_pagamento as $opcao_pagamento)
-                        <label for="opcao_pag_{{ $opcao_pagamento->id }}"
-                            class="col-span-1 flex items-center cursor-pointer">
-                            <input type="checkbox" id="opcao_pag_{{ $opcao_pagamento->id }}" name="tipo_pagamento"
-                                value="{{ $opcao_pagamento->id }}"
-                                class="form-checkbox text-green-500 h-5 w-5 cursor-pointer">
-                            <span class="ml-2 text-gray-700">{{ $opcao_pagamento->opcaopag_nome }}</span>
-                        </label>
-                    @endforeach
-                </div>
-                {{-- Observações do pagamento --}}
-                <x-input-label for="pedido_observacao_pagamento" :value="__('Observações no Pagamento')" />
-                <x-text-input id="pedido_observacao_pagamento" name="pedido_observacao_pagamento" type="text"
-                    class="mt-1 w-full" autocomplete="off" />
-                <x-text-input id="pedido_descricao_pagamento" name="pedido_descricao_pagamento" type="text"
-                    class="mt-1 w-full" autocomplete="off" hidden />
-
-                {{-- Valores --}}
-                <hr class="h-px my-1 border-0 bg-gray-200">
-                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class='bx bx-dollar-circle'></i>
-                    <span>{{ __('Valores') }}</span>
-                </p>
-                <div class="grid grid-cols-1 lg:grid-cols-3 space-x-2">
-                    <div class="col-span-1">
-                        <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
-                        <x-text-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
-                            class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
-                    </div>
-                    <div class="col-span-1">
-                        <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
-                        <x-text-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
-                            class="money mt-1 w-full" autocomplete="off" value="0.00" />
-                    </div>
-                    <div class="col-span-1">
-                        <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
-                        <x-text-input id="pedido_valor_total" name="pedido_valor_total" type="text"
-                            class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
-                    </div>
-                </div>
             </div>
 
-            <div class="sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border">
-                <div class="bg-white p-1">
-                    <p>Itens do Pedido</p>
-                </div>
-                <div id="itens_pedido_container" class="h-[35rem] overflow-auto">
-                </div>
-            </div>
+
         </div>
         @csrf
         <x-primary-button>
@@ -432,7 +374,7 @@
 
         function IniciarPedido() {
             const form = document.getElementById('formPedido');
-            var route ='{{ route('pedido.salvar_pedido', 14) }}';
+            var route = '{{ route('pedido.salvar_pedido', 14) }}';
 
             // Fazer uma requisição AJAX para iniciar o pedido
             $.ajax({
@@ -447,7 +389,8 @@
                     if (response && response.pedido_id) {
                         $("#pedido_id").val(response.pedido_id);
                         $("#pedido_id_titulo").text("Nº: " + response.pedido_id);
-                        form.action = route.replace('14', response.pedido_id);// altera a route do formulario com o numero do pedido para atualização no controller
+                        form.action = route.replace('14', response
+                        .pedido_id); // altera a route do formulario com o numero do pedido para atualização no controller
                         ListarItenPedido();
                     } else {
                         alert('Erro ao iniciar o pedido. Por favor, tente novamente 1.');

@@ -9,7 +9,7 @@
         enctype="multipart/form-data">
 
         <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
-            <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
+            <x-text-input name="pedido_id" id="pedido_id"></x-text-input>
             {{-- PRODUTOS --}}
             <div class="sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
@@ -159,14 +159,21 @@
                     class="mt-1 w-full" autocomplete="off" />
                 <x-text-input id="pedido_descricao_pagamento" name="pedido_descricao_pagamento" type="text"
                     class="mt-1 w-full" autocomplete="off" hidden />
+            </div>
 
+            <div class="sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border">
+                <div class="bg-white p-1">
+                    <p>Itens do Pedido</p>
+                </div>
+                <div id="itens_pedido_container" class="h-[35rem] overflow-auto">
+                </div>
                 {{-- Valores --}}
                 <hr class="h-px my-1 border-0 bg-gray-200">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
                     <i class='bx bx-dollar-circle'></i>
                     <span>{{ __('Valores') }}</span>
                 </p>
-                <div class="grid grid-cols-1 lg:grid-cols-3 space-x-2">
+                <div class="grid grid-cols-1 lg:grid-cols-3 lg:space-x-2">
                     <div class="col-span-1">
                         <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
                         <x-text-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
@@ -182,14 +189,6 @@
                         <x-text-input id="pedido_valor_total" name="pedido_valor_total" type="text"
                             class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
                     </div>
-                </div>
-            </div>
-
-            <div class="sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border">
-                <div class="bg-white p-1">
-                    <p>Itens do Pedido</p>
-                </div>
-                <div id="itens_pedido_container" class="h-[35rem] overflow-auto">
                 </div>
             </div>
         </div>
@@ -244,7 +243,6 @@
     <script type="module">
         $(document).ready(function() {
             $(".toggleSideBar").trigger("click");
-            IniciarPedido();
 
             $('#opcao_entrega_1').attr('checked', true);
             $('#endereco_entrega').hide();
@@ -303,10 +301,6 @@
             $(".produto").click(function(e) {
                 e.preventDefault();
                 const item_pedido_produto_id = $(this).data('produto_id');
-                const item_pedido_pedido_id = $("#pedido_id").val();
-                const item_pedido_quantidade = 1;
-                const item_pedido_valor = $(this).data('produto_valor');
-                const item_pedido_status = 'INSERIDO';
 
                 // Verifica se o produto já está na lista de itens do pedido no HTML
                 const itemPedidoExistente = $(
@@ -332,37 +326,21 @@
 
                 } else {
                     // Se o produto não estiver na lista de itens, adicione um novo item ao pedido
-                    $.ajax({
-                        type: "POST",
-                        url: "{{ route('item_pedido.store') }}",
-                        data: {
-                            item_pedido_produto_id,
-                            item_pedido_pedido_id,
-                            item_pedido_quantidade,
-                            item_pedido_valor,
-                            '_token': '{{ csrf_token() }}'
-                        },
-                        dataType: "json",
-                        success: function(response) {
-                            // Lidar com a resposta
-                            if (response) {
-                                console.log(response);
-                                ListarItenPedido();
-                                ValorTotalItensPedido();
-
-                            } else {
-                                alert(
-                                    'Erro ao iniciar o pedido. Por favor, tente novamente 1.'
-                                );
-                            }
-
-                        },
-                        error: function() {
-                            alert(
-                                'Erro ao adicionar produto ao pedido. Por favor, tente novamente .'
-                            );
+                    const pedido_id = $("#pedido_id").val();
+                    console.log(pedido_id);
+                    if (pedido_id === "") {
+                        if (IniciarPedido()) {
+                            setTimeout(() => {
+                                AdicionarProduto($(this));
+                            }, 200);
+                            
                         }
-                    });
+
+                    } else {
+                        AdicionarProduto($(this));
+
+                    }
+
                 }
             });
 
@@ -439,10 +417,49 @@
 
         });
 
+        function AdicionarProduto(elemento) {
+            const item_pedido_produto_id = elemento.data('produto_id');
+            const item_pedido_pedido_id = $("#pedido_id").val();
+            const item_pedido_quantidade = 1;
+            const item_pedido_valor = elemento.data('produto_valor');
+            const item_pedido_status = 'INSERIDO';
+            $.ajax({
+                type: "POST",
+                url: "{{ route('item_pedido.store') }}",
+                data: {
+                    item_pedido_produto_id,
+                    item_pedido_pedido_id,
+                    item_pedido_quantidade,
+                    item_pedido_valor,
+                    '_token': '{{ csrf_token() }}'
+                },
+                dataType: "json",
+                success: function(response) {
+                    // Lidar com a resposta
+                    if (response) {
+                        console.log(response);
+                        ListarItenPedido();
+                        ValorTotalItensPedido();
+
+                    } else {
+                        alert(
+                            'Erro ao iniciar o pedido. Por favor, tente novamente 1.'
+                        );
+                    }
+
+                },
+                error: function() {
+                    alert(
+                        'Erro ao adicionar produto ao pedido. Por favor, tente novamente .'
+                    );
+                }
+            });
+        }
+
 
         function IniciarPedido() {
             const form = document.getElementById('formPedido');
-            var route ='{{ route('pedido.salvar_pedido', 14) }}';
+            var route = '{{ route('pedido.salvar_pedido', 14) }}';
 
             // Fazer uma requisição AJAX para iniciar o pedido
             $.ajax({
@@ -457,7 +474,9 @@
                     if (response && response.pedido_id) {
                         $("#pedido_id").val(response.pedido_id);
                         $("#pedido_id_titulo").text("Nº: " + response.pedido_id);
-                        form.action = route.replace('14', response.pedido_id);// altera a route do formulario com o numero do pedido para atualização no controller
+                        form.action = route.replace('14', response
+                            .pedido_id
+                        ); // altera a route do formulario com o numero do pedido para atualização no controller
                         ListarItenPedido();
                     } else {
                         alert('Erro ao iniciar o pedido. Por favor, tente novamente 1.');

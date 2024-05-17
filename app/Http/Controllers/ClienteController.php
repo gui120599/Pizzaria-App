@@ -31,16 +31,16 @@ class ClienteController extends Controller
      */
     public function store(StoreClienteRequest $request)
     {
-        //dd($request);
+
 
         // Criar um novo cliente com base nos dados recebidos
         // Formatar a data para o formato correto
         $clienteData = $request->all();
         // Formatar a data de nascimento se estiver presente e não for Pessoa Jurídica
-        if ($request->input('cliente_tipo') !== 'Pessoa Jurídica' && isset($clienteData['cliente_data_nascimento'])) {
+        if ($request->input('cliente_tipo') !== 'Jurídica' && isset($clienteData['cliente_data_nascimento'])) {
             $clienteData['cliente_data_nascimento'] = Carbon::createFromFormat('d/m/Y', $clienteData['cliente_data_nascimento']);
         }
-
+        //dd($clienteData);
         // Criar um novo cliente
         $cliente = new Cliente($clienteData);
 
