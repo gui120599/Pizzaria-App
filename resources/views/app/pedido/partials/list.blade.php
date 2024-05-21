@@ -1,28 +1,31 @@
 <section>
-    <header>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {{ __('Todos pedidos abertos!') }}
-        </p>
-    </header>
-    <div class="w-[18rem] sm:w-[99%] overflow-auto mx-auto h-2/4">
-        <table class="w-full text-center text-[7px] md:text-base">
+    <div class="w-[18rem] sm:w-[99%] overflow-auto h-2/4">
+        <table class="w-full text-[7px] md:text-base">
             <thead class="">
                 <tr class="border-b-4">
-                    <th class="w-1/6">#</th>
-                    <th class="w-2/3 px-1 md:px-4">Cliente</th>
-                    <th class="w-1/6 px-1 md:px-4">Mesa</th>
-                    <th class="w-1/6 px-1 md:px-4">Valor total</th>
+                    <th class="min-w-full ">STATUS</th>
+                    <th class="min-w-full">#</th>
+                    <th class="min-w-full text-start">Cliente</th>
+                    <th class="min-w-full text-start">Mesa</th>
+                    <th class="min-w-full text-start">Garçom</th>
+                    <th class="min-w-full text-start">ENTREGA</th>
+                    <th class="min-w-full text-start">Valor total</th>
                 </tr>
             </thead>
             <tbody>
                 @if (count($pedidos) > 0)
                     @foreach ($pedidos as $pedido)
                         <tr class="border-b-2 border-gray-100">
-                            <td>{{ $pedido->id }}</td>
-                            <td>{{ $pedido->cliente->cliente_nome  }}</td>
-                            <td>{{ $pedido->sessaoMesa->mesa->mesa_nome }}</td>
-                            <td>{{ $pedido->pedido_status }}</td>
-                            <td>R$ {{ $pedido->pedido_valor_total }}</td>
+                            <td class="text-center">{{ $pedido->pedido_status }}</td>
+                            <td class="text-center">{{ $pedido->id }}</td>
+                            <td class="">{{ $pedido->cliente->cliente_nome }}</td>
+                            <td class="">{{ $pedido->sessaoMesa->mesa->mesa_nome }}</td>
+                            <td class="text-start">{{ $pedido->garcom->name }}</td>
+                            <td class="text-start">
+                                <i class='bx bx-chair bx-tada mx-1'></i>
+                                <span>{{ $pedido->opcaoEntrega->opcaoentrega_nome }}</span>
+                            </td>
+                            <td class="text-start">R$ {{ $pedido->pedido_valor_total }}</td>
                         </tr>
                     @endforeach
                 @else
@@ -32,6 +35,5 @@
                 @endif
             </tbody>
         </table>
-
     </div>
 </section>

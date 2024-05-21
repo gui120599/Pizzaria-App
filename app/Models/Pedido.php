@@ -44,34 +44,36 @@ class Pedido extends Model
     public function cliente()
     {
         return $this->belongsTo(Cliente::class, 'pedido_cliente_id')->withDefault([
-            'cliente_nome' => 'Sem cliente'
+            'cliente_nome' => 'S/C'
         ]);
     }
 
     public function sessaoMesa()
     {
         return $this->belongsTo(SessaoMesa::class, 'pedido_sessao_mesa_id')->withDefault([
-            'mesa_nome' => 'Sem mesa'
+            'mesa_nome' => 'S/M'
         ]);
     }
 
     public function garcom()
     {
         return $this->belongsTo(User::class, 'pedido_usuario_garcom_id')->withDefault([
-            'name' => 'Sem Garçom'
-        ]);;
+            'name' => 'S/G'
+        ]);
     }
 
     public function entregador()
     {
         return $this->belongsTo(User::class, 'pedido_usuario_entrega_id')->withDefault([
-            'name' => 'Sem Garçom'
-        ]);;
+            'name' => 'S/E'
+        ]);
     }
 
     public function opcaoEntrega()
     {
-        return $this->belongsTo(OpcoesEntregas::class, 'pedido_opcaoentrega_id');
+        return $this->belongsTo(OpcoesEntregas::class, 'pedido_opcaoentrega_id')->withDefault([
+            'opcaoentrega_nome' => 'S/OPE'
+        ]);
     }
 
     public function produtos()
@@ -79,4 +81,5 @@ class Pedido extends Model
         return $this->belongsToMany(Produto::class, 'itens_pedidos', 'item_pedido_pedido_id', 'item_pedido_produto_id')
             ->withPivot('quantidade', 'valor', 'observacao', 'status', 'usuario_removeu');
     }
+
 }

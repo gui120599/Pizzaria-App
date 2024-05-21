@@ -11,6 +11,7 @@ use App\Http\Controllers\OpcoesEntregasController;
 use App\Http\Controllers\OpcoesPagamentoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MesaController;
+use App\Http\Controllers\PDFController;
 use App\Http\Controllers\PedidoController;
 use App\Http\Controllers\SessaoMesaController;
 use App\Models\SessaoMesa;
@@ -29,6 +30,12 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
+});
+
+Route::get('/generate-pdf', [PDFController::class, 'generatePDF']);
+Route::get('/sessaoMesaPDF/{id}/Imprimir', [PDFController::class, 'sessaoMesaPDF']);
+Route::get('/pdf', function(){
+    return view('myPDF');
 });
 
 Route::get('/dashboard', [Dashboard::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
