@@ -30,10 +30,12 @@ class SessaoMesa extends Model
 
     public function cliente()
     {
-        return $this->belongsTo(Cliente::class, 'sessao_mesa_cliente_id');
+        return $this->belongsTo(Cliente::class, 'sessao_mesa_cliente_id')->withDefault([
+            'cliente_nome' => 'Não Informado'
+        ]);
     }
 
-    public function usuario()
+    public function garcom()
     {
         return $this->belongsTo(User::class, 'sessao_mesa_usuario_id');
     }

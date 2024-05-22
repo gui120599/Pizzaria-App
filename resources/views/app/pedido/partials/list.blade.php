@@ -26,6 +26,7 @@
                                 <span>{{ $pedido->opcaoEntrega->opcaoentrega_nome }}</span>
                             </td>
                             <td class="text-start">R$ {{ $pedido->pedido_valor_total }}</td>
+                            <td><x-secondary-button onclick="window.open('{{ route('pedido.imprimir', ['id' => $pedido->id])}}', 'Teste', 'width=600,height=400' );">IMPRIMIR</x-secondary-button></td>
                         </tr>
                     @endforeach
                 @else

@@ -1,8 +1,9 @@
 <x-app-layout>
-    <x-slot name="header" class="h-[20dvh]">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight flex items-center space-x-2">
+    <x-slot name="header" class="h-[20dvh] ">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight flex items-center justify-between space-x-2">
             <i class='bx bx-chair'></i>
             <a href="{{ route('mesa') }}">{{ __('Realizar Pedido para') }} {{$mesa->mesa_nome}} - ID Sessão: {{$sessao_mesa->id}} - {{ __('Novo Pedido') }} - <span id="pedido_id_titulo"></span></a>
+            <x-secondary-button id="btn-imprimir">IMPRIMIR</x-secondary-button>
         </h2>
     </x-slot>
 
@@ -23,4 +24,10 @@
             </div>--}}
         </div>
     </div>
+    <script type="module">
+        $("#btn-imprimir").click(function (e) { 
+            e.preventDefault();
+            window.open('{{ route('sessaoMesa.imprimir', ['id' => $sessao_mesa->id])}}', 'Teste', 'width=600,height=400' );
+        });
+    </script>
 </x-app-layout>

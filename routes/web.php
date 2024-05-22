@@ -32,11 +32,9 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/generate-pdf', [PDFController::class, 'generatePDF']);
-Route::get('/sessaoMesaPDF/{id}/Imprimir', [PDFController::class, 'sessaoMesaPDF']);
-Route::get('/pdf', function(){
-    return view('myPDF');
-});
+Route::get('/Pedido/{id}/Imprimir', [PDFController::class, 'pedidoPDF'])->name('pedido.imprimir');
+Route::get('/sessaoMesaPDF/{id}/Imprimir', [PDFController::class, 'sessaoMesaPDF'])->name('sessaoMesa.imprimir');
+
 
 Route::get('/dashboard', [Dashboard::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 

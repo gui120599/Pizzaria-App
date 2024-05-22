@@ -44,7 +44,7 @@ class Pedido extends Model
     public function cliente()
     {
         return $this->belongsTo(Cliente::class, 'pedido_cliente_id')->withDefault([
-            'cliente_nome' => 'S/C'
+            'cliente_nome' => 'Não informado'
         ]);
     }
 
@@ -80,6 +80,9 @@ class Pedido extends Model
     {
         return $this->belongsToMany(Produto::class, 'itens_pedidos', 'item_pedido_pedido_id', 'item_pedido_produto_id')
             ->withPivot('quantidade', 'valor', 'observacao', 'status', 'usuario_removeu');
+    }
+    public function item_pedido_pedido_id(){
+        return $this->hasMany(ItensPedido::class,'item_pedido_pedido_id');
     }
 
 }
