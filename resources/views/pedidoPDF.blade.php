@@ -90,7 +90,7 @@
                                 @else
                                     <td class="text-xs font-bold text-center">{{ $item->item_pedido_quantidade }}</td>
                                 @endif
-                                <td class="text-xs text-center uppercase">{{ $item->produto->produto_descricao }}
+                                <td class="text-xs text-center uppercase">{{ $item->produto->categoria->categoria_nome }}{{ $item->produto->produto_descricao }}
                                     @if ($item->item_pedido_observacao)
                                         <p class="text-xs font-bold">{{ $item->item_pedido_observacao }}</p>
                                     @endif
@@ -157,7 +157,7 @@
                             @else
                                 <td class="text-xs font-bold text-center">{{ $item->item_pedido_quantidade }}</td>
                             @endif
-                            <td class="text-xs text-center uppercase">{{ $item->produto->produto_descricao }}
+                            <td class="text-xs text-center uppercase">{{ $item->produto->categoria->categoria_nome }} {{ $item->produto->produto_descricao }}
                                 @if ($item->item_pedido_observacao)
                                     <p class="text-xs font-bold">{{ $item->item_pedido_observacao }}</p>
                                 @endif

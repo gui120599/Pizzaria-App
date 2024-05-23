@@ -5,7 +5,7 @@
         <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
             <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
             {{-- PRODUTOS --}}
-            <div class="h-[30dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
+            <div class="h-[50dvh] sm:h-[50dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
                     <i class='bx bxs-map-pin'></i>
                     <span>{{ __('Produtos') }}</span>
@@ -22,26 +22,26 @@
                         @endforeach
                     </div>
                 </div>
-                <div class="h-[110%] lg:h-[76%] xl:h-[83%] 2xl:h-[87%] overflow-auto snap-y">
+                <div class="h-[70%] md:h-[72%] lg:h-[76%] xl:h-[83%] 2xl:h-[87%] overflow-auto snap-y">
                     @foreach ($categorias as $categoria)
                         <div class="mb-4" id="categoria_{{ $categoria->id }}">
                             <h2 class="text-gray-700 text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
                             @if ($categoria->produtos->isEmpty())
                                 <p class="text-gray-400">Não há produtos disponíveis nesta categoria.</p>
                             @else
-                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 ">
+                                <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 ">
                                     @foreach ($categoria->produtos as $produto)
                                         <div class="relative snap-end ">
                                             <div class="produto cursor-pointer hover:shadow-lg"
                                                 data-produto_id="{{ $produto->id }}"
                                                 data-produto_valor="{{ $produto->produto_preco_venda }}">
                                                 <div
-                                                    class="w-full flex flex-row bg-gray-100 p-2 rounded-lg md:flex-col opacity-95 hover:opacity-100 gap-1">
-                                                    <div class="w-1/2 md:w-full">
+                                                    class="w-full flex flex-col sm:flex-row bg-gray-100 p-2 rounded-lg md:flex-col opacity-95 hover:opacity-100 gap-1">
+                                                    <div class="w-full ">
                                                         @if ($produto->produto_foto)
                                                             <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
                                                                 alt="{{ $produto->produtso_descricao }}"
-                                                                class="md:w-full md:h-12 object-cover rounded-lg ">
+                                                                class="w-full max-h-12 object-cover rounded-lg ">
                                                         @else
                                                             <img id="imagem-preview"
                                                                 class="w-40 h-28 object-cover rounded-lg "
@@ -85,8 +85,7 @@
                 </x-primary-button>
             </div>
 
-            <div
-                class="sm:col-span-4 lg:col-span-3 col-span-6 relative md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
+            <div class="relative sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
                 {{-- GARÇOM ID --}}
                 <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" type="text"
                     class="mt-1 w-full" value="{{ Auth::user()->id }}" autocomplete="off" hidden />

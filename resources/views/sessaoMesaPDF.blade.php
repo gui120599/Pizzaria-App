@@ -33,7 +33,7 @@
             </div>
             <div class="col-span-1 flex flex-col text-right font-bold">
                 <label class="text-lg">{{ $sessao_mesa->mesa->mesa_nome }}</label>
-                <label>{{ $sessao_mesa->cliente->cliente_nome }}</label>
+                <label class="truncate ...">{{ $sessao_mesa->cliente->cliente_nome }}</label>
                 <label>{{ $sessao_mesa->garcom->name_first }}</label>
                 <label>{{ $sessao_mesa->created_at->format('d/m/Y H:i') }}</label>
                 <label>{{ $sessao_mesa->id }}</label>
@@ -64,13 +64,12 @@
                             @else
                                 <td class="text-xs font-bold text-center">{{ $item->item_pedido_quantidade }}</td>
                             @endif
-                            <td class="text-xs uppercase">{{ $item->produto->produto_descricao }}
+                            <td class="text-[10px] uppercase">{{ $item->produto->categoria->categoria_nome }} {{ $item->produto->produto_descricao }}
                                 @if ($item->item_pedido_observacao)
-                                    <p class="text-[10px]">{{ $item->item_pedido_observacao }}</p>
+                                    <p class="text-[8px]">{{ $item->item_pedido_observacao }}</p>
                                 @endif
                             </td>
-                            <td class="text-xs font-bold text-right">R$
-                                {{ number_format($item->item_pedido_valor, 2, ',', '.') }}</td>
+                            <td class="text-[9px] font-bold">R$ {{ number_format($item->item_pedido_valor, 2, ',', '.') }}</td>
                         </tr>
                         <tr>
                             <td class="text-center text-[8px]" colspan="3">

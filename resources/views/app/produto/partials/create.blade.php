@@ -23,8 +23,7 @@
                     <div class="md:col-span-4">
                         <x-input-label for="produto_codimentacao" :value="__('Codimentação do Produto')" />
                         <x-text-input id="produto_codimentacao" name="produto_codimentacao" type="text"
-                            class="mt-1 w-full" autocomplete="off" value="{{ old('produto_codimentacao') }}"
-                            autofocus />
+                            class="mt-1 w-full" autocomplete="off" value="{{ old('produto_codimentacao') }}" />
                         <x-input-error :messages="$errors->updatePassword->get('produto_codimentacao')" class="mt-2" />
                     </div>
                     <div class="md:col-span-2">
@@ -32,9 +31,6 @@
                         <x-select-input :options="$categorias" value-field="id" display-field="categoria_nome"
                             id="produto_categoria_id" name="produto_categoria_id" class="mt-1 w-full" />
                         <x-input-error :messages="$errors->updatePassword->get('produto_categoria_id')" class="mt-2" />
-                    </div>
-                    <div class="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
-
                     </div>
                 </div>
                 <div class="col-span-1 md:col-span-2">
@@ -71,12 +67,12 @@
                         <x-input-label for="produto_codigo_EAN" :value="__('Código de EAN')" />
                     </div>
                     <x-text-input id="produto_codigo_EAN" name="produto_codigo_EAN" type="text" class="mt-1 w-full"
-                        autocomplete="off" value="{{ old('produto_codigo_EAN') }}" />
+                         value="{{ old('produto_codigo_EAN') }}" autocomplete="off"/>
                     <x-input-error :messages="$errors->updatePassword->get('produto_codigo_EAN')" class="mt-2" />
                 </div>
 
                 <div class="lg:col-span-2 md:col-span-3">
-                    <x-input-label for="produtocodigo_NCM" :value="__('Código NCM do Produto')" />
+                    <x-input-label for="produto_codigo_NCM" :value="__('Código NCM do Produto')" />
                     <x-text-input id="produto_codigo_NCM" name="produto_codigo_NCM" type="text" class="mt-1 w-full"
                         autocomplete="off" value="{{ old('produto_codigo_NCM') }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_codigo_NCM')" class="mt-2" />
