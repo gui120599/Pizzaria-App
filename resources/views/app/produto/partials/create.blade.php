@@ -9,7 +9,7 @@
         </p>
     </header>
 
-    <form action="{{ route('produto.store') }}" method="post" class="space-y-6" enctype="multipart/form-data">
+    <form action="{{ route('produto.store') }}" method="post" class="space-y-6" enctype="multipart/form-data" autocomplete="off">
         @csrf
         <div class="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-6">
             <div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
@@ -99,7 +99,9 @@
                         autocomplete="off" value="{{ old('produto_CFOP') }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_CFOP')" class="mt-2" />
                 </div>
-
+                <script>
+                    document.getElementById('produto_codigo_EAN').setAttribute('autocomplete', 'off');
+                </script>
             </div>
 
             {{-- Preços --}}

@@ -114,6 +114,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/Pedido/Create', [PedidoController::class, 'create'])->name('pedido.create');
     Route::post('/Pedido', [PedidoController::class, 'store'])->name('pedido.store');
     Route::get('/Pedido/{pedido}', [PedidoController::class, 'show'])->name('pedido.show');
+    Route::get('/Pedidos-Abertos', [PedidoController::class, 'PedidosAbertos'])->name('pedidos.abertos');
     Route::post('/Pedido/{id}/Edit', [PedidoController::class, 'SalvarPedido'])->name('pedido.salvar_pedido');
     Route::post('/Pedido-Mesa/{id}/Edit', [PedidoController::class, 'SalvarPedidoMesa'])->name('pedido.salvar_pedido_mesa');
     Route::patch('/Pedido/{pedido}', [PedidoController::class, 'update'])->name('pedido.update');
@@ -129,6 +130,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/SessaoMesa/{mesa_id}/Abrir-Sessao', [SessaoMesaController::class, 'index'])->name('sessaoMesa');
     Route::get('/SessaoMesa/{mesa_id}/Pedido-Mesa', [SessaoMesaController::class, 'PedidoMesa'])->name('sessaoMesa.pedidoMesa');
+    Route::get('/SessaoMesa/{item_pedido_id}/{pedido_id}/Remover-Item-Pedido', [SessaoMesaController::class, 'RemoverItemPedidoMesa'])->name('removerItemPedidoMesa');
     Route::get('/SessaoMesa-Inativas', [SessaoMesaController::class, 'inactive'])->name('sessaoMesa.inactive');
     Route::get('/SessaoMesa/Create', [SessaoMesaController::class, 'create'])->name('sessaoMesa.create');
     Route::post('/Abrir-SessaoMesa', [SessaoMesaController::class, 'AbrirSessaoMesa'])->name('sessaoMesa.abrir');

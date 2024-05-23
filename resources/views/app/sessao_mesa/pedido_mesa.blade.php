@@ -16,12 +16,12 @@
                 </div>
             </div>
 
-            {{--<div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
+            <div class="p-1 sm:p-2 bg-white shadow sm:rounded-lg">
                 <div class="w-full">
                     <!-- Incluir lista de mesas -->
-                    
+                    @include('app.sessao_mesa.partials.list')
                 </div>
-            </div>--}}
+            </div>
         </div>
     </div>
     <script type="module">

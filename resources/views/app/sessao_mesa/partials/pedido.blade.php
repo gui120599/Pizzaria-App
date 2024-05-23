@@ -10,14 +10,14 @@
             <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" value="{{ Auth::user()->id }}"
                 hidden />
             {{-- PRODUTOS --}}
-            <div class="h-[30dvh] md:h-[67dvh] lg:h-[60dvh] xl:h-[68dvh] 2xl:h-[74dvh] sm:col-span-4 lg:col-span-5 col-span-6 md:space-y-2 ">
+            <div class="h-[80dvh] md:h-[93dvh] lg:h-[60dvh] xl:h-[68dvh] 2xl:h-[72dvh] sm:col-span-4 lg:col-span-5 col-span-6 md:space-y-2 ">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
                     <i class='bx bxs-map-pin'></i>
                     <span>{{ __('Produtos') }}</span>
                 </p>
-                <div class="flex flex-col mb-4">
+                <div class=" flex flex-col mb-4">
                     <x-text-input id="buscar" class="" placeholder="Buscar Produtos"></x-text-input>
-                    <div class="flex gap-2 overflow-auto p-1">
+                    <div class="hidden lg:flex gap-2 overflow-auto p-1">
                         @foreach ($categorias as $categoria)
                             <button type="button"
                                 class="inline-flex items-center bg-gray-200 border p-1 border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
@@ -27,29 +27,29 @@
                         @endforeach
                     </div>
                 </div>
-                <div class="h-[110%] lg:h-[76%] xl:h-[83%] 2xl:h-[87%] overflow-auto snap-y">
+                <div class="h-[86%] md:h-[86%] lg:h-[76%] xl:h-[83%] 2xl:h-[87%] overflow-auto snap-y">
                     @foreach ($categorias as $categoria)
                         <div class="mb-4" id="categoria_{{ $categoria->id }}">
                             <h2 class="text-gray-700 text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
                             @if ($categoria->produtos->isEmpty())
                                 <p class="text-gray-400">Não há produtos disponíveis nesta categoria.</p>
                             @else
-                                <div class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-4 ">
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-4 ">
                                     @foreach ($categoria->produtos as $produto)
                                         <div class="relative snap-end ">
                                             <div class="produto cursor-pointer hover:shadow-lg"
                                                 data-produto_id="{{ $produto->id }}"
                                                 data-produto_valor="{{ $produto->produto_preco_venda }}">
                                                 <div
-                                                    class="w-full flex flex-row bg-gray-100 p-2 rounded-lg md:flex-col opacity-95 hover:opacity-100 gap-1">
-                                                    <div class="w-1/2 md:w-full">
+                                                    class="w-full flex flex-col bg-gray-100 p-2 rounded-lg opacity-95 hover:opacity-100 gap-1">
+                                                    <div class="w-full ">
                                                         @if ($produto->produto_foto)
                                                             <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
                                                                 alt="{{ $produto->produtso_descricao }}"
-                                                                class="md:w-full md:h-12 object-cover rounded-lg ">
+                                                                class="w-full max-h-12 object-cover rounded-lg ">
                                                         @else
                                                             <img id="imagem-preview"
-                                                                class="w-40 h-28 object-cover rounded-lg "
+                                                                class="w-full max-h-12 object-cover rounded-lg "
                                                                 src="{{ asset('Sem Imagem.png') }}"
                                                                 alt="Imagem Padrão">
                                                         @endif
@@ -97,7 +97,7 @@
                     <div class="bg-white p-1">
                         <p>Itens do Pedido</p>
                     </div>
-                    <div class="relative h-[30dvh] md:h-[67dvh] lg:h-[60dvh] xl:h-[68dvh] 2xl:h-[74dvh] overflow-auto">
+                    <div class="relative h-[80dvh] md:h-[67dvh] lg:h-[60dvh] xl:h-[68dvh] 2xl:h-[72dvh] overflow-auto">
                         <!-- Ícone de carregamento e mensagem -->
                         <div id="carregando"
                             class="hidden absolute inset-0 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">

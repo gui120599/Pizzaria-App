@@ -5,14 +5,15 @@
         <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
             <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
             {{-- PRODUTOS --}}
-            <div class="h-[50dvh] sm:h-[50dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
+            <div
+                class="h-[80dvh] sm:h-[50dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
                     <i class='bx bxs-map-pin'></i>
                     <span>{{ __('Produtos') }}</span>
                 </p>
                 <div class="flex flex-col mb-4">
                     <x-text-input id="buscar" class="" placeholder="Buscar Produtos"></x-text-input>
-                    <div class="flex gap-2 overflow-auto p-1">
+                    <div class="hidden md:flex gap-2 overflow-auto p-1">
                         @foreach ($categorias as $categoria)
                             <button type="button"
                                 class="inline-flex items-center bg-gray-200 border p-1 border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
@@ -22,14 +23,15 @@
                         @endforeach
                     </div>
                 </div>
-                <div class="h-[70%] md:h-[72%] lg:h-[76%] xl:h-[83%] 2xl:h-[87%] overflow-auto snap-y">
+                <div class="h-[86%] md:h-[72%] lg:h-[76%] xl:h-[83%] 2xl:h-[87%] overflow-auto snap-y">
                     @foreach ($categorias as $categoria)
                         <div class="mb-4" id="categoria_{{ $categoria->id }}">
                             <h2 class="text-gray-700 text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
                             @if ($categoria->produtos->isEmpty())
-                                <p class="text-gray-400">Não há produtos disponíveis nesta categoria.</p>
+                                <p class=" text-xs md:text-lg text-gray-400">Não há produtos disponíveis nesta
+                                    categoria.</p>
                             @else
-                                <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 ">
+                                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ">
                                     @foreach ($categoria->produtos as $produto)
                                         <div class="relative snap-end ">
                                             <div class="produto cursor-pointer hover:shadow-lg"
@@ -44,20 +46,20 @@
                                                                 class="w-full max-h-12 object-cover rounded-lg ">
                                                         @else
                                                             <img id="imagem-preview"
-                                                                class="w-40 h-28 object-cover rounded-lg "
+                                                                class="w-full max-h-12 object-cover rounded-lg "
                                                                 src="{{ asset('Sem Imagem.png') }}"
                                                                 alt="Imagem Padrão">
                                                         @endif
                                                     </div>
-                                                    <div class="flex h-16 flex-col justify-between">
+                                                    <div class="flex max-h-16 flex-col justify-between">
                                                         <p
-                                                            class="text-gray-900 font-bold text-sm md:text-xs uppercase produto_descricao">
+                                                            class="text-gray-900 font-bold text-xs uppercase produto_descricao">
                                                             {{ $produto->produto_descricao }}
                                                         </p>
-                                                        <span class="text-green-500 text-xl">
-                                                            R${{ str_replace('.', ',', $produto->produto_preco_venda) }}
+                                                        <span class="text-green-500 text-xs">
+                                                            R$
+                                                            {{ str_replace('.', ',', $produto->produto_preco_venda) }}
                                                         </span>
-
                                                     </div>
                                                 </div>
                                             </div>
@@ -80,12 +82,13 @@
                         }
                     }
                 </script>
-                <x-primary-button class="hidden sm:block w-full">
+                <x-primary-button class="hidden lg:block w-full">
                     {{ __('Finalizar Pedido') }}
                 </x-primary-button>
             </div>
 
-            <div class="relative sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
+            <div
+                class="relative sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
                 {{-- GARÇOM ID --}}
                 <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" type="text"
                     class="mt-1 w-full" value="{{ Auth::user()->id }}" autocomplete="off" hidden />
@@ -161,7 +164,7 @@
                 <div class="bg-white p-1">
                     <p>Itens do Pedido</p>
                 </div>
-                <div class="relative h-[30dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] overflow-auto">
+                <div class="relative h-[80dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] overflow-auto">
                     <!-- Ícone de carregamento e mensagem -->
                     <div id="carregando"
                         class="hidden absolute inset-0 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
@@ -184,7 +187,7 @@
                         <i class='bx bx-dollar-circle'></i>
                         <span>{{ __('Valores') }}</span>
                     </p>
-                    <div class="grid grid-cols-1 lg:grid-cols-3 lg:space-x-2">
+                    <div class="grid grid-cols-1 md:grid-cols-3 lg:space-x-2">
                         <div class="col-span-1">
                             <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
                             <x-money-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
@@ -204,9 +207,12 @@
                 </div>
             </div>
             @csrf
-            <x-primary-button class="block sm:hidden w-full">
-                {{ __('Finalizar Pedido') }}
-            </x-primary-button>
+            <div class="block lg:hidden col-span-6 ">
+                <x-primary-button class="w-full text-center">
+                    {{ __('Finalizar Pedido') }}
+                </x-primary-button>
+            </div>
+
     </form>
 
     <script>

@@ -92,6 +92,14 @@ class PedidoController extends Controller
     }
 
     /**
+     * Update the specified resource in storage.
+     */
+    public function PedidosAbertos()
+    {
+        return view('app.pedido.abertos');
+    }
+
+    /**
      * Salvar um pedido após ele ser inciado
      */
     public function SalvarPedido(UpdatePedidoRequest $request, Pedido $pedido, string|int $id)
