@@ -7,6 +7,7 @@ use App\Http\Requests\StorePedidoRequest;
 use App\Http\Requests\UpdatePedidoRequest;
 use App\Models\Categoria;
 use App\Models\Cliente;
+use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\Produto;
@@ -99,6 +100,18 @@ class PedidoController extends Controller
         return view('app.pedido.abertos');
     }
 
+
+    public function PedidosAbertosLista()
+    {
+        // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
+        $pedidos = Pedido::with(['cliente', 'sessaoMesa', 'garcom', 'entregador', 'opcaoEntrega', 'produtosInseridosPedido'])
+            ->where('pedido_status', 'ABERTO')
+            ->get();
+
+        // Retorna os pedidos como JSON
+        return response()->json($pedidos);
+    }
+
     /**
      * Salvar um pedido após ele ser inciado
      */
@@ -122,6 +135,7 @@ class PedidoController extends Controller
 
         return redirect()->route('dashboard')->with('success', 'Pedido aberto com sucesso!');
     }
+    
     /**
      * Salvar um pedido de uma mesa após ele ser inciado
      */

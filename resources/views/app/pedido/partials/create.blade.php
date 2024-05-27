@@ -6,7 +6,7 @@
             <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
             {{-- PRODUTOS --}}
             <div
-                class="h-[80dvh] sm:h-[50dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
+                class="h-[80vh] sm:h-[50dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
                 <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
                     <i class='bx bxs-map-pin'></i>
                     <span>{{ __('Produtos') }}</span>
