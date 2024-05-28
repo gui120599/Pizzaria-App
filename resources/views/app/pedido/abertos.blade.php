@@ -16,7 +16,7 @@
                         <span class="font-bold">Preparando</span>
                         <span class="qtd-preparando font-semibold">0</span>
                     </div>
-                    <div class="pedidos-preparando p-2 mx-auto space-y-1 h-[90vh] overflow-auto">
+                    <div class="pedidos-preparando p-1 space-y-1 mx-auto h-[90vh] overflow-auto">
 
                     </div>
                 </div>
@@ -50,18 +50,23 @@
         </div>
     </div>
     <script type="module">
+            var qtd_aberto = null;
+            $(".toggleSideBar").trigger("click");
+            listarPreparando();
+            listarAbertos();
+
+            setInterval(() => {
+                listarAbertos();
+            }, 30000);
+
+
         function playAudio() {
             var audio = new Audio("{{ asset('level-up-191997.mp3') }}");
             audio.addEventListener('canplaythrough', function() {
                 audio.play();
             });
         }
-        $(".toggleSideBar").trigger("click");
-        var qtd_aberto = null;
-        listarAbertos();
-        setInterval(() => {
-            listarAbertos();
-        }, 30000);
+
 
         function listarAbertos() {
             $.ajax({
@@ -72,22 +77,16 @@
                 },
                 dataType: "JSON",
                 success: function(response) {
-                    console.log(response);
 
                     $('.qtd-abertos').text(response.length);
                     if (qtd_aberto !== null && qtd_aberto < response.length) {
-                        //alert('Qtd antiga: ' + qtd_aberto + '/n Qtd nova:' + response.length);
                         qtd_aberto = response.length;
                         playAudio();
                     } else if (qtd_aberto === null) {
                         qtd_aberto = response.length;
                     } else {
-                        
-                        //alert('Mesma qtd!');
-                        
+                        //Não faz nada pois a qtd é a mesma
                     }
-
-
 
                     // Limpe o conteúdo atual antes de adicionar os novos itens
                     $('.pedidos-abertos').empty();
@@ -105,20 +104,32 @@
 
                             // Crie o HTML para o pedido e os produtos inseridos associados
                             if (produtosInseridos.length > 0) {
+                                const pedidoDataHoraAbertura = new Date(pedido
+                                    .pedido_datahora_abertura);
+                                const hours = pedidoDataHoraAbertura.getHours().toString().padStart(2,
+                                    '0');
+                                const minutes = pedidoDataHoraAbertura.getMinutes().toString().padStart(
+                                    2, '0');
+
+                                const formattedTime = `${hours}:${minutes}`;
                                 var pedidoHtml = `
-                            <div class="border p-1 rounded-lg w-full bg-white mb-4">
-                                <div class="flex flex-row justify-between">
-                                    <div>
-                                        <span class="font-bold">Pedido:</span>
-                                        <span>${pedido.id}</span>
-                                    </div>
-                                    <div>
-                                        <i class='bx bx-chevron-down'></i>
-                                    </div>
-                                </div>
-                                <div class="itens-pedido">
+                                    <div class="border p-1 rounded-lg w-full bg-yellow-100">
+                                        <div class="flex flex-row items-center justify-between">
+                                            <div>
+                                                <span class="font-bold">Pedido:</span>
+                                                <span>${pedido.id}</span>
+                                            </div>
+                                            <div class="bg-gray-700 rounded-lg flex flex-row items-center p-1">
+                                                <i class='bx bx-time-five text-white'></i>
+                                                <span class="text-white">${formattedTime}</span>
+                                            </div>
+                                        </div>
+                                    <div class="itens-pedido">
                                     <hr class="h-px my-1 border-0 bg-gray-200">
-                                    <span class="">Itens</span>
+                                    <div class="flex flex-row items-center justify-between">
+                                        <span class="">Itens</span>
+                                        <span class="">${pedido.opcao_entrega.opcaoentrega_nome}</span>
+                                    </div>
                                     <div id="Tabela">
                                         <table class="w-full">
                                             <thead>
@@ -146,7 +157,7 @@
                                     </div>
                                 </div>
                                 <div class="w-full">
-                                    <button class="w-full text-center border rounded-lg">Aceitar Pedido <i class='bx bx-right-arrow-alt'></i></button>
+                                    <button class="btn-aceitar w-full text-center border rounded-lg hover:shadow bg-orange-300 text-white" data-pedido_id="${pedido.id}">Aceitar Pedido <i class='bx bx-right-arrow-alt'></i></button>
                                 </div>
                             </div>
                         `;
@@ -155,9 +166,137 @@
                                 $('.pedidos-abertos').append(pedidoHtml);
                             }
                         });
+
+                        //Aceita pedido selecionado
+                        $(".btn-aceitar").click(function(e) {
+                            e.preventDefault();
+                            const id = $(this).data('pedido_id');
+                            var url = "{{ route('pedido.imprimir', ['id' => 1])}}";
+                            url = url.replace(/\/1\/Imprimir/, `/${id}/Imprimir`);
+                            $.ajax({
+                                type: "POST",
+                                url: "{{ route('aceitar_pedido') }}",
+                                data: {
+                                    id,
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                dataType: "JSON",
+                                success: function(response) {
+                                    window.open(url, 'Teste', 'width=600,height=400' );
+                                    listarAbertos();
+                                    listarPreparando();
+                                },
+                                error: function() {
+                                    alert('Erro ao aceitar pedido');
+                                }
+                            });
+                        });
                     } else {
                         // Se não houver pedidos, exiba uma mensagem indicando isso
                         $('.pedidos-abertos').html('<p class="p-2">Nenhum pedido encontrado</p>');
+                    }
+                    
+                },
+                error: function() {
+                    alert('Erro ao listar itens');
+                }
+            });
+        }
+
+        function listarPreparando() {
+            $.ajax({
+                type: "GET",
+                url: "{{ route('pedidos_preparando.lista') }}",
+                data: {
+                    '_token': '{{ csrf_token() }}'
+                },
+                dataType: "JSON",
+                success: function(response) {
+
+                    $('.qtd-preparando').text(response.length);
+
+                    // Limpe o conteúdo atual antes de adicionar os novos itens
+                    //$('.pedidos-preparando').empty();
+
+                    // Verifique se há pedidos na resposta
+                    if (response.length > 0) {
+                        // Itere sobre cada pedido retornado na resposta
+
+                        $.each(response, function(index, pedido) {
+                            // Filtre os produtos inseridos no pedido com o status "INSERIDO"
+                            var produtosInseridos = pedido.produtos_inseridos_pedido.filter(function(
+                                produto) {
+                                return produto.pivot.item_pedido_status === 'INSERIDO';
+                            });
+
+                            // Crie o HTML para o pedido e os produtos inseridos associados
+                            if (produtosInseridos.length > 0) {
+                                const pedidoDataHoraAbertura = new Date(pedido
+                                    .pedido_datahora_abertura);
+                                const hours = pedidoDataHoraAbertura.getHours().toString().padStart(2,
+                                    '0');
+                                const minutes = pedidoDataHoraAbertura.getMinutes().toString().padStart(
+                                    2, '0');
+
+                                const formattedTime = `${hours}:${minutes}`;
+                                var pedidoHtml = `
+                                    <div class="border p-1 rounded-lg w-full bg-orange-100">
+                                        <div class="flex flex-row items-center justify-between">
+                                            <div>
+                                                <span class="font-bold">Pedido:</span>
+                                                <span>${pedido.id}</span>
+                                            </div>
+                                            <div class="bg-gray-700 rounded-lg flex flex-row items-center p-1">
+                                                <i class='bx bx-time-five text-white'></i>
+                                                <span class="text-white">${formattedTime}</span>
+                                            </div>
+                                        </div>
+                                    <div class="itens-pedido">
+                                    <hr class="h-px my-1 border-0 bg-gray-200">
+                                    <div class="flex flex-row items-center justify-between">
+                                        <span class="">Itens</span>
+                                        <span class="">${pedido.opcao_entrega.opcaoentrega_nome}</span>
+                                    </div>
+                                    <div id="Tabela">
+                                        <table class="w-full">
+                                            <thead>
+                                                <tr class="text-sm">
+                                                    <th>QTD</th>
+                                                    <th>PRODUTO</th>
+                                                    <th>VALOR</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>`;
+
+                                // Itere sobre os produtos inseridos e crie linhas da tabela
+                                $.each(produtosInseridos, function(prodIndex, produto) {
+                                    pedidoHtml += `
+                                <tr>
+                                    <td class="text-xs font-bold text-center">${produto.pivot.item_pedido_quantidade}</td>
+                                    <td class="text-xs text-center uppercase">${produto.produto_descricao}</td>
+                                    <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.pivot.item_pedido_valor).toFixed(2)}</td>
+                                </tr>`;
+                                });
+
+                                pedidoHtml += `
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="w-full">
+                                    <button class="btn w-full text-center border rounded-lg hover:shadow" data-pedido_id="${pedido.id}">Avançar Pedido <i class='bx bx-right-arrow-alt'></i></button>
+                                </div>
+                            </div>
+                        `;
+
+                                // Adicione o HTML do pedido ao container
+                                $('.pedidos-preparando').append(pedidoHtml);
+                            }
+
+                        });
+                    } else {
+                        // Se não houver pedidos, exiba uma mensagem indicando isso
+                        $('.pedidos-preparando').html('<p class="p-2">Nenhum pedido encontrado</p>');
                     }
                 },
                 error: function() {

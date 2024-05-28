@@ -13,6 +13,7 @@ use App\Models\OpcoesPagamento;
 use App\Models\Produto;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use PhpParser\Node\Expr\FuncCall;
 
 class PedidoController extends Controller
 {
@@ -110,6 +111,28 @@ class PedidoController extends Controller
 
         // Retorna os pedidos como JSON
         return response()->json($pedidos);
+    }
+
+    public function PedidosPreparandoLista()
+    {
+        // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
+        $pedidos = Pedido::with(['cliente', 'sessaoMesa', 'garcom', 'entregador', 'opcaoEntrega', 'produtosInseridosPedido'])
+            ->where('pedido_status', 'PREPARANDO')
+            ->get();
+
+        // Retorna os pedidos como JSON
+        return response()->json($pedidos);
+    }
+
+    public function AceitarPedido(Request $request){
+        
+        $pedido_id = $request->id;
+        $pedido = Pedido::find($pedido_id);
+        $pedido->update([
+            'pedido_status' => "PREPARANDO",
+            'pedido_datahora_preparo' => Carbon::now()
+        ]);
+        return response()->json(['message' => 'Pedido aceito!'], 200);
     }
 
     /**
