@@ -105,7 +105,7 @@ class PedidoController extends Controller
     public function PedidosAbertosLista()
     {
         // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
-        $pedidos = Pedido::with(['cliente', 'sessaoMesa', 'garcom', 'entregador', 'opcaoEntrega', 'produtosInseridosPedido'])
+        $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'produtosInseridosPedido'])
             ->where('pedido_status', 'ABERTO')
             ->get();
 
@@ -113,16 +113,53 @@ class PedidoController extends Controller
         return response()->json($pedidos);
     }
 
+
     public function PedidosPreparandoLista()
     {
         // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
-        $pedidos = Pedido::with(['cliente', 'sessaoMesa', 'garcom', 'entregador', 'opcaoEntrega', 'produtosInseridosPedido'])
+        $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'produtosInseridosPedido'])
             ->where('pedido_status', 'PREPARANDO')
             ->get();
 
         // Retorna os pedidos como JSON
         return response()->json($pedidos);
     }
+
+
+    public function PedidosProntoLista()
+    {
+        // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
+        $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'produtosInseridosPedido'])
+            ->where('pedido_status', 'PRONTO')
+            ->get();
+
+        // Retorna os pedidos como JSON
+        return response()->json($pedidos);
+    }
+
+
+    public function PedidosEmTransporteLista()
+    {
+        // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
+        $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'produtosInseridosPedido'])
+            ->where('pedido_status', 'EM TRANSPORTE')
+            ->get();
+
+        // Retorna os pedidos como JSON
+        return response()->json($pedidos);
+    }
+
+    public function PedidosEntregueLista()
+    {
+        // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
+        $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'produtosInseridosPedido'])
+            ->where('pedido_status', 'ENTREGUE')
+            ->get();
+
+        // Retorna os pedidos como JSON
+        return response()->json($pedidos);
+    }
+
 
     public function AceitarPedido(Request $request){
         
@@ -133,6 +170,42 @@ class PedidoController extends Controller
             'pedido_datahora_preparo' => Carbon::now()
         ]);
         return response()->json(['message' => 'Pedido aceito!'], 200);
+    }
+
+    
+    public function AvancarPedidoPronto(Request $request){
+        
+        $pedido_id = $request->id;
+        $pedido = Pedido::find($pedido_id);
+        $pedido->update([
+            'pedido_status' => "PRONTO",
+            'pedido_datahora_pronto' => Carbon::now()
+        ]);
+        return response()->json(['message' => 'Pedido Pronto!'], 200);
+    }
+
+    
+    public function AvancarPedidoEmTransporte(Request $request){
+        
+        $pedido_id = $request->id;
+        $pedido = Pedido::find($pedido_id);
+        $pedido->update([
+            'pedido_status' => "EM TRANSPORTE",
+            'pedido_datahora_transporte' => Carbon::now()
+        ]);
+        return response()->json(['message' => 'Pedido Pronto!'], 200);
+    }
+
+
+    public function AvancarPedidoEntregue(Request $request){
+        
+        $pedido_id = $request->id;
+        $pedido = Pedido::find($pedido_id);
+        $pedido->update([
+            'pedido_status' => "ENTREGUE",
+            'pedido_datahora_entrega' => Carbon::now()
+        ]);
+        return response()->json(['message' => 'Pedido Pronto!'], 200);
     }
 
     /**

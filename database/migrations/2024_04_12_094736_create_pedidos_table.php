@@ -25,11 +25,11 @@ return new class extends Migration
             $table->decimal('pedido_valor_itens', 7, 2)->nullable()->default('0.00');
             $table->decimal('pedido_valor_desconto', 7, 2)->nullable()->default('0.00');
             $table->decimal('pedido_valor_total', 7, 2)->nullable()->default('0.00');
-            $table->enum('pedido_status', ['INICIADO', 'ABERTO', 'PREPARANDO', 'RETIRADO', 'EM TRANSPORTE', 'ENTREGUE', 'FINALIZADO', 'CANCELADO'])->default('INICIADO');
+            $table->enum('pedido_status', ['INICIADO', 'ABERTO', 'PREPARANDO', 'PRONTO', 'EM TRANSPORTE', 'ENTREGUE', 'FINALIZADO', 'CANCELADO'])->default('INICIADO');
             $table->dateTime('pedido_datahora_incio')->default(DB::raw('CURRENT_TIMESTAMP'));
             $table->dateTime('pedido_datahora_abertura')->nullable();
             $table->dateTime('pedido_datahora_preparo')->nullable();
-            $table->dateTime('pedido_datahora_retirada')->nullable();
+            $table->dateTime('pedido_datahora_pronto')->nullable();
             $table->dateTime('pedido_datahora_transporte')->nullable();
             $table->dateTime('pedido_datahora_entrega')->nullable();
             $table->dateTime('pedido_datahora_finalizado')->nullable();

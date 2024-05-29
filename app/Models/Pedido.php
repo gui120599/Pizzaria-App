@@ -24,7 +24,7 @@ class Pedido extends Model
         'pedido_status',
         'pedido_datahora_abertura',
         'pedido_datahora_preparo',
-        'pedido_datahora_retirada',
+        'pedido_datahora_pronto',
         'pedido_datahora_transporte',
         'pedido_datahora_entrega',
         'pedido_datahora_finalizado',
@@ -34,7 +34,7 @@ class Pedido extends Model
     protected $casts = [
         'pedido_datahora_abertura' => 'datetime',
         'pedido_datahora_preparo' => 'datetime',
-        'pedido_datahora_retirada' => 'datetime',
+        'pedido_datahora_pronto' => 'datetime',
         'pedido_datahora_transporte' => 'datetime',
         'pedido_datahora_entrega' => 'datetime',
         'pedido_datahora_finalizado' => 'datetime',
@@ -81,12 +81,15 @@ class Pedido extends Model
         return $this->belongsToMany(Produto::class, 'itens_pedidos', 'item_pedido_pedido_id', 'item_pedido_produto_id')
             ->withPivot('item_pedido_quantidade', 'item_pedido_valor', 'item_pedido_observacao', 'item_pedido_status', 'item_pedido_usuario_removeu');
     }
+
     public function produtosInseridosPedido()
     {
         return $this->belongsToMany(Produto::class, 'itens_pedidos', 'item_pedido_pedido_id', 'item_pedido_produto_id')
             ->withPivot('item_pedido_quantidade', 'item_pedido_valor', 'item_pedido_observacao', 'item_pedido_status', 'item_pedido_usuario_removeu')
             ->wherePivot('item_pedido_status', 'INSERIDO');
     }
+
+
     public function item_pedido_pedido_id(){
         return $this->hasMany(ItensPedido::class,'item_pedido_pedido_id');
     }

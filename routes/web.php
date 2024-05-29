@@ -117,7 +117,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/Pedidos-Abertos', [PedidoController::class, 'PedidosAbertos'])->name('pedidos.abertos');
     Route::get('/Pedidos-Abertos-Lista', [PedidoController::class, 'PedidosAbertosLista'])->name('pedidos_abertos.lista');
     Route::get('/Pedidos-Preparando-Lista', [PedidoController::class, 'PedidosPreparandoLista'])->name('pedidos_preparando.lista');
+    Route::get('/Pedidos-Pronto-Lista', [PedidoController::class, 'PedidosProntoLista'])->name('pedidos_pronto.lista');
+    Route::get('/Pedidos-Transporte-Lista', [PedidoController::class, 'PedidosEmTransporteLista'])->name('pedidos_transporte.lista');
+    Route::get('/Pedidos-Entregue-Lista', [PedidoController::class, 'PedidosEntregueLista'])->name('pedidos_entregue.lista');
     Route::post('/Aceitar-Pedido', [PedidoController::class, 'AceitarPedido'])->name('aceitar_pedido');
+    Route::post('/Avancar-Pedido-Pronto', [PedidoController::class, 'AvancarPedidoPronto'])->name('avancar_pedido_pronto');
+    Route::post('/Avancar-Pedido-Transporte', [PedidoController::class, 'AvancarPedidoEmTransporte'])->name('avancar_pedido_transporte');
+    Route::post('/Avancar-Pedido-Entregue', [PedidoController::class, 'AvancarPedidoEntregue'])->name('avancar_pedido_entregue');
     Route::post('/Pedido/{id}/Edit', [PedidoController::class, 'SalvarPedido'])->name('pedido.salvar_pedido');
     Route::post('/Pedido-Mesa/{id}/Edit', [PedidoController::class, 'SalvarPedidoMesa'])->name('pedido.salvar_pedido_mesa');
     Route::patch('/Pedido/{pedido}', [PedidoController::class, 'update'])->name('pedido.update');
