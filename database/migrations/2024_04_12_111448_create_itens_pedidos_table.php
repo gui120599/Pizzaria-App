@@ -16,6 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('item_pedido_produto_id');
             $table->unsignedBigInteger('item_pedido_pedido_id');
             $table->double('item_pedido_quantidade');
+            $table->decimal('item_pedido_desconto',7,2)->default('0.00');
             $table->decimal('item_pedido_valor',7,2)->default('0.00');
             $table->text('item_pedido_observacao')->nullable();
             $table->enum('item_pedido_status',['INSERIDO','REMOVIDO'])->default('INSERIDO');

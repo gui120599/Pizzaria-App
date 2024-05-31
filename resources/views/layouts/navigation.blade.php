@@ -20,6 +20,10 @@
         <i class="bx bx-basket"></i>
         <span class="text-[15px] ml-4 text-gray-200">{{ __('Pedidos') }}</span>
     </x-nav-link>
+    <x-nav-link :href="route('pedidos.abertos')" :active="request()->routeIs('pedidos.abertos')">
+        <i class="bx bx-basket"></i>
+        <span class="text-[15px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
+    </x-nav-link>
     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
         <i class='bx bxs-dashboard'></i>
         <span class="text-[15px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
