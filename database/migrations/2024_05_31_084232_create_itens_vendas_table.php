@@ -13,9 +13,13 @@ return new class extends Migration
     {
         Schema::create('itens_vendas', function (Blueprint $table) {
             $table->id();
+            $table->increments('item_numero');
             $table->unsignedBigInteger('item_venda_venda_id');
             $table->unsignedBigInteger('item_venda_produto_id');
             $table->double('item_venda_quantidade');
+            $table->double('item_venda_quantidade_tributavel');
+            $table->decimal('item_venda_valor_unitario',7,2)->default('0.00');
+            $table->decimal('item_venda_valor_unitario_tributavel',7,2)->default('0.00');
             $table->decimal('item_venda_desconto',7,2)->default('0.00');
             $table->decimal('item_venda_valor',7,2)->default('0.00');
             $table->decimal('item_venda_base_calculo_icms',7,2)->default('0.00');

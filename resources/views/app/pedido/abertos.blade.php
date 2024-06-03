@@ -73,16 +73,19 @@
     </div>
     <script type="module">
         var qtd_aberto = null;
-        $(".toggleSideBar").trigger("click");
-        listarEntregue();
-        listarTransporte();
-        listarPronto();
-        listarPreparando();
-        listarAbertos();
 
-        setInterval(() => {
+        $(document).ready(function() {
+            $(".toggleSideBar").trigger("click");
+            listarEntregue();
+            listarTransporte();
+            listarPronto();
+            listarPreparando();
             listarAbertos();
-        }, 30000);
+
+            setInterval(() => {
+                listarAbertos();
+            }, 30000);
+        });
 
 
         function playAudio() {
@@ -653,13 +656,13 @@
                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.pivot.item_pedido_valor).toFixed(2)}</td>
                                 </tr>`;
                                 });
-                                    pedidoHtml += `
+                                pedidoHtml += `
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
                                 <div class="w-full">
-                                    <button class="btn-avanca-entregue w-full text-center border rounded-lg hover:shadow bg-green-300 hover:bg-green-400" data-pedido_id="${pedido.id}">Pedido Entrgue <i class='bx bx-right-arrow-alt'></i></button>
+                                    <button class="btn-avanca-entregue w-full text-center border rounded-lg hover:shadow bg-green-300 hover:bg-green-400" data-pedido_id="${pedido.id}">Pedido Entregue <i class='bx bx-right-arrow-alt'></i></button>
                                 </div>
                             </div>
                         `;
@@ -797,7 +800,7 @@
                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.pivot.item_pedido_valor).toFixed(2)}</td>
                                 </tr>`;
                                 });
-                                    pedidoHtml += `
+                                pedidoHtml += `
                                             </tbody>
                                         </table>
                                     </div>
@@ -811,7 +814,7 @@
                             }
 
                         });
-                        
+
                     } else {
                         // Se não houver pedidos, exiba uma mensagem indicando isso
                         $('.pedidos-entregue').html('<p class="p-2">Nenhum pedido encontrado</p>');

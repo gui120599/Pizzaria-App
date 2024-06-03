@@ -13,7 +13,10 @@ return new class extends Migration
     {
         Schema::create('cartoes_pagamentos', function (Blueprint $table) {
             $table->id();
+            $table->enum('cartao_bandeira',['visa', 'mastercard', 'americanExpress', 'sorocred', 'other'])->default('other');
+            $table->string('cartao_cnpj_credenciadora')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
