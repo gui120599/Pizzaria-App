@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('itens_vendas', function (Blueprint $table) {
             $table->id();
-            $table->increments('item_numero');
+            $table->integer('item_numero');
             $table->unsignedBigInteger('item_venda_venda_id');
             $table->unsignedBigInteger('item_venda_produto_id');
             $table->double('item_venda_quantidade');
