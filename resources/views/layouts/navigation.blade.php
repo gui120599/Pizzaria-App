@@ -28,10 +28,6 @@
         <i class='bx bxs-dashboard'></i>
         <span class="text-[15px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
     </x-nav-link>
-    <x-nav-link :href="route('categoria')" :active="request()->routeIs('categoria')">
-        <i class='bx bx-category-alt'></i>
-        <span class="text-[15px] ml-4 text-gray-200">{{ __('Categorias') }}</span>
-    </x-nav-link>
     <x-nav-link :href="route('produto')" :active="request()->routeIs('produto')">
         <i class='bx bxs-pizza'></i>
         <span class="text-[15px] ml-4 text-gray-200">{{ __('Produtos') }}</span>
@@ -64,6 +60,10 @@
             <i class='bx bx-dollar'></i>
             <span class="text-[15px] ml-4 text-gray-200">{{ __('Caixa') }}</span>
         </x-nav-link>
+        <x-nav-link :href="route('sessao_caixa')" :active="request()->routeIs('sessao_caixa')">
+            <i class='bx bx-money'></i>
+            <span class="text-[15px] ml-4 text-gray-200">{{ __('Sessões de Caixa') }}</span>
+        </x-nav-link>
     </div>
     <hr class="h-px my-2 border-0 dark:bg-gray-700">
 
@@ -79,6 +79,10 @@
         </div>
     </div>
     <div class="text-sm font-thin mt-2 w-4/5 mx-auto transition duration-700 ease-in-out" id="submenu-config">
+        <x-nav-link :href="route('categoria')" :active="request()->routeIs('categoria')">
+            <i class='bx bx-category-alt'></i>
+            <span class="text-[15px] ml-4 text-gray-200">{{ __('Categorias') }}</span>
+        </x-nav-link>
         <x-nav-link :href="route('opcoes_pagamento')" :active="request()->routeIs('opcoes_pagamento')">
             <i class='bx bxs-credit-card' ></i>
             <span class="text-[15px] ml-4 text-gray-200">{{ __('Opções de Pagamentos') }}</span>

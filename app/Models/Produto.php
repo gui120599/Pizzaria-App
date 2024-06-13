@@ -71,4 +71,8 @@ class Produto extends Model
         return $this->belongsToMany(Pedido::class, 'itens_pedidos', 'item_pedido_produto_id', 'item_pedido_pedido_id')
             ->withPivot('quantidade', 'valor', 'observacao', 'status', 'usuario_removeu');
     }
+
+    public function item_pedido_produto_id(){
+        return $this->hasMany(ItensPedido::class,'item_pedido_produto_id');
+    }
 }

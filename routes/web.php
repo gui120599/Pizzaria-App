@@ -13,8 +13,9 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MesaController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\PedidoController;
+use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
-use App\Models\SessaoMesa;
+use App\Http\Controllers\VendaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -82,6 +83,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/Ativar-Caixa/{id}', [CaixaController::class, 'active'])->name('caixa.active');
     Route::delete('/Caixa/{id}', [CaixaController::class, 'destroy'])->name('caixa.destroy');
 
+    Route::get('/SessaoCaixa', [SessaoCaixaController::class, 'index'])->name('sessao_caixa');
+    Route::get('/SessaoCaixas-Inativas', [SessaoCaixaController::class, 'inactive'])->name('sessao_caixa.inactive');
+    Route::post('/SessaoCaixa', [SessaoCaixaController::class, 'store'])->name('sessao_caixa.store');
+    Route::get('/SessaoCaixa/{sessao_caixa}', [SessaoCaixaController::class, 'show'])->name('sessao_caixa.show');
+    Route::get('/SessaoCaixa/{sessao_caixa}/Editar', [SessaoCaixaController::class, 'edit'])->name('sessao_caixa.edit');
+    Route::patch('/SessaoCaixa/{sessao_caixa}', [SessaoCaixaController::class, 'update'])->name('sessao_caixa.update');
+    Route::get('/Ativar-SessaoCaixa/{id}', [SessaoCaixaController::class, 'active'])->name('sessao_caixa.active');
+    Route::delete('/SessaoCaixa/{id}', [SessaoCaixaController::class, 'destroy'])->name('sessao_caixa.destroy');
+
     Route::get('/OpcoesPagamento', [OpcoesPagamentoController::class, 'index'])->name('opcoes_pagamento');
     Route::get('/OpcoesPagamentos-Inativas', [OpcoesPagamentoController::class, 'inactive'])->name('opcoes_pagamento.inactive');
     Route::post('/OpcoesPagamento', [OpcoesPagamentoController::class, 'store'])->name('opcoes_pagamento.store');
@@ -148,6 +158,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('/SessaoMesa/{sessaoMesa}', [SessaoMesaController::class, 'update'])->name('sessaoMesa.update');
     Route::delete('/SessaoMesa/{sessaoMesa}', [SessaoMesaController::class, 'destroy'])->name('sessaoMesa.destroy');
     Route::get('/Ativar-SessaoMesa/{id}', [SessaoMesaController::class, 'active'])->name('sessaoMesa.active');
+
+    Route::get('/Venda', [VendaController::class, 'index'])->name('venda');
 
 });
 
