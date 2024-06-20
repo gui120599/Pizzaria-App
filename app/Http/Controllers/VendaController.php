@@ -6,6 +6,7 @@ use App\Models\Venda;
 use App\Http\Requests\StoreVendaRequest;
 use App\Http\Requests\UpdateVendaRequest;
 use App\Models\Categoria;
+use App\Models\Cliente;
 use App\Models\Mesa;
 use App\Models\Pedido;
 use App\Models\Produto;
@@ -23,6 +24,7 @@ class VendaController extends Controller
         $sessaoMesas = SessaoMesa::where('sessao_mesa_status', 'ABERTA')->get();
         $categorias = Categoria::all();
         $produtos = Produto::all();
+        $clientes = Cliente::all();
 
         $pedidos = Pedido::whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
             ->with(['item_pedido_pedido_id' => function ($query) {
@@ -31,7 +33,13 @@ class VendaController extends Controller
             ->get();
 
         //dd($pedidos);
-        return view('app.venda.index', ['produtos' => $produtos, 'categorias' => $categorias, 'sessaoMesas' => $sessaoMesas, 'pedidos' => $pedidos]);
+        return view('app.venda.index', [
+            'produtos' => $produtos, 
+            'categorias' => $categorias, 
+            'sessaoMesas' => $sessaoMesas, 
+            'pedidos' => $pedidos,
+            'clientes' => $clientes
+        ]);
     }
 
     /**
