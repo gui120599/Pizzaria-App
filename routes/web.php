@@ -143,6 +143,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemPedido', [ItensPedidoController::class, 'store'])->name('item_pedido.store');
     Route::post('/ItemPedido/AtualizarQtdValor', [ItensPedidoController::class, 'AtualizarQtdValor'])->name('item_pedido.update_qtd_valor');
     Route::post('/ItemPedido/AtualizarObservacao', [ItensPedidoController::class, 'AtualizarObservacao'])->name('item_pedido.update_observacao');
+    Route::post('/ItemPedido/AtualizarDesconto', [ItensPedidoController::class, 'AtualizarDesconto'])->name('item_pedido.update_desconto');
     Route::post('/ItemPedido/RemoverItem', [ItensPedidoController::class, 'RemoverItem'])->name('item_pedido.remove');
     Route::get('/ItemPedido/ListarItensPedido', [ItensPedidoController::class, 'listarProdutosInseridosNoPedido'])->name('itens_pedido.lista');
     Route::get('/calcular-valor-total-pedido', [ItensPedidoController::class, 'calcularValorTotalPedido'])->name('calcular_valor_total_pedido');
@@ -160,6 +161,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/Ativar-SessaoMesa/{id}', [SessaoMesaController::class, 'active'])->name('sessaoMesa.active');
 
     Route::get('/Venda', [VendaController::class, 'index'])->name('venda');
+    Route::post('/Venda', [VendaController::class, 'store'])->name('venda.store');
 
 });
 

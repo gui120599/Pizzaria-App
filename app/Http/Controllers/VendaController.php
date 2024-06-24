@@ -55,7 +55,7 @@ class VendaController extends Controller
      */
     public function store(StoreVendaRequest $request)
     {
-        //
+        dd($request);
     }
 
     /**

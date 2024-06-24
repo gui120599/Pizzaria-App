@@ -1,6 +1,7 @@
 <x-app-layout>
     <div class="mx-auto p-2 ">
-        <form action="" method="post" class="w-full h-full">
+        <form action="{{ route('venda.store') }}" method="post" class="w-full h-full" enctype="multipart/form-data">
+            @csrf
             <div class="p-2 min-h-[97vh] bg-white shadow-sm rounded-lg flex">
                 <!-- Ícone de carregamento e mensagem -->
                 <div id="carregando"
@@ -100,7 +101,7 @@
                                         @foreach ($clientes as $cliente)
                                             <div id="linha_cliente"
                                                 class="border-b-2 hover:bg-teal-700 hover:text-white rounded-lg p-2 cursor-pointer transition duration-150 ease-in-out"
-                                                onclick="selecionarCliente({{$cliente}})">
+                                                onclick="selecionarCliente({{ $cliente }})">
                                                 {{ $cliente->id }} - {{ $cliente->cliente_nome }}
                                             </div>
                                         @endforeach
@@ -108,8 +109,8 @@
                                 </div>
                                 <div class="md:col-span-1">
                                     <x-input-label for="venda_cliente_cpf" :value="__('CPF Cliente')" />
-                                    <x-text-input id="venda_cliente_cpf" name="venda_cliente_cpf"
-                                        type="text" class="cpf mt-1 w-full" autocomplete="off"
+                                    <x-text-input id="venda_cliente_cpf" name="venda_cliente_cpf" type="text"
+                                        class="cpf mt-1 w-full" autocomplete="off"
                                         value="{{ old('venda_cliente_cpf') }}" placeholder="000.000.000-00" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_cliente_cpf')" class="mt-2" />
                                 </div>
@@ -122,44 +123,49 @@
                                 </div>
                                 <div class="md:col-span-3">
                                     <x-input-label for="venda_cliente_email" :value="__('Email Cliente')" />
-                                    <x-text-input id="venda_cliente_email" name="venda_cliente_email"
-                                        type="Email" class="mt-1 w-full" autocomplete="off"
+                                    <x-text-input id="venda_cliente_email" name="venda_cliente_email" type="Email"
+                                        class="mt-1 w-full" autocomplete="off"
                                         value="{{ old('venda_cliente_email') }}" placeholder="exemplo@gmail.com" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_cliente_email')" class="mt-2" />
                                 </div>
                                 <div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
                                     <div class="lg:col-span-6 md:col-span-6">
                                         <x-input-label for="venda_cliente_endereco" :value="__('Endereço')" />
-                                        <x-text-input id="venda_cliente_endereco" name="venda_cliente_endereco" type="text" class="mt-1 w-full"
-                                            autocomplete="off" value="{{ old('venda_cliente_endereco') }}" />
+                                        <x-text-input id="venda_cliente_endereco" name="venda_cliente_endereco"
+                                            type="text" class="mt-1 w-full" autocomplete="off"
+                                            value="{{ old('venda_cliente_endereco') }}" />
                                         <x-input-error :messages="$errors->get('venda_cliente_endereco')" class="mt-2" />
                                     </div>
-                    
+
                                     <div class="lg:col-span-1 md:col-span-3">
                                         <x-input-label for="cliente_bairro" :value="__('Bairro')" />
-                                        <x-text-input id="cliente_bairro" name="cliente_bairro" type="text" class="cep mt-1 w-full"
-                                            autocomplete="off" value="{{ old('cliente_bairro') }}" />
+                                        <x-text-input id="cliente_bairro" name="cliente_bairro" type="text"
+                                            class="cep mt-1 w-full" autocomplete="off"
+                                            value="{{ old('cliente_bairro') }}" />
                                         <x-input-error :messages="$errors->get('cliente_bairro')" class="mt-2" />
                                     </div>
-                    
+
                                     <div class="lg:col-span-1 md:col-span-3">
                                         <x-input-label for="cliente_cidade" :value="__('Cidade')" />
-                                        <x-text-input id="cliente_cidade" name="cliente_cidade" type="text" class="mt-1 w-full"
-                                            autocomplete="off" value="{{ old('cliente_cidade') }}" />
+                                        <x-text-input id="cliente_cidade" name="cliente_cidade" type="text"
+                                            class="mt-1 w-full" autocomplete="off"
+                                            value="{{ old('cliente_cidade') }}" />
                                         <x-input-error :messages="$errors->get('cliente_cidade')" class="mt-2" />
                                     </div>
-                    
+
                                     <div class="lg:col-span-1 md:col-span-3">
                                         <x-input-label for="cliente_estado" :value="__('Estado')" />
-                                        <x-text-input id="cliente_estado" name="cliente_estado" type="text" class="mt-1 w-full"
-                                            autocomplete="off" value="{{ old('cliente_estado') }}" />
+                                        <x-text-input id="cliente_estado" name="cliente_estado" type="text"
+                                            class="mt-1 w-full" autocomplete="off"
+                                            value="{{ old('cliente_estado') }}" />
                                         <x-input-error :messages="$errors->get('cliente_estado')" class="mt-2" />
                                     </div>
-                    
+
                                     <div class="lg:col-span-1 md:col-span-3">
                                         <x-input-label for="cliente_cep" :value="__('CEP')" />
-                                        <x-text-input id="cliente_cep" name="cliente_cep" type="text" class="cep mt-1 w-full"
-                                            autocomplete="off" value="{{ old('cliente_cep') }}" />
+                                        <x-text-input id="cliente_cep" name="cliente_cep" type="text"
+                                            class="cep mt-1 w-full" autocomplete="off"
+                                            value="{{ old('cliente_cep') }}" />
                                         <x-input-error :messages="$errors->get('cliente_cep')" class="mt-2" />
                                     </div>
                                 </div>
@@ -170,7 +176,12 @@
                             @foreach ($sessaoMesas as $sessaoMesa)
                                 <div class="w-full border border-gray-200 p-3 my-2 rounded-lg">
                                     <div class="flex justify-between">
-                                        <span>{{ $sessaoMesa->mesa->mesa_nome }}</span>
+                                        <div>
+                                            <input type="checkbox" name="id_sessao_mesa[]"
+                                                id="mesa_id_{{ $sessaoMesa->mesa->id }}"
+                                                value="{{ $sessaoMesa->id }}">
+                                            <span class="text-sm">{{ $sessaoMesa->mesa->mesa_nome }}</span>
+                                        </div>
                                         <span data-mesa_id="{{ $sessaoMesa->mesa->id }}"
                                             class="toogle_mesa bx bx-chevron-up col-span-6 p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
                                         </span>
@@ -205,10 +216,11 @@
                                         <span>
                                             Pedidos:
                                             @foreach ($sessaoMesa->pedidos as $pedido)
-                                                {{ $pedido->id }} -
                                                 @if ($loop->last)
                                                     <!-- Este é o último elemento -->
                                                     {{ $pedido->id }}
+                                                @else
+                                                    {{ $pedido->id }} -
                                                 @endif
                                             @endforeach
                                         </span>
@@ -226,8 +238,8 @@
                                                 <th class="px-1 md:px-4">#</th>
                                                 <th class="px-1 md:px-4">Produto</th>
                                                 <th class="px-1 md:px-4">Qtd</th>
-                                                <th class="px-1 md:px-4">Valor Desc.</th>
                                                 <th class="px-1 md:px-4">Valor Unt.</th>
+                                                <th class="px-1 md:px-4">Valor Desc.</th>
                                                 <th class="px-1 md:px-4">Valor Total</th>
                                                 <th class="px-1 md:px-4">Opções</th>
                                             </tr>
@@ -238,8 +250,8 @@
                                                     <td>{{ $item['produto']->id }}</td>
                                                     <td>{{ $item['produto']->produto_descricao }}</td>
                                                     <td>{{ $item['total_quantidade'] }}</td>
-                                                    <td>{{ $item['total_desconto'] }}</td>
                                                     <td>{{ $item['produto']->produto_preco_venda }}</td>
+                                                    <td>{{ $item['total_desconto'] }}</td>
                                                     <td>{{ $item['total_valor'] }}</td>
                                                     <td></td>
                                                 </tr>
@@ -371,6 +383,7 @@
                             @endforeach
                         </div>
                     </div>
+                    <x-primary-button>Salvar Venda</x-primary-button>
                 </div>
                 <div class="w-[20%] border border-gray-200 rounded-lg">
                     teset 2
@@ -389,7 +402,6 @@
         }
     </style>
     <script>
-
         function selecionarCliente(cliente) {
             document.getElementById("venda_cliente_id").value = cliente.id;
             document.getElementById("venda_cliente_nome").value = cliente.cliente_nome;

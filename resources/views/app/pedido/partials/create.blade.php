@@ -196,7 +196,7 @@
                         <div class="col-span-1">
                             <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
                             <x-money-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
-                                class="money mt-1 w-full" autocomplete="off" value="0.00" />
+                                class="money mt-1 w-full" autocomplete="off" value="0.00" readonly />
                         </div>
                         <div class="col-span-1">
                             <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
@@ -428,7 +428,6 @@
                 }
             });
 
-
         });
 
 
@@ -573,7 +572,7 @@
                                         </span>
                                         <div class="col-span-6 flex flex-row items-start space-x-2">
                                             <img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" src="/img/fotos_produtos/${item.produto.produto_foto}" alt="Imagem Padrão">
-                                            <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.produto_descricao}<p>R$ <span id="item_valor_view_${item.id}">${item.produto.produto_preco_venda}</span> Qtd. <span id="item_qtd_view_${item.id}">${item.item_pedido_quantidade}</span></p></span>
+                                            <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.produto_descricao}<p>R$ <span id="item_valor_view_${item.id}">${item.item_pedido_valor}</span> Qtd. <span id="item_qtd_view_${item.id}">${item.item_pedido_quantidade}</span></p></span>
                                         </div>
                                         <span data-item_id="${item.id}" class="col-span-6 mx-auto toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
                                             <i class="bx bx-chevron-up "></i>
@@ -602,9 +601,17 @@
                                     `<textarea class="item_pedido_observacao border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm mt-1 w-full" rows="5" id="item_pedido_observacao" name="item_pedido_observacao" autocomplete="off" data-item_id="${item.id}">${item.item_pedido_observacao}</textarea>`;
                             }
                             itemHtml += `
-                                        <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
-                                        <x-text-input id="item_pedido_valor_${item.id}" name="item_pedido_valor" type="text"
+                                        <x-input-label for="item_pedido_desconto" :value="__('Desconto R$')" />
+                                        <x-text-input id="item_pedido_desconto_${item.id}" name="item_pedido_desconto" type="text"
+                                            class="item_desconto money mt-1 w-full" value="${item.item_pedido_desconto}" data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}" autocomplete="off" />
+                                        
+                                            <x-input-label for="item_pedido_valor_unitario" :value="__('Valor Unit. R$')" />
+                                        <x-text-input id="item_pedido_valor_unitario_${item.id}" name="item_pedido_valor_unitario" type="text"
                                             class="mt-1 w-full" value="${item.produto.produto_preco_venda}" autocomplete="off" readonly />
+                                        
+                                            <x-input-label for="item_pedido_valor" :value="__('Valor R$')" />
+                                        <x-text-input id="item_pedido_valor_${item.id}" name="item_pedido_valor" type="text"
+                                            class="mt-1 w-full" value="${item.item_pedido_valor}" autocomplete="off" readonly />
                                     </div>
                                 </div>
                             `;
@@ -647,7 +654,9 @@
                         e.preventDefault();
 
                         const id = $(this).data('item_id');
+                        const item_desconto = parseFloat($("#item_pedido_desconto_" + id).val());
                         const produto_preco_venda = $(this).data('produto_preco_venda');
+
                         // Obtém o elemento de entrada de quantidade
                         var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
 
@@ -671,12 +680,12 @@
                             $("#item_qtd_view_" + id).html(item_pedido_quantidade);
                         }
 
-                        var item_pedido_valor = currentValue * produto_preco_venda;
+                        var item_pedido_valor = currentValue * produto_preco_venda - item_desconto;
                         item_pedido_valor = item_pedido_valor.toFixed(
                             2); // Limita a duas casas decimais
                         $("#item_pedido_valor_" + id).val(item_pedido_valor);
                         //Atualiza valor na vizualização
-                        $("#item_valor_view_" + id).html(item_pedido_valor);
+                        $("#item_valor_view_" + id).html(item_pedido_valor.toFixed(2));
 
                         $.ajax({
                             type: "POST",
@@ -701,7 +710,9 @@
                     $(".plus-btn").click(function(e) {
                         e.preventDefault();
                         const id = $(this).data('item_id');
+                        const item_desconto = parseFloat($("#item_pedido_desconto_" + id).val());
                         const produto_preco_venda = $(this).data('produto_preco_venda');
+
                         // Obtém o elemento de entrada de quantidade
                         var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
 
@@ -726,12 +737,12 @@
                         }
 
 
-                        var item_pedido_valor = currentValue * produto_preco_venda;
+                        var item_pedido_valor = currentValue * produto_preco_venda - item_desconto;
                         item_pedido_valor = item_pedido_valor.toFixed(
                             2); // Limita a duas casas decimais
                         $("#item_pedido_valor_" + id).val(item_pedido_valor);
                         //Atualiza valor na vizualização
-                        $("#item_valor_view_" + id).html(item_pedido_valor);
+                        $("#item_valor_view_" + id).html(item_pedido_valor.toFixed(2));
 
                         $.ajax({
                             type: "POST",
@@ -776,6 +787,74 @@
                         });
                     });
 
+                    let item_desconto;
+
+                    // Função que atualiza o valor total quando insere qualquer valor no campo de desconto
+                    $(".item_desconto").keyup(function(e) {
+                        const id = $(this).data('item_id');
+                        // Obter o valor do desconto e substituir vírgulas por pontos antes de converter para um número
+                        item_desconto = parseFloat($(this).val().replace(',', '.'));
+                        item_desconto = item_desconto.toFixed(2);
+
+                        // Se o valor do desconto não for um número válido, defina-o como 0.00
+                        if (isNaN(item_desconto)) {
+                            item_desconto = 0.00;
+                        }
+
+                        // Obter o valor total dos itens
+                        const valorTotalItem = parseFloat($("#item_pedido_valor_unitario_" + id)
+                        .val()) * parseFloat($("#item_pedido_quantidade_" + id).val());
+
+                        // Calcular o novo valor total subtraindo o desconto
+                        const novoValorTotal = valorTotalItem - item_desconto;
+
+                        // Atualizar o elemento na sua página com o novo valor total
+                        $("#item_pedido_valor_" + id).val(novoValorTotal.toFixed(2));
+
+                        $.ajax({
+                            type: "POST",
+                            url: "{{ route('item_pedido.update_desconto') }}",
+                            data: {
+                                id,
+                                item_desconto,
+                                novoValorTotal,
+                                '_token': '{{ csrf_token() }}'
+                            },
+                            dataType: "json",
+                            success: function(response) {
+                                //console.log(response.message);
+                                ValorTotalItensPedido();
+                                $("#item_valor_view_" + id).html(novoValorTotal.toFixed(2));
+                            },
+                            error: function() {
+                                alert('Erro ao atualizar o item do pedido')
+                            }
+                        });
+
+                    });
+
+                    // Função que executa quando o campo de desconto recebe foco
+                    $(".item_desconto").focus(function(e) {
+                        e.preventDefault();
+                        // Armazena o valor atual do campo de desconto e limpa o campo
+                        item_desconto = $(this).val();
+                        $(this).val("");
+                    });
+
+                    // Função que executa quando o campo de desconto perde o foco
+                    $(".item_desconto").blur(function(e) {
+                        e.preventDefault();
+                        // Verifica se o valor do desconto é diferente de vazio ou "0.00" ou "0,00"
+                        if (item_desconto !== "" || item_desconto !== "0.00" ||
+                            item_desconto !== "0,00") {
+                            // Se for diferente, restaura o valor anterior do campo de desconto
+                            $(this).val(item_desconto);
+                        } else {
+                            // Se for vazio ou "0.00" ou "0,00", define o valor como "0.00"
+                            $(this).val("0.00");
+                        }
+                    });
+
                     //Remove item do pedido
                     $(".remove_item").click(function(e) {
                         e.preventDefault();
@@ -800,6 +879,9 @@
                         });
 
                     });
+                    $('.money').mask('#.##0,00', {
+                        reverse: true
+                    });
 
                 },
                 error: function() {
@@ -823,17 +905,9 @@
                     if (response.hasOwnProperty('valor_total_pedido')) {
                         const valorTotalPedido = parseFloat(response.valor_total_pedido);
                         //Atualizar um elemento na sua página com o valor total dos itens
-                        $("#pedido_valor_itens").val(valorTotalPedido.toFixed(2));
-
-                        // Obter o valor do desconto e substituir vírgulas por pontos antes de converter para um número
-                        const pedido_valor_desconto = parseFloat($("#pedido_valor_desconto").val().replace(',',
-                            '.'));
-
-                        // Calcular o novo valor total subtraindo o desconto
-                        const novoValorTotal = valorTotalPedido - pedido_valor_desconto;
-
-                        // Atualizar o elemento na sua página com o novo valor total
-                        $("#pedido_valor_total").val(novoValorTotal.toFixed(2));
+                        $("#pedido_valor_itens").val(response.valor_total_itens.toFixed(2));
+                        $("#pedido_valor_desconto").val(response.valor_total_desconto.toFixed(2));
+                        $("#pedido_valor_total").val(response.valor_total_pedido.toFixed(2));
                     } else {
                         // Caso não haja valor total do pedido, defina o valor como 0.00
                         $("#pedido_valor_itens").val("0.00");

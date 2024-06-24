@@ -13,6 +13,8 @@ class ItensPedido extends Model
         'item_pedido_produto_id',
         'item_pedido_pedido_id',
         'item_pedido_quantidade',
+        'item_pedido_valor_unitario',
+        'item_pedido_desconto',
         'item_pedido_valor',
         'item_pedido_observacao',
         'item_pedido_status',

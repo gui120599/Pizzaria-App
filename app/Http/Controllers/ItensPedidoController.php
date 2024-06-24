@@ -35,6 +35,8 @@ class ItensPedidoController extends Controller
             'item_pedido_produto_id' => $request->input('item_pedido_produto_id'),
             'item_pedido_pedido_id' => $request->input('item_pedido_pedido_id'),
             'item_pedido_quantidade' => $request->input('item_pedido_quantidade'),
+            'item_pedido_valor_unitario' => $request->input('item_pedido_valor'),
+            'item_pedido_desconto' => '0.00',
             'item_pedido_valor' => $request->input('item_pedido_valor')
         ]);
 
@@ -87,15 +89,19 @@ class ItensPedidoController extends Controller
         }
 
         // Inicialize o valor total do pedido como 0
+        $valorTotalItensPedido = 0.00;
+        $valorTotalDescontoPedido = 0.00;
         $valorTotalPedido = 0.00;
 
         // Itere sobre os itens do pedido e adicione o valor de cada item ao valor total do pedido
         foreach ($itensPedidoInseridos as $item) {
+            $valorTotalItensPedido += $item->item_pedido_valor_unitario*$item->item_pedido_quantidade;
+            $valorTotalDescontoPedido += $item->item_pedido_desconto;
             $valorTotalPedido += $item->item_pedido_valor;
         }
 
         // Retorne o valor total do pedido
-        return response()->json(['valor_total_pedido' => $valorTotalPedido], 200);
+        return response()->json(['valor_total_itens' => $valorTotalItensPedido, 'valor_total_desconto' => $valorTotalDescontoPedido, 'valor_total_pedido' => $valorTotalPedido], 200);
     }
 
 
@@ -146,6 +152,24 @@ class ItensPedidoController extends Controller
 
         // Retornar uma resposta de sucesso
         return response()->json(['message' => 'Atualização bem-sucedida'], 200);
+
+        //return response()->json($itemPedido);
+    }
+
+    public function AtualizarDesconto(UpdateItensPedidoRequest $request)
+    {
+
+        // Encontrar o item de pedido pelo ID
+        $itemPedido = ItensPedido::findOrFail($request->id);
+
+        // Atualizar os campos do item de pedido
+        $itemPedido->update([
+            'item_pedido_desconto' => $request->input('item_desconto'),
+            'item_pedido_valor' => $request->input('novoValorTotal')
+        ]);
+
+        // Retornar uma resposta de sucesso
+        return response()->json(['message' => 'Atualização de desconto bem-sucedida'], 200);
 
         //return response()->json($itemPedido);
     }
