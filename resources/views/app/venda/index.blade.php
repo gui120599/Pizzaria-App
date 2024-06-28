@@ -51,7 +51,7 @@
                             </div>
                         </div>
                     </nav>
-                    <div class="w-full h-[89dvh] overflow-auto">
+                    <div class="w-full h-[82dvh] overflow-auto">
                         <div class="dados-section secao">
                             <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1">
                                 {{-- Dados do Caixa --}}
@@ -383,7 +383,9 @@
                             @endforeach
                         </div>
                     </div>
-                    <x-primary-button>Salvar Venda</x-primary-button>
+                    <div class="mt-2">
+                        <x-primary-button>Salvar Venda</x-primary-button>
+                    </div>
                 </div>
                 <div class="w-[20%] border border-gray-200 rounded-lg">
                     teset 2
