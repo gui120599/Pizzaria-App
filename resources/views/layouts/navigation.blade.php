@@ -16,17 +16,21 @@
         <input type="text" placeholder="Buscar"
             class="text-[15px] ml-4 w-full bg-transparent border-none focus:border-transparent focus:ring-0">
     </div>-->
+    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
+        <i class='bx bxs-dashboard'></i>
+        <span class="text-[15px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
+    </x-nav-link>
+    <x-nav-link :href="route('venda')" :active="request()->routeIs('venda')">
+        <i class='bx bx-money-withdraw'></i>
+        <span class="text-[15px] ml-4 text-gray-200">{{ __('Venda') }}</span>
+    </x-nav-link>
     <x-nav-link :href="route('pedido')" :active="request()->routeIs('pedido')">
         <i class="bx bx-basket"></i>
         <span class="text-[15px] ml-4 text-gray-200">{{ __('Pedidos') }}</span>
     </x-nav-link>
     <x-nav-link :href="route('pedidos.abertos')" :active="request()->routeIs('pedidos.abertos')">
-        <i class="bx bx-basket"></i>
+        <i class='bx bx-receipt'></i>
         <span class="text-[15px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
-    </x-nav-link>
-    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-        <i class='bx bxs-dashboard'></i>
-        <span class="text-[15px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
     </x-nav-link>
     <x-nav-link :href="route('produto')" :active="request()->routeIs('produto')">
         <i class='bx bxs-pizza'></i>
