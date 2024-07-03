@@ -11,7 +11,7 @@
                         <p>Carregando Produtos</p>
                     </div>
                 </div>
-                <div class="w-[80%] mx-auto pe-2 flex flex-col">
+                <div class="w-[60%] mx-auto pe-2 flex flex-col">
                     <nav class="bg-transparent border-b border-gray-100">
                         <!-- Primary Navigation Menu -->
                         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -92,10 +92,9 @@
                                 </div>
                                 <div class="relative md:col-span-full">
                                     <x-text-input id="venda_cliente_id" name="venda_cliente_id" type="text"
-                                        class="mt-1 w-full" autocomplete="off" hidden />
-                                    <x-text-input id="venda_cliente_nome" name="venda_cliente_nome" type="text"
-                                        class="mt-1 w-full" autocomplete="off" placeholder="Nome do Cliente" />
-                                    <x-input-error :messages="$errors->updatePassword->get('venda_cliente_id')" class="mt-2" />
+                                        class="mt-1 w-full" hidden />
+                                    <x-text-input id="venda_cliente_nome" name="venda_cliente_nome" class="mt-1 w-full" placeholder autocomplete="off"></x-text-input>
+                                    
                                     <div id="lista_clientes"
                                         class="absolute w-full bg-white rounded-lg px-2 py-3 shadow-lg shadow-green-400/10 hidden overflow-auto max-h-96 md:max-h-80 lg:max-h-72 border">
                                         @foreach ($clientes as $cliente)
@@ -176,11 +175,12 @@
                             @foreach ($sessaoMesas as $sessaoMesa)
                                 <div class="w-full border border-gray-200 p-3 my-2 rounded-lg">
                                     <div class="flex justify-between">
-                                        <div>
+                                        <div class="flex space-x-2 justify-between">
                                             <input type="checkbox" name="id_sessao_mesa[]"
                                                 id="mesa_id_{{ $sessaoMesa->mesa->id }}"
-                                                value="{{ $sessaoMesa->id }}">
-                                            <span class="text-sm">{{ $sessaoMesa->mesa->mesa_nome }}</span>
+                                                value="{{ $sessaoMesa->id }}" />
+                                            <x-input-label class="text-sm"
+                                                for="mesa_id_{{ $sessaoMesa->mesa->id }}">{{ $sessaoMesa->mesa->mesa_nome }}</x-text-input>
                                         </div>
                                         <span data-mesa_id="{{ $sessaoMesa->mesa->id }}"
                                             class="toogle_mesa bx bx-chevron-up col-span-6 p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
@@ -224,10 +224,6 @@
                                                 @endif
                                             @endforeach
                                         </span>
-                                        <span>
-                                            <x-secondary-button>Lançar Produtos {{ $sessaoMesa->mesa->mesa_nome }} <i
-                                                    class='bx bx-right-arrow-alt'></i></x-secondary-button>
-                                        </span>
 
                                     </div>
 
@@ -240,7 +236,7 @@
                                                 <th class="px-1 md:px-4">Qtd</th>
                                                 <th class="px-1 md:px-4">Valor Unt.</th>
                                                 <th class="px-1 md:px-4">Valor Desc.</th>
-                                                <th class="px-1 md:px-4">Valor Total</th>
+                                                <th class="px-1 md:px-4">Valor Total R$</th>
                                                 <th class="px-1 md:px-4">Opções</th>
                                             </tr>
                                         </thead>
@@ -250,9 +246,9 @@
                                                     <td>{{ $item['produto']->id }}</td>
                                                     <td>{{ $item['produto']->produto_descricao }}</td>
                                                     <td>{{ $item['total_quantidade'] }}</td>
-                                                    <td>{{ $item['produto']->produto_preco_venda }}</td>
-                                                    <td>{{ $item['total_desconto'] }}</td>
-                                                    <td>{{ $item['total_valor'] }}</td>
+                                                    <td>{{ number_format($item['produto']->produto_preco_venda, 2, ',', '.') }}</td>
+                                                    <td>{{ number_format($item['total_desconto'], 2, ',', '.') }}</td>
+                                                    <td>{{ number_format($item['total_valor'], 2, ',', '.') }}</td>
                                                     <td></td>
                                                 </tr>
                                             @endforeach
@@ -389,6 +385,25 @@
                 </div>
                 <div class="w-[20%] border border-gray-200 rounded-lg">
                     teset 2
+                </div>
+                <div class="w-[20%] h-[96vh] border mx-1 border-gray-200 rounded-lg">
+                    <div class="p-1 h-[50%] bg-slate-500">
+
+                    </div>
+                    <div class="p-1 h-[50%]">
+                        <div>
+                            <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
+                            <x-text-input id="venda_valor_frete" name="venda_valor_frete" class="money w-full h-[12vh] text-6xl" autocomplete="off"></x-input-text>
+                        </div>
+                        <div>
+                            <x-input-label for="venda_valor_frete">{{ __('Valor Desconto') }}</x-input-label>
+                            <x-text-input id="venda_valor_frete" name="venda_valor_frete" class="money w-full h-[12vh]"></x-input-text>
+                        </div>
+                        <div>
+                            <x-input-label for="venda_valor_frete">{{ __('Valor Total') }}</x-input-label>
+                            <x-text-input id="venda_valor_frete" name="venda_valor_frete" class="money w-full h-[12vh]"></x-input-text>
+                        </div>
+                    </div>
                 </div>
             </div>
         </form>
