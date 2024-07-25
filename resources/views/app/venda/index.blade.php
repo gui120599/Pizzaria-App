@@ -1,6 +1,7 @@
 <x-app-layout>
     <div class="mx-auto p-2 ">
-        <form action="{{ route('venda.store') }}" method="post" class="w-full h-full" enctype="multipart/form-data">
+        <form action="{{ route('venda.store') }}" method="post" id="formVenda" class="w-full h-full"
+            enctype="multipart/form-data">
             @csrf
             <div class="p-2 min-h-[97vh] bg-white shadow-sm rounded-lg flex">
                 <!-- Ícone de carregamento e mensagem -->
@@ -58,27 +59,26 @@
                                 <div class="md:col-span-1">
                                     <x-input-label for="venda_id" :value="__('Cód. Venda')" />
                                     <x-text-input id="venda_id" name="venda_id" type="text" class="mt-1 w-full"
-                                        autocomplete="off" value="{{ old('venda_id') }}" />
+                                        autocomplete="off" value="{{ old('id') }}" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_id')" class="mt-2" />
                                 </div>
                                 <div class="md:col-span-1">
                                     <x-input-label for="venda_sessao_caixa_id" :value="__('Cód. Sessão do Caixa')" />
                                     <x-text-input id="venda_sessao_caixa_id" name="venda_sessao_caixa_id" type="text"
-                                        class="mt-1 w-full" autocomplete="off"
-                                        value="{{ old('venda_sessao_caixa_id') }}" />
+                                        class="mt-1 w-full" autocomplete="off" value="{{ $sessaoCaixa->id }}" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_sessao_caixa_id')" class="mt-2" />
                                 </div>
                                 <div class="md:col-span-1">
                                     <x-input-label for="caixa_nome" :value="__('Caixa')" />
                                     <x-text-input id="caixa_nome" name="caixa_nome" type="text" class="mt-1 w-full"
-                                        autocomplete="off" value="{{ old('caixa_nome') }}" />
+                                        autocomplete="off" value="{{ $sessaoCaixa->caixa->caixa_nome }}" />
                                     <x-input-error :messages="$errors->updatePassword->get('caixa_nome')" class="mt-2" />
                                 </div>
                                 <div class="md:col-span-3">
                                     <x-input-label for="sessao_caixa_funcionario_id" :value="__('Funcionário')" />
                                     <x-text-input id="sessao_caixa_funcionario_id" name="sessao_caixa_funcionario_id"
                                         type="text" class="mt-1 w-full" autocomplete="off"
-                                        value="{{ old('sessao_caixa_funcionario_id') }}" />
+                                        value="{{ $sessaoCaixa->user->name }}" />
                                     <x-input-error :messages="$errors->updatePassword->get('sessao_caixa_funcionario_id')" class="mt-2" />
                                 </div>
 
@@ -93,8 +93,9 @@
                                 <div class="relative md:col-span-full">
                                     <x-text-input id="venda_cliente_id" name="venda_cliente_id" type="text"
                                         class="mt-1 w-full" hidden />
-                                    <x-text-input id="venda_cliente_nome" name="venda_cliente_nome" class="mt-1 w-full" placeholder autocomplete="off"></x-text-input>
-                                    
+                                    <x-text-input id="venda_cliente_nome" name="venda_cliente_nome" class="mt-1 w-full"
+                                        placeholder="Nome Cliente" autocomplete="off"></x-text-input>
+
                                     <div id="lista_clientes"
                                         class="absolute w-full bg-white rounded-lg px-2 py-3 shadow-lg shadow-green-400/10 hidden overflow-auto max-h-96 md:max-h-80 lg:max-h-72 border">
                                         @foreach ($clientes as $cliente)
@@ -176,9 +177,10 @@
                                 <div class="w-full border border-gray-200 p-3 my-2 rounded-lg">
                                     <div class="flex justify-between">
                                         <div class="flex space-x-2 justify-between">
-                                            <input type="checkbox" name="id_sessao_mesa[]"
+                                            <input type="checkbox" class="sessaoMesa" name="id_sessao_mesa[]"
                                                 id="mesa_id_{{ $sessaoMesa->mesa->id }}"
-                                                value="{{ $sessaoMesa->id }}" />
+                                                value="{{ $sessaoMesa->id }}"
+                                                data-sessaoMesa_id="{{ $sessaoMesa->id }}" />
                                             <x-input-label class="text-sm"
                                                 for="mesa_id_{{ $sessaoMesa->mesa->id }}">{{ $sessaoMesa->mesa->mesa_nome }}</x-text-input>
                                         </div>
@@ -186,6 +188,7 @@
                                             class="toogle_mesa bx bx-chevron-up col-span-6 p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
                                         </span>
                                     </div>
+
                                     @php
                                         $itensAgrupados = [];
 
@@ -246,7 +249,8 @@
                                                     <td>{{ $item['produto']->id }}</td>
                                                     <td>{{ $item['produto']->produto_descricao }}</td>
                                                     <td>{{ $item['total_quantidade'] }}</td>
-                                                    <td>{{ number_format($item['produto']->produto_preco_venda, 2, ',', '.') }}</td>
+                                                    <td>{{ number_format($item['produto']->produto_preco_venda, 2, ',', '.') }}
+                                                    </td>
                                                     <td>{{ number_format($item['total_desconto'], 2, ',', '.') }}</td>
                                                     <td>{{ number_format($item['total_valor'], 2, ',', '.') }}</td>
                                                     <td></td>
@@ -269,32 +273,36 @@
                                             class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-6 gap-4 ">
                                             @foreach ($categoria->produtos as $produto)
                                                 <div class="relative snap-end ">
-                                                    <div
-                                                        class="w-full bg-gray-100 p-2 rounded-lg flex items-start justify-between opacity-95 hover:opacity-100 gap-1">
-                                                        <div class="w-2/5">
-                                                            @if ($produto->produto_foto)
-                                                                <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
-                                                                    alt="{{ $produto->produtso_descricao }}"
-                                                                    class="h-14 object-cover rounded-lg ">
-                                                            @else
-                                                                <img id="imagem-preview"
-                                                                    class="h-14 object-cover rounded-lg "
-                                                                    src="{{ asset('Sem Imagem.png') }}"
-                                                                    alt="Imagem Padrão">
-                                                            @endif
-                                                        </div>
-                                                        <div class="w-3/5 flex flex-col justify-center">
-                                                            <h2 class="text-gray-900 text-[8px] uppercase">
-                                                                @if (isset($produto->produto_referencia) && $produto->produto_referencia !== null)
-                                                                    {{ $produto->produto_descricao }} - <span>Ref.
-                                                                        {{ $produto->produto_referencia }}</span>
+                                                    <div class="produto cursor-pointer hover:shadow-lg"
+                                                        data-produto_id="{{ $produto->id }}"
+                                                        data-produto_valor="{{ $produto->produto_preco_venda }}">
+                                                        <div
+                                                            class="w-full bg-gray-100 p-2 rounded-lg flex items-start justify-between opacity-95 hover:opacity-100 gap-1">
+                                                            <div class="w-2/5">
+                                                                @if ($produto->produto_foto)
+                                                                    <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
+                                                                        alt="{{ $produto->produtso_descricao }}"
+                                                                        class="h-14 object-cover rounded-lg ">
                                                                 @else
-                                                                    {{ $produto->produto_descricao }}
+                                                                    <img id="imagem-preview"
+                                                                        class="h-14 object-cover rounded-lg "
+                                                                        src="{{ asset('Sem Imagem.png') }}"
+                                                                        alt="Imagem Padrão">
                                                                 @endif
-                                                            </h2>
-                                                            <div class="flex items-center">
-                                                                <span
-                                                                    class="text-gray-900 text-sm font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                            </div>
+                                                            <div class="w-3/5 flex flex-col justify-center">
+                                                                <h2 class="text-gray-900 text-[8px] uppercase">
+                                                                    @if (isset($produto->produto_referencia) && $produto->produto_referencia !== null)
+                                                                        {{ $produto->produto_descricao }} - <span>Ref.
+                                                                            {{ $produto->produto_referencia }}</span>
+                                                                    @else
+                                                                        {{ $produto->produto_descricao }}
+                                                                    @endif
+                                                                </h2>
+                                                                <div class="flex items-center">
+                                                                    <span
+                                                                        class="text-gray-900 text-sm font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -379,29 +387,31 @@
                             @endforeach
                         </div>
                     </div>
-                    <div class="mt-2">
-                        <x-primary-button>Salvar Venda</x-primary-button>
-                    </div>
                 </div>
                 <div class="w-[20%] border border-gray-200 rounded-lg">
                     teset 2
                 </div>
                 <div class="w-[20%] h-[96vh] border mx-1 border-gray-200 rounded-lg">
-                    <div class="p-1 h-[50%] bg-slate-500">
-
-                    </div>
                     <div class="p-1 h-[50%]">
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
-                            <x-text-input id="venda_valor_frete" name="venda_valor_frete" class="money w-full h-[12vh] text-6xl" autocomplete="off"></x-input-text>
+                            <x-text-input id="venda_valor_frete" name="venda_valor_frete"
+                                class="money w-full h-[12vh] text-5xl" autocomplete="off"></x-input-text>
                         </div>
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Desconto') }}</x-input-label>
-                            <x-text-input id="venda_valor_frete" name="venda_valor_frete" class="money w-full h-[12vh]"></x-input-text>
+                            <x-text-input id="venda_valor_frete" name="venda_valor_frete"
+                                class="money w-full h-[12vh] text-5xl"></x-input-text>
                         </div>
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Total') }}</x-input-label>
-                            <x-text-input id="venda_valor_frete" name="venda_valor_frete" class="money w-full h-[12vh]"></x-input-text>
+                            <x-text-input id="venda_valor_frete" name="venda_valor_frete"
+                                class="money w-full h-[12vh] text-5xl"></x-input-text>
+                        </div>
+                    </div>
+                    <div class="p-1 h-[50%] ">
+                        <div class="mt-2 text-center">
+                            <x-primary-button>Salvar Venda</x-primary-button>
                         </div>
                     </div>
                 </div>
@@ -512,7 +522,7 @@
                 }
             });
 
-            //Abre a table dos itens do pedido
+            //Abre a table dos itens da venda
             $(".toogle_pedido").click(function(e) {
                 e.preventDefault();
                 const pedido_id = $(this).data('pedido_id');
@@ -530,7 +540,95 @@
                 }
             });
 
+            $('.sessaoMesa').click(function() {
+                var selected = [];
+                $('.sessaoMesa:checked').each(function() {
+                    selected.push($(this).val());
+                });
+
+                console.log('Checkboxes selecionados:', selected);
+            });
+
+            //Adiciona o produto no venda
+            $(".produto").click(function(e) {
+                e.preventDefault();
+                const item_venda_produto_id = $(this).data('produto_id');
+
+                // Verifica se o produto já está na lista de itens do venda no HTML
+                const itemPedidoExistente = $(
+                    `#itens_venda_container [data-item_produto_id="${item_venda_produto_id}"]`);
+
+                if (itemPedidoExistente.length > 0) {
+                    // Se o produto já estiver na lista de itens, aumente a quantidade
+                    $(".abrir-modal").trigger("click");
+                    $("#modal-title").html(`<h2>OLÁ {{ Auth::user()->name }}</h2>`);
+                    $("#modal-body").html(`
+                    <div
+                        <div class="p-2 flex items-center>"
+                        <!-- Ícone de atenção -->
+                        <i class="bx bx-info-circle text-4xl text-yellow-500"></i>
+                        <!-- Mensagem -->
+                        <div class="ml-4">
+                            <h4 class="text-xl font-bold">Atenção</h4>
+                            <p>Produto já lançado neste venda!</p>
+                        </div>
+                    </div>
+                        
+                    `);
+
+                } else {
+                    // Se o produto não estiver na lista de itens, adicione um novo item ao venda
+
+                    //Verifica se o venda está aberto
+                    const venda_id = $("#venda_id").val();
+                    if (venda_id === "") {
+                        //Se não estiver ele abre um novo e já adiciona o produto clicado
+                        IniciarVenda($(this));
+
+                    } else {
+                        //Se o venda já estiver aberto ele apenas adiciona o produto clicado
+                        AdicionarProdutoemVendaIniciada($(this));
+
+                    }
+                }
+            });
+
+            function IniciarVenda(elemento) {
+                const form = document.getElementById('formVenda');
+                var route = '{{ route('venda.salvar_venda', 14) }}';
+
+                // Fazer uma requisição AJAX para iniciar a venda
+                $.ajax({
+                    url: "{{ route('venda.iniciar') }}",
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        '_token': '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        // Lidar com a resposta
+                        if (response && response.venda_id) {
+                            $("#venda_id").val(response.venda_id);
+                            $("#venda_id_titulo").text("Nº: " + response.venda_id);
+                            form.action = route.replace('14', response
+                                .venda_id
+                            );
+                            IniciarPedidoeAdicionarProduto(elemento, response.venda_id)
+                        } else {
+                            alert('Erro ao iniciar a venda. Por favor, tente novamente 1.');
+                        }
+                    },
+                    error: function() {
+                        alert('Erro ao iniciar a venda. Por favor, tente novamente 2.');
+                    }
+                });
+            }
+
         });
+
+
+
+
 
         function toggleSidebar() {
             const BtnToggleSideBar = document.querySelector('.toggleSideBar');

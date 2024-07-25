@@ -162,6 +162,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/Venda', [VendaController::class, 'index'])->name('venda');
     Route::post('/Venda', [VendaController::class, 'store'])->name('venda.store');
+    Route::post('/iniciar-venda', [VendaController::class, 'iniciarVenda'])->name('venda.iniciar');
+    Route::post('/Venda/{id}/Edit', [VendaController::class, 'SalvarVenda'])->name('venda.salvar_venda');
 
 });
 

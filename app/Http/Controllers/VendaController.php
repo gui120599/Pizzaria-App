@@ -10,8 +10,10 @@ use App\Models\Cliente;
 use App\Models\Mesa;
 use App\Models\Pedido;
 use App\Models\Produto;
+use App\Models\SessaoCaixa;
 use App\Models\SessaoMesa;
 use GuzzleHttp\Psr7\Query;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class VendaController extends Controller
@@ -21,6 +23,7 @@ class VendaController extends Controller
      */
     public function index()
     {
+        $sessaCaixa = SessaoCaixa::where('sessaocaixa_status', 'ABERTA')->first();
         $sessaoMesas = SessaoMesa::where('sessao_mesa_status', 'ABERTA')->get();
         $categorias = Categoria::all();
         $produtos = Produto::all();
@@ -32,8 +35,9 @@ class VendaController extends Controller
             }])
             ->get();
 
-        //dd($pedidos);
+        
         return view('app.venda.index', [
+            'sessaoCaixa' => $sessaCaixa,
             'produtos' => $produtos, 
             'categorias' => $categorias, 
             'sessaoMesas' => $sessaoMesas, 
@@ -45,9 +49,14 @@ class VendaController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public function iniciarVenda(Request $request)
     {
-        //
+        $venda = new Venda();
+        $venda->venda_status = 'INICIADA';
+        $venda->venda_sessao_caixa_id = $request->input('venda_sessao_caixa_id');
+        $venda->save();
+
+        return response()->json(['venda_id' => $venda->id]);
     }
 
     /**
