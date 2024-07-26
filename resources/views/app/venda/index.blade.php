@@ -321,8 +321,10 @@
                                     <div class="w-full border border-gray-200 p-3 my-2 rounded-lg">
                                         <div class="flex justify-between">
                                             <div>
-                                                <input type="checkbox" name="pedido_{{ $pedido->id }}"
+                                                <input type="checkbox" class="pedido"
+                                                    name="pedido_{{ $pedido->id }}"
                                                     id="pedido_{{ $pedido->id }}"
+                                                    data-id="{{ $pedido->id }}"
                                                     class="cursor-pointer check_ pedido">
                                                 <label for="pedido_{{ $pedido->id }}">Pedido:
                                                     {{ $pedido->id }}</label>
@@ -399,17 +401,17 @@
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
                             <x-money-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="money w-full h-[12vh] text-5xl" autocomplete="off" ></x-input-text>
+                                class="money w-full h-[12vh] text-5xl" autocomplete="off"></x-input-text>
                         </div>
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Desconto') }}</x-input-label>
                             <x-money-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="money w-full h-[12vh] text-5xl" ></x-input-text>
+                                class="money w-full h-[12vh] text-5xl"></x-input-text>
                         </div>
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Total') }}</x-input-label>
                             <x-money-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="money w-full h-[12vh] text-5xl" ></x-input-text>
+                                class="money w-full h-[12vh] text-5xl"></x-input-text>
                         </div>
                     </div>
                     <div class="p-1 h-[50%] ">
@@ -565,13 +567,56 @@
                     },
                     dataType: "json",
                     success: function(response) {
-                        console.log(response.ITENS);
+                        console.log(response.result);
 
                     },
                     error: function() {
                         alert('Erro ao inserir itens da sessao. Por favor, tente novamente 2.');
                     }
                 });
+            });
+
+            $('.pedido').click(function() {
+
+                if ($(this).is(':checked')) {
+                    console.log('Checkbox marcado');
+                    //Verifica se o venda está aberto
+                    const venda_id = $("#venda_id").val();
+                    if (venda_id === "") {
+                        //Se não estiver ele abre um novo e já adiciona os itens do pedido selecionado na venda aberta
+                        IniciarVenda($(this));
+                    }
+                } else {
+                    console.log('Checkbox desmarcado');
+                }
+
+                /*var selected = [];
+                $('.pedido:checked').each(function() {
+                    selected.push($(this).val());
+                });
+
+                //Verifica se o venda está aberto
+                const venda_id = $("#venda_id").val();
+                if (venda_id === "") {
+                    //Se não estiver ele abre um novo e já adiciona o produto clicado
+                    IniciarVenda();
+                }
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.add_item_pedido') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        'pedido': selected,
+                    },
+                    dataType: "json",
+                    success: function(response) {
+                        console.log(response.result);
+
+                    },
+                    error: function() {
+                        alert('Erro ao inserir itens da sessao. Por favor, tente novamente 2.');
+                    }
+                });*/
             });
 
             //Adiciona o produto no venda
@@ -636,12 +681,43 @@
                             $("#venda_id").val(response.venda_id);
                             $("#venda_id_titulo").text("Nº: " + response.venda_id);
                             form.action = route.replace('14', response.venda_id);
+                            IniciarVendaAdicionarItensPedido(elemento.data('id'), response.venda_id);
                         } else {
                             alert('Erro ao iniciar a venda. Por favor, tente novamente 1.');
                         }
                     },
                     error: function() {
                         alert('Erro ao iniciar a venda. Por favor, tente novamente 2.');
+                    }
+                });
+            }
+
+            function IniciarVendaAdicionarItensPedido(pedido_id, venda_id) {
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.add_item_pedido') }}",
+                    data: {
+                        pedido_id,
+                        venda_id,
+                        '_token': '{{ csrf_token() }}'
+                    },
+                    dataType: "json",
+                    success: function(response) {
+                        // Lidar com a resposta
+                        if (response) {
+                            console.log(response);
+
+                        } else {
+                            alert(
+                                'Erro ao iniciar o pedido. Por favor, tente novamente 1.'
+                            );
+                        }
+
+                    },
+                    error: function() {
+                        alert(
+                            'Erro ao adicionar itens do pedido na venda.'
+                        );
                     }
                 });
             }
