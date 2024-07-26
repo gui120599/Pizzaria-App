@@ -39,7 +39,7 @@
             <!-- Page Content -->
             <main
                 class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 transition-margin ease-in-out duration-300">
-                <div class="container mx-auto">
+                <div class="mx-auto">
                     {{ $slot }}
 
                 </div>

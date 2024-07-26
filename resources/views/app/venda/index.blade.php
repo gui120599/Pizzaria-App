@@ -65,20 +65,21 @@
                                 <div class="md:col-span-1">
                                     <x-input-label for="venda_sessao_caixa_id" :value="__('Cód. Sessão do Caixa')" />
                                     <x-text-input id="venda_sessao_caixa_id" name="venda_sessao_caixa_id" type="text"
-                                        class="mt-1 w-full" autocomplete="off" value="{{ $sessaoCaixa->id }}" />
+                                        class="mt-1 w-full" autocomplete="off" value="{{ $sessaoCaixa->id }}"
+                                        readonly />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_sessao_caixa_id')" class="mt-2" />
                                 </div>
                                 <div class="md:col-span-1">
                                     <x-input-label for="caixa_nome" :value="__('Caixa')" />
                                     <x-text-input id="caixa_nome" name="caixa_nome" type="text" class="mt-1 w-full"
-                                        autocomplete="off" value="{{ $sessaoCaixa->caixa->caixa_nome }}" />
+                                        autocomplete="off" value="{{ $sessaoCaixa->caixa->caixa_nome }}" readonly />
                                     <x-input-error :messages="$errors->updatePassword->get('caixa_nome')" class="mt-2" />
                                 </div>
                                 <div class="md:col-span-3">
                                     <x-input-label for="sessao_caixa_funcionario_id" :value="__('Funcionário')" />
                                     <x-text-input id="sessao_caixa_funcionario_id" name="sessao_caixa_funcionario_id"
                                         type="text" class="mt-1 w-full" autocomplete="off"
-                                        value="{{ $sessaoCaixa->user->name }}" />
+                                        value="{{ $sessaoCaixa->user->name }}" readonly />
                                     <x-input-error :messages="$errors->updatePassword->get('sessao_caixa_funcionario_id')" class="mt-2" />
                                 </div>
 
@@ -374,9 +375,11 @@
                                                         <td>{{ $item['produto']->id }}</td>
                                                         <td>{{ $item['produto']->produto_descricao }}</td>
                                                         <td>{{ $item['total_quantidade'] }}</td>
-                                                        <td>{{ $item['total_desconto'] }}</td>
-                                                        <td>{{ $item['produto']->produto_preco_venda }}</td>
-                                                        <td>{{ $item['total_valor'] }}</td>
+                                                        <td>{{ number_format($item['produto']->produto_preco_venda, 2, ',', '.') }}
+                                                        </td>
+                                                        <td>{{ number_format($item['total_desconto'], 2, ',', '.') }}
+                                                        </td>
+                                                        <td>{{ number_format($item['total_valor'], 2, ',', '.') }}</td>
                                                         <td></td>
                                                     </tr>
                                                 @endforeach
@@ -395,18 +398,18 @@
                     <div class="p-1 h-[50%]">
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
-                            <x-text-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="money w-full h-[12vh] text-5xl" autocomplete="off"></x-input-text>
+                            <x-money-input id="venda_valor_frete" name="venda_valor_frete"
+                                class="money w-full h-[12vh] text-5xl" autocomplete="off" ></x-input-text>
                         </div>
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Desconto') }}</x-input-label>
-                            <x-text-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="money w-full h-[12vh] text-5xl"></x-input-text>
+                            <x-money-input id="venda_valor_frete" name="venda_valor_frete"
+                                class="money w-full h-[12vh] text-5xl" ></x-input-text>
                         </div>
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Total') }}</x-input-label>
-                            <x-text-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="money w-full h-[12vh] text-5xl"></x-input-text>
+                            <x-money-input id="venda_valor_frete" name="venda_valor_frete"
+                                class="money w-full h-[12vh] text-5xl" ></x-input-text>
                         </div>
                     </div>
                     <div class="p-1 h-[50%] ">
@@ -546,7 +549,29 @@
                     selected.push($(this).val());
                 });
 
-                console.log('Checkboxes selecionados:', selected);
+                //Verifica se o venda está aberto
+                const venda_id = $("#venda_id").val();
+                if (venda_id === "") {
+                    //Se não estiver ele abre um novo e já adiciona o produto clicado
+                    IniciarVenda($(this));
+
+                }
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.add_item_sessaoMesa') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        'sessaoMesa': selected,
+                    },
+                    dataType: "json",
+                    success: function(response) {
+                        console.log(response.ITENS);
+
+                    },
+                    error: function() {
+                        alert('Erro ao inserir itens da sessao. Por favor, tente novamente 2.');
+                    }
+                });
             });
 
             //Adiciona o produto no venda
@@ -610,10 +635,7 @@
                         if (response && response.venda_id) {
                             $("#venda_id").val(response.venda_id);
                             $("#venda_id_titulo").text("Nº: " + response.venda_id);
-                            form.action = route.replace('14', response
-                                .venda_id
-                            );
-                            IniciarPedidoeAdicionarProduto(elemento, response.venda_id)
+                            form.action = route.replace('14', response.venda_id);
                         } else {
                             alert('Erro ao iniciar a venda. Por favor, tente novamente 1.');
                         }

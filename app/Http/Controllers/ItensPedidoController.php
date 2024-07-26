@@ -44,7 +44,7 @@ class ItensPedidoController extends Controller
         $itemPedido->save();
 
         // Retornar uma resposta de sucesso
-        return response()->json(['message' => 'Item de pedido criado com sucesso'], 201);
+        return response()->json(['message' => 'Item de pedido criado com sucesso'], 200);
     }
 
     /**

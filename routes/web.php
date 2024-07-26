@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CaixaController;
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\ItensVendaController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\Dashboard;
@@ -16,6 +17,7 @@ use App\Http\Controllers\PedidoController;
 use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
 use App\Http\Controllers\VendaController;
+use App\Models\ItensVenda;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -164,6 +166,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/Venda', [VendaController::class, 'store'])->name('venda.store');
     Route::post('/iniciar-venda', [VendaController::class, 'iniciarVenda'])->name('venda.iniciar');
     Route::post('/Venda/{id}/Edit', [VendaController::class, 'SalvarVenda'])->name('venda.salvar_venda');
+
+    Route::post('/ItemVenda', [ItensVendaController::class, 'adicionarItensSessaoMesa'])->name('item_venda.add_item_sessaoMesa');
 
 });
 

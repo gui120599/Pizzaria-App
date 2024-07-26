@@ -59,6 +59,7 @@ class VendaController extends Controller
         return response()->json(['venda_id' => $venda->id]);
     }
 
+
     /**
      * Store a newly created resource in storage.
      */

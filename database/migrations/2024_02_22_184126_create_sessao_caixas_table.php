@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('sessao_caixas', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('sessaocaixa_caixa_id');
-            $table->enum('sessaocaixa_status',['aberta','fechada'])->default('aberta');
+            $table->enum('sessaocaixa_status',['ABERTA','FECHADA'])->default('FECHADA');
             $table->dateTime('sessaocaixa_data_hora_abertura');
             $table->dateTime('sessaocaixa_data_hora_fechamento')->nullable();
             $table->decimal('sessaocaixa_saldo_inicial',7,2)->default('0.00');
