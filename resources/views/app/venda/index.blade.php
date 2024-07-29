@@ -324,7 +324,7 @@
                                                 <input type="checkbox" class="pedido"
                                                     name="pedido_{{ $pedido->id }}"
                                                     id="pedido_{{ $pedido->id }}"
-                                                    data-id="{{ $pedido->id }}"
+                                                    data-pedido_id="{{ $pedido->id }}"
                                                     class="cursor-pointer check_ pedido">
                                                 <label for="pedido_{{ $pedido->id }}">Pedido:
                                                     {{ $pedido->id }}</label>
@@ -545,6 +545,7 @@
                 }
             });
 
+            //Adiciona/Remove Itens dos pedidos da Sessão de Mesa Selecionada pelo usuário
             $('.sessaoMesa').click(function() {
                 var selected = [];
                 $('.sessaoMesa:checked').each(function() {
@@ -576,47 +577,29 @@
                 });
             });
 
+            //Adiciona/Remove Itens dos pedidos selecionados pelo o usuário
             $('.pedido').click(function() {
 
                 if ($(this).is(':checked')) {
-                    console.log('Checkbox marcado');
                     //Verifica se o venda está aberto
                     const venda_id = $("#venda_id").val();
                     if (venda_id === "") {
                         //Se não estiver ele abre um novo e já adiciona os itens do pedido selecionado na venda aberta
-                        IniciarVenda($(this));
+
+                        // Uso da função com a promessa
+                        IniciarVenda().then(vendaId => {
+                            console.log('Venda iniciada com ID:', vendaId);
+                            AdicionaItensPedido($(this).data('pedido_id'),vendaId);
+                        }).catch(error => {
+                            console.error(error);
+                        });
+                    }else{
+                        AdicionaItensPedido($(this).data('pedido_id'),venda_id);
                     }
                 } else {
-                    console.log('Checkbox desmarcado');
+                    console.log($(this).data('pedido_id'));
                 }
 
-                /*var selected = [];
-                $('.pedido:checked').each(function() {
-                    selected.push($(this).val());
-                });
-
-                //Verifica se o venda está aberto
-                const venda_id = $("#venda_id").val();
-                if (venda_id === "") {
-                    //Se não estiver ele abre um novo e já adiciona o produto clicado
-                    IniciarVenda();
-                }
-                $.ajax({
-                    type: "POST",
-                    url: "{{ route('item_venda.add_item_pedido') }}",
-                    data: {
-                        '_token': '{{ csrf_token() }}',
-                        'pedido': selected,
-                    },
-                    dataType: "json",
-                    success: function(response) {
-                        console.log(response.result);
-
-                    },
-                    error: function() {
-                        alert('Erro ao inserir itens da sessao. Por favor, tente novamente 2.');
-                    }
-                });*/
             });
 
             //Adiciona o produto no venda
@@ -663,61 +646,131 @@
                 }
             });
 
-            function IniciarVenda(elemento) {
+            function IniciarVenda() {
                 const form = document.getElementById('formVenda');
                 var route = '{{ route('venda.salvar_venda', 14) }}';
 
-                // Fazer uma requisição AJAX para iniciar a venda
-                $.ajax({
-                    url: "{{ route('venda.iniciar') }}",
-                    type: 'POST',
-                    dataType: 'json',
-                    data: {
-                        '_token': '{{ csrf_token() }}'
-                    },
-                    success: function(response) {
-                        // Lidar com a resposta
-                        if (response && response.venda_id) {
-                            $("#venda_id").val(response.venda_id);
-                            $("#venda_id_titulo").text("Nº: " + response.venda_id);
-                            form.action = route.replace('14', response.venda_id);
-                            IniciarVendaAdicionarItensPedido(elemento.data('id'), response.venda_id);
-                        } else {
-                            alert('Erro ao iniciar a venda. Por favor, tente novamente 1.');
+                return new Promise((resolve, reject) => {
+                    // Fazer uma requisição AJAX para iniciar a venda
+                    $.ajax({
+                        url: "{{ route('venda.iniciar') }}",
+                        type: 'POST',
+                        dataType: 'json',
+                        data: {
+                            '_token': '{{ csrf_token() }}'
+                        },
+                        success: function(response) {
+                            // Lidar com a resposta
+                            if (response && response.venda_id) {
+                                $("#venda_id").val(response.venda_id);
+                                $("#venda_id_titulo").text("Nº: " + response.venda_id);
+                                form.action = route.replace('14', response.venda_id);
+                                resolve($("#venda_id").val());
+                            } else {
+                                alert('Erro ao iniciar a venda. Por favor, tente novamente 1.');
+                                reject('Erro ao iniciar a venda.');
+                            }
+                        },
+                        error: function() {
+                            alert('Erro ao iniciar a venda. Por favor, tente novamente 2.');
+                            reject('Erro ao iniciar a venda.');
                         }
+                    });
+                });
+            }
+
+            function AdicionaItensSessaoMesa(sessaoMesa_id, venda_id) {
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.add_item_sessaoMesa') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        pedido_id,
+                        venda_id
+                    },
+                    dataType: "JSON",
+                    success: function(response) {
+                        console.log(response);
+
                     },
                     error: function() {
-                        alert('Erro ao iniciar a venda. Por favor, tente novamente 2.');
+                        alert('Erro ao adicionar Itens da Sessão da mesa!');
                     }
                 });
             }
 
-            function IniciarVendaAdicionarItensPedido(pedido_id, venda_id) {
+            function RemoveItensSessaoMesa(sessaoMesa_id, venda_id) {
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.add_item_sessaoMesa') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        pedido_id,
+                        venda_id
+                    },
+                    dataType: "JSON",
+                    success: function(response) {
+
+                    },
+                    error: function() {
+                        alert('Erro ao remover Itens da Sessão da mesa!');
+                    }
+                });
+            }
+
+            function AdicionaItensPedido(pedido_id, venda_id) {
                 $.ajax({
                     type: "POST",
                     url: "{{ route('item_venda.add_item_pedido') }}",
                     data: {
+                        '_token': '{{ csrf_token() }}',
                         pedido_id,
-                        venda_id,
-                        '_token': '{{ csrf_token() }}'
+                        venda_id
                     },
-                    dataType: "json",
+                    dataType: "JSON",
                     success: function(response) {
-                        // Lidar com a resposta
-                        if (response) {
-                            console.log(response);
+                        console.log(response);
+                    },
+                    error: function() {
+                        alert('Erro ao adicionar Itens do Pedido!');
+                    }
+                });
 
-                        } else {
-                            alert(
-                                'Erro ao iniciar o pedido. Por favor, tente novamente 1.'
-                            );
-                        }
+            }
+
+            function RemoveItensPedido(pedido_id, venda_id) {
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.add_item_sessaoMesa') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        pedido_id,
+                        venda_id
+                    },
+                    dataType: "JSON",
+                    success: function(response) {
 
                     },
                     error: function() {
-                        alert(
-                            'Erro ao adicionar itens do pedido na venda.'
-                        );
+                        alert('Erro ao remover Itens do Pedido: ' + pedido_id +
+                            ' /n Contate o administrador!');
+                    }
+                });
+            }
+
+            function ListaItensVenda() {
+                $.ajax({
+                    type: "GET",
+                    url: "{{ route('item_venda.add_item_sessaoMesa') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}'
+                    },
+                    dataType: "JSON",
+                    success: function(response) {
+
+                    },
+                    error: function() {
+
                     }
                 });
             }
