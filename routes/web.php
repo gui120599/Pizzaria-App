@@ -167,9 +167,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/iniciar-venda', [VendaController::class, 'iniciarVenda'])->name('venda.iniciar');
     Route::post('/Venda/{id}/Edit', [VendaController::class, 'SalvarVenda'])->name('venda.salvar_venda');
 
-    Route::post('/ItemVenda/SessaoMesa', [ItensVendaController::class, 'adicionarItensSessaoMesa'])->name('item_venda.add_item_sessaoMesa');
-    Route::post('/ItemVenda/Pedido', [ItensVendaController::class, 'adicionarItensPedido'])->name('item_venda.add_item_pedido');
+    Route::post('/ItemVenda/AddSessaoMesa', [ItensVendaController::class, 'adicionarItensSessaoMesa'])->name('item_venda.add_item_sessaoMesa');
+    Route::post('/ItemVenda/RemoveSessaoMesa', [ItensVendaController::class, 'removerItensSessaoMesa'])->name('item_venda.remove_item_sessaoMesa');
+    Route::post('/ItemVenda/AddPedido', [ItensVendaController::class, 'adicionarItensPedido'])->name('item_venda.add_item_pedido');
+    Route::post('/ItemVenda/RemovePedido', [ItensVendaController::class, 'removerItensPedido'])->name('item_venda.remove_item_pedido');
+    
+    
     Route::get('/ItemVenda', [ItensVendaController::class, 'index'])->name('item_venda.add_item_pedido2');
+    Route::get('/ItemVenda2', [ItensVendaController::class, 'listarItensVenda'])->name('item_venda.listar');
 
 });
 

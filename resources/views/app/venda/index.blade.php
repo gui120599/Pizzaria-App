@@ -394,7 +394,9 @@
                     </div>
                 </div>
                 <div class="w-[20%] border border-gray-200 rounded-lg">
-                    teset 2
+                    <div id="itens_venda">
+
+                    </div>
                 </div>
                 <div class="w-[20%] h-[96vh] border mx-1 border-gray-200 rounded-lg">
                     <div class="p-1 h-[50%]">
@@ -547,38 +549,32 @@
 
             //Adiciona/Remove Itens dos pedidos da Sessão de Mesa Selecionada pelo usuário
             $('.sessaoMesa').click(function() {
-                var selected = [];
-                $('.sessaoMesa:checked').each(function() {
-                    selected.push($(this).val());
-                });
+                $("#carregando").removeClass('hidden');
 
-                //Verifica se o venda está aberto
-                const venda_id = $("#venda_id").val();
-                if (venda_id === "") {
-                    //Se não estiver ele abre um novo e já adiciona o produto clicado
-                    IniciarVenda($(this));
+                if ($(this).is(':checked')) {
+                    //Verifica se o venda está aberto
+                    const venda_id = $("#venda_id").val();
+                    if (venda_id === "") {
+                        //Se não estiver ele abre um novo e já adiciona os itens da sessao mesa selecionada na venda aberta
 
-                }
-                $.ajax({
-                    type: "POST",
-                    url: "{{ route('item_venda.add_item_sessaoMesa') }}",
-                    data: {
-                        '_token': '{{ csrf_token() }}',
-                        'sessaoMesa': selected,
-                    },
-                    dataType: "json",
-                    success: function(response) {
-                        console.log(response.result);
-
-                    },
-                    error: function() {
-                        alert('Erro ao inserir itens da sessao. Por favor, tente novamente 2.');
+                        // Uso da função com a promessa
+                        IniciarVenda().then(vendaId => {
+                            console.log('Venda iniciada com ID:', vendaId);
+                            AdicionaItensSessaoMesa($(this).data('sessaoMesa_id'),vendaId);
+                        }).catch(error => {
+                            console.error(error);
+                        });
+                    }else{
+                        AdicionaItensSessaoMesa($(this).data('sessaoMesa_id'),venda_id);
                     }
-                });
+                } else {
+                    RemoveItensSessaoMesa($(this).data('sessaoMesa_id'),$("#venda_id").val());
+                }
             });
 
             //Adiciona/Remove Itens dos pedidos selecionados pelo o usuário
             $('.pedido').click(function() {
+                $("#carregando").removeClass('hidden');
 
                 if ($(this).is(':checked')) {
                     //Verifica se o venda está aberto
@@ -597,7 +593,7 @@
                         AdicionaItensPedido($(this).data('pedido_id'),venda_id);
                     }
                 } else {
-                    console.log($(this).data('pedido_id'));
+                    RemoveItensPedido($(this).data('pedido_id'),$("#venda_id").val());
                 }
 
             });
@@ -685,13 +681,13 @@
                     url: "{{ route('item_venda.add_item_sessaoMesa') }}",
                     data: {
                         '_token': '{{ csrf_token() }}',
-                        pedido_id,
+                        sessaoMesa_id,
                         venda_id
                     },
                     dataType: "JSON",
                     success: function(response) {
                         console.log(response);
-
+                        ListaItensVenda();
                     },
                     error: function() {
                         alert('Erro ao adicionar Itens da Sessão da mesa!');
@@ -702,14 +698,16 @@
             function RemoveItensSessaoMesa(sessaoMesa_id, venda_id) {
                 $.ajax({
                     type: "POST",
-                    url: "{{ route('item_venda.add_item_sessaoMesa') }}",
+                    url: "{{ route('item_venda.remove_item_sessaoMesa') }}",
                     data: {
                         '_token': '{{ csrf_token() }}',
-                        pedido_id,
+                        sessaoMesa_id,
                         venda_id
                     },
                     dataType: "JSON",
                     success: function(response) {
+                        console.log(response);
+                        ListaItensVenda();
 
                     },
                     error: function() {
@@ -730,6 +728,7 @@
                     dataType: "JSON",
                     success: function(response) {
                         console.log(response);
+                        ListaItensVenda(venda_id);
                     },
                     error: function() {
                         alert('Erro ao adicionar Itens do Pedido!');
@@ -741,7 +740,7 @@
             function RemoveItensPedido(pedido_id, venda_id) {
                 $.ajax({
                     type: "POST",
-                    url: "{{ route('item_venda.add_item_sessaoMesa') }}",
+                    url: "{{ route('item_venda.remove_item_pedido') }}",
                     data: {
                         '_token': '{{ csrf_token() }}',
                         pedido_id,
@@ -749,7 +748,8 @@
                     },
                     dataType: "JSON",
                     success: function(response) {
-
+                        console.log(response);
+                        ListaItensVenda(venda_id);
                     },
                     error: function() {
                         alert('Erro ao remover Itens do Pedido: ' + pedido_id +
@@ -758,19 +758,22 @@
                 });
             }
 
-            function ListaItensVenda() {
+            function ListaItensVenda(venda_id) {
                 $.ajax({
                     type: "GET",
-                    url: "{{ route('item_venda.add_item_sessaoMesa') }}",
+                    url: "{{ route('item_venda.listar') }}",
                     data: {
-                        '_token': '{{ csrf_token() }}'
+                        '_token': '{{ csrf_token() }}',
+                        venda_id
                     },
                     dataType: "JSON",
                     success: function(response) {
-
+                        console.log(response);
+                        $("#carregando").addClass('hidden');
                     },
                     error: function() {
-
+                        alert('Erro ao listar Itens da Venda!');
+                        $("#carregando").addClass('hidden');
                     }
                 });
             }

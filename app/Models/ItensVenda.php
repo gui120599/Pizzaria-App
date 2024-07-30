@@ -20,8 +20,10 @@ class ItensVenda extends Model
         'item_venda_valor_unitario_tributavel',
         'item_venda_desconto',
         'item_venda_valor',
-        'item_venda_base_calculo_icms',
+        'item_venda_valor_base_calculo',
         'item_venda_valor_icms',
+        'item_venda_valor_pis',
+        'item_venda_valor_cofins',
         'item_venda_valor_total_tributos',
         'item_venda_observacao',
         'item_venda_status',
@@ -37,6 +39,8 @@ class ItensVenda extends Model
         'item_venda_valor' => 'decimal:2',
         'item_venda_base_calculo_icms' => 'decimal:2',
         'item_venda_valor_icms' => 'decimal:2',
+        'item_venda_valor_pis' => 'decimal:2',
+        'item_venda_valor_cofins' => 'decimal:2',
         'item_venda_valor_total_tributos' => 'decimal:2',
     ];
 
