@@ -169,6 +169,7 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/ItemVenda/SessaoMesa', [ItensVendaController::class, 'adicionarItensSessaoMesa'])->name('item_venda.add_item_sessaoMesa');
     Route::post('/ItemVenda/Pedido', [ItensVendaController::class, 'adicionarItensPedido'])->name('item_venda.add_item_pedido');
+    Route::get('/ItemVenda', [ItensVendaController::class, 'index'])->name('item_venda.add_item_pedido2');
 
 });
 

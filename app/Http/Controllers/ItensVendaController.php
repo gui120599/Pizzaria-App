@@ -82,11 +82,12 @@ class ItensVendaController extends Controller
         }
 
         // Obter todos os itens dos pedidos fornecidos
-        $itensPedido = ItensPedido::where('item_pedido_pedido_id', $pedido_id)->where('item_pedido_status', 'INSERIDO')->get();
-
+        $itensPedido = ItensPedido::where('item_pedido_pedido_id', $pedido_id)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->get();
 
         foreach ($itensPedido as $item) {
-            /*$itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
+            $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
                 ->where('item_venda_venda_id', $venda_id)
                 ->first();
 
@@ -94,34 +95,43 @@ class ItensVendaController extends Controller
                 // Se o item já existe na venda
                 $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
                 $itemVenda->item_venda_quantidade_tributavel += $item->item_pedido_quantidade;
-                $itemVenda->item_venda_valor_unitario += $item->produto->produto_valor;
-                $itemVenda->item_venda_valor_unitario_tributavel += $item->produto->produto_valor;
+                $itemVenda->item_venda_valor_unitario += $item->produto->produto_preco_venda;
+                $itemVenda->item_venda_valor_unitario_tributavel += $item->produto->produto_preco_venda;
                 $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
                 $itemVenda->item_venda_valor += $item->item_pedido_valor;
                 $itemVenda->item_venda_base_calculo_icms += $item->produto->produto_valor_percentual_icms;
 
-                $valorICMS = ($itemVenda->item_venda_valor += $item->item_pedido_valor * 100) / $item->produto->produto_valor_percentual_icms;
-
-                $itemVenda->item_venda_valor_icms = $valorICMS;
+                $itemVenda->item_venda_valor_icms = ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100;
                 $itemVenda->save();
-            } else {*/
+            } else {
+                // Buscar o último número sequencial da venda
+                $lastItem = ItensVenda::where('item_venda_venda_id', $venda_id)
+                    ->orderBy('item_numero', 'desc')
+                    ->first();
+
+                // Definir o próximo número sequencial
+                $nextItemNumber = $lastItem ? $lastItem->item_numero + 1 : 1;
+
                 // Se o item não existe na venda, adicionar o item
                 ItensVenda::create([
-                'item_venda_venda_id' => $venda_id,
-                'item_venda_produto_id' => $item->item_pedido_produto_id,
-                'item_venda_quantidade' => $item->item_pedido_quantidade,
-                'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
-                'item_venda_valor_unitario' => $item->produto->produto_preco_venda,
-                'item_venda_valor_unitario_tributavel' => $item->produto->produto_valor,
-                'item_venda_desconto' => $item->item_pedido_desconto,
-                'item_venda_valor' => $item->item_pedido_valor,
-                'item_venda_base_calculo_icms' => $item->produto->produto_valor_percentual_icms,
-                'item_venda_valor_icms' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100,
+                    'item_numero' => $nextItemNumber,
+                    'item_venda_venda_id' => $venda_id,
+                    'item_venda_produto_id' => $item->item_pedido_produto_id,
+                    'item_venda_quantidade' => $item->item_pedido_quantidade,
+                    'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
+                    'item_venda_valor_unitario' => $item->produto->produto_preco_venda,
+                    'item_venda_valor_unitario_tributavel' => $item->produto->produto_preco_venda,
+                    'item_venda_desconto' => $item->item_pedido_desconto,
+                    'item_venda_valor' => $item->item_pedido_valor,
+                    'item_venda_base_calculo_icms' => $item->produto->produto_valor_percentual_icms,
+                    'item_venda_valor_icms' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100,
                 ]);
-            //}
+            }
         }
+
         return response()->json(['success' => 'Adicionado']);
     }
+
 
 
 
@@ -131,7 +141,67 @@ class ItensVendaController extends Controller
      */
     public function index()
     {
-        //
+
+        // Recebe os IDs dos pedidos e o ID da venda do request
+        $pedido_id = 47;
+        $venda_id = 9;
+
+        // Obter a venda
+        $venda = Venda::find($venda_id);
+
+        if (!$venda) {
+            return response()->json(['error' => 'Venda não encontrada'], 404);
+        }
+
+        // Obter todos os itens dos pedidos fornecidos
+        $itensPedido = ItensPedido::where('item_pedido_pedido_id', $pedido_id)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->get();
+
+        foreach ($itensPedido as $item) {
+            $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
+                ->where('item_venda_venda_id', $venda_id)
+                ->first();
+
+            if ($itemVenda) {
+                // Se o item já existe na venda
+                $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
+                $itemVenda->item_venda_quantidade_tributavel += $item->item_pedido_quantidade;
+                $itemVenda->item_venda_valor_unitario += $item->produto->produto_preco_venda;
+                $itemVenda->item_venda_valor_unitario_tributavel += $item->produto->produto_preco_venda;
+                $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
+                $itemVenda->item_venda_valor += $item->item_pedido_valor;
+                $itemVenda->item_venda_base_calculo_icms += $item->produto->produto_valor_percentual_icms;
+
+                $valorICMS = ($itemVenda->item_venda_valor + $item->item_pedido_valor * 100) / $item->produto->produto_valor_percentual_icms;
+                $itemVenda->item_venda_valor_icms = $valorICMS;
+                $itemVenda->save();
+            } else {
+                // Buscar o último número sequencial da venda
+                $lastItem = ItensVenda::where('item_venda_venda_id', $venda_id)
+                    ->orderBy('item_numero', 'desc')
+                    ->first();
+
+                // Definir o próximo número sequencial
+                $nextItemNumber = $lastItem ? $lastItem->item_numero + 1 : 1;
+
+                // Se o item não existe na venda, adicionar o item
+                ItensVenda::create([
+                    'item_numero' => $nextItemNumber,
+                    'item_venda_venda_id' => $venda_id,
+                    'item_venda_produto_id' => $item->item_pedido_produto_id,
+                    'item_venda_quantidade' => $item->item_pedido_quantidade,
+                    'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
+                    'item_venda_valor_unitario' => $item->produto->produto_preco_venda,
+                    'item_venda_valor_unitario_tributavel' => $item->produto->produto_preco_venda,
+                    'item_venda_desconto' => $item->item_pedido_desconto,
+                    'item_venda_valor' => $item->item_pedido_valor,
+                    'item_venda_base_calculo_icms' => $item->produto->produto_valor_percentual_icms,
+                    'item_venda_valor_icms' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100,
+                ]);
+            }
+        }
+        return redirect()->route('dashboard')->with('success', 'Produto criado com sucesso!');
     }
 
     /**

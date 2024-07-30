@@ -29,9 +29,12 @@ return new class extends Migration
             $table->decimal('produto_valor_percentual_comissao')->nullable();
             $table->decimal('produto_preco_comissao',7,2)->nullable();
             $table->decimal('produto_preco_promocional',7,2)->nullable();
+            $table->string('produto_cod_origem_mercadoria')->nullable();
+            $table->string('produto_cod_tributacao_icms')->nullable();
             $table->decimal('produto_valor_percentual_icms')->nullable();
             $table->decimal('produto_valor_percentual_cofins')->nullable();
             $table->decimal('produto_valor_percentual_pis')->nullable();
+            $table->decimal('produto_valor_percentual_reducao_icms')->nullable();
             $table->date('produto_data_inicio_promocao')->nullable();
             $table->date('produto_data_final_promocao')->nullable();
             $table->integer('produto_quantidade_minima')->nullable();

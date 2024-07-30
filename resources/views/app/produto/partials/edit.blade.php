@@ -26,7 +26,8 @@
                     <div class="md:col-span-4">
                         <x-input-label for="produto_codimentacao" :value="__('Codimentação do Produto')" />
                         <x-text-input id="produto_codimentacao" name="produto_codimentacao" type="text"
-                            class="mt-1 w-full" autocomplete="off" value="{{ $produto->produto_codimentacao }}" autofocus />
+                            class="mt-1 w-full" autocomplete="off" value="{{ $produto->produto_codimentacao }}"
+                            autofocus />
                         <x-input-error :messages="$errors->updatePassword->get('produto_codimentacao')" class="mt-2" />
                     </div>
                     <div class="md:col-span-2">
@@ -99,8 +100,9 @@
 
                 <div class="lg:col-span-2 md:col-span-3">
                     <x-input-label for="produto_codigo_beneficio_fiscal_uf" :value="__('Código Benefício Fiscal na UF do Produto')" />
-                    <x-text-input id="produto_codigo_beneficio_fiscal_uf" name="produto_codigo_beneficio_fiscal_uf" type="text" class="mt-1 w-full"
-                        autocomplete="off" value="{{ $produto->produto_codigo_beneficio_fiscal_uf }}" />
+                    <x-text-input id="produto_codigo_beneficio_fiscal_uf" name="produto_codigo_beneficio_fiscal_uf"
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ $produto->produto_codigo_beneficio_fiscal_uf }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_codigo_beneficio_fiscal_uf')" class="mt-2" />
                 </div>
 
@@ -132,7 +134,8 @@
                 <div class="lg:col-span-1 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_venda" :value="__('Venda %')" />
                     <x-text-input id="produto_valor_percentual_venda" name="produto_valor_percentual_venda"
-                        type="text" class="mt-1 w-full" autocomplete="off" value="{{ $produto->produto_valor_percentual_venda }}" />
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ $produto->produto_valor_percentual_venda }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_venda')" class="mt-2" />
                 </div>
 
@@ -146,7 +149,8 @@
                 <div class="lg:col-span-1 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_comissao" :value="__('Comissão %')" />
                     <x-text-input id="produto_valor_percentual_comissao" name="produto_valor_percentual_comissao"
-                        type="text" class="mt-1 w-full" autocomplete="off" value="{{ $produto->produto_valor_percentual_comissao }}" />
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ $produto->produto_valor_percentual_comissao }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_comissao')" class="mt-2" />
                 </div>
 
@@ -169,31 +173,86 @@
             <div class="col-span-full">
                 <hr class="h-px my-1 border-0 bg-gray-200">
                 <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700">
-                    <i class='bx bx-dollar' ></i>
+                    <i class='bx bx-dollar'></i>
                     <span>{{ __('Impostos') }}</span>
                 </h2>
             </div>
             <div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
 
                 <div class="lg:col-span-2 md:col-span-3">
+                    <x-input-label for="produto_cod_origem_mercadoria" :value="__('Cód. Origem Produto')" />
+                    <select id="produto_cod_origem_mercadoria" name="produto_cod_origem_mercadoria"
+                        class="mt-1 w-full border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm">
+                        <option value="0">0 - Nacional</option>
+                        <option value="1">1 – Estrangeira – Importação direta</option>
+                        <option value="2">2 – Estrangeira – Adquirida no mercado interno</option>
+                        <option value="3">3 – Nacional, mercadoria ou bem com Conteúdo de Importação superior a
+                            40% (quarenta por cento) e igual ou inferior a 70% (setenta por cento)</option>
+                        <option value="4">4 – Nacional, cuja produção tenha sido feita em conformidade com os
+                            processos produtivos básicos de que tratam o Decreto-Lei nº 288/1967 , e as Leis nºs
+                            8.248/1991, 8.387/1991, 10.176/2001 e 11.484/2007</option>
+                        <option value="5">5 – Nacional, mercadoria ou bem com Conteúdo de Importação inferior ou
+                            igual a 40%</option>
+                        <option value="6">6 – Estrangeira – Importação direta, sem similar nacional, constante em
+                            lista de Resolução Camex e gás natural</option>
+                        <option value="7">7 – Estrangeira – Adquirida no mercado interno, sem similar nacional,
+                            constante em lista de Resolução Camex e gás natural</option>
+                        <option value="8">8 – Nacional – Mercadoria ou bem com Conteúdo de Importação superior a
+                            70% (setenta por cento)</option>
+                    </select>
+                    <x-input-error :messages="$errors->updatePassword->get('produto_cod_origem_mercadoria')" class="mt-2" />
+                </div>
+
+                <div class="lg:col-span-2 md:col-span-3">
+                    <x-input-label for="produto_cod_tributacao_icms" :value="__('Cód. Tributação ICMS')" />
+                    <select id="produto_cod_tributacao_icms" name="produto_cod_tributacao_icms"
+                        class="mt-1 w-full border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm">
+                        <option value="00">00 – Tributada integralmente</option>
+                        <option value="10">10 – Tributada e com cobrança do ICMS por substituição tributária
+                        </option>
+                        <option value="20">20 – Com redução de base de cálculo</option>
+                        <option value="30">30 – Isenta ou não tributada e com cobrança do ICMS por substituição
+                            tributária</option>
+                        <option value="41">41 – Não tributada</option>
+                        <option value="50">50 – Suspensão</option>
+                        <option value="51">51 – Diferimento</option>
+                        <option value="70">70 – Com redução de base de cálculo e cobrança do ICMS por substituição
+                            tributária</option>
+                        <option value="90">90 – Outras</option>
+                    </select>
+                    <x-input-error :messages="$errors->updatePassword->get('produto_cod_tributacao_icms')" class="mt-2" />
+                </div>
+
+                <div class="lg:col-span-2 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_icms" :value="__('ICMS %')" />
-                    <x-text-input id="produto_valor_percentual_icms" name="produto_valor_percentual_icms" type="text"
-                        class="mt-1 w-full" autocomplete="off" value="{{ $produto->produto_valor_percentual_icms }}" />
+                    <x-text-input id="produto_valor_percentual_icms" name="produto_valor_percentual_icms"
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ $produto->produto_valor_percentual_icms }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_icms')" class="mt-2" />
                 </div>
 
                 <div class="lg:col-span-2 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_cofins" :value="__('COFINS %')" />
-                    <x-text-input id="produto_valor_percentual_cofins" name="produto_valor_percentual_cofins" type="text"
-                        class="mt-1 w-full" autocomplete="off" value="{{ $produto->produto_valor_percentual_cofins }}" />
+                    <x-text-input id="produto_valor_percentual_cofins" name="produto_valor_percentual_cofins"
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ $produto->produto_valor_percentual_cofins }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_cofins')" class="mt-2" />
                 </div>
 
                 <div class="lg:col-span-2 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_pis" :value="__('PIS %')" />
-                    <x-text-input id="produto_valor_percentual_pis" name="produto_valor_percentual_pis" type="text"
-                        class="mt-1 w-full" autocomplete="off" value="{{ $produto->produto_valor_percentual_pis }}" />
+                    <x-text-input id="produto_valor_percentual_pis" name="produto_valor_percentual_pis"
+                        type="text" class="mt-1 w-full" autocomplete="off"
+                        value="{{ $produto->produto_valor_percentual_pis }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_pis')" class="mt-2" />
+                </div>
+
+                <div class="lg:col-span-2 md:col-span-3 hidden" id="percentual_reducao_icms">
+                    <x-input-label for="produto_valor_percentual_reducao_icms" :value="__('Redução BC ICMS %')" />
+                    <x-text-input id="produto_valor_percentual_reducao_icms"
+                        name="produto_valor_percentual_reducao_icms" type="text" class="mt-1 w-full"
+                        autocomplete="off" value="{{ $produto->produto_valor_percentual_reducao_icms }}" />
+                    <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_reducao_icms')" class="mt-2" />
                 </div>
             </div>
 
@@ -306,6 +365,23 @@
     </script>
     <script type="module">
         $(document).ready(function() {
+            //Função para veirifcar se o codigo de imposto é igual a redução de tributos
+            if ($('#produto_cod_tributacao_icms').val() === "20") {
+                    $("#percentual_reducao_icms").slideDown();
+                } else {
+                    $("#percentual_reducao_icms").slideUp();
+                }
+            $('#produto_cod_tributacao_icms').change(function(e) {
+                e.preventDefault();
+                if ($(this).val() === "20") {
+                    $("#percentual_reducao_icms").slideDown();
+                } else {
+                    $("#percentual_reducao_icms").slideUp();
+                }
+            });
+
+
+
             // Função para calcular e atualizar os campos de preços
             $('#produto_valor_percentual_venda').on('input', () => {
                 var percentualVenda = parseFloat($('#produto_valor_percentual_venda').val().replace(',',
@@ -399,7 +475,12 @@
             });
 
             // Função que seleciona a categoria do produto
-            $('#produto_categoria_id').val({{$produto->produto_categoria_id}});
+            $('#produto_categoria_id').val({{ $produto->produto_categoria_id }});
+            // Função que seleciona a categoria do produto
+            $('#produto_cod_origem_mercadoria').val({{ $produto->produto_cod_origem_mercadoria }});
+            // Função que seleciona a categoria do produto
+            var produtoCodTributacaoIcms = "{{ $produto->produto_cod_tributacao_icms }}";
+            $('#produto_cod_tributacao_icms').val(produtoCodTributacaoIcms);
 
         });
     </script>

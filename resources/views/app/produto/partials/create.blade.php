@@ -9,7 +9,8 @@
         </p>
     </header>
 
-    <form action="{{ route('produto.store') }}" method="post" class="space-y-6" enctype="multipart/form-data" autocomplete="off">
+    <form action="{{ route('produto.store') }}" method="post" class="space-y-6" enctype="multipart/form-data"
+        autocomplete="off">
         @csrf
         <div class="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-6">
             <div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
@@ -67,7 +68,7 @@
                         <x-input-label for="produto_codigo_EAN" :value="__('Código de EAN')" />
                     </div>
                     <x-text-input id="produto_codigo_EAN" name="produto_codigo_EAN" type="text" class="mt-1 w-full"
-                         value="{{ old('produto_codigo_EAN') }}" autocomplete="off"/>
+                        value="{{ old('produto_codigo_EAN') }}" autocomplete="off" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_codigo_EAN')" class="mt-2" />
                 </div>
 
@@ -169,6 +170,51 @@
             <div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
 
                 <div class="lg:col-span-2 md:col-span-3">
+                    <x-input-label for="produto_cod_origem_mercadoria" :value="__('Cód. Origem Produto')" />
+                    <select id="produto_cod_origem_mercadoria" name="produto_cod_origem_mercadoria"
+                        class="mt-1 w-full border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm">
+                        <option value="0">0 - Nacional</option>
+                        <option value="1">1 – Estrangeira – Importação direta</option>
+                        <option value="2">2 – Estrangeira – Adquirida no mercado interno</option>
+                        <option value="3">3 – Nacional, mercadoria ou bem com Conteúdo de Importação superior a
+                            40% (quarenta por cento) e igual ou inferior a 70% (setenta por cento)</option>
+                        <option value="4">4 – Nacional, cuja produção tenha sido feita em conformidade com os
+                            processos produtivos básicos de que tratam o Decreto-Lei nº 288/1967 , e as Leis nºs
+                            8.248/1991, 8.387/1991, 10.176/2001 e 11.484/2007</option>
+                        <option value="5">5 – Nacional, mercadoria ou bem com Conteúdo de Importação inferior ou
+                            igual a 40%</option>
+                        <option value="6">6 – Estrangeira – Importação direta, sem similar nacional, constante em
+                            lista de Resolução Camex e gás natural</option>
+                        <option value="7">7 – Estrangeira – Adquirida no mercado interno, sem similar nacional,
+                            constante em lista de Resolução Camex e gás natural</option>
+                        <option value="8">8 – Nacional – Mercadoria ou bem com Conteúdo de Importação superior a
+                            70% (setenta por cento)</option>
+                    </select>
+                    <x-input-error :messages="$errors->updatePassword->get('produto_cod_origem_mercadoria')" class="mt-2" />
+                </div>
+
+                <div class="lg:col-span-2 md:col-span-3">
+                    <x-input-label for="produto_cod_tributacao_icms" :value="__('Cód. Tributação ICMS')" />
+                    <select id="produto_cod_tributacao_icms" name="produto_cod_tributacao_icms"
+                        class="mt-1 w-full border-gray-300 focus:border-black focus:ring-black rounded-md shadow-sm">
+                        <option value="00">00 – Tributada integralmente</option>
+                        <option value="10">10 – Tributada e com cobrança do ICMS por substituição tributária
+                        </option>
+                        <option value="20">20 – Com redução de base de cálculo</option>
+                        <option value="30">30 – Isenta ou não tributada e com cobrança do ICMS por substituição
+                            tributária</option>
+                        <option value="41">41 – Não tributada</option>
+                        <option value="50">50 – Suspensão</option>
+                        <option value="51">51 – Diferimento</option>
+                        <option value="70">70 – Com redução de base de cálculo e cobrança do ICMS por substituição
+                            tributária</option>
+                        <option value="90">90 – Outras</option>
+                    </select>
+                    <x-input-error :messages="$errors->updatePassword->get('produto_cod_tributacao_icms')" class="mt-2" />
+                </div>
+
+
+                <div class="lg:col-span-2 md:col-span-3">
                     <x-input-label for="produto_valor_percentual_icms" :value="__('ICMS %')" />
                     <x-text-input id="produto_valor_percentual_icms" name="produto_valor_percentual_icms"
                         type="text" class="mt-1 w-full" autocomplete="off"
@@ -190,6 +236,14 @@
                         type="text" class="mt-1 w-full" autocomplete="off"
                         value="{{ old('produto_valor_percentual_pis') }}" />
                     <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_pis')" class="mt-2" />
+                </div>
+
+                <div class="lg:col-span-2 md:col-span-3 hidden" id="percentual_reducao_icms">
+                    <x-input-label for="produto_valor_percentual_reducao_icms" :value="__('Redução BC ICMS %')" />
+                    <x-text-input id="produto_valor_percentual_reducao_icms"
+                        name="produto_valor_percentual_reducao_icms" type="text" class="mt-1 w-full"
+                        autocomplete="off" value="{{ old('produto_valor_percentual_reducao_icms') }}" />
+                    <x-input-error :messages="$errors->updatePassword->get('produto_valor_percentual_reducao_icms')" class="mt-2" />
                 </div>
             </div>
 
@@ -283,6 +337,20 @@
     </script>
     <script type="module">
         $(document).ready(function() {
+            //Função para veirifcar se o codigo de imposto é igual a redução de tributos
+            if ($('#produto_cod_tributacao_icms').val() === "20") {
+                $("#percentual_reducao_icms").slideDown();
+            } else {
+                $("#percentual_reducao_icms").slideUp();
+            }
+            $('#produto_cod_tributacao_icms').change(function(e) {
+                e.preventDefault();
+                if ($(this).val() === "20") {
+                    $("#percentual_reducao_icms").slideDown();
+                } else {
+                    $("#percentual_reducao_icms").slideUp();
+                }
+            });
 
             // Função para calcular e atualizar os campos de preços
             $('#produto_valor_percentual_venda').on('input', () => {
