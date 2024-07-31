@@ -98,7 +98,7 @@ class ItensVendaController extends Controller
                 'pedido_datahora_finalizado' => Carbon::now()
             ]);
         }
-        return response()->json(['success' => 'Itens adicionados e pedidos finalizados']);
+        return response()->json(['success' => 'Itens adicionados e pedidos finalizados'],200);
     }
 
     public function removerItensSessaoMesa(Request $request)
@@ -297,6 +297,74 @@ class ItensVendaController extends Controller
         return response()->json(['success' => 'Itens removidos e pedido atualizado para ENTREGUE'], 200);
     }
 
+    public function adicionarProduto(Request $request)
+    {
+        // Recebe os IDs dos pedidos e o ID da venda do request
+        $produto_id = $request->input('produto_id');
+        $venda_id = $request->input('venda_id');
+
+        // Obter a venda
+        $venda = Venda::find($venda_id);
+
+        if (!$venda) {
+            return response()->json(['error' => 'Venda não encontrada'], 404);
+        }
+
+            $itemVenda = ItensVenda::where('item_venda_produto_id', $produto_id)
+                ->where('item_venda_venda_id', $venda_id)
+                ->first();
+
+            if ($itemVenda) {
+                // Se o item já existe na venda
+                $itemVenda->item_venda_quantidade += 1;
+                $itemVenda->item_venda_quantidade_tributavel += 1;
+                $itemVenda->item_venda_valor += $itemVenda->produto->produto_preco_venda ;
+
+                $itemVenda->item_venda_valor_base_calculo += $itemVenda->produto->produto_preco_venda ;
+
+                $itemVenda->item_venda_valor_icms += ($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_icms) / 100;
+                $itemVenda->item_venda_valor_pis += ($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_icms) / 100;
+                $itemVenda->item_venda_valor_cofins += ($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_icms) / 100;
+               $itemVenda->save();
+            } else {
+                // Buscar o último número sequencial da venda
+                $lastItem = ItensVenda::where('item_venda_venda_id', $venda_id)
+                    ->orderBy('item_numero', 'desc')
+                    ->first();
+
+                // Definir o próximo número sequencial
+                $nextItemNumber = $lastItem ? $lastItem->item_numero + 1 : 1;
+
+                // Se o item não existe na venda, adicionar o item
+                ItensVenda::create([
+                    'item_numero' => $nextItemNumber,
+                    'item_venda_venda_id' => $venda_id,
+                    'item_venda_produto_id' => $produto_id,
+                    'item_venda_quantidade' => 1,
+                    'item_venda_valor_unitario' => $item->produto->produto_preco_venda,
+                    'item_venda_desconto' => $item->item_pedido_desconto,
+                    'item_venda_valor' => ($item->produto->produto_preco_venda * $item->item_pedido_quantidade),
+                    //Impostos
+                    'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
+                    'item_venda_valor_unitario_tributavel' => $item->produto->produto_preco_venda,
+                    'item_venda_valor_base_calculo' => (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto),
+                    'item_venda_valor_icms' => ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) * $item->produto->produto_valor_percentual_icms) / 100,
+                    'item_venda_valor_pis' => ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) * $item->produto->produto_valor_percentual_pis) / 100,
+                    'item_venda_valor_cofins' => ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) * $item->produto->produto_valor_percentual_cofins) / 100,
+                ]);
+            }
+
+
+        // Altera o status do pedido para Finalizado
+        $pedido = Pedido::find($pedido_id);
+        $pedido->update([
+            'pedido_status' => "FINALIZADO",
+            'pedido_datahora_finalizado' => Carbon::now()
+        ]);
+
+        return response()->json(['success' => 'Adicionado']);
+    }
+
 
 
 
@@ -381,10 +449,11 @@ class ItensVendaController extends Controller
     public function listarItensVenda(Request $request)
     {
         $venda_id = $request->input('venda_id');
-        $itensVenda = ItensVenda::where('item_venda_venda_id', $venda_id)
+        $itensVenda = ItensVenda::with('produto')
+            ->where('item_venda_venda_id', $venda_id)
             ->where('item_venda_status', 'INSERIDO')->get();
 
-        return response()->json(['itens_venda' => $itensVenda], 200);
+        return response()->json($itensVenda, 200);
     }
 
     /**

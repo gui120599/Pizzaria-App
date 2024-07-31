@@ -181,7 +181,7 @@
                                             <input type="checkbox" class="sessaoMesa" name="id_sessao_mesa[]"
                                                 id="mesa_id_{{ $sessaoMesa->mesa->id }}"
                                                 value="{{ $sessaoMesa->id }}"
-                                                data-sessaoMesa_id="{{ $sessaoMesa->id }}" />
+                                                data-sessaomesa_id="{{ $sessaoMesa->id }}" />
                                             <x-input-label class="text-sm"
                                                 for="mesa_id_{{ $sessaoMesa->mesa->id }}">{{ $sessaoMesa->mesa->mesa_nome }}</x-text-input>
                                         </div>
@@ -560,15 +560,15 @@
                         // Uso da função com a promessa
                         IniciarVenda().then(vendaId => {
                             console.log('Venda iniciada com ID:', vendaId);
-                            AdicionaItensSessaoMesa($(this).data('sessaoMesa_id'),vendaId);
+                            AdicionaItensSessaoMesa($(this).data('sessaomesa_id'), vendaId);
                         }).catch(error => {
                             console.error(error);
                         });
-                    }else{
-                        AdicionaItensSessaoMesa($(this).data('sessaoMesa_id'),venda_id);
+                    } else {
+                        AdicionaItensSessaoMesa($(this).data('sessaomesa_id'), venda_id);
                     }
                 } else {
-                    RemoveItensSessaoMesa($(this).data('sessaoMesa_id'),$("#venda_id").val());
+                    RemoveItensSessaoMesa($(this).data('sessaomesa_id'), $("#venda_id").val());
                 }
             });
 
@@ -585,15 +585,15 @@
                         // Uso da função com a promessa
                         IniciarVenda().then(vendaId => {
                             console.log('Venda iniciada com ID:', vendaId);
-                            AdicionaItensPedido($(this).data('pedido_id'),vendaId);
+                            AdicionaItensPedido($(this).data('pedido_id'), vendaId);
                         }).catch(error => {
                             console.error(error);
                         });
-                    }else{
-                        AdicionaItensPedido($(this).data('pedido_id'),venda_id);
+                    } else {
+                        AdicionaItensPedido($(this).data('pedido_id'), venda_id);
                     }
                 } else {
-                    RemoveItensPedido($(this).data('pedido_id'),$("#venda_id").val());
+                    RemoveItensPedido($(this).data('pedido_id'), $("#venda_id").val());
                 }
 
             });
@@ -602,44 +602,29 @@
             $(".produto").click(function(e) {
                 e.preventDefault();
                 const item_venda_produto_id = $(this).data('produto_id');
+                $("#carregando").removeClass('hidden');
 
-                // Verifica se o produto já está na lista de itens do venda no HTML
-                const itemPedidoExistente = $(
-                    `#itens_venda_container [data-item_produto_id="${item_venda_produto_id}"]`);
-
-                if (itemPedidoExistente.length > 0) {
-                    // Se o produto já estiver na lista de itens, aumente a quantidade
-                    $(".abrir-modal").trigger("click");
-                    $("#modal-title").html(`<h2>OLÁ {{ Auth::user()->name }}</h2>`);
-                    $("#modal-body").html(`
-                    <div
-                        <div class="p-2 flex items-center>"
-                        <!-- Ícone de atenção -->
-                        <i class="bx bx-info-circle text-4xl text-yellow-500"></i>
-                        <!-- Mensagem -->
-                        <div class="ml-4">
-                            <h4 class="text-xl font-bold">Atenção</h4>
-                            <p>Produto já lançado neste venda!</p>
-                        </div>
-                    </div>
-                        
-                    `);
-
-                } else {
-                    // Se o produto não estiver na lista de itens, adicione um novo item ao venda
-
+                if ($(this).is(':checked')) {
                     //Verifica se o venda está aberto
                     const venda_id = $("#venda_id").val();
                     if (venda_id === "") {
-                        //Se não estiver ele abre um novo e já adiciona o produto clicado
-                        IniciarVenda($(this));
+                        //Se não estiver ele abre um novo e já adiciona os itens do pedido selecionado na venda aberta
 
+                        // Uso da função com a promessa
+                        IniciarVenda().then(vendaId => {
+                            console.log('Venda iniciada com ID:', vendaId);
+                            AdicionaProduto($(this).data('produto_id'), vendaId);
+                        }).catch(error => {
+                            console.error(error);
+                        });
                     } else {
-                        //Se o venda já estiver aberto ele apenas adiciona o produto clicado
-                        AdicionarProdutoemVendaIniciada($(this));
-
+                        AdicionaProduto($(this).data('produto_id'), venda_id);
                     }
+                } else {
+                    RemoveProduto($(this).data('produto_id'), $("#venda_id").val());
                 }
+
+
             });
 
             function IniciarVenda() {
@@ -687,7 +672,7 @@
                     dataType: "JSON",
                     success: function(response) {
                         console.log(response);
-                        ListaItensVenda();
+                        ListaItensVenda(venda_id);
                     },
                     error: function() {
                         alert('Erro ao adicionar Itens da Sessão da mesa!');
@@ -707,7 +692,7 @@
                     dataType: "JSON",
                     success: function(response) {
                         console.log(response);
-                        ListaItensVenda();
+                        ListaItensVenda(venda_id);
 
                     },
                     error: function() {
@@ -768,12 +753,117 @@
                     },
                     dataType: "JSON",
                     success: function(response) {
-                        console.log(response);
-                        $("#carregando").addClass('hidden');
+                        console.log(response.length);
+
+
+                        // Limpe o conteúdo atual antes de adicionar os novos itens
+                        $('#itens_venda').empty();
+
+                        // Verifique se há itens de venda encontrados na resposta
+                        if (response.length > 0) {
+                            // Itere sobre cada item retornado na resposta
+                            $.each(response, function(index, item) {
+                                // Crie o HTML para o item de venda e o produto associado
+                                var itemHtml = `
+                                    <div class="border-y px-2 py-1 cursor-pointer hover:bg-gray-200" data-item_produto_id="${item.produto.id}">
+                                        <div class="grid grid-cols-6 items-center">
+                                            <span class="remove_item col-span-6 cursor-pointer flex justify-end" data-item_id="${item.id}" data-produto_valor="${item.produto.produto_preco_venda}">
+                                                <i class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
+                                            </span>
+                                            <div class="col-span-6 flex flex-row items-start space-x-2">
+                                                <img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" src="/img/fotos_produtos/${item.produto.produto_foto}" alt="Imagem Padrão">
+                                                <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.produto_descricao}<p>R$ <span id="item_valor_view_${item.id}">${item.item_venda_valor}</span> Qtd. <span id="item_qtd_view_${item.id}">${item.item_venda_quantidade}</span></p></span>
+                                            </div>
+                                            <span data-item_id="${item.id}" class="col-span-6 mx-auto toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
+                                                <i class="bx bx-chevron-up "></i>
+                                            </span>
+                                        </div>
+                                        <div id="item_venda_${item.id}" class="px-5 pb-2 hidden bg-white">
+                                            <x-input-label for="item_venda_quantidade" :value="__('Quantidade')" />
+                                            <div class="flex items-stretch justify-evenly">
+                                                <button type="button" id="minus-btn"
+                                                    class="minus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                                    data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">-</button>
+                                                <input type="text" id="item_venda_quantidade_${item.id}" name="item_venda_quantidade"
+                                                    value="1"
+                                                    class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
+                                                    readonly>
+                                                <button type="button" id="plus-btn"
+                                                    class="plus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
+                                                    data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">+</button>
+                                            </div>
+                                            <x-input-label for="item_venda_observacao" :value="__('Observação')" />
+                                            <x-input-label for="item_venda_desconto" :value="__('Desconto R$')" />
+                                            <x-text-input id="item_venda_desconto_${item.id}" name="item_venda_desconto" type="text"
+                                            class="item_desconto money mt-1 w-full" value="${item.item_venda_desconto}" data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}" autocomplete="off" />
+                                        
+                                            <x-input-label for="item_venda_valor_unitario" :value="__('Valor Unit. R$')" />
+                                            <x-text-input id="item_venda_valor_unitario_${item.id}" name="item_venda_valor_unitario" type="text"
+                                            class="mt-1 w-full" value="${item.produto.produto_preco_venda}" autocomplete="off" readonly />
+                                        
+                                            <x-input-label for="item_venda_valor" :value="__('Valor R$')" />
+                                            <x-text-input id="item_venda_valor_${item.id}" name="item_venda_valor" type="text"
+                                            class="mt-1 w-full" value="${item.item_venda_valor}" autocomplete="off" readonly />
+                                        </div>
+                                    </div> `;
+
+                                // Adicione o HTML do item de venda ao container
+                                $('#itens_venda').append(itemHtml);
+                                $("#carregando").addClass('hidden');
+                            });
+
+                        } else {
+                            // Se não houver itens de venda inseridos, exiba uma mensagem indicando isso
+                            $('#itens_venda').html(
+                                '<p class="p-2">Nenhum produto encontrado para este venda!</p>');
+                            $("#carregando").addClass('hidden');
+                        }
                     },
                     error: function() {
                         alert('Erro ao listar Itens da Venda!');
                         $("#carregando").addClass('hidden');
+                    }
+                });
+            }
+
+            function AdicionaProduto(produto_id, venda_id) {
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.add_produto') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        produto_id,
+                        venda_id
+                    },
+                    dataType: "JSON",
+                    success: function(response) {
+                        console.log(response);
+                        ListaItensVenda(venda_id);
+                    },
+                    error: function() {
+                        alert('Erro ao adicionar Itens do Pedido!');
+                    }
+                });
+
+            }
+
+            function RemoveProduto(produto_id, venda_id) {
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.remove_produto') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        produto_id,
+                        venda_id
+                    },
+                    dataType: "JSON",
+                    success: function(response) {
+                        console.log(response);
+                        ListaItensVenda(venda_id);
+                    },
+                    error: function() {
+                        alert('Erro ao remover Itens do Pedido: ' + produto_id +
+                            ' /n Contate o administrador!');
                     }
                 });
             }
