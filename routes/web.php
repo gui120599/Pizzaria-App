@@ -171,6 +171,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemVenda/RemoveSessaoMesa', [ItensVendaController::class, 'removerItensSessaoMesa'])->name('item_venda.remove_item_sessaoMesa');
     Route::post('/ItemVenda/AddPedido', [ItensVendaController::class, 'adicionarItensPedido'])->name('item_venda.add_item_pedido');
     Route::post('/ItemVenda/RemovePedido', [ItensVendaController::class, 'removerItensPedido'])->name('item_venda.remove_item_pedido');
+    Route::post('/ItemVenda/AddProduto', [ItensVendaController::class, 'adicionarProduto'])->name('item_venda.add_produto');
+    Route::post('/ItemVenda/RemoveProduto', [ItensVendaController::class, 'removerProduto'])->name('item_venda.remove_produto');
     
     
     Route::get('/ItemVenda', [ItensVendaController::class, 'index'])->name('item_venda.add_item_pedido2');

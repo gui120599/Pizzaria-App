@@ -7,6 +7,7 @@ use App\Models\ItensVenda;
 use App\Http\Requests\StoreItensVendaRequest;
 use App\Http\Requests\UpdateItensVendaRequest;
 use App\Models\Pedido;
+use App\Models\Produto;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
 use Carbon\Carbon;
@@ -81,6 +82,7 @@ class ItensVendaController extends Controller
                         'item_venda_valor_unitario' => $item->produto->produto_preco_venda,
                         'item_venda_desconto' => $item->item_pedido_desconto,
                         'item_venda_valor' => ($item->produto->produto_preco_venda * $item->item_pedido_quantidade),
+                        'item_venda_status' => 'INSERIDO',
                         //Impostos
                         'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
                         'item_venda_valor_unitario_tributavel' => $item->produto->produto_preco_venda,
@@ -98,6 +100,12 @@ class ItensVendaController extends Controller
                 'pedido_datahora_finalizado' => Carbon::now()
             ]);
         }
+        // Fecha a sessão da mesa
+        $sessaoMesa = SessaoMesa::find('id' , $sessaoMesa_id);
+        $sessaoMesa->update([
+            'sessao_mesa_status' => 'FECHADA'
+        ]);
+
         return response()->json(['success' => 'Itens adicionados e pedidos finalizados'],200);
     }
 
@@ -217,6 +225,7 @@ class ItensVendaController extends Controller
                     'item_venda_valor_unitario' => $item->produto->produto_preco_venda,
                     'item_venda_desconto' => $item->item_pedido_desconto,
                     'item_venda_valor' => ($item->produto->produto_preco_venda * $item->item_pedido_quantidade),
+                    'item_venda_status' => 'INSERIDO',
                     //Impostos
                     'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
                     'item_venda_valor_unitario_tributavel' => $item->produto->produto_preco_venda,
@@ -279,7 +288,7 @@ class ItensVendaController extends Controller
 
                 // Verificar se a quantidade é menor ou igual a zero para remover o item
                 if ($itemVenda->item_venda_quantidade <= 0) {
-                    $itemVenda->delete();
+                    $itemVenda->update(['item_venda_status' => 'REMOVIDO']);
                 } else {
                     $itemVenda->save();
                 }
@@ -327,6 +336,7 @@ class ItensVendaController extends Controller
                 $itemVenda->item_venda_valor_cofins += ($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_icms) / 100;
                $itemVenda->save();
             } else {
+                $produto = Produto::where('id',$produto_id);
                 // Buscar o último número sequencial da venda
                 $lastItem = ItensVenda::where('item_venda_venda_id', $venda_id)
                     ->orderBy('item_numero', 'desc')
@@ -341,33 +351,21 @@ class ItensVendaController extends Controller
                     'item_venda_venda_id' => $venda_id,
                     'item_venda_produto_id' => $produto_id,
                     'item_venda_quantidade' => 1,
-                    'item_venda_valor_unitario' => $item->produto->produto_preco_venda,
-                    'item_venda_desconto' => $item->item_pedido_desconto,
-                    'item_venda_valor' => ($item->produto->produto_preco_venda * $item->item_pedido_quantidade),
+                    'item_venda_valor_unitario' => $produto->produto_preco_venda,
+                    'item_venda_valor' => $produto->produto_preco_venda,
+                    'item_venda_status' => 'INSERIDO',
                     //Impostos
-                    'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
-                    'item_venda_valor_unitario_tributavel' => $item->produto->produto_preco_venda,
-                    'item_venda_valor_base_calculo' => (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto),
-                    'item_venda_valor_icms' => ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) * $item->produto->produto_valor_percentual_icms) / 100,
-                    'item_venda_valor_pis' => ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) * $item->produto->produto_valor_percentual_pis) / 100,
-                    'item_venda_valor_cofins' => ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) * $item->produto->produto_valor_percentual_cofins) / 100,
+                    'item_venda_quantidade_tributavel' => 1,
+                    'item_venda_valor_unitario_tributavel' => $produto->produto_preco_venda,
+                    'item_venda_valor_base_calculo' => $produto->produto_preco_venda,
+                    'item_venda_valor_icms' => ($produto->produto_preco_venda* $produto->produto_valor_percentual_icms) / 100,
+                    'item_venda_valor_pis' => ($produto->produto_preco_venda * $produto->produto_valor_percentual_pis) / 100,
+                    'item_venda_valor_cofins' => ($produto->produto_preco_venda * $produto->produto_valor_percentual_cofins) / 100,
                 ]);
             }
 
-
-        // Altera o status do pedido para Finalizado
-        $pedido = Pedido::find($pedido_id);
-        $pedido->update([
-            'pedido_status' => "FINALIZADO",
-            'pedido_datahora_finalizado' => Carbon::now()
-        ]);
-
         return response()->json(['success' => 'Adicionado']);
     }
-
-
-
-
 
 
     /**
