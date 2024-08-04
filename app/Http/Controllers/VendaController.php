@@ -36,7 +36,7 @@ class VendaController extends Controller
             ->get();
 
         
-        return view('app.venda.index', [
+       return view('app.venda.index', [
             'sessaoCaixa' => $sessaCaixa,
             'produtos' => $produtos, 
             'categorias' => $categorias, 
@@ -44,6 +44,7 @@ class VendaController extends Controller
             'pedidos' => $pedidos,
             'clientes' => $clientes
         ]);
+        //dd($pedidos);
     }
 
     /**

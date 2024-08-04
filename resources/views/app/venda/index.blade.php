@@ -602,28 +602,23 @@
             $(".produto").click(function(e) {
                 e.preventDefault();
                 const item_venda_produto_id = $(this).data('produto_id');
+                const venda_id = $("#venda_id").val();
                 $("#carregando").removeClass('hidden');
+                //console.log(item_venda_produto_id + '--' + venda_id);
+                if (venda_id === "") {
+                    //Se não estiver ele abre um novo e já adiciona os itens do pedido selecionado na venda aberta
 
-                if ($(this).is(':checked')) {
-                    //Verifica se o venda está aberto
-                    const venda_id = $("#venda_id").val();
-                    if (venda_id === "") {
-                        //Se não estiver ele abre um novo e já adiciona os itens do pedido selecionado na venda aberta
-
-                        // Uso da função com a promessa
-                        IniciarVenda().then(vendaId => {
-                            console.log('Venda iniciada com ID:', vendaId);
-                            AdicionaProduto($(this).data('produto_id'), vendaId);
-                        }).catch(error => {
-                            console.error(error);
-                        });
-                    } else {
-                        AdicionaProduto($(this).data('produto_id'), venda_id);
-                    }
+                    // Uso da função com a promessa
+                    IniciarVenda().then(vendaId => {
+                        console.log('Venda iniciada com ID:', vendaId);
+                        AdicionaProduto($(this).data('produto_id'), vendaId);
+                    }).catch(error => {
+                        console.error(error);
+                    });
                 } else {
-                    RemoveProduto($(this).data('produto_id'), $("#venda_id").val());
+                    AdicionaProduto($(this).data('produto_id'), venda_id);
+                    console.log('Venda já iniciada: ' + venda_id);
                 }
-
 
             });
 
@@ -743,6 +738,48 @@
                 });
             }
 
+            function AdicionaProduto(produto_id, venda_id) {
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.add_produto') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        produto_id,
+                        venda_id
+                    },
+                    dataType: "JSON",
+                    success: function(response) {
+                        console.log(response);
+                        ListaItensVenda(venda_id);
+                    },
+                    error: function() {
+                        alert('Erro ao adicionar Itens do Pedido!');
+                    }
+                });
+
+            }
+
+            function RemoveProduto(produto_id, venda_id) {
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.remove_produto') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        produto_id,
+                        venda_id
+                    },
+                    dataType: "JSON",
+                    success: function(response) {
+                        console.log(response);
+                        ListaItensVenda(venda_id);
+                    },
+                    error: function() {
+                        alert('Erro ao remover Itens do Pedido: ' + produto_id +
+                            ' /n Contate o administrador!');
+                    }
+                });
+            }
+
             function ListaItensVenda(venda_id) {
                 $.ajax({
                     type: "GET",
@@ -785,7 +822,7 @@
                                                     class="minus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
                                                     data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">-</button>
                                                 <input type="text" id="item_venda_quantidade_${item.id}" name="item_venda_quantidade"
-                                                    value="1"
+                                                    value="${item.item_venda_quantidade}"
                                                     class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
                                                     readonly>
                                                 <button type="button" id="plus-btn"
@@ -818,52 +855,275 @@
                                 '<p class="p-2">Nenhum produto encontrado para este venda!</p>');
                             $("#carregando").addClass('hidden');
                         }
+                        //Abre o form do item do pedido
+                        $(".toogle_item").click(function(e) {
+                            e.preventDefault();
+                            console.log('foi');
+                            const item_id = $(this).data('item_id');
+                            const itemPedido = $("#item_venda_" + item_id);
+                            const produtoNome = $("#produto_nome_" + item_id);
+
+                            // Verifica se o item já está visível
+                            if (itemPedido.is(":visible")) {
+                                // Se estiver visível, contrai o elemento com slideup
+                                itemPedido.slideUp();
+                                $(this).addClass('rotate-180');
+                                produtoNome.removeClass("overflow-ellipsis");
+                            } else {
+                                // Se não estiver visível, expande o elemento com slidedown
+                                itemPedido.slideDown();
+                                $(this).removeClass('rotate-180');
+                                produtoNome.addClass("overflow-ellipsis");
+                            }
+                        });
+
+                        //Altera a quantidade e valor do produto
+                        $(".minus-btn").click(function(e) {
+                            e.preventDefault();
+
+                            const id = $(this).data('item_id');
+                            const item_desconto = parseFloat($("#item_pedido_desconto_" + id)
+                                .val());
+                            const produto_preco_venda = $(this).data('produto_preco_venda');
+
+                            // Obtém o elemento de entrada de quantidade
+                            var item_pedido_quantidade = $("#item_pedido_quantidade_" + id)
+                            .val();
+
+                            // Obtém o valor atual e converte para um número
+                            var currentValue = parseFloat(item_pedido_quantidade);
+                            // Verifica se o valor atual é 1 ou 0.5
+                            if (currentValue === 1 || currentValue === 0.5) {
+                                // Se for 1 ou 0.5, define o valor como 0.5
+                                currentValue = 0.5;
+                            } else {
+                                // Se não for 1 ou 0.5, decrementa em 1
+                                currentValue -= 1;
+                            }
+                            // Define o novo valor do campo de entrada, convertendo para string
+                            $("#item_pedido_quantidade_" + id).val(currentValue.toString());
+                            item_pedido_quantidade = currentValue;
+                            // Atualiza a quantidade da vizualização
+                            if (item_pedido_quantidade === 0.5) {
+                                $("#item_qtd_view_" + id).html('Meia');
+                            } else {
+                                $("#item_qtd_view_" + id).html(item_pedido_quantidade);
+                            }
+
+                            var item_pedido_valor = currentValue * produto_preco_venda -
+                                item_desconto;
+                            item_pedido_valor = item_pedido_valor.toFixed(
+                                2); // Limita a duas casas decimais
+                            $("#item_pedido_valor_" + id).val(item_pedido_valor);
+                            //Atualiza valor na vizualização
+                            $("#item_valor_view_" + id).html(item_pedido_valor.toFixed(2));
+
+                            $.ajax({
+                                type: "POST",
+                                url: "{{ route('item_pedido.update_qtd_valor') }}",
+                                data: {
+                                    id,
+                                    item_pedido_quantidade,
+                                    item_pedido_valor,
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                dataType: "json",
+                                success: function(response) {
+                                    console.log(response);
+                                    ValorTotalItensPedido();
+                                },
+                                error: function() {
+                                    alert('Erro ao atualizar o item do pedido')
+                                }
+                            });
+
+                        });
+                        $(".plus-btn").click(function(e) {
+                            e.preventDefault();
+                            const id = $(this).data('item_id');
+                            const item_desconto = parseFloat($("#item_pedido_desconto_" + id)
+                                .val());
+                            const produto_preco_venda = $(this).data('produto_preco_venda');
+
+                            // Obtém o elemento de entrada de quantidade
+                            var item_pedido_quantidade = $("#item_pedido_quantidade_" + id)
+                            .val();
+
+                            // Obtém o valor atual e converte para um número
+                            var currentValue = parseFloat(item_pedido_quantidade);
+                            // Verifica se o valor atual é 0.5
+                            if (currentValue === 0.5) {
+                                // Se for 0.5, incrementa em 0.5
+                                currentValue += 0.5;
+                            } else {
+                                // Se não for 0.5, incrementa em 1
+                                currentValue += 1;
+                            }
+                            // Define o novo valor do campo de entrada, convertendo para string
+                            $("#item_pedido_quantidade_" + id).val(currentValue.toString());
+                            item_pedido_quantidade = currentValue;
+                            // Atualiza a quantidade da vizualização
+                            if (item_pedido_quantidade === 0.5) {
+                                $("#item_qtd_view_" + id).html('Meia');
+                            } else {
+                                $("#item_qtd_view_" + id).html(item_pedido_quantidade);
+                            }
+
+
+                            var item_pedido_valor = currentValue * produto_preco_venda -
+                                item_desconto;
+                            item_pedido_valor = item_pedido_valor.toFixed(
+                                2); // Limita a duas casas decimais
+                            $("#item_pedido_valor_" + id).val(item_pedido_valor);
+                            //Atualiza valor na vizualização
+                            $("#item_valor_view_" + id).html(item_pedido_valor.toFixed(2));
+
+                            $.ajax({
+                                type: "POST",
+                                url: "{{ route('item_pedido.update_qtd_valor') }}",
+                                data: {
+                                    id,
+                                    item_pedido_quantidade,
+                                    item_pedido_valor,
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                dataType: "json",
+                                success: function(response) {
+                                    console.log(response);
+                                    ValorTotalItensPedido();
+                                },
+                                error: function() {
+                                    alert('Erro ao atualizar o item do pedido')
+                                }
+                            });
+                        });
+
+                        //Altera a observação do item do produto
+                        $(".item_pedido_observacao").change(function(e) {
+                            e.preventDefault();
+                            const id = $(this).data('item_id');
+                            const item_pedido_observacao = $(this).val();
+                            $.ajax({
+                                type: "POST",
+                                url: "{{ route('item_pedido.update_observacao') }}",
+                                data: {
+                                    id,
+                                    item_pedido_observacao,
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                dataType: "json",
+                                success: function(response) {
+                                    console.log(response);
+                                },
+                                error: function() {
+                                    alert('Erro ao atualizar o item do pedido')
+                                }
+                            });
+                        });
+
+                        let item_desconto;
+
+                        // Função que atualiza o valor total quando insere qualquer valor no campo de desconto
+                        $(".item_desconto").keyup(function(e) {
+                            const id = $(this).data('item_id');
+                            // Obter o valor do desconto e substituir vírgulas por pontos antes de converter para um número
+                            item_desconto = parseFloat($(this).val().replace(',', '.'));
+                            item_desconto = item_desconto.toFixed(2);
+
+                            // Se o valor do desconto não for um número válido, defina-o como 0.00
+                            if (isNaN(item_desconto)) {
+                                item_desconto = 0.00;
+                            }
+
+                            // Obter o valor total dos itens
+                            const valorTotalItem = parseFloat($("#item_pedido_valor_unitario_" +
+                                    id)
+                                .val()) * parseFloat($("#item_pedido_quantidade_" + id)
+                            .val());
+
+                            // Calcular o novo valor total subtraindo o desconto
+                            const novoValorTotal = valorTotalItem - item_desconto;
+
+                            // Atualizar o elemento na sua página com o novo valor total
+                            $("#item_pedido_valor_" + id).val(novoValorTotal.toFixed(2));
+
+                            $.ajax({
+                                type: "POST",
+                                url: "{{ route('item_pedido.update_desconto') }}",
+                                data: {
+                                    id,
+                                    item_desconto,
+                                    novoValorTotal,
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                dataType: "json",
+                                success: function(response) {
+                                    //console.log(response.message);
+                                    ValorTotalItensPedido();
+                                    $("#item_valor_view_" + id).html(novoValorTotal
+                                        .toFixed(2));
+                                },
+                                error: function() {
+                                    alert('Erro ao atualizar o item do pedido')
+                                }
+                            });
+
+                        });
+
+                        // Função que executa quando o campo de desconto recebe foco
+                        $(".item_desconto").focus(function(e) {
+                            e.preventDefault();
+                            // Armazena o valor atual do campo de desconto e limpa o campo
+                            item_desconto = $(this).val();
+                            $(this).val("");
+                        });
+
+                        // Função que executa quando o campo de desconto perde o foco
+                        $(".item_desconto").blur(function(e) {
+                            e.preventDefault();
+                            // Verifica se o valor do desconto é diferente de vazio ou "0.00" ou "0,00"
+                            if (item_desconto !== "" || item_desconto !== "0.00" ||
+                                item_desconto !== "0,00") {
+                                // Se for diferente, restaura o valor anterior do campo de desconto
+                                $(this).val(item_desconto);
+                            } else {
+                                // Se for vazio ou "0.00" ou "0,00", define o valor como "0.00"
+                                $(this).val("0.00");
+                            }
+                        });
+
+                        //Remove item do pedido
+                        $(".remove_item").click(function(e) {
+                            e.preventDefault();
+                            const id = $(this).data('item_id');
+                            const item_pedido_valor = $(this).data('produto_valor');
+                            $.ajax({
+                                type: "POST",
+                                url: "{{ route('item_pedido.remove') }}",
+                                data: {
+                                    id,
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                dataType: "json",
+                                success: function(response) {
+                                    console.log(response);
+                                    ListarItenPedido();
+                                    ValorTotalItensPedido();
+                                },
+                                error: function() {
+                                    alert('Erro ao atualizar o item do pedido')
+                                }
+                            });
+
+                        });
+
+                        $('.money').mask('#.##0,00', {
+                            reverse: true
+                        });
                     },
                     error: function() {
                         alert('Erro ao listar Itens da Venda!');
                         $("#carregando").addClass('hidden');
-                    }
-                });
-            }
-
-            function AdicionaProduto(produto_id, venda_id) {
-                $.ajax({
-                    type: "POST",
-                    url: "{{ route('item_venda.add_produto') }}",
-                    data: {
-                        '_token': '{{ csrf_token() }}',
-                        produto_id,
-                        venda_id
-                    },
-                    dataType: "JSON",
-                    success: function(response) {
-                        console.log(response);
-                        ListaItensVenda(venda_id);
-                    },
-                    error: function() {
-                        alert('Erro ao adicionar Itens do Pedido!');
-                    }
-                });
-
-            }
-
-            function RemoveProduto(produto_id, venda_id) {
-                $.ajax({
-                    type: "POST",
-                    url: "{{ route('item_venda.remove_produto') }}",
-                    data: {
-                        '_token': '{{ csrf_token() }}',
-                        produto_id,
-                        venda_id
-                    },
-                    dataType: "JSON",
-                    success: function(response) {
-                        console.log(response);
-                        ListaItensVenda(venda_id);
-                    },
-                    error: function() {
-                        alert('Erro ao remover Itens do Pedido: ' + produto_id +
-                            ' /n Contate o administrador!');
                     }
                 });
             }

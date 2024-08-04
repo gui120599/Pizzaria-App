@@ -14,7 +14,7 @@ class Venda extends Model
     protected $fillable = [
         'venda_sessao_caixa_id',
         'venda_cliente_id',
-        'venda_valor_base_calculo_icms',
+        'venda_valor_base_calculo',
         'venda_valor_icms',
         'venda_valor_pis',
         'venda_valor_cofins',
@@ -31,7 +31,7 @@ class Venda extends Model
     ];
 
     protected $casts = [
-        'venda_valor_base_calculo_icms' => 'decimal:2',
+        'venda_valor_base_calculo' => 'decimal:2',
         'venda_valor_icms' => 'decimal:2',
         'venda_valor_pis' => 'decimal:2',
         'venda_valor_cofins' => 'decimal:2',
