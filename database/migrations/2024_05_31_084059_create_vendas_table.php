@@ -27,9 +27,10 @@ return new class extends Migration
             $table->decimal('venda_valor_total',7,2)->nullable()->default('0.0');
             $table->decimal('venda_valor_pago',7,2)->nullable()->default('0.0');
             $table->decimal('venda_valor_troco',7,2)->nullable()->default('0.0');
-            $table->enum('venda_status',['INICIADA','FINALIZADA',''])->default('INICIADA');
+            $table->enum('venda_status',['INICIADA','FINALIZADA','CANCELADA'])->default('INICIADA');
             $table->dateTime('venda_datahora_iniciada')->nullable();
             $table->dateTime('venda_datahora_finalizada')->nullable();
+            $table->dateTime('venda_datahora_cancelada')->nullable();
             $table->timestamps();
 
             //Chaves Estrangeiras

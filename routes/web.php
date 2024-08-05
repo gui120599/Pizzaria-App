@@ -163,7 +163,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/Ativar-SessaoMesa/{id}', [SessaoMesaController::class, 'active'])->name('sessaoMesa.active');
 
     Route::get('/Venda', [VendaController::class, 'index'])->name('venda');
+    Route::get('/Venda-listar', [VendaController::class, 'ListarVenda'])->name('venda.listar');
     Route::post('/Venda', [VendaController::class, 'store'])->name('venda.store');
+    Route::post('/Venda-cancelar', [VendaController::class, 'cancelarVenda'])->name('venda.cancelar');
     Route::post('/iniciar-venda', [VendaController::class, 'iniciarVenda'])->name('venda.iniciar');
     Route::post('/Venda/{id}/Edit', [VendaController::class, 'SalvarVenda'])->name('venda.salvar_venda');
 

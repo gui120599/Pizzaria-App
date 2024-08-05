@@ -6,7 +6,7 @@
             <div class="p-2 min-h-[97vh] bg-white shadow-sm rounded-lg flex">
                 <!-- Ícone de carregamento e mensagem -->
                 <div id="carregando"
-                    class="hidden absolute inset-0 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
+                    class="hidden absolute inset-0 z-10 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
                     <div class="text-center">
                         <i class='bx bx-loader-circle bx-spin bx-rotate-90 text-5xl'></i>
                         <p>Carregando Produtos</p>
@@ -393,30 +393,35 @@
                         </div>
                     </div>
                 </div>
-                <div class="w-[20%] border border-gray-200 rounded-lg">
+                <div class="w-[20%] h-[96vh] overflow-auto border border-gray-200 rounded-lg">
                     <div id="itens_venda">
 
                     </div>
                 </div>
                 <div class="w-[20%] h-[96vh] border mx-1 border-gray-200 rounded-lg">
-                    <div class="p-1 h-[50%]">
+                    <div class="p-1 h-[80%]">
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
                             <x-money-input id="venda_valor_frete" name="venda_valor_frete"
                                 class="money w-full h-[12vh] text-5xl" autocomplete="off"></x-input-text>
                         </div>
                         <div>
-                            <x-input-label for="venda_valor_frete">{{ __('Valor Desconto') }}</x-input-label>
-                            <x-money-input id="venda_valor_frete" name="venda_valor_frete"
+                            <x-input-label for="venda_valor_itens">{{ __('Valor Itens') }}</x-input-label>
+                            <x-money-input id="venda_valor_itens" name="venda_valor_itens"
                                 class="money w-full h-[12vh] text-5xl"></x-input-text>
                         </div>
                         <div>
-                            <x-input-label for="venda_valor_frete">{{ __('Valor Total') }}</x-input-label>
-                            <x-money-input id="venda_valor_frete" name="venda_valor_frete"
+                            <x-input-label for="venda_valor_desconto">{{ __('Valor Desconto') }}</x-input-label>
+                            <x-money-input id="venda_valor_desconto" name="venda_valor_desconto"
+                                class="money w-full h-[12vh] text-5xl"></x-input-text>
+                        </div>
+                        <div>
+                            <x-input-label for="venda_valor_total">{{ __('Valor Total') }}</x-input-label>
+                            <x-money-input id="venda_valor_total" name="venda_valor_total"
                                 class="money w-full h-[12vh] text-5xl"></x-input-text>
                         </div>
                     </div>
-                    <div class="p-1 h-[50%] ">
+                    <div class="p-1 h-[20%] ">
                         <div class="mt-2 text-center">
                             <x-primary-button>Salvar Venda</x-primary-button>
                         </div>
@@ -625,6 +630,8 @@
             function IniciarVenda() {
                 const form = document.getElementById('formVenda');
                 var route = '{{ route('venda.salvar_venda', 14) }}';
+                const venda_sessao_caixa_id = $("#venda_sessao_caixa_id").val();
+                const venda_cliente_id = $("#venda_cliente_id").val();
 
                 return new Promise((resolve, reject) => {
                     // Fazer uma requisição AJAX para iniciar a venda
@@ -633,7 +640,9 @@
                         type: 'POST',
                         dataType: 'json',
                         data: {
-                            '_token': '{{ csrf_token() }}'
+                            '_token': '{{ csrf_token() }}',
+                            venda_sessao_caixa_id,
+                            venda_cliente_id
                         },
                         success: function(response) {
                             // Lidar com a resposta
@@ -808,7 +817,6 @@
                                                 <i class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
                                             </span>
                                             <div class="col-span-6 flex flex-row items-start space-x-2">
-                                                <img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" src="/img/fotos_produtos/${item.produto.produto_foto}" alt="Imagem Padrão">
                                                 <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.produto_descricao}<p>R$ <span id="item_valor_view_${item.id}">${item.item_venda_valor}</span> Qtd. <span id="item_qtd_view_${item.id}">${item.item_venda_quantidade}</span></p></span>
                                             </div>
                                             <span data-item_id="${item.id}" class="col-span-6 mx-auto toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
@@ -888,7 +896,7 @@
 
                             // Obtém o elemento de entrada de quantidade
                             var item_pedido_quantidade = $("#item_pedido_quantidade_" + id)
-                            .val();
+                                .val();
 
                             // Obtém o valor atual e converte para um número
                             var currentValue = parseFloat(item_pedido_quantidade);
@@ -947,7 +955,7 @@
 
                             // Obtém o elemento de entrada de quantidade
                             var item_pedido_quantidade = $("#item_pedido_quantidade_" + id)
-                            .val();
+                                .val();
 
                             // Obtém o valor atual e converte para um número
                             var currentValue = parseFloat(item_pedido_quantidade);
@@ -1039,7 +1047,7 @@
                             const valorTotalItem = parseFloat($("#item_pedido_valor_unitario_" +
                                     id)
                                 .val()) * parseFloat($("#item_pedido_quantidade_" + id)
-                            .val());
+                                .val());
 
                             // Calcular o novo valor total subtraindo o desconto
                             const novoValorTotal = valorTotalItem - item_desconto;
@@ -1126,7 +1134,61 @@
                         $("#carregando").addClass('hidden');
                     }
                 });
+                $.ajax({
+                    type: "GET",
+                    url: "{{ route('venda.listar') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        venda_id
+                    },
+                    dataType: "JSON",
+                    success: function(response) {
+                        if (response.length > 0) {
+                            $.each(response, function(indexInArray, venda) {
+                                $("#venda_valor_frete").val(venda.venda_valor_frete);
+                                $("#venda_valor_itens").val(venda.venda_valor_itens);
+                                $("#venda_valor_desconto").val(venda.venda_valor_desconto);
+                                $("#venda_valor_total").val(venda.venda_valor_total);
+                            });
+                        }
+
+                    },
+                    error: function() {
+                        alert('Erro ao listar Itens da Venda!');
+                        $("#carregando").addClass('hidden');
+                    }
+                });
             }
+
+            function CancelarVenda(venda_id) {
+                if (venda_id) {
+                    $.ajax({
+                        type: 'POST',
+                        url: "{{ route('venda.cancelar') }}",
+                        data: {
+                            '_token': '{{ csrf_token() }}',
+                            venda_id
+                        },
+                        success: function(response) {
+                            console.log('Venda cancelada com sucesso!');
+                        },
+                        error: function() {
+                            console.log('Erro ao cancelada a venda.');
+                        }
+                    });
+                }
+            }
+
+            window.addEventListener('beforeunload', function(e) {
+                const totalVenda = parseFloat(document.getElementById('venda_valor_total').innerText);
+
+                if (totalVenda === 0) {
+                    // Enviar requisição AJAX para deletar a venda
+                    const venda_id = $("#venda_id").val();
+                    CancelarVenda(venda_id);
+                }
+            });
+
 
         });
 

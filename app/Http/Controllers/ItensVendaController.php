@@ -174,7 +174,7 @@ class ItensVendaController extends Controller
 
                     // Verificar se a quantidade é menor ou igual a zero para remover o item
                     if ($itemVenda->item_venda_quantidade <= 0) {
-                        $itemVenda->update(['item_venda_status' => 'REMOVIDO']);
+                        $itemVenda->delete();
                     } else {
                         $itemVenda->save();
                     }
@@ -344,7 +344,7 @@ class ItensVendaController extends Controller
 
                 // Verificar se a quantidade é menor ou igual a zero para remover o item
                 if ($itemVenda->item_venda_quantidade <= 0) {
-                    $itemVenda->update(['item_venda_status' => 'REMOVIDO']);
+                    $itemVenda->delete();
                 } else {
                     $itemVenda->save();
                 }
@@ -483,7 +483,7 @@ class ItensVendaController extends Controller
 
             // Verificar se a quantidade é menor ou igual a zero para remover o item
             if ($itemVenda->item_venda_quantidade <= 0) {
-                $itemVenda->update(['item_venda_status' => 'REMOVIDO']);
+                $itemVenda->delete();
             } else {
                 $itemVenda->save();
             }

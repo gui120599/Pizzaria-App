@@ -12,6 +12,7 @@ use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoCaixa;
 use App\Models\SessaoMesa;
+use Carbon\Carbon;
 use GuzzleHttp\Psr7\Query;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,12 +36,12 @@ class VendaController extends Controller
             }])
             ->get();
 
-        
-       return view('app.venda.index', [
+
+        return view('app.venda.index', [
             'sessaoCaixa' => $sessaCaixa,
-            'produtos' => $produtos, 
-            'categorias' => $categorias, 
-            'sessaoMesas' => $sessaoMesas, 
+            'produtos' => $produtos,
+            'categorias' => $categorias,
+            'sessaoMesas' => $sessaoMesas,
             'pedidos' => $pedidos,
             'clientes' => $clientes
         ]);
@@ -55,6 +56,8 @@ class VendaController extends Controller
         $venda = new Venda();
         $venda->venda_status = 'INICIADA';
         $venda->venda_sessao_caixa_id = $request->input('venda_sessao_caixa_id');
+        $venda->venda_datahora_iniciada = Carbon::now();
+        $venda->venda_cliente_id = $request->input('venda_cliente_id');
         $venda->save();
 
         return response()->json(['venda_id' => $venda->id]);
@@ -72,9 +75,13 @@ class VendaController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Venda $venda)
+    public function ListarVenda(Request $request)
     {
-        //
+        $venda = Venda::find($request->input('venda_id'));
+        if (!$venda) {
+            return response()->json(['error' => 'Venda não encontrada!'], 404);
+        }
+        return response()->json([$venda]);
     }
 
     /**
@@ -94,10 +101,20 @@ class VendaController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Deleta a venda caso o usuario saia da tela com a venda no valor 0,00
      */
-    public function destroy(Venda $venda)
+    public function cancelarVenda(Request $request)
     {
-        //
+        $venda_id = $request->input('venda_id');
+        $venda = Venda::find($venda_id);
+
+        if ($venda) {
+            $venda->venda_status = 'CANCELADA';
+            $venda->venda_datahora_cancelada = Carbon::now();
+            $venda->save();
+            return response()->json(['success' => 'Venda cancelada com sucesso!'],200);
+        } else {
+            return response()->json(['error' => 'Venda não encontrada'], 404);
+        }
     }
 }
