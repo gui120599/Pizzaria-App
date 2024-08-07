@@ -24,19 +24,55 @@ class VendaController extends Controller
      */
     public function index()
     {
+        // Obtém a sessão de caixa que está aberta
         $sessaCaixa = SessaoCaixa::where('sessaocaixa_status', 'ABERTA')->first();
+
+        // Obtém todas as sessões de mesa que estão abertas
         $sessaoMesas = SessaoMesa::where('sessao_mesa_status', 'ABERTA')->get();
+
+        // Obtém todas as categorias e produtos
         $categorias = Categoria::all();
         $produtos = Produto::all();
+
+        // Obtém todos os clientes
         $clientes = Cliente::all();
 
+        // Obtém todos os pedidos que não estão cancelados ou finalizados
         $pedidos = Pedido::whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
             ->with(['item_pedido_pedido_id' => function ($query) {
                 $query->where('item_pedido_status', 'INSERIDO');
             }])
             ->get();
 
+        // Corrigido para usar where em vez de and, e first em vez de get
+        // Isso busca a primeira venda que está aberta e pertence à sessão de caixa aberta
+        $venda_aberta = Venda::where('venda_status', 'INICIADA')
+            ->where('venda_sessao_caixa_id', $sessaCaixa->id)
+            ->first();
 
+        // Verifica se existe uma venda aberta
+       /* if ($venda_aberta) {
+            // Se houver uma venda aberta, carrega a view de edição com os dados
+            return view('app.venda.edit', [
+                'sessaoCaixa' => $sessaCaixa,
+                'produtos' => $produtos,
+                'categorias' => $categorias,
+                'sessaoMesas' => $sessaoMesas,
+                'pedidos' => $pedidos,
+                'clientes' => $clientes,
+                'venda_aberta' => $venda_aberta
+            ])->with('success','Existe uma venda não finalizada!');
+        } else {
+            // Se não houver uma venda aberta, carrega a view de índice com os dados
+            return view('app.venda.index', [
+                'sessaoCaixa' => $sessaCaixa,
+                'produtos' => $produtos,
+                'categorias' => $categorias,
+                'sessaoMesas' => $sessaoMesas,
+                'pedidos' => $pedidos,
+                'clientes' => $clientes
+            ]);
+        }*/
         return view('app.venda.index', [
             'sessaoCaixa' => $sessaCaixa,
             'produtos' => $produtos,
@@ -45,7 +81,6 @@ class VendaController extends Controller
             'pedidos' => $pedidos,
             'clientes' => $clientes
         ]);
-        //dd($pedidos);
     }
 
     /**
@@ -61,6 +96,30 @@ class VendaController extends Controller
         $venda->save();
 
         return response()->json(['venda_id' => $venda->id]);
+    }
+
+    public function AtualizarValorFrete(Request $request){
+
+        $venda_valor_frete = $request->input('venda_valor_frete');
+        $venda_id = $request->input('venda_id');
+
+        $venda = Venda::find($venda_id);
+
+        if (!$venda) {
+            return response()->json(['error' => 'Venda não encontrada'], 200);
+        }
+
+        $venda->venda_valor_frete = $venda_valor_frete;
+        if($venda->venda_valor_itens == 0){
+            $venda->venda_valor_total = $venda_valor_frete;
+        }else{
+            $venda->venda_valor_total = $venda->venda_valor_total + $venda_valor_frete;
+        }
+        
+        $venda->save();
+
+        return response()->json(['success' => 'Valor do frete atualizado!']);
+
     }
 
 
@@ -112,7 +171,7 @@ class VendaController extends Controller
             $venda->venda_status = 'CANCELADA';
             $venda->venda_datahora_cancelada = Carbon::now();
             $venda->save();
-            return response()->json(['success' => 'Venda cancelada com sucesso!'],200);
+            return response()->json(['success' => 'Venda cancelada com sucesso!'], 200);
         } else {
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }

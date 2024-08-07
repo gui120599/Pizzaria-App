@@ -59,7 +59,7 @@
                                 <div class="md:col-span-1">
                                     <x-input-label for="venda_id" :value="__('Cód. Venda')" />
                                     <x-text-input id="venda_id" name="venda_id" type="text" class="mt-1 w-full"
-                                        autocomplete="off" value="{{ old('id') }}" />
+                                        autocomplete="off" value="{{ $venda_aberta->id }}" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_id')" class="mt-2" />
                                 </div>
                                 <div class="md:col-span-1">
@@ -100,9 +100,7 @@
                                     <div id="lista_clientes"
                                         class="absolute w-full bg-white rounded-lg px-2 py-3 shadow-lg shadow-green-400/10 hidden overflow-auto max-h-96 md:max-h-80 lg:max-h-72 border">
                                         @foreach ($clientes as $cliente)
-                                            <div id="linha_cliente"
-                                                class="border-b-2 hover:bg-teal-700 hover:text-white rounded-lg p-2 cursor-pointer transition duration-150 ease-in-out"
-                                                onclick="selecionarCliente({{ $cliente }})">
+                                            <div id="linha_cliente" class="border-b-2 hover:bg-teal-700 hover:text-white rounded-lg p-2 cursor-pointer transition duration-150 ease-in-out" onclick="selecionarCliente({{ $cliente }})">
                                                 {{ $cliente->id }} - {{ $cliente->cliente_nome }}
                                             </div>
                                         @endforeach
@@ -403,8 +401,7 @@
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
                             <x-money-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="venda_valor_frete money w-full h-[12vh] text-5xl"
-                                autocomplete="off"></x-input-text>
+                                class="money w-full h-[12vh] text-5xl" autocomplete="off"></x-input-text>
                         </div>
                         <div>
                             <x-input-label for="venda_valor_itens">{{ __('Valor Itens') }}</x-input-label>
@@ -493,6 +490,7 @@
     </script>
     <script type="module">
         $(document).ready(function() {
+            ListaItensVenda("{{$venda_aberta->id}}");
 
 
             //$(".toggleSideBar").trigger("click");
@@ -627,53 +625,6 @@
                 }
 
             });
-
-            let venda_valor_frete;
-
-            // Função que atualiza o valor total quando insere qualquer valor no campo de desconto
-            $(".venda_valor_frete").keyup(function(e) {
-                 venda_valor_frete = $("#venda_valor_frete").val();
-                const venda_id = $("#venda_id").val();
-                if (venda_id === "") {
-                    //Se não estiver ele abre um novo e já adiciona os itens do pedido selecionado na venda aberta
-
-                    // Uso da função com a promessa
-                    IniciarVenda().then(vendaId => {
-                        AtualizaValorFrete(venda_valor_frete, vendaId);
-                    }).catch(error => {
-                        console.error(error);
-                    });
-                } else {
-                    AtualizaValorFrete(venda_valor_frete, venda_id);
-                }
-
-
-
-            });
-
-            // Função que executa quando o campo de desconto recebe foco
-            $(".venda_valor_frete").focus(function(e) {
-                e.preventDefault();
-                // Armazena o valor atual do campo de desconto e limpa o campo
-                venda_valor_frete = $(this).val();
-                $(this).val("");
-            });
-
-            // Função que executa quando o campo de desconto perde o foco
-            $(".venda_valor_frete").blur(function(e) {
-                e.preventDefault();
-                // Verifica se o valor do desconto é diferente de vazio ou "0.00" ou "0,00"
-                if (venda_valor_frete !== "" || venda_valor_frete !== "0.00" ||
-                    venda_valor_frete !== "0,00") {
-                    // Se for diferente, restaura o valor anterior do campo de desconto
-                    
-                    listarVenda($("#venda_id").val());
-                } else {
-                    // Se for vazio ou "0.00" ou "0,00", define o valor como "0.00"
-                    $(this).val("0.00");
-                }
-            });
-
 
             function IniciarVenda() {
                 const form = document.getElementById('formVenda');
@@ -895,7 +846,7 @@
                                             <x-text-input id="item_venda_valor_${item.id}" name="item_venda_valor" type="text"
                                             class="mt-1 w-full" value="${item.item_venda_valor}" autocomplete="off" readonly />
 
-                                            <x-danger-button type="button" class="remove_item mt-1 w-full" id="remove_items" data-item_id="${item.id}" data-venda_id="${item.item_venda_venda_id}">Remover</x-danger-button>
+                                            <x-danger-button type="button" class="mt-1 w-full">Remover</x-danger-button>
                                         </div>
                                     </div> `;
 
@@ -1053,11 +1004,34 @@
                             });
                         });
 
+                        //Altera a observação do item do produto
+                        $(".item_pedido_observacao").change(function(e) {
+                            e.preventDefault();
+                            const id = $(this).data('item_id');
+                            const item_pedido_observacao = $(this).val();
+                            $.ajax({
+                                type: "POST",
+                                url: "{{ route('item_pedido.update_observacao') }}",
+                                data: {
+                                    id,
+                                    item_pedido_observacao,
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                dataType: "json",
+                                success: function(response) {
+                                    console.log(response);
+                                },
+                                error: function() {
+                                    alert('Erro ao atualizar o item do pedido')
+                                }
+                            });
+                        });
+
                         let item_desconto;
 
                         // Função que atualiza o valor total quando insere qualquer valor no campo de desconto
                         $(".item_desconto").keyup(function(e) {
-                            const item_id = $(this).data('item_id');
+                            const id = $(this).data('item_id');
                             // Obter o valor do desconto e substituir vírgulas por pontos antes de converter para um número
                             item_desconto = parseFloat($(this).val().replace(',', '.'));
                             item_desconto = item_desconto.toFixed(2);
@@ -1068,37 +1042,36 @@
                             }
 
                             // Obter o valor total dos itens
-                            const valorTotalItem = parseFloat($("#item_venda_valor_unitario_" +
-                                    item_id)
-                                .val()) * parseFloat($("#item_venda_quantidade_" + item_id)
+                            const valorTotalItem = parseFloat($("#item_pedido_valor_unitario_" +
+                                    id)
+                                .val()) * parseFloat($("#item_pedido_quantidade_" + id)
                                 .val());
 
                             // Calcular o novo valor total subtraindo o desconto
                             const novoValorTotal = valorTotalItem - item_desconto;
 
                             // Atualizar o elemento na sua página com o novo valor total
-                            $("#item_venda_valor_" + item_id).val(novoValorTotal.toFixed(2));
+                            $("#item_pedido_valor_" + id).val(novoValorTotal.toFixed(2));
 
                             $.ajax({
                                 type: "POST",
-                                url: "{{ route('item_venda.update_desconto') }}",
+                                url: "{{ route('item_pedido.update_desconto') }}",
                                 data: {
-                                    item_id,
-                                    venda_id,
+                                    id,
                                     item_desconto,
+                                    novoValorTotal,
                                     '_token': '{{ csrf_token() }}'
                                 },
                                 dataType: "json",
                                 success: function(response) {
-                                    $("#item_valor_view_" + item_id).html(
-                                        novoValorTotal
+                                    //console.log(response.message);
+                                    ValorTotalItensPedido();
+                                    $("#item_valor_view_" + id).html(novoValorTotal
                                         .toFixed(2));
-                                    listarVenda(venda_id);
                                 },
                                 error: function() {
-                                    alert('Erro ao atualizar o item do venda')
+                                    alert('Erro ao atualizar o item do pedido')
                                 }
-
                             });
 
                         });
@@ -1128,19 +1101,20 @@
                         //Remove item do pedido
                         $(".remove_item").click(function(e) {
                             e.preventDefault();
-                            const item_id = $(this).data('item_id');
-                            const venda_id = $(this).data('venda_id');
+                            const id = $(this).data('item_id');
+                            const item_pedido_valor = $(this).data('produto_valor');
                             $.ajax({
                                 type: "POST",
-                                url: "{{ route('item_venda.remove_produto') }}",
+                                url: "{{ route('item_pedido.remove') }}",
                                 data: {
-                                    item_id,
-                                    venda_id,
+                                    id,
                                     '_token': '{{ csrf_token() }}'
                                 },
                                 dataType: "json",
                                 success: function(response) {
-                                    ListaItensVenda(venda_id);
+                                    console.log(response);
+                                    ListarItenPedido();
+                                    ValorTotalItensPedido();
                                 },
                                 error: function() {
                                     alert('Erro ao atualizar o item do pedido')
@@ -1158,11 +1132,6 @@
                         $("#carregando").addClass('hidden');
                     }
                 });
-                listarVenda(venda_id);
-
-            }
-
-            function listarVenda(venda_id) {
                 $.ajax({
                     type: "GET",
                     url: "{{ route('venda.listar') }}",
@@ -1206,34 +1175,6 @@
                         }
                     });
                 }
-            }
-
-            function AtualizaValorFrete(venda_valor_frete, venda_id) {
-                venda_valor_frete = parseFloat(venda_valor_frete.replace(',', '.'));
-                if (venda_valor_frete === null || venda_valor_frete === "") {
-                    console.log(venda_valor_frete);
-
-                    venda_valor_frete === 0;
-                }
-                $.ajax({
-                    type: "POST",
-                    url: "{{ route('venda.update_valor_frete') }}",
-                    data: {
-                        venda_id,
-                        venda_valor_frete,
-                        '_token': '{{ csrf_token() }}'
-                    },
-                    dataType: "json",
-                    success: function(response) {
-                        listarVenda(venda_id);
-                        console.log(response);
-
-                    },
-                    error: function() {
-                        alert('Erro ao atualizar o valor do frete!')
-                    }
-
-                });
             }
 
             window.addEventListener('beforeunload', function(e) {

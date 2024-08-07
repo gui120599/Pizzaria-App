@@ -168,6 +168,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/Venda-cancelar', [VendaController::class, 'cancelarVenda'])->name('venda.cancelar');
     Route::post('/iniciar-venda', [VendaController::class, 'iniciarVenda'])->name('venda.iniciar');
     Route::post('/Venda/{id}/Edit', [VendaController::class, 'SalvarVenda'])->name('venda.salvar_venda');
+    Route::post('/Venda//EditValorFrete', [VendaController::class, 'AtualizarValorFrete'])->name('venda.update_valor_frete');
 
     Route::post('/ItemVenda/AddSessaoMesa', [ItensVendaController::class, 'adicionarItensSessaoMesa'])->name('item_venda.add_item_sessaoMesa');
     Route::post('/ItemVenda/RemoveSessaoMesa', [ItensVendaController::class, 'removerItensSessaoMesa'])->name('item_venda.remove_item_sessaoMesa');
@@ -175,10 +176,17 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemVenda/RemovePedido', [ItensVendaController::class, 'removerItensPedido'])->name('item_venda.remove_item_pedido');
     Route::post('/ItemVenda/AddProduto', [ItensVendaController::class, 'adicionarProduto'])->name('item_venda.add_produto');
     Route::post('/ItemVenda/RemoveProduto', [ItensVendaController::class, 'removerProduto'])->name('item_venda.remove_produto');
+    Route::post('/ItemVenda/AtualziarDesconto', [ItensVendaController::class, 'atualizarDescontoItemVenda'])->name('item_venda.update_desconto');
     
     
     Route::get('/ItemVenda', [ItensVendaController::class, 'index'])->name('item_venda.add_item_pedido2');
     Route::get('/ItemVenda2', [ItensVendaController::class, 'listarItensVenda'])->name('item_venda.listar');
+
+    Route::post('/render-toast', function () {
+        return response()->json([
+            'html' => view('app.components.toast')->render(),
+        ]);
+    })->name('render.toast');
 
 });
 

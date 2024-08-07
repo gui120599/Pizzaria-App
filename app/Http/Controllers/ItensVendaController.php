@@ -109,22 +109,17 @@ class ItensVendaController extends Controller
                     $venda->venda_valor_base_calculo += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto);
                     $venda->venda_valor_itens += ($item->produto->produto_preco_venda * $item->item_pedido_quantidade);
                     $venda->venda_valor_desconto += $item->item_pedido_desconto;
-                    $venda->venda_valor_total += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto);
+                    //caso seja o primeiro produto ele adiciona o valor do frete no valor total
+                    if ($nextItemNumber == 1 && $venda->venda_valor_total == 0) {
+                        $venda->venda_valor_total += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) + $venda->venda_valor_frete;
+                    } else {
+                        $venda->venda_valor_total += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto);
+                    }
                     $venda->save();
                 }
             }
-
-            // Altera o status do pedido para Finalizado
-            $pedido->update([
-                'pedido_status' => "FINALIZADO",
-                'pedido_datahora_finalizado' => Carbon::now()
-            ]);
         }
-        // Fecha a sessão da mesa
-        $sessaoMesa = SessaoMesa::find($sessaoMesa_id);
-        $sessaoMesa->update([
-            'sessao_mesa_status' => 'FECHADA'
-        ]);
+
 
         return response()->json(['success' => 'Itens adicionados e pedidos finalizados'], 200);
     }
@@ -190,17 +185,8 @@ class ItensVendaController extends Controller
                     $venda->save();
                 }
             }
-
-            // Atualizar o status do pedido para ENTREGUE
-            $pedido->update([
-                'pedido_status' => "ENTREGUE"
-            ]);
         }
-        // Reabre a sessão da mesa
-        $sessaoMesa = SessaoMesa::find($sessaoMesa_id);
-        $sessaoMesa->update([
-            'sessao_mesa_status' => 'ABERTA'
-        ]);
+
         return response()->json(['success' => 'Itens removidos e pedidos atualizados para ENTREGUE'], 200);
     }
 
@@ -288,18 +274,19 @@ class ItensVendaController extends Controller
                 $venda->venda_valor_base_calculo += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto);
                 $venda->venda_valor_itens += ($item->produto->produto_preco_venda * $item->item_pedido_quantidade);
                 $venda->venda_valor_desconto += $item->item_pedido_desconto;
-                $venda->venda_valor_total += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto);
+                //caso seja o primeiro produto ele adiciona o valor do frete no valor total
+                if ($nextItemNumber == 1 && $venda->venda_valor_total == 0) {
+                    $venda->venda_valor_total += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) + $venda->venda_valor_frete;
+                } else {
+                    $venda->venda_valor_total += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto);
+                }
+
                 $venda->save();
             }
         }
 
 
-        // Altera o status do pedido para Finalizado
-        $pedido = Pedido::find($pedido_id);
-        $pedido->update([
-            'pedido_status' => "FINALIZADO",
-            'pedido_datahora_finalizado' => Carbon::now()
-        ]);
+
 
         return response()->json(['success' => 'Adicionado']);
     }
@@ -363,11 +350,6 @@ class ItensVendaController extends Controller
             }
         }
 
-        // Atualizar o status do pedido para ENTREGUE
-        $pedido = Pedido::find($pedido_id);
-        $pedido->update([
-            'pedido_status' => "ENTREGUE"
-        ]);
 
         return response()->json(['success' => 'Itens removidos e pedido atualizado para ENTREGUE'], 200);
     }
@@ -444,18 +426,23 @@ class ItensVendaController extends Controller
             $venda->venda_valor_cofins += (($produto->produto_preco_venda * 1) * $produto->produto_valor_percentual_cofins) / 100;
             $venda->venda_valor_base_calculo += $produto->produto_preco_venda;
             $venda->venda_valor_itens += $produto->produto_preco_venda;
-            $venda->venda_valor_total += $produto->produto_preco_venda;
+            if ($nextItemNumber == 1 && $venda->venda_valor_total == 0) {
+                $venda->venda_valor_total += $produto->produto_preco_venda + $venda->venda_valor_frete;
+            } else {
+                $venda->venda_valor_total += $produto->produto_preco_venda;
+            }
+
             $venda->save();
         }
 
         return response()->json(['success' => 'Adicionado']);
     }
 
-    public function RemoverProduto(Request $request)
+    public function removerProduto(Request $request)
     {
         // Recebe os IDs dos pedidos e o ID da venda do request
-        $produto_id = $request->input('produto_id');
-        $venda_id = $request->input('venda_id');;
+        $item_id = $request->input('item_id');
+        $venda_id = $request->input('venda_id');
 
         // Obter a venda
         $venda = Venda::find($venda_id);
@@ -464,9 +451,7 @@ class ItensVendaController extends Controller
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
-        $itemVenda = ItensVenda::where('item_venda_produto_id', $produto_id)
-            ->where('item_venda_venda_id', $venda_id)
-            ->first();
+        $itemVenda = ItensVenda::find($item_id);
 
         if ($itemVenda) {
             // Se o item já existe na venda
@@ -495,13 +480,84 @@ class ItensVendaController extends Controller
             $venda->venda_valor_base_calculo -= $itemVenda->produto->produto_preco_venda;
             $venda->venda_valor_itens -= $itemVenda->produto->produto_preco_venda;
             $venda->venda_valor_total -= $itemVenda->produto->produto_preco_venda;
+
+            // Verificar se este é o último item da venda
+            if (ItensVenda::where('item_venda_venda_id', $venda_id)->count() == 0) {
+                // Zerar todos os valores da venda
+                $venda->venda_valor_icms = 0;
+                $venda->venda_valor_pis = 0;
+                $venda->venda_valor_cofins = 0;
+                $venda->venda_valor_base_calculo = 0;
+                $venda->venda_valor_desconto = 0;
+                if ($venda->venda_valor_frete > 0) {
+                    $venda->venda_valor_total = $venda->venda_valor_frete;
+                } else {
+                    $venda->venda_valor_total = 0;
+                }
+            }
+
             $venda->save();
         } else {
             return response()->json(['success' => 'Item Não encontrado'], 200);
         }
 
-        return response()->json(['success' => 'Removido']);
+        return response()->json(['sucess' => 'Removido']);
     }
+
+    public function atualizarDescontoItemVenda(Request $request)
+    {
+        // Recebe os IDs dos pedidos e o ID da venda do request
+        $item_id = $request->input('item_id');
+        $venda_id = $request->input('venda_id');
+        $item_venda_desconto = $request->input('item_desconto');
+
+        // Obter a venda
+        $venda = Venda::find($venda_id);
+        if (!$venda) {
+            return response()->json(['error' => 'Venda não encontrada'], 200);
+        }
+
+        // Obter o item da venda
+        $itemVenda = ItensVenda::find($item_id);
+        if (!$itemVenda) {
+            return response()->json(['error' => 'Item não encontrado'], 200);
+        }
+
+        // Subtrair os valores antigos da venda
+        $venda->venda_valor_icms -= $itemVenda->item_venda_valor_icms;
+        $venda->venda_valor_pis -= $itemVenda->item_venda_valor_pis;
+        $venda->venda_valor_cofins -= $itemVenda->item_venda_valor_cofins;
+        $venda->venda_valor_base_calculo -= $itemVenda->item_venda_valor_base_calculo;
+        $venda->venda_valor_desconto -= $itemVenda->item_venda_desconto;
+        $venda->venda_valor_total -= $itemVenda->item_venda_valor;
+
+        // Atualizar os valores do item com o novo desconto
+        $itemVenda->item_venda_valor_base_calculo = (($itemVenda->produto->produto_preco_venda * $itemVenda->item_venda_quantidade) - $item_venda_desconto);
+        $itemVenda->item_venda_desconto = $item_venda_desconto;
+        $itemVenda->item_venda_valor = $itemVenda->item_venda_valor_base_calculo;
+        $itemVenda->item_venda_valor_icms = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_icms) / 100;
+        $itemVenda->item_venda_valor_pis = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_pis) / 100;
+        $itemVenda->item_venda_valor_cofins = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_cofins) / 100;
+
+        $itemVenda->save();
+
+        // Somar os novos valores na venda
+        $venda->venda_valor_icms += $itemVenda->item_venda_valor_icms;
+        $venda->venda_valor_pis += $itemVenda->item_venda_valor_pis;
+        $venda->venda_valor_cofins += $itemVenda->item_venda_valor_cofins;
+        $venda->venda_valor_base_calculo += $itemVenda->item_venda_valor_base_calculo;
+        $venda->venda_valor_desconto += $itemVenda->item_venda_desconto;
+        $venda->venda_valor_total += $itemVenda->item_venda_valor;
+
+        $venda->save();
+
+        return response()->json(['success' => 'Valor de desconto atualizado!']);
+    }
+
+
+
+
+
 
 
     /**
