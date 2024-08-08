@@ -19,7 +19,6 @@ class OpcoesPagamentoController extends Controller
             ['id' => 'DESCONTAR', 'opcaopag_tipo_taxa' => 'DESCONTAR'],
             ['id' => 'ACRESCENTAR', 'opcaopag_tipo_taxa' => 'ACRESCENTAR']
         ];
-
         return view('app.opcoes_pagamento.index', ['opcoes_pagamento' => $opcoes_pagamento, 'tipos_taxas' => $tipos_taxa]);
     }
 

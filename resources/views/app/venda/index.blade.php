@@ -3,7 +3,7 @@
         <form action="{{ route('venda.store') }}" method="post" id="formVenda" class="w-full h-full"
             enctype="multipart/form-data">
             @csrf
-            <div class="p-2 min-h-[97vh] bg-white shadow-sm rounded-lg flex">
+            <div class="p-2 min-h-[91vh] bg-white shadow-sm rounded-lg flex">
                 <!-- Ícone de carregamento e mensagem -->
                 <div id="carregando"
                     class="hidden absolute inset-0 z-10 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
@@ -24,6 +24,12 @@
                                         data-section="dados-section">
                                         <i class='bx bxs-receipt me-2'></i>
                                         {{ __('Dados') }}
+                                    </div>
+
+                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                        data-section="pagamentos-section">
+                                        <i class='bx bx-dollar me-2'></i>
+                                        {{ __('Pagamentos') }}
                                     </div>
 
                                     <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
@@ -169,6 +175,90 @@
                                             value="{{ old('cliente_cep') }}" />
                                         <x-input-error :messages="$errors->get('cliente_cep')" class="mt-2" />
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pagamentos-section secao">
+                            <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1">
+
+                                {{-- Pagamento --}}
+                                <div class="col-span-full">
+                                    <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700">
+                                        <span>{{ __('Pagamento') }}</span>
+                                    </h2>
+                                </div>
+                                <div class="md:col-span-4">
+                                    <x-input-label for="pg_venda_opcaopagamento_id" :value="__('Tipo Pagamento')" />
+                                    <x-select-input :options="$opcoesPagamentos" value-field="id" display-field="opcaopag_nome"
+                                        id="pg_venda_opcaopagamento_id" name="pg_venda_opcaopagamento_id"
+                                        class="mt-1 w-full" />
+                                </div>
+                                <div class="md:col-span-2">
+                                    <x-input-label for="pg_venda_valor_pagamento" :value="__('Valor Pagamento')" />
+                                    <x-money-input id="pg_venda_valor_pagamento" name="pg_venda_valor_pagamento"
+                                        type="text" class="money mt-1 w-full" autocomplete="off"
+                                        value="{{ old('valor_pagamento') }}" />
+                                </div>
+                                <div id="dadosTaxa"
+                                    class="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1" style="display: none">
+
+                                    <div class="md:col-span-3">
+                                        <x-input-label for="opcao_pag_taxa" :value="__('% Taxa')" />
+                                        <x-text-input id="opcao_pag_taxa" name="opcao_pag_taxa" type="text"
+                                            class="mt-1 w-full" autocomplete="off" readonly
+                                            value="{{ old('opcao_pag_taxa') }}" />
+                                    </div>
+                                    <div class="md:col-span-3">
+                                        <x-input-label for="venda_valor_acrescimo" :value="__('Valor Acrescimo')" />
+                                        <x-money-input id="venda_valor_acrescimo" name="venda_valor_acrescimo"
+                                            type="text" class="money mt-1 w-full" autocomplete="off"
+                                            value="{{ old('valor_pagamento') }}" />
+                                    </div>
+                                </div>
+
+                                <div id="dadosCartao"
+                                    class="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1" style="display: none">
+
+                                    <div class="md:col-span-3">
+                                        <x-input-label for="pg_venda_cartao_id" :value="__('Bandeira do Cartão')" />
+                                        <x-select-input :options="$cartoes" value-field="id"
+                                            display-field="cartao_bandeira" id="pg_venda_cartao_id"
+                                            name="pg_venda_cartao_id" class="mt-1 w-full" />
+                                    </div>
+                                    <div class="md:col-span-3">
+                                        <x-input-label for="pg_venda_numero_autorizacao_cartao" :value="__('Nº Autorização Transação')" />
+                                        <x-text-input id="pg_venda_numero_autorizacao_cartao"
+                                            name="pg_venda_numero_autorizacao_cartao" type="text"
+                                            class="money mt-1 w-full" autocomplete="off"
+                                            value="{{ old('pg_venda_numero_autorizacao_cartao') }}" />
+                                    </div>
+                                </div>
+
+                                <div class="md:col-span-1">
+                                    <x-input-label
+                                        for="venda_valor_desconto">{{ __('Registrar Pagamento') }}</x-input-label>
+                                    <x-primary-button class="mt-1 h-3/5"><i
+                                            class='text-base bx bx-check-square'></i></x-primary-button>
+                                    <x-danger-button class="mt-1 h-3/5"><i
+                                            class='text-base bx bx-x-circle'></i></i></x-danger-button>
+                                </div>
+
+                                <div class="col-span-full">
+                                    <table class="w-full text-center text-[7px] md:text-base">
+                                        <thead>
+                                            <tr class="border-b-4">
+                                                <th class="px-1 md:px-4">#</th>
+                                                <th class="px-1 md:px-4">Tipo Pag.</th>
+                                                <th class="px-1 md:px-4">Taxa</th>
+                                                <th class="px-1 md:px-4">Valor Acres.</th>
+                                                <th class="px-1 md:px-4">Valor Pago</th>
+                                                <th class="px-1 md:px-4">Opções</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="body_tabela_pagamentos">
+                                            
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -399,32 +489,42 @@
                     </div>
                 </div>
                 <div class="w-[20%] h-[96vh] border mx-1 border-gray-200 rounded-lg">
-                    <div class="p-1 h-[80%]">
+                    <div class="p-1">
                         <div>
                             <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
                             <x-money-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="venda_valor_frete money w-full h-[12vh] text-5xl"
+                                class="venda_valor_frete money w-full h-[10vh] text-4xl"
                                 autocomplete="off"></x-input-text>
                         </div>
                         <div>
                             <x-input-label for="venda_valor_itens">{{ __('Valor Itens') }}</x-input-label>
-                            <x-money-input id="venda_valor_itens" name="venda_valor_itens"
-                                class="money w-full h-[12vh] text-5xl"></x-input-text>
+                            <x-money-input id="venda_valor_itens" name="venda_valor_itens" readonly
+                                class="money w-full h-[10vh] text-4xl"></x-input-text>
+                        </div>
+                        <div>
+                            <x-input-label for="venda_valor_acrescimo">{{ __('Valor Acréscimo') }}</x-input-label>
+                            <x-money-input id="venda_valor_acrescimo" name="venda_valor_acrescimo" readonly
+                                class="money w-full h-[10vh] text-4xl"></x-input-text>
                         </div>
                         <div>
                             <x-input-label for="venda_valor_desconto">{{ __('Valor Desconto') }}</x-input-label>
-                            <x-money-input id="venda_valor_desconto" name="venda_valor_desconto"
-                                class="money w-full h-[12vh] text-5xl"></x-input-text>
+                            <x-money-input id="venda_valor_desconto" name="venda_valor_desconto" readonly
+                                class="money w-full h-[10vh] text-4xl"></x-input-text>
                         </div>
                         <div>
                             <x-input-label for="venda_valor_total">{{ __('Valor Total') }}</x-input-label>
-                            <x-money-input id="venda_valor_total" name="venda_valor_total"
-                                class="money w-full h-[12vh] text-5xl"></x-input-text>
+                            <x-money-input id="venda_valor_total" name="venda_valor_total" readonly
+                                class="money w-full h-[10vh] text-4xl"></x-input-text>
                         </div>
-                    </div>
-                    <div class="p-1 h-[20%] ">
-                        <div class="mt-2 text-center">
-                            <x-primary-button>Salvar Venda</x-primary-button>
+                        <div>
+                            <x-input-label for="venda_valor_pago">{{ __('Valor Pago') }}</x-input-label>
+                            <x-money-input id="venda_valor_pago" name="venda_valor_pago" readonly
+                                class="money w-full h-[10vh] text-4xl"></x-input-text>
+                        </div>
+                        <div>
+                            <x-input-label for="venda_valor_troco">{{ __('Valor Troco') }}</x-input-label>
+                            <x-money-input id="venda_valor_troco" name="venda_valor_troco" readonly
+                                class="money w-full h-[10vh] text-4xl"></x-input-text>
                         </div>
                     </div>
                 </div>
@@ -494,12 +594,15 @@
     <script type="module">
         $(document).ready(function() {
 
+            // Converte o array PHP para JSON e o passa para o JavaScript
+            let opcao_pag = @json($opcoesPagamentos);
 
             //$(".toggleSideBar").trigger("click");
             toggleSidebar();
 
             // Oculta todas as seções ao carregar a página
             $('.pedidos-section').hide();
+            $('.pagamentos-section').hide();
             $('.produtos-section').hide();
             $('.mesas-section').hide();
 
@@ -632,19 +735,23 @@
 
             // Função que atualiza o valor total quando insere qualquer valor no campo de desconto
             $(".venda_valor_frete").keyup(function(e) {
-                 venda_valor_frete = $("#venda_valor_frete").val();
+                $("#carregando").removeClass('hidden');
+                venda_valor_frete = $("#venda_valor_frete").val();
                 const venda_id = $("#venda_id").val();
                 if (venda_id === "") {
+                    $("#venda_valor_frete").attr('readonly', true);
                     //Se não estiver ele abre um novo e já adiciona os itens do pedido selecionado na venda aberta
 
                     // Uso da função com a promessa
                     IniciarVenda().then(vendaId => {
                         AtualizaValorFrete(venda_valor_frete, vendaId);
+                        $("#venda_valor_frete").attr('readonly', false);
                     }).catch(error => {
                         console.error(error);
                     });
                 } else {
                     AtualizaValorFrete(venda_valor_frete, venda_id);
+                    $("#carregando").addClass('hidden');
                 }
 
 
@@ -666,11 +773,39 @@
                 if (venda_valor_frete !== "" || venda_valor_frete !== "0.00" ||
                     venda_valor_frete !== "0,00") {
                     // Se for diferente, restaura o valor anterior do campo de desconto
-                    
+
                     listarVenda($("#venda_id").val());
                 } else {
                     // Se for vazio ou "0.00" ou "0,00", define o valor como "0.00"
                     $(this).val("0.00");
+                }
+            });
+
+            $("#pg_venda_opcaopagamento_id").change(function(e) {
+                e.preventDefault();
+
+                const pg_venda_opcaopagamento_id = $(this).val();
+
+                // Encontra a opção de pagamento correspondente
+                const selectedOption = opcao_pag.find(op => op.id == pg_venda_opcaopagamento_id);
+
+                const desc = selectedOption.opcaopag_nome.toUpperCase();
+
+                $("#opcao_pag_taxa").val(selectedOption.opcaopag_valor_percentual_taxa);
+                switch (selectedOption.opcaopag_tipo_taxa) {
+                    case 'ACRESCENTAR':
+                        $('#dadosTaxa').slideDown();
+                        break;
+
+                    default:
+                        $('#dadosTaxa').slideUp();
+                        break;
+                }
+
+                if (desc.includes('CARTÃO')) {
+                    $("#dadosCartao").slideDown();
+                } else {
+                    $("#dadosCartao").slideUp();
                 }
             });
 
@@ -699,14 +834,17 @@
                                 $("#venda_id_titulo").text("Nº: " + response.venda_id);
                                 form.action = route.replace('14', response.venda_id);
                                 resolve($("#venda_id").val());
+                                $("#carregando").addClass('hidden');
                             } else {
                                 alert('Erro ao iniciar a venda. Por favor, tente novamente 1.');
                                 reject('Erro ao iniciar a venda.');
+                                $("#carregando").addClass('hidden');
                             }
                         },
                         error: function() {
                             alert('Erro ao iniciar a venda. Por favor, tente novamente 2.');
                             reject('Erro ao iniciar a venda.');
+                            $("#carregando").addClass('hidden');
                         }
                     });
                 });
@@ -1209,12 +1347,20 @@
             }
 
             function AtualizaValorFrete(venda_valor_frete, venda_id) {
-                venda_valor_frete = parseFloat(venda_valor_frete.replace(',', '.'));
-                if (venda_valor_frete === null || venda_valor_frete === "") {
-                    console.log(venda_valor_frete);
-
-                    venda_valor_frete === 0;
+                // Verifica se o valor é uma string vazia
+                if (!venda_valor_frete.trim()) {
+                    venda_valor_frete = "0.00";
                 }
+
+                // Converte o valor para float
+                venda_valor_frete = parseFloat(venda_valor_frete.replace(',', '.'));
+
+                // Verifica se a conversão resultou em NaN e ajusta o valor para 0.00
+                if (isNaN(venda_valor_frete)) {
+                    venda_valor_frete = 0.00;
+                }
+
+                // Envia a requisição AJAX com o valor do frete atualizado
                 $.ajax({
                     type: "POST",
                     url: "{{ route('venda.update_valor_frete') }}",
@@ -1227,14 +1373,13 @@
                     success: function(response) {
                         listarVenda(venda_id);
                         console.log(response);
-
                     },
                     error: function() {
-                        alert('Erro ao atualizar o valor do frete!')
+                        alert('Erro ao atualizar o valor do frete!');
                     }
-
                 });
             }
+
 
             window.addEventListener('beforeunload', function(e) {
                 const totalVenda = parseFloat(document.getElementById('venda_valor_total').innerText);

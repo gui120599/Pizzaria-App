@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Venda;
 use App\Http\Requests\StoreVendaRequest;
 use App\Http\Requests\UpdateVendaRequest;
+use App\Models\CartoesPagamento;
 use App\Models\Categoria;
 use App\Models\Cliente;
 use App\Models\Mesa;
+use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoCaixa;
@@ -36,6 +38,12 @@ class VendaController extends Controller
 
         // Obtém todos os clientes
         $clientes = Cliente::all();
+
+        //Obtém os Tipos de Pagamento
+        $opcoesPagamentos = OpcoesPagamento::all();
+
+        //Obtém os Cartões
+        $cartoes = CartoesPagamento::all();
 
         // Obtém todos os pedidos que não estão cancelados ou finalizados
         $pedidos = Pedido::whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
@@ -79,7 +87,9 @@ class VendaController extends Controller
             'categorias' => $categorias,
             'sessaoMesas' => $sessaoMesas,
             'pedidos' => $pedidos,
-            'clientes' => $clientes
+            'clientes' => $clientes,
+            'opcoesPagamentos' => $opcoesPagamentos,
+            'cartoes' => $cartoes
         ]);
     }
 
@@ -113,7 +123,7 @@ class VendaController extends Controller
         if($venda->venda_valor_itens == 0){
             $venda->venda_valor_total = $venda_valor_frete;
         }else{
-            $venda->venda_valor_total = $venda->venda_valor_total + $venda_valor_frete;
+            $venda->venda_valor_total = $venda->venda_valor_itens + $venda_valor_frete - $venda->venda_valor_desconto;
         }
         
         $venda->save();

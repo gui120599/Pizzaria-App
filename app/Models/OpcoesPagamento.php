@@ -22,7 +22,7 @@ class OpcoesPagamento extends Model
     protected $casts = [
         'opcaopag_tipo_taxa' => 'string',
         'opcaopag_desc_nfe' => 'string',
-        'opcaopag_valor_percentual_taxa' => 'decimal:7,2'
+        'opcaopag_valor_percentual_taxa' => 'float'
     ];
 
     const TIPO_TAXA = [

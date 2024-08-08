@@ -23,6 +23,7 @@ return new class extends Migration
             $table->decimal('venda_valor_frete',7,2)->nullable()->default('0.0');
             $table->decimal('venda_valor_seguro',7,2)->nullable()->default('0.0');
             $table->decimal('venda_valor_itens',7,2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_acrescimo',7,2)->nullable()->default('0.0');
             $table->decimal('venda_valor_desconto',7,2)->nullable()->default('0.0');
             $table->decimal('venda_valor_total',7,2)->nullable()->default('0.0');
             $table->decimal('venda_valor_pago',7,2)->nullable()->default('0.0');
