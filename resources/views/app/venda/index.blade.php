@@ -200,7 +200,8 @@
                                         value="{{ old('valor_pagamento') }}" />
                                 </div>
                                 <div id="dadosTaxa"
-                                    class="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1" style="display: none">
+                                    class="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1"
+                                    style="display: none">
 
                                     <div class="md:col-span-3">
                                         <x-input-label for="opcao_pag_taxa" :value="__('% Taxa')" />
@@ -209,15 +210,16 @@
                                             value="{{ old('opcao_pag_taxa') }}" />
                                     </div>
                                     <div class="md:col-span-3">
-                                        <x-input-label for="venda_valor_acrescimo" :value="__('Valor Acrescimo')" />
-                                        <x-money-input id="venda_valor_acrescimo" name="venda_valor_acrescimo"
+                                        <x-input-label for="pg_valor_acrescimo" :value="__('Valor Acrescimo')" />
+                                        <x-money-input id="pg_valor_acrescimo" name="pg_valor_acrescimo"
                                             type="text" class="money mt-1 w-full" autocomplete="off"
                                             value="{{ old('valor_pagamento') }}" />
                                     </div>
                                 </div>
 
                                 <div id="dadosCartao"
-                                    class="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1" style="display: none">
+                                    class="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1"
+                                    style="display: none">
 
                                     <div class="md:col-span-3">
                                         <x-input-label for="pg_venda_cartao_id" :value="__('Bandeira do Cartão')" />
@@ -234,7 +236,7 @@
                                     </div>
                                 </div>
 
-                                <div class="md:col-span-1">
+                                <div class="col-span-full">
                                     <x-input-label
                                         for="venda_valor_desconto">{{ __('Registrar Pagamento') }}</x-input-label>
                                     <x-primary-button class="mt-1 h-3/5"><i
@@ -256,7 +258,7 @@
                                             </tr>
                                         </thead>
                                         <tbody id="body_tabela_pagamentos">
-                                            
+
                                         </tbody>
                                     </table>
                                 </div>
@@ -265,9 +267,9 @@
                         <div class="mesas-section secao">
                             <p>Mesas com Pedidos</p>
                             @foreach ($sessaoMesas as $sessaoMesa)
-                                <div class="w-full border border-gray-200 p-3 my-2 rounded-lg">
-                                    <div class="flex justify-between">
-                                        <div class="flex space-x-2 justify-between">
+                                <div class="w-full border border-gray-200 p-3 my-2 rounded-lg ">
+                                    <div class=" flex justify-between">
+                                        <div class="cursor-pointer flex space-x-2 justify-between">
                                             <input type="checkbox" class="sessaoMesa" name="id_sessao_mesa[]"
                                                 id="mesa_id_{{ $sessaoMesa->mesa->id }}"
                                                 value="{{ $sessaoMesa->id }}"
@@ -276,7 +278,7 @@
                                                 for="mesa_id_{{ $sessaoMesa->mesa->id }}">{{ $sessaoMesa->mesa->mesa_nome }}</x-text-input>
                                         </div>
                                         <span data-mesa_id="{{ $sessaoMesa->mesa->id }}"
-                                            class="toogle_mesa bx bx-chevron-up col-span-6 p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
+                                            class="toogle_mesa toogle_mesa_{{ $sessaoMesa->mesa->id }} bx bx-chevron-up col-span-6 p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
                                         </span>
                                     </div>
 
@@ -291,6 +293,7 @@
                                                 if (!isset($itensAgrupados[$produtoId])) {
                                                     $itensAgrupados[$produtoId] = [
                                                         'produto' => $item->produto,
+                                                        'item' => $item,
                                                         'total_quantidade' => 0,
                                                         'total_desconto' => 0,
                                                         'total_valor' => 0,
@@ -321,34 +324,36 @@
 
                                     </div>
 
-                                    <table id="table_mesa_{{ $sessaoMesa->mesa->id }}"
-                                        class="w-full text-center text-[7px] md:text-base hidden">
-                                        <thead>
-                                            <tr class="border-b-4">
-                                                <th class="px-1 md:px-4">#</th>
-                                                <th class="px-1 md:px-4">Produto</th>
-                                                <th class="px-1 md:px-4">Qtd</th>
-                                                <th class="px-1 md:px-4">Valor Unt.</th>
-                                                <th class="px-1 md:px-4">Valor Desc.</th>
-                                                <th class="px-1 md:px-4">Valor Total R$</th>
-                                                <th class="px-1 md:px-4">Opções</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach ($itensAgrupados as $produtoId => $item)
-                                                <tr>
-                                                    <td>{{ $item['produto']->id }}</td>
-                                                    <td>{{ $item['produto']->produto_descricao }}</td>
-                                                    <td>{{ $item['total_quantidade'] }}</td>
-                                                    <td>{{ number_format($item['produto']->produto_preco_venda, 2, ',', '.') }}
-                                                    </td>
-                                                    <td>{{ number_format($item['total_desconto'], 2, ',', '.') }}</td>
-                                                    <td>{{ number_format($item['total_valor'], 2, ',', '.') }}</td>
-                                                    <td></td>
+                                    <div id="table_mesa_{{ $sessaoMesa->mesa->id }}" style="display: none;">
+                                        <table class="w-full text-center text-[7px] md:text-base">
+                                            <thead>
+                                                <tr class="border-b-4">
+                                                    <th class="px-1 md:px-4">#</th>
+                                                    <th class="px-1 md:px-4">Produto</th>
+                                                    <th class="px-1 md:px-4">Qtd</th>
+                                                    <th class="px-1 md:px-4">Valor Unt.</th>
+                                                    <th class="px-1 md:px-4">Valor Desc.</th>
+                                                    <th class="px-1 md:px-4">Valor Total R$</th>
+                                                    <th class="px-1 md:px-4">Opções</th>
                                                 </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody>
+                                                @foreach ($itensAgrupados as $produtoId => $item)
+                                                    <tr>
+                                                        <td>{{ $item['produto']->id }}</td>
+                                                        <td>{{ $item['produto']->produto_descricao }}</td>
+                                                        <td>{{ $item['total_quantidade'] }}</td>
+                                                        <td>{{ number_format($item['produto']->produto_preco_venda, 2, ',', '.') }}
+                                                        </td>
+                                                        <td>{{ number_format($item['total_desconto'], 2, ',', '.') }}
+                                                        </td>
+                                                        <td>{{ number_format($item['total_valor'], 2, ',', '.') }}</td>
+                                                        <td>{{ $item['item'] ->item_pedido_status}}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             @endforeach
                         </div>
@@ -434,6 +439,7 @@
                                                 if (!isset($itensAgrupados[$produtoId])) {
                                                     $itensAgrupados[$produtoId] = [
                                                         'produto' => $item->produto,
+                                                        'item' => $item,
                                                         'total_quantidade' => 0,
                                                         'total_desconto' => 0,
                                                         'total_valor' => 0,
@@ -447,36 +453,37 @@
                                                 $itensAgrupados[$produtoId]['total_valor'] += $item->item_pedido_valor;
                                             }
                                         @endphp
-
-                                        <table id="table_pedido_{{ $pedido->id }}"
-                                            class="hidden w-full text-center text-[7px] md:text-base">
-                                            <thead>
-                                                <tr class="border-b-4">
-                                                    <th class="px-1 md:px-4">#</th>
-                                                    <th class="px-1 md:px-4">Produto</th>
-                                                    <th class="px-1 md:px-4">Qtd</th>
-                                                    <th class="px-1 md:px-4">Valor Desc.</th>
-                                                    <th class="px-1 md:px-4">Valor Unt.</th>
-                                                    <th class="px-1 md:px-4">Valor Total</th>
-                                                    <th class="px-1 md:px-4">Opções</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach ($itensAgrupados as $produtoId => $item)
-                                                    <tr>
-                                                        <td>{{ $item['produto']->id }}</td>
-                                                        <td>{{ $item['produto']->produto_descricao }}</td>
-                                                        <td>{{ $item['total_quantidade'] }}</td>
-                                                        <td>{{ number_format($item['produto']->produto_preco_venda, 2, ',', '.') }}
-                                                        </td>
-                                                        <td>{{ number_format($item['total_desconto'], 2, ',', '.') }}
-                                                        </td>
-                                                        <td>{{ number_format($item['total_valor'], 2, ',', '.') }}</td>
-                                                        <td></td>
+                                        <div id="table_pedido_{{ $pedido->id }}" style="display: none;">
+                                            <table class="w-full text-center text-[7px] md:text-base">
+                                                <thead>
+                                                    <tr class="border-b-4">
+                                                        <th class="px-1 md:px-4">#</th>
+                                                        <th class="px-1 md:px-4">Produto</th>
+                                                        <th class="px-1 md:px-4">Qtd</th>
+                                                        <th class="px-1 md:px-4">Valor Desc.</th>
+                                                        <th class="px-1 md:px-4">Valor Unt.</th>
+                                                        <th class="px-1 md:px-4">Valor Total</th>
+                                                        <th class="px-1 md:px-4">Opções</th>
                                                     </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach ($itensAgrupados as $produtoId => $item)
+                                                        <tr>
+                                                            <td>{{ $item['produto']->id }}</td>
+                                                            <td>{{ $item['produto']->produto_descricao }}</td>
+                                                            <td>{{ $item['total_quantidade'] }}</td>
+                                                            <td>{{ number_format($item['produto']->produto_preco_venda, 2, ',', '.') }}
+                                                            </td>
+                                                            <td>{{ number_format($item['total_desconto'], 2, ',', '.') }}
+                                                            </td>
+                                                            <td>{{ number_format($item['total_valor'], 2, ',', '.') }}
+                                                            </td>
+                                                            <td>{{ $item['item']->item_pedido_status }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 @endif
                             @endforeach
@@ -773,8 +780,10 @@
                 if (venda_valor_frete !== "" || venda_valor_frete !== "0.00" ||
                     venda_valor_frete !== "0,00") {
                     // Se for diferente, restaura o valor anterior do campo de desconto
+                    if ($("#venda_id").val()) {
+                        listarVenda($("#venda_id").val());
+                    }
 
-                    listarVenda($("#venda_id").val());
                 } else {
                     // Se for vazio ou "0.00" ou "0,00", define o valor como "0.00"
                     $(this).val("0.00");
@@ -807,6 +816,22 @@
                 } else {
                     $("#dadosCartao").slideUp();
                 }
+            });
+
+            $("#pg_venda_valor_pagamento").keyup(function (e) {
+                var valor_pag = $(this).val() || 0;
+                var valor_taxa = $("#opcao_pag_taxa").val() || 0;
+
+                var valor_acrescimo = parseFloat(valor_pag)*parseFloat(valor_taxa)/100;
+
+                if (isNaN(valor_acrescimo)) {
+                    valor_acrescimo = 0;
+                }
+
+                $("#pg_valor_acrescimo").val(valor_acrescimo.toFixed(2));
+                $("#venda_valor_acrescimo").val(valor_acrescimo.toFixed(2));
+
+                
             });
 
 
@@ -1048,6 +1073,7 @@
                                 '<p class="p-2">Nenhum produto encontrado para este venda!</p>');
                             $("#carregando").addClass('hidden');
                         }
+
                         //Abre o form do item do pedido
                         $(".toogle_item").click(function(e) {
                             e.preventDefault();
@@ -1217,6 +1243,8 @@
                             // Atualizar o elemento na sua página com o novo valor total
                             $("#item_venda_valor_" + item_id).val(novoValorTotal.toFixed(2));
 
+
+
                             $.ajax({
                                 type: "POST",
                                 url: "{{ route('item_venda.update_desconto') }}",
@@ -1228,16 +1256,22 @@
                                 },
                                 dataType: "json",
                                 success: function(response) {
-                                    $("#item_valor_view_" + item_id).html(
-                                        novoValorTotal
-                                        .toFixed(2));
+                                    $("#item_valor_view_" + item_id)
+                                        .html(
+                                            novoValorTotal
+                                            .toFixed(2));
                                     listarVenda(venda_id);
                                 },
                                 error: function() {
-                                    alert('Erro ao atualizar o item do venda')
+                                    alert(
+                                        'Erro ao atualizar o item do venda')
                                 }
 
                             });
+
+
+
+
 
                         });
 
@@ -1379,7 +1413,6 @@
                     }
                 });
             }
-
 
             window.addEventListener('beforeunload', function(e) {
                 const totalVenda = parseFloat(document.getElementById('venda_valor_total').innerText);

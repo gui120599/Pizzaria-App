@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateVendaRequest;
 use App\Models\CartoesPagamento;
 use App\Models\Categoria;
 use App\Models\Cliente;
+use App\Models\ItensVenda;
 use App\Models\Mesa;
 use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
@@ -30,7 +31,15 @@ class VendaController extends Controller
         $sessaCaixa = SessaoCaixa::where('sessaocaixa_status', 'ABERTA')->first();
 
         // Obtém todas as sessões de mesa que estão abertas
-        $sessaoMesas = SessaoMesa::where('sessao_mesa_status', 'ABERTA')->get();
+        $sessaoMesas = SessaoMesa::where('sessao_mesa_status', 'ABERTA')
+            ->with(['pedidos' => function ($query) {
+                $query->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
+                    ->with(['item_pedido_pedido_id' => function ($query) {
+                        $query->where('item_pedido_status', 'INSERIDO');
+                    }]);
+            }])
+            ->get();
+
 
         // Obtém todas as categorias e produtos
         $categorias = Categoria::all();
@@ -59,7 +68,7 @@ class VendaController extends Controller
             ->first();
 
         // Verifica se existe uma venda aberta
-       /* if ($venda_aberta) {
+        /* if ($venda_aberta) {
             // Se houver uma venda aberta, carrega a view de edição com os dados
             return view('app.venda.edit', [
                 'sessaoCaixa' => $sessaCaixa,
@@ -108,7 +117,8 @@ class VendaController extends Controller
         return response()->json(['venda_id' => $venda->id]);
     }
 
-    public function AtualizarValorFrete(Request $request){
+    public function AtualizarValorFrete(Request $request)
+    {
 
         $venda_valor_frete = $request->input('venda_valor_frete');
         $venda_id = $request->input('venda_id');
@@ -120,16 +130,15 @@ class VendaController extends Controller
         }
 
         $venda->venda_valor_frete = $venda_valor_frete;
-        if($venda->venda_valor_itens == 0){
+        if ($venda->venda_valor_itens == 0) {
             $venda->venda_valor_total = $venda_valor_frete;
-        }else{
+        } else {
             $venda->venda_valor_total = $venda->venda_valor_itens + $venda_valor_frete - $venda->venda_valor_desconto;
         }
-        
+
         $venda->save();
 
         return response()->json(['success' => 'Valor do frete atualizado!']);
-
     }
 
 
