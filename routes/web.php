@@ -12,6 +12,7 @@ use App\Http\Controllers\OpcoesEntregasController;
 use App\Http\Controllers\OpcoesPagamentoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MesaController;
+use App\Http\Controllers\PagamentosVendaController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\PedidoController;
 use App\Http\Controllers\SessaoCaixaController;
@@ -179,7 +180,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemVenda/RemoveProduto', [ItensVendaController::class, 'removerProduto'])->name('item_venda.remove_produto');
     Route::post('/ItemVenda/AtualziarDesconto', [ItensVendaController::class, 'atualizarDescontoItemVenda'])->name('item_venda.update_desconto');
     
-    
+    Route::post('/PagamentoVenda', [PagamentosVendaController::class, 'store'])->name('pagamento_venda.store');
+    Route::delete('/PagamentoVenda', [PagamentosVendaController::class, 'destroy'])->name('pagamento_venda.destroy');
+
+
     Route::get('/ItemVenda', [ItensVendaController::class, 'index'])->name('item_venda.add_item_pedido2');
     Route::get('/ItemVenda2', [ItensVendaController::class, 'listarItensVenda'])->name('item_venda.listar');
 

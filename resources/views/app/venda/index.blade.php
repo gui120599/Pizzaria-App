@@ -209,11 +209,17 @@
                                             class="mt-1 w-full" autocomplete="off" readonly
                                             value="{{ old('opcao_pag_taxa') }}" />
                                     </div>
-                                    <div class="md:col-span-3">
-                                        <x-input-label for="pg_valor_acrescimo" :value="__('Valor Acrescimo')" />
-                                        <x-money-input id="pg_valor_acrescimo" name="pg_valor_acrescimo"
-                                            type="text" class="money mt-1 w-full" autocomplete="off"
-                                            value="{{ old('valor_pagamento') }}" />
+                                    <div class="md:col-span-3 hidden valor_acrescimo">
+                                        <x-input-label for="pg_venda_valor_acrescimo" :value="__('Valor Acrescimo')" />
+                                        <x-money-input id="pg_venda_valor_acrescimo" name="pg_venda_valor_acrescimo"
+                                            type="text" class=" money mt-1 w-full" autocomplete="off"
+                                            value="{{ old('valor_pagamento') }}" readonly />
+                                    </div>
+                                    <div class="md:col-span-3 hidden valor_desconto">
+                                        <x-input-label for="pg_venda_valor_desconto" :value="__('Valor Desconto')" />
+                                        <x-money-input id="pg_venda_valor_desconto" name="pg_venda_valor_desconto"
+                                            type="text" class=" money mt-1 w-full" autocomplete="off"
+                                            value="{{ old('valor_pagamento') }}" readonly />
                                     </div>
                                 </div>
 
@@ -239,10 +245,12 @@
                                 <div class="col-span-full">
                                     <x-input-label
                                         for="venda_valor_desconto">{{ __('Registrar Pagamento') }}</x-input-label>
-                                    <x-primary-button class="mt-1 h-3/5"><i
-                                            class='text-base bx bx-check-square'></i></x-primary-button>
-                                    <x-danger-button class="mt-1 h-3/5"><i
-                                            class='text-base bx bx-x-circle'></i></i></x-danger-button>
+
+                                    <x-primary-button class="mt-1 h-3/5" type="button" id="registar_pagamento">
+                                        <i class='text-base bx bx-check-square'></i>
+                                    </x-primary-button>
+
+                                    
                                 </div>
 
                                 <div class="col-span-full">
@@ -252,6 +260,7 @@
                                                 <th class="px-1 md:px-4">#</th>
                                                 <th class="px-1 md:px-4">Tipo Pag.</th>
                                                 <th class="px-1 md:px-4">Taxa</th>
+                                                <th class="px-1 md:px-4">Valor Desc.</th>
                                                 <th class="px-1 md:px-4">Valor Acres.</th>
                                                 <th class="px-1 md:px-4">Valor Pago</th>
                                                 <th class="px-1 md:px-4">Opções</th>
@@ -348,7 +357,7 @@
                                                         <td>{{ number_format($item['total_desconto'], 2, ',', '.') }}
                                                         </td>
                                                         <td>{{ number_format($item['total_valor'], 2, ',', '.') }}</td>
-                                                        <td>{{ $item['item'] ->item_pedido_status}}</td>
+                                                        <td>{{ $item['item']->item_pedido_status }}</td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>
@@ -761,8 +770,6 @@
                     $("#carregando").addClass('hidden');
                 }
 
-
-
             });
 
             // Função que executa quando o campo de desconto recebe foco
@@ -804,8 +811,14 @@
                 switch (selectedOption.opcaopag_tipo_taxa) {
                     case 'ACRESCENTAR':
                         $('#dadosTaxa').slideDown();
+                        $('.valor_acrescimo').removeClass('hidden');
+                        $('.valor_desconto').addClass('hidden');
                         break;
-
+                    case 'DESCONTAR':
+                        $('#dadosTaxa').slideDown();
+                        $('.valor_acrescimo').addClass('hidden');
+                        $('.valor_desconto').removeClass('hidden');
+                        break;
                     default:
                         $('#dadosTaxa').slideUp();
                         break;
@@ -818,20 +831,88 @@
                 }
             });
 
-            $("#pg_venda_valor_pagamento").keyup(function (e) {
+            $("#pg_venda_valor_pagamento").keyup(function(e) {
                 var valor_pag = $(this).val() || 0;
                 var valor_taxa = $("#opcao_pag_taxa").val() || 0;
+                const pg_venda_opcaopagamento_id = $("#pg_venda_opcaopagamento_id").val();
 
-                var valor_acrescimo = parseFloat(valor_pag)*parseFloat(valor_taxa)/100;
+                // Encontra a opção de pagamento correspondente
+                const selectedOption = opcao_pag.find(op => op.id == pg_venda_opcaopagamento_id);
+                switch (selectedOption.opcaopag_tipo_taxa) {
+                    case 'ACRESCENTAR':
+                        var valor_acrescimo = parseFloat(valor_pag) * parseFloat(valor_taxa) / 100;
 
-                if (isNaN(valor_acrescimo)) {
-                    valor_acrescimo = 0;
+                        if (isNaN(valor_acrescimo)) {
+                            valor_acrescimo = 0;
+                        }
+
+                        $("#pg_venda_valor_acrescimo").val(valor_acrescimo.toFixed(2));
+                        break;
+
+                    case 'DESCONTAR':
+                        var valor_desconto = parseFloat(valor_pag) * parseFloat(valor_taxa) / 100;
+
+                        if (isNaN(valor_desconto)) {
+                            valor_desconto = 0;
+                        }
+
+                        $("#pg_venda_valor_desconto").val(valor_desconto.toFixed(2));
+                        break;
+
+                    default:
+                        $('#dadosTaxa').slideUp();
+                        break;
                 }
 
-                $("#pg_valor_acrescimo").val(valor_acrescimo.toFixed(2));
-                $("#venda_valor_acrescimo").val(valor_acrescimo.toFixed(2));
+            });
 
-                
+            $("#registar_pagamento").click(function(e) {
+                e.preventDefault();
+                InserePagamento();
+
+            });
+
+            $("#remover_pg_venda").click(function (e) { 
+                e.preventDefault();
+                $("#carregando").removeClass('hidden');
+
+                pg_venda_id = $(this).data('pg_venda_id');
+
+                $.ajax({
+                    type: "delete",
+                    url: "{{ route('pagamento_venda.destroy')}}",
+                    data: {
+                        pg_venda_id,
+                        '_token': '{{ csrf_token() }}'
+                    },
+                    dataType: "json",
+                    success: function (response) {
+
+                        // Limpa a tabela de pagamentos
+                        $('#body_tabela_pagamentos').empty();
+
+                        // Itera sobre os pagamentos e adiciona-os na tabela
+                        $.each(response.pagamentosVenda, function(index, pagamento) {
+                            $('#body_tabela_pagamentos').append(`
+                                <tr>
+                                    <td class="px-1 md:px-4">${index + 1}</td>
+                                    <td class="px-1 md:px-4">${pagamento.opcao_pagamento.opcaopag_nome}</td>
+                                    <td class="px-1 md:px-4">${pagamento.opcao_pagamento.opcaopag_tipo_taxa}</td>
+                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_desconto}</td>
+                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_acrescimo}</td>
+                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_pagamento}</td>
+                                    <td class="px-1 md:px-4">
+                                        <x-danger-button class="mt-1" id="remover_pg_venda" data-pg_venda_id="${pagamento.id}">Remover</x-danger-button>
+                                    </td>
+                                </tr>
+                            `);
+                        });
+
+                        
+                    },error: function() {
+                        alert('Erro ao remover pagamento');
+                    }
+                });
             });
 
 
@@ -1412,6 +1493,71 @@
                         alert('Erro ao atualizar o valor do frete!');
                     }
                 });
+            }
+
+            function InserePagamento() {
+                const venda_id = $("#venda_id").val();
+                if (venda_id === null || venda_id === "" || venda_id === undefined) {
+                    // Uso da função com a promessa
+                    IniciarVenda().then(vendaId => {
+                        venda_id = vendaId;
+                    }).catch(error => {
+                        console.error(error);
+                    });
+                }
+
+                let pg_venda_valor_pagamento = $("#pg_venda_valor_pagamento").val();
+
+                let pg_venda_valor_acrescimo = $("#pg_venda_valor_acrescimo").val();
+
+                let pg_venda_valor_desconto = $("#pg_venda_valor_desconto").val();
+
+                const pg_venda_opcaopagamento_id = $("#pg_venda_opcaopagamento_id").val();
+                const pg_venda_cartao_id = $("#pg_venda_cartao_id").val();
+                const pg_venda_numero_autorizacao_cartao = $("#pg_venda_numero_autorizacao_cartao").val();
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('pagamento_venda.store') }}",
+                    data: {
+                        venda_id,
+                        pg_venda_opcaopagamento_id,
+                        pg_venda_valor_pagamento,
+                        pg_venda_valor_acrescimo,
+                        pg_venda_valor_desconto,
+                        pg_venda_cartao_id,
+                        pg_venda_numero_autorizacao_cartao,
+                        '_token': '{{ csrf_token() }}'
+                    },
+                    dataType: "json",
+                    success: function(response) {
+                        console.log(response);
+                        
+                        // Limpa a tabela de pagamentos
+                        $('#body_tabela_pagamentos').empty();
+
+                        // Itera sobre os pagamentos e adiciona-os na tabela
+                        $.each(response.pagamentosVenda, function(index, pagamento) {
+                            $('#body_tabela_pagamentos').append(`
+                                <tr>
+                                    <td class="px-1 md:px-4">${index + 1}</td>
+                                    <td class="px-1 md:px-4">${pagamento.opcao_pagamento.opcaopag_nome}</td>
+                                    <td class="px-1 md:px-4">${pagamento.opcao_pagamento.opcaopag_tipo_taxa}</td>
+                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_desconto}</td>
+                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_acrescimo}</td>
+                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_pagamento}</td>
+                                    <td class="px-1 md:px-4">
+                                        <x-danger-button class="mt-1" id="remover_pg_venda" data-pg_venda_id="${pagamento.id}">Remover</x-danger-button>
+                                    </td>
+                                </tr>
+                            `);
+                        });
+                    },
+                    error: function(error) {
+                        console.error(error);
+
+                    }
+                });
+
             }
 
             window.addEventListener('beforeunload', function(e) {

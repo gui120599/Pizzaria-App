@@ -19,6 +19,8 @@ return new class extends Migration
             $table->integer('pg_venda_numero_autorizacao_cartao')->nullable();
             $table->enum('pg_venda_tipo_integracao',['integrated','notIntegrated'])->default('notIntegrated');
             $table->decimal('pg_venda_valor_pagamento',7,2)->default('0.0');
+            $table->decimal('pg_venda_valor_acrescimo',7,2)->default('0.0');
+            $table->decimal('pg_venda_valor_desconto',7,2)->default('0.0');
             $table->timestamps();
 
             $table->foreign('pg_venda_venda_id')->references('id')->on('vendas');

@@ -58,6 +58,11 @@ class OpcoesPagamento extends Model
         $this->attributes['opcaopag_desc_nfe'] = self::DESC_NFE[$value] ?? 'others';
     }
 
+    public function pagamentosVenda()
+    {
+        return $this->hasMany(PagamentosVenda::class, 'pg_venda_opcaopagamento_id', 'id');
+    }
+
     protected $dates = [
         'created_at',
         'updated_at',

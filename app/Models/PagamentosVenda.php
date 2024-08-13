@@ -18,10 +18,14 @@ class PagamentosVenda extends Model
         'pg_venda_numero_autorizacao_cartao',
         'pg_venda_tipo_integracao',
         'pg_venda_valor_pagamento',
+        'pg_venda_valor_acrescimo',
+        'pg_venda_valor_desconto',
     ];
 
     protected $casts = [
         'pg_venda_valor_pagamento' => 'decimal:2',
+        'pg_venda_valor_acrescimo' => 'decimal:2',
+        'pg_venda_valor_desconto' => 'decimal:2',
     ];
 
     public function venda()
