@@ -22,9 +22,9 @@ return new class extends Migration
             $table->string('pedido_descricao_pagamento')->nullable();
             $table->text('pedido_observacao_pagamento')->nullable();
             $table->text('pedido_endereco_entrega')->nullable();
-            $table->decimal('pedido_valor_itens', 7, 2)->nullable()->default('0.00');
-            $table->decimal('pedido_valor_desconto', 7, 2)->nullable()->default('0.00');
-            $table->decimal('pedido_valor_total', 7, 2)->nullable()->default('0.00');
+            $table->decimal('pedido_valor_itens', 10,2)->nullable()->default('0.00');
+            $table->decimal('pedido_valor_desconto', 10,2)->nullable()->default('0.00');
+            $table->decimal('pedido_valor_total', 10,2)->nullable()->default('0.00');
             $table->enum('pedido_status', ['INICIADO', 'ABERTO', 'PREPARANDO', 'PRONTO', 'EM TRANSPORTE', 'ENTREGUE', 'FINALIZADO', 'CANCELADO'])->default('INICIADO');
             $table->dateTime('pedido_datahora_incio')->default(DB::raw('CURRENT_TIMESTAMP'));
             $table->dateTime('pedido_datahora_abertura')->nullable();

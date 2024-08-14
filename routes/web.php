@@ -181,7 +181,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemVenda/AtualziarDesconto', [ItensVendaController::class, 'atualizarDescontoItemVenda'])->name('item_venda.update_desconto');
     
     Route::post('/PagamentoVenda', [PagamentosVendaController::class, 'store'])->name('pagamento_venda.store');
-    Route::delete('/PagamentoVenda', [PagamentosVendaController::class, 'destroy'])->name('pagamento_venda.destroy');
+    Route::post('/RemoverPagamentoVenda', [PagamentosVendaController::class, 'destroy'])->name('pagamento_venda.destroy');
 
 
     Route::get('/ItemVenda', [ItensVendaController::class, 'index'])->name('item_venda.add_item_pedido2');

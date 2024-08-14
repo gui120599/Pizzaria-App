@@ -23,12 +23,12 @@ return new class extends Migration
             $table->unsignedBigInteger('produto_categoria_id');
             $table->string('produto_foto')->nullable();
             $table->string('produto_unidade_comercial')->nullable();
-            $table->decimal('produto_preco_custo',7,2)->nullable();
-            $table->decimal('produto_valor_percentual_venda',7,2)->nullable();
-            $table->decimal('produto_preco_venda',7,2)->nullable();
+            $table->decimal('produto_preco_custo',10,2)->nullable();
+            $table->decimal('produto_valor_percentual_venda',10,2)->nullable();
+            $table->decimal('produto_preco_venda',10,2)->nullable();
             $table->decimal('produto_valor_percentual_comissao')->nullable();
-            $table->decimal('produto_preco_comissao',7,2)->nullable();
-            $table->decimal('produto_preco_promocional',7,2)->nullable();
+            $table->decimal('produto_preco_comissao',10,2)->nullable();
+            $table->decimal('produto_preco_promocional',10,2)->nullable();
             $table->string('produto_cod_origem_mercadoria')->nullable();
             $table->string('produto_cod_tributacao_icms')->nullable();
             $table->decimal('produto_valor_percentual_icms')->nullable();

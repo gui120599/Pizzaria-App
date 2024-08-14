@@ -12,7 +12,9 @@
                         <p>Carregando Produtos</p>
                     </div>
                 </div>
+
                 <div class="w-[50%] mx-auto pe-2 flex flex-col">
+
                     <nav class="bg-transparent border-b border-gray-100">
                         <!-- Primary Navigation Menu -->
                         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -58,7 +60,9 @@
                             </div>
                         </div>
                     </nav>
+
                     <div class="w-full h-[82dvh] overflow-auto">
+
                         <div class="dados-section secao">
                             <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1">
                                 {{-- Dados do Caixa --}}
@@ -68,6 +72,7 @@
                                         autocomplete="off" value="{{ old('id') }}" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_id')" class="mt-2" />
                                 </div>
+
                                 <div class="md:col-span-1">
                                     <x-input-label for="venda_sessao_caixa_id" :value="__('Cód. Sessão do Caixa')" />
                                     <x-text-input id="venda_sessao_caixa_id" name="venda_sessao_caixa_id" type="text"
@@ -75,12 +80,14 @@
                                         readonly />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_sessao_caixa_id')" class="mt-2" />
                                 </div>
+
                                 <div class="md:col-span-1">
                                     <x-input-label for="caixa_nome" :value="__('Caixa')" />
                                     <x-text-input id="caixa_nome" name="caixa_nome" type="text" class="mt-1 w-full"
                                         autocomplete="off" value="{{ $sessaoCaixa->caixa->caixa_nome }}" readonly />
                                     <x-input-error :messages="$errors->updatePassword->get('caixa_nome')" class="mt-2" />
                                 </div>
+
                                 <div class="md:col-span-3">
                                     <x-input-label for="sessao_caixa_funcionario_id" :value="__('Funcionário')" />
                                     <x-text-input id="sessao_caixa_funcionario_id" name="sessao_caixa_funcionario_id"
@@ -97,6 +104,7 @@
                                         <span>{{ __('Dados Cliente') }}</span>
                                     </h2>
                                 </div>
+
                                 <div class="relative md:col-span-full">
                                     <x-text-input id="venda_cliente_id" name="venda_cliente_id" type="text"
                                         class="mt-1 w-full" hidden />
@@ -114,13 +122,15 @@
                                         @endforeach
                                     </div>
                                 </div>
-                                <div class="md:col-span-1">
+
+                                <div class="md:col-span-2">
                                     <x-input-label for="venda_cliente_cpf" :value="__('CPF Cliente')" />
                                     <x-text-input id="venda_cliente_cpf" name="venda_cliente_cpf" type="text"
                                         class="cpf mt-1 w-full" autocomplete="off"
                                         value="{{ old('venda_cliente_cpf') }}" placeholder="000.000.000-00" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_cliente_cpf')" class="mt-2" />
                                 </div>
+
                                 <div class="md:col-span-2">
                                     <x-input-label for="venda_cliente_telefone" :value="__('Telefone Cliente')" />
                                     <x-text-input id="venda_cliente_telefone" name="venda_cliente_telefone"
@@ -128,13 +138,15 @@
                                         value="{{ old('venda_cliente_telefone') }}" placeholder="(00)9 0000-0000" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_cliente_telefone')" class="mt-2" />
                                 </div>
-                                <div class="md:col-span-3">
+
+                                <div class="md:col-span-2">
                                     <x-input-label for="venda_cliente_email" :value="__('Email Cliente')" />
                                     <x-text-input id="venda_cliente_email" name="venda_cliente_email" type="Email"
                                         class="mt-1 w-full" autocomplete="off"
                                         value="{{ old('venda_cliente_email') }}" placeholder="exemplo@gmail.com" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_cliente_email')" class="mt-2" />
                                 </div>
+
                                 <div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
                                     <div class="lg:col-span-6 md:col-span-6">
                                         <x-input-label for="venda_cliente_endereco" :value="__('Endereço')" />
@@ -178,6 +190,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="pagamentos-section secao">
                             <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1">
 
@@ -237,7 +250,7 @@
                                         <x-input-label for="pg_venda_numero_autorizacao_cartao" :value="__('Nº Autorização Transação')" />
                                         <x-text-input id="pg_venda_numero_autorizacao_cartao"
                                             name="pg_venda_numero_autorizacao_cartao" type="text"
-                                            class="money mt-1 w-full" autocomplete="off"
+                                            class="mt-1 w-full" autocomplete="off"
                                             value="{{ old('pg_venda_numero_autorizacao_cartao') }}" />
                                     </div>
                                 </div>
@@ -250,7 +263,7 @@
                                         <i class='text-base bx bx-check-square'></i>
                                     </x-primary-button>
 
-                                    
+
                                 </div>
 
                                 <div class="col-span-full">
@@ -273,6 +286,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="mesas-section secao">
                             <p>Mesas com Pedidos</p>
                             @foreach ($sessaoMesas as $sessaoMesa)
@@ -366,6 +380,7 @@
                                 </div>
                             @endforeach
                         </div>
+
                         <div class="produtos-section secao">
                             <p>Produtos</p>
                             @foreach ($categorias as $categoria)
@@ -418,6 +433,7 @@
                                 </div>
                             @endforeach
                         </div>
+
                         <div class="pedidos-section secao">
                             <p>Pedidos Avulsos</p>
                             @foreach ($pedidos as $pedido)
@@ -497,13 +513,17 @@
                                 @endif
                             @endforeach
                         </div>
+
                     </div>
+
                 </div>
+
                 <div class="w-[30%] h-[96vh] overflow-auto border border-gray-200 rounded-lg">
                     <div id="itens_venda">
 
                     </div>
                 </div>
+
                 <div class="w-[20%] h-[96vh] border mx-1 border-gray-200 rounded-lg">
                     <div class="p-1">
                         <div>
@@ -544,6 +564,7 @@
                         </div>
                     </div>
                 </div>
+
             </div>
         </form>
     </div>
@@ -868,52 +889,12 @@
 
             $("#registar_pagamento").click(function(e) {
                 e.preventDefault();
+                $(".carregando").removeClass("hidden");
                 InserePagamento();
 
             });
 
-            $("#remover_pg_venda").click(function (e) { 
-                e.preventDefault();
-                $("#carregando").removeClass('hidden');
 
-                pg_venda_id = $(this).data('pg_venda_id');
-
-                $.ajax({
-                    type: "delete",
-                    url: "{{ route('pagamento_venda.destroy')}}",
-                    data: {
-                        pg_venda_id,
-                        '_token': '{{ csrf_token() }}'
-                    },
-                    dataType: "json",
-                    success: function (response) {
-
-                        // Limpa a tabela de pagamentos
-                        $('#body_tabela_pagamentos').empty();
-
-                        // Itera sobre os pagamentos e adiciona-os na tabela
-                        $.each(response.pagamentosVenda, function(index, pagamento) {
-                            $('#body_tabela_pagamentos').append(`
-                                <tr>
-                                    <td class="px-1 md:px-4">${index + 1}</td>
-                                    <td class="px-1 md:px-4">${pagamento.opcao_pagamento.opcaopag_nome}</td>
-                                    <td class="px-1 md:px-4">${pagamento.opcao_pagamento.opcaopag_tipo_taxa}</td>
-                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_desconto}</td>
-                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_acrescimo}</td>
-                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_pagamento}</td>
-                                    <td class="px-1 md:px-4">
-                                        <x-danger-button class="mt-1" id="remover_pg_venda" data-pg_venda_id="${pagamento.id}">Remover</x-danger-button>
-                                    </td>
-                                </tr>
-                            `);
-                        });
-
-                        
-                    },error: function() {
-                        alert('Erro ao remover pagamento');
-                    }
-                });
-            });
 
 
             function IniciarVenda() {
@@ -1429,8 +1410,11 @@
                             $.each(response, function(indexInArray, venda) {
                                 $("#venda_valor_frete").val(venda.venda_valor_frete);
                                 $("#venda_valor_itens").val(venda.venda_valor_itens);
+                                $("#venda_valor_acrescimo").val(venda.venda_valor_acrescimo);
                                 $("#venda_valor_desconto").val(venda.venda_valor_desconto);
                                 $("#venda_valor_total").val(venda.venda_valor_total);
+                                $("#venda_valor_pago").val(venda.venda_valor_pago);
+                                $("#venda_valor_troco").val(venda.venda_valor_troco);
                             });
                         }
 
@@ -1496,7 +1480,10 @@
             }
 
             function InserePagamento() {
+
+
                 const venda_id = $("#venda_id").val();
+
                 if (venda_id === null || venda_id === "" || venda_id === undefined) {
                     // Uso da função com a promessa
                     IniciarVenda().then(vendaId => {
@@ -1513,8 +1500,16 @@
                 let pg_venda_valor_desconto = $("#pg_venda_valor_desconto").val();
 
                 const pg_venda_opcaopagamento_id = $("#pg_venda_opcaopagamento_id").val();
-                const pg_venda_cartao_id = $("#pg_venda_cartao_id").val();
+                let pg_venda_cartao_id = $("#pg_venda_cartao_id").val();
                 const pg_venda_numero_autorizacao_cartao = $("#pg_venda_numero_autorizacao_cartao").val();
+
+                // Encontra a opção de pagamento correspondente
+                const selectedOption = opcao_pag.find(op => op.id == pg_venda_opcaopagamento_id);
+
+                const desc = selectedOption.opcaopag_nome.toUpperCase();
+                if (!desc.includes('CARTÃO')) {
+                    pg_venda_cartao_id = null;
+                }
                 $.ajax({
                     type: "POST",
                     url: "{{ route('pagamento_venda.store') }}",
@@ -1531,31 +1526,74 @@
                     dataType: "json",
                     success: function(response) {
                         console.log(response);
-                        
-                        // Limpa a tabela de pagamentos
-                        $('#body_tabela_pagamentos').empty();
 
-                        // Itera sobre os pagamentos e adiciona-os na tabela
-                        $.each(response.pagamentosVenda, function(index, pagamento) {
-                            $('#body_tabela_pagamentos').append(`
-                                <tr>
-                                    <td class="px-1 md:px-4">${index + 1}</td>
-                                    <td class="px-1 md:px-4">${pagamento.opcao_pagamento.opcaopag_nome}</td>
-                                    <td class="px-1 md:px-4">${pagamento.opcao_pagamento.opcaopag_tipo_taxa}</td>
-                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_desconto}</td>
-                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_acrescimo}</td>
-                                    <td class="px-1 md:px-4">${pagamento.pg_venda_valor_pagamento}</td>
-                                    <td class="px-1 md:px-4">
-                                        <x-danger-button class="mt-1" id="remover_pg_venda" data-pg_venda_id="${pagamento.id}">Remover</x-danger-button>
-                                    </td>
-                                </tr>
-                            `);
-                        });
+                        listarPagamentos(response.pagamentosVenda);
+                        listarVenda(venda_id);
+                        $("#pg_venda_valor_pagamento").val("");
+                        $("#pg_venda_valor_acrescimo").val("");
+                        $("#pg_venda_valor_desconto").val("");
+                        $("#pg_venda_numero_autorizacao_cartao").val("");
+
+
+
                     },
                     error: function(error) {
                         console.error(error);
 
                     }
+                });
+
+            }
+
+            function listarPagamentos(pagamentosVenda) {
+                // Limpa a tabela de pagamentos
+                $('#body_tabela_pagamentos').empty();
+
+                // Itera sobre os pagamentos e adiciona-os na tabela
+                $.each(pagamentosVenda, function(index, pagamento) {
+                    $('#body_tabela_pagamentos').append(`
+                        <tr>
+                            <td class="px-1 md:px-4">${index + 1}</td>
+                            <td class="px-1 md:px-4">${pagamento.opcao_pagamento.opcaopag_nome}</td>
+                            <td class="px-1 md:px-4 text-sm">${pagamento.opcao_pagamento.opcaopag_tipo_taxa}</td>
+                            <td class="px-1 md:px-4">R$ ${pagamento.pg_venda_valor_desconto}</td>
+                            <td class="px-1 md:px-4">R$ ${pagamento.pg_venda_valor_acrescimo}</td>
+                            <td class="px-1 md:px-4">R$ ${pagamento.pg_venda_valor_pagamento}</td>
+                            <td class="px-1 md:px-4">
+                                <x-danger-button type="button" class="remover_pg_venda mt-1" data-pg_venda_id="${pagamento.id}">Remover</x-danger-button>
+                            </td>
+                        </tr>
+                    `);
+                });
+
+                $(".remover_pg_venda").click(function(e) {
+                    e.preventDefault();
+                    $('#carregando').removeClass('hidden');
+
+                    let pg_venda_id = $(this).data('pg_venda_id');
+
+                    $.ajax({
+                        type: "POST",
+                        url: "{{ route('pagamento_venda.destroy') }}",
+                        data: {
+                            pg_venda_id,
+                            '_token': '{{ csrf_token() }}'
+                        },
+                        dataType: "json",
+                        success: function(response) {
+                            console.log(response);
+                            
+
+                            listarPagamentos(response.pagamentosVenda);
+                            listarVenda(response.venda.id);
+
+                            $('#carregando').addClass('hidden');
+                        },
+                        error: function(error) {
+                            console.log(error);
+                            $('#carregando').removeClass('hidden');
+                        }
+                    });
                 });
 
             }

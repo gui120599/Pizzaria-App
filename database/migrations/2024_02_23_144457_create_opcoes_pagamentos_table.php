@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('opcaopag_nome');
             $table->enum('opcaopag_tipo_taxa',['N/A','DESCONTAR','ACRESCENTAR'])->default('N/A')->nullable();
             $table->enum('opcaopag_desc_nfe',['cash','cheque','creditCard','debitCard','storeCredict','foodVouchers','mealVouchers','giftVouchers','fuelVouchers','bankBill','withoutPayment','others'])->nullable('others');
-            $table->decimal('opcaopag_valor_percentual_taxa',7,2)->default('0.00')->nullable();
+            $table->decimal('opcaopag_valor_percentual_taxa',10,2)->default('0.00')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

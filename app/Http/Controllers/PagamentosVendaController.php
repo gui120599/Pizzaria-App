@@ -7,9 +7,18 @@ use App\Http\Requests\StorePagamentosVendaRequest;
 use App\Http\Requests\UpdatePagamentosVendaRequest;
 use App\Models\OpcoesPagamento;
 use App\Models\Venda;
+use App\Services\VendaService;
+use Illuminate\Http\Request;
 
 class PagamentosVendaController extends Controller
 {
+    protected $vendaService;
+
+    public function __construct(VendaService $vendaService)
+    {
+        $this->vendaService = $vendaService;
+    }
+    
     /**
      * Display a listing of the resource.
      */
@@ -99,7 +108,6 @@ class PagamentosVendaController extends Controller
 
             // Atualiza os valores da venda com o valor do pagamento
             $venda->venda_valor_pago += $valor_pagamento;
-            $venda->venda_valor_total += $valor_pagamento;
 
             // Verifica se há troco a ser devolvido
             if ($venda->venda_valor_total < $venda->venda_valor_pago) {
@@ -115,7 +123,6 @@ class PagamentosVendaController extends Controller
         // Retorna uma resposta de sucesso
         return response()->json(['success' => 'Pagamento adicionado com sucesso!', 'pagamentosVenda' => $pagamentosVenda], 200);
     }
-
 
 
     /**
@@ -145,8 +152,24 @@ class PagamentosVendaController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(PagamentosVenda $pagamentosVenda)
+    public function destroy(Request $request)
     {
-        //
+        $pagamentoVenda = PagamentosVenda::find($request->input('pg_venda_id'));
+
+        $venda = Venda::find($pagamentoVenda->pg_venda_venda_id);
+
+        if(!$pagamentoVenda){
+            return response()->json(['erro','Pagamento não encontrado!'],200);
+        }
+        $pagamentoVenda->delete();
+
+        // Atualizar valores da venda
+        $this->vendaService->atualizarValoresdaVenda($venda->id);
+
+        $pagamentosVenda = PagamentosVenda::with('opcaoPagamento')->where('pg_venda_venda_id', $venda->id)->get();
+
+        return response()->json(['success' => 'Pagamento removido!','pagamentosVenda' => $pagamentosVenda, 'venda' => $venda],200);
+
     }
+ 
 }

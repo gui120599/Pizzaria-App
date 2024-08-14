@@ -17,17 +17,17 @@ return new class extends Migration
             $table->unsignedBigInteger('item_venda_venda_id');
             $table->unsignedBigInteger('item_venda_produto_id');
             $table->double('item_venda_quantidade');
-            $table->decimal('item_venda_valor_unitario',7,2)->default('0.00');
-            $table->decimal('item_venda_desconto',7,2)->default('0.00');
-            $table->decimal('item_venda_valor',7,2)->default('0.00');
+            $table->decimal('item_venda_valor_unitario',10,2)->default('0.00');
+            $table->decimal('item_venda_desconto',10,2)->default('0.00');
+            $table->decimal('item_venda_valor',10,2)->default('0.00');
             //Impostos
             $table->double('item_venda_quantidade_tributavel');
-            $table->decimal('item_venda_valor_unitario_tributavel',7,2)->default('0.00');
-            $table->decimal('item_venda_valor_base_calculo',7,2)->default('0.00');
-            $table->decimal('item_venda_valor_icms',7,2)->default('0.00');
-            $table->decimal('item_venda_valor_pis',7,2)->default('0.00');
-            $table->decimal('item_venda_valor_cofins',7,2)->default('0.00');
-            $table->decimal('item_venda_valor_total_tributos',7,2)->default('0.00');
+            $table->decimal('item_venda_valor_unitario_tributavel',10,2)->default('0.00');
+            $table->decimal('item_venda_valor_base_calculo',10,2)->default('0.00');
+            $table->decimal('item_venda_valor_icms',10,2)->default('0.00');
+            $table->decimal('item_venda_valor_pis',10,2)->default('0.00');
+            $table->decimal('item_venda_valor_cofins',10,2)->default('0.00');
+            $table->decimal('item_venda_valor_total_tributos',10,2)->default('0.00');
             //Observaçoes
             $table->text('item_venda_observacao')->nullable();
             $table->enum('item_venda_status',['INSERIDO','REMOVIDO'])->default('INSERIDO');
