@@ -145,7 +145,7 @@ class VendaController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreVendaRequest $request)
+    public function SalvarVenda(StoreVendaRequest $request)
     {
         dd($request);
     }

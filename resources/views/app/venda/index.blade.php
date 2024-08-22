@@ -1,9 +1,30 @@
 <x-app-layout>
+    <style>
+        /* Estilo da barra de rolagem para Webkit e Firefox */
+        body {
+            scrollbar-width: thin;
+            scrollbar-color: #888 #f1f1f1;
+        }
+
+        ::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: #888;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background-color: #f1f1f1;
+            border-radius: 10px;
+        }
+    </style>
     <div class="mx-auto p-2 ">
         <form action="{{ route('venda.store') }}" method="post" id="formVenda" class="w-full h-full"
             enctype="multipart/form-data">
             @csrf
-            <div class="p-2 min-h-[91vh] bg-white shadow-sm rounded-lg flex">
+            <div class="p-2 min-h-[95vh] bg-white shadow-sm rounded-lg flex">
                 <!-- Ícone de carregamento e mensagem -->
                 <div id="carregando"
                     class="hidden absolute inset-0 z-10 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
@@ -13,14 +34,14 @@
                     </div>
                 </div>
 
-                <div class="w-[50%] mx-auto pe-2 flex flex-col">
+                <div class="w-[60%] 2xl:w-[50%] h-[95vh] mx-auto pe-2 flex flex-col">
 
                     <nav class="bg-transparent border-b border-gray-100">
                         <!-- Primary Navigation Menu -->
                         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                             <div class="flex justify-center h-8">
                                 <!-- Navigation Links -->
-                                <div class="space-x-8 sm:ms-10 flex ">
+                                <div class="space-x-5 flex ">
 
                                     <div class="nav-link active cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
                                         data-section="dados-section">
@@ -28,11 +49,6 @@
                                         {{ __('Dados') }}
                                     </div>
 
-                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
-                                        data-section="pagamentos-section">
-                                        <i class='bx bx-dollar me-2'></i>
-                                        {{ __('Pagamentos') }}
-                                    </div>
 
                                     <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
                                         data-section="mesas-section">
@@ -55,15 +71,27 @@
                                         <i class='bx bxs-pizza me-2'></i>
                                         {{ __('Produtos') }}
                                     </div>
+                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                        data-section="pagamentos-section">
+                                        <i class='bx bx-dollar me-2'></i>
+                                        {{ __('Pagamentos') }}
+                                    </div>
+
+                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                        data-section="finalizar-section" onclick="document.getElementById('formVenda').submit();">
+                                        <i class='bx bx-check-double me-2'></i>
+                                        {{ __('Finalizar Venda') }}
+                                    </div>
 
                                 </div>
+
                             </div>
                         </div>
                     </nav>
 
-                    <div class="w-full h-[82dvh] overflow-auto">
+                    <div class="w-full overflow-auto">
 
-                        <div class="dados-section secao">
+                        <div class="h-[90vh] dados-section secao">
                             <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1">
                                 {{-- Dados do Caixa --}}
                                 <div class="md:col-span-1">
@@ -442,7 +470,7 @@
                                         <div class="flex justify-between">
                                             <div>
                                                 <input type="checkbox" class="pedido"
-                                                    name="pedido_{{ $pedido->id }}"
+                                                    name="id_pedido[]"
                                                     id="pedido_{{ $pedido->id }}"
                                                     data-pedido_id="{{ $pedido->id }}"
                                                     class="cursor-pointer check_ pedido">
@@ -515,55 +543,57 @@
                         </div>
 
                     </div>
-
                 </div>
 
-                <div class="w-[30%] h-[96vh] overflow-auto border border-gray-200 rounded-lg">
+                <div class="w-[20%] h-[95vh] border mx-1 border-gray-200 rounded-lg flex flex-col">
+                    <div class="p-1 flex flex-col flex-grow">
+                        <div class="flex-1">
+                            <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
+                            <x-money-input id="venda_valor_frete" name="venda_valor_frete"
+                                class="venda_valor_frete money w-full h-full text-4xl"
+                                autocomplete="off"></x-input-text>
+                        </div>
+                        <div class="flex-1">
+                            <x-input-label for="venda_valor_itens">{{ __('Valor Itens') }}</x-input-label>
+                            <x-money-input id="venda_valor_itens" name="venda_valor_itens" readonly
+                                class="money w-full h-full text-4xl"></x-input-text>
+                        </div>
+                        <div class="flex-1">
+                            <x-input-label for="venda_valor_acrescimo">{{ __('Valor Acréscimo') }}</x-input-label>
+                            <x-money-input id="venda_valor_acrescimo" name="venda_valor_acrescimo" readonly
+                                class="money w-full h-full text-4xl"></x-input-text>
+                        </div>
+                        <div class="flex-1">
+                            <x-input-label for="venda_valor_desconto">{{ __('Valor Desconto') }}</x-input-label>
+                            <x-money-input id="venda_valor_desconto" name="venda_valor_desconto" readonly
+                                class="money w-full h-full text-4xl"></x-input-text>
+                        </div>
+                        <div class="flex-1">
+                            <x-input-label for="venda_valor_total">{{ __('Valor Total') }}</x-input-label>
+                            <x-money-input id="venda_valor_total" name="venda_valor_total" readonly
+                                class="money w-full h-full text-4xl"></x-input-text>
+                        </div>
+                        <div class="flex-1">
+                            <x-input-label for="venda_valor_pago">{{ __('Valor Pago') }}</x-input-label>
+                            <x-money-input id="venda_valor_pago" name="venda_valor_pago" readonly
+                                class="money w-full h-full text-4xl"></x-input-text>
+                        </div>
+                        <div class="flex-1">
+                            <x-input-label for="venda_valor_troco">{{ __('Valor Troco') }}</x-input-label>
+                            <x-money-input id="venda_valor_troco" name="venda_valor_troco" readonly
+                                class="money w-full h-full text-4xl"></x-input-text>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="w-[20%] 2xl:w-[30%] h-[95vh] overflow-auto border border-gray-200 rounded-lg">
                     <div id="itens_venda">
 
                     </div>
                 </div>
 
-                <div class="w-[20%] h-[96vh] border mx-1 border-gray-200 rounded-lg">
-                    <div class="p-1">
-                        <div>
-                            <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
-                            <x-money-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="venda_valor_frete money w-full h-[10vh] text-4xl"
-                                autocomplete="off"></x-input-text>
-                        </div>
-                        <div>
-                            <x-input-label for="venda_valor_itens">{{ __('Valor Itens') }}</x-input-label>
-                            <x-money-input id="venda_valor_itens" name="venda_valor_itens" readonly
-                                class="money w-full h-[10vh] text-4xl"></x-input-text>
-                        </div>
-                        <div>
-                            <x-input-label for="venda_valor_acrescimo">{{ __('Valor Acréscimo') }}</x-input-label>
-                            <x-money-input id="venda_valor_acrescimo" name="venda_valor_acrescimo" readonly
-                                class="money w-full h-[10vh] text-4xl"></x-input-text>
-                        </div>
-                        <div>
-                            <x-input-label for="venda_valor_desconto">{{ __('Valor Desconto') }}</x-input-label>
-                            <x-money-input id="venda_valor_desconto" name="venda_valor_desconto" readonly
-                                class="money w-full h-[10vh] text-4xl"></x-input-text>
-                        </div>
-                        <div>
-                            <x-input-label for="venda_valor_total">{{ __('Valor Total') }}</x-input-label>
-                            <x-money-input id="venda_valor_total" name="venda_valor_total" readonly
-                                class="money w-full h-[10vh] text-4xl"></x-input-text>
-                        </div>
-                        <div>
-                            <x-input-label for="venda_valor_pago">{{ __('Valor Pago') }}</x-input-label>
-                            <x-money-input id="venda_valor_pago" name="venda_valor_pago" readonly
-                                class="money w-full h-[10vh] text-4xl"></x-input-text>
-                        </div>
-                        <div>
-                            <x-input-label for="venda_valor_troco">{{ __('Valor Troco') }}</x-input-label>
-                            <x-money-input id="venda_valor_troco" name="venda_valor_troco" readonly
-                                class="money w-full h-[10vh] text-4xl"></x-input-text>
-                        </div>
-                    </div>
-                </div>
+
 
             </div>
         </form>
@@ -642,6 +672,7 @@
             $('.pagamentos-section').hide();
             $('.produtos-section').hide();
             $('.mesas-section').hide();
+            $('.finalizar-section').hide();
 
             // Mostra a seção correspondente quando um link da navegação é clicado
             $('.nav-link').click(function() {
@@ -1582,7 +1613,7 @@
                         dataType: "json",
                         success: function(response) {
                             console.log(response);
-                            
+
 
                             listarPagamentos(response.pagamentosVenda);
                             listarVenda(response.venda.id);
@@ -1610,8 +1641,6 @@
 
 
         });
-
-
 
 
 
