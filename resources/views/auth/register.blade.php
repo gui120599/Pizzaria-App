@@ -4,6 +4,12 @@
 
         <!-- Name -->
         <div>
+            <x-input-label for="name_first" :value="__('First Name')" />
+            <x-text-input id="name_first" class="block mt-1 w-full" type="text" name="name_first" :value="old('name_first')" required autofocus autocomplete="name_first" />
+            <x-input-error :messages="$errors->get('name_first')" class="mt-2" />
+        </div>
+        <!-- Name -->
+        <div>
             <x-input-label for="name" :value="__('Name')" />
             <x-text-input id="name" class="block mt-1 w-full" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" />
             <x-input-error :messages="$errors->get('name')" class="mt-2" />

@@ -1,5 +1,5 @@
 <section>
-    <form id="formPedido" action="{{ route('pedido.salvar_pedido', 1) }}" method="post" class="space-y-6 mt-2"
+    <form id="formPedido" action="{{ route('pedido.salvar_pedido', 1) }}" method="post" class="space-y-6 mt-2 "
         enctype="multipart/form-data">
 
         <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
@@ -214,7 +214,6 @@
             </div>
 
     </form>
-
     <script>
         function selecionarCliente(id, nome) {
             document.getElementById("pedido_cliente_id").value = id;
@@ -437,6 +436,7 @@
             const item_pedido_quantidade = 1;
             const item_pedido_valor = elemento.data('produto_valor');
             const item_pedido_status = 'INSERIDO';
+            
             $.ajax({
                 type: "POST",
                 url: "{{ route('item_pedido.store') }}",

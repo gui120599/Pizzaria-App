@@ -71,14 +71,15 @@
                                         <i class='bx bxs-pizza me-2'></i>
                                         {{ __('Produtos') }}
                                     </div>
-                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                    <div id="pagamentos" class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
                                         data-section="pagamentos-section">
                                         <i class='bx bx-dollar me-2'></i>
                                         {{ __('Pagamentos') }}
                                     </div>
 
-                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
-                                        data-section="finalizar-section" onclick="document.getElementById('formVenda').submit();">
+                                    <div id="finalizar"
+                                        class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                        data-section="finalizar-section">
                                         <i class='bx bx-check-double me-2'></i>
                                         {{ __('Finalizar Venda') }}
                                     </div>
@@ -219,7 +220,7 @@
                             </div>
                         </div>
 
-                        <div class="pagamentos-section secao">
+                        <div class="pagamentos-section secao" style="display: none">
                             <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1">
 
                                 {{-- Pagamento --}}
@@ -315,7 +316,7 @@
                             </div>
                         </div>
 
-                        <div class="mesas-section secao">
+                        <div class="mesas-section secao" style="display: none">
                             <p>Mesas com Pedidos</p>
                             @foreach ($sessaoMesas as $sessaoMesa)
                                 <div class="w-full border border-gray-200 p-3 my-2 rounded-lg ">
@@ -358,6 +359,7 @@
                                                 $itensAgrupados[$produtoId]['total_valor'] += $item->item_pedido_valor;
                                             }
                                         }
+                                        $valorTotal = array_sum(array_column($itensAgrupados, 'total_valor'));
                                     @endphp
 
                                     <div class="flex justify-between">
@@ -372,7 +374,6 @@
                                                 @endif
                                             @endforeach
                                         </span>
-
                                     </div>
 
                                     <div id="table_mesa_{{ $sessaoMesa->mesa->id }}" style="display: none;">
@@ -385,7 +386,6 @@
                                                     <th class="px-1 md:px-4">Valor Unt.</th>
                                                     <th class="px-1 md:px-4">Valor Desc.</th>
                                                     <th class="px-1 md:px-4">Valor Total R$</th>
-                                                    <th class="px-1 md:px-4">Opções</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -399,7 +399,6 @@
                                                         <td>{{ number_format($item['total_desconto'], 2, ',', '.') }}
                                                         </td>
                                                         <td>{{ number_format($item['total_valor'], 2, ',', '.') }}</td>
-                                                        <td>{{ $item['item']->item_pedido_status }}</td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>
@@ -409,7 +408,7 @@
                             @endforeach
                         </div>
 
-                        <div class="produtos-section secao">
+                        <div class="produtos-section secao" style="display: none">
                             <p>Produtos</p>
                             @foreach ($categorias as $categoria)
                                 <div class="mb-4" id="categoria_{{ $categoria->id }}">
@@ -462,15 +461,14 @@
                             @endforeach
                         </div>
 
-                        <div class="pedidos-section secao">
+                        <div class="pedidos-section secao" style="display: none">
                             <p>Pedidos Avulsos</p>
                             @foreach ($pedidos as $pedido)
                                 @if ($pedido->pedido_sessao_mesa_id == null || $pedido->pedido_sessao_mesa_id == '')
                                     <div class="w-full border border-gray-200 p-3 my-2 rounded-lg">
                                         <div class="flex justify-between">
                                             <div>
-                                                <input type="checkbox" class="pedido"
-                                                    name="id_pedido[]"
+                                                <input type="checkbox" class="pedido" name="id_pedido[]"
                                                     id="pedido_{{ $pedido->id }}"
                                                     data-pedido_id="{{ $pedido->id }}"
                                                     class="cursor-pointer check_ pedido">
@@ -505,7 +503,9 @@
                                                     $item->item_pedido_desconto;
                                                 $itensAgrupados[$produtoId]['total_valor'] += $item->item_pedido_valor;
                                             }
+                                            $valorTotal = array_sum(array_column($itensAgrupados, 'total_valor'));
                                         @endphp
+
                                         <div id="table_pedido_{{ $pedido->id }}" style="display: none;">
                                             <table class="w-full text-center text-[7px] md:text-base">
                                                 <thead>
@@ -513,8 +513,8 @@
                                                         <th class="px-1 md:px-4">#</th>
                                                         <th class="px-1 md:px-4">Produto</th>
                                                         <th class="px-1 md:px-4">Qtd</th>
-                                                        <th class="px-1 md:px-4">Valor Desc.</th>
                                                         <th class="px-1 md:px-4">Valor Unt.</th>
+                                                        <th class="px-1 md:px-4">Valor Desc.</th>
                                                         <th class="px-1 md:px-4">Valor Total</th>
                                                         <th class="px-1 md:px-4">Opções</th>
                                                     </tr>
@@ -537,6 +537,9 @@
                                                 </tbody>
                                             </table>
                                         </div>
+                                        <span>
+                                            <p>Valor Total R$ {{ number_format($valorTotal, 2, ',', '.') }}</p>
+                                        </span>
                                     </div>
                                 @endif
                             @endforeach
@@ -668,24 +671,51 @@
             toggleSidebar();
 
             // Oculta todas as seções ao carregar a página
-            $('.pedidos-section').hide();
+            /*$('.pedidos-section').hide();
             $('.pagamentos-section').hide();
             $('.produtos-section').hide();
             $('.mesas-section').hide();
-            $('.finalizar-section').hide();
+            $('.finalizar-section').hide();*/
 
             // Mostra a seção correspondente quando um link da navegação é clicado
             $('.nav-link').click(function() {
                 var targetSection = $(this).data('section');
-                //console.log(targetSection);
+                if (targetSection === "finalizar-section") {
+                    var valor_pago = $("#venda_valor_pago").val();
+                    var valor_total = $("#venda_valor_total").val();
+                    if (valor_pago >= valor_total) {
+                        $("#formVenda").submit();
+                    } else {
+                        // Se o produto já estiver na lista de itens, aumente a quantidade
+                        $(".abrir-modal").trigger("click");
+                        $("#modal-title").html(`<h2>OLÁ {{ Auth::user()->name }}</h2>`);
+                        $("#modal-body").html(`
+                            <div
+                                <div class="p-2 flex items-center>"
+                                <!-- Ícone de atenção -->
+                                <i class="bx bx-info-circle text-4xl text-yellow-500"></i>
+                                <!-- Mensagem -->
+                                <div class="ml-4">
+                                    <h4 class="text-xl font-bold">Atenção</h4>
+                                    <p>Valor Pago é insuficiente para finalizar a venda!</p>
+                                </div>
+                            </div>
+                        `);
+                        $('.secao').fadeOut().delay('400');
+                        $('.pagamentos-section').fadeIn();
 
-                // Oculta todas as seções e mostra apenas a correspondente
-                $('.secao').hide();
-                $('.' + targetSection).show();
+                        $('.nav-link').removeClass('active');
+                        $('#pagamentos').addClass('active');
+                    }
+                } else {
+                    // Oculta todas as seções e mostra apenas a correspondente
+                    $('.secao').fadeOut().delay('400');
+                    $('.' + targetSection).fadeIn();
 
-                // Destaca visualmente o link ativo
-                $('.nav-link').removeClass('active');
-                $(this).addClass('active');
+                    // Destaca visualmente o link ativo
+                    $('.nav-link').removeClass('active');
+                    $(this).addClass('active');
+                }
             });
 
             //Abre a table de itens da mesa

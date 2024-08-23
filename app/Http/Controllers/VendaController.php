@@ -32,12 +32,16 @@ class VendaController extends Controller
 
         // Obtém todas as sessões de mesa que estão abertas
         $sessaoMesas = SessaoMesa::where('sessao_mesa_status', 'ABERTA')
-            ->with(['pedidos' => function ($query) {
-                $query->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
-                    ->with(['item_pedido_pedido_id' => function ($query) {
-                        $query->where('item_pedido_status', 'INSERIDO');
-                    }]);
-            }])
+            ->with([
+                'pedidos' => function ($query) {
+                    $query->where('pedido_status', 'ENTREGUE')
+                        ->with([
+                            'item_pedido_pedido_id' => function ($query) {
+                                $query->where('item_pedido_status', 'INSERIDO');
+                            }
+                        ]);
+                }
+            ])
             ->get();
 
 
@@ -55,10 +59,12 @@ class VendaController extends Controller
         $cartoes = CartoesPagamento::all();
 
         // Obtém todos os pedidos que não estão cancelados ou finalizados
-        $pedidos = Pedido::whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
-            ->with(['item_pedido_pedido_id' => function ($query) {
-                $query->where('item_pedido_status', 'INSERIDO');
-            }])
+        $pedidos = Pedido::where('pedido_status', 'ENTREGUE')
+            ->with([
+                'item_pedido_pedido_id' => function ($query) {
+                    $query->where('item_pedido_status', 'INSERIDO');
+                }
+            ])
             ->get();
 
         // Corrigido para usar where em vez de and, e first em vez de get
@@ -147,8 +153,65 @@ class VendaController extends Controller
      */
     public function SalvarVenda(StoreVendaRequest $request)
     {
-        dd($request);
+        // Encontrar a venda com base no ID fornecido
+        $venda = Venda::find($request->input('venda_id'));
+
+        if ($venda) {
+            // Atualizar os dados da venda
+            $venda->update([
+                'venda_status' => 'FINALIZADA',
+                'venda_datahora_finalizada' => Carbon::now()
+            ]);
+        } else {
+            // Lidar com a situação onde a venda não é encontrada
+            return redirect()->back()->withErrors(['Venda não encontrada.']);
+        }
+
+        // Obtenha todos os parâmetros da requisição
+        $parameters = $request->all();
+
+        // Acesse o array id_sessao_mesa
+        $idSessaoMesa = $parameters['id_sessao_mesa'] ?? [];
+        $idPedido = $parameters['id_pedido'] ?? [];
+
+        // Atualize o status das sessões de mesa se o array estiver presente
+        if (is_array($idSessaoMesa) && !empty($idSessaoMesa)) {
+            foreach ($idSessaoMesa as $value) {
+                // Encontrar e atualizar a sessão de mesa
+                $sessaoMesa = SessaoMesa::find($value);
+                if ($sessaoMesa) {
+                    $sessaoMesa->update([
+                        'sessao_mesa_status' => 'FECHADA'
+                    ]);
+
+                    // Atualizar o status dos pedidos relacionados à sessão de mesa
+                    Pedido::where('pedido_sessao_mesa_id', $value)
+                        ->update([
+                            'pedido_status' => 'FINALIZADO',
+                            'pedido_datahora_finalizado' => Carbon::now()
+                        ]);
+                }
+            }
+        }
+
+        // Atualize o status dos pedidos se o array estiver presente
+        if (is_array($idPedido) && !empty($idPedido)) {
+            foreach ($idPedido as $value) {
+                // Encontrar e atualizar o pedido
+                $pedido = Pedido::find($value);
+                if ($pedido) {
+                    $pedido->update([
+                        'pedido_status' => 'FINALIZADO',
+                        'pedido_datahora_finalizado' => Carbon::now()
+                    ]);
+                }
+            }
+        }
+
+        // Redirecionar com uma mensagem de sucesso
+        return redirect()->route('dashboard')->with('success', 'Venda efetuada com sucesso!');
     }
+
 
     /**
      * Display the specified resource.
