@@ -19,6 +19,8 @@ use Carbon\Carbon;
 use GuzzleHttp\Psr7\Query;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use NFe_io;
+use Ramsey\Uuid\Type\Decimal;
 
 class VendaController extends Controller
 {
@@ -155,6 +157,7 @@ class VendaController extends Controller
     {
         // Encontrar a venda com base no ID fornecido
         $venda = Venda::find($request->input('venda_id'));
+        $sessaoCaixa = SessaoCaixa::find($request->input('venda_sessao_caixa_id'));
 
         if ($venda) {
             // Atualizar os dados da venda
@@ -162,6 +165,15 @@ class VendaController extends Controller
                 'venda_status' => 'FINALIZADA',
                 'venda_datahora_finalizada' => Carbon::now()
             ]);
+            if ($sessaoCaixa) {
+                $novoSaldoFinal = $sessaoCaixa->sessaocaixa_saldo_final + $request->input('venda_valor_total');
+                $sessaoCaixa->update([
+                    'sessaocaixa_saldo_final' => $novoSaldoFinal,
+                ]);
+            } else {
+                // Lidar com a situação onde a venda não é encontrada
+                return redirect()->back()->withErrors(['Sessão Caixa não encontrada.']);
+            }
         } else {
             // Lidar com a situação onde a venda não é encontrada
             return redirect()->back()->withErrors(['Venda não encontrada.']);
@@ -258,4 +270,274 @@ class VendaController extends Controller
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
     }
+
+    public function enviarNfe($vendaId)
+    {
+        // Busca a venda pelo ID e carrega os relacionamentos necessários
+        $venda = Venda::with(['cliente', 'itensVenda.produto', 'pagamentos.opcaoPagamento', 'pagamentos.cartao'])->findOrFail($vendaId);
+
+        // Monta o array com os dados da venda baseado no modelo fornecido
+        $nfeData = [
+            "id" => (string) $venda->id,
+            "payment" => $this->montarPagamentos($venda),
+            "serie" => 1, // Ajuste conforme necessário
+            "number" => $venda->id, // Ajuste conforme necessário
+            "operationOn" => $venda->venda_datahora_finalizada,
+            "operationNature" => "Venda de mercadoria", // Ajuste conforme necessário
+            "operationType" => "0", // Ajuste conforme necessário
+            "destination" => "0", // Ajuste conforme necessário
+            "printType" => "dANFE_NFC_E_MSG_ELETRONICA",
+            "purposeType" => "normal", // Ajuste conforme necessário
+            "consumerType" => "finalConsumer", // Ajuste conforme necessário
+            "presenceType" => "none",
+            "contingencyOn" => now()->toIso8601String(),
+            "contingencyJustification" => "string", // Ajuste conforme necessário
+            "buyer" => $this->montarComprador($venda),
+            "totals" => $this->montarTotais($venda),
+            "transport" => $this->montarTransporte($venda),
+            "additionalInformation" => $this->montarInformacoesAdicionais($venda),
+            "items" => $this->montarItens($venda),
+            "billing" => $this->montarCobranca($venda),
+            "issuer" => [
+                "stStateTaxNumber" => "string", // Ajuste conforme necessário
+            ]
+        ];
+
+        // Envia o array para a API
+        $response = $this->enviarParaApi($nfeData);
+
+        return response()->json($response);
+        //return json_encode($nfeData);
+    }
+
+    private function montarPagamentos(Venda $venda)
+    {
+        $pagamentosArray = [];
+
+        foreach ($venda->pagamentos as $pagamento) {
+            if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Cartão") !== false) {// O nome da opção de pagamento contém a palavra "cartão"
+                $pagamentoDetalhe = [
+                    "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
+                    "amount" => $pagamento->pg_venda_valor_pagamento,
+                    "card" => [
+                        "federalTaxNumber" => $pagamento->cartao->cartao_cnpj_credenciadora ?? null,
+                        "flag" => $pagamento->cartao->cartao_bandeira ?? null,
+                        "authorization" => $pagamento->pg_venda_numero_autorizacao_cartao ?? null,
+                        "integrationPaymentType" => $pagamento->pg_venda_tipo_integracao ?? null
+                    ]
+                ];
+
+                $pagamentosArray[] = [
+                    "paymentDetail" => [$pagamentoDetalhe],
+                    "payBack" => $venda->venda_valor_troco
+                ];
+            } else {
+                $pagamentoDetalhe = [
+                    "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
+                    "amount" => $pagamento->pg_venda_valor_pagamento,
+                ];
+
+                $pagamentosArray[] = [
+                    "paymentDetail" => [$pagamentoDetalhe],
+                    "payBack" => $venda->venda_valor_troco
+                ];
+            }
+
+        }
+
+        return $pagamentosArray;
+    }
+
+    private function montarComprador(Venda $venda)
+    {
+        $cliente = $venda->cliente;
+        if ($cliente) {
+            return [
+                "stateTaxNumberIndicator" => "none", // Ajuste conforme necessário
+                "tradeName" => $cliente->nome_fantasia ?? null, // Ajuste conforme necessário
+                "taxRegime" => "isento", // Ajuste conforme necessário
+                "stateTaxNumber" => $cliente->cliente_inscricao_estadual ?? null, // Ajuste conforme necessário
+                "id" => (string) $cliente->id ?? 1,
+                "name" => $cliente->cliente_nome ?? null,
+                "federalTaxNumber" => (int) $cliente->cliente_cpf_cnpj ?? null,
+                "email" => $cliente->cliente_email ?? null,
+                "address" => [
+                    "phone" => $cliente->cliente_celular ?? null,
+                    "state" => $cliente->cliente_estado ?? null,
+                    "city" => [
+                        "code" => $cliente->codigo_municipio ?? null,
+                        "name" => $cliente->cliente_cidade ?? null,
+                    ],
+                    "district" => $cliente->clinete_bairro ?? null,
+                    "additionalInformation" => $cliente->cliente_endereco ?? null,
+                    "street" => $cliente->cliente_endereco ?? null,
+                    "number" => $cliente->cliente_numero ?? null,
+                    "postalCode" => $cliente->cliente_cep ?? null,
+                    "country" => "BR" // Ajuste conforme necessário
+                ],
+                
+                "type" => 2, // Ajuste conforme necessário
+            ];
+        }
+        return null;
+    }
+
+    private function montarTotais(Venda $venda)
+    {
+        return [
+            "icms" => [
+                "baseTax" => $venda->venda_valor_base_calculo,
+                "icmsAmount" => $venda->venda_valor_icms,
+                "productAmount" => $venda->venda_valor_itens,
+                "freightAmount" => $venda->venda_valor_frete,
+                "insuranceAmount" => $venda->venda_valor_seguro,
+                "discountAmount" => $venda->venda_valor_desconto,
+                "invoiceAmount" => $venda->venda_valor_total,
+                "ipiAmount" => 0,
+                "pisAmount" => $venda->venda_valor_pis,
+                "cofinsAmount" => $venda->venda_valor_cofins,
+                // Adicione os demais campos conforme necessário...
+            ],
+            "issqn" => [
+                "totalServiceNotTaxedICMS" => 0, // Ajuste conforme necessário
+                // Adicione os demais campos conforme necessário...
+            ]
+        ];
+    }
+
+    private function montarTransporte(Venda $venda)
+    {
+        // Exemplo de montagem dos dados de transporte
+        return [
+            "freightModality" => "byIssuer",
+            "transportGroup" => [
+                "stateTaxNumber" => "string",
+                "transportRetention" => "string",
+                // Adicione os demais campos conforme necessário...
+            ],
+            // Adicione os demais campos conforme necessário...
+        ];
+    }
+
+    private function montarInformacoesAdicionais(Venda $venda)
+    {
+        return [
+            "fisco" => "string",
+            "taxpayer" => "string",
+            "xmlAuthorized" => [0],
+            "effort" => "string",
+            "order" => "string",
+            "contract" => "string",
+            // Adicione os demais campos conforme necessário...
+        ];
+    }
+
+    private function montarItens(Venda $venda)
+    {
+        $itensArray = [];
+
+        foreach ($venda->itensVenda as $item) {
+            $produto = $item->produto;
+
+            $itensArray[] = [
+                "code" => (string) $produto->id,
+                "codeGTIN" => $produto->produto_gtin ?? null,
+                "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao,
+                "ncm" => $produto->produto_codigo_NCM ?? null,
+                "cfop" => (int) $produto->produto_CFOP ?? null,
+                "unit" => $produto->produto_unidade_comercial,
+                "quantity" => $item->item_venda_quantidade,
+                "unitAmount" => $item->item_venda_valor_unitario,
+                "totalAmount" => (float) $item->item_venda_valor_total,
+                "unitTax" => (string) $item->item_venda_quantidade,
+                "quantityTax" => $item->item_venda_quantidade_tributavel,
+                "taxUnitAmount" => $item->item_venda_valor_unitario_tributavel,
+                "discountAmount" => $item->item_venda_desconto,
+                "othersAmount" => 0,
+                "totalIndicator" => (boolean) $item->item_venda_valor,
+                "cest" => $produto->produto_codigo_CEST,
+                "tax" => [
+                    "totalTax" => $item->item_venda_valor_total_tributos,
+                    "icms" => [
+                        "origin" => "0",
+                        "cst" => "00",
+                        "baseTax" => $item->item_venda_valor_base_calculo,
+                        "amount" => $item->item_venda_valor_icms,
+                        "rate" => $item->item_venda_percentual_icms,
+                        // Adicione os demais campos conforme necessário...
+                    ],
+                ],
+                // Adicione os demais campos conforme necessário...
+            ];
+        }
+
+        return $itensArray;
+    }
+
+    private function montarCobranca(Venda $venda)
+    {
+        return [
+            "bill" => [
+                "number" => "string", // Ajuste conforme necessário
+                "originalAmount" => $venda->valor_total,
+                "discountAmount" => $venda->valor_desconto,
+                "netAmount" => $venda->valor_total_liquido,
+            ],
+            "duplicates" => [
+                [
+                    "number" => "string", // Ajuste conforme necessário
+                    "expirationOn" => now()->toIso8601String(),
+                    "amount" => (float) $venda->valor_total_liquido,
+                ]
+            ]
+        ];
+    }
+
+    private function enviarParaApi2(array $nfeData)
+    {
+
+        // Substitua pelo caminho correto do client-php e sua chave da API
+        require_once("vendor\nfe\nfe\lib\init.php");
+        NFe_io::setApiKey("sCnxUa4YkuQIklw4YFWY9CskMnA26ZQJts4vjAAzYTfqafp9I7e1HWcBDSa8ClLBx3w");
+
+        try {
+            $nfe = NFe::create($nfeData);
+            return $nfe;
+        } catch (\Exception $e) {
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    function enviarParaApi(array $data)
+    {
+        $url = 'https://api.nfse.io/v2/companies/d3b5de8a66524a9db1c6a47babfdff6f/consumerinvoices?apikey=sCnxUa4YkuQIklw4YFWY9CskMnA26ZQJts4vjAAzYTfqafp9I7e1HWcBDSa8ClLBx3w';
+        // Inicializa uma sessão cURL
+        $ch = curl_init($url);
+
+        // Configura as opções do cURL
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Retornar resposta como string
+        curl_setopt($ch, CURLOPT_POST, true); // Definir o método HTTP como POST
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data)); // Enviar os dados como JSON
+
+        // Configura os headers, incluindo Content-Type como application/json
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Content-Length: ' . strlen(json_encode($data))
+        ]);
+
+        // Executa a requisição e obtém a resposta
+        $response = curl_exec($ch);
+
+        // Verifica se ocorreu algum erro
+        if (curl_errno($ch)) {
+            echo 'Error:' . curl_error($ch);
+        }
+
+        // Fecha a sessão cURL
+        curl_close($ch);
+
+        // Retorna a resposta
+        return $response;
+    }
+
 }

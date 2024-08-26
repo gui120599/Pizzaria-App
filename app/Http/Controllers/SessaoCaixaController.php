@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateSessaoCaixaRequest;
 use App\Models\Caixa;
 use App\Models\User;
 use Carbon\Carbon;
+use Request;
 
 class SessaoCaixaController extends Controller
 {
@@ -88,5 +89,13 @@ class SessaoCaixaController extends Controller
     public function destroy(SessaoCaixa $sessaoCaixa)
     {
         //
+    }
+
+    public function listarVendasSessaoCaixa(SessaoCaixa $sessaoCaixa)
+    {
+        $sessaoCaixa = SessaoCaixa::findOrFail($sessaoCaixa->id);
+        $vendas = $sessaoCaixa->vendas()->where('venda_status','FINALIZADA')->get() ?? collect(); // Retorna uma coleção vazia se $vendas for null
+
+        return view('app.sessao_caixa.vendas', ['vendas' => $vendas]);
     }
 }

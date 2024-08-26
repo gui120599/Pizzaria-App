@@ -18,7 +18,7 @@ return new class extends Migration
             $table->dateTime('sessaocaixa_data_hora_abertura');
             $table->dateTime('sessaocaixa_data_hora_fechamento')->nullable();
             $table->decimal('sessaocaixa_saldo_inicial',10,2)->default('0.00');
-            $table->decimal('sessacaixa_saldo_final',10,2)->default('0.00');
+            $table->decimal('sessaocaixa_saldo_final',10,2)->default('0.00');
             $table->unsignedBigInteger('sessaocaixa_user_id');
             $table->text('sessaocaixa_observacoes')->nullable();
             $table->timestamps();

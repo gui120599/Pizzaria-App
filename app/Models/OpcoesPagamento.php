@@ -31,8 +31,8 @@ class OpcoesPagamento extends Model
         'ACRESCENTAR' => 'ACRESCENTAR'
     ];
 
-    const DESC_NFE = [
-        'dinheiro' => 'cash',
+    /*const DESC_NFE = [
+        'Dinheiro' => 'cash',
         'cheque' => 'cheque',
         'cartão de crédito' => 'creditCard',
         'cartão de débito' => 'debitCard',
@@ -49,14 +49,14 @@ class OpcoesPagamento extends Model
     // Accessor for `opcaopag_desc_nfe` to ensure valid values
     public function getOpcaoPagDescNfeAttribute($value)
     {
-        return array_search($value, self::DESC_NFE) ?: 'outros';
+        return array_search($value, self::DESC_NFE) ?: 'others';
     }
 
     // Mutator for `opcaopag_desc_nfe` to ensure valid values
     public function setOpcaoPagDescNfeAttribute($value)
     {
         $this->attributes['opcaopag_desc_nfe'] = self::DESC_NFE[$value] ?? 'others';
-    }
+    }*/
 
     public function pagamentosVenda()
     {

@@ -18,7 +18,7 @@ class SessaoCaixa extends Model
         'sessaocaixa_data_hora_abertura',
         'sessaocaixa_data_hora_fechamento',
         'sessaocaixa_saldo_inicial',
-        'sessacaixa_saldo_final',
+        'sessaocaixa_saldo_final',
         'sessaocaixa_user_id',
         'sessaocaixa_observacoes',
     ];
@@ -42,4 +42,9 @@ class SessaoCaixa extends Model
     {
         return $this->belongsTo(User::class, 'sessaocaixa_user_id');
     }
+    public function vendas()
+{
+    return $this->hasMany(Venda::class, 'venda_sessao_caixa_id');
+}
+
 }

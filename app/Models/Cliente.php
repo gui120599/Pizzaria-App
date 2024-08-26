@@ -16,9 +16,8 @@ class Cliente extends Model
         'cliente_nome',
         'cliente_data_nascimento',
         'cliente_tipo',
-        'cliente_cpf',
+        'cliente_cpf_cnpj',
         'cliente_rg',
-        'cliente_cnpj',
         'cliente_celular',
         'cliente_email',
         'cliente_endereco',
@@ -26,6 +25,7 @@ class Cliente extends Model
         'cliente_cidade',
         'cliente_estado',
         'cliente_uf_estado',
+        'cliente_numero_endereco',
         'cliente_cep',
         'cliente_foto', // Novo campo adicionado
     ];

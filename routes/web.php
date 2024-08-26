@@ -94,6 +94,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/SessaoCaixa/{sessao_caixa}', [SessaoCaixaController::class, 'update'])->name('sessao_caixa.update');
     Route::get('/Ativar-SessaoCaixa/{id}', [SessaoCaixaController::class, 'active'])->name('sessao_caixa.active');
     Route::delete('/SessaoCaixa/{id}', [SessaoCaixaController::class, 'destroy'])->name('sessao_caixa.destroy');
+    Route::get('/SessaoCaixa/{sessao_caixa}/Vendas',[SessaoCaixaController::class, 'listarVendasSessaoCaixa'])->name('sessao_caixa.vendas');
 
     Route::get('/OpcoesPagamento', [OpcoesPagamentoController::class, 'index'])->name('opcoes_pagamento');
     Route::get('/OpcoesPagamentos-Inativas', [OpcoesPagamentoController::class, 'inactive'])->name('opcoes_pagamento.inactive');
@@ -171,6 +172,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/Venda/{id}/Edit', [VendaController::class, 'SalvarVenda'])->name('venda.salvar_venda');
     Route::post('/Venda//EditValorFrete', [VendaController::class, 'AtualizarValorFrete'])->name('venda.update_valor_frete');
     Route::get('AtualizarValoresdaVenda',[VendaController::class, 'AtualizarValoresdaVenda']);
+    Route::get('/Venda/{id}/Gerar-NFE', [VendaController::class, 'enviarNfe'])->name('venda.gerar_NFE');
 
     Route::post('/ItemVenda/AddSessaoMesa', [ItensVendaController::class, 'adicionarItensSessaoMesa'])->name('item_venda.add_item_sessaoMesa');
     Route::post('/ItemVenda/RemoveSessaoMesa', [ItensVendaController::class, 'removerItensSessaoMesa'])->name('item_venda.remove_item_sessaoMesa');

@@ -10,6 +10,7 @@
                     <th class="w-1/6 px-1 md:px-4">Status</th>
                     <th class="w-1/6 px-1 md:px-4">Saldo Inicial</th>
                     <th class="w-1/6 px-1 md:px-4">Saldo Final</th>
+                    <th class="w-1/6 px-1 md:px-4">Opções</th>
                 </tr>
             </thead>
             <tbody>
@@ -23,16 +24,16 @@
                             <td class="uppercase">{{ $sessao->sessaocaixa_status }}</td>
                             <td class="uppercase">R$ {{ $sessao->sessaocaixa_saldo_inicial ? str_replace('.',',',$sessao->sessaocaixa_saldo_inicial) : '0,00' }}</td>
                             <td class="uppercase">R$ {{ $sessao->sessaocaixa_saldo_final ? str_replace('.',',',$sessao->sessaocaixa_saldo_final) : '0,00'}}</td>
-                            {{--<td>
+                            <td>
                                 <div class="flex items-center justify-center space-x-2">
-                                    <x-primary-button onclick="window.location.href = '{{ route('sessao.edit', ['sessao' => $sessao]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
-                                    <form action="{{ route('sessao.destroy', ['id' => $sessao]) }}" method="post">
+                                    <x-primary-button onclick="window.location.href = '{{ route('sessao_caixa.vendas', ['sessao_caixa' => $sessao]) }}'" title="Vendas">Vendas</x-primary-button>
+                                    {{--<form action="{{ route('sessao.destroy', ['id' => $sessao]) }}" method="post">
                                         @method('delete')
                                         @csrf
                                         <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-primary-button>
-                                    </form>
+                                    </form>--}}
                                 </div>
-                            </td>--}}
+                            </td>
                         </tr>
                     @endforeach
                 @else

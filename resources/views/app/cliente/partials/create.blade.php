@@ -36,10 +36,11 @@
                         </div>
                         <div id="fisica" class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4">
                             <div class="md:col-span-1">
-                                <x-input-label for="cliente_cpf" :value="__('CPF')" />
-                                <x-text-input id="cliente_cpf" name="cliente_cpf" type="text" class="cpf mt-1 w-full"
-                                    autocomplete="off" autofocus value="{{ old('cliente_cpf') }}" />
-                                <x-input-error :messages="$errors->get('cliente_cpf')" class="mt-2" />
+                                <x-input-label for="cliente_cpf_cnpj" :value="__('CPF')" />
+                                <x-text-input id="cliente_cpf_cnpj" name="cliente_cpf_cnpj" type="text"
+                                    class="cpf mt-1 w-full" autocomplete="off" autofocus
+                                    value="{{ old('cliente_cpf_cnpj') }}" />
+                                <x-input-error :messages="$errors->get('cliente_cpf_cnpj')" class="mt-2" />
                             </div>
                             <div class="md:col-span-1">
                                 <x-input-label for="cliente_data_nascimento" :value="__('Data Nascimento')" />
@@ -56,10 +57,11 @@
                             </div>
                         </div>
                         <div id="juridica" class="md:col-span-2">
-                            <x-input-label for="cliente_cnpj" :value="__('CNPJ')" />
-                            <x-text-input id="cliente_cnpj" name="cliente_cnpj" type="text" class="cnpj mt-1 w-full"
-                                autocomplete="off" autofocus value="{{ old('cliente_cnpj') }}" />
-                            <x-input-error :messages="$errors->get('cliente_cnpj')" class="mt-2" />
+                            <x-input-label for="cliente_cpf_cnpj" :value="__('CNPJ')" />
+                            <x-text-input id="cliente_cpf_cnpj" name="cliente_cpf_cnpj" type="text"
+                                class="cnpj mt-1 w-full" autocomplete="off" autofocus
+                                value="{{ old('cliente_cpf_cnpj') }}" />
+                            <x-input-error :messages="$errors->get('cliente_cpf_cnpj')" class="mt-2" />
                         </div>
                     </div>
                 </div>
@@ -123,9 +125,15 @@
                 </div>
 
                 <div class="lg:col-span-1 md:col-span-3">
+                    <x-input-label for="cliente_numero_endereco" :value="__('Nº')" />
+                    <x-text-input id="cliente_numero_endereco" name="cliente_numero_endereco" type="text" class="mt-1 w-full"
+                        autocomplete="off" />
+                    <x-input-error :messages="$errors->get('cliente_numero_endereco')" class="mt-2" />
+                </div>
+                <div class="lg:col-span-1 md:col-span-3">
                     <x-input-label for="cliente_bairro" :value="__('Bairro')" />
-                    <x-text-input id="cliente_bairro" name="cliente_bairro" type="text" class="cep mt-1 w-full"
-                        autocomplete="off" value="{{ old('cliente_bairro') }}" />
+                    <x-text-input id="cliente_bairro" name="cliente_bairro" type="text" class="mt-1 w-full"
+                        autocomplete="off" />
                     <x-input-error :messages="$errors->get('cliente_bairro')" class="mt-2" />
                 </div>
 
@@ -137,16 +145,16 @@
                 </div>
 
                 <div class="lg:col-span-1 md:col-span-3">
-                    <x-input-label for="cliente_estado" :value="__('Estado')" />
-                    <x-text-input id="cliente_estado" name="cliente_estado" type="text" class="mt-1 w-full"
-                        autocomplete="off" value="{{ old('cliente_estado') }}" />
-                    <x-input-error :messages="$errors->get('cliente_estado')" class="mt-2" />
+                    <x-input-label for="cliente_uf_estado" :value="__('Estado')" />
+                    <x-text-input id="cliente_uf_estado" name="cliente_uf_estado" type="text" class="mt-1 w-full"
+                        autocomplete="off" value="{{ old('cliente_uf_estado') }}" />
+                    <x-input-error :messages="$errors->get('cliente_uf_estado')" class="mt-2" />
                 </div>
 
                 <div class="lg:col-span-1 md:col-span-3">
                     <x-input-label for="cliente_cep" :value="__('CEP')" />
                     <x-text-input id="cliente_cep" name="cliente_cep" type="text" class="cep mt-1 w-full"
-                        autocomplete="off" value="{{ old('cliente_cep') }}" />
+                        autocomplete="off" />
                     <x-input-error :messages="$errors->get('cliente_cep')" class="mt-2" />
                 </div>
             </div>
@@ -197,7 +205,8 @@
         });
 
         function selecionaTipoPessoa() {
-            const tipo1 = `{{ old('cliente_tipo') }}`; // Certifique-se de colocar aspas em volta de '{{ old('cliente_tipo') }}'
+            const tipo1 =
+            `{{ old('cliente_tipo') }}`; // Certifique-se de colocar aspas em volta de '{{ old('cliente_tipo') }}'
             if (tipo1 !== '' && tipo1 !== null) {
                 $('#cliente_tipo').val(tipo1);
                 switch (tipo1.trim().toLowerCase()) {
