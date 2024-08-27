@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('produto_codigo_EAN')->nullable()->default('SEM GTIN');
             $table->string('produto_codigo_beneficio_fiscal_uf')->nullable();
             $table->string('produto_CFOP')->nullable();
+            $table->string('produto_CSOSN')->nullable();
             $table->unsignedBigInteger('produto_categoria_id');
             $table->string('produto_foto')->nullable();
             $table->string('produto_unidade_comercial')->nullable();

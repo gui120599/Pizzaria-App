@@ -113,6 +113,13 @@
                     <x-input-error :messages="$errors->updatePassword->get('produto_CFOP')" class="mt-2" />
                 </div>
 
+                <div class="lg:col-span-2 md:col-span-3">
+                    <x-input-label for="produto_CSOSN" :value="__('Código CSOSN do Produto')" />
+                    <x-text-input id="produto_CSOSN" name="produto_CSOSN" type="text" class="mt-1 w-full"
+                        autocomplete="off" value="{{ $produto->produto_CSOSN }}" />
+                    <x-input-error :messages="$errors->updatePassword->get('produto_CSOSN')" class="mt-2" />
+                </div>
+
             </div>
 
             {{-- Preços --}}

@@ -279,35 +279,35 @@ class VendaController extends Controller
         // Monta o array com os dados da venda baseado no modelo fornecido
         $nfeData = [
             "id" => (string) $venda->id,
-            "payment" => $this->montarPagamentos($venda),
             "serie" => 1, // Ajuste conforme necessário
             "number" => $venda->id, // Ajuste conforme necessário
             "operationOn" => $venda->venda_datahora_finalizada,
             "operationNature" => "Venda de mercadoria", // Ajuste conforme necessário
-            "operationType" => "0", // Ajuste conforme necessário
-            "destination" => "0", // Ajuste conforme necessário
-            "printType" => "dANFE_NFC_E_MSG_ELETRONICA",
-            "purposeType" => "normal", // Ajuste conforme necessário
-            "consumerType" => "finalConsumer", // Ajuste conforme necessário
-            "presenceType" => "none",
-            "contingencyOn" => now()->toIso8601String(),
-            "contingencyJustification" => "string", // Ajuste conforme necessário
-            "buyer" => $this->montarComprador($venda),
+            "operationType" => "Outgoing", // Ajuste conforme necessário
+            "destination" => "Internal_Operation", // Ajuste conforme necessário
+            /*"printType" => 0,*/
+            "purposeType" => "Normal", // Ajuste conforme necessário
+            "consumerType" => "FinalConsumer", // Ajuste conforme necessário
+            "presenceType" => "None",
+            /*"contingencyOn" => null,
+            "contingencyJustification" => null, // Ajuste conforme necessário
+            "buyer" => $this->montarComprador($venda),*/
             "totals" => $this->montarTotais($venda),
-            "transport" => $this->montarTransporte($venda),
-            "additionalInformation" => $this->montarInformacoesAdicionais($venda),
+            /*"transport" => $this->montarTransporte($venda),
+            "additionalInformation" => $this->montarInformacoesAdicionais($venda),*/
             "items" => $this->montarItens($venda),
-            "billing" => $this->montarCobranca($venda),
+            "payment" => $this->montarPagamentos($venda),
+            /*"billing" => $this->montarCobranca($venda),
             "issuer" => [
-                "stStateTaxNumber" => "string", // Ajuste conforme necessário
-            ]
+                "stStateTaxNumber" => null, // Ajuste conforme necessário
+            ]*/
         ];
 
         // Envia o array para a API
-        $response = $this->enviarParaApi($nfeData);
+        /*$response = $this->enviarParaApi($nfeData);
 
-        return response()->json($response);
-        //return json_encode($nfeData);
+        return response()->json($response);*/
+        return response()->json($nfeData);
     }
 
     private function montarPagamentos(Venda $venda)
@@ -409,10 +409,10 @@ class VendaController extends Controller
     {
         // Exemplo de montagem dos dados de transporte
         return [
-            "freightModality" => "byIssuer",
+            "freightModality" => 9,
             "transportGroup" => [
-                "stateTaxNumber" => "string",
-                "transportRetention" => "string",
+                "stateTaxNumber" => null,
+                "transportRetention" => null,
                 // Adicione os demais campos conforme necessário...
             ],
             // Adicione os demais campos conforme necessário...
@@ -422,12 +422,12 @@ class VendaController extends Controller
     private function montarInformacoesAdicionais(Venda $venda)
     {
         return [
-            "fisco" => "string",
-            "taxpayer" => "string",
-            "xmlAuthorized" => [0],
-            "effort" => "string",
-            "order" => "string",
-            "contract" => "string",
+            "fisco" => null,
+            "taxpayer" => null,
+            "xmlAuthorized" => null,
+            "effort" => null,
+            "order" => null,
+            "contract" => null,
             // Adicione os demais campos conforme necessário...
         ];
     }
@@ -449,7 +449,7 @@ class VendaController extends Controller
                 "quantity" => $item->item_venda_quantidade,
                 "unitAmount" => $item->item_venda_valor_unitario,
                 "totalAmount" => (float) $item->item_venda_valor_total,
-                "unitTax" => (string) $item->item_venda_quantidade,
+                "unitTax" => (string) $produto->produto_unidade_comercial,
                 "quantityTax" => $item->item_venda_quantidade_tributavel,
                 "taxUnitAmount" => $item->item_venda_valor_unitario_tributavel,
                 "discountAmount" => $item->item_venda_desconto,
@@ -459,11 +459,13 @@ class VendaController extends Controller
                 "tax" => [
                     "totalTax" => $item->item_venda_valor_total_tributos,
                     "icms" => [
-                        "origin" => "0",
-                        "cst" => "00",
+                        "baseTaxFCPSTAmount" => $item->item_venda_valor_base_calculo,
+                        "baseTaxModality" => $produto->produto_cod_tributacao_icms,
+                        "origin" => $produto->produto_cod_origem_mercadoria,
                         "baseTax" => $item->item_venda_valor_base_calculo,
                         "amount" => $item->item_venda_valor_icms,
-                        "rate" => $item->item_venda_percentual_icms,
+                        "percentual" => $produto->produto_valor_percentual_icms,
+                        "csosn" => $produto->produto_CSOSN,
                         // Adicione os demais campos conforme necessário...
                     ],
                 ],
@@ -478,14 +480,14 @@ class VendaController extends Controller
     {
         return [
             "bill" => [
-                "number" => "string", // Ajuste conforme necessário
+                "number" => null, // Ajuste conforme necessário
                 "originalAmount" => $venda->valor_total,
                 "discountAmount" => $venda->valor_desconto,
                 "netAmount" => $venda->valor_total_liquido,
             ],
             "duplicates" => [
                 [
-                    "number" => "string", // Ajuste conforme necessário
+                    "number" => null, // Ajuste conforme necessário
                     "expirationOn" => now()->toIso8601String(),
                     "amount" => (float) $venda->valor_total_liquido,
                 ]
@@ -537,7 +539,7 @@ class VendaController extends Controller
         curl_close($ch);
 
         // Retorna a resposta
-        return $response;
+        return json_decode($response);
     }
 
 }

@@ -22,6 +22,7 @@ class Produto extends Model
         'produto_codigo_EAN',
         'produto_codigo_beneficio_fiscal_uf',
         'produto_CFOP',
+        'produto_CSOSN',
         'produto_categoria_id',
         'produto_foto',
         'produto_unidade_comercial',
