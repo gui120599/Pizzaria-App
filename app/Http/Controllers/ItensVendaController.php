@@ -63,7 +63,6 @@ class ItensVendaController extends Controller
                     $itemVenda->item_venda_valor += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade)-$item->item_pedido_desconto);
 
                     $itemVenda->item_venda_quantidade_tributavel += $item->item_pedido_quantidade;
-                    $itemVenda->item_venda_valor_unitario_tributavel += $item->produto->produto_preco_venda - ($item->item_pedido_desconto / $item->item_pedido_quantidade);
                     $itemVenda->item_venda_valor_base_calculo += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto);
                     $itemVenda->item_venda_valor_icms += ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) * $item->produto->produto_valor_percentual_icms) / 100;
                     $itemVenda->item_venda_valor_pis += ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) * $item->produto->produto_valor_percentual_pis) / 100;
@@ -198,7 +197,6 @@ class ItensVendaController extends Controller
                 $itemVenda->item_venda_valor += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade)-$item->item_pedido_desconto);
 
                 $itemVenda->item_venda_quantidade_tributavel += $item->item_pedido_quantidade;
-                $itemVenda->item_venda_valor_unitario_tributavel += $item->produto->produto_preco_venda - ($item->item_pedido_desconto / $item->item_pedido_quantidade);
                 $itemVenda->item_venda_valor_base_calculo += (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto);
                 $itemVenda->item_venda_valor_icms += ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) * $item->produto->produto_valor_percentual_icms) / 100;
                 $itemVenda->item_venda_valor_pis += ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto) * $item->produto->produto_valor_percentual_pis) / 100;
@@ -328,7 +326,6 @@ class ItensVendaController extends Controller
 
             
             $itemVenda->item_venda_quantidade_tributavel += 1;
-            $itemVenda->item_venda_valor_unitario_tributavel += $itemVenda->produto->produto_preco_venda;
             $itemVenda->item_venda_valor_base_calculo += $itemVenda->produto->produto_preco_venda;
             $itemVenda->item_venda_valor_icms += ($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_icms) / 100;
             $itemVenda->item_venda_valor_pis += ($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_pis) / 100;

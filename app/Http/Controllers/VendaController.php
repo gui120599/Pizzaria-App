@@ -292,7 +292,7 @@ class VendaController extends Controller
             /*"contingencyOn" => null,
             "contingencyJustification" => null, // Ajuste conforme necessário
             "buyer" => $this->montarComprador($venda),*/
-            "totals" => $this->montarTotais($venda),
+            /*"totals" => $this->montarTotais($venda),*/
             /*"transport" => $this->montarTransporte($venda),
             "additionalInformation" => $this->montarInformacoesAdicionais($venda),*/
             "items" => $this->montarItens($venda),
@@ -315,7 +315,7 @@ class VendaController extends Controller
         $pagamentosArray = [];
 
         foreach ($venda->pagamentos as $pagamento) {
-            if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Cartão") !== false) {// O nome da opção de pagamento contém a palavra "cartão"
+            if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Cartão") !== false){// O nome da opção de pagamento contém a palavra "cartão"
                 $pagamentoDetalhe = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
                     "amount" => $pagamento->pg_venda_valor_pagamento,
@@ -328,10 +328,26 @@ class VendaController extends Controller
                 ];
 
                 $pagamentosArray[] = [
-                    "paymentDetail" => [$pagamentoDetalhe],
-                    "payBack" => $venda->venda_valor_troco
+                    "paymentDetail" => [$pagamentoDetalhe]
                 ];
-            } else {
+            }  
+            /*if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Pix") !== false){// O nome da opção de pagamento contém a palavra "cartão"
+                $pagamentoDetalhe = [
+                    "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
+                    "amount" => $pagamento->pg_venda_valor_pagamento,
+                    "card" => [
+                        "federalTaxNumber" => $pagamento->cartao->cartao_cnpj_credenciadora ?? null,
+                        "flag" => $pagamento->cartao->cartao_bandeira ?? null,
+                        "authorization" => $pagamento->pg_venda_numero_autorizacao_cartao ?? null,
+                        "integrationPaymentType" => $pagamento->pg_venda_tipo_integracao ?? null
+                    ]
+                ];
+
+                $pagamentosArray[] = [
+                    "paymentDetail" => [$pagamentoDetalhe]
+                ];
+            }  */
+            else {
                 $pagamentoDetalhe = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
                     "amount" => $pagamento->pg_venda_valor_pagamento,
@@ -375,7 +391,7 @@ class VendaController extends Controller
                     "postalCode" => $cliente->cliente_cep ?? null,
                     "country" => "BR" // Ajuste conforme necessário
                 ],
-                
+
                 "type" => 2, // Ajuste conforme necessário
             ];
         }
@@ -439,38 +455,128 @@ class VendaController extends Controller
         foreach ($venda->itensVenda as $item) {
             $produto = $item->produto;
 
-            $itensArray[] = [
-                "code" => (string) $produto->id,
-                "codeGTIN" => $produto->produto_gtin ?? null,
-                "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao,
-                "ncm" => $produto->produto_codigo_NCM ?? null,
-                "cfop" => (int) $produto->produto_CFOP ?? null,
-                "unit" => $produto->produto_unidade_comercial,
-                "quantity" => $item->item_venda_quantidade,
-                "unitAmount" => $item->item_venda_valor_unitario,
-                "totalAmount" => (float) $item->item_venda_valor_total,
-                "unitTax" => (string) $produto->produto_unidade_comercial,
-                "quantityTax" => $item->item_venda_quantidade_tributavel,
-                "taxUnitAmount" => $item->item_venda_valor_unitario_tributavel,
-                "discountAmount" => $item->item_venda_desconto,
-                "othersAmount" => 0,
-                "totalIndicator" => (boolean) $item->item_venda_valor,
-                "cest" => $produto->produto_codigo_CEST,
-                "tax" => [
-                    "totalTax" => $item->item_venda_valor_total_tributos,
-                    "icms" => [
-                        "baseTaxFCPSTAmount" => $item->item_venda_valor_base_calculo,
-                        "baseTaxModality" => $produto->produto_cod_tributacao_icms,
-                        "origin" => $produto->produto_cod_origem_mercadoria,
-                        "baseTax" => $item->item_venda_valor_base_calculo,
-                        "amount" => $item->item_venda_valor_icms,
-                        "percentual" => $produto->produto_valor_percentual_icms,
-                        "csosn" => $produto->produto_CSOSN,
-                        // Adicione os demais campos conforme necessário...
-                    ],
-                ],
-                // Adicione os demais campos conforme necessário...
-            ];
+            switch ($produto->produto_CSOSN) {
+                case '101':
+                    $itensArray[] = [
+                        "code" => (string) $produto->id,
+                        "codeGTIN" => $produto->produto_gtin ?? null,
+                        "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao,
+                        "ncm" => $produto->produto_codigo_NCM ?? null,
+                        "cfop" => (int) $produto->produto_CFOP ?? null,
+                        "unit" => $produto->produto_unidade_comercial,
+                        "quantity" => $item->item_venda_quantidade,
+                        "unitAmount" => $item->item_venda_valor_unitario,
+                        "totalAmount" => (float) $item->item_venda_valor,
+                        "unitTax" => (string) $produto->produto_unidade_comercial,
+                        "quantityTax" => $item->item_venda_quantidade_tributavel,
+                        "taxUnitAmount" => $item->item_venda_valor_unitario_tributavel,
+                        "discountAmount" => $item->item_venda_desconto,
+                        "othersAmount" => 0,
+                        "totalIndicator" => (boolean) $item->item_venda_valor,
+                        "cest" => $produto->produto_codigo_CEST,
+                        "tax" => [
+                            "totalTax" => $item->item_venda_valor_total_tributos,
+                            "icms" => [
+                                "origin" => $produto->produto_cod_origem_mercadoria,
+                                "baseTaxModality" => "3",
+                                "baseTax" => $item->item_venda_valor_base_calculo,
+                                "amount" => $item->item_venda_valor_icms,
+                                "rate" => $produto->produto_valor_percentual_icms,
+                                "csosn" => $produto->produto_CSOSN,
+                            ],
+                        ],
+                    ];
+                    break;
+                case '102':
+                    $itensArray[] = [
+                        "code" => (string) $produto->id,
+                        "codeGTIN" => $produto->produto_gtin ?? null,
+                        "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao,
+                        "ncm" => $produto->produto_codigo_NCM ?? null,
+                        "cfop" => (int) $produto->produto_CFOP ?? null,
+                        "unit" => $produto->produto_unidade_comercial,
+                        "quantity" => $item->item_venda_quantidade,
+                        "unitAmount" => $item->item_venda_valor_unitario,
+                        "totalAmount" => (float) $item->item_venda_valor,
+                        "unitTax" => (string) $produto->produto_unidade_comercial,
+                        "quantityTax" => $item->item_venda_quantidade_tributavel,
+                        "taxUnitAmount" => $item->item_venda_valor_unitario_tributavel,
+                        "discountAmount" => $item->item_venda_desconto,
+                        "othersAmount" => 0,
+                        "totalIndicator" => (boolean) $item->item_venda_valor,
+                        "cest" => $produto->produto_codigo_CEST,
+                        "tax" => [
+                            "icms" => [
+                                "origin" => $produto->produto_cod_origem_mercadoria,
+                                "csosn" => $produto->produto_CSOSN,
+                                "baseTax" => 0,
+                                "amount" => 0,
+                                "rate" => 0,
+                            ],
+                        ],
+                    ];
+                    break;
+                case '500':
+                    $itensArray[] = [
+                        "code" => (string) $produto->id,
+                        "codeGTIN" => $produto->produto_gtin ?? null,
+                        "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao,
+                        "ncm" => $produto->produto_codigo_NCM ?? null,
+                        "cfop" => (int) $produto->produto_CFOP ?? null,
+                        "unit" => $produto->produto_unidade_comercial,
+                        "quantity" => $item->item_venda_quantidade,
+                        "unitAmount" => $item->item_venda_valor_unitario,
+                        "totalAmount" => (float) $item->item_venda_valor,
+                        "unitTax" => (string) $produto->produto_unidade_comercial,
+                        "quantityTax" => $item->item_venda_quantidade_tributavel,
+                        "taxUnitAmount" => $item->item_venda_valor_unitario_tributavel,
+                        "discountAmount" => $item->item_venda_desconto,
+                        "othersAmount" => 0,
+                        "totalIndicator" => (boolean) $item->item_venda_valor,
+                        "cest" => $produto->produto_codigo_CEST,
+                        "tax" => [
+                            "icms" => [
+                                "origin" => $produto->produto_cod_origem_mercadoria,
+                                "csosn" => $produto->produto_CSOSN,
+                                "baseTax" => 0,
+                                "amount" => 0,
+                                "rate" => 0,
+                            ],
+                        ],
+                    ];
+                    break;
+                default:
+                    $itensArray[] = [
+                        "code" => (string) $produto->id,
+                        "codeGTIN" => $produto->produto_gtin ?? null,
+                        "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao,
+                        "ncm" => $produto->produto_codigo_NCM ?? null,
+                        "cfop" => (int) $produto->produto_CFOP ?? null,
+                        "unit" => $produto->produto_unidade_comercial,
+                        "quantity" => $item->item_venda_quantidade,
+                        "unitAmount" => $item->item_venda_valor_unitario,
+                        "totalAmount" => (float) $item->item_venda_valor,
+                        "unitTax" => (string) $produto->produto_unidade_comercial,
+                        "quantityTax" => $item->item_venda_quantidade_tributavel,
+                        "taxUnitAmount" => $item->item_venda_valor_unitario_tributavel,
+                        "discountAmount" => $item->item_venda_desconto,
+                        "othersAmount" => 0,
+                        "totalIndicator" => (boolean) $item->item_venda_valor,
+                        "cest" => $produto->produto_codigo_CEST,
+                        "tax" => [
+                            "totalTax" => $item->item_venda_valor_total_tributos,
+                            "icms" => [
+                                "origin" => $produto->produto_cod_origem_mercadoria,
+                                "baseTaxModality" => "3",
+                                "baseTax" => $item->item_venda_valor_base_calculo,
+                                "amount" => $item->item_venda_valor_icms,
+                                "rate" => $produto->produto_valor_percentual_icms,
+                                "csosn" => $produto->produto_CSOSN,
+                            ],
+                        ],
+                    ];
+                    break;
+            }
         }
 
         return $itensArray;
@@ -540,6 +646,13 @@ class VendaController extends Controller
 
         // Retorna a resposta
         return json_decode($response);
+    }
+
+    function listarNFCE($vendaId)
+    {
+
+        // Busca a venda pelo ID e carrega os relacionamentos necessários
+        $venda = Venda::with(['cliente', 'itensVenda.produto', 'pagamentos.opcaoPagamento', 'pagamentos.cartao'])->findOrFail($vendaId);
     }
 
 }

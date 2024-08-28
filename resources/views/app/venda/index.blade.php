@@ -71,7 +71,8 @@
                                         <i class='bx bxs-pizza me-2'></i>
                                         {{ __('Produtos') }}
                                     </div>
-                                    <div id="pagamentos" class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                    <div id="pagamentos"
+                                        class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
                                         data-section="pagamentos-section">
                                         <i class='bx bx-dollar me-2'></i>
                                         {{ __('Pagamentos') }}
@@ -275,6 +276,17 @@
                                             display-field="cartao_bandeira" id="pg_venda_cartao_id"
                                             name="pg_venda_cartao_id" class="mt-1 w-full" />
                                     </div>
+                                    <div class="md:col-span-3">
+                                        <x-input-label for="pg_venda_numero_autorizacao_cartao" :value="__('Nº Autorização Transação')" />
+                                        <x-text-input id="pg_venda_numero_autorizacao_cartao"
+                                            name="pg_venda_numero_autorizacao_cartao" type="text"
+                                            class="mt-1 w-full" autocomplete="off"
+                                            value="{{ old('pg_venda_numero_autorizacao_cartao') }}" />
+                                    </div>
+                                </div>
+                                <div id="dadosPix"
+                                    class="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1"
+                                    style="display: none">
                                     <div class="md:col-span-3">
                                         <x-input-label for="pg_venda_numero_autorizacao_cartao" :value="__('Nº Autorização Transação')" />
                                         <x-text-input id="pg_venda_numero_autorizacao_cartao"
@@ -908,8 +920,14 @@
 
                 if (desc.includes('CARTÃO')) {
                     $("#dadosCartao").slideDown();
+                    $("#dadosPix").slideUp();
+                }
+                if (desc.includes('PIX')) {
+                    $("#dadosPix").slideDown();
+                    $("#dadosCartao").slideUp();
                 } else {
                     $("#dadosCartao").slideUp();
+                    $("#dadosPix").slideUp();
                 }
             });
 
@@ -1561,7 +1579,9 @@
                 let pg_venda_valor_desconto = $("#pg_venda_valor_desconto").val();
 
                 const pg_venda_opcaopagamento_id = $("#pg_venda_opcaopagamento_id").val();
+
                 let pg_venda_cartao_id = $("#pg_venda_cartao_id").val();
+
                 const pg_venda_numero_autorizacao_cartao = $("#pg_venda_numero_autorizacao_cartao").val();
 
                 // Encontra a opção de pagamento correspondente
