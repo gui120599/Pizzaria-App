@@ -30,17 +30,28 @@
                                     @foreach ($vendas as $venda)
                                         <tr class="border-b-2 border-gray-100">
                                             <td>{{ $venda->id }}</td>
-                                            <td class="uppercase">{{ $venda->cliente ? $venda->cliente->nome : 'N/A' }}</td>
+                                            <td class="uppercase">{{ $venda->cliente ? $venda->cliente->cliente_nome : 'N/A' }}</td>
                                             <td class="uppercase">R$ {{ number_format($venda->venda_valor_total, 2, ',', '.') }}</td>
                                             <td class="uppercase">R$ {{ number_format($venda->venda_valor_pago, 2, ',', '.') }}</td>
                                             <td class="uppercase">R$ {{ number_format($venda->venda_valor_troco, 2, ',', '.') }}</td>
                                             <td class="uppercase">{{ $venda->venda_status }}</td>
                                             <td>{{ \Carbon\Carbon::parse($venda->venda_datahora_finalizada)->format('d/m/Y H:i:s') }}</td>
+                                            @if ($venda->venda_id_nfe)
+                                            <td>
+                                                <div class="flex items-center justify-center space-x-2">
+                                                    <x-primary-button onclick="window.open('{{ route('venda.imprimir_NFE', ['venda' => $venda]) }}')" title="Venda">IMPRIMIR NFE-C</x-primary-button>
+                                                </div>
+                                                <div class="flex items-center justify-center space-x-2">
+                                                    <x-secondary-button onclick="window.location.href = '{{ route('venda.buscar_NFE', ['venda' => $venda]) }}'" title="Venda">BUSCAR NFE-C</x-secondary-button>
+                                                </div>
+                                            </td>
+                                            @else
                                             <td>
                                                 <div class="flex items-center justify-center space-x-2">
                                                     <x-primary-button onclick="window.location.href = '{{ route('venda.gerar_NFE', ['id' => $venda->id]) }}'" title="Venda">Gerar NFE-C</x-primary-button>
                                                 </div>
                                             </td>
+                                            @endif
                                         </tr>
                                     @endforeach
                                 @else

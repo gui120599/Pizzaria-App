@@ -40,7 +40,10 @@ class ClienteController extends Controller
         if ($request->input('cliente_tipo') !== 'Jurídica' && isset($clienteData['cliente_data_nascimento'])) {
             $clienteData['cliente_data_nascimento'] = Carbon::createFromFormat('d/m/Y', $clienteData['cliente_data_nascimento']);
         }
-        //dd($clienteData);
+        $clienteData['cliente_cpf'] = $clienteData['cliente_cpf'] ? str_replace([".", "-", " "], "", $clienteData['cliente_cpf']) : null;
+        $clienteData['cliente_cnpj'] = $clienteData['cliente_cnpj'] ? str_replace([".", "-", " "], "", $clienteData['cliente_cnpj']) : null;
+        $clienteData['cliente_cep'] = $clienteData['cliente_cep'] ? str_replace("-", "", $clienteData['cliente_cep']) : null;
+        $clienteData['cliente_celular'] = $clienteData['cliente_celular'] ? str_replace(["(", ")", "-", " "], "", $clienteData['cliente_celular']) : null;
         // Criar um novo cliente
         $cliente = new Cliente($clienteData);
 
@@ -71,7 +74,7 @@ class ClienteController extends Controller
      */
     public function edit(Cliente $cliente)
     {
-        //
+        return view('app.cliente.edit',["cliente" => $cliente]);
     }
 
     /**
@@ -79,8 +82,38 @@ class ClienteController extends Controller
      */
     public function update(UpdateClienteRequest $request, Cliente $cliente)
     {
-        //
+
+        // Obter todos os dados do request
+        $clienteData = $request->all();
+
+        // Formatar a data de nascimento se presente e se não for Pessoa Jurídica
+        if ($request->input('cliente_tipo') !== 'Jurídica' && isset($clienteData['cliente_data_nascimento'])) {
+            $clienteData['cliente_data_nascimento'] = Carbon::createFromFormat('d/m/Y', $clienteData['cliente_data_nascimento']);
+        }
+
+        // Limpar e formatar os campos necessários
+        $clienteData['cliente_cpf'] = $clienteData['cliente_cpf'] ? str_replace([".", "-", " "], "", $clienteData['cliente_cpf']) : null;
+        $clienteData['cliente_cnpj'] = $clienteData['cliente_cnpj'] ? str_replace([".", "-", " "], "", $clienteData['cliente_cnpj']) : null;
+        $clienteData['cliente_cep'] = $clienteData['cliente_cep'] ? str_replace("-", "", $clienteData['cliente_cep']) : null;
+        $clienteData['cliente_celular'] = $clienteData['cliente_celular'] ? str_replace(["(", ")", "-", " "], "", $clienteData['cliente_celular']) : null;
+
+        // Atualizar os dados do cliente
+        $cliente->fill($clienteData);
+
+        // Atualizar a foto se presente
+        if ($request->hasFile('cliente_foto')) {
+            $foto = $request->file('cliente_foto');
+            $cliente->saveFoto($foto);
+        }
+
+        // Salvar as mudanças no banco de dados
+        $cliente->save();
+
+        // Redirecionar ou retornar a resposta desejada
+        return redirect()->route('cliente')->with('success', 'Cliente atualizado com sucesso!');
+
     }
+
 
     /**
      * Remove the specified resource from storage.

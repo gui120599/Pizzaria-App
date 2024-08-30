@@ -154,11 +154,11 @@
                                 </div>
 
                                 <div class="md:col-span-2">
-                                    <x-input-label for="venda_cliente_cpf" :value="__('CPF Cliente')" />
-                                    <x-text-input id="venda_cliente_cpf" name="venda_cliente_cpf" type="text"
-                                        class="cpf mt-1 w-full" autocomplete="off"
-                                        value="{{ old('venda_cliente_cpf') }}" placeholder="000.000.000-00" />
-                                    <x-input-error :messages="$errors->updatePassword->get('venda_cliente_cpf')" class="mt-2" />
+                                    <x-input-label for="venda_cliente_cpf_cnpj" :value="__('CPF Cliente')" />
+                                    <x-text-input id="venda_cliente_cpf_cnpj" name="venda_cliente_cpf_cnpj"
+                                        type="text" class="cpf mt-1 w-full" autocomplete="off"
+                                        value="{{ old('venda_cliente_cpf_cnpj') }}" placeholder="000.000.000-00" />
+                                    <x-input-error :messages="$errors->updatePassword->get('venda_cliente_cpf_cnpj')" class="mt-2" />
                                 </div>
 
                                 <div class="md:col-span-2">
@@ -630,7 +630,7 @@
             document.getElementById("venda_cliente_telefone").value = cliente.cliente_celular;
             document.getElementById("venda_cliente_email").value = cliente.cliente_email;
             document.getElementById("venda_cliente_endereco").value = cliente.cliente_endereco;
-            document.getElementById("venda_cliente_cpf").value = cliente.cliente_cpf;
+            document.getElementById("venda_cliente_cpf_cnpj").value = cliente.cliente_cpf_cnpj;
             /*document.getElementById("venda_cliente_cpf").value = cliente.cliente_cpf;
             document.getElementById("venda_cliente_cpf").value = cliente.cliente_cpf;
             document.getElementById("venda_cliente_cpf").value = cliente.cliente_cpf;
@@ -920,15 +920,16 @@
 
                 if (desc.includes('CARTÃO')) {
                     $("#dadosCartao").slideDown();
-                    $("#dadosPix").slideUp();
-                }
-                if (desc.includes('PIX')) {
-                    $("#dadosPix").slideDown();
-                    $("#dadosCartao").slideUp();
                 } else {
                     $("#dadosCartao").slideUp();
+                }
+
+                if (desc.includes('PIX')) {
+                    $("#dadosPix").slideDown();
+                } else {
                     $("#dadosPix").slideUp();
                 }
+
             });
 
             $("#pg_venda_valor_pagamento").keyup(function(e) {

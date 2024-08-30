@@ -36,11 +36,11 @@
                         </div>
                         <div id="fisica" class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4">
                             <div class="md:col-span-1">
-                                <x-input-label for="cliente_cpf_cnpj" :value="__('CPF')" />
-                                <x-text-input id="cliente_cpf_cnpj" name="cliente_cpf_cnpj" type="text"
+                                <x-input-label for="cliente_cpf" :value="__('CPF')" />
+                                <x-text-input id="cliente_cpf" name="cliente_cpf" type="text"
                                     class="cpf mt-1 w-full" autocomplete="off" autofocus
-                                    value="{{ old('cliente_cpf_cnpj') }}" />
-                                <x-input-error :messages="$errors->get('cliente_cpf_cnpj')" class="mt-2" />
+                                    value="{{ old('cliente_cpf') }}" />
+                                <x-input-error :messages="$errors->get('cliente_cpf')" class="mt-2" />
                             </div>
                             <div class="md:col-span-1">
                                 <x-input-label for="cliente_data_nascimento" :value="__('Data Nascimento')" />
@@ -57,11 +57,11 @@
                             </div>
                         </div>
                         <div id="juridica" class="md:col-span-2">
-                            <x-input-label for="cliente_cpf_cnpj" :value="__('CNPJ')" />
-                            <x-text-input id="cliente_cpf_cnpj" name="cliente_cpf_cnpj" type="text"
+                            <x-input-label for="cliente_cnpj" :value="__('CNPJ')" />
+                            <x-text-input id="cliente_cnpj" name="cliente_cnpj" type="text"
                                 class="cnpj mt-1 w-full" autocomplete="off" autofocus
-                                value="{{ old('cliente_cpf_cnpj') }}" />
-                            <x-input-error :messages="$errors->get('cliente_cpf_cnpj')" class="mt-2" />
+                                value="{{ old('cliente_cnpj') }}" />
+                            <x-input-error :messages="$errors->get('cliente_cnpj')" class="mt-2" />
                         </div>
                     </div>
                 </div>

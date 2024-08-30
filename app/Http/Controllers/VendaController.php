@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use NFe_io;
 use Ramsey\Uuid\Type\Decimal;
+use GuzzleHttp\Client;
 
 class VendaController extends Controller
 {
@@ -124,6 +125,7 @@ class VendaController extends Controller
 
         return response()->json(['venda_id' => $venda->id]);
     }
+    
 
     public function AtualizarValorFrete(Request $request)
     {
@@ -158,6 +160,7 @@ class VendaController extends Controller
         // Encontrar a venda com base no ID fornecido
         $venda = Venda::find($request->input('venda_id'));
         $sessaoCaixa = SessaoCaixa::find($request->input('venda_sessao_caixa_id'));
+
 
         if ($venda) {
             // Atualizar os dados da venda
@@ -221,7 +224,7 @@ class VendaController extends Controller
         }
 
         // Redirecionar com uma mensagem de sucesso
-        return redirect()->route('dashboard')->with('success', 'Venda efetuada com sucesso!');
+        return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $request->input('venda_sessao_caixa_id')])->with('success', 'Venda efetuada com sucesso!');
     }
 
 
@@ -285,29 +288,52 @@ class VendaController extends Controller
             "operationNature" => "Venda de mercadoria", // Ajuste conforme necessário
             "operationType" => "Outgoing", // Ajuste conforme necessário
             "destination" => "Internal_Operation", // Ajuste conforme necessário
-            /*"printType" => 0,*/
             "purposeType" => "Normal", // Ajuste conforme necessário
             "consumerType" => "FinalConsumer", // Ajuste conforme necessário
             "presenceType" => "None",
-            /*"contingencyOn" => null,
-            "contingencyJustification" => null, // Ajuste conforme necessário
-            "buyer" => $this->montarComprador($venda),*/
-            /*"totals" => $this->montarTotais($venda),*/
-            /*"transport" => $this->montarTransporte($venda),
-            "additionalInformation" => $this->montarInformacoesAdicionais($venda),*/
+            "buyer" => $this->montarComprador($venda),
             "items" => $this->montarItens($venda),
             "payment" => $this->montarPagamentos($venda),
-            /*"billing" => $this->montarCobranca($venda),
+            /*"printType" => 0,
+            "contingencyOn" => null,
+            "contingencyJustification" => null, // Ajuste conforme necessário
+            "totals" => $this->montarTotais($venda),
+            "transport" => $this->montarTransporte($venda),
+            "additionalInformation" => $this->montarInformacoesAdicionais($venda),
+            "billing" => $this->montarCobranca($venda),
             "issuer" => [
                 "stStateTaxNumber" => null, // Ajuste conforme necessário
             ]*/
         ];
 
         // Envia o array para a API
-        /*$response = $this->enviarParaApi($nfeData);
+        $response = $this->enviarParaApi($nfeData);
 
-        return response()->json($response);*/
-        return response()->json($nfeData);
+        // Verificar se o status do response é 200 (OK)
+        if ($response->id) {
+
+            // Pegar o campo "id" do JSON
+            $idNfe = $response->id;
+
+            // Salvar o id no campo venda_id_nfe
+            $venda->venda_id_nfe = $idNfe;
+            $venda->save();
+
+            //Caso a nota autorize ele atualiza o status
+
+            $response_status = $this->atualizaStatusNFE($venda);
+
+
+            return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])->with('success', 'NFC-E Gerada com sucesso!');
+
+
+
+        }
+
+        // Retornar a resposta da API como JSON
+        return response()->json($response);
+
+        //return response()->json($nfeData);
     }
 
     private function montarPagamentos(Venda $venda)
@@ -315,7 +341,7 @@ class VendaController extends Controller
         $pagamentosArray = [];
 
         foreach ($venda->pagamentos as $pagamento) {
-            if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Cartão") !== false){// O nome da opção de pagamento contém a palavra "cartão"
+            if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Cartão") !== false) {// O nome da opção de pagamento contém a palavra "cartão"
                 $pagamentoDetalhe = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
                     "amount" => $pagamento->pg_venda_valor_pagamento,
@@ -330,7 +356,7 @@ class VendaController extends Controller
                 $pagamentosArray[] = [
                     "paymentDetail" => [$pagamentoDetalhe]
                 ];
-            }  
+            }
             /*if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Pix") !== false){// O nome da opção de pagamento contém a palavra "cartão"
                 $pagamentoDetalhe = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
@@ -346,8 +372,7 @@ class VendaController extends Controller
                 $pagamentosArray[] = [
                     "paymentDetail" => [$pagamentoDetalhe]
                 ];
-            }  */
-            else {
+            }  */ else {
                 $pagamentoDetalhe = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
                     "amount" => $pagamento->pg_venda_valor_pagamento,
@@ -368,32 +393,68 @@ class VendaController extends Controller
     {
         $cliente = $venda->cliente;
         if ($cliente) {
-            return [
-                "stateTaxNumberIndicator" => "none", // Ajuste conforme necessário
-                "tradeName" => $cliente->nome_fantasia ?? null, // Ajuste conforme necessário
-                "taxRegime" => "isento", // Ajuste conforme necessário
-                "stateTaxNumber" => $cliente->cliente_inscricao_estadual ?? null, // Ajuste conforme necessário
-                "id" => (string) $cliente->id ?? 1,
-                "name" => $cliente->cliente_nome ?? null,
-                "federalTaxNumber" => (int) $cliente->cliente_cpf_cnpj ?? null,
-                "email" => $cliente->cliente_email ?? null,
-                "address" => [
-                    "phone" => $cliente->cliente_celular ?? null,
-                    "state" => $cliente->cliente_estado ?? null,
-                    "city" => [
-                        "code" => $cliente->codigo_municipio ?? null,
-                        "name" => $cliente->cliente_cidade ?? null,
-                    ],
-                    "district" => $cliente->clinete_bairro ?? null,
-                    "additionalInformation" => $cliente->cliente_endereco ?? null,
-                    "street" => $cliente->cliente_endereco ?? null,
-                    "number" => $cliente->cliente_numero ?? null,
-                    "postalCode" => $cliente->cliente_cep ?? null,
-                    "country" => "BR" // Ajuste conforme necessário
-                ],
+            switch ($cliente->cliente_tipo) {
+                case 'Física':
+                    return [
+                        "stateTaxNumberIndicator" => "NonTaxPayer", // 0 - Nenhum (None) 1 - Contribuinte ICMS - informar a IE do destinatário (TaxPayer) 2 - Contribuinte isento de Inscrição no cadastro de Contribuintes (Exempt) 9 - Não Contribuinte, que pode ou não possuir Inscrição Estadual no Cadastro de Contribuintes do ICMS (NonTaxPayer)
+                        "tradeName" => $cliente->cliente_nome ?? null, // Ajuste conforme necessário
+                        "taxRegime" => "isento", // Ajuste conforme necessário
+                        "stateTaxNumber" => $cliente->cliente_inscricao_estadual ?? null, // Ajuste conforme necessário
+                        "id" => (string) $cliente->id ?? null,
+                        "name" => $cliente->cliente_nome ?? null,
+                        "federalTaxNumber" => (int) $cliente->cliente_cpf ?? null,
+                        "email" => $cliente->cliente_email ?? null,
+                        "type" => 2, // 0 - Indefinido (Undefined) 2 - Pessoa Física (NaturalPerson) 4 - Pessoa Jurídica (LegalEntity)
+                        /*"address" => [
+                            "phone" => $cliente->cliente_celular ?? null,
+                            "state" => $cliente->cliente_estado ?? null,
+                            "city" => [
+                                "code" => $cliente->cliente_municicodigo_municipio ?? null,
+                                "name" => $cliente->cliente_cidade ?? null,
+                            ],
+                            "district" => $cliente->clinete_bairro ?? null,
+                            "additionalInformation" => $cliente->cliente_endereco ?? null,
+                            "street" => $cliente->cliente_endereco ?? null,
+                            "number" => $cliente->cliente_numero ?? null,
+                            "postalCode" => $cliente->cliente_cep ?? null,
+                            "country" => "BR" // Ajuste conforme necessário
+                        ],*/
+                    ];
+                    break;
+                case 'Jurídica':
+                    return [
+                        "stateTaxNumberIndicator" => "NonTaxPayer", // 0 - Nenhum (None) 1 - Contribuinte ICMS - informar a IE do destinatário (TaxPayer) 2 - Contribuinte isento de Inscrição no cadastro de Contribuintes (Exempt) 9 - Não Contribuinte, que pode ou não possuir Inscrição Estadual no Cadastro de Contribuintes do ICMS (NonTaxPayer)
+                        "tradeName" => $cliente->cliente_nome ?? null, // Ajuste conforme necessário
+                        "taxRegime" => "isento", // Ajuste conforme necessário
+                        "stateTaxNumber" => $cliente->cliente_inscricao_estadual ?? null, // Ajuste conforme necessário
+                        "id" => (string) $cliente->id ?? null,
+                        "name" => $cliente->cliente_nome ?? null,
+                        "federalTaxNumber" => (int) $cliente->cliente_cnpj?? null,
+                        "email" => $cliente->cliente_email ?? null,
+                        "type" => 4, // 0 - Indefinido (Undefined) 2 - Pessoa Física (NaturalPerson) 4 - Pessoa Jurídica (LegalEntity)
+                        /*"address" => [
+                            "phone" => $cliente->cliente_celular ?? null,
+                            "state" => $cliente->cliente_estado ?? null,
+                            "city" => [
+                                "code" => $cliente->cliente_municicodigo_municipio ?? null,
+                                "name" => $cliente->cliente_cidade ?? null,
+                            ],
+                            "district" => $cliente->clinete_bairro ?? null,
+                            "additionalInformation" => $cliente->cliente_endereco ?? null,
+                            "street" => $cliente->cliente_endereco ?? null,
+                            "number" => $cliente->cliente_numero ?? null,
+                            "postalCode" => $cliente->cliente_cep ?? null,
+                            "country" => "BR" // Ajuste conforme necessário
+                        ],*/
+                    ];
+                    break;
 
-                "type" => 2, // Ajuste conforme necessário
-            ];
+                default:
+                    return null;
+                    break;
+            }
+
+
         }
         return null;
     }
@@ -601,21 +662,6 @@ class VendaController extends Controller
         ];
     }
 
-    private function enviarParaApi2(array $nfeData)
-    {
-
-        // Substitua pelo caminho correto do client-php e sua chave da API
-        require_once("vendor\nfe\nfe\lib\init.php");
-        NFe_io::setApiKey("sCnxUa4YkuQIklw4YFWY9CskMnA26ZQJts4vjAAzYTfqafp9I7e1HWcBDSa8ClLBx3w");
-
-        try {
-            $nfe = NFe::create($nfeData);
-            return $nfe;
-        } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
-        }
-    }
-
     function enviarParaApi(array $data)
     {
         $url = 'https://api.nfse.io/v2/companies/d3b5de8a66524a9db1c6a47babfdff6f/consumerinvoices?apikey=sCnxUa4YkuQIklw4YFWY9CskMnA26ZQJts4vjAAzYTfqafp9I7e1HWcBDSa8ClLBx3w';
@@ -646,6 +692,148 @@ class VendaController extends Controller
 
         // Retorna a resposta
         return json_decode($response);
+    }
+
+    function buscarNFE(Venda $venda)
+    {
+        // Inicializa o cliente HTTP do Guzzle
+        $client = new Client();
+        $invoiceId = $venda->venda_id_nfe;
+        $companyId = "d3b5de8a66524a9db1c6a47babfdff6f";
+
+        // URL da API com os parâmetros dinamicamente inseridos
+        $url = "https://api.nfse.io/v2/companies/{$companyId}/consumerinvoices/{$invoiceId}";
+
+        try {
+            // Faz a requisição GET para a API
+            $response = $client->request('GET', $url, [
+                'headers' => [
+                    'accept' => 'application/json',
+                    'Authorization' => 'sCnxUa4YkuQIklw4YFWY9CskMnA26ZQJts4vjAAzYTfqafp9I7e1HWcBDSa8ClLBx3w',
+                ],
+            ]);
+
+            // Decodifica o corpo da resposta JSON
+            $body = $response->getBody();
+            $statusCode = $response->getStatusCode();
+            $content = $body->getContents();
+
+            // Decodifica a string JSON dentro do campo "content"
+            $data = json_decode($content, true);
+
+            // Verifica se a decodificação foi bem-sucedida
+            if (json_last_error() === JSON_ERROR_NONE) {
+                // Retorna a resposta como JSON
+                return response()->json([
+                    'statusCode' => $statusCode,
+                    'data' => $data
+                ], 200);
+            } else {
+                // Retorna um erro se a decodificação falhar
+                return response()->json([
+                    'error' => 'Erro ao decodificar o JSON da resposta: ' . json_last_error_msg()
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            // Tratamento de exceção caso algo dê errado
+            return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $e->getMessage()], 500);
+        }
+    }
+
+    function atualizaStatusNFE($venda)
+    {
+        // Inicializa o cliente HTTP do Guzzle
+        $client = new Client();
+        $invoiceId = $venda->venda_id_nfe;
+        $companyId = "d3b5de8a66524a9db1c6a47babfdff6f";
+
+        // URL da API com os parâmetros dinamicamente inseridos
+        $url = "https://api.nfse.io/v2/companies/{$companyId}/consumerinvoices/{$invoiceId}";
+
+        try {
+            // Faz a requisição GET para a API
+            $response = $client->request('GET', $url, [
+                'headers' => [
+                    'accept' => 'application/json',
+                    'Authorization' => 'sCnxUa4YkuQIklw4YFWY9CskMnA26ZQJts4vjAAzYTfqafp9I7e1HWcBDSa8ClLBx3w',
+                ],
+            ]);
+
+            // Decodifica o corpo da resposta JSON
+            $body = $response->getBody();
+            $content = $body->getContents();
+            $statusCode = $response->getStatusCode();
+
+            // Decodifica a string JSON
+            $data = json_decode($content, true);
+
+            // Verifica se a decodificação foi bem-sucedida
+            if (json_last_error() === JSON_ERROR_NONE) {
+                // Verifica se o status é "Issued"
+                if (isset($data['data']['status']) && $data['data']['status'] === 'Issued') {
+                    // Atualiza o campo venda_status_nfe
+                    $venda->venda_status_nfe = 'Issued';
+                    $venda->save();
+                }
+
+                // Retorna a resposta como JSON
+                return response()->json([
+                    'statusCode' => $statusCode,
+                ], 200);
+            } else {
+                // Retorna um erro se a decodificação falhar
+                return response()->json([
+                    'error' => 'Erro ao decodificar o JSON da resposta: ' . json_last_error_msg()
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            // Tratamento de exceção caso algo dê errado
+            return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $e->getMessage()], 500);
+        }
+    }
+
+    function imprimirNFE(Venda $venda)
+    {
+        // Inicializa o cliente HTTP do Guzzle
+        $client = new Client();
+        $invoiceId = $venda->venda_id_nfe;
+        $companyId = "d3b5de8a66524a9db1c6a47babfdff6f";
+
+        // URL da API com os parâmetros dinamicamente inseridos
+        $url = "https://api.nfse.io/v2/companies/{$companyId}/consumerinvoices/{$invoiceId}/pdf";
+
+        try {
+            // Faz a requisição GET para a API
+            $response = $client->request('GET', $url, [
+                'headers' => [
+                    'accept' => 'application/json',
+                    'Authorization' => 'sCnxUa4YkuQIklw4YFWY9CskMnA26ZQJts4vjAAzYTfqafp9I7e1HWcBDSa8ClLBx3w',
+                ],
+            ]);
+
+            // Decodifica o corpo da resposta JSON
+            $body = $response->getBody();
+            $statusCode = $response->getStatusCode();
+            $content = $body->getContents();
+
+            // Decodifica a string JSON dentro do campo "content"
+            $data = json_decode($content, true);
+
+            // Verifica se a requisição foi bem-sucedida
+            if ($response->getStatusCode() === 200) {
+                // Retorna o conteúdo do PDF (ou salva, dependendo da sua necessidade)
+                return view('nfePDF', ["data" => $data]);
+
+            }
+
+            // Retorno em caso de falha
+            return response()->json(['error' => 'Falha ao baixar o PDF'], $response->getStatusCode());
+        } catch (\Exception $e) {
+            // Tratamento de exceção caso algo dê errado
+            return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $e->getMessage()], 500);
+        }
     }
 
     function listarNFCE($vendaId)

@@ -12,6 +12,7 @@ class Venda extends Model
     protected $table = 'vendas';
 
     protected $fillable = [
+        'venda_id_nfe',
         'venda_sessao_caixa_id',
         'venda_cliente_id',
         'venda_valor_base_calculo',
@@ -27,6 +28,7 @@ class Venda extends Model
         'venda_valor_pago',
         'venda_valor_troco',
         'venda_status',
+        'venda_status_nfe',
         'venda_datahora_iniciada',
         'venda_datahora_finalizada',
     ];

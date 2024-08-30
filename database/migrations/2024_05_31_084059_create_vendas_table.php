@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('vendas', function (Blueprint $table) {
             $table->id();
+            $table->string('venda_id_nfe')->nullable()->default(null);
             $table->unsignedBigInteger('venda_sessao_caixa_id')->nullable();
             $table->unsignedBigInteger('venda_cliente_id')->nullable();
 
@@ -29,6 +30,7 @@ return new class extends Migration
             $table->decimal('venda_valor_pago',10,2)->nullable()->default('0.0');
             $table->decimal('venda_valor_troco',10,2)->nullable()->default('0.0');
             $table->enum('venda_status',['INICIADA','FINALIZADA','CANCELADA'])->default('INICIADA');
+            $table->string('venda_status_nfe')->nullable()->default(null);
             $table->dateTime('venda_datahora_iniciada')->nullable();
             $table->dateTime('venda_datahora_finalizada')->nullable();
             $table->dateTime('venda_datahora_cancelada')->nullable();
