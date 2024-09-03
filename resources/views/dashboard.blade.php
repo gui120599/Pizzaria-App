@@ -17,7 +17,7 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 grid grid-cols-2 md:grid-cols-4 gap-4">
                     @foreach ($mesas as $mesa)
-                        @if ($mesa->mesa_status == 'LIBERADA')
+                        @if ($mesa->mesa_status === 'LIBERADA')
                             <a href="{{ route('sessaoMesa', ['mesa_id' => $mesa->id]) }}"
                                 class="p-4 bg-green-500 rounded-md text-white text-center">
                             @else

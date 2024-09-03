@@ -83,6 +83,10 @@
         </div>
     </div>
     <div class="text-sm font-thin mt-2 w-4/5 mx-auto transition duration-700 ease-in-out" id="submenu-config">
+        <x-nav-link :href="route('empresa')" :active="request()->routeIs('empres')">
+            <i class='bx bx-building-house'></i>
+            <span class="text-[15px] ml-4 text-gray-200">{{ __('Empresa') }}</span>
+        </x-nav-link>
         <x-nav-link :href="route('categoria')" :active="request()->routeIs('categoria')">
             <i class='bx bx-category-alt'></i>
             <span class="text-[15px] ml-4 text-gray-200">{{ __('Categorias') }}</span>

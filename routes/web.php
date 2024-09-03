@@ -19,6 +19,7 @@ use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
 use App\Http\Controllers\VendaController;
 use App\Models\ItensVenda;
+use App\Http\Controllers\EmpresaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -55,6 +56,17 @@ Route::middleware('auth')->group(function () {
     Route::patch('/Categoria/{categoria}', [CategoriaController::class, 'update'])->name('categoria.update');
     Route::get('/Ativar-Categoria/{id}', [CategoriaController::class, 'active'])->name('categoria.active');
     Route::delete('/Categoria/{id}', [CategoriaController::class, 'destroy'])->name('categoria.destroy');
+
+
+    Route::get('/Empresa', [EmpresaController::class, 'index'])->name('empresa');
+    Route::get('/Empresas-Inativas', [EmpresaController::class, 'inactive'])->name('empresa.inactive');
+    Route::post('/Empresa', [EmpresaController::class, 'store'])->name('empresa.store');
+    Route::get('/Empresa/{empresa}', [EmpresaController::class, 'show'])->name('empresa.show');
+    Route::get('/Empresa/{empresa}/Editar', [EmpresaController::class, 'edit'])->name('empresa.edit');
+    Route::patch('/Empresa/{empresa}', [EmpresaController::class, 'update'])->name('empresa.update');
+    Route::get('/Ativar-Empresa/{id}', [EmpresaController::class, 'active'])->name('empresa.active');
+    Route::delete('/Empresa/{id}', [EmpresaController::class, 'destroy'])->name('empresa.destroy');
+
 
     Route::get('/Produto', [ProdutoController::class, 'index'])->name('produto');
     Route::get('/Produtos-Inativos', [ProdutoController::class, 'inactive'])->name('produto.inactive');
@@ -94,7 +106,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/SessaoCaixa/{sessao_caixa}', [SessaoCaixaController::class, 'update'])->name('sessao_caixa.update');
     Route::get('/Ativar-SessaoCaixa/{id}', [SessaoCaixaController::class, 'active'])->name('sessao_caixa.active');
     Route::delete('/SessaoCaixa/{id}', [SessaoCaixaController::class, 'destroy'])->name('sessao_caixa.destroy');
-    Route::get('/SessaoCaixa/{sessao_caixa}/Vendas',[SessaoCaixaController::class, 'listarVendasSessaoCaixa'])->name('sessao_caixa.vendas');
+    Route::get('/SessaoCaixa/{sessao_caixa}/Vendas', [SessaoCaixaController::class, 'listarVendasSessaoCaixa'])->name('sessao_caixa.vendas');
 
     Route::get('/OpcoesPagamento', [OpcoesPagamentoController::class, 'index'])->name('opcoes_pagamento');
     Route::get('/OpcoesPagamentos-Inativas', [OpcoesPagamentoController::class, 'inactive'])->name('opcoes_pagamento.inactive');
@@ -171,7 +183,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/iniciar-venda', [VendaController::class, 'iniciarVenda'])->name('venda.iniciar');
     Route::post('/Venda/{id}/Edit', [VendaController::class, 'SalvarVenda'])->name('venda.salvar_venda');
     Route::post('/Venda//EditValorFrete', [VendaController::class, 'AtualizarValorFrete'])->name('venda.update_valor_frete');
-    Route::get('AtualizarValoresdaVenda',[VendaController::class, 'AtualizarValoresdaVenda']);
+    Route::get('AtualizarValoresdaVenda', [VendaController::class, 'AtualizarValoresdaVenda']);
     Route::get('/Venda/{id}/Gerar-NFE', [VendaController::class, 'enviarNfe'])->name('venda.gerar_NFE');
     Route::get('/Venda/{venda}/Imprimir-NFE', [VendaController::class, 'imprimirNFE'])->name('venda.imprimir_NFE');
     Route::get('/Venda/{venda}/Buscar-NFE', [VendaController::class, 'buscarNFE'])->name('venda.buscar_NFE');
@@ -183,7 +195,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemVenda/AddProduto', [ItensVendaController::class, 'adicionarProduto'])->name('item_venda.add_produto');
     Route::post('/ItemVenda/RemoveProduto', [ItensVendaController::class, 'removerProduto'])->name('item_venda.remove_produto');
     Route::post('/ItemVenda/AtualziarDesconto', [ItensVendaController::class, 'atualizarDescontoItemVenda'])->name('item_venda.update_desconto');
-    
+
     Route::post('/PagamentoVenda', [PagamentosVendaController::class, 'store'])->name('pagamento_venda.store');
     Route::post('/RemoverPagamentoVenda', [PagamentosVendaController::class, 'destroy'])->name('pagamento_venda.destroy');
 

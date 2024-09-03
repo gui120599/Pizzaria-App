@@ -284,17 +284,6 @@
                                             value="{{ old('pg_venda_numero_autorizacao_cartao') }}" />
                                     </div>
                                 </div>
-                                <div id="dadosPix"
-                                    class="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1"
-                                    style="display: none">
-                                    <div class="md:col-span-3">
-                                        <x-input-label for="pg_venda_numero_autorizacao_cartao" :value="__('Nº Autorização Transação')" />
-                                        <x-text-input id="pg_venda_numero_autorizacao_cartao"
-                                            name="pg_venda_numero_autorizacao_cartao" type="text"
-                                            class="mt-1 w-full" autocomplete="off"
-                                            value="{{ old('pg_venda_numero_autorizacao_cartao') }}" />
-                                    </div>
-                                </div>
 
                                 <div class="col-span-full">
                                     <x-input-label
@@ -918,16 +907,10 @@
                         break;
                 }
 
-                if (desc.includes('CARTÃO')) {
+                if (desc.includes('CARTÃO')||desc.includes('PIX')) {
                     $("#dadosCartao").slideDown();
                 } else {
                     $("#dadosCartao").slideUp();
-                }
-
-                if (desc.includes('PIX')) {
-                    $("#dadosPix").slideDown();
-                } else {
-                    $("#dadosPix").slideUp();
                 }
 
             });
@@ -1581,7 +1564,7 @@
 
                 const pg_venda_opcaopagamento_id = $("#pg_venda_opcaopagamento_id").val();
 
-                let pg_venda_cartao_id = $("#pg_venda_cartao_id").val();
+                let pg_venda_cartao_id = null;
 
                 const pg_venda_numero_autorizacao_cartao = $("#pg_venda_numero_autorizacao_cartao").val();
 
@@ -1589,8 +1572,8 @@
                 const selectedOption = opcao_pag.find(op => op.id == pg_venda_opcaopagamento_id);
 
                 const desc = selectedOption.opcaopag_nome.toUpperCase();
-                if (!desc.includes('CARTÃO')) {
-                    pg_venda_cartao_id = null;
+                if (desc.includes('CARTÃO') || desc.includes('PIX')) {
+                    pg_venda_cartao_id = $("#pg_venda_cartao_id").val();
                 }
                 $.ajax({
                     type: "POST",

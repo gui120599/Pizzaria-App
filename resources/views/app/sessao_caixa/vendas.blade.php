@@ -38,16 +38,13 @@
                                             <td>{{ \Carbon\Carbon::parse($venda->venda_datahora_finalizada)->format('d/m/Y H:i:s') }}</td>
                                             @if ($venda->venda_id_nfe)
                                             <td>
-                                                <div class="flex items-center justify-center space-x-2">
-                                                    <x-primary-button onclick="window.open('{{ route('venda.imprimir_NFE', ['venda' => $venda]) }}')" title="Venda">IMPRIMIR NFE-C</x-primary-button>
-                                                </div>
-                                                <div class="flex items-center justify-center space-x-2">
-                                                    <x-secondary-button onclick="window.location.href = '{{ route('venda.buscar_NFE', ['venda' => $venda]) }}'" title="Venda">BUSCAR NFE-C</x-secondary-button>
+                                                <div class="flex items-center justify-center space-x-2 p-1">
+                                                    <x-secondary-button onclick="window.open('{{ route('venda.imprimir_NFE', ['venda' => $venda]) }}')" title="Venda">IMPRIMIR NFE-C</x-secondary-button>
                                                 </div>
                                             </td>
                                             @else
                                             <td>
-                                                <div class="flex items-center justify-center space-x-2">
+                                                <div class="flex items-center justify-center space-x-2 p-1">
                                                     <x-primary-button onclick="window.location.href = '{{ route('venda.gerar_NFE', ['id' => $venda->id]) }}'" title="Venda">Gerar NFE-C</x-primary-button>
                                                 </div>
                                             </td>

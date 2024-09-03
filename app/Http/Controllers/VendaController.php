@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Empresa;
 use App\Models\Venda;
 use App\Http\Requests\StoreVendaRequest;
 use App\Http\Requests\UpdateVendaRequest;
@@ -125,7 +126,7 @@ class VendaController extends Controller
 
         return response()->json(['venda_id' => $venda->id]);
     }
-    
+
 
     public function AtualizarValorFrete(Request $request)
     {
@@ -199,12 +200,21 @@ class VendaController extends Controller
                         'sessao_mesa_status' => 'FECHADA'
                     ]);
 
+                    //Atualizar o status da mesa para LIBERADA
+                    $mesaId = $sessaoMesa->sessao_mesa_mesa_id;
+                    $mesa = Mesa::find($mesaId);
+                    $mesa->update([
+                        'mesa_status' => 'LIBERADA'
+                    ]);
+
                     // Atualizar o status dos pedidos relacionados à sessão de mesa
                     Pedido::where('pedido_sessao_mesa_id', $value)
                         ->update([
                             'pedido_status' => 'FINALIZADO',
                             'pedido_datahora_finalizado' => Carbon::now()
                         ]);
+
+
                 }
             }
         }
@@ -309,31 +319,39 @@ class VendaController extends Controller
         // Envia o array para a API
         $response = $this->enviarParaApi($nfeData);
 
-        // Verificar se o status do response é 200 (OK)
-        if ($response->id) {
-
-            // Pegar o campo "id" do JSON
+        // Verifica se o response contém o campo "id" (o que indica sucesso)
+        if (isset($response->id)) {
+            // Pega o campo "id" do JSON
             $idNfe = $response->id;
 
-            // Salvar o id no campo venda_id_nfe
+            // Salva o id no campo venda_id_nfe
             $venda->venda_id_nfe = $idNfe;
             $venda->save();
 
-            //Caso a nota autorize ele atualiza o status
-
+            // Caso a nota autorize, ele atualiza o status
             $response_status = $this->atualizaStatusNFE($venda);
 
+            return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
+                ->with('success', 'NFC-E Gerada com sucesso!');
+        } else {
+            // Trata erros retornados pela API
+            if (isset($response->errors)) {
+                $errorMessages = array_map(function ($error) {
+                    return $error->message;
+                }, $response->errors);
 
-            return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])->with('success', 'NFC-E Gerada com sucesso!');
+                return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
+                    ->with('error', 'Erro ao gerar NFC-E: ' . implode(', ', $errorMessages));
+            }
 
+            // Caso a estrutura de erro não seja esperada
+            $errorDetail = isset($response['original']['error']) ? $response['original']['error'] : 'Erro inesperado ao se comunicar com a API da NFSe.';
 
+            return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
+                ->with('error', $errorDetail);
 
         }
 
-        // Retornar a resposta da API como JSON
-        return response()->json($response);
-
-        //return response()->json($nfeData);
     }
 
     private function montarPagamentos(Venda $venda)
@@ -341,7 +359,7 @@ class VendaController extends Controller
         $pagamentosArray = [];
 
         foreach ($venda->pagamentos as $pagamento) {
-            if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Cartão") !== false) {// O nome da opção de pagamento contém a palavra "cartão"
+            if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Cartão") !== false || stripos($pagamento->opcaoPagamento->opcaopag_nome, "Pix") !== false) {// O nome da opção de pagamento contém a palavra "cartão"
                 $pagamentoDetalhe = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
                     "amount" => $pagamento->pg_venda_valor_pagamento,
@@ -429,7 +447,7 @@ class VendaController extends Controller
                         "stateTaxNumber" => $cliente->cliente_inscricao_estadual ?? null, // Ajuste conforme necessário
                         "id" => (string) $cliente->id ?? null,
                         "name" => $cliente->cliente_nome ?? null,
-                        "federalTaxNumber" => (int) $cliente->cliente_cnpj?? null,
+                        "federalTaxNumber" => (int) $cliente->cliente_cnpj ?? null,
                         "email" => $cliente->cliente_email ?? null,
                         "type" => 4, // 0 - Indefinido (Undefined) 2 - Pessoa Física (NaturalPerson) 4 - Pessoa Jurídica (LegalEntity)
                         /*"address" => [
@@ -662,9 +680,13 @@ class VendaController extends Controller
         ];
     }
 
-    function enviarParaApi(array $data)
+    function enviarParaApi2(array $data)
     {
-        $url = 'https://api.nfse.io/v2/companies/d3b5de8a66524a9db1c6a47babfdff6f/consumerinvoices?apikey=sCnxUa4YkuQIklw4YFWY9CskMnA26ZQJts4vjAAzYTfqafp9I7e1HWcBDSa8ClLBx3w';
+        $empresa = Empresa::first();
+        $companyId = $empresa->empresa_api_nfeio_company_id;
+        $apiKey = $empresa->empresa_api_nfeio_apikey;
+
+        $url = "https://api.nfse.io/v2/companies/{$companyId}/consumerinvoices?apikey={$apiKey}";
         // Inicializa uma sessão cURL
         $ch = curl_init($url);
 
@@ -693,6 +715,61 @@ class VendaController extends Controller
         // Retorna a resposta
         return json_decode($response);
     }
+
+
+    function enviarParaApi(array $data)
+    {
+        // Inicializa o cliente HTTP do Guzzle
+        $client = new Client();
+
+        // Obtém os dados da empresa
+        $empresa = Empresa::first();
+        $companyId = $empresa->empresa_api_nfeio_company_id;
+        $apiKey = $empresa->empresa_api_nfeio_apikey;
+
+        // URL da API
+        $url = "https://api.nfse.io/v2/companies/{$companyId}/consumerinvoices";
+
+        try {
+            // Verifique o JSON antes de enviar
+            $jsonPayload = json_encode($data, JSON_PRETTY_PRINT);
+            if ($jsonPayload === false) {
+                return response()->json(['error' => 'Erro ao gerar JSON: ' . json_last_error_msg()], 500);
+            }
+
+            // Faz a requisição POST para a API
+            $response = $client->request('POST', $url, [
+                'headers' => [
+                    'accept' => 'application/json',
+                    'Authorization' => $apiKey,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => $jsonPayload,
+            ]);
+
+            // Decodifica o corpo da resposta JSON
+            $statusCode = $response->getStatusCode();
+            $content = $response->getBody()->getContents();
+
+            // Verifica se a requisição foi bem-sucedida
+            if ($statusCode === 200) {
+                return json_decode($content, true);
+            }
+
+            // Retorno em caso de falha
+            return response()->json(['error' => 'Falha ao enviar dados para a API'], $statusCode);
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            // Captura exceções específicas do cliente HTTP
+            $response = $e->getResponse();
+            $responseBodyAsString = $response->getBody()->getContents();
+            return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $responseBodyAsString], $response->getStatusCode());
+        } catch (\Exception $e) {
+            // Tratamento de exceção geral
+            return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $e->getMessage()], 500);
+        }
+    }
+
+
 
     function buscarNFE(Venda $venda)
     {
@@ -799,7 +876,10 @@ class VendaController extends Controller
         // Inicializa o cliente HTTP do Guzzle
         $client = new Client();
         $invoiceId = $venda->venda_id_nfe;
-        $companyId = "d3b5de8a66524a9db1c6a47babfdff6f";
+
+        $empresa = Empresa::first();
+        $companyId = $empresa->empresa_api_nfeio_company_id;
+        $apiKey = $empresa->empresa_api_nfeio_apikey;
 
         // URL da API com os parâmetros dinamicamente inseridos
         $url = "https://api.nfse.io/v2/companies/{$companyId}/consumerinvoices/{$invoiceId}/pdf";
@@ -809,7 +889,7 @@ class VendaController extends Controller
             $response = $client->request('GET', $url, [
                 'headers' => [
                     'accept' => 'application/json',
-                    'Authorization' => 'sCnxUa4YkuQIklw4YFWY9CskMnA26ZQJts4vjAAzYTfqafp9I7e1HWcBDSa8ClLBx3w',
+                    'Authorization' => $apiKey,
                 ],
             ]);
 
@@ -825,7 +905,6 @@ class VendaController extends Controller
             if ($response->getStatusCode() === 200) {
                 // Retorna o conteúdo do PDF (ou salva, dependendo da sua necessidade)
                 return view('nfePDF', ["data" => $data]);
-
             }
 
             // Retorno em caso de falha
