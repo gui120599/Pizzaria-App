@@ -131,5 +131,11 @@
   "click here to request another": "clique aqui para solicitar outro",
   "of": "de",
   "results": "resultados",
-  "to": "até"
+  "to": "até",
+  "Issued":  "Publicada",
+  "Error": "Erro",
+  "Cash": "Dinheiro",
+  "DebitCard":"Cartão de Débito",
+  "CreditCard":"Cartão de Crédito",
+  "InstantPayment": "PIX"
 }

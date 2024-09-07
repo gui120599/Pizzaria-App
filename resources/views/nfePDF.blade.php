@@ -7,7 +7,8 @@
 
     // Aguarda 2 segundos antes de redirecionar para a rota 'dashboard'
     setTimeout(() => {
-        window.location.href = "{{ route('venda') }}";
+        //window.location.href = "{{ route('venda') }}";
+        window.close();
     }, 2000);
 </script>
 

@@ -28,6 +28,7 @@ return new class extends Migration
             $table->string('empresa_api_nfeio_conta_id')->nullable();
             $table->string('empresa_api_nfeio_company_id')->nullable();
             $table->string('empresa_api_nfeio_apikey')->nullable();
+            $table->enum('empresa_api_nfeio_ambiente',['test','production'])->default('test');
             $table->enum('empresa_status',['Active','Inactive'])->default('Active');
             $table->timestamps();
             $table->softDeletes();

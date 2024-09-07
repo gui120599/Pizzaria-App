@@ -28,6 +28,7 @@ class Empresa extends Model
         'empresa_api_nfeio_conta_id',
         'empresa_api_nfeio_company_id',
         'empresa_api_nfeio_apikey',
+        'empresa_api_nfeio_ambiente',
         'empresa_status',
     ];
 

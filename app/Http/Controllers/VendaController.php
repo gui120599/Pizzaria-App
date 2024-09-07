@@ -317,50 +317,52 @@ class VendaController extends Controller
         ];
 
         // Envia o array para a API
-        $response = $this->enviarParaApi($nfeData);
+         $response = $this->enviarParaApi($nfeData);
+         //return response()->json($response);
 
-        // Verifica se o response contém o campo "id" (o que indica sucesso)
-        if (isset($response->id)) {
-            // Pega o campo "id" do JSON
-            $idNfe = $response->id;
+         // Verifica se o response contém o campo "id" (o que indica sucesso)
+         if (isset($response->id)) {
+             // Pega o campo "id" do JSON
+             $idNfe = $response->id;
 
-            // Salva o id no campo venda_id_nfe
-            $venda->venda_id_nfe = $idNfe;
-            $venda->save();
+             // Salva o id no campo venda_id_nfe
+             $venda->venda_id_nfe = $idNfe;
+             $venda->save();
 
-            // Caso a nota autorize, ele atualiza o status
-            $response_status = $this->atualizaStatusNFE($venda);
+             // Caso a nota autorize, ele atualiza o status
+             $response_status = $this->atualizaStatusNFE($venda);
 
-            return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
-                ->with('success', 'NFC-E Gerada com sucesso!');
-        } else {
-            // Trata erros retornados pela API
-            if (isset($response->errors)) {
-                $errorMessages = array_map(function ($error) {
-                    return $error->message;
-                }, $response->errors);
+             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
+                 ->with('success', 'NFC-E Gerada com sucesso!');
+         } else {
+             // Trata erros retornados pela API
+             if (isset($response->errors)) {
+                 $errorMessages = array_map(function ($error) {
+                     return $error->message;
+                 }, $response->errors);
 
-                return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
-                    ->with('error', 'Erro ao gerar NFC-E: ' . implode(', ', $errorMessages));
-            }
+                 return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
+                     ->with('error', 'Erro ao gerar NFC-E: ' . implode(', ', $errorMessages));
+             }
 
-            // Caso a estrutura de erro não seja esperada
-            $errorDetail = isset($response['original']['error']) ? $response['original']['error'] : 'Erro inesperado ao se comunicar com a API da NFSe.';
+             // Caso a estrutura de erro não seja esperada
+             $errorDetail = isset($response['original']['error']) ? $response['original']['error'] : 'Erro inesperado ao se comunicar com a API da NFSe.';
 
-            return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
-                ->with('error', $errorDetail);
-
-        }
+             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
+                 ->with('error', $errorDetail);
+         }
+        //return response()->json($nfeData);
 
     }
 
     private function montarPagamentos(Venda $venda)
     {
         $pagamentosArray = [];
+        $pagamentoDetalhe = [];
 
         foreach ($venda->pagamentos as $pagamento) {
             if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Cartão") !== false || stripos($pagamento->opcaoPagamento->opcaopag_nome, "Pix") !== false) {// O nome da opção de pagamento contém a palavra "cartão"
-                $pagamentoDetalhe = [
+                $pagamentoDetalhe[] = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
                     "amount" => $pagamento->pg_venda_valor_pagamento,
                     "card" => [
@@ -370,39 +372,19 @@ class VendaController extends Controller
                         "integrationPaymentType" => $pagamento->pg_venda_tipo_integracao ?? null
                     ]
                 ];
-
-                $pagamentosArray[] = [
-                    "paymentDetail" => [$pagamentoDetalhe]
-                ];
-            }
-            /*if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Pix") !== false){// O nome da opção de pagamento contém a palavra "cartão"
-                $pagamentoDetalhe = [
+                
+            } else {
+                $pagamentoDetalhe[] = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
                     "amount" => $pagamento->pg_venda_valor_pagamento,
-                    "card" => [
-                        "federalTaxNumber" => $pagamento->cartao->cartao_cnpj_credenciadora ?? null,
-                        "flag" => $pagamento->cartao->cartao_bandeira ?? null,
-                        "authorization" => $pagamento->pg_venda_numero_autorizacao_cartao ?? null,
-                        "integrationPaymentType" => $pagamento->pg_venda_tipo_integracao ?? null
-                    ]
-                ];
-
-                $pagamentosArray[] = [
-                    "paymentDetail" => [$pagamentoDetalhe]
-                ];
-            }  */ else {
-                $pagamentoDetalhe = [
-                    "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
-                    "amount" => $pagamento->pg_venda_valor_pagamento,
-                ];
-
-                $pagamentosArray[] = [
-                    "paymentDetail" => [$pagamentoDetalhe],
-                    "payBack" => $venda->venda_valor_troco
                 ];
             }
 
         }
+        $pagamentosArray[] = [
+            "paymentDetail" => $pagamentoDetalhe,
+            "payback" => $venda->venda_valor_troco
+        ];
 
         return $pagamentosArray;
     }
@@ -506,10 +488,10 @@ class VendaController extends Controller
         return [
             "freightModality" => 9,
             "transportGroup" => [
-                "stateTaxNumber" => null,
-                "transportRetention" => null,
-                // Adicione os demais campos conforme necessário...
-            ],
+                    "stateTaxNumber" => null,
+                    "transportRetention" => null,
+                    // Adicione os demais campos conforme necessário...
+                ],
             // Adicione os demais campos conforme necessário...
         ];
     }
@@ -554,16 +536,16 @@ class VendaController extends Controller
                         "totalIndicator" => (boolean) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
-                            "totalTax" => $item->item_venda_valor_total_tributos,
-                            "icms" => [
-                                "origin" => $produto->produto_cod_origem_mercadoria,
-                                "baseTaxModality" => "3",
-                                "baseTax" => $item->item_venda_valor_base_calculo,
-                                "amount" => $item->item_venda_valor_icms,
-                                "rate" => $produto->produto_valor_percentual_icms,
-                                "csosn" => $produto->produto_CSOSN,
+                                "totalTax" => $item->item_venda_valor_total_tributos,
+                                "icms" => [
+                                        "origin" => $produto->produto_cod_origem_mercadoria,
+                                        "baseTaxModality" => "3",
+                                        "baseTax" => $item->item_venda_valor_base_calculo,
+                                        "amount" => $item->item_venda_valor_icms,
+                                        "rate" => $produto->produto_valor_percentual_icms,
+                                        "csosn" => $produto->produto_CSOSN,
+                                    ],
                             ],
-                        ],
                     ];
                     break;
                 case '102':
@@ -585,14 +567,14 @@ class VendaController extends Controller
                         "totalIndicator" => (boolean) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
-                            "icms" => [
-                                "origin" => $produto->produto_cod_origem_mercadoria,
-                                "csosn" => $produto->produto_CSOSN,
-                                "baseTax" => 0,
-                                "amount" => 0,
-                                "rate" => 0,
+                                "icms" => [
+                                    "origin" => $produto->produto_cod_origem_mercadoria,
+                                    "csosn" => $produto->produto_CSOSN,
+                                    "baseTax" => 0,
+                                    "amount" => 0,
+                                    "rate" => 0,
+                                ],
                             ],
-                        ],
                     ];
                     break;
                 case '500':
@@ -614,14 +596,14 @@ class VendaController extends Controller
                         "totalIndicator" => (boolean) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
-                            "icms" => [
-                                "origin" => $produto->produto_cod_origem_mercadoria,
-                                "csosn" => $produto->produto_CSOSN,
-                                "baseTax" => 0,
-                                "amount" => 0,
-                                "rate" => 0,
+                                "icms" => [
+                                    "origin" => $produto->produto_cod_origem_mercadoria,
+                                    "csosn" => $produto->produto_CSOSN,
+                                    "baseTax" => 0,
+                                    "amount" => 0,
+                                    "rate" => 0,
+                                ],
                             ],
-                        ],
                     ];
                     break;
                 default:
@@ -643,16 +625,16 @@ class VendaController extends Controller
                         "totalIndicator" => (boolean) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
-                            "totalTax" => $item->item_venda_valor_total_tributos,
-                            "icms" => [
-                                "origin" => $produto->produto_cod_origem_mercadoria,
-                                "baseTaxModality" => "3",
-                                "baseTax" => $item->item_venda_valor_base_calculo,
-                                "amount" => $item->item_venda_valor_icms,
-                                "rate" => $produto->produto_valor_percentual_icms,
-                                "csosn" => $produto->produto_CSOSN,
+                                "totalTax" => $item->item_venda_valor_total_tributos,
+                                "icms" => [
+                                        "origin" => $produto->produto_cod_origem_mercadoria,
+                                        "baseTaxModality" => "3",
+                                        "baseTax" => $item->item_venda_valor_base_calculo,
+                                        "amount" => $item->item_venda_valor_icms,
+                                        "rate" => $produto->produto_valor_percentual_icms,
+                                        "csosn" => $produto->produto_CSOSN,
+                                    ],
                             ],
-                        ],
                     ];
                     break;
             }
@@ -768,8 +750,6 @@ class VendaController extends Controller
             return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $e->getMessage()], 500);
         }
     }
-
-
 
     function buscarNFE(Venda $venda)
     {

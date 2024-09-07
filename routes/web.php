@@ -3,6 +3,7 @@
 use App\Http\Controllers\CaixaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ItensVendaController;
+use App\Http\Controllers\NotaFiscalController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\Dashboard;
@@ -202,6 +203,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/ItemVenda', [ItensVendaController::class, 'index'])->name('item_venda.add_item_pedido2');
     Route::get('/ItemVenda2', [ItensVendaController::class, 'listarItensVenda'])->name('item_venda.listar');
+
+    Route::get('/Nota-Fiscal', [NotaFiscalController::class, 'index'])->name('nota_fiscal');
 
     Route::post('/render-toast', function () {
         return response()->json([

@@ -94,7 +94,7 @@ class SessaoCaixaController extends Controller
     public function listarVendasSessaoCaixa(SessaoCaixa $sessaoCaixa)
     {
         $sessaoCaixa = SessaoCaixa::findOrFail($sessaoCaixa->id);
-        $vendas = $sessaoCaixa->vendas()->where('venda_status','FINALIZADA')->get() ?? collect(); // Retorna uma coleção vazia se $vendas for null
+        $vendas = $sessaoCaixa->vendas()->where('venda_status','FINALIZADA')->orderBy('id','desc')->get() ?? collect(); // Retorna uma coleção vazia se $vendas for null
 
         return view('app.sessao_caixa.vendas', ['vendas' => $vendas]);
     }
