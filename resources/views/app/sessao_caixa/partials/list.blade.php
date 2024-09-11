@@ -27,7 +27,15 @@
                             <td>
                                 <div class="flex items-center justify-center space-x-2">
                                     <x-primary-button onclick="window.location.href = '{{ route('sessao_caixa.vendas', ['sessao_caixa' => $sessao]) }}'" title="Vendas">Vendas</x-primary-button>
-                                    {{--<form action="{{ route('sessao.destroy', ['id' => $sessao]) }}" method="post">
+                                    
+                                    @if ($sessao->sessaocaixa_status == 'ABERTA')
+                                        <x-danger-button onclick="window.location.href = '{{ route('sessao_caixa.finalizar', ['sessao_caixa' => $sessao]) }}'" title="Vendas">Finalizar</x-danger-button>
+                                    @else
+                                    <x-secondary-button onclick="window.location.href = '{{ route('sessao_caixa.imprimir', ['sessao_caixa' => $sessao]) }}'" title="Vendas">Imprimir</x-secondary-button>
+                                    @endif
+                                    
+                                   
+                                     {{--<form action="{{ route('sessao.destroy', ['id' => $sessao]) }}" method="post">
                                         @method('delete')
                                         @csrf
                                         <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-primary-button>

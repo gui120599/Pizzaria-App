@@ -19,7 +19,23 @@ class OpcoesPagamentoController extends Controller
             ['id' => 'DESCONTAR', 'opcaopag_tipo_taxa' => 'DESCONTAR'],
             ['id' => 'ACRESCENTAR', 'opcaopag_tipo_taxa' => 'ACRESCENTAR']
         ];
-        return view('app.opcoes_pagamento.index', ['opcoes_pagamento' => $opcoes_pagamento, 'tipos_taxas' => $tipos_taxa]);
+        $opcaopag_desc_nfe = [
+            ['opcaopag_desc_nfe' => 'cash'],
+            ['opcaopag_desc_nfe' => 'cheque'],
+            ['opcaopag_desc_nfe' => 'creditCard'],
+            ['opcaopag_desc_nfe' => 'debitCard'],
+            ['opcaopag_desc_nfe' => 'storeCredict'],
+            ['opcaopag_desc_nfe' => 'foodVouchers'],
+            ['opcaopag_desc_nfe' => 'mealVouchers'],
+            ['opcaopag_desc_nfe' => 'giftVouchers'],
+            ['opcaopag_desc_nfe' => 'fuelVouchers'],
+            ['opcaopag_desc_nfe' => 'bankBill'],
+            ['opcaopag_desc_nfe' => 'withoutPayment'],
+            ['opcaopag_desc_nfe' => 'InstantPayment'],
+            ['opcaopag_desc_nfe' => 'others']
+        ];
+        
+        return view('app.opcoes_pagamento.index', ['opcoes_pagamento' => $opcoes_pagamento, 'tipos_taxas' => $tipos_taxa, 'opcaopag_desc_nfe' => $opcaopag_desc_nfe]);
     }
 
     /**
@@ -65,7 +81,22 @@ class OpcoesPagamentoController extends Controller
             ['id' => 'DESCONTAR', 'opcaopag_tipo_taxa' => 'DESCONTAR'],
             ['id' => 'ACRESCENTAR', 'opcaopag_tipo_taxa' => 'ACRESCENTAR']
         ];
-        return view('app.opcoes_pagamento.edit', ['opcoes_pagamento' => $opcoes_pagamento, 'tipos_taxas' => $tipos_taxa]);
+        $opcaopag_desc_nfe = [
+            ['opcaopag_desc_nfe' => 'cash'],
+            ['opcaopag_desc_nfe' => 'cheque'],
+            ['opcaopag_desc_nfe' => 'creditCard'],
+            ['opcaopag_desc_nfe' => 'debitCard'],
+            ['opcaopag_desc_nfe' => 'storeCredict'],
+            ['opcaopag_desc_nfe' => 'foodVouchers'],
+            ['opcaopag_desc_nfe' => 'mealVouchers'],
+            ['opcaopag_desc_nfe' => 'giftVouchers'],
+            ['opcaopag_desc_nfe' => 'fuelVouchers'],
+            ['opcaopag_desc_nfe' => 'bankBill'],
+            ['opcaopag_desc_nfe' => 'withoutPayment'],
+            ['opcaopag_desc_nfe' => 'InstantPayment'],
+            ['opcaopag_desc_nfe' => 'others']
+        ];
+        return view('app.opcoes_pagamento.edit', ['opcoes_pagamento' => $opcoes_pagamento, 'tipos_taxas' => $tipos_taxa, 'opcaopag_desc_nfe' => $opcaopag_desc_nfe]);
     }
 
     /**

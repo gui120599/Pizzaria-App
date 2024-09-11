@@ -418,7 +418,7 @@
                                         <p class="text-gray-400">Não há produtos disponíveis nesta categoria.</p>
                                     @else
                                         <div
-                                            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-6 gap-4 ">
+                                            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-5 gap-4 ">
                                             @foreach ($categoria->produtos as $produto)
                                                 <div class="relative snap-end ">
                                                     <div class="produto cursor-pointer hover:shadow-lg"
@@ -590,14 +590,11 @@
                     </div>
                 </div>
 
-
                 <div class="w-[20%] 2xl:w-[30%] h-[95vh] overflow-auto border border-gray-200 rounded-lg">
                     <div id="itens_venda">
 
                     </div>
                 </div>
-
-
 
             </div>
         </form>

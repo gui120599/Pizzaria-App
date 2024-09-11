@@ -18,6 +18,7 @@
                     <th class="w-1/6">Valor Produtos</th>
                     <th class="w-full">Valor Total NF</th>
                     <th class="w-1/6">Pagamentos</th>
+                    <th class="w-1/6">Opções</th>
                 </tr>
             </thead>
             <tbody>
@@ -35,14 +36,18 @@
                         @endphp
 
                         <tr class="border-b-2 border-gray-100">
-                            <td>{{ $item['id'] }}</td>
                             <td>{{ $item['number'] }}</td>
+                            <td>{{ $item['id'] }}</td>
                             <td>{{ __($item['status']) }}</td>
                             <td>{{ $formattedDate }}</td>
-                            <td>{{ isset($item['customerName']) ? $item['customerName'] : 'N/A' }}</td>
-                            <td>{{ isset($item['totals']['icms']['productAmount']) ? $item['totals']['icms']['productAmount'] : 'N/A' }}
-                            </td>
-                            <td>{{ isset($item['totals']['icms']['invoiceAmount']) ? $item['totals']['icms']['invoiceAmount'] : 'N/A' }}
+                            <td>{{ isset($item['totals']['icms']['productAmount']) ? $item['totals']['icms']['productAmount'] : 'N/A' }}</td>
+                            <td>{{ isset($item['totals']['icms']['invoiceAmount']) ? $item['totals']['icms']['invoiceAmount'] : 'N/A' }}</td>
+                            <td>
+                                @foreach ($item['payment'] as $pagamento)
+                                    @foreach ($pagamento['paymentDetail'] as $detail)
+                                        {{ __($detail['method']) }} 
+                                    @endforeach
+                                @endforeach
                             </td>
                             <td>
                                 @foreach ($item['payment'] as $pagamento)
@@ -50,6 +55,11 @@
                                         {{ __($detail['method']) }} 
                                     @endforeach
                                 @endforeach
+                            </td>
+                            <td>
+                                <div class="flex items-center justify-center space-x-2 p-1">
+                                    <x-primary-button onclick="window.location.href = '{{ route('nota_fiscal.eventos', ['id' => $item['id']]) }}'" title="Venda">Eventos</x-primary-button>
+                                </div>
                             </td>
                         </tr>
                     @endforeach

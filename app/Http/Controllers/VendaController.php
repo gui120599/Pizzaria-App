@@ -317,41 +317,36 @@ class VendaController extends Controller
         ];
 
         // Envia o array para a API
-         $response = $this->enviarParaApi($nfeData);
-         //return response()->json($response);
+        $response = $this->enviarParaApi($nfeData);
+        // return response()->json($nfeData);
+        //return response()->json($response); 
 
-         // Verifica se o response contém o campo "id" (o que indica sucesso)
-         if (isset($response->id)) {
-             // Pega o campo "id" do JSON
-             $idNfe = $response->id;
+        // Verifica se o response contém o campo "id" (o que indica sucesso)
 
-             // Salva o id no campo venda_id_nfe
-             $venda->venda_id_nfe = $idNfe;
-             $venda->save();
+        // Certifique-se de que a resposta foi decodificada corretamente
+        if (is_array($response) && isset($response['id'])) {
+            // Pega o campo "id" do JSON
+            $idNfe = $response['id'];
+        
+            // Salva o id no campo venda_id_nfe
+            $venda->venda_id_nfe = $idNfe;
+            $venda->save();
+        
+            // Caso a nota autorize, ele atualiza o status
+            $response_status = $this->atualizaStatusNFE($venda);
+        
+            return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
+                ->with('success', 'NFC-E Gerada com sucesso!');
+        } else {
+            // Caso o campo "id" não esteja presente ou a resposta não seja o que se espera
+            // Verifique se há detalhes adicionais na resposta
+            $errorDetail = isset($response['error']) ? $response['error'] : 'Erro inesperado ao se comunicar com a API da NFSe.';
+        
+            return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
+                ->with('error', $errorDetail);
+        }
+        
 
-             // Caso a nota autorize, ele atualiza o status
-             $response_status = $this->atualizaStatusNFE($venda);
-
-             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
-                 ->with('success', 'NFC-E Gerada com sucesso!');
-         } else {
-             // Trata erros retornados pela API
-             if (isset($response->errors)) {
-                 $errorMessages = array_map(function ($error) {
-                     return $error->message;
-                 }, $response->errors);
-
-                 return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
-                     ->with('error', 'Erro ao gerar NFC-E: ' . implode(', ', $errorMessages));
-             }
-
-             // Caso a estrutura de erro não seja esperada
-             $errorDetail = isset($response['original']['error']) ? $response['original']['error'] : 'Erro inesperado ao se comunicar com a API da NFSe.';
-
-             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
-                 ->with('error', $errorDetail);
-         }
-        //return response()->json($nfeData);
 
     }
 
@@ -372,7 +367,7 @@ class VendaController extends Controller
                         "integrationPaymentType" => $pagamento->pg_venda_tipo_integracao ?? null
                     ]
                 ];
-                
+
             } else {
                 $pagamentoDetalhe[] = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
@@ -488,10 +483,10 @@ class VendaController extends Controller
         return [
             "freightModality" => 9,
             "transportGroup" => [
-                    "stateTaxNumber" => null,
-                    "transportRetention" => null,
-                    // Adicione os demais campos conforme necessário...
-                ],
+                "stateTaxNumber" => null,
+                "transportRetention" => null,
+                // Adicione os demais campos conforme necessário...
+            ],
             // Adicione os demais campos conforme necessário...
         ];
     }
@@ -536,16 +531,16 @@ class VendaController extends Controller
                         "totalIndicator" => (boolean) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
-                                "totalTax" => $item->item_venda_valor_total_tributos,
-                                "icms" => [
-                                        "origin" => $produto->produto_cod_origem_mercadoria,
-                                        "baseTaxModality" => "3",
-                                        "baseTax" => $item->item_venda_valor_base_calculo,
-                                        "amount" => $item->item_venda_valor_icms,
-                                        "rate" => $produto->produto_valor_percentual_icms,
-                                        "csosn" => $produto->produto_CSOSN,
-                                    ],
+                            "totalTax" => $item->item_venda_valor_total_tributos,
+                            "icms" => [
+                                "origin" => $produto->produto_cod_origem_mercadoria,
+                                "baseTaxModality" => "3",
+                                "baseTax" => $item->item_venda_valor_base_calculo,
+                                "amount" => $item->item_venda_valor_icms,
+                                "rate" => $produto->produto_valor_percentual_icms,
+                                "csosn" => $produto->produto_CSOSN,
                             ],
+                        ],
                     ];
                     break;
                 case '102':
@@ -567,14 +562,14 @@ class VendaController extends Controller
                         "totalIndicator" => (boolean) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
-                                "icms" => [
-                                    "origin" => $produto->produto_cod_origem_mercadoria,
-                                    "csosn" => $produto->produto_CSOSN,
-                                    "baseTax" => 0,
-                                    "amount" => 0,
-                                    "rate" => 0,
-                                ],
+                            "icms" => [
+                                "origin" => $produto->produto_cod_origem_mercadoria,
+                                "csosn" => $produto->produto_CSOSN,
+                                "baseTax" => 0,
+                                "amount" => 0,
+                                "rate" => 0,
                             ],
+                        ],
                     ];
                     break;
                 case '500':
@@ -596,14 +591,14 @@ class VendaController extends Controller
                         "totalIndicator" => (boolean) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
-                                "icms" => [
-                                    "origin" => $produto->produto_cod_origem_mercadoria,
-                                    "csosn" => $produto->produto_CSOSN,
-                                    "baseTax" => 0,
-                                    "amount" => 0,
-                                    "rate" => 0,
-                                ],
+                            "icms" => [
+                                "origin" => $produto->produto_cod_origem_mercadoria,
+                                "csosn" => $produto->produto_CSOSN,
+                                "baseTax" => 0,
+                                "amount" => 0,
+                                "rate" => 0,
                             ],
+                        ],
                     ];
                     break;
                 default:
@@ -625,16 +620,16 @@ class VendaController extends Controller
                         "totalIndicator" => (boolean) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
-                                "totalTax" => $item->item_venda_valor_total_tributos,
-                                "icms" => [
-                                        "origin" => $produto->produto_cod_origem_mercadoria,
-                                        "baseTaxModality" => "3",
-                                        "baseTax" => $item->item_venda_valor_base_calculo,
-                                        "amount" => $item->item_venda_valor_icms,
-                                        "rate" => $produto->produto_valor_percentual_icms,
-                                        "csosn" => $produto->produto_CSOSN,
-                                    ],
+                            "totalTax" => $item->item_venda_valor_total_tributos,
+                            "icms" => [
+                                "origin" => $produto->produto_cod_origem_mercadoria,
+                                "baseTaxModality" => "3",
+                                "baseTax" => $item->item_venda_valor_base_calculo,
+                                "amount" => $item->item_venda_valor_icms,
+                                "rate" => $produto->produto_valor_percentual_icms,
+                                "csosn" => $produto->produto_CSOSN,
                             ],
+                        ],
                     ];
                     break;
             }
@@ -664,40 +659,63 @@ class VendaController extends Controller
 
     function enviarParaApi2(array $data)
     {
+        // Inicializa o cliente HTTP do Guzzle
+        $client = new Client();
+
+        // Obtém os dados da empresa
         $empresa = Empresa::first();
         $companyId = $empresa->empresa_api_nfeio_company_id;
         $apiKey = $empresa->empresa_api_nfeio_apikey;
 
-        $url = "https://api.nfse.io/v2/companies/{$companyId}/consumerinvoices?apikey={$apiKey}";
-        // Inicializa uma sessão cURL
-        $ch = curl_init($url);
+        // URL da API
+        $url = "https://api.nfse.io/v2/companies/{$companyId}/consumerinvoices";
 
-        // Configura as opções do cURL
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Retornar resposta como string
-        curl_setopt($ch, CURLOPT_POST, true); // Definir o método HTTP como POST
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data)); // Enviar os dados como JSON
+        try {
+            // Verifique o JSON antes de enviar
+            $jsonPayload = json_encode($data, JSON_PRETTY_PRINT);
+            if ($jsonPayload === false) {
+                return response()->json(['error' => 'Erro ao gerar JSON: ' . json_last_error_msg()], 500);
+            }
 
-        // Configura os headers, incluindo Content-Type como application/json
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-            'Content-Length: ' . strlen(json_encode($data))
-        ]);
+            // Faz a requisição POST para a API
+            $response = $client->request('POST', $url, [
+                'headers' => [
+                    'accept' => 'application/json',
+                    'Authorization' => 'Bearer ' . $apiKey, // Adicione 'Bearer ' se necessário
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => $jsonPayload,
+            ]);
 
-        // Executa a requisição e obtém a resposta
-        $response = curl_exec($ch);
+            // Decodifica o corpo da resposta JSON
+            $statusCode = $response->getStatusCode();
+            $content = $response->getBody()->getContents();
 
-        // Verifica se ocorreu algum erro
-        if (curl_errno($ch)) {
-            echo 'Error:' . curl_error($ch);
+            // Verifica se a requisição foi bem-sucedida
+            if ($statusCode === 200) {
+                return json_decode($content, true);
+            }
+
+            // Retorno em caso de falha
+            return response()->json(['error' => 'Falha ao enviar dados para a API. Status Code: ' . $statusCode, 'response' => $content], $statusCode);
+
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            // Captura exceções específicas do cliente HTTP
+            $response = $e->getResponse();
+            $responseBodyAsString = $response ? $response->getBody()->getContents() : 'Sem resposta da API';
+            return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $responseBodyAsString, 'status_code' => $response ? $response->getStatusCode() : 'Desconhecido'], $response ? $response->getStatusCode() : 500);
+
+        } catch (\GuzzleHttp\Exception\ServerException $e) {
+            // Captura exceções do servidor (5xx)
+            $response = $e->getResponse();
+            $responseBodyAsString = $response ? $response->getBody()->getContents() : 'Sem resposta da API';
+            return response()->json(['error' => 'Erro no servidor da API: ' . $responseBodyAsString, 'status_code' => $response ? $response->getStatusCode() : 'Desconhecido'], $response ? $response->getStatusCode() : 500);
+
+        } catch (\Exception $e) {
+            // Tratamento de exceção geral
+            return response()->json(['error' => 'Erro inesperado: ' . $e->getMessage()], 500);
         }
-
-        // Fecha a sessão cURL
-        curl_close($ch);
-
-        // Retorna a resposta
-        return json_decode($response);
     }
-
 
     function enviarParaApi(array $data)
     {

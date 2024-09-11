@@ -1,220 +1,233 @@
 <section>
-    <form id="formPedido" action="{{ route('pedido.salvar_pedido', 1) }}" method="post" class="space-y-6 mt-2 "
+    <form id="formPedido" action="{{ route('pedido.salvar_pedido', 1) }}" method="post" class="space-y-6 mt-2"
         enctype="multipart/form-data">
+        <div class="md:h-[89vh] 2xl:h-[91vh] bg-white shadow-sm rounded-lg flex">
+            <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
+                <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
+                {{-- PRODUTOS --}}
+                <div class="w-full sm:col-span-4 lg:col-span-3 col-span-6">
+                    
+                    <div class="space-y-2">
+                        <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
+                            <i class='bx bxs-map-pin'></i>
+                            <span>{{ __('Produtos') }}</span>
+                        </p>
 
-        <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
-            <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
-            {{-- PRODUTOS --}}
-            <div
-                class="h-[80vh] sm:h-[50dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 ">
-                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class='bx bxs-map-pin'></i>
-                    <span>{{ __('Produtos') }}</span>
-                </p>
-                <div class="flex flex-col mb-4">
-                    <x-text-input id="buscar" class="" placeholder="Buscar Produtos"></x-text-input>
-                    <div class="hidden md:flex gap-2 overflow-auto p-1">
-                        @foreach ($categorias as $categoria)
-                            <button type="button"
-                                class="inline-flex items-center bg-gray-200 border p-1 border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
-                                onclick="scrollToElement('categoria_{{ $categoria->id }}')">
-                                {{ $categoria->categoria_nome }}
-                            </button>
-                        @endforeach
+                        <div class="flex flex-col mb-4">
+                            <x-text-input id="buscar" class="" placeholder="Buscar Produtos"></x-text-input>
+                            <div class="hidden md:flex gap-2 overflow-auto p-1">
+                                @foreach ($categorias as $categoria)
+                                    <button type="button"
+                                        class="inline-flex items-center bg-gray-200 border p-1 border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
+                                        onclick="scrollToElement('categoria_{{ $categoria->id }}')">
+                                        {{ $categoria->categoria_nome }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="h-[86%] md:h-[72%] lg:h-[76%] xl:h-[83%] 2xl:h-[87%] overflow-auto snap-y">
-                    @foreach ($categorias as $categoria)
-                        <div class="mb-4" id="categoria_{{ $categoria->id }}">
-                            <h2 class="text-gray-700 text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
-                            @if ($categoria->produtos->isEmpty())
-                                <p class=" text-xs md:text-lg text-gray-400">Não há produtos disponíveis nesta
-                                    categoria.</p>
-                            @else
-                                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ">
-                                    @foreach ($categoria->produtos as $produto)
-                                        <div class="relative snap-end ">
-                                            <div class="produto cursor-pointer hover:shadow-lg"
-                                                data-produto_id="{{ $produto->id }}"
-                                                data-produto_valor="{{ $produto->produto_preco_venda }}">
-                                                <div
-                                                    class="w-full flex flex-col sm:flex-row bg-gray-100 p-2 rounded-lg md:flex-col opacity-95 hover:opacity-100 gap-1">
-                                                    <div class="w-full ">
-                                                        @if ($produto->produto_foto)
-                                                            <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
-                                                                alt="{{ $produto->produtso_descricao }}"
-                                                                class="w-full max-h-12 object-cover rounded-lg ">
-                                                        @else
-                                                            <img id="imagem-preview"
-                                                                class="w-full max-h-12 object-cover rounded-lg "
-                                                                src="{{ asset('Sem Imagem.png') }}"
-                                                                alt="Imagem Padrão">
-                                                        @endif
-                                                    </div>
-                                                    <div class="flex max-h-16 flex-col justify-between">
-                                                        <p
-                                                            class="text-gray-900 font-bold text-xs uppercase produto_descricao">
-                                                            {{ $produto->produto_descricao }}
-                                                        </p>
-                                                        <span class="text-green-500 text-xs">
-                                                            R$
-                                                            {{ str_replace('.', ',', $produto->produto_preco_venda) }}
-                                                        </span>
+
+                    <div class=" md:h-[70vh] 2xl:h-[76vh] overflow-auto snap-y">
+                        @foreach ($categorias as $categoria)
+                            <div class="mb-4" id="categoria_{{ $categoria->id }}">
+                                <h2 class="text-white text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
+                                @if ($categoria->produtos->isEmpty())
+                                    <p class="text-gray-400">Não há produtos disponíveis nesta categoria.</p>
+                                @else
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-5 gap-4 ">
+                                        @foreach ($categoria->produtos as $produto)
+                                            <div class="relative snap-end ">
+                                                <div class="produto cursor-pointer hover:shadow-lg"
+                                                    data-produto_id="{{ $produto->id }}"
+                                                    data-produto_valor="{{ $produto->produto_preco_venda }}">
+                                                    <div
+                                                        class="w-full bg-gray-100 p-1 rounded-lg flex items-start justify-between opacity-95 hover:opacity-100 gap-1">
+                                                        <div class="w-2/5">
+                                                            @if ($produto->produto_foto)
+                                                                <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
+                                                                    alt="{{ $produto->produtso_descricao }}"
+                                                                    class="h-14 object-cover rounded-lg ">
+                                                            @else
+                                                                <img id="imagem-preview"
+                                                                    class="h-14 object-cover rounded-lg "
+                                                                    src="{{ asset('Sem Imagem.png') }}"
+                                                                    alt="Imagem Padrão">
+                                                            @endif
+                                                        </div>
+                                                        <div class="w-3/5 flex flex-col justify-center">
+                                                            <h2 class="text-gray-900 text-[8px] uppercase">
+                                                                @if (isset($produto->produto_referencia) && $produto->produto_referencia !== null)
+                                                                    {{ $produto->produto_descricao }} - <span>Ref.
+                                                                        {{ $produto->produto_referencia }}</span>
+                                                                @else
+                                                                    {{ $produto->produto_descricao }}
+                                                                @endif
+                                                            </h2>
+                                                            <div class="flex items-center">
+                                                                <span
+                                                                    class="text-gray-900 text-sm font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-                <script>
-                    function scrollToElement(elementId) {
-                        var element = document.getElementById(elementId);
-
-                        if (element) {
-                            element.scrollIntoView({
-                                behavior: 'smooth',
-                                block: 'start',
-                            });
-                        }
-                    }
-                </script>
-                <x-primary-button class="hidden lg:block w-full">
-                    {{ __('Finalizar Pedido') }}
-                </x-primary-button>
-            </div>
-
-            <div
-                class="relative sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
-                {{-- GARÇOM ID --}}
-                <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" type="text"
-                    class="mt-1 w-full" value="{{ Auth::user()->id }}" autocomplete="off" hidden />
-                {{-- CLIENTE ID --}}
-                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class='bx bx-user'></i>
-                    <span>{{ __('Cliente') }}</span>
-                </p>
-                <x-text-input id="pedido_cliente_id" name="pedido_cliente_id" type="text" class="mt-1 w-full"
-                    autocomplete="off" hidden />
-                <x-text-input id="pedido_cliente_nome" name="pedido_cliente_nome" type="text" class="mt-1 w-full"
-                    autocomplete="off" placeholder="Nome do Cliente" />
-                <x-input-error :messages="$errors->updatePassword->get('pedido_cliente_id')" class="mt-2" />
-                <div id="lista_clientes"
-                    class="absolute w-full bg-white rounded-lg px-2 py-3 shadow-lg shadow-green-400/10 hidden overflow-auto max-h-96 md:max-h-80 lg:max-h-72 border">
-                    @foreach ($clientes as $cliente)
-                        <div id="linha_cliente"
-                            class="border-b-2 hover:bg-teal-700 hover:text-white rounded-lg p-2 cursor-pointer transition duration-150 ease-in-out"
-                            onclick="selecionarCliente({{ $cliente->id }},'{{ $cliente->cliente_nome }}')">
-                            {{ $cliente->id }} - {{ $cliente->cliente_nome }}
-                        </div>
-                    @endforeach
-                </div>
-                {{-- TIPO DE ENTREGA --}}
-                <hr class="h-px my-1 border-0 bg-gray-200">
-                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class='bx bxs-map-pin'></i>
-                    <span>{{ __('Entrega') }}</span>
-                </p>
-                <div class="flex flex-nowrap flex-col xl:flex-row items-start justify-between space-y-2 md:space-y-0">
-
-                    @foreach ($opcoes_entregas as $opcao_entrega)
-                        <label for="opcao_entrega_{{ $opcao_entrega->id }}" class="flex items-center cursor-pointer">
-                            <input type="radio" id="opcao_entrega_{{ $opcao_entrega->id }}"
-                                name="pedido_opcaoentrega_id" value="{{ $opcao_entrega->id }}"
-                                class="form-radio text-green-500 h-5 w-5 cursor-pointer">
-                            <span class="ml-2 text-gray-700">{{ $opcao_entrega->opcaoentrega_nome }}</span>
-                        </label>
-                    @endforeach
-                </div>
-                {{-- ENDERECO ENTREGA --}}
-                <div class="md:col-span-3 col-span-1" id="endereco_entrega">
-                    <x-input-label for="pedido_endereco_entrega" :value="__('Endereço para Entrega')" />
-                    <x-text-input id="pedido_endereco_entrega" name="pedido_endereco_entrega" type="text"
-                        class="mt-1 w-full" autocomplete="off" />
-                </div>
-                {{-- TIPO DE pagamento --}}
-                <hr class="h-px my-1 border-0 bg-gray-200">
-                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class="bx bxs-credit-card"></i>
-                    <span>{{ __('Pagamento') }}</span>
-                </p>
-                <div class="grid grid-cols-1 xl:grid-cols-3 space-y-1" id="tipo_pagamento">
-                    @foreach ($opcoes_pagamento as $opcao_pagamento)
-                        <label for="opcao_pag_{{ $opcao_pagamento->id }}"
-                            class="col-span-1 flex items-center cursor-pointer">
-                            <input type="checkbox" id="opcao_pag_{{ $opcao_pagamento->id }}" name="tipo_pagamento"
-                                value="{{ $opcao_pagamento->id }}"
-                                class="form-checkbox text-green-500 h-5 w-5 cursor-pointer">
-                            <span class="ml-2 text-gray-700">{{ $opcao_pagamento->opcaopag_nome }}</span>
-                        </label>
-                    @endforeach
-                </div>
-                {{-- Observações do pagamento --}}
-                <x-input-label for="pedido_observacao_pagamento" :value="__('Observações no Pagamento')" />
-                <x-text-input id="pedido_observacao_pagamento" name="pedido_observacao_pagamento" type="text"
-                    class="mt-1 w-full" autocomplete="off" />
-                <x-text-input id="pedido_descricao_pagamento" name="pedido_descricao_pagamento" type="text"
-                    class="mt-1 w-full" autocomplete="off" hidden />
-            </div>
-
-            <div class="sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border">
-                <div class="bg-white p-1">
-                    <p>Itens do Pedido</p>
-                </div>
-                <div class="relative h-[80dvh] md:h-[64dvh] lg:h-[57dvh] xl:h-[63dvh] 2xl:h-[69dvh] overflow-auto">
-                    <!-- Ícone de carregamento e mensagem -->
-                    <div id="carregando"
-                        class="hidden absolute inset-0 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
-                        <div class="text-center">
-                            <i class='bx bx-loader-circle bx-spin bx-rotate-90 text-5xl'></i>
-                            <p>Carregando Produtos</p>
-                        </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
                     </div>
 
-                    <div id="itens_pedido_container" class="">
-
-
-                        <!-- Conteúdo -->
-                        <p class="p-2 text-center">Nenhum produto lançado no pedido!</p>
+                    <div class="">
+                        <x-primary-button class="hidden lg:block w-full">
+                            {{ __('Finalizar Pedido') }}
+                        </x-primary-button>
                     </div>
+                    
                 </div>
-                {{-- Valores --}}
-                <div class="bg-white p-1">
+
+                <div
+                    class="relative sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
+                    {{-- GARÇOM ID --}}
+                    <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" type="text"
+                        class="mt-1 w-full" value="{{ Auth::user()->id }}" autocomplete="off" hidden />
+                    {{-- CLIENTE ID --}}
                     <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                        <i class='bx bx-dollar-circle'></i>
-                        <span>{{ __('Valores') }}</span>
+                        <i class='bx bx-user'></i>
+                        <span>{{ __('Cliente') }}</span>
                     </p>
-                    <div class="grid grid-cols-1 md:grid-cols-3 lg:space-x-2">
-                        <div class="col-span-1">
-                            <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
-                            <x-money-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
-                                class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                    <x-text-input id="pedido_cliente_id" name="pedido_cliente_id" type="text" class="mt-1 w-full"
+                        autocomplete="off" hidden />
+                    <x-text-input id="pedido_cliente_nome" name="pedido_cliente_nome" type="text" class="mt-1 w-full"
+                        autocomplete="off" placeholder="Nome do Cliente" />
+                    <x-input-error :messages="$errors->updatePassword->get('pedido_cliente_id')" class="mt-2" />
+                    <div id="lista_clientes"
+                        class="absolute w-full bg-white rounded-lg px-2 py-3 shadow-lg shadow-green-400/10 hidden overflow-auto max-h-96 md:max-h-80 lg:max-h-72 border">
+                        @foreach ($clientes as $cliente)
+                            <div id="linha_cliente"
+                                class="border-b-2 hover:bg-teal-700 hover:text-white rounded-lg p-2 cursor-pointer transition duration-150 ease-in-out"
+                                onclick="selecionarCliente({{ $cliente->id }},'{{ $cliente->cliente_nome }}')">
+                                {{ $cliente->id }} - {{ $cliente->cliente_nome }}
+                            </div>
+                        @endforeach
+                    </div>
+                    {{-- TIPO DE ENTREGA --}}
+                    <hr class="h-px my-1 border-0 bg-gray-200">
+                    <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
+                        <i class='bx bxs-map-pin'></i>
+                        <span>{{ __('Entrega') }}</span>
+                    </p>
+                    <div
+                        class="flex flex-nowrap flex-col xl:flex-row items-start justify-between space-y-2 md:space-y-0">
+
+                        @foreach ($opcoes_entregas as $opcao_entrega)
+                            <label for="opcao_entrega_{{ $opcao_entrega->id }}"
+                                class="flex items-center cursor-pointer">
+                                <input type="radio" id="opcao_entrega_{{ $opcao_entrega->id }}"
+                                    name="pedido_opcaoentrega_id" value="{{ $opcao_entrega->id }}"
+                                    class="form-radio text-green-500 h-5 w-5 cursor-pointer">
+                                <span class="ml-2 text-gray-700">{{ $opcao_entrega->opcaoentrega_nome }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                    {{-- ENDERECO ENTREGA --}}
+                    <div class="md:col-span-3 col-span-1" id="endereco_entrega">
+                        <x-input-label for="pedido_endereco_entrega" :value="__('Endereço para Entrega')" />
+                        <x-text-input id="pedido_endereco_entrega" name="pedido_endereco_entrega" type="text"
+                            class="mt-1 w-full" autocomplete="off" />
+                    </div>
+                    {{-- TIPO DE pagamento --}}
+                    <hr class="h-px my-1 border-0 bg-gray-200">
+                    <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
+                        <i class="bx bxs-credit-card"></i>
+                        <span>{{ __('Pagamento') }}</span>
+                    </p>
+                    <div class="grid grid-cols-1 xl:grid-cols-3 space-y-1" id="tipo_pagamento">
+                        @foreach ($opcoes_pagamento as $opcao_pagamento)
+                            <label for="opcao_pag_{{ $opcao_pagamento->id }}"
+                                class="col-span-1 flex items-center cursor-pointer">
+                                <input type="checkbox" id="opcao_pag_{{ $opcao_pagamento->id }}" name="tipo_pagamento"
+                                    value="{{ $opcao_pagamento->id }}"
+                                    class="form-checkbox text-green-500 h-5 w-5 cursor-pointer">
+                                <span class="ml-2 text-gray-700">{{ $opcao_pagamento->opcaopag_nome }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                    {{-- Observações do pagamento --}}
+                    <x-input-label for="pedido_observacao_pagamento" :value="__('Observações no Pagamento')" />
+                    <x-text-input id="pedido_observacao_pagamento" name="pedido_observacao_pagamento" type="text"
+                        class="mt-1 w-full" autocomplete="off" />
+                    <x-text-input id="pedido_descricao_pagamento" name="pedido_descricao_pagamento" type="text"
+                        class="mt-1 w-full" autocomplete="off" hidden />
+                </div>
+
+                <div class="sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border">
+                    <div class="bg-white p-1">
+                        <p>Itens do Pedido</p>
+                    </div>
+                    <div class="relative md:h-[72vh] 2xl:h-[77vh] overflow-auto">
+                        <!-- Ícone de carregamento e mensagem -->
+                        <div id="carregando"
+                            class="hidden absolute inset-0 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
+                            <div class="text-center">
+                                <i class='bx bx-loader-circle bx-spin bx-rotate-90 text-5xl'></i>
+                                <p>Carregando Produtos</p>
+                            </div>
                         </div>
-                        <div class="col-span-1">
-                            <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
-                            <x-money-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
-                                class="money mt-1 w-full" autocomplete="off" value="0.00" readonly />
+
+                        <div id="itens_pedido_container" class="">
+
+
+                            <!-- Conteúdo -->
+                            <p class="p-2 text-center">Nenhum produto lançado no pedido!</p>
                         </div>
-                        <div class="col-span-1">
-                            <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
-                            <x-money-input id="pedido_valor_total" name="pedido_valor_total" type="text"
-                                class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                    </div>
+                    {{-- Valores --}}
+                    <div class="bg-white p-1">
+                        <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
+                            <i class='bx bx-dollar-circle'></i>
+                            <span>{{ __('Valores') }}</span>
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 lg:space-x-2">
+                            <div class="col-span-1">
+                                <x-input-label for="pedido_valor_itens" :value="__('Itens R$')" />
+                                <x-money-input id="pedido_valor_itens" name="pedido_valor_itens" type="text"
+                                    class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                            </div>
+                            <div class="col-span-1">
+                                <x-input-label for="pedido_valor_desconto" :value="__('Desconto R$')" />
+                                <x-money-input id="pedido_valor_desconto" name="pedido_valor_desconto" type="text"
+                                    class="money mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                            </div>
+                            <div class="col-span-1">
+                                <x-input-label for="pedido_valor_total" :value="__('Total R$')" />
+                                <x-money-input id="pedido_valor_total" name="pedido_valor_total" type="text"
+                                    class="mt-1 w-full" autocomplete="off" value="0.00" readonly />
+                            </div>
                         </div>
                     </div>
                 </div>
+                @csrf
+                <div class="block lg:hidden col-span-6 ">
+                    <x-primary-button class="w-full text-center">
+                        {{ __('Finalizar Pedido') }}
+                    </x-primary-button>
+                </div>
             </div>
-            @csrf
-            <div class="block lg:hidden col-span-6 ">
-                <x-primary-button class="w-full text-center">
-                    {{ __('Finalizar Pedido') }}
-                </x-primary-button>
-            </div>
-
+        </div>
     </form>
     <script>
+        function scrollToElement(elementId) {
+            var element = document.getElementById(elementId);
+
+            if (element) {
+                element.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                });
+            }
+        }
+
         function selecionarCliente(id, nome) {
             document.getElementById("pedido_cliente_id").value = id;
             document.getElementById("pedido_cliente_nome").value = nome;
@@ -436,7 +449,7 @@
             const item_pedido_quantidade = 1;
             const item_pedido_valor = elemento.data('produto_valor');
             const item_pedido_status = 'INSERIDO';
-            
+
             $.ajax({
                 type: "POST",
                 url: "{{ route('item_pedido.store') }}",
@@ -803,7 +816,7 @@
 
                         // Obter o valor total dos itens
                         const valorTotalItem = parseFloat($("#item_pedido_valor_unitario_" + id)
-                        .val()) * parseFloat($("#item_pedido_quantidade_" + id).val());
+                            .val()) * parseFloat($("#item_pedido_quantidade_" + id).val());
 
                         // Calcular o novo valor total subtraindo o desconto
                         const novoValorTotal = valorTotalItem - item_desconto;

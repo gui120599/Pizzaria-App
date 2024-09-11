@@ -1,0 +1,5 @@
+RewriteEngine on
+RewriteCond %{HTTP_HOST} ^192.168.1.10/Pizzaria-App$ [NC,OR]
+RewriteCond %{HTTP_HOST} ^www.192.168.1.10/Pizzaria-App$
+RewriteCond %{REQUEST_URI} !public/
+RewriteRule (.*) /public/$1 [L]

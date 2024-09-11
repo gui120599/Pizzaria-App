@@ -60,7 +60,7 @@ class NotaFiscalController extends Controller
             // Verifica se a requisição foi bem-sucedida
             if ($response->getStatusCode() === 200) {
                 // Retorna o conteúdo do PDF (ou salva, dependendo da sua necessidade)
-                return view('app.nota_fiscal.index', ['data' => $data['consumerInvoices'],'dataError' => $data2['consumerInvoices']]);
+                return view('app.nota_fiscal.index', ['data' => $data['consumerInvoices'], 'dataError' => $data2['consumerInvoices']]);
                 //dd($data);
             }
 
@@ -96,9 +96,57 @@ class NotaFiscalController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(NotaFiscal $notaFiscal)
+    public function Eventos($idInvoice)
     {
-        //
+        // Inicializa o cliente HTTP do Guzzle
+        $client = new Client();
+
+        $empresa = Empresa::first();
+        $companyId = $empresa->empresa_api_nfeio_company_id;
+        $apiKey = $empresa->empresa_api_nfeio_apikey;
+
+        // URL da API com os parâmetros dinamicamente inseridos
+        $url = "https://api.nfse.io/v2/companies/{$companyId}/consumerinvoices/{$idInvoice}/events";
+
+        try {
+            // Faz a requisição GET para a API
+            $response = $client->request('GET', $url, [
+                'headers' => [
+                    'accept' => 'application/json',
+                    'Authorization' => $apiKey,
+                ],
+            ]);
+
+           
+
+            // Decodifica o corpo da resposta JSON
+            $body = $response->getBody();
+            $statusCode = $response->getStatusCode();
+            $content = $body->getContents();
+           
+
+            // Decodifica a string JSON dentro do campo "content"
+            $data = json_decode($content, true);
+          
+
+            // Verifica se a requisição foi bem-sucedida
+            if ($response->getStatusCode() === 200) {
+                // Retorna o conteúdo do PDF (ou salva, dependendo da sua necessidade)
+                return view('app.nota_fiscal.events', ['data' => $data['events']]);
+                //dd($data['events']);
+            }
+
+
+
+            // Retorno em caso de falha
+            return response()->json(['error' => 'Falha ao listar Notas Fiscais!'], $response->getStatusCode());
+        } catch (\Exception $e) {
+            // Tratamento de exceção caso algo dê errado
+            //return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $e->getMessage()], 500);
+            return view('app.nota_fiscal.index')->with('error', 'Erro ao se comunicar com Api');
+        }
+
+
     }
 
     /**

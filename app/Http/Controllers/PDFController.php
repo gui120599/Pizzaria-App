@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ItensPedido;
+use App\Models\PagamentosVenda;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
+use App\Models\Venda;
 use Illuminate\Http\Request;
 use PDF;
 
@@ -37,6 +39,22 @@ class PDFController extends Controller
             'sessao_mesa' => $sessaoMesa,
             'itens_inserido_pedido' => $itensInseridoPedido,
             'pedidos' => $pedidos
+        ]);
+    }
+    public function sessaoCaixaPDF(Request $request)
+    {
+        $sessaoCaixaId = $request->id;
+        $sessaoCaixa= SessaoMesa::find($sessaoCaixaId);
+
+        $vendas = Venda::where('venda_sessaocaixa_id',$sessaoCaixaId)->where('venda_status','FINALIZADA')->get();
+        $pagamentos = PagamentosVenda::whereHas('vendas', function ($query) use ($sessaoCaixaId){
+            $query->where('venda_sessaocaixa_id', $sessaoCaixaId);
+        });
+
+        return view('sessaoCaixaPDF', [
+            'sessao_caixa' => $sessaoCaixa,
+            'vendas' => $vendas,
+            'pagamentos' => $pagamentos
         ]);
     }
 

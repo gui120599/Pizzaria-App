@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('cliente_celular')->nullable();
             $table->string('cliente_email')->nullable();
             $table->string('cliente_endereco')->nullable();
+            $table->string('cliente_numero_endereco')->nullable();
             $table->string('cliente_bairro')->nullable();
             $table->string('cliente_cidade')->nullable();
             $table->string('cliente_estado')->nullable();

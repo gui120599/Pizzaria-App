@@ -14,36 +14,36 @@
     <!--<div class="p2.5 mt-3 flex items-center rounded-md px-4 durations-300 cursor-pointer bg-gray-700">
         <i class='bx bx-search text-sm'></i>
         <input type="text" placeholder="Buscar"
-            class="text-[15px] ml-4 w-full bg-transparent border-none focus:border-transparent focus:ring-0">
+            class="text-[12px] ml-4 w-full bg-transparent border-none focus:border-transparent focus:ring-0">
     </div>-->
     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-        <i class='bx bxs-dashboard'></i>
-        <span class="text-[15px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
+        <i class='text-[13px] bx bxs-dashboard'></i>
+        <span class="text-[12px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
     </x-nav-link>
     <x-nav-link :href="route('venda')" :active="request()->routeIs('venda')">
-        <i class='bx bx-money-withdraw'></i>
-        <span class="text-[15px] ml-4 text-gray-200">{{ __('Venda') }}</span>
+        <i class='text-[13px] bx bx-money-withdraw'></i>
+        <span class="text-[12px] ml-4 text-gray-200">{{ __('Venda') }}</span>
     </x-nav-link>
     <x-nav-link :href="route('pedido')" :active="request()->routeIs('pedido')">
-        <i class="bx bx-basket"></i>
-        <span class="text-[15px] ml-4 text-gray-200">{{ __('Pedidos') }}</span>
+        <i class="text-[13px] bx bx-basket"></i>
+        <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos') }}</span>
     </x-nav-link>
     <x-nav-link :href="route('pedidos.abertos')" :active="request()->routeIs('pedidos.abertos')">
-        <i class='bx bx-receipt'></i>
-        <span class="text-[15px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
+        <i class='text-[13px] bx bx-receipt'></i>
+        <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
     </x-nav-link>
     <x-nav-link :href="route('produto')" :active="request()->routeIs('produto')">
-        <i class='bx bxs-pizza'></i>
-        <span class="text-[15px] ml-4 text-gray-200">{{ __('Produtos') }}</span>
+        <i class='text-[13px] bx bxs-pizza'></i>
+        <span class="text-[12px] ml-4 text-gray-200">{{ __('Produtos') }}</span>
     </x-nav-link>
     <x-nav-link :href="route('cliente')" :active="request()->routeIs('cliente')">
-        <i class='bx bx-user'></i>
-        <span class="text-[15px] ml-4 text-gray-200">{{ __('Clientes') }}</span>
+        <i class='text-[13px] bx bx-user'></i>
+        <span class="text-[12px] ml-4 text-gray-200">{{ __('Clientes') }}</span>
     </x-nav-link>
     @can('Admin')
         <x-nav-link :href="route('categoria')" :active="request()->routeIs('categoria')">
-            <i class='bx bx-user-pin'></i>
-            <span class="text-[15px] ml-4 text-gray-200">{{ __('Usuários') }}</span>
+            <i class='text-[13px] bx bx-user-pin'></i>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Usuários') }}</span>
         </x-nav-link>
     @endcan
     <hr class="h-px my-2 border-0 dark:bg-gray-700">
@@ -53,7 +53,7 @@
         onclick="dropdown('finan')">
         <i class='bx bx-money-withdraw'></i>
         <div class="flex justify-between w-full items-center">
-            <span class="text-[15px] ml-4 text-gray-200">Financeiro</span>
+            <span class="text-[12px] ml-4 text-gray-200">Financeiro</span>
             <span class="transition-transform" id="arrow-finan">
                 <i class='bx bx-chevron-up '></i>
             </span>
@@ -62,11 +62,19 @@
     <div class="pl-4 text-sm font-thin mt-2 w-4/5 mx-auto transition duration-700 ease-in-out" id="submenu-finan">
         <x-nav-link :href="route('caixa')" :active="request()->routeIs('caixa')">
             <i class='bx bx-dollar'></i>
-            <span class="text-[15px] ml-4 text-gray-200">{{ __('Caixa') }}</span>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Caixa') }}</span>
         </x-nav-link>
         <x-nav-link :href="route('sessao_caixa')" :active="request()->routeIs('sessao_caixa')">
             <i class='bx bx-money'></i>
-            <span class="text-[15px] ml-4 text-gray-200">{{ __('Sessões de Caixa') }}</span>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Sessões de Caixa') }}</span>
+        </x-nav-link>
+        <x-nav-link :href="route('nota_fiscal')" :active="request()->routeIs('nota_fiscal')">
+            <i class='bx bx-note'></i>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Notas Fiscais') }}</span>
+        </x-nav-link>
+        <x-nav-link :href="route('opcoes_pagamento')" :active="request()->routeIs('opcoes_pagamento')">
+            <i class='bx bxs-credit-card' ></i>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Opções de Pagamentos') }}</span>
         </x-nav-link>
     </div>
     <hr class="h-px my-2 border-0 dark:bg-gray-700">
@@ -76,7 +84,7 @@
         onclick="dropdown('config')">
         <i class='bx bxs-cog'></i>
         <div class="flex justify-between w-full items-center">
-            <span class="text-[15px] ml-4 text-gray-200">Configurações Gerais</span>
+            <span class="text-[12px] ml-4 text-gray-200">Configurações Gerais</span>
             <span class="transition-transform" id="arrow-config">
                 <i class='bx bx-chevron-up '></i>
             </span>
@@ -85,23 +93,19 @@
     <div class="text-sm font-thin mt-2 w-4/5 mx-auto transition duration-700 ease-in-out" id="submenu-config">
         <x-nav-link :href="route('empresa')" :active="request()->routeIs('empres')">
             <i class='bx bx-building-house'></i>
-            <span class="text-[15px] ml-4 text-gray-200">{{ __('Empresa') }}</span>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Empresa') }}</span>
         </x-nav-link>
         <x-nav-link :href="route('categoria')" :active="request()->routeIs('categoria')">
             <i class='bx bx-category-alt'></i>
-            <span class="text-[15px] ml-4 text-gray-200">{{ __('Categorias') }}</span>
-        </x-nav-link>
-        <x-nav-link :href="route('opcoes_pagamento')" :active="request()->routeIs('opcoes_pagamento')">
-            <i class='bx bxs-credit-card' ></i>
-            <span class="text-[15px] ml-4 text-gray-200">{{ __('Opções de Pagamentos') }}</span>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Categorias') }}</span>
         </x-nav-link>
         <x-nav-link :href="route('opcoes_entregas')" :active="request()->routeIs('opcoes_entregas')">
             <i class='bx bx-package'></i>
-            <span class="text-[15px] ml-4 text-gray-200">{{ __('Opções de Entrega') }}</span>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Opções de Entrega') }}</span>
         </x-nav-link>
         <x-nav-link :href="route('mesa')" :active="request()->routeIs('mesa.index')">
             <i class='bx bx-chair'></i>
-            <span class="text-[15px] ml-4 text-gray-200">{{ __('Mesas') }}</span>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Mesas') }}</span>
         </x-nav-link>
     </div>
     <hr class="h-px my-2 border-0 dark:bg-gray-700">

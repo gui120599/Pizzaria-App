@@ -6,7 +6,7 @@
         </h2>
         <nav class="bg-transparent border-b border-gray-100">
             <!-- Primary Navigation Menu -->
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="w-full mx-auto sm:px-6 lg:px-2">
                 <div class="flex justify-center h-8">
                     <!-- Navigation Links -->
                     <div class="space-x-8 sm:ms-10 flex ">
@@ -41,7 +41,7 @@
     </x-slot>
 
     <div class="py-2">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 ">
+        <div class="w-full mx-auto sm:px-6 lg:px-2">
             <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg cadastrar-produto-section">
                 <div class="w-full">
                     @include('app.produto.partials.create')
@@ -75,7 +75,7 @@
             var targetSection = $(this).data('section');
             
             // Oculta todas as seções e mostra apenas a correspondente
-            $('.max-w-7xl .bg-white').hide();
+            $('.w-full .bg-white').hide();
             $('.' + targetSection).show();
 
             // Destaca visualmente o link ativo

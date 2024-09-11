@@ -60,6 +60,23 @@ class SessaoCaixaController extends Controller
     }
 
     /**
+     * Store a newly created resource in storage.
+     */
+    public function finalizar(SessaoCaixa $sessaoCaixa)
+    {
+        if ($sessaoCaixa) {
+            $sessaoCaixa->update([
+                'sessaocaixa_status' => 'FECHADA',
+                'sessaocaixa_data_hora_fechamento' => Carbon::now(),
+            ]);
+            return redirect()->route('sessao_caixa')->with('success', 'Sessão Finalizada com sucesso!');
+        }
+
+
+        return redirect()->route('sessao_caixa')->with('error', 'Sessão Caixa não encontrada!');
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(SessaoCaixa $sessaoCaixa)

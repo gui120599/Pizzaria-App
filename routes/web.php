@@ -102,7 +102,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/SessaoCaixa', [SessaoCaixaController::class, 'index'])->name('sessao_caixa');
     Route::get('/SessaoCaixas-Inativas', [SessaoCaixaController::class, 'inactive'])->name('sessao_caixa.inactive');
     Route::post('/SessaoCaixa', [SessaoCaixaController::class, 'store'])->name('sessao_caixa.store');
-    Route::get('/SessaoCaixa/{sessao_caixa}', [SessaoCaixaController::class, 'show'])->name('sessao_caixa.show');
+    Route::get('/SessaoCaixa/{sessao_caixa}/Finalizar', [SessaoCaixaController::class, 'finalizar'])->name('sessao_caixa.finalizar');
+    Route::get('/SessaoCaixa/{sessao_caixa}', [SessaoCaixaController::class, 'show'])->name('sessao_caixa.imprimir');
     Route::get('/SessaoCaixa/{sessao_caixa}/Editar', [SessaoCaixaController::class, 'edit'])->name('sessao_caixa.edit');
     Route::patch('/SessaoCaixa/{sessao_caixa}', [SessaoCaixaController::class, 'update'])->name('sessao_caixa.update');
     Route::get('/Ativar-SessaoCaixa/{id}', [SessaoCaixaController::class, 'active'])->name('sessao_caixa.active');
@@ -205,6 +206,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/ItemVenda2', [ItensVendaController::class, 'listarItensVenda'])->name('item_venda.listar');
 
     Route::get('/Nota-Fiscal', [NotaFiscalController::class, 'index'])->name('nota_fiscal');
+    Route::get('/Nota-Fiscal/{id}/Eventos', [NotaFiscalController::class, 'Eventos'])->name('nota_fiscal.eventos');
 
     Route::post('/render-toast', function () {
         return response()->json([
