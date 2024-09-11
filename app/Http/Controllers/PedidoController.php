@@ -171,6 +171,16 @@ class PedidoController extends Controller
         ]);
         return response()->json(['message' => 'Pedido aceito!'], 200);
     }
+    public function RejeitarPedido(Request $request){
+        
+        $pedido_id = $request->id;
+        $pedido = Pedido::find($pedido_id);
+        $pedido->update([
+            'pedido_status' => "CANCELADO",
+            'pedido_datahora_cancelado' => Carbon::now()
+        ]);
+        return response()->json(['message' => 'Pedido Cancelado!'], 200);
+    }
 
     
     public function AvancarPedidoPronto(Request $request){

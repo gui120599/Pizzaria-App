@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Empresa;
+use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\Venda;
 use App\Http\Requests\StoreVendaRequest;
 use App\Http\Requests\UpdateVendaRequest;
@@ -170,6 +171,18 @@ class VendaController extends Controller
                 'venda_datahora_finalizada' => Carbon::now()
             ]);
             if ($sessaoCaixa) {
+
+                $dataMov = [
+                    'mov_sessaocaixa_id' => $sessaoCaixa->id,
+                    'mov_venda_id' => $venda->id,
+                    'mov_descricao' => 'VENDA: ' . $venda->id,
+                    'mov_tipo' => 'ENTRADA',
+                    'mov_valor' => $request->input('venda_valor_total'),
+                ];
+
+                // Criar uma nova instância de MovimentacoesSessaoCaixa e salvar os dados
+                MovimentacoesSessaoCaixa::create($dataMov);
+
                 $novoSaldoFinal = $sessaoCaixa->sessaocaixa_saldo_final + $request->input('venda_valor_total');
                 $sessaoCaixa->update([
                     'sessaocaixa_saldo_final' => $novoSaldoFinal,
@@ -327,25 +340,25 @@ class VendaController extends Controller
         if (is_array($response) && isset($response['id'])) {
             // Pega o campo "id" do JSON
             $idNfe = $response['id'];
-        
+
             // Salva o id no campo venda_id_nfe
             $venda->venda_id_nfe = $idNfe;
             $venda->save();
-        
+
             // Caso a nota autorize, ele atualiza o status
             $response_status = $this->atualizaStatusNFE($venda);
-        
+
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
                 ->with('success', 'NFC-E Gerada com sucesso!');
         } else {
             // Caso o campo "id" não esteja presente ou a resposta não seja o que se espera
             // Verifique se há detalhes adicionais na resposta
             $errorDetail = isset($response['error']) ? $response['error'] : 'Erro inesperado ao se comunicar com a API da NFSe.';
-        
+
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
                 ->with('error', $errorDetail);
         }
-        
+
 
 
     }

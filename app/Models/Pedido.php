@@ -15,6 +15,7 @@ class Pedido extends Model
         'pedido_usuario_garcom_id',
         'pedido_usuario_entrega_id',
         'pedido_opcaoentrega_id',
+        'pedido_venda_id',
         'pedido_descricao_pagamento',
         'pedido_observacao_pagamento',
         'pedido_endereco_entrega',
@@ -92,6 +93,11 @@ class Pedido extends Model
 
     public function item_pedido_pedido_id(){
         return $this->hasMany(ItensPedido::class,'item_pedido_pedido_id');
+    }
+
+    public function vendas(){
+        return $this->belongsTo(Venda::class, 'pedido_venda_id')->withDefault([
+            'venda_id' => 'N/Venda']);
     }
     
 

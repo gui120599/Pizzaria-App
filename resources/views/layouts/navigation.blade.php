@@ -24,6 +24,10 @@
         <i class='text-[13px] bx bx-money-withdraw'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Venda') }}</span>
     </x-nav-link>
+    <x-nav-link :href="route('mov_saida')" :active="request()->routeIs('mov_saida')">
+        <i class='text-[13px] bx bx-money-withdraw'></i>
+        <span class="text-[12px] ml-4 text-gray-200">{{ __('Saída') }}</span>
+    </x-nav-link>
     <x-nav-link :href="route('pedido')" :active="request()->routeIs('pedido')">
         <i class="text-[13px] bx bx-basket"></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos') }}</span>

@@ -84,7 +84,7 @@
 
             setInterval(() => {
                 listarAbertos();
-            }, 30000);
+            }, 15000);
         });
 
 
@@ -113,7 +113,7 @@
                     } else if (qtd_aberto === null) {
                         qtd_aberto = response.length;
                     } else {
-                        //Não faz nada pois a qtd é a mesma
+
                     }
 
                     // Limpe o conteúdo atual antes de adicionar os novos itens
@@ -194,6 +194,7 @@
                                 </div>
                                 <div class="w-full">
                                     <button class="btn-aceitar w-full text-center border rounded-lg hover:shadow bg-orange-300 hover:bg-orange-400" data-pedido_id="${pedido.id}">Aceitar Pedido <i class='bx bx-right-arrow-alt'></i></button>
+                                    <button class="btn-rejeitar w-full text-center border rounded-lg hover:shadow bg-orange-300 hover:bg-orange-400" data-pedido_id="${pedido.id}">Rejeitar Pedido <i class='bx bx-x'></i></button>
                                 </div>
                             </div>
                         `;
@@ -224,6 +225,28 @@
                                 },
                                 error: function() {
                                     alert('Erro ao aceitar pedido');
+                                }
+                            });
+                        });
+
+                        //Aceita pedido selecionado
+                        $(".btn-rejeitar").click(function(e) {
+                            e.preventDefault();
+                            const id = $(this).data('pedido_id');
+                            $.ajax({
+                                type: "POST",
+                                url: "{{ route('rejeitar_pedido') }}",
+                                data: {
+                                    id,
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                dataType: "JSON",
+                                success: function(response) {
+                                    listarAbertos();
+                                    listarPreparando();
+                                },
+                                error: function() {
+                                    alert('Erro ao rejeitar pedido');
                                 }
                             });
                         });

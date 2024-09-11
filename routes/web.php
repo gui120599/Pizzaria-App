@@ -3,6 +3,7 @@
 use App\Http\Controllers\CaixaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ItensVendaController;
+use App\Http\Controllers\MovimentacoesSessaoCaixaController;
 use App\Http\Controllers\NotaFiscalController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ClienteController;
@@ -40,6 +41,7 @@ Route::get('/', function () {
 
 Route::get('/Pedido/{id}/Imprimir', [PDFController::class, 'pedidoPDF'])->name('pedido.imprimir');
 Route::get('/sessaoMesaPDF/{id}/Imprimir', [PDFController::class, 'sessaoMesaPDF'])->name('sessaoMesa.imprimir');
+Route::get('/sessaoCaixaPDF/{id}/Imprimir', [PDFController::class, 'sessaoCaixaPDF'])->name('sessaoCaixa.imprimir');
 
 
 Route::get('/dashboard', [Dashboard::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
@@ -103,7 +105,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/SessaoCaixas-Inativas', [SessaoCaixaController::class, 'inactive'])->name('sessao_caixa.inactive');
     Route::post('/SessaoCaixa', [SessaoCaixaController::class, 'store'])->name('sessao_caixa.store');
     Route::get('/SessaoCaixa/{sessao_caixa}/Finalizar', [SessaoCaixaController::class, 'finalizar'])->name('sessao_caixa.finalizar');
-    Route::get('/SessaoCaixa/{sessao_caixa}', [SessaoCaixaController::class, 'show'])->name('sessao_caixa.imprimir');
     Route::get('/SessaoCaixa/{sessao_caixa}/Editar', [SessaoCaixaController::class, 'edit'])->name('sessao_caixa.edit');
     Route::patch('/SessaoCaixa/{sessao_caixa}', [SessaoCaixaController::class, 'update'])->name('sessao_caixa.update');
     Route::get('/Ativar-SessaoCaixa/{id}', [SessaoCaixaController::class, 'active'])->name('sessao_caixa.active');
@@ -149,6 +150,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/Pedidos-Transporte-Lista', [PedidoController::class, 'PedidosEmTransporteLista'])->name('pedidos_transporte.lista');
     Route::get('/Pedidos-Entregue-Lista', [PedidoController::class, 'PedidosEntregueLista'])->name('pedidos_entregue.lista');
     Route::post('/Aceitar-Pedido', [PedidoController::class, 'AceitarPedido'])->name('aceitar_pedido');
+    Route::post('/Rejeitar-Pedido', [PedidoController::class, 'RejeitarPedido'])->name('rejeitar_pedido');
     Route::post('/Avancar-Pedido-Pronto', [PedidoController::class, 'AvancarPedidoPronto'])->name('avancar_pedido_pronto');
     Route::post('/Avancar-Pedido-Transporte', [PedidoController::class, 'AvancarPedidoEmTransporte'])->name('avancar_pedido_transporte');
     Route::post('/Avancar-Pedido-Entregue', [PedidoController::class, 'AvancarPedidoEntregue'])->name('avancar_pedido_entregue');
@@ -189,6 +191,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/Venda/{id}/Gerar-NFE', [VendaController::class, 'enviarNfe'])->name('venda.gerar_NFE');
     Route::get('/Venda/{venda}/Imprimir-NFE', [VendaController::class, 'imprimirNFE'])->name('venda.imprimir_NFE');
     Route::get('/Venda/{venda}/Buscar-NFE', [VendaController::class, 'buscarNFE'])->name('venda.buscar_NFE');
+
+
+    Route::get('/Saidas', [MovimentacoesSessaoCaixaController::class, 'index'])->name('mov_saida');
+    Route::post('/Saidas', [MovimentacoesSessaoCaixaController::class, 'store'])->name('mov_saida.store');
+    Route::get('/Saidas/{id}', [MovimentacoesSessaoCaixaController::class, 'edit'])->name('mov_saida.edit');
+    Route::patch('/Saidas/{id}/Editar', [MovimentacoesSessaoCaixaController::class, 'update'])->name('mov_saida.update');
+    Route::delete('/Saidas-cancelar/{id}', [MovimentacoesSessaoCaixaController::class, 'destroy'])->name('mov_saida.destroy');
+
 
     Route::post('/ItemVenda/AddSessaoMesa', [ItensVendaController::class, 'adicionarItensSessaoMesa'])->name('item_venda.add_item_sessaoMesa');
     Route::post('/ItemVenda/RemoveSessaoMesa', [ItensVendaController::class, 'removerItensSessaoMesa'])->name('item_venda.remove_item_sessaoMesa');

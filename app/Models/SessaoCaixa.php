@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SessaoCaixa extends Model
 {
-    use HasFactory,SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'sessao_caixas';
 
@@ -26,9 +26,9 @@ class SessaoCaixa extends Model
     protected $casts = [
         'sessaocaixa_data_hora_abertura' => 'datetime',
         'sessaocaixa_data_hora_fechamento' => 'datetime',
-        'created_at'=> 'datetime',
-        'updated_at'=> 'datetime',
-        'deleted_at'=> 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
     // Relacionamento com a tabela 'caixas'
@@ -43,8 +43,8 @@ class SessaoCaixa extends Model
         return $this->belongsTo(User::class, 'sessaocaixa_user_id');
     }
     public function vendas()
-{
-    return $this->hasMany(Venda::class, 'venda_sessao_caixa_id');
-}
+    {
+        return $this->hasMany(Venda::class, 'venda_sessao_caixa_id');
+    }
 
 }

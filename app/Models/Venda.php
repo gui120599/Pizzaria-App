@@ -62,11 +62,19 @@ class Venda extends Model
 
     public function itensVenda()
     {
-        return $this->hasMany(ItensVenda::class, 'item_venda_venda_id');
+        return $this->hasMany(ItensVenda::class, 'item_venda_venda_id','id');
     }
 
     public function pagamentos()
     {
         return $this->hasMany(PagamentosVenda::class, 'pg_venda_venda_id');
+    }
+
+    public function pedidos(){
+        return $this->hasMany(Pedido::class, 'pedido_venda_id','id');
+    }
+
+    public function movimentacoesSessaoCaixa(){
+        return $this->hasMany(MovimentacoesSessaoCaixa::class, 'mov_venda_id','id');
     }
 }

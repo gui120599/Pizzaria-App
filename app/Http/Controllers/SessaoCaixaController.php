@@ -51,6 +51,7 @@ class SessaoCaixaController extends Controller
             'sessaocaixa_caixa_id' => $request->input('sessaocaixa_caixa_id'),
             'sessaocaixa_user_id' => $request->input('sessaocaixa_user_id'),
             'sessaocaixa_saldo_inicial' => $request->input('sessaocaixa_saldo_inicial') ? str_replace(',', '.', $request->input('sessaocaixa_saldo_inicial')) : '0.00',
+            'sessaocaixa_saldo_final' => $request->input('sessaocaixa_saldo_inicial') ? str_replace(',', '.', $request->input('sessaocaixa_saldo_inicial')) : '0.00',
             'sessaocaixa_observacoes' => $request->input('sessaocaixa_observacoes'),
             'sessaocaixa_status' => 'ABERTA',
             'sessaocaixa_data_hora_abertura' => Carbon::now()

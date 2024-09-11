@@ -30,9 +30,8 @@
                                     
                                     @if ($sessao->sessaocaixa_status == 'ABERTA')
                                         <x-danger-button onclick="window.location.href = '{{ route('sessao_caixa.finalizar', ['sessao_caixa' => $sessao]) }}'" title="Vendas">Finalizar</x-danger-button>
-                                    @else
-                                    <x-secondary-button onclick="window.location.href = '{{ route('sessao_caixa.imprimir', ['sessao_caixa' => $sessao]) }}'" title="Vendas">Imprimir</x-secondary-button>
                                     @endif
+                                    <x-secondary-button onclick="window.open('{{ route('sessaoCaixa.imprimir', ['id' => $sessao->id]) }}')" title="Vendas">Imprimir</x-secondary-button>
                                     
                                    
                                      {{--<form action="{{ route('sessao.destroy', ['id' => $sessao]) }}" method="post">
