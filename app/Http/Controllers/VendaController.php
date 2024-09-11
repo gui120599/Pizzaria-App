@@ -101,16 +101,20 @@ class VendaController extends Controller
                 'clientes' => $clientes
             ]);
         }*/
-        return view('app.venda.index', [
-            'sessaoCaixa' => $sessaCaixa,
-            'produtos' => $produtos,
-            'categorias' => $categorias,
-            'sessaoMesas' => $sessaoMesas,
-            'pedidos' => $pedidos,
-            'clientes' => $clientes,
-            'opcoesPagamentos' => $opcoesPagamentos,
-            'cartoes' => $cartoes
-        ]);
+        if($sessaCaixa){
+            return view('app.venda.index', [
+                'sessaoCaixa' => $sessaCaixa,
+                'produtos' => $produtos,
+                'categorias' => $categorias,
+                'sessaoMesas' => $sessaoMesas,
+                'pedidos' => $pedidos,
+                'clientes' => $clientes,
+                'opcoesPagamentos' => $opcoesPagamentos,
+                'cartoes' => $cartoes
+            ]);
+        }
+        return redirect()->route('sessao_caixa')->with('error','Nenhuma sessão caixa está aberta!');
+        
     }
 
     /**
