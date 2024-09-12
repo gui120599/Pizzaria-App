@@ -1,13 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight flex items-center space-x-2">
-            <i class='bx bxs-pizza'></i>
-            <a href="{{ route('produto') }}">{{ __('Produtos') }}</a>
-        </h2>
+        
         <nav class="bg-transparent border-b border-gray-100">
             <!-- Primary Navigation Menu -->
             <div class="w-full mx-auto sm:px-6 lg:px-2">
-                <div class="flex justify-center h-8">
+                <div class="flex justify-center align-top h-8">
                     <!-- Navigation Links -->
                     <div class="space-x-8 sm:ms-10 flex ">
                         <div class="nav-link active cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
@@ -40,16 +37,16 @@
         </nav>
     </x-slot>
 
-    <div class="py-2">
-        <div class="w-full mx-auto sm:px-6 lg:px-2">
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg cadastrar-produto-section">
-                <div class="w-full">
+    <div class="py-2 h-full">
+        <div class="w-full h-full mx-auto sm:px-6 lg:px-2">
+            <div class="p-2 h-full bg-white shadow sm:rounded-lg cadastrar-produto-section">
+                <div class="w-full h-full">
                     @include('app.produto.partials.create')
                 </div>
             </div>
 
-            <div class="p-4 bg-white shadow sm:rounded-lg estoque-section">
-                <div class="w-full">
+            <div class="h-full p-2 bg-white shadow sm:rounded-lg estoque-section">
+                <div class="w-full h-full">
                     @include('app.produto.partials.list')
                 </div>
             </div>

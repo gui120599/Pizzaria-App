@@ -33,7 +33,7 @@ class VendaController extends Controller
     public function index()
     {
         // Obtém a sessão de caixa que está aberta
-        $sessaCaixa = SessaoCaixa::where('sessaocaixa_status', 'ABERTA')->first();
+        $sessaoCaixa = SessaoCaixa::where('sessaocaixa_status', 'ABERTA')->first();
 
         // Obtém todas as sessões de mesa que estão abertas
         $sessaoMesas = SessaoMesa::where('sessao_mesa_status', 'ABERTA')
@@ -72,38 +72,10 @@ class VendaController extends Controller
             ])
             ->get();
 
-        // Corrigido para usar where em vez de and, e first em vez de get
-        // Isso busca a primeira venda que está aberta e pertence à sessão de caixa aberta
-        $venda_aberta = Venda::where('venda_status', 'INICIADA')
-            ->where('venda_sessao_caixa_id', $sessaCaixa->id)
-            ->first();
 
-        // Verifica se existe uma venda aberta
-        /* if ($venda_aberta) {
-            // Se houver uma venda aberta, carrega a view de edição com os dados
-            return view('app.venda.edit', [
-                'sessaoCaixa' => $sessaCaixa,
-                'produtos' => $produtos,
-                'categorias' => $categorias,
-                'sessaoMesas' => $sessaoMesas,
-                'pedidos' => $pedidos,
-                'clientes' => $clientes,
-                'venda_aberta' => $venda_aberta
-            ])->with('success','Existe uma venda não finalizada!');
-        } else {
-            // Se não houver uma venda aberta, carrega a view de índice com os dados
+        if ($sessaoCaixa) {
             return view('app.venda.index', [
-                'sessaoCaixa' => $sessaCaixa,
-                'produtos' => $produtos,
-                'categorias' => $categorias,
-                'sessaoMesas' => $sessaoMesas,
-                'pedidos' => $pedidos,
-                'clientes' => $clientes
-            ]);
-        }*/
-        if($sessaCaixa){
-            return view('app.venda.index', [
-                'sessaoCaixa' => $sessaCaixa,
+                'sessaoCaixa' => $sessaoCaixa,
                 'produtos' => $produtos,
                 'categorias' => $categorias,
                 'sessaoMesas' => $sessaoMesas,
@@ -113,8 +85,8 @@ class VendaController extends Controller
                 'cartoes' => $cartoes
             ]);
         }
-        return redirect()->route('sessao_caixa')->with('error','Nenhuma sessão caixa está aberta!');
-        
+        return redirect()->route('sessao_caixa')->with('error', 'Nenhuma sessão caixa está aberta!');
+
     }
 
     /**
@@ -335,10 +307,9 @@ class VendaController extends Controller
 
         // Envia o array para a API
         $response = $this->enviarParaApi($nfeData);
-        // return response()->json($nfeData);
-        //return response()->json($response); 
 
-        // Verifica se o response contém o campo "id" (o que indica sucesso)
+        // Decodifica a resposta JSON para um array associativo
+         // 'true' para obter o array associativo
 
         // Certifique-se de que a resposta foi decodificada corretamente
         if (is_array($response) && isset($response['id'])) {
@@ -353,15 +324,18 @@ class VendaController extends Controller
             $response_status = $this->atualizaStatusNFE($venda);
 
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
-                ->with('success', 'NFC-E Gerada com sucesso!');
+                ->with('success', 'NFC-E Enviada com sucesso! Verifique em NOTAS FISCAIS se a mesma foi gerada!');
         } else {
-            // Caso o campo "id" não esteja presente ou a resposta não seja o que se espera
-            // Verifique se há detalhes adicionais na resposta
-            $errorDetail = isset($response['error']) ? $response['error'] : 'Erro inesperado ao se comunicar com a API da NFSe.';
+            $responseArray = $response->getData(true);
+            // Captura a mensagem de erro retornada pela API
+            $errorDetail = isset($responseArray['error']) ? $responseArray['error'] : 'Erro inesperado ao se comunicar com a API da NFSe.';
 
+            // Retorna a mensagem de erro para o usuário
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
-                ->with('error', $errorDetail);
+                ->with('error', $errorDetail); // Passa a mensagem de erro para a sessão
         }
+
+
 
 
 
@@ -886,11 +860,11 @@ class VendaController extends Controller
         }
     }
 
-    function imprimirNFE(Venda $venda)
+    function imprimirNFE(Venda $venda, string $id_nfe)
     {
         // Inicializa o cliente HTTP do Guzzle
         $client = new Client();
-        $invoiceId = $venda->venda_id_nfe;
+        $invoiceId = $id_nfe;
 
         $empresa = Empresa::first();
         $companyId = $empresa->empresa_api_nfeio_company_id;

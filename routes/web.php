@@ -189,7 +189,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/Venda//EditValorFrete', [VendaController::class, 'AtualizarValorFrete'])->name('venda.update_valor_frete');
     Route::get('AtualizarValoresdaVenda', [VendaController::class, 'AtualizarValoresdaVenda']);
     Route::get('/Venda/{id}/Gerar-NFE', [VendaController::class, 'enviarNfe'])->name('venda.gerar_NFE');
-    Route::get('/Venda/{venda}/Imprimir-NFE', [VendaController::class, 'imprimirNFE'])->name('venda.imprimir_NFE');
+    Route::get('/Venda/{id_nfe}/Imprimir-NFE', [VendaController::class, 'imprimirNFE'])->name('venda.imprimir_NFE');
     Route::get('/Venda/{venda}/Buscar-NFE', [VendaController::class, 'buscarNFE'])->name('venda.buscar_NFE');
 
 

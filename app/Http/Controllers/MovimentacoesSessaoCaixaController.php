@@ -17,13 +17,13 @@ class MovimentacoesSessaoCaixaController extends Controller
     {
         // Buscar todas as movimentações de saída
         $movimentacoes = MovimentacoesSessaoCaixa::where('mov_tipo', 'SAIDA')->get();
-        $sessaCaixa = SessaoCaixa::where('sessaocaixa_status', 'ABERTA')->first();
+        $sessaoCaixa = SessaoCaixa::where('sessaocaixa_status', 'ABERTA')->first();
 
-        if($sessaCaixa){
+        if($sessaoCaixa){
             // Retornar a view com os dados
         return view('app.saida_caixa.index', [
             'movimentacoes' => $movimentacoes,
-            'sessaoCaixa' => $sessaCaixa
+            'sessaoCaixa' => $sessaoCaixa
         ]);
         }
         return redirect()->route('sessao_caixa')->with('error','Nenhuma sessão de caixa aberta!');

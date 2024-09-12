@@ -1,13 +1,17 @@
-<section>
-    <form id="formPedido" action="{{ route('pedido.salvar_pedido', 1) }}" method="post" class="space-y-6 mt-2"
+<section class="h-full">
+
+    <form id="formPedido" action="{{ route('pedido.salvar_pedido', 1) }}" method="post" class="space-y-6 mt-2 h-full "
         enctype="multipart/form-data">
-        <div class="md:h-[89vh] 2xl:h-[91vh] bg-white shadow-sm rounded-lg flex">
-            <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
+
+        <div class="bg-white shadow-sm rounded-lg flex h-full">
+
+            <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1 h-full">
                 <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
                 {{-- PRODUTOS --}}
-                <div class="w-full sm:col-span-4 lg:col-span-3 col-span-6">
-                    
-                    <div class="space-y-2">
+                <div
+                    class="overflow-auto sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 h-full flex flex-col justify-between">
+
+                    <div>
                         <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
                             <i class='bx bxs-map-pin'></i>
                             <span>{{ __('Produtos') }}</span>
@@ -27,7 +31,7 @@
                         </div>
                     </div>
 
-                    <div class=" md:h-[70vh] 2xl:h-[76vh] overflow-auto snap-y">
+                    <div class="overflow-auto snap-y" id="produtos-container">
                         @foreach ($categorias as $categoria)
                             <div class="mb-4" id="categoria_{{ $categoria->id }}">
                                 <h2 class="text-white text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
@@ -78,16 +82,16 @@
                         @endforeach
                     </div>
 
-                    <div class="">
+                    <div>
                         <x-primary-button class="hidden lg:block w-full">
                             {{ __('Finalizar Pedido') }}
                         </x-primary-button>
                     </div>
-                    
+
                 </div>
 
                 <div
-                    class="relative sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
+                    class="overflow-auto sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
                     {{-- GARÇOM ID --}}
                     <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" type="text"
                         class="mt-1 w-full" value="{{ Auth::user()->id }}" autocomplete="off" hidden />
@@ -146,8 +150,8 @@
                         @foreach ($opcoes_pagamento as $opcao_pagamento)
                             <label for="opcao_pag_{{ $opcao_pagamento->id }}"
                                 class="col-span-1 flex items-center cursor-pointer">
-                                <input type="checkbox" id="opcao_pag_{{ $opcao_pagamento->id }}" name="tipo_pagamento"
-                                    value="{{ $opcao_pagamento->id }}"
+                                <input type="checkbox" id="opcao_pag_{{ $opcao_pagamento->id }}"
+                                    name="tipo_pagamento" value="{{ $opcao_pagamento->id }}"
                                     class="form-checkbox text-green-500 h-5 w-5 cursor-pointer">
                                 <span class="ml-2 text-gray-700">{{ $opcao_pagamento->opcaopag_nome }}</span>
                             </label>
@@ -161,15 +165,16 @@
                         class="mt-1 w-full" autocomplete="off" hidden />
                 </div>
 
-                <div class="sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border">
+                <div
+                    class="relative overflow-auto sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border h-full flex flex-col justify-between">
                     <div class="bg-white p-1">
                         <p>Itens do Pedido</p>
                     </div>
-                    <div class="relative md:h-[72vh] 2xl:h-[77vh] overflow-auto">
+                    <div class="relative overflow-auto h-full">
                         <!-- Ícone de carregamento e mensagem -->
                         <div id="carregando"
-                            class="hidden absolute inset-0 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
-                            <div class="text-center">
+                            class="h-full hidden absolute inset-0 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
+                            <div class="text-center h-full">
                                 <i class='bx bx-loader-circle bx-spin bx-rotate-90 text-5xl'></i>
                                 <p>Carregando Produtos</p>
                             </div>
@@ -218,12 +223,13 @@
     </form>
     <script>
         function scrollToElement(elementId) {
+            var container = document.getElementById('produtos-container');
             var element = document.getElementById(elementId);
 
-            if (element) {
-                element.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
+            if (container && element) {
+                container.scrollTo({
+                    top: element.offsetTop - container.offsetTop, // Calcula a posição do item dentro do contêiner
+                    behavior: 'smooth'
                 });
             }
         }
@@ -698,7 +704,7 @@
                             2); // Limita a duas casas decimais
                         $("#item_pedido_valor_" + id).val(item_pedido_valor);
                         //Atualiza valor na vizualização
-                        $("#item_valor_view_" + id).html(item_pedido_valor.toFixed(2));
+                        $("#item_valor_view_" + id).html(item_pedido_valor);
 
                         $.ajax({
                             type: "POST",
@@ -755,7 +761,7 @@
                             2); // Limita a duas casas decimais
                         $("#item_pedido_valor_" + id).val(item_pedido_valor);
                         //Atualiza valor na vizualização
-                        $("#item_valor_view_" + id).html(item_pedido_valor.toFixed(2));
+                        $("#item_valor_view_" + id).html(item_pedido_valor);
 
                         $.ajax({
                             type: "POST",

@@ -39,7 +39,7 @@
                                             @if ($venda->venda_id_nfe)
                                             <td>
                                                 <div class="flex items-center justify-center space-x-2 p-1">
-                                                    <x-secondary-button onclick="window.open('{{ route('venda.imprimir_NFE', ['venda' => $venda]) }}')" title="Venda">IMPRIMIR NFE-C</x-secondary-button>
+                                                    <x-secondary-button onclick="window.open('{{ route('venda.imprimir_NFE', ['id_nfe' => $venda->venda_id_nfe]) }}')" title="Venda">IMPRIMIR NFE-C</x-secondary-button>
                                                 </div>
                                             </td>
                                             @else

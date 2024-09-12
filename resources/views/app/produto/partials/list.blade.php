@@ -1,22 +1,26 @@
-<section>
-    <header>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {{ __('Todos produtos cadastrados!') }}
-        </p>
-    </header>
-    <div class="flex flex-col mb-4">
-        <x-text-input-buscar id="buscar" class="mt-3 mb-3 w-1/2" placeholder="Buscar"></x-text-input-buscar>
-        <div class="flex gap-2 overflow-auto p-1">
-            @foreach ($categorias as $categoria)
-                <button
-                    class="inline-flex items-center px-4 py-2 bg-gray-200 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
-                    onclick="scrollToElement('categoria_{{ $categoria->id }}')">
-                    {{ $categoria->categoria_nome }}
-                </button>
-            @endforeach
+<section class="h-full">
+
+    <div class="h-[15%]">
+        <header>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                {{ __('Todos produtos cadastrados!') }}
+            </p>
+        </header>
+        <div class="flex flex-col mb-4">
+            <x-text-input-buscar id="buscar" class="mt-3 mb-3 w-1/2" placeholder="Buscar"></x-text-input-buscar>
+            <div class="flex gap-2 overflow-auto p-1">
+                @foreach ($categorias as $categoria)
+                    <button
+                        class="inline-flex items-center px-4 py-2 bg-gray-200 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
+                        onclick="scrollToElement('categoria_{{ $categoria->id }}')">
+                        {{ $categoria->categoria_nome }}
+                    </button>
+                @endforeach
+            </div>
         </div>
     </div>
-    <div class="overflow-auto h-[20rem] sm:h-[18rem] lg:h-[38rem] snap-y">
+
+    <div class="h-[85%] overflow-auto snap-y ">
         @foreach ($categorias as $categoria)
             <div class="mb-4" id="categoria_{{ $categoria->id }}">
                 <h2 class="text-white text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
@@ -31,12 +35,11 @@
                                         class="w-full bg-gray-100 p-2 rounded-lg flex items-start justify-between opacity-95 hover:opacity-100 gap-1">
                                         <div class="w-2/5">
                                             @if ($produto->produto_foto)
-                                            <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
-                                            alt="{{ $produto->produtso_descricao }}"
-                                            class="w-40 h-28 object-cover rounded-lg ">
+                                                <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
+                                                    alt="{{ $produto->produtso_descricao }}"
+                                                    class="w-40 h-28 object-cover rounded-lg ">
                                             @else
-                                                <img id="imagem-preview"
-                                                class="w-40 h-28 object-cover rounded-lg "
+                                                <img id="imagem-preview" class="w-40 h-28 object-cover rounded-lg "
                                                     src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">
                                             @endif
                                         </div>
@@ -72,6 +75,7 @@
             </div>
         @endforeach
     </div>
+
     <script>
         function scrollToElement(elementId) {
             var element = document.getElementById(elementId);

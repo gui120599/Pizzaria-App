@@ -20,6 +20,7 @@
                     <th class="w-1/6">Valor Produtos</th>
                     <th class="w-full">Valor Total NF</th>
                     <th class="w-1/6">Pagamentos</th>
+                    <th class="w-1/6">Opções</th>
                 </tr>
             </thead>
             <tbody>
@@ -53,6 +54,12 @@
                                     @endforeach
                                 @endforeach
                             </td>
+                            <td>
+                                <div class="flex items-center justify-center space-x-2 p-1">
+                                    <x-secondary-button onclick="window.open('{{ route('venda.imprimir_NFE', ['id_nfe' => $item['id']]) }}')" title="Venda">IMPRIMIR NFE-C</x-secondary-button>
+                                </div>
+                            </td>
+                            
                         </tr>
                     @endforeach
                 @else

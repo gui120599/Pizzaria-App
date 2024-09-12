@@ -26,29 +26,42 @@
             @include('layouts.navigation')
         </div>
         <!-- Conteúdo principal -->
-        <div class="content flex flex-col flex-1 overflow-hidden transition-margin ease-in-out duration-300">
+        <div class="content flex flex-col flex-1 overflow-hidden transition-margin ease-in-out duration-300 h-[100vh]">
             <!-- Barra de navegação superior fixa -->
             @if (isset($header))
-                <header class="bg-transparent">
+                <header class="bg-transparent h-[5%]">
                     <div class="mx-auto p-1">
                         {{ $header }}
                     </div>
                 </header>
+                 <!-- Page Content -->
+                 <main
+                 class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 transition-margin ease-in-out duration-300 h-[95%]">
+                 <div class="mx-auto h-full">
+                     {{ $slot }}
+
+                 </div>
+             </main>
+                
+            @else
+                <!-- Page Content -->
+                <main
+                    class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 transition-margin ease-in-out duration-300 h-[100%]">
+                    <div class="mx-auto h-full">
+                        {{ $slot }}
+
+                    </div>
+                </main>
             @endif
 
-            <!-- Page Content -->
-            <main
-                class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 transition-margin ease-in-out duration-300">
-                <div class="mx-auto">
-                    {{ $slot }}
 
-                </div>
 
-            </main>
             <div>
                 <x-toats></x-toats>
             </div>
+
             <button class="abrir-modal hidden">Modal</button>
+
         </div>
     </div>
     <!-- Modal -->

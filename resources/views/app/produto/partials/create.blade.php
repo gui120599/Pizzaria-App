@@ -1,5 +1,5 @@
-<section>
-    <header>
+<section class="h-full">
+    <header class="h-[5%] p-4">
         <h2 class="text-lg font-medium text-gray-900">
             {{ __('Novo Produto') }}
         </h2>
@@ -7,12 +7,14 @@
         <p class="mt-1 text-sm text-gray-600">
             {{ __('Insira os dados para um novo produto.') }}
         </p>
+        <hr class="h-px my-1 border-0 bg-gray-200">
     </header>
 
-    <form action="{{ route('produto.store') }}" method="post" class="space-y-6" enctype="multipart/form-data"
+    <form action="{{ route('produto.store') }}" method="post" class="overflow-auto space-y-6 h-[95%] flex flex-col justify-between p-4" enctype="multipart/form-data"
         autocomplete="off">
         @csrf
-        <div class="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-6">
+        <div class="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-6 overflow-auto">
+
             <div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
                 <div class="col-span-1 md:col-span-4 space-y-3">
                     <div class="md:col-span-4">
@@ -42,7 +44,7 @@
                                 <i class='bx bxs-image'></i>
                                 <x-input-label for="produto_foto" :value="__('Foto do Produto')" />
                             </div>
-                            <div class="flex flex-wrap justify-center gap-y-2">
+                            <div class="flex flex-col items-center justify-center gap-y-2">
                                 <img id="imagem-preview" class="mborder rounded-lg object-contain w-40 h-40 p-1" />
                                 <x-text-input id="produto_foto" name="produto_foto" type="file"
                                     class="cursor-pointer p-1 w-64 " onchange="previewImage(this)" />
@@ -182,18 +184,23 @@
                         <option value="0">0 - Nacional</option>
                         <option value="1">1 – Estrangeira – Importação direta</option>
                         <option value="2">2 – Estrangeira – Adquirida no mercado interno</option>
-                        <option value="3">3 – Nacional, mercadoria ou bem com Conteúdo de Importação superior a
+                        <option value="3">3 – Nacional, mercadoria ou bem com Conteúdo de Importação superior
+                            a
                             40% (quarenta por cento) e igual ou inferior a 70% (setenta por cento)</option>
                         <option value="4">4 – Nacional, cuja produção tenha sido feita em conformidade com os
                             processos produtivos básicos de que tratam o Decreto-Lei nº 288/1967 , e as Leis nºs
                             8.248/1991, 8.387/1991, 10.176/2001 e 11.484/2007</option>
-                        <option value="5">5 – Nacional, mercadoria ou bem com Conteúdo de Importação inferior ou
+                        <option value="5">5 – Nacional, mercadoria ou bem com Conteúdo de Importação inferior
+                            ou
                             igual a 40%</option>
-                        <option value="6">6 – Estrangeira – Importação direta, sem similar nacional, constante em
+                        <option value="6">6 – Estrangeira – Importação direta, sem similar nacional, constante
+                            em
                             lista de Resolução Camex e gás natural</option>
-                        <option value="7">7 – Estrangeira – Adquirida no mercado interno, sem similar nacional,
+                        <option value="7">7 – Estrangeira – Adquirida no mercado interno, sem similar
+                            nacional,
                             constante em lista de Resolução Camex e gás natural</option>
-                        <option value="8">8 – Nacional – Mercadoria ou bem com Conteúdo de Importação superior a
+                        <option value="8">8 – Nacional – Mercadoria ou bem com Conteúdo de Importação superior
+                            a
                             70% (setenta por cento)</option>
                     </select>
                     <x-input-error :messages="$errors->updatePassword->get('produto_cod_origem_mercadoria')" class="mt-2" />
@@ -212,7 +219,8 @@
                         <option value="41">41 – Não tributada</option>
                         <option value="50">50 – Suspensão</option>
                         <option value="51">51 – Diferimento</option>
-                        <option value="70">70 – Com redução de base de cálculo e cobrança do ICMS por substituição
+                        <option value="70">70 – Com redução de base de cálculo e cobrança do ICMS por
+                            substituição
                             tributária</option>
                         <option value="90">90 – Outras</option>
                     </select>
@@ -318,11 +326,14 @@
                     <x-input-error :messages="$errors->updatePassword->get('produto_quantidade_maxima')" class="mt-2" />
                 </div>
             </div>
-
         </div>
-        <x-primary-button>
-            {{ __('Cadastrar Novo Produto') }}
-        </x-primary-button>
+
+        <div>
+            <x-primary-button>
+                {{ __('Cadastrar Novo Produto') }}
+            </x-primary-button>
+        </div>
+
     </form>
     <script>
         function previewImage(input) {

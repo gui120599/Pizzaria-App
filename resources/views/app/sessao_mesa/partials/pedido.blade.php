@@ -1,34 +1,39 @@
-<section>
+<section class="h-full">
 
-    <form id="formPedido" action="{{ route('pedido.salvar_pedido_mesa', 1) }}" method="post" class="space-y-6 mt-2"
+    <form id="formPedido" action="{{ route('pedido.salvar_pedido_mesa', 1) }}" method="post" class="space-y-6 h-full"
         enctype="multipart/form-data">
 
-        <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1">
+        <div class="col-span-full grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-1 h-full">
+            @csrf
             <x-text-input name="pedido_id" id="pedido_id" hidden></x-text-input>
             <x-text-input name="pedido_sessao_mesa_id" id="pedido_sessao_mesa_id" value="{{ $sessao_mesa->id }}"
                 hidden></x-text-input>
             <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" value="{{ Auth::user()->id }}"
-                hidden />
+                hidden> </x-text-input>
+
             {{-- PRODUTOS --}}
-            <div
-                class="h-[80dvh] md:h-[93dvh] lg:h-[60dvh] xl:h-[68dvh] 2xl:h-[72dvh] sm:col-span-4 lg:col-span-5 col-span-6 md:space-y-2 ">
-                <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                    <i class='bx bxs-map-pin'></i>
-                    <span>{{ __('Produtos') }}</span>
-                </p>
-                <div class=" flex flex-col mb-4">
-                    <x-text-input id="buscar" class="" placeholder="Buscar Produtos"></x-text-input>
-                    <div class="hidden lg:flex gap-2 overflow-auto p-1">
-                        @foreach ($categorias as $categoria)
-                            <button type="button"
-                                class="inline-flex items-center bg-gray-200 border p-1 border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
-                                onclick="scrollToElement('categoria_{{ $categoria->id }}')">
-                                {{ $categoria->categoria_nome }}
-                            </button>
-                        @endforeach
+            <div class="overflow-auto sm:col-span-4 lg:col-span-5 col-span-6 md:space-y-2 h-full flex flex-col justify-between">
+                <div>
+                    <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
+                        <i class='bx bxs-map-pin'></i>
+                        <span>{{ __('Produtos') }}</span>
+                    </p>
+
+                    <div class="flex flex-col mb-4">
+                        <x-text-input id="buscar" class="" placeholder="Buscar Produtos"></x-text-input>
+                        <div class="hidden lg:flex gap-2 overflow-auto p-1">
+                            @foreach ($categorias as $categoria)
+                                <button type="button"
+                                    class="inline-flex items-center bg-gray-200 border p-1 border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
+                                    onclick="scrollToElement('categoria_{{ $categoria->id }}')">
+                                    {{ $categoria->categoria_nome }}
+                                </button>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
-                <div class="h-[86%] md:h-[86%] lg:h-[76%] xl:h-[83%] 2xl:h-[87%] overflow-auto snap-y">
+
+                <div class="overflow-auto snap-y" id="produtos-container">
                     @foreach ($categorias as $categoria)
                         <div class="mb-4" id="categoria_{{ $categoria->id }}">
                             <h2 class="text-gray-700 text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
@@ -76,29 +81,32 @@
                 </div>
                 <script>
                     function scrollToElement(elementId) {
+                        var container = document.getElementById('produtos-container');
                         var element = document.getElementById(elementId);
-
-                        if (element) {
-                            element.scrollIntoView({
-                                behavior: 'smooth',
-                                block: 'start',
+                
+                        if (container && element) {
+                            container.scrollTo({
+                                top: element.offsetTop - container.offsetTop, // Calcula a posição do item dentro do contêiner
+                                behavior: 'smooth'
                             });
                         }
                     }
                 </script>
+                
 
-                <x-primary-button class="hidden sm:block w-full">
-                    {{ __('Finalizar Pedido') }}
-                </x-primary-button>
+                <div class="w-full">
+                    <x-primary-button class="w-full">Finalizar Predido </x-primary-button>
+                </div>
             </div>
 
             <div
-                class="sm:col-span-4 lg:col-span-3 col-span-6 relative md:space-y-2 md:border-l md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
-                <div class="sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border">
+                class="overflow-auto sm:col-span-4 lg:col-span-3 col-span-6 relative md:space-y-2 md:border-l md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0 h-full">
+                <div
+                    class="overflow-auto sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border h-full flex flex-col justify-between">
                     <div class="bg-white p-1">
                         <p>Itens do Pedido</p>
                     </div>
-                    <div class="relative h-[80dvh] md:h-[67dvh] lg:h-[60dvh] xl:h-[68dvh] 2xl:h-[72dvh] overflow-auto">
+                    <div class="overflow-auto snap-y">
                         <!-- Ícone de carregamento e mensagem -->
                         <div id="carregando"
                             class="hidden absolute inset-0 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
@@ -141,10 +149,6 @@
                     </div>
                 </div>
             </div>
-            @csrf
-            <x-primary-button class="block sm:hidden w-full">
-                {{ __('Finalizar Pedido') }}
-            </x-primary-button>
         </div>
     </form>
 

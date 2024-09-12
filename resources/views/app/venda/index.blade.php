@@ -679,41 +679,47 @@
             $('.nav-link').click(function() {
                 var targetSection = $(this).data('section');
                 if (targetSection === "finalizar-section") {
-                    var valor_pago = $("#venda_valor_pago").val();
-                    var valor_total = $("#venda_valor_total").val();
-                    if (valor_pago >= valor_total) {
-                        $("#formVenda").submit();
-                    } else {
-                        // Se o produto já estiver na lista de itens, aumente a quantidade
-                        $(".abrir-modal").trigger("click");
-                        $("#modal-title").html(`<h2>OLÁ {{ Auth::user()->name }}</h2>`);
-                        $("#modal-body").html(`
-                            <div
-                                <div class="p-2 flex items-center>"
-                                <!-- Ícone de atenção -->
-                                <i class="bx bx-info-circle text-4xl text-yellow-500"></i>
-                                <!-- Mensagem -->
-                                <div class="ml-4">
-                                    <h4 class="text-xl font-bold">Atenção</h4>
-                                    <p>Valor Pago é insuficiente para finalizar a venda!</p>
-                                </div>
-                            </div>
-                        `);
-                        $('.secao').fadeOut().delay('400');
-                        $('.pagamentos-section').fadeIn();
+    var valor_pago = parseFloat($("#venda_valor_pago").val());
+    var valor_total = parseFloat($("#venda_valor_total").val());
+    
+    // Verifica se os valores são números válidos antes de comparar
+    if (!isNaN(valor_pago) && !isNaN(valor_total)) {
+        if (valor_pago >= valor_total) {
+            $("#formVenda").submit();
+        } else {
+            // Se o produto já estiver na lista de itens, aumente a quantidade
+            $(".abrir-modal").trigger("click");
+            $("#modal-title").html(`<h2>OLÁ {{ Auth::user()->name }}</h2>`);
+            $("#modal-body").html(`
+                <div class="p-2 flex items-center">
+                    <!-- Ícone de atenção -->
+                    <i class="bx bx-info-circle text-4xl text-yellow-500"></i>
+                    <!-- Mensagem -->
+                    <div class="ml-4">
+                        <h4 class="text-xl font-bold">Atenção</h4>
+                        <p>Valor Pago é insuficiente para finalizar a venda!</p>
+                    </div>
+                </div>
+            `);
+            $('.secao').fadeOut().delay('400');
+            $('.pagamentos-section').fadeIn();
 
-                        $('.nav-link').removeClass('active');
-                        $('#pagamentos').addClass('active');
-                    }
-                } else {
-                    // Oculta todas as seções e mostra apenas a correspondente
-                    $('.secao').fadeOut().delay('400');
-                    $('.' + targetSection).fadeIn();
+            $('.nav-link').removeClass('active');
+            $('#pagamentos').addClass('active');
+        }
+    } else {
+        console.error("Valores inválidos de pagamento ou total.");
+    }
+} else {
+    // Oculta todas as seções e mostra apenas a correspondente
+    $('.secao').fadeOut().delay('400');
+    $('.' + targetSection).fadeIn();
 
-                    // Destaca visualmente o link ativo
-                    $('.nav-link').removeClass('active');
-                    $(this).addClass('active');
-                }
+    // Destaca visualmente o link ativo
+    $('.nav-link').removeClass('active');
+    $(this).addClass('active');
+}
+
             });
 
             //Abre a table de itens da mesa
