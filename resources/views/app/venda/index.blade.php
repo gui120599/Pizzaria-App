@@ -1182,14 +1182,14 @@
                                             <div class="flex items-stretch justify-evenly">
                                                 <button type="button" id="minus-btn"
                                                     class="minus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                    data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">-</button>
+                                                    data-item_id="${item.id}" data-produto_preco_venda="${item.item_venda_valor_unitario}">-</button>
                                                 <input type="text" id="item_venda_quantidade_${item.id}" name="item_venda_quantidade"
                                                     value="${item.item_venda_quantidade}"
                                                     class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
                                                     readonly>
                                                 <button type="button" id="plus-btn"
                                                     class="plus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                    data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">+</button>
+                                                    data-item_id="${item.id}" data-produto_preco_venda="${item.item_venda_valor_unitario}">+</button>
                                             </div>
                                             `;
                                 if (item.produto.ap_produto_id && Array.isArray(item.produto
@@ -1226,16 +1226,16 @@
                                             </div>
                                             <div class="col-span-3">
                                                 <div class="flex items-stretch justify-evenly">
-                                                    <button type="button" id="minus-btn-adicional"
+                                                    {{--<button type="button" id="minus-btn-adicional"
                                                         class="minus-btn-adicional w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                        data-item_pedido_id="${item.id}" data-adicional_id="${add.adicional.id}" data-adicional_valor="${add.adicional.adicional_valor}">-</button>
+                                                        data-item_pedido_id="${item.id}" data-adicional_id="${add.adicional.id}" data-adicional_valor="${add.adicional.adicional_valor}">-</button>--}}
                                                     <input type="text" id="item_pedido_adicional_quantidade_${add.adicional.id}" name="item_pedido_adicional_quantidade"
                                                         value="${quantidade}"
                                                         class="max-w-14 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
                                                         readonly />
-                                                    <button type="button" id="plus-btn-adicional"
+                                                    {{--<button type="button" id="plus-btn-adicional"
                                                         class="plus-btn-adicional w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                        data-item_pedido_id="${item.id}" data-adicional_id="${add.adicional.id}" data-adicional_valor="${add.adicional.adicional_valor}">+</button>
+                                                        data-item_pedido_id="${item.id}" data-adicional_id="${add.adicional.id}" data-adicional_valor="${add.adicional.adicional_valor}">+</button>--}}
                                                 </div>
                                             </div>
                                         </div>
@@ -1259,7 +1259,7 @@
                                             <div class="flex flex-col">
                                                 <x-input-label for="item_venda_valor_unitario" :value="__('Valor Unit. R$')" />
                                                 <x-text-input id="item_venda_valor_unitario_${item.id}" name="item_venda_valor_unitario" type="text"
-                                                class="mt-1 w-full" value="${item.produto.produto_preco_venda}" autocomplete="off" readonly />
+                                                class="mt-1 w-full" value="${item.item_venda_valor_unitario}" autocomplete="off" readonly />
                                             </div>
                                             <div class="flex flex-col">
                                                 <x-input-label for="item_venda_valor" :value="__('Valor R$')" />
@@ -1343,7 +1343,7 @@
                                 2); // Limita a duas casas decimais
                             $("#item_pedido_valor_" + id).val(item_pedido_valor);
                             //Atualiza valor na vizualização
-                            $("#item_valor_view_" + id).html(item_pedido_valor.toFixed(2));
+                            $("#item_valor_view_" + id).html(item_pedido_valor);
 
                             $.ajax({
                                 type: "POST",
@@ -1403,7 +1403,7 @@
                                 2); // Limita a duas casas decimais
                             $("#item_pedido_valor_" + id).val(item_pedido_valor);
                             //Atualiza valor na vizualização
-                            $("#item_valor_view_" + id).html(item_pedido_valor.toFixed(2));
+                            $("#item_valor_view_" + id).html(item_pedido_valor);
 
                             $.ajax({
                                 type: "POST",

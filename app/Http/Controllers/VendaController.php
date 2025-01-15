@@ -318,7 +318,7 @@ class VendaController extends Controller
             "destination" => "Internal_Operation", // Ajuste conforme necessário
             "purposeType" => "Normal", // Ajuste conforme necessário
             "consumerType" => "FinalConsumer", // Ajuste conforme necessário
-            "presenceType" => "None",
+            "presenceType" => "Presence",
             "buyer" => $this->montarComprador($venda),
             "items" => $this->montarItens($venda),
             "payment" => $this->montarPagamentos($venda),
@@ -336,13 +336,13 @@ class VendaController extends Controller
 
         // Envia o array para a API
         $response = $this->enviarParaApi($nfeData);
-        return response()->json($nfeData);
+        //return response()->json([$nfeData,$response]);
 
         // Decodifica a resposta JSON para um array associativo
         // 'true' para obter o array associativo
 
         // Certifique-se de que a resposta foi decodificada corretamente
-        /*if (is_array($response) && isset($response['id'])) {
+        if (is_array($response) && isset($response['id'])) {
             // Pega o campo "id" do JSON
             $idNfe = $response['id'];
 
@@ -363,7 +363,7 @@ class VendaController extends Controller
             // Retorna a mensagem de erro para o usuário
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
                 ->with('error', $errorDetail); // Passa a mensagem de erro para a sessão
-        }*/
+        }
 
 
 

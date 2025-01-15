@@ -33,7 +33,7 @@ class VendaService
             $venda_valor_icms += $item->item_venda_valor_icms;
             $venda_valor_pis += $item->item_venda_valor_pis;
             $venda_valor_cofins += $item->item_venda_valor_cofins;
-            $venda_valor_itens += $item->item_venda_valor_unitario * $item->item_venda_quantidade;
+            $venda_valor_itens += $item->item_venda_valor;
             $venda_valor_desconto += $item->item_venda_desconto;
             $venda_valor_total += $item->item_venda_valor;
         }
@@ -51,7 +51,7 @@ class VendaService
         $venda->venda_valor_itens = $venda_valor_itens;
         $venda->venda_valor_desconto = $venda_valor_desconto;
         // Não precisa descontar o valor do frete, pois já vem descontando no valor do produto e a adição do acrescimos já vem do produto tbm!
-        $venda->venda_valor_total = $venda_valor_total + $venda_valor_frete + $venda_valor_acrescimo; 
+        $venda->venda_valor_total = $venda_valor_total + $venda_valor_frete ; 
         $venda->venda_valor_pago = $venda_valor_pago;
         $venda->venda_valor_acrescimo = $venda_valor_acrescimo;
         
