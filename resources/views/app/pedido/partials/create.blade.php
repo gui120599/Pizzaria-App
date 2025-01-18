@@ -41,13 +41,13 @@
                                     <div
                                         class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-5 gap-2 pe-1">
                                         @foreach ($categoria->produtos as $produto)
-                                            <div class="relative snap-end ">
+                                            <div class="relative snap-end">
                                                 <div class="produto cursor-pointer hover:shadow-lg"
                                                     data-produto_id="{{ $produto->id }}"
                                                     data-produto_valor="{{ $produto->produto_preco_venda }}">
                                                     <div
-                                                        class="w-full flex flex-col bg-gray-100 p-2 rounded-lg opacity-95 hover:opacity-100 gap-1 min-h-40">
-                                                        <div class="w-full ">
+                                                        class="w-full flex flex-col bg-gray-100 p-2 rounded-lg opacity-95 hover:opacity-100 gap-1 justify-stretch max-h-40">
+                                                        {{--<div class="w-full ">
                                                             @if ($produto->produto_foto)
                                                                 <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
                                                                     alt="{{ $produto->produtso_descricao }}"
@@ -58,7 +58,7 @@
                                                                     src="{{ asset('Sem Imagem.png') }}"
                                                                     alt="Imagem Padrão">
                                                             @endif
-                                                        </div>
+                                                        </div>--}}
                                                         <div class="max-h-24 flex flex-col justify-between">
                                                             <p
                                                                 class="text-gray-900 font-bold text-sm md:text-xs uppercase produto_descricao">

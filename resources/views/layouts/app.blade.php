@@ -15,6 +15,43 @@
 
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>
+        /* Estilização da barra de rolagem */
+
+        /* Ocultar a barra de rolagem e as setas (compatível com navegadores WebKit) */
+        ::-webkit-scrollbar-button {
+            width: 0;
+            height: 0;
+            display: none;
+            /* Oculta as setas */
+        }
+
+        /* Estilo da barra de rolagem */
+        ::-webkit-scrollbar {
+            width: 8px;
+            /* Define a largura da barra */
+            height: 8px;
+            /* Altura da barra no eixo horizontal */
+
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgb(240 253 250);
+            /* Cor de fundo da barra */
+            border-radius: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background:rgb(13 148 136) ;
+            /* Cor do indicador */
+            border-radius: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgb(15 118 110);
+            /* Cor ao passar o mouse */
+        }
+    </style>
 
 </head>
 
@@ -34,15 +71,14 @@
                         {{ $header }}
                     </div>
                 </header>
-                 <!-- Page Content -->
-                 <main
-                 class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 transition-margin ease-in-out duration-300 h-[95%] snap-y">
-                 <div class="mx-auto h-full">
-                     {{ $slot }}
+                <!-- Page Content -->
+                <main
+                    class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 transition-margin ease-in-out duration-300 h-[95%] snap-y">
+                    <div class="mx-auto h-full">
+                        {{ $slot }}
 
-                 </div>
-             </main>
-                
+                    </div>
+                </main>
             @else
                 <!-- Page Content -->
                 <main

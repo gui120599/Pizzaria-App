@@ -11,11 +11,11 @@
     <hr class="h-px my-2 border-0 dark:bg-gray-700">
 
     <!-- Nav-link´s-->
-    <!--<div class="p2.5 mt-3 flex items-center rounded-md px-4 durations-300 cursor-pointer bg-gray-700">
+    {{--<div class="p2.5 mt-3 flex items-center rounded-md px-4 durations-300 cursor-pointer bg-gray-700">
         <i class='bx bx-search text-sm'></i>
         <input type="text" placeholder="Buscar"
             class="text-[12px] ml-4 w-full bg-transparent border-none focus:border-transparent focus:ring-0">
-    </div>-->
+    </div>--}}
     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
         <i class='text-[13px] bx bxs-dashboard'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
@@ -40,20 +40,6 @@
         <i class='text-[13px] bx bx-receipt'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
     </x-nav-link>
-    <x-nav-link :href="route('produto')" :active="request()->routeIs('produto')">
-        <i class='text-[13px] bx bxs-pizza'></i>
-        <span class="text-[12px] ml-4 text-gray-200">{{ __('Produtos') }}</span>
-    </x-nav-link>
-    <x-nav-link :href="route('cliente')" :active="request()->routeIs('cliente')">
-        <i class='text-[13px] bx bx-user'></i>
-        <span class="text-[12px] ml-4 text-gray-200">{{ __('Clientes') }}</span>
-    </x-nav-link>
-    @can('Admin')
-        <x-nav-link :href="route('categoria')" :active="request()->routeIs('categoria')">
-            <i class='text-[13px] bx bx-user-pin'></i>
-            <span class="text-[12px] ml-4 text-gray-200">{{ __('Usuários') }}</span>
-        </x-nav-link>
-    @endcan
     <hr class="h-px my-2 border-0 dark:bg-gray-700">
 
     <!--Financeiro-->
@@ -99,6 +85,20 @@
         </div>
     </div>
     <div class="text-sm font-thin mt-2 w-4/5 mx-auto transition duration-700 ease-in-out" id="submenu-config">
+        <x-nav-link :href="route('produto')" :active="request()->routeIs('produto')">
+            <i class='text-[13px] bx bxs-pizza'></i>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Produtos') }}</span>
+        </x-nav-link>
+        <x-nav-link :href="route('cliente')" :active="request()->routeIs('cliente')">
+            <i class='text-[13px] bx bx-user'></i>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Clientes') }}</span>
+        </x-nav-link>
+        @can('Admin')
+            <x-nav-link :href="route('categoria')" :active="request()->routeIs('categoria')">
+                <i class='text-[13px] bx bx-user-pin'></i>
+                <span class="text-[12px] ml-4 text-gray-200">{{ __('Usuários') }}</span>
+            </x-nav-link>
+        @endcan
         <x-nav-link :href="route('empresa')" :active="request()->routeIs('empres')">
             <i class='bx bx-building-house'></i>
             <span class="text-[12px] ml-4 text-gray-200">{{ __('Empresa') }}</span>
