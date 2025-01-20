@@ -19,6 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('pedido_usuario_garcom_id')->nullable();
             $table->unsignedBigInteger('pedido_usuario_entrega_id')->nullable();
             $table->unsignedBigInteger('pedido_opcaoentrega_id')->nullable();
+            $table->unsignedBigInteger('pedido_venda_id')->nullable();
             $table->string('pedido_descricao_pagamento')->nullable();
             $table->text('pedido_observacao_pagamento')->nullable();
             $table->text('pedido_endereco_entrega')->nullable();
