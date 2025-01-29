@@ -1,9 +1,5 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight flex items-center space-x-2">
-            <i class='bx bx-user'></i>
-            <a href="{{ route('cliente') }}">{{ __('Clientes') }}</a>
-        </h2>
         <nav class="bg-transparent border-b border-gray-100">
             <!-- Primary Navigation Menu -->
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

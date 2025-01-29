@@ -42,23 +42,11 @@
                             <td>{{ $formattedDate }}</td>
                             <td>{{ isset($item['totals']['icms']['productAmount']) ? $item['totals']['icms']['productAmount'] : 'N/A' }}</td>
                             <td>{{ isset($item['totals']['icms']['invoiceAmount']) ? $item['totals']['icms']['invoiceAmount'] : 'N/A' }}</td>
-                            <td>
-                                @foreach ($item['payment'] as $pagamento)
-                                    @foreach ($pagamento['paymentDetail'] as $detail)
-                                        {{ __($detail['method']) }} 
-                                    @endforeach
-                                @endforeach
-                            </td>
-                            <td>
-                                @foreach ($item['payment'] as $pagamento)
-                                    @foreach ($pagamento['paymentDetail'] as $detail)
-                                        {{ __($detail['method']) }} 
-                                    @endforeach
-                                @endforeach
-                            </td>
+                           
                             <td>
                                 <div class="flex items-center justify-center space-x-2 p-1">
                                     <x-primary-button onclick="window.location.href = '{{ route('nota_fiscal.eventos', ['id' => $item['id']]) }}'" title="Venda">Eventos</x-primary-button>
+                                    <x-primary-button onclick="window.location.href = '{{ route('venda.gerar_JSONNFE', ['id' => $item['id']]) }}'" title="Venda">JSON</x-primary-button>
                                 </div>
                             </td>
                         </tr>

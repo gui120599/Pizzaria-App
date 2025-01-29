@@ -48,11 +48,11 @@
                             <td>{{ isset($item['totals']['icms']['invoiceAmount']) ? $item['totals']['icms']['invoiceAmount'] : 'N/A' }}
                             </td>
                             <td>
-                                @foreach ($item['payment'] as $pagamento)
+                               {{-- @foreach ($item['payment'] as $pagamento)
                                     @foreach ($pagamento['paymentDetail'] as $detail)
                                         {{ __($detail['method']) }} 
                                     @endforeach
-                                @endforeach
+                                @endforeach--}}
                             </td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2 p-1">

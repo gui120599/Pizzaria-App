@@ -88,7 +88,7 @@
                 </div>
 
                 <div
-                    class="overflow-auto sm:col-span-4 lg:col-span-3 col-span-6 md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
+                    class="overflow-auto sm:col-span-4 lg:col-span-2 col-span-6 md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
                     {{-- GARÇOM ID --}}
                     <x-text-input id="pedido_usuario_garcom_id" name="pedido_usuario_garcom_id" type="text"
                         class="mt-1 w-full" value="{{ Auth::user()->id }}" autocomplete="off" hidden />
@@ -168,7 +168,7 @@
                 </div>
 
                 <div
-                    class="relative overflow-auto sm:col-span-8 lg:col-span-2 col-span-6 bg-slate-100 border h-full flex flex-col justify-between">
+                    class="relative overflow-auto sm:col-span-8 lg:col-span-3 col-span-6 bg-slate-100 border h-full flex flex-col justify-between">
                     <div class="bg-white p-1">
                         <p>Itens do Pedido</p>
                     </div>
@@ -223,6 +223,7 @@
             </div>
         </div>
     </form>
+    
     <script>
         function scrollToElement(elementId) {
             var container = document.getElementById('produtos-container');
@@ -235,6 +236,45 @@
                 });
             }
         }
+        function selecionarCliente(id, nome) {
+            document.getElementById("pedido_cliente_id").value = id;
+            document.getElementById("pedido_cliente_nome").value = nome;
+            console.log(id + ' - ' + nome);
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+
+
+            const inputCliente = document.getElementById('pedido_cliente_nome');
+            const listaClientes = document.getElementById('lista_clientes');
+
+            // Mostrar a lista de clientes quando o campo de texto estiver focado
+            inputCliente.addEventListener('focus', function() {
+                listaClientes.classList.remove('hidden');
+            });
+
+            // Ocultar a lista de clientes quando o campo de texto perder o foco
+            inputCliente.addEventListener('blur', function() {
+                setTimeout(() => {
+                    listaClientes.classList.add('hidden');
+                }, 200);
+
+            });
+
+            // Filtrar a lista de clientes conforme o usuário digita
+            inputCliente.addEventListener('input', function() {
+                const textoDigitado = inputCliente.value.toLowerCase();
+                const itemsClientes = listaClientes.querySelectorAll('div');
+
+                itemsClientes.forEach(function(itemCliente) {
+                    const nomeCliente = itemCliente.textContent.toLowerCase();
+                    if (nomeCliente.includes(textoDigitado)) {
+                        itemCliente.style.display = 'block';
+                    } else {
+                        itemCliente.style.display = 'none';
+                    }
+                });
+            });
+        });
     </script>
 
     <script type="module">

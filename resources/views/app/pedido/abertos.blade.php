@@ -78,8 +78,8 @@
 
         $(document).ready(function() {
             $(".toggleSideBar").trigger("click");
-            listarPreparando();
             listarAbertos();
+            listarPreparando();
             listarEntregue();
             listarPronto();
             listarTransporte();
@@ -87,6 +87,10 @@
 
             setInterval(() => {
             listarAbertos();
+            listarPreparando();
+            listarEntregue();
+            listarPronto();
+            listarTransporte();
             }, 15000);
 
             // Obter a data atual
@@ -126,7 +130,6 @@
                 },
                 dataType: "JSON",
                 success: function(response) {
-                    
 
                     $('.qtd-abertos').text(response.length);
                     if (qtd_aberto !== null && qtd_aberto < response.length) {
@@ -567,7 +570,6 @@
                 },
                 dataType: "JSON",
                 success: function(response) {
-                    
 
                     $('.qtd-preparando').text(response.length);
 
@@ -1142,6 +1144,7 @@
                 dataType: "JSON",
                 success: function(response) {
                     
+                    
                     $('.qtd-transporte').text(response.length);
 
                     // Limpe o conteúdo atual antes de adicionar os novos itens
@@ -1254,9 +1257,9 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} 
-                                                        <p>OBS: ${produto.item_pedido_observacao}</p>
+                                                        ${produto.produto.categoria.categoria_nome}
+                                                        ${produto.produto.produto_descricao}
+                                                        <p>OBS: ${produto.item_pedido_observacao} </p>
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
                                                 </tr>

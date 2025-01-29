@@ -45,11 +45,13 @@ class VendaController extends Controller
             ->with([
                 'pedidos' => function ($query) {
                     $query->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO'])
-                    ->with([
-                        'item_pedido_pedido_id.produto.categoria', 'item_pedido_pedido_id.adicionaisItemPedido.adicional','item_pedido_pedido_id' => function ($query) {
-                           $query->where('item_pedido_status', 'INSERIDO');
-                       }
-                    ]);
+                        ->with([
+                            'item_pedido_pedido_id.produto.categoria',
+                            'item_pedido_pedido_id.adicionaisItemPedido.adicional',
+                            'item_pedido_pedido_id' => function ($query) {
+                                $query->where('item_pedido_status', 'INSERIDO');
+                            }
+                        ]);
                 }
             ])
             ->get();
@@ -72,7 +74,9 @@ class VendaController extends Controller
         // Obtém todos os pedidos que não estão cancelados ou finalizados ou que não possuem venda vinculada
         $pedidos = Pedido::whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO'])
             ->with([
-                 'item_pedido_pedido_id.produto.categoria', 'item_pedido_pedido_id.adicionaisItemPedido.adicional','item_pedido_pedido_id' => function ($query) {
+                'item_pedido_pedido_id.produto.categoria',
+                'item_pedido_pedido_id.adicionaisItemPedido.adicional',
+                'item_pedido_pedido_id' => function ($query) {
                     $query->where('item_pedido_status', 'INSERIDO');
                 }
             ])
@@ -95,7 +99,7 @@ class VendaController extends Controller
         }
 
         return redirect()->route('sessao_caixa')->with('error', 'Nenhuma sessão caixa está aberta para o usuário: ' . $firstName . '!');
-        
+
 
     }
 
@@ -310,6 +314,7 @@ class VendaController extends Controller
         // Monta o array com os dados da venda baseado no modelo fornecido
         $nfeData = [
             "id" => (string) $venda->id,
+            "payment" => $this->montarPagamentos($venda),
             "serie" => 1, // Ajuste conforme necessário
             "number" => $venda->id, // Ajuste conforme necessário
             "operationOn" => $venda->venda_datahora_finalizada,
@@ -321,7 +326,7 @@ class VendaController extends Controller
             "presenceType" => "Presence",
             "buyer" => $this->montarComprador($venda),
             "items" => $this->montarItens($venda),
-            "payment" => $this->montarPagamentos($venda),
+            
             /*"printType" => 0,
             "contingencyOn" => null,
             "contingencyJustification" => null, // Ajuste conforme necessário
@@ -333,9 +338,10 @@ class VendaController extends Controller
                 "stStateTaxNumber" => null, // Ajuste conforme necessário
             ]*/
         ];
+        return response()->json($nfeData);
 
         // Envia o array para a API
-        $response = $this->enviarParaApi($nfeData);
+       /* $response = $this->enviarParaApi($nfeData);
         //return response()->json([$nfeData,$response]);
 
         // Decodifica a resposta JSON para um array associativo
@@ -363,12 +369,42 @@ class VendaController extends Controller
             // Retorna a mensagem de erro para o usuário
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
                 ->with('error', $errorDetail); // Passa a mensagem de erro para a sessão
-        }
+        }*/
 
+    }
 
+    public function jsonNFE($vendaId){
+                // Busca a venda pelo ID e carrega os relacionamentos necessários
+        $venda = Venda::with(['cliente', 'itensVenda.produto', 'pagamentos.opcaoPagamento', 'pagamentos.cartao'])->findOrFail($vendaId);
 
-
-
+        // Monta o array com os dados da venda baseado no modelo fornecido
+        $nfeData = [
+            "id" => (string) $venda->id,
+            "payment" => $this->montarPagamentos($venda),
+            "serie" => 1, // Ajuste conforme necessário
+            "number" => $venda->id, // Ajuste conforme necessário
+            "operationOn" => $venda->venda_datahora_finalizada,
+            "operationNature" => "Venda de mercadoria", // Ajuste conforme necessário
+            "operationType" => "Outgoing", // Ajuste conforme necessário
+            "destination" => "Internal_Operation", // Ajuste conforme necessário
+            "purposeType" => "Normal", // Ajuste conforme necessário
+            "consumerType" => "FinalConsumer", // Ajuste conforme necessário
+            "presenceType" => "Presence",
+            "buyer" => $this->montarComprador($venda),
+            "items" => $this->montarItens($venda),
+            
+            /*"printType" => 0,
+            "contingencyOn" => null,
+            "contingencyJustification" => null, // Ajuste conforme necessário
+            "totals" => $this->montarTotais($venda),
+            "transport" => $this->montarTransporte($venda),
+            "additionalInformation" => $this->montarInformacoesAdicionais($venda),
+            "billing" => $this->montarCobranca($venda),
+            "issuer" => [
+                "stStateTaxNumber" => null, // Ajuste conforme necessário
+            ]*/
+        ];
+        return response()->json($nfeData);
     }
 
     private function montarPagamentos(Venda $venda)
@@ -537,11 +573,20 @@ class VendaController extends Controller
 
             switch ($produto->produto_CSOSN) {
                 case '101':
+                    $descAdicionais = "";
+                    if ($item->adicionaisItemVenda) {
+                        foreach ($item->adicionaisItemVenda as $adicional) {
+                            $descAdicionais .= " Adic. " . $adicional->adicional->adicional_nome;
+                        }
+                    } else {
+
+                    }
+
                     $itensArray[] = [
                         "code" => (string) $produto->id,
                         "codeGTIN" => $produto->produto_gtin ?? null,
-                        /* "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao,*/
-                        "description" => "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL",
+                        "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao . "" . $descAdicionais,
+                        /*"description" => "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL",*/
                         "ncm" => $produto->produto_codigo_NCM ?? null,
                         "cfop" => (int) $produto->produto_CFOP ?? null,
                         "unit" => $produto->produto_unidade_comercial,
@@ -569,11 +614,18 @@ class VendaController extends Controller
                     ];
                     break;
                 case '102':
+                    $descAdicionais = "";
+                    if ($item->adicionaisItemVenda) {
+                        foreach ($item->adicionaisItemVenda as $adicional) {
+                            $descAdicionais .= " Adic. " . $adicional->adicional->adicional_nome;
+                        }
+                    } 
+
                     $itensArray[] = [
                         "code" => (string) $produto->id,
                         "codeGTIN" => $produto->produto_gtin ?? null,
-                        /* "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao,*/
-                        "description" => "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL",
+                        "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao . "" . $descAdicionais,
+                        /*"description" => "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL",*/
                         "ncm" => $produto->produto_codigo_NCM ?? null,
                         "cfop" => (int) $produto->produto_CFOP ?? null,
                         "unit" => $produto->produto_unidade_comercial,
@@ -599,11 +651,20 @@ class VendaController extends Controller
                     ];
                     break;
                 case '500':
+                    $descAdicionais = "";
+                    if ($item->adicionaisItemVenda) {
+                        foreach ($item->adicionaisItemVenda as $adicional) {
+                            $descAdicionais = " Adic. " . $adicional->adicional->adicional_nome;
+                        }
+                    } else {
+
+                    }
+
                     $itensArray[] = [
                         "code" => (string) $produto->id,
                         "codeGTIN" => $produto->produto_gtin ?? null,
-                        /* "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao,*/
-                        "description" => "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL",
+                        "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao . "" . $descAdicionais,
+                        /*"description" => "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL",*/
                         "ncm" => $produto->produto_codigo_NCM ?? null,
                         "cfop" => (int) $produto->produto_CFOP ?? null,
                         "unit" => $produto->produto_unidade_comercial,
@@ -629,11 +690,20 @@ class VendaController extends Controller
                     ];
                     break;
                 default:
+                    $descAdicionais = "";
+                    if ($item->adicionaisItemVenda) {
+                        foreach ($item->adicionaisItemVenda as $adicional) {
+                            $descAdicionais = " Adic. " . $adicional->adicional->adicional_nome;
+                        }
+                    } else {
+
+                    }
+
                     $itensArray[] = [
                         "code" => (string) $produto->id,
                         "codeGTIN" => $produto->produto_gtin ?? null,
-                        /* "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao,*/
-                        "description" => "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL",
+                        "description" => $produto->categoria->categoria_nome . " " . $produto->produto_descricao . "" . $descAdicionais,
+                        /*"description" => "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL",*/
                         "ncm" => $produto->produto_codigo_NCM ?? null,
                         "cfop" => (int) $produto->produto_CFOP ?? null,
                         "unit" => $produto->produto_unidade_comercial,

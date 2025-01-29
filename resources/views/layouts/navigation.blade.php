@@ -8,7 +8,7 @@
                 onclick="toggleSidebar()"></i>
         </div>
     </div>
-    <hr class="h-px my-2 border-0 dark:bg-gray-700">
+    <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!-- Nav-link´s-->
     {{--<div class="p2.5 mt-3 flex items-center rounded-md px-4 durations-300 cursor-pointer bg-gray-700">
@@ -40,7 +40,7 @@
         <i class='text-[13px] bx bx-receipt'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
     </x-nav-link>
-    <hr class="h-px my-2 border-0 dark:bg-gray-700">
+    <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!--Financeiro-->
     <div class="p-2.5 mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
@@ -71,7 +71,7 @@
             <span class="text-[12px] ml-4 text-gray-200">{{ __('Opções de Pagamentos') }}</span>
         </x-nav-link>
     </div>
-    <hr class="h-px my-2 border-0 dark:bg-gray-700">
+    <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!--Configurações Gerais-->
     <div class="p-2.5 mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
@@ -120,7 +120,7 @@
             <span class="text-[12px] ml-4 text-gray-200">{{ __('Mesas') }}</span>
         </x-nav-link>
     </div>
-    <hr class="h-px my-2 border-0 dark:bg-gray-700">
+    <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!-- Profile -->
     <div class="flex items-center">

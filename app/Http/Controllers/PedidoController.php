@@ -173,7 +173,7 @@ class PedidoController extends Controller
     public function PedidosEmTransporteLista()
     {
         // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
-        $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'item_pedido_pedido_id.produto.categoria', 'item_pedido_pedido_id.adicionaisItemPedido.adicional'])
+         $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'item_pedido_pedido_id.produto.categoria', 'item_pedido_pedido_id.adicionaisItemPedido.adicional'])
             ->where('pedido_status', 'EM TRANSPORTE')
             ->get();
 

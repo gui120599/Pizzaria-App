@@ -213,6 +213,7 @@ class ItensVendaController extends Controller
                     $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
                     $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
                     $itemVenda->item_venda_valor += $valorTotal;
+                    $itemVenda->item_venda_quantidade_tributavel += $item->item_pedido_quantidade;
                     $this->atualizarTributos($itemVenda, $item, $valorTotal);
                     $itemVenda->save();
                 } else {
@@ -375,6 +376,7 @@ class ItensVendaController extends Controller
                 $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
                 $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
                 $itemVenda->item_venda_valor += $valorTotal;
+                $itemVenda->item_venda_quantidade_tributavel += $item->item_pedido_quantidade;
                 $this->atualizarTributos($itemVenda, $item, $valorTotal);
                 $itemVenda->save();
             } else {

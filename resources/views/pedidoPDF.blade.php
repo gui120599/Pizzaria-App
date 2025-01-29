@@ -147,7 +147,7 @@
     </div>
 </body>
 <script>
-    //window.print();
+    window.print();
 </script>
 
 </html>

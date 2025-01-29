@@ -20,6 +20,7 @@
                                     <th class="w-1/6 px-1 md:px-4">Valor Total</th>
                                     <th class="w-1/6 px-1 md:px-4">Valor Pago</th>
                                     <th class="w-1/6 px-1 md:px-4">Valor Troco</th>
+                                    <th class="w-1/6 px-1 md:px-4">Pagamentos</th>
                                     <th class="w-1/6 px-1 md:px-4">Status</th>
                                     <th class="w-1/6 px-1 md:px-4">Data/Hora Finalizada</th>
                                     <th class="w-1/6 px-1 md:px-4">NFE-C</th>
@@ -34,6 +35,12 @@
                                             <td class="uppercase">R$ {{ number_format($venda->venda_valor_total, 2, ',', '.') }}</td>
                                             <td class="uppercase">R$ {{ number_format($venda->venda_valor_pago, 2, ',', '.') }}</td>
                                             <td class="uppercase">R$ {{ number_format($venda->venda_valor_troco, 2, ',', '.') }}</td>
+                                            <td class="text-[10px] text-center">
+                                                @foreach ($venda->pagamentos as $pg)
+                                                    {{ $pg->opcaoPagamento->opcaopag_nome }} - R$
+                                                    {{ number_format($pg->pg_venda_valor_pagamento, 2, ',', '.') }}<br>
+                                                @endforeach
+                                            </td>
                                             <td class="uppercase">{{ $venda->venda_status }}</td>
                                             <td>{{ \Carbon\Carbon::parse($venda->venda_datahora_finalizada)->format('d/m/Y H:i:s') }}</td>
                                             @if ($venda->venda_id_nfe)
