@@ -65,4 +65,12 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
     ];
+
+    /**
+     * Weboohk de atualizar status NFE
+     */
+    protected $routeMiddleware = [
+        'verify.nfe.io.signature' => \App\Http\Middleware\VerifyNfeIoSignature::class,
+    ];
+    
 }

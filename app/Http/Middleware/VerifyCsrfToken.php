@@ -12,6 +12,6 @@ class VerifyCsrfToken extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        //
+        'api/webhook/nfe-status', // Adicione aqui a sua rota do webhook
     ];
 }

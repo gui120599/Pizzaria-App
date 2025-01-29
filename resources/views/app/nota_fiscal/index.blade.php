@@ -7,14 +7,14 @@
     </x-slot>
 
     <div class="py-6">
-        <div class="w-full mx-auto sm:px-6 lg:px-2 space-y-6">
-           <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
+        <div class="w-full flex mx-auto sm:px-6 lg:px-2 space-x-3">
+           <div class="w-1/2 p-4 sm:p-8 bg-white shadow sm:rounded-lg">
                 <div class="w-full">
                     @include('app.nota_fiscal.partials.list') 
                 </div>
             </div>
 
-           <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
+           <div class="w-1/2 p-4 sm:p-8 bg-white shadow sm:rounded-lg">
                 <div class="w-full">
                     @include('app.nota_fiscal.partials.listError') 
                 </div>

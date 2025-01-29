@@ -14,10 +14,7 @@
                     <th class="w-1/6">Nº</th>
                     <th class="w-1/6">Status</th>
                     <th class="w-1/6">Data de Emissão</th>
-                    <th class="w-1/6">Cliente</th>
-                    <th class="w-1/6">Valor Produtos</th>
                     <th class="w-full">Valor Total NF</th>
-                    <th class="w-1/6">Pagamentos</th>
                     <th class="w-1/6">Opções</th>
                 </tr>
             </thead>
@@ -36,13 +33,11 @@
                         @endphp
 
                         <tr class="border-b-2 border-gray-100">
-                            <td>{{ $item['number'] }}</td>
                             <td>{{ $item['id'] }}</td>
+                            <td>{{ $item['number'] }}</td>
                             <td>{{ __($item['status']) }}</td>
                             <td>{{ $formattedDate }}</td>
-                            <td>{{ isset($item['totals']['icms']['productAmount']) ? $item['totals']['icms']['productAmount'] : 'N/A' }}</td>
                             <td>{{ isset($item['totals']['icms']['invoiceAmount']) ? $item['totals']['icms']['invoiceAmount'] : 'N/A' }}</td>
-                           
                             <td>
                                 <div class="flex items-center justify-center space-x-2 p-1">
                                     <x-primary-button onclick="window.location.href = '{{ route('nota_fiscal.eventos', ['id' => $item['id']]) }}'" title="Venda">Eventos</x-primary-button>

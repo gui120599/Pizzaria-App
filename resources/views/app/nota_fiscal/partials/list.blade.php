@@ -4,8 +4,6 @@
             <h2 class="text-lg font-medium text-gray-900">
                 {{ __('Lista de Notas Fiscais') }}
             </h2>
-            <x-secondary-button onclick="window.location.href = '{{ route('categoria.inactive') }}'">Mostrar
-                Inativos</x-secondary-button>
         </div>
     </header>
     <div class="w-[18rem] sm:w-[99%] overflow-auto mx-auto h-2/4">
@@ -16,10 +14,7 @@
                     <th class="w-1/6">Nº</th>
                     <th class="w-1/6">Status</th>
                     <th class="w-1/6">Data de Emissão</th>
-                    <th class="w-1/6">Cliente</th>
-                    <th class="w-1/6">Valor Produtos</th>
                     <th class="w-full">Valor Total NF</th>
-                    <th class="w-1/6">Pagamentos</th>
                     <th class="w-1/6">Opções</th>
                 </tr>
             </thead>
@@ -42,17 +37,7 @@
                             <td>{{ $item['number'] }}</td>
                             <td>{{ __($item['status']) }}</td>
                             <td>{{ $formattedDate }}</td>
-                            <td>{{ isset($item['customerName']) ? $item['customerName'] : 'N/A' }}</td>
-                            <td>{{ isset($item['totals']['icms']['productAmount']) ? $item['totals']['icms']['productAmount'] : 'N/A' }}
-                            </td>
                             <td>{{ isset($item['totals']['icms']['invoiceAmount']) ? $item['totals']['icms']['invoiceAmount'] : 'N/A' }}
-                            </td>
-                            <td>
-                               {{-- @foreach ($item['payment'] as $pagamento)
-                                    @foreach ($pagamento['paymentDetail'] as $detail)
-                                        {{ __($detail['method']) }} 
-                                    @endforeach
-                                @endforeach--}}
                             </td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2 p-1">
