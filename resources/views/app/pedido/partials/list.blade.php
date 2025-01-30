@@ -27,7 +27,6 @@
                             <td class="">{{ $pedido->sessaoMesa->mesa->mesa_nome }}</td>
                             <td class="text-start">{{ $pedido->garcom->name_first }}</td>
                             <td class="text-start">
-                                <i class='bx bx-chair bx-tada mx-1'></i>
                                 <span>{{ $pedido->opcaoEntrega->opcaoentrega_nome }}</span>
                             </td>
                             <td class="text-start">R$ {{ $pedido->pedido_valor_total }}</td>

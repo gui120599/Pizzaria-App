@@ -17,13 +17,13 @@
                                 <tr class="border-b-4">
                                     <th class="w-1/12 px-1 md:px-4">#</th>
                                     <th class="w-1/6 px-1 md:px-4">Cliente</th>
-                                    <th class="w-1/6 px-1 md:px-4">Valor Total</th>
-                                    <th class="w-1/6 px-1 md:px-4">Valor Pago</th>
-                                    <th class="w-1/6 px-1 md:px-4">Valor Troco</th>
+                                    <th class="w-1/12 px-1 md:px-4">Valor Total</th>
+                                    <th class="w-1/12 px-1 md:px-4">Valor Pago</th>
+                                    <th class="w-1/12 px-1 md:px-4">Valor Troco</th>
                                     <th class="w-1/6 px-1 md:px-4">Pagamentos</th>
                                     <th class="w-1/6 px-1 md:px-4">Status</th>
                                     <th class="w-1/6 px-1 md:px-4">Data/Hora Finalizada</th>
-                                    <th class="w-1/6 px-1 md:px-4">NFE-C</th>
+                                    <th class="w-1/12 px-1 md:px-4">NFC-E</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -42,17 +42,17 @@
                                                 @endforeach
                                             </td>
                                             <td class="uppercase">{{ $venda->venda_status }}</td>
-                                            <td>{{ \Carbon\Carbon::parse($venda->venda_datahora_finalizada)->format('d/m/Y H:i:s') }}</td>
+                                            <td>{{ \Carbon\Carbon::parse($venda->venda_datahora_finalizada)->format('d/m/y H:i') }}</td>
                                             @if ($venda->venda_id_nfe)
                                             <td>
                                                 <div class="flex items-center justify-center space-x-2 p-1">
-                                                    <x-secondary-button onclick="window.open('{{ route('venda.imprimir_NFE', ['id_nfe' => $venda->venda_id_nfe]) }}')" title="Venda">IMPRIMIR NFE-C</x-secondary-button>
+                                                    <x-secondary-button onclick="window.open('{{ route('venda.imprimir_NFE', ['id_nfe' => $venda->venda_id_nfe]) }}')" title="IMPRIMIR"><i class='bx bx-printer' ></i></x-secondary-button>
                                                 </div>
                                             </td>
                                             @else
                                             <td>
                                                 <div class="flex items-center justify-center space-x-2 p-1">
-                                                    <x-primary-button onclick="window.location.href = '{{ route('venda.gerar_NFE', ['id' => $venda->id]) }}'" title="Venda">Gerar NFE-C</x-primary-button>
+                                                    <x-primary-button onclick="window.location.href = '{{ route('venda.gerar_NFE', ['id' => $venda->id]) }}'" title="GERAR NFC-E"><i class='bx bx-note' ></i></x-primary-button>
                                                 </div>
                                             </td>
                                             @endif

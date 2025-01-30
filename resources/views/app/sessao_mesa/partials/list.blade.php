@@ -1,10 +1,9 @@
 <section class="h-full">
-    <div class="w-[18rem] sm:w-[99%] overflow-auto mx-auto h-2/4">
+    <div class="w-[18rem] sm:w-[99%] overflow-auto mx-auto h-2/4 md:border-l md:pl-2">
         <table class="w-full text-center text-[7px] md:text-base">
             <thead class="">
                 <tr class="border-b-4">
                     <th class="px-1 md:px-4 text-xs">#</th>
-                    <th class="px-1 md:px-4 text-xs">Mesa</th>
                     <th class="px-1 md:px-4 text-xs">Garçom</th>
                     <th class="px-1 md:px-4 text-xs">Cliente</th>
                     <th class="px-1 md:px-4 text-xs">Data/Hora Abertura</th>
@@ -20,11 +19,10 @@
                     @foreach ($sessaoMesas as $sessao)
                         <tr class="border-b-2 border-gray-100">
                             <td>{{ $sessao->id }}</td>
-                            <td class="uppercase">{{ $sessao->mesa->mesa_nome }}</td>
                             <td class="uppercase">{{ $sessao->garcom->name_first }}</td>
                             <td class="uppercase">{{ $sessao->cliente->cliente_nome }}</td>
-                            <td>{{ \Carbon\Carbon::parse($sessao->created_at)->format('d/m/Y H:i:s') }}</td>
-                            <td>{{ \Carbon\Carbon::parse($sessao->updated_at)->format('d/m/Y H:i:s') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($sessao->created_at)->format('d/m/y H:i') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($sessao->updated_at)->format('d/m/y H:i') }}</td>
                             <td>{{ $sessao->sessao_mesa_status }}</td>
                             <td>
                                 @php
@@ -44,14 +42,14 @@
                                     <div class="flex">
                                         <form action="{{ route('sessaoMesa.reabrir', ['sessaoMesa' => $sessao]) }}"
                                             method="get">
-                                            <x-primary-button>Reabrir Sessão</x-primary-button>
+                                            <x-primary-button title="REABRIR SESSÃO"><i class='bx bx-chevrons-left'></i></x-primary-button>
                                         </form>
                                         <x-secondary-button class="btn-imprimir"
-                                            data-sessao_mesa_id="{{ $sessao->id }}">IMPRIMIR</x-secondary-button>
+                                            data-sessao_mesa_id="{{ $sessao->id }}" title="IMPRIMIR"><i class='bx bx-printer' ></i></x-secondary-button>
                                     </div>
                                 @else
                                     <x-secondary-button class="btn-imprimir"
-                                        data-sessao_mesa_id="{{ $sessao->id }}">IMPRIMIR</x-secondary-button>
+                                        data-sessao_mesa_id="{{ $sessao->id }}" title="IMPRIMIR"><i class='bx bx-printer' ></i></x-secondary-button>
                                 @endif
 
                             </td>

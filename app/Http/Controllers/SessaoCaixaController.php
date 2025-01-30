@@ -19,7 +19,7 @@ class SessaoCaixaController extends Controller
     {
         $usuarios = User::all();
         $caixas = Caixa::all();
-        $sessao_caixa = SessaoCaixa::orderByDesc('id')->paginate(5);
+        $sessao_caixa = SessaoCaixa::orderByDesc('id')->paginate(6);
         return view('app.sessao_caixa.index', ['usuarios' => $usuarios, 'caixas' => $caixas, 'sessao_caixa' => $sessao_caixa]);
     }
 

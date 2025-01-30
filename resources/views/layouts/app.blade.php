@@ -59,7 +59,7 @@
     <div class="flex h-screen bg-gray-200">
         <!-- Barra lateral -->
         <div
-            class="sidebar z-50 md:block top-0 bottom-0 lg:left-0 p-2 w-[300px] overflow-y-auto text-center bg-black transition-width ease-in-out duration-300">
+            class="sidebar z-50 md:block top-0 bottom-0 lg:left-0 p-2 w-[300px] overflow-y-auto text-center bg-black transition ease-in-out duration-300">
             @include('layouts.navigation')
         </div>
         <!-- Conteúdo principal -->

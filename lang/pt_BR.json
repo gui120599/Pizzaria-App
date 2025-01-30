@@ -137,5 +137,6 @@
   "Cash": "Dinheiro",
   "DebitCard":"Cartão de Débito",
   "CreditCard":"Cartão de Crédito",
-  "InstantPayment": "PIX"
+  "InstantPayment": "PIX",
+  "Nullable object must have a value.":"Objeto anulável deve ter um valor."
 }

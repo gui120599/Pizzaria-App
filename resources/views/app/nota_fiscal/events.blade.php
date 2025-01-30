@@ -15,55 +15,43 @@
                     <header>
                         <div class="flex justify-between">
                             <h2 class="text-lg font-medium text-gray-900">
-                                {{ __('Lista de Notas Fiscais') }}
+                                {{ __('Eventos') }}
                             </h2>
-                            <x-secondary-button
-                                onclick="window.location.href = '{{ route('categoria.inactive') }}'">Mostrar
-                                Inativos</x-secondary-button>
+                            <x-primary-button onclick="window.open('{{ route('venda.gerar_JSONNFE', ['id' => $venda_id]) }}', '_blank')" title="Venda">JSON</x-primary-button>
                         </div>
                     </header>
                     <div class="w-[18rem] sm:w-[99%] overflow-auto mx-auto h-2/4">
-                        <table class="w-full text-center text-[7px] md:text-base">
-                            <thead class="">
-                                <tr class="border-b-4">
-                                    <th class="w-1/6">#</th>
-                                    <th class="w-1/6">Status</th>
-                                    <th class="w-1/6">Data de Emissão</th>
+                        <table id="jsonTable" class="w-full ">
+                            <thead>
+                                <tr>
+                                    <th>Campo</th>
+                                    <th>Valor</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @if (count($data) > 0)
-                                    @foreach ($data as $item)
-                                        @php
-                                            $createdOn = isset($item['data']['createdOn']) ? $item['data']['createdOn'] : null;
-
-                                            if ($createdOn) {
-                                                $date = \Carbon\Carbon::parse($createdOn)->setTimezone(
-                                                    'America/Sao_Paulo',
-                                                );
-                                                $formattedDate = $date->format('d/m/Y H:i:s');
-                                            } else {
-                                                $formattedDate = 'N/A';
-                                            }
-                                        @endphp
-
-                                        @if ($item['sequence'] == 4)
-                                            <tr class="border-b-2 border-gray-100">
-                                            <td>{{ $item['sequence'] }}</td>
-                                            <td>{{ $formattedDate }}</td>
-                                            <td>{{ $item['data']['message'] }}</td>
-                                        </tr>
-                                        @endif
-
-                                        
-                                    @endforeach
-                                @else
-                                    <tr>
-                                        <td colspan="7" class="text-center py-4">Nenhum item encontrado.</td>
-                                    </tr>
-                                @endif
                             </tbody>
                         </table>
+                    
+                        <script>
+                            const jsonData = {!! json_encode($data) !!}; // Substitua por seu JSON dinâmico
+                    
+                            function createTableRows(data, prefix = '') {
+                                let rows = '';
+                                for (const key in data) {
+                                    if (typeof data[key] === 'object' && data[key] !== null) {
+                                        rows += createTableRows(data[key], `${prefix}${key}.`);
+                                    } else {
+                                        rows += `<tr class="border">
+                                                    <td class="border-r">${prefix}${key}</td>
+                                                    <td>{{ __('${data[key]}')}}</td>
+                                                </tr>`;
+                                    }
+                                }
+                                return rows;
+                            }
+                    
+                            document.querySelector('#jsonTable tbody').innerHTML = createTableRows(jsonData);
+                        </script>
                     </div>
                 </div>
             </div>

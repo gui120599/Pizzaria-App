@@ -14,7 +14,7 @@
                     <th class="w-1/6">Nº</th>
                     <th class="w-1/6">Status</th>
                     <th class="w-1/6">Data de Emissão</th>
-                    <th class="w-full">Valor Total NF</th>
+                    <th class="w-full">Valor Total</th>
                     <th class="w-1/6">Opções</th>
                 </tr>
             </thead>
@@ -41,7 +41,7 @@
                             </td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2 p-1">
-                                    <x-secondary-button onclick="window.open('{{ route('venda.imprimir_NFE', ['id_nfe' => $item['id']]) }}')" title="Venda">IMPRIMIR NFE-C</x-secondary-button>
+                                    <x-secondary-button onclick="window.open('{{ route('venda.imprimir_NFE', ['id_nfe' => $item['id']]) }}')" title="IMPRIMIR"><i class='bx bx-printer' ></i></x-secondary-button>
                                 </div>
                             </td>
                             

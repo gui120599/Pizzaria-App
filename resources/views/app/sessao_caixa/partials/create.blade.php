@@ -12,8 +12,8 @@
     <form action="{{ route('sessao_caixa.store') }}" method="post" class="mt-6 space-y-6" enctype="multipart/form-data">
         @csrf
         <div
-            class="sm:col-span-4 lg:col-span-3 col-span-6 relative md:space-y-2 md:border-x md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
-            
+            class="sm:col-span-4 lg:col-span-3 col-span-6 relative md:space-y-2 md:border-r md:pr-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
+
             <x-input-label for="sessaocaixa_caixa_id" :value="__('Caixa')" />
             <x-select-input :options="$caixas" value-field="id" display-field="caixa_nome" id="sessaocaixa_caixa_id"
                 name="sessaocaixa_caixa_id" class="mt-1 w-full" />
@@ -35,20 +35,21 @@
                     </div>
                 @endforeach
             </div>
-            
-            <x-input-label for="sessaocaixa_saldo_inicial" :value="__('Saldo Inicial')" />
-            <x-money-input id="sessaocaixa_saldo_inicial" name="sessaocaixa_saldo_inicial" type="text" class="mt-1 w-full"
-                autocomplete="off" />
 
-            
+            <x-input-label for="sessaocaixa_saldo_inicial" :value="__('Saldo Inicial')" />
+            <x-money-input id="sessaocaixa_saldo_inicial" name="sessaocaixa_saldo_inicial" type="text"
+                class="mt-1 w-full" autocomplete="off" />
+
+
             <x-input-label for="sessaocaixa_observacoes" :value="__('Observações')" />
             <x-text-area id="sessaocaixa_observacoes" name="sessaocaixa_observacoes" type="text" class="mt-1 w-full"
                 autocomplete="off" />
+            <x-primary-button class="w-full">
+                {{ __('Abrir Sessão') }}
+            </x-primary-button>
         </div>
 
-        <x-primary-button>
-            {{ __('Abrir Sessão') }}
-        </x-primary-button>
+
 
     </form>
     <script>

@@ -11,11 +11,11 @@
     <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!-- Nav-link´s-->
-    {{--<div class="p2.5 mt-3 flex items-center rounded-md px-4 durations-300 cursor-pointer bg-gray-700">
+    {{-- <div class="p2.5 mt-3 flex items-center rounded-md px-4 durations-300 cursor-pointer bg-gray-700">
         <i class='bx bx-search text-sm'></i>
         <input type="text" placeholder="Buscar"
             class="text-[12px] ml-4 w-full bg-transparent border-none focus:border-transparent focus:ring-0">
-    </div>--}}
+    </div> --}}
     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
         <i class='text-[13px] bx bxs-dashboard'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
@@ -43,7 +43,7 @@
     <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!--Financeiro-->
-    <div class="p-2.5 mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
+    <div class="mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
         onclick="dropdown('finan')">
         <i class='bx bx-money-withdraw'></i>
         <div class="flex justify-between w-full items-center">
@@ -53,28 +53,28 @@
             </span>
         </div>
     </div>
-    <div class="pl-4 text-sm font-thin mt-2 w-4/5 mx-auto transition duration-700 ease-in-out" id="submenu-finan">
+    <div class="text-sm font-thin mt-2 w-4/5 mx-auto transition duration-700 ease-in-out" id="submenu-finan">
         <x-nav-link :href="route('caixa')" :active="request()->routeIs('caixa')">
             <i class='bx bx-dollar'></i>
-            <span class="text-[12px] ml-4 text-gray-200">{{ __('Caixa') }}</span>
+            <span class="text-[12px] ml-2 text-gray-200">{{ __('Caixa') }}</span>
         </x-nav-link>
         <x-nav-link :href="route('sessao_caixa')" :active="request()->routeIs('sessao_caixa')">
             <i class='bx bx-money'></i>
-            <span class="text-[12px] ml-4 text-gray-200">{{ __('Sessões de Caixa') }}</span>
+            <span class="text-[12px] ml-2 text-gray-200">{{ __('Sessões de Caixa') }}</span>
         </x-nav-link>
         <x-nav-link :href="route('nota_fiscal')" :active="request()->routeIs('nota_fiscal')">
             <i class='bx bx-note'></i>
-            <span class="text-[12px] ml-4 text-gray-200">{{ __('Notas Fiscais') }}</span>
+            <span class="text-[12px] ml-2 text-gray-200">{{ __('Notas Fiscais') }}</span>
         </x-nav-link>
         <x-nav-link :href="route('opcoes_pagamento')" :active="request()->routeIs('opcoes_pagamento')">
-            <i class='bx bxs-credit-card' ></i>
-            <span class="text-[12px] ml-4 text-gray-200">{{ __('Opções de Pagamentos') }}</span>
+            <i class='bx bxs-credit-card'></i>
+            <span class="text-[12px] ml-2 text-gray-200">{{ __('Opções de Pagamentos') }}</span>
         </x-nav-link>
     </div>
     <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!--Configurações Gerais-->
-    <div class="p-2.5 mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
+    <div class="mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
         onclick="dropdown('config')">
         <i class='bx bxs-cog'></i>
         <div class="flex justify-between w-full items-center">
@@ -134,12 +134,12 @@
     </div>
     <x-nav-link :href="route('profile.edit')" :active="request()->routeIs('profile.edit')">
         <i class='bx bx-user-circle'></i>
-        <span class="text-[11px] ml-4 text-gray-200">{{ Auth::user()->name }}</span>
+        <span class="text-[11px] ml-4 text-gray-200">{{ Auth::user()->name_first }}</span>
     </x-nav-link>
     <style>
         /* Adicione estas regras CSS no seu arquivo de estilo ou diretamente na tag <style> no head do HTML */
         .sidebar {
-            width: 300px;
+            width: 250px;
             transition: width 0.5s ease;
         }
 
@@ -155,8 +155,9 @@
 
         .nav-link-hidden {
             opacity: 0;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.3s ease;
         }
+
     </style>
     <script>
         function toggleSidebar() {
@@ -169,7 +170,7 @@
             sidebar.classList.toggle('sidebar-hidden');
             logo.classList.toggle('logo-hidden');
             navLinks.forEach(span => {
-                span.classList.toggle('hidden');
+                span.classList.toggle('nav-link-hidden');
             });
         }
 

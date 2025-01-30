@@ -223,6 +223,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/Venda/{id}/Gerar-JSONNFE', [VendaController::class, 'jsonNFE'])->name('venda.gerar_JSONNFE');
     Route::get('/Venda/{id_nfe}/Imprimir-NFE', [VendaController::class, 'imprimirNFE'])->name('venda.imprimir_NFE');
     Route::get('/Venda/{venda}/Buscar-NFE', [VendaController::class, 'buscarNFE'])->name('venda.buscar_NFE');
+    Route::get('/Venda/remover/{vendaId}/{idNfe}', [VendaController::class, 'removerIdNfe'])->name('venda.removerIdNfe');
+
 
 
     Route::get('/Saidas', [MovimentacoesSessaoCaixaController::class, 'index'])->name('mov_saida');

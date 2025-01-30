@@ -44,7 +44,7 @@ class SessaoMesaController extends Controller
                         }
                     ])
                     ->orderByDesc('id')
-                    ->paginate();
+                    ->paginate(10);
                 return view('app.sessao_mesa.index', ['sessaoMesas' => $sessaoMesas, 'clientes' => $clientes, 'mesa' => $mesa]);
                 break;
             case 'OCUPADA':

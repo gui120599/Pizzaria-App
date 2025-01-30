@@ -7,14 +7,14 @@
         </div>
     </header>
     <div class="w-[18rem] sm:w-[99%] overflow-auto mx-auto h-2/4">
-        <table class="mt-5 w-full text-center text-[7px] md:text-base">
+        <table class="w-full text-center text-[7px] md:text-base">
             <thead class="">
                 <tr class="border-b-4">
                     <th class="w-1/6">#</th>
                     <th class="w-1/6">Nº</th>
                     <th class="w-1/6">Status</th>
                     <th class="w-1/6">Data de Emissão</th>
-                    <th class="w-full">Valor Total NF</th>
+                    <th class="w-full">Valor Total</th>
                     <th class="w-1/6">Opções</th>
                 </tr>
             </thead>
@@ -40,8 +40,10 @@
                             <td>{{ isset($item['totals']['icms']['invoiceAmount']) ? $item['totals']['icms']['invoiceAmount'] : 'N/A' }}</td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2 p-1">
-                                    <x-primary-button onclick="window.location.href = '{{ route('nota_fiscal.eventos', ['id' => $item['id']]) }}'" title="Venda">Eventos</x-primary-button>
-                                    <x-primary-button onclick="window.location.href = '{{ route('venda.gerar_JSONNFE', ['id' => $item['id']]) }}'" title="Venda">JSON</x-primary-button>
+                                    <x-primary-button onclick="window.open('{{ route('nota_fiscal.eventos', ['id' => $item['id']]) }}', '_blank')" title="EVENTOS"><i class='bx bxs-bug' ></i></x-primary-button>
+                                    <x-primary-button onclick="window.open('{{ route('venda.gerar_JSONNFE', ['id' => $item['number']]) }}', '_blank')" title="JSON"><i class='bx bxs-file-json'></i></x-primary-button>
+                                    <x-danger-button onclick="window.open('{{ route('venda.removerIdNfe', ['vendaId' => $item['number'], 'idNfe' => $item['id']]) }}')" title="JSON"><i class='bx bxs-file-json'></i></x-danger-button>
+                                    
                                 </div>
                             </td>
                         </tr>

@@ -326,7 +326,7 @@ class VendaController extends Controller
             "presenceType" => "Presence",
             "buyer" => $this->montarComprador($venda),
             "items" => $this->montarItens($venda),
-            
+
             /*"printType" => 0,
             "contingencyOn" => null,
             "contingencyJustification" => null, // Ajuste conforme necessário
@@ -338,10 +338,10 @@ class VendaController extends Controller
                 "stStateTaxNumber" => null, // Ajuste conforme necessário
             ]*/
         ];
-        return response()->json($nfeData);
+        //return response()->json($nfeData);
 
         // Envia o array para a API
-       /* $response = $this->enviarParaApi($nfeData);
+        $response = $this->enviarParaApi($nfeData);
         //return response()->json([$nfeData,$response]);
 
         // Decodifica a resposta JSON para um array associativo
@@ -369,12 +369,13 @@ class VendaController extends Controller
             // Retorna a mensagem de erro para o usuário
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
                 ->with('error', $errorDetail); // Passa a mensagem de erro para a sessão
-        }*/
+        }
 
     }
 
-    public function jsonNFE($vendaId){
-                // Busca a venda pelo ID e carrega os relacionamentos necessários
+    public function jsonNFE($vendaId)
+    {
+        // Busca a venda pelo ID e carrega os relacionamentos necessários
         $venda = Venda::with(['cliente', 'itensVenda.produto', 'pagamentos.opcaoPagamento', 'pagamentos.cartao'])->findOrFail($vendaId);
 
         // Monta o array com os dados da venda baseado no modelo fornecido
@@ -392,7 +393,7 @@ class VendaController extends Controller
             "presenceType" => "Presence",
             "buyer" => $this->montarComprador($venda),
             "items" => $this->montarItens($venda),
-            
+
             /*"printType" => 0,
             "contingencyOn" => null,
             "contingencyJustification" => null, // Ajuste conforme necessário
@@ -406,6 +407,20 @@ class VendaController extends Controller
         ];
         return response()->json($nfeData);
     }
+
+    public function removerIdNfe($vendaId, $idNfe)
+    {
+        $venda = Venda::where('id', $vendaId)->where('venda_id_nfe', $idNfe)->first();
+
+        if ($venda) {
+            $venda->update(['venda_id_nfe' => null]);
+
+            return redirect()->route('nota_fiscal')->with('success', 'Id da NFE removido com sucesso da venda!');
+        }
+
+        return redirect()->route('nota_fiscal')->with('error', 'Venda não encontrada!');
+    }
+
 
     private function montarPagamentos(Venda $venda)
     {
@@ -619,7 +634,7 @@ class VendaController extends Controller
                         foreach ($item->adicionaisItemVenda as $adicional) {
                             $descAdicionais .= " Adic. " . $adicional->adicional->adicional_nome;
                         }
-                    } 
+                    }
 
                     $itensArray[] = [
                         "code" => (string) $produto->id,
