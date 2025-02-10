@@ -185,23 +185,6 @@ class ItensVendaController extends Controller
                 ->get();
 
             foreach ($itensPedido as $item) {
-                // Primeiro descobrimos o valor unitário do produto, pois ele é a chave para o restante dos valores
-                $valorUnitario = $item->produto->produto_preco_venda;
-
-                if ($item->adicionaisItemPedido) { // Verifica se o item possui adicionais, pois precisamos adicionar os valores dos adicionais
-                    if ($item->item_pedido_quantidade > 1) {
-                        // Se conter adicionais, ele faz uma segunda verificação: se a quantidade do item for maior que 1, 
-                        // ele tem que descobrir o valor unitário de cada adicional para adicionar no valor unitário do item
-                        $valorUnitario = $item->produto->produto_preco_venda + ($item->item_pedido_valor_adicionais / $item->item_pedido_quantidade);
-                    } else {
-                        // Se não for maior que 1, ele só adiciona os valores dos adicionais
-                        $valorUnitario = $item->produto->produto_preco_venda + $item->item_pedido_valor_adicionais;
-                    }
-                }
-
-                // Diminui se possuir desconto e multiplica pela quantidade para descobrir o valor total
-                $valorTotal = ($valorUnitario - $item->item_pedido_desconto) * $item->item_pedido_quantidade;
-
 
                 $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
                     ->where('item_venda_venda_id', $venda_id)
@@ -212,9 +195,9 @@ class ItensVendaController extends Controller
                     // Atualizar item existente
                     $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
                     $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
-                    $itemVenda->item_venda_valor += $valorTotal;
+                    $itemVenda->item_venda_valor += $item->item_pedido_valor;
                     $itemVenda->item_venda_quantidade_tributavel += $item->item_pedido_quantidade;
-                    $this->atualizarTributos($itemVenda, $item, $valorTotal);
+                    $this->atualizarTributos($itemVenda, $item, $item->item_pedido_valor);
                     $itemVenda->save();
                 } else {
                     // Criar novo item
@@ -228,18 +211,18 @@ class ItensVendaController extends Controller
                         'item_venda_venda_id' => $venda_id,
                         'item_venda_produto_id' => $item->item_pedido_produto_id,
                         'item_venda_quantidade' => $item->item_pedido_quantidade,
-                        'item_venda_valor_unitario' => $valorUnitario,
+                        'item_venda_valor_unitario' => $item->item_pedido_valor_unitario,
                         'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais,
                         'item_venda_desconto' => $item->item_pedido_desconto,
-                        'item_venda_valor' => $valorTotal,
+                        'item_venda_valor' => $item->item_pedido_valor,
                         'item_venda_status' => 'INSERIDO',
                         'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
-                        'item_venda_valor_unitario_tributavel' => $valorUnitario,
-                        'item_venda_valor_base_calculo' => $valorTotal,
-                        'item_venda_valor_icms' => ($valorTotal * $item->produto->produto_valor_percentual_icms) / 100,
-                        'item_venda_valor_pis' => ($valorTotal * $item->produto->produto_valor_percentual_pis) / 100,
-                        'item_venda_valor_cofins' => ($valorTotal * $item->produto->produto_valor_percentual_cofins) / 100,
-                        'item_venda_valor_total_tributos' => ($valorTotal * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
+                        'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,
+                        'item_venda_valor_base_calculo' => $item->item_pedido_valor,
+                        'item_venda_valor_icms' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100,
+                        'item_venda_valor_pis' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_pis) / 100,
+                        'item_venda_valor_cofins' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_cofins) / 100,
+                        'item_venda_valor_total_tributos' => ($item->item_pedido_valor * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
                     ]);
                 }
 
@@ -252,7 +235,6 @@ class ItensVendaController extends Controller
 
         return response()->json(['success' => 'Itens adicionados e pedidos finalizados'], 200);
     }
-
 
     public function removerItensSessaoMesa(Request $request)
     {
@@ -310,6 +292,9 @@ class ItensVendaController extends Controller
 
                             // Remover o adicional se a quantidade for menor ou igual a zero
                             if ($adicional->aiv_quantidade <= 0) {
+                                if ($itemVenda->adicionaisItemVenda()) {
+                                    $this->removeAdicionais($itemVenda);
+                                }
                                 $adicional->delete();
                             } else {
                                 $adicional->save();
@@ -348,23 +333,6 @@ class ItensVendaController extends Controller
             ->get();
 
         foreach ($itensPedido as $item) {
-            // Primeiro descobrimos o valor unitário do produto, pois ele é a chave para o restante dos valores
-            $valorUnitario = $item->produto->produto_preco_venda;
-
-            if ($item->adicionaisItemPedido) { // Verifica se o item possui adicionais, pois precisamos adicionar os valores dos adicionais
-                if ($item->item_pedido_quantidade > 1) {
-                    // Se conter adicionais, ele faz uma segunda verificação: se a quantidade do item for maior que 1, 
-                    // ele tem que descobrir o valor unitário de cada adicional para adicionar no valor unitário do item
-                    $valorUnitario = $item->produto->produto_preco_venda + ($item->item_pedido_valor_adicionais / $item->item_pedido_quantidade);
-                } else {
-                    // Se não for maior que 1, ele só adiciona os valores dos adicionais
-                    $valorUnitario = $item->produto->produto_preco_venda + $item->item_pedido_valor_adicionais;
-                }
-            }
-
-            // Diminui se possuir desconto e multiplica pela quantidade para descobrir o valor total
-            $valorTotal = ($valorUnitario - $item->item_pedido_desconto) * $item->item_pedido_quantidade;
-
 
             $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
                 ->where('item_venda_venda_id', $venda_id)
@@ -375,9 +343,9 @@ class ItensVendaController extends Controller
                 // Atualizar item existente
                 $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
                 $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
-                $itemVenda->item_venda_valor += $valorTotal;
+                $itemVenda->item_venda_valor += $item->item_pedido_valor;
                 $itemVenda->item_venda_quantidade_tributavel += $item->item_pedido_quantidade;
-                $this->atualizarTributos($itemVenda, $item, $valorTotal);
+                $this->atualizarTributos($itemVenda, $item, $item->item_pedido_valor);
                 $itemVenda->save();
             } else {
                 // Criar novo item
@@ -391,18 +359,18 @@ class ItensVendaController extends Controller
                     'item_venda_venda_id' => $venda_id,
                     'item_venda_produto_id' => $item->item_pedido_produto_id,
                     'item_venda_quantidade' => $item->item_pedido_quantidade,
-                    'item_venda_valor_unitario' => $valorUnitario,
+                    'item_venda_valor_unitario' => $item->item_pedido_valor_unitario,
                     'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais,
                     'item_venda_desconto' => $item->item_pedido_desconto,
-                    'item_venda_valor' => $valorTotal,
+                    'item_venda_valor' => $item->item_pedido_valor,
                     'item_venda_status' => 'INSERIDO',
                     'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
-                    'item_venda_valor_unitario_tributavel' => $valorUnitario,
-                    'item_venda_valor_base_calculo' => $valorTotal,
-                    'item_venda_valor_icms' => ($valorTotal * $item->produto->produto_valor_percentual_icms) / 100,
-                    'item_venda_valor_pis' => ($valorTotal * $item->produto->produto_valor_percentual_pis) / 100,
-                    'item_venda_valor_cofins' => ($valorTotal * $item->produto->produto_valor_percentual_cofins) / 100,
-                    'item_venda_valor_total_tributos' => ($valorTotal * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
+                    'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,
+                    'item_venda_valor_base_calculo' => $item->item_pedido_valor,
+                    'item_venda_valor_icms' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100,
+                    'item_venda_valor_pis' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_pis) / 100,
+                    'item_venda_valor_cofins' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_cofins) / 100,
+                    'item_venda_valor_total_tributos' => ($item->item_pedido_valor * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
                 ]);
             }
 
@@ -413,7 +381,7 @@ class ItensVendaController extends Controller
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
 
-        return response()->json(['success' => 'Itens adicionados e pedidos finalizados'], 200);
+        return response()->json(['success' => 'Itens adicionados!'], 200);
     }
 
     public function removerItensPedido(Request $request)
@@ -455,16 +423,14 @@ class ItensVendaController extends Controller
 
                 // Verificar se a quantidade é menor ou igual a zero para remover o item
                 if ($itemVenda->item_venda_quantidade <= 0) {
-                    // Deletar adicionais associados antes de remover o item
-
+                    if ($itemVenda->adicionaisItemVenda()) {
+                        $this->removeAdicionais($itemVenda);
+                    }
                     $itemVenda->delete();
                 } else {
 
                     $itemVenda->save();
                 }
-
-            } else {
-                return response()->json(['success' => 'Item Não encontrado'], 200);
             }
         }
 
@@ -562,6 +528,9 @@ class ItensVendaController extends Controller
         $itemVenda = ItensVenda::find($item_id);
 
         if ($itemVenda) {
+            if ($itemVenda->adicionaisItemVenda()) {
+                $this->removeAdicionais($itemVenda);
+            }
             // Se o item já existe na venda
             $itemVenda->delete();
 
@@ -743,6 +712,21 @@ class ItensVendaController extends Controller
                     'aiv_valor_total' => $adicionalPedido->aip_valor_total,
                 ]);
             }
+        }
+    }
+
+
+    /**
+     * Remove os adicionais do item.
+     */
+    private function removeAdicionais($itemVenda)
+    {
+        $adicionaisVenda = AdicionaisItemVenda::where('aiv_item_venda_id', $itemVenda->id)->get();
+
+        foreach ($adicionaisVenda as $adicionalVenda) {
+
+            $adicionalVenda->delete();
+
         }
     }
 
