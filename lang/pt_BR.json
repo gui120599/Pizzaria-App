@@ -138,5 +138,6 @@
   "DebitCard":"Cartão de Débito",
   "CreditCard":"Cartão de Crédito",
   "InstantPayment": "PIX",
-  "Nullable object must have a value.":"Objeto anulável deve ter um valor."
+  "Nullable object must have a value.":"Objeto anulável deve ter um valor.",
+  "Full Name": "Nome Completo"
 }
