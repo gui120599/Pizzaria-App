@@ -130,7 +130,7 @@ class ItensPedidoController extends Controller
                 // Atualizar os campos do item de pedido
                 $itemPedido->update([
                     'item_pedido_quantidade' => $request->input('item_pedido_quantidade'),
-                    'item_pedido_valor_adicionais' => $valorTotalAdicionais,
+                    'item_pedido_valor_adicionais' => $valorTotalAdicionais * 2,
                     'item_pedido_valor_unitario' => (($itemPedido->produto->produto_preco_venda * $request->input('item_pedido_quantidade')) + $valorTotalAdicionais),
                     'item_pedido_valor' => ($itemPedido->produto->produto_preco_venda * $request->input('item_pedido_quantidade')) + $valorTotalAdicionais,
                 ]);
