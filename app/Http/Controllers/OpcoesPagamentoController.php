@@ -54,6 +54,7 @@ class OpcoesPagamentoController extends Controller
         $opcoes_pagamento = OpcoesPagamento::create([
             'opcaopag_nome' => $request->input('opcaopag_nome'),
             'opcaopag_tipo_taxa' => $request->input('opcaopag_tipo_taxa'),
+            'opcaopag_desc_nfe' => $request->input('opcaopag_desc_nfe'),
             'opcaopag_valor_percentual_taxa' => $request->input('opcaopag_valor_percentual_taxa') ? str_replace(',', '.', $request->input('opcaopag_valor_percentual_taxa')) : '0.00',
         ]);
 
@@ -107,11 +108,13 @@ class OpcoesPagamentoController extends Controller
         $opcoes_pagamento->update([
             'opcaopag_nome' => $request->input('opcaopag_nome'),
             'opcaopag_tipo_taxa' => $request->input('opcaopag_tipo_taxa'),
+            'opcaopag_desc_nfe' => $request->input('opcaopag_desc_nfe'),
             'opcaopag_valor_percentual_taxa' => $request->input('opcaopag_valor_percentual_taxa') ? str_replace(',', '.', $request->input('opcaopag_valor_percentual_taxa')) : '0.00',
         ]);
 
         // Redireciona para a página da opcoes_pagamento recém-criada
         return redirect()->route('opcoes_pagamento')->with('success', 'Opção de Pagamento atualizada com sucesso!');
+        //dd($request);
     }
 
     /**

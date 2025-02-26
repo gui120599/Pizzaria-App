@@ -669,7 +669,7 @@ class ItensVendaController extends Controller
                         'item_venda_valor' => $valor,
                         'item_venda_status' => 'INSERIDO',
                         'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
-                        'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,
+                        'item_venda_valor_unitario_tributavel' => $valorUnitario,
                         'item_venda_valor_base_calculo' => $item->item_pedido_valor,
                         'item_venda_valor_icms' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100,
                         'item_venda_valor_pis' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_pis) / 100,

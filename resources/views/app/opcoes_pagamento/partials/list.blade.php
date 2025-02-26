@@ -15,6 +15,7 @@
                     <th class="w-1/6 px-1 md:px-4">Descrição</th>
                     <th class="w-1/6 px-1 md:px-4">Tipo Taxa</th>
                     <th class="w-1/6 px-1 md:px-4">% Taxa</th>
+                    <th class="w-1/6 px-1 md:px-4">Desc. NFE</th>
                     <th class="w-1/6 px-1 md:px-4">Opções</th>
                 </tr>
             </thead>
@@ -26,6 +27,7 @@
                             <td>{{ $opcao_pagamento->opcaopag_nome }}</td>
                             <td>{{ $opcao_pagamento->opcaopag_tipo_taxa }}</td>
                             <td>{{ $opcao_pagamento->opcaopag_valor_percentual_taxa }}</td>
+                            <td>{{ $opcao_pagamento->opcaopag_desc_nfe }}</td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2">
                                     <x-primary-button onclick="window.location.href = '{{ route('opcoes_pagamento.edit', ['opcoes_pagamento' => $opcao_pagamento]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>

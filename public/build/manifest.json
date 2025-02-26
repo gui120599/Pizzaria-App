@@ -1,32 +1,33 @@
 {
   "node_modules/boxicons/fonts/boxicons.eot": {
-    "file": "assets/boxicons-kqy74WP0.eot",
+    "file": "assets/boxicons-CSrLvhY_.eot",
     "src": "node_modules/boxicons/fonts/boxicons.eot"
   },
   "node_modules/boxicons/fonts/boxicons.svg": {
-    "file": "assets/boxicons-6e1vajd8.svg",
+    "file": "assets/boxicons-Dp7W9qN3.svg",
     "src": "node_modules/boxicons/fonts/boxicons.svg"
   },
   "node_modules/boxicons/fonts/boxicons.ttf": {
-    "file": "assets/boxicons-BCEDa0o3.ttf",
+    "file": "assets/boxicons-EIQNrSje.ttf",
     "src": "node_modules/boxicons/fonts/boxicons.ttf"
   },
   "node_modules/boxicons/fonts/boxicons.woff": {
-    "file": "assets/boxicons-k1W8tldc.woff",
+    "file": "assets/boxicons-CTVby2V1.woff",
     "src": "node_modules/boxicons/fonts/boxicons.woff"
   },
   "node_modules/boxicons/fonts/boxicons.woff2": {
-    "file": "assets/boxicons-nhhJ3MJj.woff2",
+    "file": "assets/boxicons-CeGEncwm.woff2",
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-mp0063W8.css",
-    "isEntry": true,
-    "src": "resources/css/app.css"
+    "file": "assets/app-ChZcbOZG.css",
+    "src": "resources/css/app.css",
+    "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-IjaXIXGX.js",
-    "isEntry": true,
-    "src": "resources/js/app.js"
+    "file": "assets/app-B0yirMxh.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
   }
 }
