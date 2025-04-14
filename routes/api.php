@@ -37,3 +37,6 @@ Route::post('/webhook/nfe-status', function(Request $request){
 
     return response()->json(['message' => 'Atualizado com sucesso!']);
 });
+
+Route::apiResource('cardapio', \App\Http\Controllers\api\CardapioController::class);
+Route::apiResource('categorias', \App\Http\Controllers\api\CategoriaController::class);
