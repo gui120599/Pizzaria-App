@@ -73,6 +73,26 @@
     </div>
     <hr class="h-px my-2 border-0 bg-gray-100">
 
+    <!--Relatórios-->
+    @can('Admin')
+        <div class="mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
+            onclick="dropdown('relatorio')">
+            <i class='bx bxs-report'></i>
+            <div class="flex justify-between w-full items-center">
+                <span class="text-[12px] ml-4 text-gray-200">Relatórios</span>
+                <span class="transition-transform" id="arrow-relatorio">
+                    <i class='bx bx-chevron-up '></i>
+                </span>
+            </div>
+        </div>
+        <div class="text-sm font-thin mt-2 w-4/5 mx-auto transition duration-700 ease-in-out" id="submenu-relatorio">
+            <x-nav-link :href="route('venda.relatorioMensal')" :active="request()->routeIs('venda.relatorioMensal')">
+                <i class='bx bx-dollar'></i>
+                <span class="text-[12px] ml-2 text-gray-200">{{ __('Vendas Mensal') }}</span>
+            </x-nav-link>
+        </div>
+        <hr class="h-px my-2 border-0 bg-gray-100">
+    @endcan
     <!--Configurações Gerais-->
     <div class="mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
         onclick="dropdown('config')">
@@ -157,7 +177,6 @@
             opacity: 0;
             transition: opacity 0.3s ease;
         }
-
     </style>
     <script>
         function toggleSidebar() {
@@ -199,11 +218,14 @@
             const submenu = document.querySelector('#submenu-' + prefix);
             const arrow = document.querySelector('#arrow-' + prefix);
 
-            submenu.classList.toggle('hidden');
-            arrow.classList.toggle('rotate-180');
+            if (submenu && arrow) {
+                submenu.classList.toggle('hidden');
+                arrow.classList.toggle('rotate-180');
+            }
         }
 
         dropdown('finan');
+        dropdown('relatorio');
         dropdown('config');
     </script>
 </div>

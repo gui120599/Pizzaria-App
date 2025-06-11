@@ -112,4 +112,26 @@ class PDFController extends Controller
         ]);
     }
 
+    public function pedidosEntregasPDF($datahora_abertura)
+    {
+        // Obter a data de início a partir do parâmetro da URL
+        $dataInicio = Carbon::parse($datahora_abertura);
+
+        // Criar uma cópia de $dataInicio e adicionar um dia
+        $dataFinal = $dataInicio->copy()->addDay()->format('Y-m-d');
+
+        // Definir o horário de 17h do dia inicial
+        $DatahoraInicio = $dataInicio->copy()->setTime(07, 0, 0); // 17:00:00 no dia inicial
+
+        // Definir o horário de 03h do dia final
+        $DatahoraFinal = Carbon::parse($dataFinal)->setTime(3, 0, 0); // 03:00:00 no dia final
+
+        // Buscar pedidos com status ENTREGUE, FINALIZADO ou CANCELADO no intervalo de tempo
+        $pedidos = Pedido::whereBetween('pedido_datahora_abertura', [$DatahoraInicio, $DatahoraFinal])->get();
+
+        return view('pedidosEntregasPDF', [
+            'pedidos' => $pedidos
+        ]);
+    }
+
 }

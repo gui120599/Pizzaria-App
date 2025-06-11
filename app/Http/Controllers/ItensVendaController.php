@@ -176,6 +176,7 @@ class ItensVendaController extends Controller
 
         $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesa_id)
             ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
+            ->whereNull('pedido_venda_id')
             ->get();
 
         foreach ($pedidos as $pedido) {
@@ -184,7 +185,7 @@ class ItensVendaController extends Controller
                 ->with('adicionaisItemPedido')
                 ->get();
 
-                $this->adicionarItensPedidoNaVenda($venda_id,$itensPedido);
+            $this->adicionarItensPedidoNaVenda($venda_id, $itensPedido);
         }
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
@@ -286,10 +287,13 @@ class ItensVendaController extends Controller
         // Obter todos os itens dos pedidos fornecidos
         $itensPedido = ItensPedido::where('item_pedido_pedido_id', $pedido_id)
             ->where('item_pedido_status', 'INSERIDO')
+            ->whereHas('pedido', function ($query) {
+                $query->whereNull('pedido_venda_id');
+            })
             ->get();
 
 
-        $this->adicionarItensPedidoNaVenda($venda_id,$itensPedido);
+        $this->adicionarItensPedidoNaVenda($venda_id, $itensPedido);
 
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
@@ -632,7 +636,8 @@ class ItensVendaController extends Controller
     /**
      * Adiciona Itens dos Pedidos na venda
      */
-    private function adicionarItensPedidoNaVenda($venda_id, $itensPedido){
+    private function adicionarItensPedidoNaVenda($venda_id, $itensPedido)
+    {
         foreach ($itensPedido as $item) {
 
             $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
@@ -655,7 +660,7 @@ class ItensVendaController extends Controller
                     ->first();
                 $nextItemNumber = $lastItem ? $lastItem->item_numero + 1 : 1;
 
-                if($item->item_pedido_quantidade == 0.5){
+                if ($item->item_pedido_quantidade == 0.5) {
                     $valorUnitario = $item->produto->produto_preco_venda + $item->item_pedido_valor_adicionais;
                     $valor = ($valorUnitario * $item->item_pedido_quantidade) - $item->item_pedido_desconto;
                     $itemVenda = ItensVenda::create([
@@ -677,7 +682,7 @@ class ItensVendaController extends Controller
                         'item_venda_valor_total_tributos' => ($item->item_pedido_valor * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
                     ]);
 
-                }else{
+                } else {
                     $itemVenda = ItensVenda::create([
                         'item_numero' => $nextItemNumber,
                         'item_venda_venda_id' => $venda_id,
@@ -698,7 +703,7 @@ class ItensVendaController extends Controller
                     ]);
                 }
 
-                
+
             }
 
             // Atualizar ou criar adicionais

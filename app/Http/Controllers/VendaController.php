@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreClienteRequest;
 use App\Models\Empresa;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\Venda;
@@ -22,6 +23,7 @@ use GuzzleHttp\Psr7\Query;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use NFe_io;
 use Ramsey\Uuid\Type\Decimal;
 use GuzzleHttp\Client;
@@ -149,116 +151,227 @@ class VendaController extends Controller
      */
     public function SalvarVenda(StoreVendaRequest $request)
     {
-        // Encontrar a venda com base no ID fornecido
-        $venda = Venda::find($request->input('venda_id'));
-        $sessaoCaixa = SessaoCaixa::find($request->input('venda_sessao_caixa_id'));
+        DB::beginTransaction();
 
+        try {
+            $venda = Venda::findOrFail($request->input('venda_id'));
+            $sessaoCaixa = SessaoCaixa::findOrFail($request->input('venda_sessao_caixa_id'));
 
-        if ($venda) {
-            // Atualizar os dados da venda
+            // =========================
+            // TRATAMENTO DO CLIENTE
+            // =========================
+            if (
+                $request->input('venda_cliente_id') === null &&
+                (
+                    $request->filled('venda_cliente_cpf') ||
+                    $request->filled('venda_cliente_cnpj')
+                )
+            ) {
+                // Limpa os dados como no prepareForValidation
+                $cpf = $request->input('venda_cliente_cpf') ? str_replace([".", "-", " "], "", $request->input('venda_cliente_cpf')) : null;
+                $cnpj = $request->input('venda_cliente_cnpj') ? str_replace([".", "-", "/", " "], "", $request->input('venda_cliente_cnpj')) : null;
+                $celular = $request->input('venda_cliente_telefone') ? str_replace(["(", ")", "-", " "], "", $request->input('venda_cliente_telefone')) : null;
+
+                // Tenta buscar cliente existente
+                $cliente = null;
+
+                if ($cpf) {
+                    $cliente = Cliente::where('cliente_cpf', $cpf)->first();
+                } elseif ($cnpj) {
+                    $cliente = Cliente::where('cliente_cnpj', $cnpj)->first();
+                }
+
+                if (!$cliente) {
+                    // Prepara dados
+                    $clienteData = [
+                        'cliente_nome' => $request->input('venda_cliente_nome') ?? 'Cliente não identificado',
+                        'cliente_cpf' => $cpf,
+                        'cliente_cnpj' => $cnpj,
+                        'cliente_celular' => $celular,
+                        'cliente_email' => $request->input('venda_cliente_email'),
+                        'cliente_tipo' => $cpf ? 'Física' : 'Jurídica',
+                    ];
+
+                    // Valida sem a regra `unique`
+                    $rules = (new StoreClienteRequest())->rules();
+
+                    unset($rules['cliente_cpf'], $rules['cliente_cnpj']); // Remove unique do validador
+
+                    $validator = Validator::make($clienteData, $rules);
+
+                    if ($validator->fails()) {
+                        return redirect()->back()->withErrors($validator)->withInput();
+                    }
+
+                    $cliente = Cliente::create($clienteData);
+                }
+
+                // Atualiza a venda com o cliente (existente ou criado)
+                $venda->update([
+                    'venda_cliente_id' => $cliente->id
+                ]);
+            }
+
+            // =========================
+            // FINALIZAÇÃO DA VENDA
+            // =========================
             $venda->update([
                 'venda_status' => 'FINALIZADA',
-                'venda_datahora_finalizada' => Carbon::now()
+                'venda_datahora_finalizada' => Carbon::now(),
+                'venda_cliente_id' => $venda->venda_cliente_id ?? $request->input('venda_cliente_id')
             ]);
-            if ($sessaoCaixa) {
 
-                $dataMov = [
-                    'mov_sessaocaixa_id' => $sessaoCaixa->id,
-                    'mov_venda_id' => $venda->id,
-                    'mov_descricao' => 'VENDA: ' . $venda->id,
-                    'mov_tipo' => 'ENTRADA',
-                    'mov_valor' => $request->input('venda_valor_total'),
-                ];
+            // =========================
+            // MOVIMENTAÇÃO CAIXA
+            // =========================
+            MovimentacoesSessaoCaixa::create([
+                'mov_sessaocaixa_id' => $sessaoCaixa->id,
+                'mov_venda_id' => $venda->id,
+                'mov_descricao' => 'VENDA: ' . $venda->id,
+                'mov_tipo' => 'ENTRADA',
+                'mov_valor' => $request->input('venda_valor_total'),
+            ]);
 
-                // Criar uma nova instância de MovimentacoesSessaoCaixa e salvar os dados
-                MovimentacoesSessaoCaixa::create($dataMov);
+            $novoSaldoFinal = $sessaoCaixa->sessaocaixa_saldo_final + $request->input('venda_valor_total');
+            $sessaoCaixa->update(['sessaocaixa_saldo_final' => $novoSaldoFinal]);
 
-                $novoSaldoFinal = $sessaoCaixa->sessaocaixa_saldo_final + $request->input('venda_valor_total');
-                $sessaoCaixa->update([
-                    'sessaocaixa_saldo_final' => $novoSaldoFinal,
-                ]);
-            } else {
-                // Lidar com a situação onde a venda não é encontrada
-                return redirect()->back()->withErrors(['Sessão Caixa não encontrada.']);
-            }
-        } else {
-            // Lidar com a situação onde a venda não é encontrada
-            return redirect()->back()->withErrors(['Venda não encontrada.']);
+            // =========================
+            // FINALIZAÇÃO DE MESAS E PEDIDOS
+            // =========================
+            $this->finalizarSessoesEMesas($request->input('id_sessao_mesa', []), $venda->id);
+            $this->finalizarPedidosIndividuais($request->input('id_pedido', []), $venda->id);
+
+            DB::commit();
+
+            return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $request->input('venda_sessao_caixa_id')])
+                ->with('success', 'Venda efetuada com sucesso!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->withErrors(['erro' => 'Erro ao salvar venda: ' . $e->getMessage()]);
         }
-
-        // Obtenha todos os parâmetros da requisição
-        $parameters = $request->all();
-
-        // Acesse o array id_sessao_mesa
-        $idSessaoMesa = $parameters['id_sessao_mesa'] ?? [];
-        $idPedido = $parameters['id_pedido'] ?? [];
-
-        // Atualize o status das sessões de mesa se o array estiver presente
-        if (is_array($idSessaoMesa) && !empty($idSessaoMesa)) {
-            foreach ($idSessaoMesa as $value) {
-                // Encontrar e atualizar a sessão de mesa
-                $sessaoMesa = SessaoMesa::find($value);
-                if ($sessaoMesa) {
-                    // Atualizar o status da sessão de mesa para 'FECHADA'
-                    $sessaoMesa->update([
-                        'sessao_mesa_status' => 'FINALIZADA'
-                    ]);
-
-                    // Atualizar o status da mesa para 'LIBERADA'
-                    $mesaId = $sessaoMesa->sessao_mesa_mesa_id;
-                    $mesa = Mesa::find($mesaId);
-                    if ($mesa) {
-                        $mesa->update([
-                            'mesa_status' => 'LIBERADA'
-                        ]);
-                    }
-
-                    // Atualizar o status dos pedidos relacionados à sessão de mesa
-                    $pedidos = Pedido::where('pedido_sessao_mesa_id', $value)->where('pedido_status', '<>', 'CANCELADO')->get(); // Use get() para obter a coleção de pedidos
-                    foreach ($pedidos as $pedido) {
-                        if ($pedido->pedido_status == 'ENTREGUE') {
-                            $pedido->update([
-                                'pedido_venda_id' => $venda->id,
-                                'pedido_status' => 'FINALIZADO',
-                                'pedido_datahora_finalizado' => Carbon::now()
-                            ]);
-                        } else {
-                            $pedido->update([
-                                'pedido_venda_id' => $venda->id,
-                                'pedido_datahora_finalizado' => Carbon::now()
-                            ]);
-                        }
-                    }
-                }
-            }
-        }
-
-
-        // Atualize o status dos pedidos se o array estiver presente
-        if (is_array($idPedido) && !empty($idPedido)) {
-            foreach ($idPedido as $value) {
-                // Encontrar e atualizar o pedido
-                $pedido = Pedido::where('id', $value)->where('pedido_status', '<>', 'CANCELADO')->first();
-
-                if ($pedido->pedido_status == 'ENTREGUE' || $pedido->pedido_status == 'EM TRANSPORTE') {
-                    $pedido->update([
-                        'pedido_venda_id' => $venda->id,
-                        'pedido_status' => 'FINALIZADO',
-                        'pedido_datahora_finalizado' => Carbon::now()
-                    ]);
-                } else {
-                    $pedido->update([
-                        'pedido_venda_id' => $venda->id,
-                        'pedido_datahora_finalizado' => Carbon::now()
-                    ]);
-                }
-            }
-        }
-
-        // Redirecionar com uma mensagem de sucesso
-        return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $request->input('venda_sessao_caixa_id')])->with('success', 'Venda efetuada com sucesso!');
     }
 
+    private function finalizarSessoesEMesas(array $idSessaoMesa, int $vendaId): void
+    {
+        foreach ($idSessaoMesa as $sessaoId) {
+            $sessaoMesa = SessaoMesa::find($sessaoId);
+            if ($sessaoMesa) {
+                $sessaoMesa->update(['sessao_mesa_status' => 'FINALIZADA']);
+                $mesa = Mesa::find($sessaoMesa->sessao_mesa_mesa_id);
+                if ($mesa) {
+                    $mesa->update(['mesa_status' => 'LIBERADA']);
+                }
+
+                $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoId)
+                    ->where('pedido_status', '<>', 'CANCELADO')
+                    ->get();
+
+                foreach ($pedidos as $pedido) {
+                    $dados = [
+                        'pedido_venda_id' => $vendaId,
+                        'pedido_datahora_finalizado' => Carbon::now()
+                    ];
+
+                    if (in_array($pedido->pedido_status, ['ENTREGUE'])) {
+                        $dados['pedido_status'] = 'FINALIZADO';
+                    }
+
+                    $pedido->update($dados);
+                }
+            }
+        }
+    }
+
+    private function finalizarPedidosIndividuais(array $idPedido, int $vendaId): void
+    {
+        foreach ($idPedido as $pedidoId) {
+            $pedido = Pedido::where('id', $pedidoId)->where('pedido_status', '<>', 'CANCELADO')->first();
+            if ($pedido) {
+                $dados = [
+                    'pedido_venda_id' => $vendaId,
+                    'pedido_datahora_finalizado' => Carbon::now()
+                ];
+
+                if (in_array($pedido->pedido_status, ['ENTREGUE', 'EM TRANSPORTE'])) {
+                    $dados['pedido_status'] = 'FINALIZADO';
+                }
+
+                $pedido->update($dados);
+            }
+        }
+    }
+
+    /**
+     * Tela do formulário para buscar as vendas
+     */
+    public function showVendasMensal()
+    {
+        // Busca datas com vendas finalizadas
+        $datas = Venda::whereNotNull('venda_datahora_finalizada')
+            ->selectRaw('YEAR(venda_datahora_finalizada) as ano, MONTH(venda_datahora_finalizada) as mes')
+            ->distinct()
+            ->orderByDesc('ano')
+            ->orderBy('mes')
+            ->get();
+
+        // Organiza anos e meses disponíveis
+        $anosDisponiveis = $datas->pluck('ano')->unique()->values();
+        $mesesDisponiveis = $datas->pluck('mes')->unique()->sort()->values();
+
+        // Envia para a view
+        return view('app.venda.list', [
+            'anosDisponiveis' => $anosDisponiveis,
+            'mesesDisponiveis' => $mesesDisponiveis,
+        ]);
+    }
+
+
+    /**
+     * Listar Vendas Mensal
+     */
+    public function listarVendasMensal(Request $request)
+    {
+        $ano = $request->input('ano', Carbon::now()->year());
+        $meses = $request->input('meses', range(1, 12));
+
+        $mesesFormatados = [];
+
+        foreach ($meses as $mes) {
+            // Garante dois dígitos no mês (ex: 2 -> 02)
+            $mes = str_pad($mes, 2, '0', STR_PAD_LEFT);
+            $mesesFormatados[] = $ano . '-' . $mes;
+        }
+
+        $query = Venda::select(
+            DB::raw("DATE_FORMAT(venda_datahora_finalizada, '%Y-%m') as mes"),
+            DB::raw("SUM(venda_valor_total) as total_vendas")
+        )
+            ->where('venda_status', '=', 'FINALIZADA')
+            ->whereNotNull('venda_id_nfe');
+
+        // Adiciona múltiplas condições de intervalo (1 por mês)
+        $query->where(function ($q) use ($mesesFormatados) {
+            foreach ($mesesFormatados as $mes) {
+                try {
+                    $inicio = Carbon::createFromFormat('Y-m', $mes)->startOfMonth()->toDateTimeString();
+                    $fim = Carbon::createFromFormat('Y-m', $mes)->endOfMonth()->toDateTimeString();
+                    $q->orWhereBetween('venda_datahora_finalizada', [$inicio, $fim]);
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+        });
+
+
+        $vendas = $query->groupBy('mes')
+            ->orderBy('mes')
+            ->get();
+
+        return view('vendasMensalPDF', ['vendasMensais' => $vendas]);
+        //return response()->json($vendas,200);
+
+    }
 
     /**
      * Display the specified resource.
@@ -326,22 +439,22 @@ class VendaController extends Controller
             "presenceType" => "Presence",
             "buyer" => $this->montarComprador($venda),
             "items" => $this->montarItens($venda),
-
+            "transport" => $this->montarTransporte($venda),
             /*"printType" => 0,
             "contingencyOn" => null,
             "contingencyJustification" => null, // Ajuste conforme necessário
             "totals" => $this->montarTotais($venda),
-            "transport" => $this->montarTransporte($venda),
+            
             "additionalInformation" => $this->montarInformacoesAdicionais($venda),
             "billing" => $this->montarCobranca($venda),
             "issuer" => [
                 "stStateTaxNumber" => null, // Ajuste conforme necessário
             ]*/
         ];
-        //return response()->json($nfeData);
+        return response()->json($nfeData);
 
         // Envia o array para a API
-        $response = $this->enviarParaApi($nfeData);
+        /*$response = $this->enviarParaApi($nfeData);
         //return response()->json([$nfeData,$response]);
 
         // Decodifica a resposta JSON para um array associativo
@@ -369,7 +482,7 @@ class VendaController extends Controller
             // Retorna a mensagem de erro para o usuário
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
                 ->with('error', $errorDetail); // Passa a mensagem de erro para a sessão
-        }
+        }*/
 
     }
 
@@ -469,7 +582,7 @@ class VendaController extends Controller
                         "stateTaxNumber" => $cliente->cliente_inscricao_estadual ?? null, // Ajuste conforme necessário
                         "id" => (string) $cliente->id ?? null,
                         "name" => $cliente->cliente_nome ?? null,
-                        "federalTaxNumber" => (int) $cliente->cliente_cpf ?? null,
+                        "federalTaxNumber" => (string) $cliente->cliente_cpf ?? null,
                         "email" => $cliente->cliente_email ?? null,
                         "type" => 2, // 0 - Indefinido (Undefined) 2 - Pessoa Física (NaturalPerson) 4 - Pessoa Jurídica (LegalEntity)
                         /*"address" => [
@@ -496,7 +609,7 @@ class VendaController extends Controller
                         "stateTaxNumber" => $cliente->cliente_inscricao_estadual ?? null, // Ajuste conforme necessário
                         "id" => (string) $cliente->id ?? null,
                         "name" => $cliente->cliente_nome ?? null,
-                        "federalTaxNumber" => (int) $cliente->cliente_cnpj ?? null,
+                        "federalTaxNumber" => (string) $cliente->cliente_cnpj ?? null,
                         "email" => $cliente->cliente_email ?? null,
                         "type" => 4, // 0 - Indefinido (Undefined) 2 - Pessoa Física (NaturalPerson) 4 - Pessoa Jurídica (LegalEntity)
                         /*"address" => [
@@ -553,11 +666,61 @@ class VendaController extends Controller
     {
         // Exemplo de montagem dos dados de transporte
         return [
-            "freightModality" => 9,
-            "transportGroup" => [
-                "stateTaxNumber" => null,
-                "transportRetention" => null,
-                // Adicione os demais campos conforme necessário...
+            "transport" => [
+                "freightModality" => "ByIssuer",
+                "transportGroup" => [
+                    "accountId" => "string",
+                    "id" => "string",
+                    "name" => "string",
+                    "federalTaxNumber" => 0,
+                    "email" => "string",
+                    "address" => [
+                        "state" => "string",
+                        "city" => [
+                            "code" => "string",
+                            "name" => "string"
+                        ],
+                        "district" => "string",
+                        "additionalInformation" => "string",
+                        "street" => "string",
+                        "number" => "string",
+                        "postalCode" => "string",
+                        "country" => "string",
+                        "phone" => "string"
+                    ],
+                    "type" => "Undefined",
+                    "stateTaxNumber" => "string",
+                    "transportRetention" => "string"
+                ],
+                "reboque" => [
+                    "plate" => "string",
+                    "uf" => "string",
+                    "rntc" => "string",
+                    "wagon" => "string",
+                    "ferry" => "string"
+                ],
+                "volume" => [
+                    "volumeQuantity" => 0,
+                    "species" => "string",
+                    "brand" => "string",
+                    "volumeNumeration" => "string",
+                    "netWeight" => 0,
+                    "grossWeight" => 0
+                ],
+                "transportVehicle" => [
+                    "plate" => "string",
+                    "state" => "string",
+                    "rntc" => "string"
+                ],
+                "sealNumber" => "string",
+                "transpRate" => [
+                    "serviceAmount" => 0,
+                    "bcRetentionAmount" => 0,
+                    "icmsRetentionRate" => 0,
+                    "icmsRetentionAmount" => 0,
+                    "cfop" => 0,
+                    "cityGeneratorFactCode" => 0
+                ]
             ],
             // Adicione os demais campos conforme necessário...
         ];

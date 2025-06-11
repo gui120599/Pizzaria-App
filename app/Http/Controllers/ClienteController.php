@@ -31,21 +31,16 @@ class ClienteController extends Controller
      */
     public function store(StoreClienteRequest $request)
     {
-
-
-        // Criar um novo cliente com base nos dados recebidos
-        // Formatar a data para o formato correto
         $clienteData = $request->all();
-        // Formatar a data de nascimento se estiver presente e não for Pessoa Jurídica
+
+        // Formatar a data de nascimento se estiver presente e for pessoa física
         if ($request->input('cliente_tipo') !== 'Jurídica' && isset($clienteData['cliente_data_nascimento'])) {
-            $clienteData['cliente_data_nascimento'] = Carbon::createFromFormat('d/m/Y', $clienteData['cliente_data_nascimento']);
+            $clienteData['cliente_data_nascimento'] = Carbon::createFromFormat('d/m/Y', $clienteData['cliente_data_nascimento'])->toDateString();
         }
-        $clienteData['cliente_cpf'] = $clienteData['cliente_cpf'] ? str_replace([".", "-", " "], "", $clienteData['cliente_cpf']) : null;
-        $clienteData['cliente_cnpj'] = $clienteData['cliente_cnpj'] ? str_replace([".", "-", " "], "", $clienteData['cliente_cnpj']) : null;
-        $clienteData['cliente_cep'] = $clienteData['cliente_cep'] ? str_replace("-", "", $clienteData['cliente_cep']) : null;
-        $clienteData['cliente_celular'] = $clienteData['cliente_celular'] ? str_replace(["(", ")", "-", " "], "", $clienteData['cliente_celular']) : null;
-        // Criar um novo cliente
+
+        // Criar novo cliente
         $cliente = new Cliente($clienteData);
+        //dd($cliente);
 
         // Salvar a foto se presente
         if ($request->hasFile('cliente_foto')) {
@@ -53,28 +48,19 @@ class ClienteController extends Controller
             $cliente->saveFoto($foto);
         }
 
-        // Salvar o cliente no banco de dados
+        // Salvar no banco
         $cliente->save();
 
-
-        // Redirecionar ou retornar a resposta desejada
         return redirect()->route('cliente')->with('success', 'Cliente criado com sucesso!');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Cliente $cliente)
-    {
-        //
-    }
 
     /**
      * Show the form for editing the specified resource.
      */
     public function edit(Cliente $cliente)
     {
-        return view('app.cliente.edit',["cliente" => $cliente]);
+        return view('app.cliente.edit', ["cliente" => $cliente]);
     }
 
     /**
@@ -85,21 +71,18 @@ class ClienteController extends Controller
 
         // Obter todos os dados do request
         $clienteData = $request->all();
+        //dd($request);
 
         // Formatar a data de nascimento se presente e se não for Pessoa Jurídica
         if ($request->input('cliente_tipo') !== 'Jurídica' && isset($clienteData['cliente_data_nascimento'])) {
-            $clienteData['cliente_data_nascimento'] = Carbon::createFromFormat('d/m/Y', $clienteData['cliente_data_nascimento']);
+            $clienteData['cliente_data_nascimento'] = Carbon::createFromFormat('d/m/Y', $clienteData['cliente_data_nascimento'])->toDateString();
         }
-
-        // Limpar e formatar os campos necessários
-        $clienteData['cliente_cpf'] = $clienteData['cliente_cpf'] ? str_replace([".", "-", " "], "", $clienteData['cliente_cpf']) : null;
-        $clienteData['cliente_cnpj'] = $clienteData['cliente_cnpj'] ? str_replace([".", "-", " "], "", $clienteData['cliente_cnpj']) : null;
-        $clienteData['cliente_cep'] = $clienteData['cliente_cep'] ? str_replace("-", "", $clienteData['cliente_cep']) : null;
-        $clienteData['cliente_celular'] = $clienteData['cliente_celular'] ? str_replace(["(", ")", "-", " "], "", $clienteData['cliente_celular']) : null;
+        else{
+            $clienteData['cliente_data_nascimento'] = null;
+        }
 
         // Atualizar os dados do cliente
         $cliente->fill($clienteData);
-
         // Atualizar a foto se presente
         if ($request->hasFile('cliente_foto')) {
             $foto = $request->file('cliente_foto');
@@ -118,8 +101,16 @@ class ClienteController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Cliente $cliente)
+    public function destroy(Cliente $cliente, $id)
     {
-        //
+        $cliente = Cliente::find($id);
+
+        if (!$cliente) {
+            return redirect('/Cliente')->with('error', 'Cliente não encontrado!');
+        }
+
+        $cliente->delete();
+
+        return redirect('/Cliente')->with('success', 'Cliente inativado!');
     }
 }

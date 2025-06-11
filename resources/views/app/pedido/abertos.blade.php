@@ -64,6 +64,7 @@
                         <span class="font-bold text-white">Entregue</span>
                         <input type="date" id="datahora_abertura" name="datahora_abertura" class="w-1/2">
                         <button class="btn-imprimir-pedidos w-1/2 flex items-center justify-center border rounded-lg hover:shadow bg-green-300 hover:bg-green-400"><i class='bx bx-printer'></i></button>
+                        <button class="btn-imprimir-pedidos-entregas w-1/2 flex items-center justify-center border rounded-lg hover:shadow bg-green-300 hover:bg-green-400"><i class='bx bx-trip'></i></i></button>
                         <span class="qtd-entregue font-semibold text-white">0</span>
                     </div>
                     <div class="pedidos-entregue p-2 mx-auto space-y-1  h-[90vh] overflow-auto">
@@ -109,6 +110,15 @@
                 const datahora_abertura = $("#datahora_abertura").val();
                 var url =
                     "{{ route('pedidosEntreguesFinalizadosCanceladosPDF.imprimir', ['datahora_abertura' => 1]) }}";
+                url = url.replace(/\/1\/Imprimir/, `/${datahora_abertura}/Imprimir`);
+                window.open(url, 'Teste', 'width=600,height=400');
+            });
+
+            $(".btn-imprimir-pedidos-entregas").click(function(e) {
+                e.preventDefault();
+                const datahora_abertura = $("#datahora_abertura").val();
+                var url =
+                    "{{ route('pedidosEntregasPDF.imprimir', ['datahora_abertura' => 1]) }}";
                 url = url.replace(/\/1\/Imprimir/, `/${datahora_abertura}/Imprimir`);
                 window.open(url, 'Teste', 'width=600,height=400');
             });
@@ -360,7 +370,7 @@
 
                 },
                 error: function() {
-                    alert('Erro ao listar itens');
+                    alert('Erro ao listar pedidos abertos');
                 }
             });
         }
@@ -797,7 +807,7 @@
                     }
                 },
                 error: function() {
-                    alert('Erro ao listar itens');
+                    alert('Erro ao listar pedidos preparando');
                 }
             });
         }
@@ -1129,7 +1139,7 @@
                     }
                 },
                 error: function() {
-                    alert('Erro ao listar itens');
+                    alert('Erro ao listar pedidos prontos');
                 }
             });
         }
@@ -1368,7 +1378,7 @@
                     }
                 },
                 error: function() {
-                    alert('Erro ao listar itens');
+                    alert('Erro ao listar pedidos em transporte');
                 }
             });
         }
@@ -1555,7 +1565,7 @@
                     }
                 },
                 error: function() {
-                    alert('Erro ao listar itens');
+                    alert('Erro ao listar pedidos entregues');
                 }
             });
         }

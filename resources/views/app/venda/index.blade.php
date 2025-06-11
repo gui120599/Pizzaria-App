@@ -153,18 +153,18 @@
                                     </div>
                                 </div>
 
-                                <div class="md:col-span-2">
+                                <div class="md:col-span-3">
                                     <x-input-label for="venda_cliente_cpf" :value="__('CPF Cliente')" />
-                                    <x-text-input id="venda_cliente_cpf" name="venda_cliente_cpf_cnpj"
-                                        type="text" class="cpf mt-1 w-full" autocomplete="off"
+                                    <x-text-input id="venda_cliente_cpf" name="venda_cliente_cpf" type="text"
+                                        class="cpf mt-1 w-full" autocomplete="off"
                                         value="{{ old('venda_cliente_cpf') }}" placeholder="000.000.000-00" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_cliente_cpf')" class="mt-2" />
                                 </div>
-                                
-                                <div class="md:col-span-2">
+
+                                <div class="md:col-span-3">
                                     <x-input-label for="venda_cliente_cnpj" :value="__('CNPJ Cliente')" />
-                                    <x-text-input id="venda_cliente_cnpj" name="venda_cliente_cnpj"
-                                        type="text" class="cnpj mt-1 w-full" autocomplete="off"
+                                    <x-text-input id="venda_cliente_cnpj" name="venda_cliente_cnpj" type="text"
+                                        class="cnpj mt-1 w-full" autocomplete="off"
                                         value="{{ old('venda_cliente_cnpj') }}" placeholder="000.000.000/0000-00" />
                                     <x-input-error :messages="$errors->updatePassword->get('venda_cliente_cnpj')" class="mt-2" />
                                 </div>
@@ -177,7 +177,7 @@
                                     <x-input-error :messages="$errors->updatePassword->get('venda_cliente_telefone')" class="mt-2" />
                                 </div>
 
-                                <div class="md:col-span-2">
+                                <div class="md:col-span-4">
                                     <x-input-label for="venda_cliente_email" :value="__('Email Cliente')" />
                                     <x-text-input id="venda_cliente_email" name="venda_cliente_email" type="Email"
                                         class="mt-1 w-full" autocomplete="off"
@@ -185,7 +185,7 @@
                                     <x-input-error :messages="$errors->updatePassword->get('venda_cliente_email')" class="mt-2" />
                                 </div>
 
-                                <div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
+                                <!--<div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
                                     <div class="lg:col-span-6 md:col-span-6">
                                         <x-input-label for="venda_cliente_endereco" :value="__('Endereço')" />
                                         <x-text-input id="venda_cliente_endereco" name="venda_cliente_endereco"
@@ -225,7 +225,7 @@
                                             value="{{ old('cliente_cep') }}" />
                                         <x-input-error :messages="$errors->get('cliente_cep')" class="mt-2" />
                                     </div>
-                                </div>
+                                </div>-->
                             </div>
                         </div>
 
@@ -443,31 +443,27 @@
                                                         data-produto_id="{{ $produto->id }}"
                                                         data-produto_valor="{{ $produto->produto_preco_venda }}">
                                                         <div
-                                                            class="w-full bg-gray-100 p-2 rounded-lg flex items-start justify-between opacity-95 hover:opacity-100 gap-1">
-                                                            <div class="w-2/5">
-                                                                {{-- @if ($produto->produto_foto)
+                                                            class="w-full bg-gray-100 p-2 rounded-lg flex flex-col items-start justify-between opacity-95 hover:opacity-100 gap-1 h-40">
+                                                            <div class="w-full h-20">
+                                                                 @if ($produto->produto_foto)
                                                                     <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
                                                                         alt="{{ $produto->produtso_descricao }}"
-                                                                        class="h-14 object-cover rounded-lg ">
+                                                                        class="w-full h-16 object-cover rounded-lg ">
                                                                 @else
                                                                     <img id="imagem-preview"
-                                                                        class="h-14 object-cover rounded-lg "
+                                                                        class="w-full h-16 object-cover rounded-lg "
                                                                         src="{{ asset('Sem Imagem.png') }}"
                                                                         alt="Imagem Padrão">
-                                                                @endif --}}
+                                                                @endif 
                                                             </div>
-                                                            <div class="w-3/5 flex flex-col justify-center">
-                                                                <h2 class="text-gray-900 text-[8px] uppercase">
-                                                                    @if (isset($produto->produto_referencia) && $produto->produto_referencia !== null)
-                                                                        {{ $produto->produto_descricao }} - <span>Ref.
-                                                                            {{ $produto->produto_referencia }}</span>
-                                                                    @else
-                                                                        {{$produto->categoria->categoria_nome}} {{ $produto->produto_descricao }}
-                                                                    @endif
+                                                            <div class="w-full flex flex-col justify-center h-20">
+                                                                <h2 class="text-gray-900 text-sm uppercase h-[80%]">
+                                                                    {{ $produto->categoria->categoria_nome }}
+                                                                        {{ $produto->produto_descricao }}
                                                                 </h2>
-                                                                <div class="flex items-center">
+                                                                <div class="flex items-center h-[20%]">
                                                                     <span
-                                                                        class="text-gray-900 text-sm font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                                        class="text-gray-900 text-lg font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -576,42 +572,41 @@
                 </div>
 
                 <div class="w-[20%] h-[95vh] border mx-1 border-gray-200 rounded-lg flex flex-col">
-                    <div class="p-1 flex flex-col flex-grow">
-                        <div class="flex-1">
+                    <div class="h-full p-1 flex flex-col flex-grow">
+                        <div class="flex-1 h-full">
                             <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
                             <x-money-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="venda_valor_frete money w-full h-full text-4xl"
-                                autocomplete="off"></x-input-text>
+                                class="venda_valor_frete money w-full h-[10vh] text-7xl" autocomplete="off"></x-input-text>
                         </div>
                         <div class="flex-1">
                             <x-input-label for="venda_valor_itens">{{ __('Valor Itens') }}</x-input-label>
                             <x-money-input id="venda_valor_itens" name="venda_valor_itens" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full h-[10vh] text-7xl"></x-input-text>
                         </div>
                         <div class="flex-1">
                             <x-input-label for="venda_valor_acrescimo">{{ __('Valor Acréscimo') }}</x-input-label>
                             <x-money-input id="venda_valor_acrescimo" name="venda_valor_acrescimo" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full h-[10vh] text-7xl"></x-input-text>
                         </div>
                         <div class="flex-1">
                             <x-input-label for="venda_valor_desconto">{{ __('Valor Desconto') }}</x-input-label>
                             <x-money-input id="venda_valor_desconto" name="venda_valor_desconto" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full h-[10vh] text-7xl"></x-input-text>
                         </div>
                         <div class="flex-1">
                             <x-input-label for="venda_valor_total">{{ __('Valor Total') }}</x-input-label>
                             <x-money-input id="venda_valor_total" name="venda_valor_total" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full h-[10vh] text-7xl"></x-input-text>
                         </div>
                         <div class="flex-1">
                             <x-input-label for="venda_valor_pago">{{ __('Valor Pago') }}</x-input-label>
                             <x-money-input id="venda_valor_pago" name="venda_valor_pago" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full h-[10vh] text-7xl"></x-input-text>
                         </div>
                         <div class="flex-1">
                             <x-input-label for="venda_valor_troco">{{ __('Valor Troco') }}</x-input-label>
                             <x-money-input id="venda_valor_troco" name="venda_valor_troco" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full h-[10vh] text-7xl"></x-input-text>
                         </div>
                     </div>
                 </div>
@@ -621,7 +616,6 @@
 
                     </div>
                 </div>
-
             </div>
         </form>
     </div>
@@ -641,13 +635,8 @@
             document.getElementById("venda_cliente_nome").value = cliente.cliente_nome;
             document.getElementById("venda_cliente_telefone").value = cliente.cliente_celular;
             document.getElementById("venda_cliente_email").value = cliente.cliente_email;
-            document.getElementById("venda_cliente_endereco").value = cliente.cliente_endereco;
             document.getElementById("venda_cliente_cpf").value = cliente.cliente_cpf;
             document.getElementById("venda_cliente_cnpj").value = cliente.cliente_cnpj;
-            /*document.getElementById("venda_cliente_cpf").value = cliente.cliente_cpf;
-            document.getElementById("venda_cliente_cpf").value = cliente.cliente_cpf;
-            document.getElementById("venda_cliente_cpf").value = cliente.cliente_cpf;*/
-            console.log(cliente);
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -691,8 +680,7 @@
             // Converte o array PHP para JSON e o passa para o JavaScript
             let opcao_pag = @json($opcoesPagamentos);
 
-            //$(".toggleSideBar").trigger("click");
-            toggleSidebar();
+            $(".toggleSideBar").trigger("click");
 
             // Oculta todas as seções ao carregar a página
             /*$('.pedidos-section').hide();
@@ -983,8 +971,31 @@
                 e.preventDefault();
                 $(".carregando").removeClass("hidden");
                 InserePagamento();
-
             });
+
+            $('#pg_venda_valor_pagamento').on('keypress', function(e) {
+                if (e.which === 13) { // 13 é o código da tecla Enter
+                    e.preventDefault(); // evita que o form seja enviado (opcional)
+                    $(".carregando").removeClass("hidden");
+                    InserePagamento();
+                }
+            });
+
+            $("#venda_cliente_nome").keyup(function() {
+                if (!$(this).val()) {
+                    $("#venda_cliente_id").val("");
+                    $("#venda_cliente_cpf").val("");
+                    $("#venda_cliente_cnpj").val("");
+                    $("#venda_cliente_telefone").val("");
+                    $("#venda_cliente_email").val("");
+                    $("#venda_cliente_endereco").val("");
+                    $("#cliente_bairro").val("");
+                    $("#cliente_cidade").val("");
+                    $("#cliente_estado").val("");
+                    $("#cliente_cep").val("");
+                }
+            });
+
 
 
 
@@ -1214,7 +1225,7 @@
                                             .adicionais_item_venda ?
                                             item.adicionais_item_venda.find(aiv => aiv
                                                 .aiv_adicional_id === add.adicional.id
-                                                ) : null;
+                                            ) : null;
 
                                         // Quantidade padrão é 0, caso não haja relação em adicionaisItemPedido
                                         const quantidade = adicionalItemVenda ?
@@ -1234,16 +1245,16 @@
                                             </div>
                                             <div class="col-span-3">
                                                 <div class="flex items-stretch justify-evenly">
-                                                    {{--<button type="button" id="minus-btn-adicional"
+                                                    {{-- <button type="button" id="minus-btn-adicional"
                                                         class="minus-btn-adicional w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                        data-item_pedido_id="${item.id}" data-adicional_id="${add.adicional.id}" data-adicional_valor="${add.adicional.adicional_valor}">-</button>--}}
+                                                        data-item_pedido_id="${item.id}" data-adicional_id="${add.adicional.id}" data-adicional_valor="${add.adicional.adicional_valor}">-</button> --}}
                                                     <input type="text" id="item_pedido_adicional_quantidade_${add.adicional.id}" name="item_pedido_adicional_quantidade"
                                                         value="${quantidade}"
                                                         class="max-w-14 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
                                                         readonly />
-                                                    {{--<button type="button" id="plus-btn-adicional"
+                                                    {{-- <button type="button" id="plus-btn-adicional"
                                                         class="plus-btn-adicional w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                        data-item_pedido_id="${item.id}" data-adicional_id="${add.adicional.id}" data-adicional_valor="${add.adicional.adicional_valor}">+</button>--}}
+                                                        data-item_pedido_id="${item.id}" data-adicional_id="${add.adicional.id}" data-adicional_valor="${add.adicional.adicional_valor}">+</button> --}}
                                                 </div>
                                             </div>
                                         </div>
@@ -1754,33 +1765,34 @@
 
             }
 
+            window.addEventListener('load', function() {
+                // Evita o botão "voltar"
+                history.pushState(null, null, location.href);
+                window.addEventListener('popstate', function() {
+                    history.pushState(null, null, location.href);
+                });
+            });
+
+            // Evita Backspace fora de inputs
+            document.addEventListener('keydown', function(e) {
+                const target = e.target || e.srcElement;
+                const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+
+                if (e.key === 'Backspace' && !isInput) {
+                    e.preventDefault();
+                }
+            });
+
+            // Cancela venda se recarregar ou fechar com valor 0
             window.addEventListener('beforeunload', function(e) {
                 const totalVenda = parseFloat(document.getElementById('venda_valor_total').innerText);
 
                 if (totalVenda === 0) {
-                    // Enviar requisição AJAX para deletar a venda
                     const venda_id = $("#venda_id").val();
                     CancelarVenda(venda_id);
                 }
             });
 
-
         });
-
-
-
-        function toggleSidebar() {
-            const BtnToggleSideBar = document.querySelector('.toggleSideBar');
-            const sidebar = document.querySelector('.sidebar');
-            const logo = document.querySelector('.logo');
-            const navLinks = document.querySelectorAll('.sidebar span');
-
-            BtnToggleSideBar.classList.toggle('rotate-180');
-            sidebar.classList.toggle('sidebar-hidden');
-            logo.classList.toggle('logo-hidden');
-            navLinks.forEach(span => {
-                span.classList.toggle('hidden');
-            });
-        }
     </script>
 </x-app-layout>

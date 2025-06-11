@@ -50,7 +50,7 @@ Route::get('/Pedido/{id}/Imprimir', [PDFController::class, 'pedidoPDF'])->name('
 Route::get('/sessaoMesaPDF/{id}/Imprimir', [PDFController::class, 'sessaoMesaPDF'])->name('sessaoMesa.imprimir');
 Route::get('/sessaoCaixaPDF/{id}/Imprimir', [PDFController::class, 'sessaoCaixaPDF'])->name('sessaoCaixa.imprimir');
 Route::get('/pedidosEntreguesFinalizadosCanceladosPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntreguesFinalizadosCanceladosPDF'])->name('pedidosEntreguesFinalizadosCanceladosPDF.imprimir');
-
+Route::get('/pedidosEntregasPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntregasPDF'])->name('pedidosEntregasPDF.imprimir');
 
 Route::get('/dashboard', [Dashboard::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
@@ -223,6 +223,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/Venda/{id}/Gerar-JSONNFE', [VendaController::class, 'jsonNFE'])->name('venda.gerar_JSONNFE');
     Route::get('/Venda/{id_nfe}/Imprimir-NFE', [VendaController::class, 'imprimirNFE'])->name('venda.imprimir_NFE');
     Route::get('/Venda/{venda}/Buscar-NFE', [VendaController::class, 'buscarNFE'])->name('venda.buscar_NFE');
+    Route::get('/Venda/relatorio-vendas-mensal' ,[VendaController::class, 'showVendasMensal'])->name('venda.relatorioMensal')->middleware('permission:Admin');
+    Route::get('/Venda/vendasMensalPDF/Imprimir', [VendaController::class, 'listarVendasMensal'])->name('vendasMensal.imprimir')->middleware('permission:Admin');
     Route::get('/Venda/remover/{vendaId}/{idNfe}', [VendaController::class, 'removerIdNfe'])->name('venda.removerIdNfe');
 
 

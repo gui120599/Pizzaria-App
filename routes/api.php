@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\api\ProdutoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,3 +41,4 @@ Route::post('/webhook/nfe-status', function(Request $request){
 
 Route::apiResource('cardapio', \App\Http\Controllers\api\CardapioController::class);
 Route::apiResource('categorias', \App\Http\Controllers\api\CategoriaController::class);
+Route::apiResource('produtos',ProdutoController::class);
