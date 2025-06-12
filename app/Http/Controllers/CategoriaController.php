@@ -32,6 +32,7 @@ class CategoriaController extends Controller
     {
         $categoria = Categoria::create([
             'categoria_nome' => $request->input('categoria_nome'),
+            'categoria_cardapio' => $request->has('categoria_cardapio'),
         ]);
 
         $categoria->save();
@@ -64,6 +65,7 @@ class CategoriaController extends Controller
     {
         $categoria->update([
             'categoria_nome' => $request->input('categoria_nome'),
+            'categoria_cardapio' => $request->has('categoria_cardapio'),
         ]);
 
         // Redireciona para a página da categoria recém-criada

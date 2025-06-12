@@ -100,6 +100,7 @@
                 <th></th>
                 <th class="text-start">#</th>
                 <th class="text-start">Descrição</th>
+                <th class="text-start">Cardápio</th>
                 <th class="text-start">NCM</th>
                 <th class="text-start">CFOP</th>
                 <th class="text-start">CSOSN</th>
@@ -127,12 +128,20 @@
                             </td>
                             <td>{{ $produto->id }}</td>
                             <td>{{ $produto->categoria->categoria_nome }} {{ $produto->produto_descricao }}</td>
+                            <td>
+                                @if ($produto->produto_cardapio)
+                                    SIM
+                                @else
+                                    NÃO
+                                @endif
+                            </td>
                             <td>{{ $produto->produto_codigo_NCM }}</td>
                             <td>{{ $produto->produto_CFOP }}</td>
                             <td>{{ $produto->produto_CSOSN }}</td>
                             <td>R$ {{ number_format($produto->produto_preco_venda, 2, ',', '.') }}</td>
                             <td class="inline-flex gap-x-2">
-                                <x-primary-link title="EDITAR" href="{{ route('produto.edit', ['produto' => $produto]) }}">
+                                <x-primary-link title="EDITAR"
+                                    href="{{ route('produto.edit', ['produto' => $produto]) }}">
                                     <i class='bx bxs-edit'></i>
                                 </x-primary-link>
 

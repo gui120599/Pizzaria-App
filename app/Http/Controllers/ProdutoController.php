@@ -44,9 +44,11 @@ class ProdutoController extends Controller
     public function store(StoreProdutoRequest $request)
     {
 
+
         $produto = Produto::create([
             'produto_descricao' => $request->input('produto_descricao'),
             'produto_codimentacao' => $request->input('produto_codimentacao'),
+            'produto_cardapio' => $request->has('produto_cardapio'),
             'produto_codigo_NCM' => $request->input('produto_codigo_NCM'),
             'produto_codigo_CEST' => $request->input('produto_codigo_CEST'),
             'produto_codigo_EAN' => $request->input('produto_codigo_EAN'),
@@ -122,6 +124,7 @@ class ProdutoController extends Controller
         $produto->update([
             'produto_descricao' => $request->input('produto_descricao'),
             'produto_codimentacao' => $request->input('produto_codimentacao'),
+            'produto_cardapio' => $request->has('produto_cardapio'),
             'produto_codigo_NCM' => $request->input('produto_codigo_NCM'),
             'produto_codigo_CEST' => $request->input('produto_codigo_CEST'),
             'produto_codigo_EAN' => $request->input('produto_codigo_EAN'),

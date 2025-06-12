@@ -13,7 +13,8 @@ class Categoria extends Model
 
     protected $dates = ['deleted_at'];
     protected $fillable = [
-        "categoria_nome"
+        "categoria_nome",
+        "categoria_cardapio"
     ];
 
     public function produtos()

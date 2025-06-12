@@ -14,15 +14,20 @@
         class="overflow-auto space-y-6 h-[95%] flex flex-col justify-between p-4" enctype="multipart/form-data"
         autocomplete="off">
         @csrf
-        <div class="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-6 overflow-auto">
+        <div class="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-6 overflow-auto px-1">
 
             <div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
-                <div class="col-span-1 md:col-span-4 space-y-3">
-                    <div class="md:col-span-4">
+                <div class="col-span-1 md:col-span-4 space-y-3 grid grid-cols-1 md:grid-cols-4 gap-x-4">
+                    <div class="md:col-span-3">
                         <x-input-label for="produto_descricao" :value="__('Descrição do Produto')" />
                         <x-text-input id="produto_descricao" name="produto_descricao" type="text" class="mt-1 w-full"
                             autocomplete="off" value="{{ old('produto_descricao') }}" autofocus />
                         <x-input-error :messages="$errors->updatePassword->get('produto_descricao')" class="mt-2" />
+                    </div>
+                    <div class="md:col-span-1">
+                        <x-input-label for="produto_cardapio" :value="__('Listar no Cardápio')" />
+                        <x-checkbox-input name="produto_cardapio" id="produto_cardapio" :checked="old('produto_cardapio', false)" />
+                        <x-input-error :messages="$errors->updatePassword->get('produto_cardapio')" class="mt-2" />
                     </div>
                     <div class="md:col-span-4">
                         <x-input-label for="produto_codimentacao" :value="__('Codimentação do Produto')" />
@@ -30,7 +35,7 @@
                             class="mt-1 w-full" autocomplete="off" value="{{ old('produto_codimentacao') }}" />
                         <x-input-error :messages="$errors->updatePassword->get('produto_codimentacao')" class="mt-2" />
                     </div>
-                    <div class="md:col-span-2">
+                    <div class="md:col-span-4">
                         <x-input-label for="produto_categoria_id" :value="__('Categoria do Produto')" />
                         <x-select-input :options="$categorias" value-field="id" display-field="categoria_nome"
                             id="produto_categoria_id" name="produto_categoria_id" class="mt-1 w-full" />
@@ -364,6 +369,7 @@
             } else {
                 $("#percentual_reducao_icms").slideUp();
             }
+
             $('#produto_cod_tributacao_icms').change(function(e) {
                 e.preventDefault();
                 if ($(this).val() === "20") {
@@ -425,7 +431,6 @@
                     $('#produto_valor_percentual_venda').val('');
                 }
             });
-
 
             //CALCULA A PORCENTAGEM DA COMISSÃO
             $('#produto_preco_comissao').change(function(e) {

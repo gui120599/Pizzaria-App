@@ -16,12 +16,17 @@
 
         <div class="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-6">
             <div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
-                <div class="col-span-1 md:col-span-4 space-y-3">
-                    <div class="md:col-span-4">
+                <div class="col-span-1 md:col-span-4 space-y-3 grid grid-cols-1 md:grid-cols-4 gap-x-4">
+                    <div class="md:col-span-3">
                         <x-input-label for="produto_descricao" :value="__('Descrição do Produto')" />
                         <x-text-input id="produto_descricao" name="produto_descricao" type="text" class="mt-1 w-full"
                             autocomplete="off" value="{{ $produto->produto_descricao }}" autofocus />
                         <x-input-error :messages="$errors->updatePassword->get('produto_descricao')" class="mt-2" />
+                    </div>
+                    <div class="md:col-span-1">
+                        <x-input-label for="produto_cardapio" :value="__('Listar no Cardápio')" />
+                        <x-checkbox-input name="produto_cardapio" id="produto_cardapio" :checked="$produto->produto_cardapio" />
+                        <x-input-error :messages="$errors->updatePassword->get('produto_cardapio')" class="mt-2" />
                     </div>
                     <div class="md:col-span-4">
                         <x-input-label for="produto_codimentacao" :value="__('Codimentação do Produto')" />
@@ -372,7 +377,7 @@
                             <th class="text-start">Foto</th>
                             <th class="text-start">Descrição</th>
                             <th class="text-start">Valor Venda</th>
-                            
+
                         </thead>
                         <tbody>
                             @foreach ($adicionais as $adicional)
@@ -488,13 +493,18 @@
             //Quando função on pois dá conflito com a mask o resultado sai incorreto
             $('#produto_preco_venda').change(function(e) {
                 e.preventDefault();
-                var precoVenda = parseFloat($('#produto_preco_venda').val().replace(',', '.')) || 0;
-                var precoCusto = parseFloat($('#produto_preco_custo').val().replace(',', '.')) || 0;
+                var precoVenda = parseFloat($('#produto_preco_venda').val().replace(',', '.')) || 0.00;
+                var precoCusto = parseFloat($('#produto_preco_custo').val().replace(',', '.')) || 0.00;
 
                 // Verificar se há um valor válido no campo de preço de venda
                 if (!isNaN(precoVenda) && precoVenda !== 0) {
-                    // Calcular o percentual de venda
-                    var percentualVenda = ((precoVenda - precoCusto) / precoCusto) * 100;
+                    // Calcular o percentual de venda apenas se o preço de custo for diferente de zero
+                    var percentualVenda;
+                    if (precoCusto !== 0) {
+                        percentualVenda = ((precoVenda - precoCusto) / precoCusto) * 100;
+                    } else {
+                        percentualVenda = 100;
+                    }
 
                     // Formatando o valor com duas casas decimais
                     percentualVenda = percentualVenda.toFixed(2);
@@ -553,10 +563,10 @@
 
             // Função que seleciona a categoria do produto
             $('#produto_categoria_id').val({{ $produto->produto_categoria_id }});
-            
+
             // Função que seleciona a categoria do produto
             $('#produto_cod_origem_mercadoria').val({{ $produto->produto_cod_origem_mercadoria }});
-            
+
             // Função que seleciona a categoria do produto
             var produtoCodTributacaoIcms = "{{ $produto->produto_cod_tributacao_icms }}";
             $('#produto_cod_tributacao_icms').val(produtoCodTributacaoIcms);
@@ -592,7 +602,8 @@
                     error: function(e) {
                         console.error('Erro: ', e.responseText);
                         alert(
-                            'Ocorreu um erro ao atualizar o estado do adicional. Tente novamente.');
+                            'Ocorreu um erro ao atualizar o estado do adicional. Tente novamente.'
+                            );
                     },
                 });
 

@@ -13,6 +13,7 @@
                 <tr class="border-b-4">
                     <th class="w-1/6">#</th>
                     <th class="w-2/3 px-1 md:px-4">Descrição</th>
+                    <th class="w-1/6 px-1 md:px-4">Cardápio</th>
                     <th class="w-1/6 px-1 md:px-4">Opções</th>
                 </tr>
             </thead>
@@ -22,6 +23,13 @@
                         <tr class="border-b-2 border-gray-100">
                             <td>{{ $categoria->id }}</td>
                             <td>{{ $categoria->categoria_nome }}</td>
+                            <td>
+                                @if ($categoria->categoria_cardapio)
+                                    SIM
+                                @else
+                                    NÃO
+                                @endif
+                            </td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2">
                                     <x-primary-button onclick="window.location.href = '{{ route('categoria.edit', ['categoria' => $categoria]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
