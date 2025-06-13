@@ -13,7 +13,7 @@ class CategoriaController extends Controller
      */
     public function index()
     {
-        $categorias = Categoria::all();
+        $categorias = Categoria::with('children')->get();
         return view('app.categoria.index', ['categorias' => $categorias]);
     }
 
@@ -32,6 +32,7 @@ class CategoriaController extends Controller
     {
         $categoria = Categoria::create([
             'categoria_nome' => $request->input('categoria_nome'),
+            'categoria_pai_id' => $request->input('categoria_pai_id'),
             'categoria_cardapio' => $request->has('categoria_cardapio'),
         ]);
 
@@ -65,6 +66,7 @@ class CategoriaController extends Controller
     {
         $categoria->update([
             'categoria_nome' => $request->input('categoria_nome'),
+            'categoria_pai_id' => $request->input('categoria_pai_id'),
             'categoria_cardapio' => $request->has('categoria_cardapio'),
         ]);
 

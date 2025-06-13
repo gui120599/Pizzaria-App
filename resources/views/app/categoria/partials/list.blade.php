@@ -4,51 +4,87 @@
             <h2 class="text-lg font-medium text-gray-900">
                 {{ __('Lista de Categorias') }}
             </h2>
-            <x-secondary-button onclick="window.location.href = '{{ route('categoria.inactive') }}'">Mostrar Inativos</x-secondary-button>
+            <x-secondary-button onclick="window.location.href = '{{ route('categoria.inactive') }}'">Mostrar
+                Inativos</x-secondary-button>
         </div>
     </header>
     <div class="w-[18rem] sm:w-[99%] overflow-auto mx-auto h-2/4">
-        <table class="w-full text-center text-[7px] md:text-base">
-            <thead class="">
-                <tr class="border-b-4">
-                    <th class="w-1/6">#</th>
-                    <th class="w-2/3 px-1 md:px-4">Descrição</th>
-                    <th class="w-1/6 px-1 md:px-4">Cardápio</th>
-                    <th class="w-1/6 px-1 md:px-4">Opções</th>
+        <table class="min-w-full">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Categoria</th>
+                    <th>Filhas</th>
+                    <th>Cardápio</th>
+                    <th>Ações</th>
                 </tr>
             </thead>
             <tbody>
-                @if(count($categorias) > 0)
-                    @foreach ($categorias as $categoria)
-                        <tr class="border-b-2 border-gray-100">
+                @forelse ($categorias as $categoria)
+                    @if (empty($categoria->parent))
+                        <tr class="border-b-2 border-gray-100 align-top">
                             <td>{{ $categoria->id }}</td>
                             <td>{{ $categoria->categoria_nome }}</td>
-                            <td>
-                                @if ($categoria->categoria_cardapio)
-                                    SIM
-                                @else
-                                    NÃO
-                                @endif
-                            </td>
+                            <td>{{ $categoria->categoria_cardapio ? 'SIM' : 'NÃO' }}</td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2">
-                                    <x-primary-button onclick="window.location.href = '{{ route('categoria.edit', ['categoria' => $categoria]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
-                                    <form action="{{ route('categoria.destroy', ['id' => $categoria]) }}" method="post">
+                                    <x-primary-button
+                                        onclick="window.location.href = '{{ route('categoria.edit', ['categoria' => $categoria]) }}'"
+                                        title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
+                                    <form action="{{ route('categoria.destroy', ['id' => $categoria]) }}"
+                                        method="post">
                                         @method('delete')
                                         @csrf
-                                        <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-primary-button>
+                                        <x-danger-button title="Excluir"><i
+                                                class='bx bx-trash text-sm'></i></x-primary-button>
                                     </form>
                                 </div>
                             </td>
+                            <td colspan="4">
+                                <table class="min-w-full ml-4">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Categoria Filha</th>
+                                            <th>Cardápio</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($categoria->children as $filha)
+                                            <tr>
+                                                <td>{{ $filha->id }}</td>
+                                                <td>{{ $filha->categoria_nome }}</td>
+                                                <td>{{ $filha->categoria_cardapio ? 'SIM' : 'NÃO' }}</td>
+                                                <td>
+                                                    <div class="flex items-center justify-center space-x-2">
+                                                        <x-primary-button
+                                                            onclick="window.location.href = '{{ route('categoria.edit', ['categoria' => $filha]) }}'"
+                                                            title="Editar"><i
+                                                                class='bx bx-edit text-sm'></i></x-primary-button>
+                                                        <form
+                                                            action="{{ route('categoria.destroy', ['id' => $filha]) }}"
+                                                            method="post">
+                                                            @method('delete')
+                                                            @csrf
+                                                            <x-danger-button title="Excluir"><i
+                                                                    class='bx bx-trash text-sm'></i></x-primary-button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </td>
                         </tr>
-                    @endforeach
-                @else
+                    @endif
+                @empty
                     <tr>
-                        <td colspan="3" class="text-center py-4">Nenhuma categoria encontrada.</td>
+                        <td colspan="5" class="text-center py-4">Nenhuma categoria encontrada.</td>
                     </tr>
-                @endif
+                @endforelse
             </tbody>
         </table>
-        
     </div>
 </section>
