@@ -20,12 +20,12 @@
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DRxeVpUo.css",
+    "file": "assets/app-Co0va_wf.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-L_RZDK7n.js",
+    "file": "assets/app-0HzwaREa.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true

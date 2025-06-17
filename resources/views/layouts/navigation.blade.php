@@ -4,7 +4,7 @@
             <a href="{{ route('dashboard') }}">
                 <x-application-logo class="block h-16 w-auto fill-current text-gray-800 logo" />
             </a>
-            <input type="checkbox" name="sidebar" id="sidebar">
+            
             <i class='bx bx-arrow-to-left px-2 py-2 bg-teal-500 rounded-md cursor-pointer hover:bg-teal-900 toggleSideBar'
                 onclick="toggleSidebar()"></i>
         </div>
@@ -12,11 +12,11 @@
     <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!-- Nav-link´s-->
-    <div class="p2.5 mt-3 flex items-center rounded-md px-4 durations-300 cursor-pointer bg-gray-700">
+    {{--<div class="p2.5 mt-3 flex items-center rounded-md px-4 durations-300 cursor-pointer bg-gray-700">
         <i class='bx bx-search text-sm'></i>
         <input type="text" placeholder="Buscar"
             class="text-[12px] ml-4 w-full bg-transparent border-none focus:border-transparent focus:ring-0">
-    </div>
+    </div>--}}
     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
         <i class='text-[13px] bx bxs-dashboard'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
@@ -180,14 +180,7 @@
         }
     </style>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const btnSideBar = document.getElementById('sidebar');
 
-            btnSideBar.addEventListener('click', () => {
-                console.log(this.checked);
-                
-            });
-        });
 
         function toggleSidebar() {
             const BtnToggleSideBar = document.querySelector('.toggleSideBar');

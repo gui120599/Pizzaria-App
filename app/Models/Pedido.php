@@ -100,6 +100,10 @@ class Pedido extends Model
         return $this->belongsTo(Venda::class, 'pedido_venda_id')->withDefault([
             'venda_id' => 'N/Venda']);
     }
+
+    public function mov_pedido(){
+        return $this->hasMany(MovimentacaoPedido::class,'mov_pedido_pedido_id');
+    }
     
 
 }

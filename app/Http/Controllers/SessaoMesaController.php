@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\MovimentacaoPedido;
 use App\Models\SessaoMesa;
 use App\Http\Requests\StoreSessaoMesaRequest;
 use App\Http\Requests\UpdateSessaoMesaRequest;
@@ -71,7 +72,24 @@ class SessaoMesaController extends Controller
         }
         $sessaoMesaId = $sessaoMesa->id;
 
-        $pedidos = Pedido::with('produtosInseridosPedido', 'sessaoMesa')->where('pedido_sessao_mesa_id', $sessaoMesaId)->where('pedido_status', '<>', 'CANCELADO')->get();
+        $pedidos = Pedido::with('produtosInseridosPedido', 'sessaoMesa')
+        ->where('pedido_sessao_mesa_id', $sessaoMesaId)
+        ->where('pedido_status', '<>', 'CANCELADO')
+        ->orderByDesc('id')->get();
+
+        $pedidosRemover = Pedido::with('produtosInseridosPedido', 'sessaoMesa')
+        ->where('pedido_sessao_mesa_id', $sessaoMesaId)
+        ->where('pedido_status', '<>', 'CANCELADO')
+        ->orderByDesc('id')
+        ->paginate(8,['*'],'page_RemoverPedidos');
+
+        $pedidosExistentes = Pedido::whereNotIn('pedido_status', ['INICIADO', 'FINALIZADO', 'CANCELADO'])
+            ->where(function ($query) use ($sessaoMesaId) {
+                $query->whereNot('pedido_sessao_mesa_id', $sessaoMesaId)
+                    ->orWhereNull('pedido_sessao_mesa_id');
+            })
+            ->orderByDesc('id')
+            ->paginate(8,['*'],'page_PedidosExistentes');
 
 
         return view(
@@ -79,7 +97,9 @@ class SessaoMesaController extends Controller
             [
                 'mesa' => $mesa,
                 'sessao_mesa' => $sessaoMesa,
-                'pedidos' => $pedidos
+                'pedidos' => $pedidos,
+                'pedidosExistentes' => $pedidosExistentes,
+                'pedidosRemover' => $pedidosRemover,
             ]
         );
     }
@@ -305,10 +325,48 @@ class SessaoMesaController extends Controller
 
         // Redireciona para a nova mesa
         return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $request->input('mesa_id_nova')])->with('success', 'Mesa alterada!');
-
-
-
     }
+
+    /**
+     * Adiciona pedidos selecionados na tela da sessão da Mesa
+     */
+    public function updateAdicionarPedidosExistentes(SessaoMesa $sessaoMesa, Request $request)
+    {
+        foreach ($request->input('pedidoExistente') as $pedidoId) {
+            $pedido = Pedido::find($pedidoId);
+
+            if ($pedido && !in_array($pedido->pedido_status, ['INICIADO', 'FINALIZADO', 'CANCELADO'])) {
+                $pedido->update([
+                    'pedido_sessao_mesa_id' => $sessaoMesa->id,
+                ]);
+            }
+        }
+
+        return redirect()
+            ->route('sessaoMesa.pedidosMesa', ['mesa_id' => $sessaoMesa->sessao_mesa_mesa_id])
+            ->with('success', 'Pedidos incluídos!');
+    }
+
+    /**
+     * Remove pedidos selecionados na tela da sessão da Mesa
+     */
+    public function updateRemoverPedidosSessaoMesa(SessaoMesa $sessaoMesa, Request $request)
+    {
+        foreach ($request->input('pedidoExistente') as $pedidoId) {
+            $pedido = Pedido::find($pedidoId);
+
+            if ($pedido && !in_array($pedido->pedido_status, ['INICIADO', 'FINALIZADO', 'CANCELADO'])) {
+                $pedido->update([
+                    'pedido_sessao_mesa_id' => null,
+                ]);
+            }
+        }
+
+        return redirect()
+            ->route('sessaoMesa.pedidosMesa', ['mesa_id' => $sessaoMesa->sessao_mesa_mesa_id])
+            ->with('success', 'Pedidos incluídos!');
+    }
+
 
 
     /**

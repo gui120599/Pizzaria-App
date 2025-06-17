@@ -205,6 +205,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/Reabrir-SessaoMesa/{sessaoMesa}', [SessaoMesaController::class, 'ReabrirSessaoMesa'])->name('sessaoMesa.reabrir');
     Route::get('/SessaoMesa/{sessaoMesa}/Selecionar-Mesa', [SessaoMesaController::class, 'editAlterarMesaSessaMesa'])->name('sessaoMesa.editAlterarMesa');
     Route::patch('/SessaoMesa/{sessaoMesa}/Alterar-Mesa', [SessaoMesaController::class, 'updateAlterarMesaSessaMesa'])->name('sessao_mesa.updateAlterarMesa');
+    Route::patch('/SessaoMesa/{sessaoMesa}/Adicona-pedidos-existentes', [SessaoMesaController::class, 'updateAdicionarPedidosExistentes'])->name('sessaoMesa.updateAdicionarExistentes');
+    Route::patch('/SessaoMesa/{sessaoMesa}/Remover-pedidos-mesa', [SessaoMesaController::class, 'updateRemoverPedidosSessaoMesa'])->name('sessaoMesa.updateRemoverPedidosSessaoMesa');
     Route::get('/SessaoMesa/{sessaoMesa}', [SessaoMesaController::class, 'show'])->name('sessaoMesa.show');
     Route::get('/SessaoMesa/{sessaoMesa}/Edit', [SessaoMesaController::class, 'edit'])->name('sessaoMesa.edit');
     Route::patch('/SessaoMesa/{sessaoMesa}', [SessaoMesaController::class, 'update'])->name('sessaoMesa.update');

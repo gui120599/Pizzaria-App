@@ -53,10 +53,11 @@ class PedidoController extends Controller
     public function list(Request $request)
     {
         if ($request->input('search')) {
-            $pedidos = Pedido::where('id', '=', $request->input('search'))->where('pedido_status', '<>', 'INICIADO')->orderByDesc('id')->paginate(50);
+            $pedidos = Pedido::where('id', '=', $request->input('search'))->where('pedido_status', '<>', 'INICIADO')->with('mov_pedido')->orderByDesc('id')->paginate(50);
         } else {
-            $pedidos = Pedido::orderByDesc('id')->where('pedido_status', '<>', 'INICIADO')->paginate(50);
+            $pedidos = Pedido::with('mov_pedido')->orderByDesc('id')->where('pedido_status', '<>', 'INICIADO')->paginate(50);
         }
+        //return response()->json($pedidos);
 
         $clientes = Cliente::all();
         $opcoes_pagamento = OpcoesPagamento::all();
@@ -122,7 +123,12 @@ class PedidoController extends Controller
      */
     public function update(UpdatePedidoRequest $request, Pedido $pedido)
     {
-        //
+        $pedido->update([
+            'pedido_opcaoentrega_id' => $request->input('pedido_opcaoentrega_id'),
+            'pedido_endereco_entrega' => $request->input('pedido_endereco_entrega')
+        ]);
+
+        return redirect()->route('pedidos')->with('success', 'Pedido alterado com sucesso!');
     }
 
     /**
@@ -152,7 +158,7 @@ class PedidoController extends Controller
         $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'item_pedido_pedido_id.produto.categoria', 'item_pedido_pedido_id.adicionaisItemPedido.adicional'])
             ->where('pedido_status', 'PREPARANDO')
             ->get();
-            
+
         // Retorna os pedidos como JSON
         return response()->json($pedidos);
     }
@@ -173,7 +179,7 @@ class PedidoController extends Controller
     public function PedidosEmTransporteLista()
     {
         // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
-         $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'item_pedido_pedido_id.produto.categoria', 'item_pedido_pedido_id.adicionaisItemPedido.adicional'])
+        $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'item_pedido_pedido_id.produto.categoria', 'item_pedido_pedido_id.adicionaisItemPedido.adicional'])
             ->where('pedido_status', 'EM TRANSPORTE')
             ->get();
 
@@ -235,13 +241,14 @@ class PedidoController extends Controller
     /**
      * Cancelar pedido
      */
-    public function CancelarPedido(Request $request){
+    public function CancelarPedido(Request $request)
+    {
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
 
         if (!$pedido) {
             return redirect()->route('pedidos')->with('error', 'Pedido não encontrado!');
-        } 
+        }
 
         if ($pedido->pedido_sessao_mesa_id != null) {
             $sessaoMesa = SessaoMesa::find($pedido->pedido_sessao_mesa_id);
@@ -259,9 +266,10 @@ class PedidoController extends Controller
         }
 
         if ($pedido->pedido_venda_id != null) {
-                return redirect()->route('pedidos')->with(
-                    'error',
-                    'Pedido não pode ser restaurado, pois já está pago! Venda: ' . $pedido->pedido_venda_id);
+            return redirect()->route('pedidos')->with(
+                'error',
+                'Pedido não pode ser restaurado, pois já está pago! Venda: ' . $pedido->pedido_venda_id
+            );
         }
 
         $pedido->update([
