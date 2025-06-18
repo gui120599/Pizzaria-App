@@ -680,7 +680,7 @@
             // Converte o array PHP para JSON e o passa para o JavaScript
             let opcao_pag = @json($opcoesPagamentos);
 
-            $(".toggleSideBar").trigger("click");
+            //$(".toggleSideBar").trigger("click");
 
             // Oculta todas as seções ao carregar a página
             /*$('.pedidos-section').hide();

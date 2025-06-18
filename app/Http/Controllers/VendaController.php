@@ -44,6 +44,9 @@ class VendaController extends Controller
         // Obtém todas as sessões de mesa que não estão finalizadas
         // Obtém todas as sessões de mesa que não estão finalizadas
         $sessaoMesas = SessaoMesa::whereIn('sessao_mesa_status', ['ABERTA', 'FECHADA'])
+            ->whereHas('pedidos', function ($query) {
+                $query->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO']);
+            })
             ->with([
                 'pedidos' => function ($query) {
                     $query->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO'])
@@ -57,6 +60,7 @@ class VendaController extends Controller
                 }
             ])
             ->get();
+
 
 
 
@@ -86,7 +90,7 @@ class VendaController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        //dd($sessaoMesas);
+
         if ($sessaoCaixa) {
             return view('app.venda.index', [
                 'sessaoCaixa' => $sessaoCaixa,
@@ -444,7 +448,7 @@ class VendaController extends Controller
             "contingencyOn" => null,
             "contingencyJustification" => null, // Ajuste conforme necessário
             "totals" => $this->montarTotais($venda),
-            
+
             "additionalInformation" => $this->montarInformacoesAdicionais($venda),
             "billing" => $this->montarCobranca($venda),
             "issuer" => [

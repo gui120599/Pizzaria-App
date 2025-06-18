@@ -1,0 +1,32 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreComboProdutoRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'combo_produto_nome' => 'required|string|max:255',
+            'combo_produto_cardapio' => 'boolean',
+            'combo_produto_promocional' => 'boolean',
+            'combo_produto_foto' => 'nullable|string|max:255',
+            'combo_produto_valor' => 'required|numeric|min:0',
+        ];
+    }
+}
