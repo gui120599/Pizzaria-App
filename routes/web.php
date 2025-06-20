@@ -62,6 +62,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/Combo-Produto', [ComboProdutoController::class, 'index'])->name('combo_produtos');
     Route::post('/Combo-Produto', [ComboProdutoController::class, 'store'])->name('combo_produtos.store');
+    Route::get('/Combo-Produto/{comboProduto}/Editar', [ComboProdutoController::class, 'edit'])->name('combo_produtos.edit');
+    Route::delete('/Combo-Produto/{comboProduto}/Editar', [ComboProdutoController::class, 'edit'])->name('combo_produtos.destroy');
 
     Route::get('/Categoria', [CategoriaController::class, 'index'])->name('categoria');
     Route::get('/Categorias-Inativas', [CategoriaController::class, 'inactive'])->name('categoria.inactive');

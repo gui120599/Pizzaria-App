@@ -15,9 +15,10 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('item_combo_produto_combo_id');
             $table->unsignedBigInteger('item_combo_produto_produto_id');
-            $table->decimal('item_combo_produto_valor_produto')->default('0.00');
-            $table->decimal('item_combo_produto_valor_desconto')->default('0.00');
-            $table->decimal('item_combo_produto_valor_total')->default('0.00');
+            $table->double('item_combo_produto_quantidade_produto')->nullable();
+            $table->decimal('item_combo_produto_valor_produto')->default('0.00')->nullable();
+            $table->decimal('item_combo_produto_valor_desconto')->default('0.00')->nullable();
+            $table->decimal('item_combo_produto_valor_total')->default('0.00')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

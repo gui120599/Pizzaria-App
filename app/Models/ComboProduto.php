@@ -30,9 +30,9 @@ class ComboProduto extends Model
     public function saveFoto($foto)
     {
         $nomeArquivo = time() . '.' . $foto->getClientOriginalExtension();
-        $caminho = public_path('/img/fotos_produtos');
+        $caminho = public_path('/img/fotos_combosProdutos');
         $foto->move($caminho, $nomeArquivo);
-        $this->produto_foto = $nomeArquivo;
+        $this->combo_produto_foto = $nomeArquivo;
         $this->save();
     }
 

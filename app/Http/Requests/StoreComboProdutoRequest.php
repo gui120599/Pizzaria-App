@@ -23,10 +23,13 @@ class StoreComboProdutoRequest extends FormRequest
     {
         return [
             'combo_produto_nome' => 'required|string|max:255',
-            'combo_produto_cardapio' => 'nullable|boolean',
-            'combo_produto_promocional' => 'nullable|boolean',
-            'combo_produto_foto' => 'nullable|string|max:255',
-            'combo_produto_valor' => 'required|numeric|min:0',
+            'combo_produto_cardapio' => 'nullable',
+            'combo_produto_promocional' => 'nullable',
+            'combo_produto_foto' => 'nullable',
+            'combo_produto_valor' => 'required|min:0',
+
+            // Valida se o campo itens existe
+            'itens' => 'required|array|min:1',
         ];
     }
 }

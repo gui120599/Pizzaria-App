@@ -1,4 +1,4 @@
-<section>
+<section class="p-1">
     <header>
         <div class="flex items-center justify-between border-b">
             <div>
@@ -16,7 +16,7 @@
         </div>
     </header>
 
-    <form action="{{ route('combo_produtos.store') }}" method="POST" enctype="multipart/form-data" class="mt-6">
+    <form action="{{ route('combo_produtos.store') }}" method="POST" enctype="multipart/form-data" class="mt-4">
         @csrf
 
         <div class="grid grid-cols-1 md:grid-cols-2 space-x-2">
@@ -83,7 +83,7 @@
 
                 <div class="h-[60vh] overflow-auto">
                     @foreach ($produtos as $index => $produto)
-                        <div class="border p-4 rounded-md mb-4 produto-item relative bg-white"
+                        <div class="border p-4 rounded-md mb-4 me-2 produto-item relative bg-white"
                             data-id="{{ $produto->id }}" data-descricao="{{ $produto->produto_descricao }}"
                             data-categoria="{{ $produto->categoria->categoria_nome }}">
 
@@ -92,7 +92,7 @@
                                 <div>
                                     <input type="checkbox"
                                         class="form-checkbox produto-checkbox h-5 w-5 text-green-600 cursor-pointer"
-                                        data-id="{{ $produto->id }}" name="itens[{{ $index }}][selecionado]"
+                                        data-id="{{ $produto->id }}" name="itens[{{ $index }}][produto_id]"
                                         id="itens_{{ $index }}" value="{{ $produto->id }}">
                                     <label for="itens_{{ $index }}"
                                         class="text-gray-800 font-medium cursor-pointer">
@@ -110,25 +110,39 @@
                                 @endif
                             </div>
 
-                            <div class="grid grid-cols-3 gap-4">
-                                <div>
+                            <div class="grid grid-cols-4 gap-4">
+                                <div class="col-span-1">
+                                    <x-input-label :value="__('Qtd')" />
+                                    <div class="flex items-center gap-2">
+                                        <button type="button"
+                                            class="decrement border px-2 rounded-full bg-gray-100 text-gray-800">-</button>
+                                        <input type="text" min="1" value="1"
+                                            name="itens[{{ $index }}][quantidade]"
+                                            class="quantidade text-center w-10 focus:border-indigo-500 border-none"
+                                            readonly />
+                                        <button type="button"
+                                            class="increment border px-2 rounded-full bg-gray-100 text-gray-800">+</button>
+                                    </div>
+                                </div>
+                                <div class="col-span-1">
                                     <x-input-label :value="__('Valor Produto')" />
                                     <x-money-input name="itens[{{ $index }}][valor_produto]"
                                         value="{{ $produto->produto_preco_venda }}" class="w-full valor-produto"
                                         readonly />
                                 </div>
-                                <div>
+                                <div class="col-span-1">
                                     <x-input-label :value="__('Valor Desconto')" />
                                     <x-money-input name="itens[{{ $index }}][valor_desconto]"
                                         class="w-full valor-desconto" />
                                 </div>
-                                <div>
+                                <div class="col-span-1">
                                     <x-input-label :value="__('Valor Total')" />
                                     <x-money-input name="itens[{{ $index }}][valor_total]"
                                         value="{{ $produto->produto_preco_venda }}" class="w-full valor-total"
                                         readonly />
                                 </div>
                             </div>
+
                         </div>
                     @endforeach
                 </div>
@@ -188,16 +202,20 @@
                         const categoria = item.dataset.categoria;
 
                         const inputTotal = item.querySelector('.valor-total');
-                        const valorTotal = parseFloat(inputTotal.value.replace(',', '.')) || 0;
+                        const inputQtd = item.querySelector('.quantidade');
+                        const valorTotal = parseValor(inputTotal.value);
+                        const qtd = parseInt(inputQtd.value) || 1;
 
                         totalCombo += valorTotal;
 
                         const li = document.createElement('li');
-                        li.textContent = `${categoria} - ${descricao} - R$ ${formatarValor(valorTotal)}`;
+                        li.textContent =
+                            `${categoria} - ${descricao} x${qtd} - R$ ${formatarValor(valorTotal)}`;
                         listaSelecionados.appendChild(li);
                     }
                 });
             }
+
 
             checkboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', atualizarListaSelecionados);
@@ -207,11 +225,14 @@
             function atualizarValorTotalItem(item) {
                 const inputValor = item.querySelector('.valor-produto');
                 const inputDesconto = item.querySelector('.valor-desconto');
+                const inputQuantidade = item.querySelector('.quantidade');
                 const inputTotal = item.querySelector('.valor-total');
 
                 const valor = parseFloat(inputValor.value.replace(',', '.')) || 0;
                 const desconto = parseFloat(inputDesconto.value.replace(',', '.')) || 0;
-                const total = valor - desconto;
+                const quantidade = parseInt(inputQuantidade.value) || 1;
+
+                const total = (valor * quantidade)- desconto ;
 
                 inputTotal.value = total.toFixed(2).replace('.', ',');
             }
@@ -221,8 +242,10 @@
                     const item = this.closest('.produto-item');
                     atualizarValorTotalItem(item);
                     atualizarListaSelecionados();
+                    atualizarTotalDoCombo();
                 });
             });
+
 
             // Atualiza ao carregar a página (caso já venham pré-selecionados)
             atualizarListaSelecionados();
@@ -243,16 +266,19 @@
                 function atualizarTotal() {
                     const valorProduto = formatar(produtoInput.value);
                     const valorDesconto = formatar(descontoInput.value);
-                    const total = valorProduto - valorDesconto;
+                    const inputQtd = wrapper.querySelector('.quantidade');
+                    const quantidade = parseInt(inputQtd.value) || 1;
+
+                    const total = (valorProduto * quantidade)- valorDesconto ;
 
                     if (!isNaN(total)) {
                         const totalFormatado = total.toFixed(2).replace('.', ',');
                         totalInput.value = totalFormatado;
 
-                        // Aplica a máscara novamente, se quiser
                         $(totalInput).trigger('input');
                     }
                 }
+
 
                 descontoInput.addEventListener('keyup', atualizarTotal);
             });
@@ -284,28 +310,57 @@
                 inputComboTotal.value = formatarValor(total);
             }
 
-            // Atualiza quando marcar/desmarcar
-            checkboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', atualizarTotalDoCombo);
-
-                const wrapper = checkbox.closest('.produto-item');
-                const descontoInput = wrapper.querySelector('.valor-desconto');
-
-                // Atualiza quando mudar o desconto
-                descontoInput.addEventListener('keyup', () => {
-                    // Simula o recálculo do valor total do item
-                    const valorProduto = parseValor(wrapper.querySelector('.valor-produto').value);
-                    const valorDesconto = parseValor(descontoInput.value);
-                    const totalInput = wrapper.querySelector('.valor-total');
-                    const novoTotal = valorProduto - valorDesconto;
-
-                    totalInput.value = formatarValor(novoTotal);
-                    atualizarTotalDoCombo();
-                });
-            });
 
             // Executa na carga inicial (caso tenha produtos já marcados)
             atualizarTotalDoCombo();
+
+            const form = document.querySelector('form[action="{{ route('combo_produtos.store') }}"]');
+
+            form.addEventListener('submit', function(e) {
+                checkboxes.forEach(checkbox => {
+                    if (!checkbox.checked) {
+                        const item = checkbox.closest('.produto-item');
+                        item.querySelectorAll('[name]').forEach(input => {
+                            input.disabled = true;
+                        });
+                    }
+                });
+            });
+
+            document.querySelectorAll('.produto-item').forEach(item => {
+                const btnMinus = item.querySelector('.decrement');
+                const btnPlus = item.querySelector('.increment');
+                const inputQtd = item.querySelector('.quantidade');
+
+                const updateAll = () => {
+                    atualizarValorTotalItem(item);
+                    atualizarListaSelecionados();
+                    atualizarTotalDoCombo();
+                };
+
+                btnMinus?.addEventListener('click', () => {
+                    let value = parseInt(inputQtd.value) || 1;
+                    if (value > 1) {
+                        inputQtd.value = value - 1;
+                        updateAll();
+                    }
+                });
+
+                btnPlus?.addEventListener('click', () => {
+                    let value = parseInt(inputQtd.value) || 1;
+                    inputQtd.value = value + 1;
+                    updateAll();
+                });
+
+                inputQtd?.addEventListener('change', () => {
+                    if (parseInt(inputQtd.value) < 1) {
+                        inputQtd.value = 1;
+                    }
+                    updateAll();
+                });
+            });
+
+
         });
     </script>
 </section>

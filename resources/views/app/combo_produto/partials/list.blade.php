@@ -9,9 +9,9 @@
                 {{ __('Novo Combo') }}</x-secondary-button>
         </div>
     </header>
-    <x-modal name="cadastra-combo" :show="$errors->any()" :maxWidth="'6xl'">
+    <x-modal name="cadastra-combo" :show="true" :maxWidth="'6xl'">
         <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-            <div class="h-[80vh] overflow-auto">
+            <div class="h-[80vh] overflow-auto md:overflow-hidden">
                 @include('app.combo_produto.partials.create')
             </div>
         </div>
@@ -21,6 +21,7 @@
         <table class="min-w-full border border-gray-200 rounded">
             <thead class="bg-gray-100 text-sm font-semibold">
                 <tr>
+                    <th class="px-4 py-2"></th>
                     <th class="px-4 py-2">ID</th>
                     <th class="px-4 py-2">Nome</th>
                     <th class="px-4 py-2">Valor</th>
@@ -32,6 +33,7 @@
             <tbody>
                 @forelse ($combo_produtos as $combo)
                     <tr class="border-b text-sm">
+                        <td class="px-4 py-2"><img src="{{ asset('/fotos_combosProdutos/' . $combo->combo_produto_foto) }}" alt="" class="w-10 h-10 object-cover rounded-lg "></td>
                         <td class="px-4 py-2">{{ $combo->id }}</td>
                         <td class="px-4 py-2">{{ $combo->combo_produto_nome }}</td>
                         <td class="px-4 py-2">R$ {{ number_format($combo->combo_produto_valor, 2, ',', '.') }}</td>
