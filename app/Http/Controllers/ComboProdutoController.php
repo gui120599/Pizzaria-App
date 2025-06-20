@@ -31,10 +31,8 @@ class ComboProdutoController extends Controller
      */
     public function store(StoreComboProdutoRequest $request)
     {
-        //dd($request);
-        return response()->json($request);
-        /*ComboProduto::create($request->validated());
-        return redirect()->route('combo_produtos.index')->with('success', 'Combo criado com sucesso.');*/
+        ComboProduto::create($request->validated());
+        return redirect()->route('combo_produtos.index')->with('success', 'Combo criado com sucesso.');
     }
 
     /**
@@ -59,7 +57,7 @@ class ComboProdutoController extends Controller
     public function update(UpdateComboProdutoRequest $request, ComboProduto $comboProduto)
     {
         $comboProduto->update($request->validated());
-        return redirect()->route('combo_produtos.index')->with('success', 'Combo atualizado com sucesso.');
+        return redirect()->route('combo_produtos')->with('success', 'Combo atualizado com sucesso.');
     }
 
     /**
@@ -68,6 +66,6 @@ class ComboProdutoController extends Controller
     public function destroy(ComboProduto $comboProduto)
     {
         $comboProduto->delete();
-        return redirect()->route('combo_produtos.index')->with('success', 'Combo removido com sucesso.');
+        return redirect()->route('combo_produtos')->with('success', 'Combo removido com sucesso.');
     }
 }

@@ -22,7 +22,7 @@ class StoreMesaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'mesa_nome' => 'required'
         ];
     }
 }

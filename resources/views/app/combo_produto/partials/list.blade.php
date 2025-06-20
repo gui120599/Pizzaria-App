@@ -5,13 +5,13 @@
                 {{ __('Lista de Combos de Produtos') }}
             </h2>
             <x-secondary-button x-data=""
-                x-on:click.prevent="$dispatch('open-modal', 'seleciona-pedido')"><i class='bx bxs-plus-circle'></i>
+                x-on:click.prevent="$dispatch('open-modal', 'cadastra-combo')"><i class='bx bxs-plus-circle'></i>
                 {{ __('Novo Combo') }}</x-secondary-button>
         </div>
     </header>
-    <x-modal name="seleciona-pedido" :maxWidth="'6xl'">
+    <x-modal name="cadastra-combo" :show="$errors->any()" :maxWidth="'6xl'">
         <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-            <div class="h-[80vh]">
+            <div class="h-[80vh] overflow-auto">
                 @include('app.combo_produto.partials.create')
             </div>
         </div>

@@ -22,7 +22,7 @@ class StoreCategoriaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'categoria_nome' => 'required|string|max:255'
         ];
     }
 }

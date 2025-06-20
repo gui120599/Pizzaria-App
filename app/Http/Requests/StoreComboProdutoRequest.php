@@ -22,11 +22,11 @@ class StoreComboProdutoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            /*'combo_produto_nome' => 'required|string|max:255',
+            'combo_produto_nome' => 'required|string|max:255',
             'combo_produto_cardapio' => 'nullable|boolean',
             'combo_produto_promocional' => 'nullable|boolean',
             'combo_produto_foto' => 'nullable|string|max:255',
-            'combo_produto_valor' => 'required|numeric|min:0',*/
+            'combo_produto_valor' => 'required|numeric|min:0',
         ];
     }
 }
