@@ -6,6 +6,7 @@ use App\Http\Controllers\AdicionalController;
 use App\Http\Controllers\CaixaController;
 use App\Http\Controllers\CardapioController;
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\ComboProdutoController;
 use App\Http\Controllers\ItensVendaController;
 use App\Http\Controllers\MovimentacoesSessaoCaixaController;
 use App\Http\Controllers\NotaFiscalController;
@@ -58,6 +59,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/Combo-Produto', [ComboProdutoController::class, 'index'])->name('combo_produtos');
+    Route::post('/Combo-Produto', [ComboProdutoController::class, 'store'])->name('combo_produtos.store');
 
     Route::get('/Categoria', [CategoriaController::class, 'index'])->name('categoria');
     Route::get('/Categorias-Inativas', [CategoriaController::class, 'inactive'])->name('categoria.inactive');

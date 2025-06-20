@@ -2,86 +2,63 @@
     <header>
         <div class="flex justify-between">
             <h2 class="text-lg font-medium text-gray-900">
-                {{ __('Lista de Categorias') }}
+                {{ __('Lista de Combos de Produtos') }}
             </h2>
-            <x-secondary-button onclick="window.location.href = '{{ route('categoria.inactive') }}'">Mostrar
-                Inativos</x-secondary-button>
+            <x-secondary-button x-data=""
+                x-on:click.prevent="$dispatch('open-modal', 'seleciona-pedido')"><i class='bx bxs-plus-circle'></i>
+                {{ __('Novo Combo') }}</x-secondary-button>
         </div>
     </header>
-    <div class="w-[18rem] sm:w-[99%] overflow-auto mx-auto h-2/4">
-        <table class="min-w-full">
-            <thead>
+    <x-modal name="seleciona-pedido" :maxWidth="'6xl'">
+        <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
+            <div class="h-[80vh]">
+                @include('app.combo_produto.partials.create')
+            </div>
+        </div>
+    </x-modal>
+
+    <div class="w-full overflow-auto mx-auto mt-4">
+        <table class="min-w-full border border-gray-200 rounded">
+            <thead class="bg-gray-100 text-sm font-semibold">
                 <tr>
-                    <th>ID</th>
-                    <th>Categoria</th>
-                    <th>Filhas</th>
-                    <th>Cardápio</th>
-                    <th>Ações</th>
+                    <th class="px-4 py-2">ID</th>
+                    <th class="px-4 py-2">Nome</th>
+                    <th class="px-4 py-2">Valor</th>
+                    <th class="px-4 py-2">Cardápio</th>
+                    <th class="px-4 py-2">Promocional</th>
+                    <th class="px-4 py-2">Ações</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse ($categorias as $categoria)
-                    @if (empty($categoria->parent))
-                        <tr class="border-b-2 border-gray-100 align-top">
-                            <td>{{ $categoria->id }}</td>
-                            <td>{{ $categoria->categoria_nome }}</td>
-                            <td>{{ $categoria->categoria_cardapio ? 'SIM' : 'NÃO' }}</td>
-                            <td>
-                                <div class="flex items-center justify-center space-x-2">
-                                    <x-primary-button
-                                        onclick="window.location.href = '{{ route('categoria.edit', ['categoria' => $categoria]) }}'"
-                                        title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
-                                    <form action="{{ route('categoria.destroy', ['id' => $categoria]) }}"
-                                        method="post">
-                                        @method('delete')
-                                        @csrf
-                                        <x-danger-button title="Excluir"><i
-                                                class='bx bx-trash text-sm'></i></x-primary-button>
-                                    </form>
-                                </div>
-                            </td>
-                            <td colspan="4">
-                                <table class="min-w-full ml-4">
-                                    <thead>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Categoria Filha</th>
-                                            <th>Cardápio</th>
-                                            <th>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach ($categoria->children as $filha)
-                                            <tr>
-                                                <td>{{ $filha->id }}</td>
-                                                <td>{{ $filha->categoria_nome }}</td>
-                                                <td>{{ $filha->categoria_cardapio ? 'SIM' : 'NÃO' }}</td>
-                                                <td>
-                                                    <div class="flex items-center justify-center space-x-2">
-                                                        <x-primary-button
-                                                            onclick="window.location.href = '{{ route('categoria.edit', ['categoria' => $filha]) }}'"
-                                                            title="Editar"><i
-                                                                class='bx bx-edit text-sm'></i></x-primary-button>
-                                                        <form
-                                                            action="{{ route('categoria.destroy', ['id' => $filha]) }}"
-                                                            method="post">
-                                                            @method('delete')
-                                                            @csrf
-                                                            <x-danger-button title="Excluir"><i
-                                                                    class='bx bx-trash text-sm'></i></x-primary-button>
-                                                        </form>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </td>
-                        </tr>
-                    @endif
+                @forelse ($combo_produtos as $combo)
+                    <tr class="border-b text-sm">
+                        <td class="px-4 py-2">{{ $combo->id }}</td>
+                        <td class="px-4 py-2">{{ $combo->combo_produto_nome }}</td>
+                        <td class="px-4 py-2">R$ {{ number_format($combo->combo_produto_valor, 2, ',', '.') }}</td>
+                        <td class="px-4 py-2">{{ $combo->combo_produto_cardapio ? 'SIM' : 'NÃO' }}</td>
+                        <td class="px-4 py-2">{{ $combo->combo_produto_promocional ? 'SIM' : 'NÃO' }}</td>
+                        <td class="px-4 py-2">
+                            <div class="flex items-center justify-center space-x-2">
+                                <x-primary-button
+                                    onclick="window.location.href = '{{ route('combo_produtos.edit', ['comboProduto' => $combo]) }}'"
+                                    title="Editar">
+                                    <i class='bx bx-edit text-sm'></i>
+                                </x-primary-button>
+
+                                <form action="{{ route('combo_produtos.destroy', ['comboProduto' => $combo]) }}"
+                                    method="post" onsubmit="return confirm('Deseja realmente excluir este combo?');">
+                                    @method('delete')
+                                    @csrf
+                                    <x-danger-button title="Excluir">
+                                        <i class='bx bx-trash text-sm'></i>
+                                    </x-danger-button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="text-center py-4">Nenhuma categoria encontrada.</td>
+                        <td colspan="6" class="text-center py-4">Nenhum combo de produto encontrado.</td>
                     </tr>
                 @endforelse
             </tbody>

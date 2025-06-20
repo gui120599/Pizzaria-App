@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreComboProdutoRequest;
 use App\Http\Requests\UpdateComboProdutoRequest;
 use App\Models\ComboProduto;
+use App\Models\Produto;
 
 class ComboProdutoController extends Controller
 {
@@ -14,7 +15,8 @@ class ComboProdutoController extends Controller
     public function index()
     {
         $combos = ComboProduto::all();
-        return view('combo_produtos.index', compact('combos'));
+        $produtos = Produto::all();
+        return view('app.combo_produto.index', ['combo_produtos' => $combos, 'produtos' => $produtos]);
     }
     /**
      * Show the form for creating a new resource.
@@ -29,8 +31,10 @@ class ComboProdutoController extends Controller
      */
     public function store(StoreComboProdutoRequest $request)
     {
-        ComboProduto::create($request->validated());
-        return redirect()->route('combo_produtos.index')->with('success', 'Combo criado com sucesso.');
+        //dd($request);
+        return response()->json($request);
+        /*ComboProduto::create($request->validated());
+        return redirect()->route('combo_produtos.index')->with('success', 'Combo criado com sucesso.');*/
     }
 
     /**

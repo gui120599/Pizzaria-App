@@ -26,4 +26,17 @@ class ComboProduto extends Model
         'combo_produto_promocional' => 'boolean',
         'combo_produto_valor' => 'decimal:2',
     ];
+
+    public function saveFoto($foto)
+    {
+        $nomeArquivo = time() . '.' . $foto->getClientOriginalExtension();
+        $caminho = public_path('/img/fotos_produtos');
+        $foto->move($caminho, $nomeArquivo);
+        $this->produto_foto = $nomeArquivo;
+        $this->save();
+    }
+
+    public function itens_combo_produtos(){
+        return $this->hasMany(ItensComboProduto::class, 'item_combo_produto_combo_id');
+    }
 }
