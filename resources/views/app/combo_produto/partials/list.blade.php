@@ -33,7 +33,7 @@
             <tbody>
                 @forelse ($combo_produtos as $combo)
                     <tr class="border-b text-sm">
-                        <td class="px-4 py-2"><img src="{{ asset('/fotos_combosProdutos/' . $combo->combo_produto_foto) }}" alt="" class="w-10 h-10 object-cover rounded-lg "></td>
+                        <td class="px-4 py-2"><img src="{{ asset('img/fotos_combosProdutos/' . $combo->combo_produto_foto) }}" alt="" class="w-10 h-10 object-cover rounded-lg "></td>
                         <td class="px-4 py-2">{{ $combo->id }}</td>
                         <td class="px-4 py-2">{{ $combo->combo_produto_nome }}</td>
                         <td class="px-4 py-2">R$ {{ number_format($combo->combo_produto_valor, 2, ',', '.') }}</td>
