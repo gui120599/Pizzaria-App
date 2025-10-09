@@ -42,7 +42,7 @@
         }
 
         ::-webkit-scrollbar-thumb {
-            background:rgb(13 148 136) ;
+            background: rgb(13 148 136);
             /* Cor do indicador */
             border-radius: 8px;
         }
@@ -52,7 +52,7 @@
             /* Cor ao passar o mouse */
         }
     </style>
-
+    @livewireStyles
 </head>
 
 <body class="font-sans antialiased">
@@ -113,7 +113,7 @@
             <div id="modal-body">@yield('content_modal')</div>
         </div>
     </div>
-
+    @livewireScripts
     <script type="module">
         $(document).ready(function() {
 
