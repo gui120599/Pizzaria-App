@@ -1,0 +1,42 @@
+# Laravel
+/vendor
+/node_modules
+/public/storage
+/storage/*.key
+
+# .env file (important for environment configuration)
+.env
+.env.local
+.env.*.local
+
+# IDEs e editor de código
+/.idea
+/.vscode
+*.sublime-project
+*.sublime-workspace
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# NPM
+npm-debug.log
+yarn-error.log
+
+# Log files
+*.log
+
+# PHPStorm e outros IDEs
+/.phpstorm
+/.idea
+
+# Arquivos temporários
+*.swp
+*.swo
+
+# Laravel cache e logs
+/storage/debugbar/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
