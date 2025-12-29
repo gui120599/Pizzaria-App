@@ -634,18 +634,19 @@ class ItensVendaController extends Controller
     {
         foreach ($itensPedido as $item) {
 
-            // Verifica se o item tem adicionais (tratando null como tendo adicionais)
-            $temAdicionais = !isset($item->adicionaisItemVenda) ||
-                $item->adicionaisItemVenda === null ||
-                !$item->adicionaisItemVenda->isEmpty();
+            // Verifica se o ITEM ATUAL tem adicionais
+            $itemAtualTemAdicionais = (isset($item->adicionaisItemVenda) &&
+                $item->adicionaisItemVenda !== null &&
+                !$item->adicionaisItemVenda->isEmpty()) ||
+                ($item->item_pedido_valor_adicionais > 0);
 
             $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
                 ->where('item_venda_venda_id', $venda_id)
                 ->where('item_venda_valor_adicionais', 0)
                 ->first();
 
-            // Só atualiza item existente se NÃO tiver adicionais
-            if ($itemVenda && !$temAdicionais) {
+            // Só atualiza item existente se o item ATUAL NÃO tiver adicionais
+            if ($itemVenda && !$itemAtualTemAdicionais) {
                 // Atualizar item existente
                 $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
                 $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
@@ -654,7 +655,7 @@ class ItensVendaController extends Controller
                 $this->atualizarTributos($itemVenda, $item, $item->item_pedido_valor);
                 $itemVenda->save();
             } else {
-                // Criar novo item (sempre cria se tiver adicionais)
+                // Criar novo item (sempre cria se o item ATUAL tiver adicionais)
                 $lastItem = ItensVenda::where('item_venda_venda_id', $venda_id)
                     ->orderBy('item_numero', 'desc')
                     ->first();
