@@ -101,8 +101,6 @@ class VendaController extends Controller
         }
 
         return redirect()->route('sessao_caixa')->with('error', 'Nenhuma sessão caixa está aberta para o usuário: ' . $firstName . '!');
-
-
     }
 
     /**
@@ -233,9 +231,9 @@ class VendaController extends Controller
             ]);
 
             $saldoInicial = $sessaoCaixa->sessaocaixa_saldo_inicial;
-        
+
             $valorTotalVendas = Venda::where('venda_sessao_caixa_id', $sessaoCaixa->id)->where('venda_status', 'FINALIZADA')->sum('venda_valor_total');
-        
+
             $sessaoCaixa->update([
                 'sessaocaixa_saldo_final' => $saldoInicial + $valorTotalVendas
             ]);
@@ -250,7 +248,6 @@ class VendaController extends Controller
 
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $request->input('venda_sessao_caixa_id')])
                 ->with('success', 'Venda efetuada com sucesso!');
-
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->withErrors(['erro' => 'Erro ao salvar venda: ' . $e->getMessage()]);
@@ -272,7 +269,7 @@ class VendaController extends Controller
                         ->exists();
 
                     if (!$outrasSessoesAtivas) {*/
-                        $mesa->update(['mesa_status' => 'LIBERADA']);
+                    $mesa->update(['mesa_status' => 'LIBERADA']);
                     //}
                 }
 
@@ -342,52 +339,53 @@ class VendaController extends Controller
 
 
     /**
-     * Listar Vendas Mensal
+     * Listar vendas mensalmente com filtros opcionais
+     * Display a listing of the resource.
+     * @param  \Illuminate\Http\Request  $request
      */
     public function listarVendasMensal(Request $request)
     {
         $ano = $request->input('ano', Carbon::now()->year());
-        $meses = $request->input('meses', range(1, 12));
+        $mesesSelecionados = $request->input('meses', range(1, 12));
 
-        $mesesFormatados = [];
+        // Normaliza meses
+        $mesesSelecionados = is_array($mesesSelecionados)
+            ? $mesesSelecionados
+            : [$mesesSelecionados];
 
-        foreach ($meses as $mes) {
-            // Garante dois dígitos no mês (ex: 2 -> 02)
-            $mes = str_pad($mes, 2, '0', STR_PAD_LEFT);
-            $mesesFormatados[] = $ano . '-' . $mes;
-        }
-
-        $query = Venda::select(
+        // Busca vendas reais
+        $vendasBD = Venda::select(
             DB::raw("DATE_FORMAT(venda_datahora_finalizada, '%Y-%m') as mes"),
             DB::raw("SUM(venda_valor_total) as total_vendas")
         )
-            ->where('venda_status', '=', 'FINALIZADA')
-            ->whereNotNull('venda_id_nfe');
+            ->where('venda_status', 'FINALIZADA')
+            ->whereYear('venda_datahora_finalizada', $ano)
+            ->whereIn(DB::raw('MONTH(venda_datahora_finalizada)'), $mesesSelecionados)
+            ->whereNotNull('venda_id_nfe')
+            ->groupBy('mes')
+            ->get()
+            ->keyBy('mes');
 
-        // Adiciona múltiplas condições de intervalo (1 por mês)
-        $query->where(function ($q) use ($mesesFormatados) {
-            foreach ($mesesFormatados as $mes) {
-                try {
-                    $inicio = Carbon::createFromFormat('Y-m', $mes)->startOfMonth()->toDateTimeString();
-                    $fim = Carbon::createFromFormat('Y-m', $mes)->endOfMonth()->toDateTimeString();
-                    $q->orWhereBetween('venda_datahora_finalizada', [$inicio, $fim]);
-                } catch (\Exception $e) {
-                    continue;
-                }
-            }
-        });
+        // Monta todos os meses (inclusive os sem venda)
+        $vendasMensais = collect();
 
+        foreach ($mesesSelecionados as $mes) {
+            $mesFormatado = sprintf('%d-%02d', $ano, $mes);
 
-        $vendas = $query->groupBy('mes')
-            ->orderBy('mes')
-            ->get();
+            $vendasMensais->push((object) [
+                'mes' => $mesFormatado,
+                'total_vendas' => $vendasBD[$mesFormatado]->total_vendas ?? 0
+            ]);
+        }
 
-        return view('vendasMensalPDF', ['vendasMensais' => $vendas]);
-        //return response()->json($vendas,200);
+        return view('vendasMensalPDF', ['vendasMensais' => $vendasMensais]);
 
+        //return response()->json($vendasMensais, 200);
     }
-    
-      /**More actions
+
+
+
+    /**More actions
      * Display the specified resource.
      */
     public function ListarVenda(Request $request)
@@ -497,7 +495,6 @@ class VendaController extends Controller
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])
                 ->with('error', $errorDetail); // Passa a mensagem de erro para a sessão
         }
-
     }
 
     public function jsonNFE($vendaId)
@@ -555,7 +552,7 @@ class VendaController extends Controller
         $pagamentoDetalhe = [];
 
         foreach ($venda->pagamentos as $pagamento) {
-            if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Cartão") !== false || stripos($pagamento->opcaoPagamento->opcaopag_nome, "Pix") !== false) {// O nome da opção de pagamento contém a palavra "cartão"
+            if (stripos($pagamento->opcaoPagamento->opcaopag_nome, "Cartão") !== false || stripos($pagamento->opcaoPagamento->opcaopag_nome, "Pix") !== false) { // O nome da opção de pagamento contém a palavra "cartão"
                 $pagamentoDetalhe[] = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
                     "amount" => $pagamento->pg_venda_valor_pagamento,
@@ -566,14 +563,12 @@ class VendaController extends Controller
                         "integrationPaymentType" => $pagamento->pg_venda_tipo_integracao ?? null
                     ]
                 ];
-
             } else {
                 $pagamentoDetalhe[] = [
                     "method" => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
                     "amount" => $pagamento->pg_venda_valor_pagamento,
                 ];
             }
-
         }
         $pagamentosArray[] = [
             "paymentDetail" => $pagamentoDetalhe,
@@ -647,8 +642,6 @@ class VendaController extends Controller
                     return null;
                     break;
             }
-
-
         }
         return null;
     }
@@ -721,7 +714,6 @@ class VendaController extends Controller
                             $descAdicionais .= " Adic. " . $adicional->adicional->adicional_nome;
                         }
                     } else {
-
                     }
 
                     $itensArray[] = [
@@ -740,7 +732,7 @@ class VendaController extends Controller
                         "taxUnitAmount" => $item->item_venda_valor_unitario,
                         "discountAmount" => $item->item_venda_desconto,
                         "othersAmount" => 0,
-                        "totalIndicator" => (boolean) $item->item_venda_valor,
+                        "totalIndicator" => (bool) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
                             "totalTax" => $item->item_venda_valor_total_tributos,
@@ -779,7 +771,7 @@ class VendaController extends Controller
                         "taxUnitAmount" => $item->item_venda_valor_unitario,
                         "discountAmount" => $item->item_venda_desconto,
                         "othersAmount" => 0,
-                        "totalIndicator" => (boolean) $item->item_venda_valor,
+                        "totalIndicator" => (bool) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
                             "icms" => [
@@ -799,7 +791,6 @@ class VendaController extends Controller
                             $descAdicionais = " Adic. " . $adicional->adicional->adicional_nome;
                         }
                     } else {
-
                     }
 
                     $itensArray[] = [
@@ -818,7 +809,7 @@ class VendaController extends Controller
                         "taxUnitAmount" => $item->item_venda_valor_unitario,
                         "discountAmount" => $item->item_venda_desconto,
                         "othersAmount" => 0,
-                        "totalIndicator" => (boolean) $item->item_venda_valor,
+                        "totalIndicator" => (bool) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
                             "icms" => [
@@ -838,7 +829,6 @@ class VendaController extends Controller
                             $descAdicionais = " Adic. " . $adicional->adicional->adicional_nome;
                         }
                     } else {
-
                     }
 
                     $itensArray[] = [
@@ -857,7 +847,7 @@ class VendaController extends Controller
                         "taxUnitAmount" => $item->item_venda_valor_unitario,
                         "discountAmount" => $item->item_venda_desconto,
                         "othersAmount" => 0,
-                        "totalIndicator" => (boolean) $item->item_venda_valor,
+                        "totalIndicator" => (bool) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
                             "totalTax" => $item->item_venda_valor_total_tributos,
@@ -938,19 +928,16 @@ class VendaController extends Controller
 
             // Retorno em caso de falha
             return response()->json(['error' => 'Falha ao enviar dados para a API. Status Code: ' . $statusCode, 'response' => $content], $statusCode);
-
         } catch (\GuzzleHttp\Exception\ClientException $e) {
             // Captura exceções específicas do cliente HTTP
             $response = $e->getResponse();
             $responseBodyAsString = $response ? $response->getBody()->getContents() : 'Sem resposta da API';
             return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $responseBodyAsString, 'status_code' => $response ? $response->getStatusCode() : 'Desconhecido'], $response ? $response->getStatusCode() : 500);
-
         } catch (\GuzzleHttp\Exception\ServerException $e) {
             // Captura exceções do servidor (5xx)
             $response = $e->getResponse();
             $responseBodyAsString = $response ? $response->getBody()->getContents() : 'Sem resposta da API';
             return response()->json(['error' => 'Erro no servidor da API: ' . $responseBodyAsString, 'status_code' => $response ? $response->getStatusCode() : 'Desconhecido'], $response ? $response->getStatusCode() : 500);
-
         } catch (\Exception $e) {
             // Tratamento de exceção geral
             return response()->json(['error' => 'Erro inesperado: ' . $e->getMessage()], 500);
@@ -1049,7 +1036,6 @@ class VendaController extends Controller
                     'error' => 'Erro ao decodificar o JSON da resposta: ' . json_last_error_msg()
                 ], 500);
             }
-
         } catch (\Exception $e) {
             // Tratamento de exceção caso algo dê errado
             return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $e->getMessage()], 500);
@@ -1102,7 +1088,6 @@ class VendaController extends Controller
                     'error' => 'Erro ao decodificar o JSON da resposta: ' . json_last_error_msg()
                 ], 500);
             }
-
         } catch (\Exception $e) {
             // Tratamento de exceção caso algo dê errado
             return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $e->getMessage()], 500);
@@ -1159,5 +1144,4 @@ class VendaController extends Controller
         // Busca a venda pelo ID e carrega os relacionamentos necessários
         $venda = Venda::with(['cliente', 'itensVenda.produto', 'pagamentos.opcaoPagamento', 'pagamentos.cartao'])->findOrFail($vendaId);
     }
-
 }

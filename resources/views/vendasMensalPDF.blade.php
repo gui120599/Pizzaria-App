@@ -34,7 +34,7 @@
                 @forelse ($vendasMensais as $venda)
                     <tr>
                         <td class="border p-1 uppercase">
-                            {{ \Carbon\Carbon::createFromFormat('Y-m', $venda->mes)->translatedFormat('F/Y') }}
+                            {{ \Carbon\Carbon::createFromFormat('Y-m-d', $venda->mes . '-01')->translatedFormat('F/Y') }}
                         </td>
                         <td class="border p-1 text-right font-bold">
                             R$ {{ number_format($venda->total_vendas, 2, ',', '.') }}
