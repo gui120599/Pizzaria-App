@@ -185,7 +185,7 @@ class ItensVendaController extends Controller
                 ->with('adicionaisItemPedido')
                 ->get();
 
-                $this->adicionarItensPedidoNaVenda($venda_id,$itensPedido);
+            $this->adicionarItensPedidoNaVenda($venda_id, $itensPedido);
         }
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
@@ -260,7 +260,6 @@ class ItensVendaController extends Controller
 
                         $itemVenda->save();
                     }
-
                 }
             }
         }
@@ -293,7 +292,7 @@ class ItensVendaController extends Controller
             ->get();
 
 
-        $this->adicionarItensPedidoNaVenda($venda_id,$itensPedido);
+        $this->adicionarItensPedidoNaVenda($venda_id, $itensPedido);
 
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
@@ -362,8 +361,7 @@ class ItensVendaController extends Controller
     {
         // Recebe os IDs dos pedidos e o ID da venda do request
         $produto_id = $request->input('produto_id');
-        $venda_id = $request->input('venda_id');
-        ;
+        $venda_id = $request->input('venda_id');;
 
         // Obter a venda
         $venda = Venda::find($venda_id);
@@ -391,7 +389,6 @@ class ItensVendaController extends Controller
             $itemVenda->item_venda_valor_cofins += ($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_cofins) / 100;
             $itemVenda->item_venda_valor_total_tributos += (($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_icms) / 100) + (($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_pis) / 100) + (($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_cofins) / 100);
             $itemVenda->save();
-
         } else {
             $produto = Produto::find($produto_id);
             // Buscar o último número sequencial da venda
@@ -421,7 +418,6 @@ class ItensVendaController extends Controller
                 'item_venda_valor_cofins' => ($produto->produto_preco_venda * $produto->produto_valor_percentual_cofins) / 100,
                 'item_venda_valor_total_tributos' => (($produto->produto_preco_venda * $produto->produto_valor_percentual_icms) / 100) + (($produto->produto_preco_venda * $produto->produto_valor_percentual_pis) / 100) + (($produto->produto_preco_venda * $produto->produto_valor_percentual_cofins) / 100),
             ]);
-
         }
 
         // Atualizar valores da venda
@@ -451,7 +447,6 @@ class ItensVendaController extends Controller
             }
             // Se o item já existe na venda
             $itemVenda->delete();
-
         } else {
             return response()->json(['success' => 'Item Não encontrado'], 200);
         }
@@ -569,7 +564,6 @@ class ItensVendaController extends Controller
                     'item_venda_valor_pis' => ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto + $item->item_pedido_valor_adicionais) * $item->produto->produto_valor_percentual_pis) / 100,
                     'item_venda_valor_cofins' => ((($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto + $item->item_pedido_valor_adicionais) * $item->produto->produto_valor_percentual_cofins) / 100,
                 ]);
-
             }
         }
 
@@ -636,15 +630,22 @@ class ItensVendaController extends Controller
     /**
      * Adiciona Itens dos Pedidos na venda
      */
-    private function adicionarItensPedidoNaVenda($venda_id, $itensPedido){
+    private function adicionarItensPedidoNaVenda($venda_id, $itensPedido)
+    {
         foreach ($itensPedido as $item) {
+
+            // Verifica se o item tem adicionais (tratando null como tendo adicionais)
+            $temAdicionais = !isset($item->adicionaisItemVenda) ||
+                $item->adicionaisItemVenda === null ||
+                !$item->adicionaisItemVenda->isEmpty();
 
             $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
                 ->where('item_venda_venda_id', $venda_id)
                 ->where('item_venda_valor_adicionais', 0)
                 ->first();
 
-            if ($itemVenda) {
+            // Só atualiza item existente se NÃO tiver adicionais
+            if ($itemVenda && !$temAdicionais) {
                 // Atualizar item existente
                 $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
                 $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
@@ -653,13 +654,13 @@ class ItensVendaController extends Controller
                 $this->atualizarTributos($itemVenda, $item, $item->item_pedido_valor);
                 $itemVenda->save();
             } else {
-                // Criar novo item
+                // Criar novo item (sempre cria se tiver adicionais)
                 $lastItem = ItensVenda::where('item_venda_venda_id', $venda_id)
                     ->orderBy('item_numero', 'desc')
                     ->first();
                 $nextItemNumber = $lastItem ? $lastItem->item_numero + 1 : 1;
 
-                if($item->item_pedido_quantidade == 0.5){
+                if ($item->item_pedido_quantidade == 0.5) {
                     $valorUnitario = $item->produto->produto_preco_venda + $item->item_pedido_valor_adicionais;
                     $valor = ($valorUnitario * $item->item_pedido_quantidade) - $item->item_pedido_desconto;
                     $itemVenda = ItensVenda::create([
@@ -680,17 +681,16 @@ class ItensVendaController extends Controller
                         'item_venda_valor_cofins' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_cofins) / 100,
                         'item_venda_valor_total_tributos' => ($item->item_pedido_valor * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
                     ]);
-
-                }else{
+                } else {
                     $itemVenda = ItensVenda::create([
                         'item_numero' => $nextItemNumber,
                         'item_venda_venda_id' => $venda_id,
                         'item_venda_produto_id' => $item->item_pedido_produto_id,
                         'item_venda_quantidade' => $item->item_pedido_quantidade,
-                        'item_venda_valor_unitario' => $item->produto->produto_preco_venda + $item->item_pedido_valor_adicionais,
+                        'item_venda_valor_unitario' => $item->produto->produto_preco_venda,
                         'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais,
                         'item_venda_desconto' => $item->item_pedido_desconto,
-                        'item_venda_valor' => ($item->produto->produto_preco_venda + $item->item_pedido_valor_adicionais) * $item->item_pedido_quantidade,
+                        'item_venda_valor' => ($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto + $item->item_pedido_valor_adicionais,
                         'item_venda_status' => 'INSERIDO',
                         'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
                         'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,
@@ -701,8 +701,6 @@ class ItensVendaController extends Controller
                         'item_venda_valor_total_tributos' => ($item->item_pedido_valor * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
                     ]);
                 }
-
-                
             }
 
             // Atualizar ou criar adicionais
@@ -721,8 +719,6 @@ class ItensVendaController extends Controller
         foreach ($adicionaisVenda as $adicionalVenda) {
 
             $adicionalVenda->delete();
-
         }
     }
-
 }

@@ -730,8 +730,8 @@ class VendaController extends Controller
                         "unitTax" => (string) $produto->produto_unidade_comercial,
                         "quantityTax" => $item->item_venda_quantidade_tributavel,
                         "taxUnitAmount" => $item->item_venda_valor_unitario,
-                        "discountAmount" => $item->item_venda_desconto,
-                        "othersAmount" => 0,
+                        "discountAmount" => (float) $item->item_venda_desconto,
+                        "othersAmount" => $item->item_venda_valor_adicionais,
                         "totalIndicator" => (bool) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
@@ -770,7 +770,7 @@ class VendaController extends Controller
                         "quantityTax" => $item->item_venda_quantidade_tributavel,
                         "taxUnitAmount" => $item->item_venda_valor_unitario,
                         "discountAmount" => $item->item_venda_desconto,
-                        "othersAmount" => 0,
+                        "othersAmount" => $item->item_venda_valor_adicionais,
                         "totalIndicator" => (bool) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
@@ -808,7 +808,7 @@ class VendaController extends Controller
                         "quantityTax" => $item->item_venda_quantidade_tributavel,
                         "taxUnitAmount" => $item->item_venda_valor_unitario,
                         "discountAmount" => $item->item_venda_desconto,
-                        "othersAmount" => 0,
+                        "othersAmount" => $item->item_venda_valor_adicionais,
                         "totalIndicator" => (bool) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
@@ -846,7 +846,7 @@ class VendaController extends Controller
                         "quantityTax" => $item->item_venda_quantidade_tributavel,
                         "taxUnitAmount" => $item->item_venda_valor_unitario,
                         "discountAmount" => $item->item_venda_desconto,
-                        "othersAmount" => 0,
+                        "othersAmount" => $item->item_venda_valor_adicionais,
                         "totalIndicator" => (bool) $item->item_venda_valor,
                         "cest" => $produto->produto_codigo_CEST,
                         "tax" => [
