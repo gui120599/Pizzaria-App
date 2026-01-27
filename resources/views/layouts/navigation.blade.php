@@ -92,6 +92,10 @@
                 <i class='bx bx-dollar'></i>
                 <span class="text-[12px] ml-2 text-gray-200">{{ __('Vendas Mensal') }}</span>
             </x-nav-link>
+            <x-nav-link :href="route('pedido.relatorio')" :active="request()->routeIs('pedido.relatorio')">
+                <i class='bx bx-trip'></i>
+                <span class="text-[12px] ml-2 text-gray-200">{{ __('Entregas') }}</span>
+            </x-nav-link>
         </div>
         <hr class="h-px my-2 border-0 bg-gray-100">
     @endcan

@@ -26,6 +26,7 @@ use App\Http\Controllers\SessaoMesaController;
 use App\Http\Controllers\VendaController;
 use App\Models\ItensVenda;
 use App\Http\Controllers\EmpresaController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -40,6 +41,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
     return redirect()->route('cardapio');
 });
 
@@ -110,7 +114,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/Caixa/{caixa}', [CaixaController::class, 'update'])->name('caixa.update');
     Route::get('/Ativar-Caixa/{id}', [CaixaController::class, 'active'])->name('caixa.active');
     Route::delete('/Caixa/{id}', [CaixaController::class, 'destroy'])->name('caixa.destroy');
-    
+
     Route::get('/Adicional', [AdicionalController::class, 'index'])->name('adicional');
     Route::get('/Adicionais-Inativos', [AdicionalController::class, 'inactive'])->name('adicional.inactive');
     Route::post('/Adicional', [AdicionalController::class, 'store'])->name('adicional.store');
@@ -161,6 +165,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/Ativar-Mesa/{id}', [MesaController::class, 'active'])->name('mesa.active');
 
     Route::get('/Pedido', [PedidoController::class, 'index'])->name('pedido');
+    Route::get('/Pedido-relatorio', [PedidoController::class, 'relatorio'])->name('pedido.relatorio')->middleware('permission:Admin');
+    Route::get('/Pedido-relatorio-pdf', [PedidoController::class, 'relatorioLista'])->name('pedido.relatorioPDF')->middleware('permission:Admin');
     Route::get('/Pedidos', [PedidoController::class, 'list'])->name('pedidos');
     Route::get('/Pedido/Create', [PedidoController::class, 'create'])->name('pedido.create');
     Route::post('/Pedido', [PedidoController::class, 'store'])->name('pedido.store');
@@ -192,7 +198,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/ItemPedido/ListarItensPedido', [ItensPedidoController::class, 'listarProdutosInseridosNoPedido'])->name('itens_pedido.lista');
     Route::get('/calcular-valor-total-pedido', [ItensPedidoController::class, 'calcularValorTotalPedido'])->name('calcular_valor_total_pedido');
 
-    Route::post('AdicionalItemPedido',[AdicionaisItemPedidoController::class, 'store'])->name('adicional_item_pedido.store');
+    Route::post('AdicionalItemPedido', [AdicionaisItemPedidoController::class, 'store'])->name('adicional_item_pedido.store');
     Route::get('ListarAdicionaisItemPedido', [AdicionaisItemPedidoController::class, 'ListarAdicioanis'])->name('listar.adicionais_item_pedido');
 
     Route::get('/SessaoMesa/{mesa_id}/Abrir-Sessao', [SessaoMesaController::class, 'index'])->name('sessaoMesa');
@@ -227,7 +233,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/Venda/{id_nfe}/Imprimir-NFE', [VendaController::class, 'imprimirNFE'])->name('venda.imprimir_NFE');
     Route::get('/Venda/{venda}/Buscar-NFE', [VendaController::class, 'buscarNFE'])->name('venda.buscar_NFE');
     Route::get('/Venda/remover/{vendaId}/{idNfe}', [VendaController::class, 'removerIdNfe'])->name('venda.removerIdNfe');
-    Route::get('/Venda/relatorio-vendas-mensal' ,[VendaController::class, 'showVendasMensal'])->name('venda.relatorioMensal')->middleware('permission:Admin');
+    Route::get('/Venda/relatorio-vendas-mensal', [VendaController::class, 'showVendasMensal'])->name('venda.relatorioMensal')->middleware('permission:Admin');
     Route::get('/Venda/vendasMensalPDF/Imprimir', [VendaController::class, 'listarVendasMensal'])->name('vendasMensal.imprimir')->middleware('permission:Admin');
 
 
@@ -262,7 +268,6 @@ Route::middleware('auth')->group(function () {
             'html' => view('app.components.toast')->render(),
         ]);
     })->name('render.toast');
-
 });
 
 require __DIR__ . '/auth.php';

@@ -89,9 +89,25 @@ class PedidoController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public function relatorio()
     {
-        //
+        return view('app.pedido.relatorio');
+    }
+
+    /**
+     * Listar Pedidos para Relatório
+     */
+    public function relatorioLista(Request $request)
+    {
+        $ano = $request->input('ano');
+        $mes = $request->input('mes');
+        $pedidos = Pedido::with(['cliente', 'sessaoMesa.mesa', 'garcom', 'entregador', 'opcaoEntrega', 'item_pedido_pedido_id.produto.categoria', 'item_pedido_pedido_id.adicionaisItemPedido.adicional'])
+            ->whereYear('pedido_datahora_finalizado', $ano)
+            ->whereMonth('pedido_datahora_finalizado', $mes)
+            ->where('pedido_status', 'FINALIZADO')
+            ->get();
+
+        return view('pedidosMensalPDF', ['pedidosMensais' => $pedidos]);
     }
 
     /**
