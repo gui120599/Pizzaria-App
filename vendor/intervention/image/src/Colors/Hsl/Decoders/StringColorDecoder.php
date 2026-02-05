@@ -15,9 +15,6 @@ class StringColorDecoder extends AbstractDecoder implements DecoderInterface
 {
     /**
      * Decode hsl color strings
-     *
-     * @param mixed $input
-     * @return ImageInterface|ColorInterface
      */
     public function decode(mixed $input): ImageInterface|ColorInterface
     {
@@ -25,7 +22,7 @@ class StringColorDecoder extends AbstractDecoder implements DecoderInterface
             throw new DecoderException('Unable to decode input');
         }
 
-        $pattern = '/^hsl\((?P<h>[0-9\.]+), ?(?P<s>[0-9\.]+%?), ?(?P<l>[0-9\.]+%?)?\)$/i';
+        $pattern = '/^hsl\((?P<h>[0-9\.]+), ?(?P<s>[0-9\.]+%?), ?(?P<l>[0-9\.]+%?)\)$/i';
         if (preg_match($pattern, $input, $matches) != 1) {
             throw new DecoderException('Unable to decode input');
         }
