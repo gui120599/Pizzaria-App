@@ -6,17 +6,18 @@ namespace Intervention\Image\Drivers\Gd\Decoders;
 
 use Intervention\Image\Drivers\SpecializableDecoder;
 use Intervention\Image\Exceptions\DecoderException;
+use Intervention\Image\Exceptions\NotSupportedException;
 use Intervention\Image\Interfaces\SpecializedInterface;
 use Intervention\Image\MediaType;
+use ValueError;
 
 abstract class AbstractDecoder extends SpecializableDecoder implements SpecializedInterface
 {
     /**
      * Return media (mime) type of the file at given file path
      *
-     * @param string $filepath
      * @throws DecoderException
-     * @return MediaType
+     * @throws NotSupportedException
      */
     protected function getMediaTypeByFilePath(string $filepath): MediaType
     {
@@ -26,15 +27,18 @@ abstract class AbstractDecoder extends SpecializableDecoder implements Specializ
             throw new DecoderException('Unable to detect media (MIME) from data in file path.');
         }
 
-        return MediaType::from($info['mime']);
+        try {
+            return MediaType::from($info['mime']);
+        } catch (ValueError) {
+            throw new NotSupportedException('Unsupported media type (MIME) ' . $info['mime'] . '.');
+        }
     }
 
     /**
      * Return media (mime) type of the given image data
      *
-     * @param string $data
      * @throws DecoderException
-     * @return MediaType
+     * @throws NotSupportedException
      */
     protected function getMediaTypeByBinary(string $data): MediaType
     {
@@ -44,6 +48,10 @@ abstract class AbstractDecoder extends SpecializableDecoder implements Specializ
             throw new DecoderException('Unable to detect media (MIME) from binary data.');
         }
 
-        return MediaType::from($info['mime']);
+        try {
+            return MediaType::from($info['mime']);
+        } catch (ValueError) {
+            throw new NotSupportedException('Unsupported media type (MIME) ' . $info['mime'] . '.');
+        }
     }
 }

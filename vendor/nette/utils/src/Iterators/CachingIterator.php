@@ -13,8 +13,11 @@ use Nette;
 
 
 /**
- * Smarter caching iterator.
+ * Enhanced caching iterator with first/last/counter tracking.
  *
+ * @template TKey
+ * @template TValue
+ * @extends \CachingIterator<TKey, TValue, \Iterator<TKey, TValue>>
  * @property-read bool $first
  * @property-read bool $last
  * @property-read bool $empty
@@ -31,10 +34,13 @@ class CachingIterator extends \CachingIterator implements \Countable
 	private int $counter = 0;
 
 
+	/**
+	 * @param  iterable<TKey, TValue>|\stdClass  $iterable
+	 */
 	public function __construct(iterable|\stdClass $iterable)
 	{
 		$iterable = $iterable instanceof \stdClass
-			? new \ArrayIterator($iterable)
+			? new \ArrayIterator((array) $iterable)
 			: Nette\Utils\Iterables::toIterator($iterable);
 		parent::__construct($iterable, 0);
 	}
@@ -58,45 +64,30 @@ class CachingIterator extends \CachingIterator implements \Countable
 	}
 
 
-	/**
-	 * Is the iterator empty?
-	 */
 	public function isEmpty(): bool
 	{
 		return $this->counter === 0;
 	}
 
 
-	/**
-	 * Is the counter odd?
-	 */
 	public function isOdd(): bool
 	{
 		return $this->counter % 2 === 1;
 	}
 
 
-	/**
-	 * Is the counter even?
-	 */
 	public function isEven(): bool
 	{
 		return $this->counter % 2 === 0;
 	}
 
 
-	/**
-	 * Returns the counter.
-	 */
 	public function getCounter(): int
 	{
 		return $this->counter;
 	}
 
 
-	/**
-	 * Returns the count of elements.
-	 */
 	public function count(): int
 	{
 		$inner = $this->getInnerIterator();
@@ -131,18 +122,12 @@ class CachingIterator extends \CachingIterator implements \Countable
 	}
 
 
-	/**
-	 * Returns the next key.
-	 */
 	public function getNextKey(): mixed
 	{
 		return $this->getInnerIterator()->key();
 	}
 
 
-	/**
-	 * Returns the next element.
-	 */
 	public function getNextValue(): mixed
 	{
 		return $this->getInnerIterator()->current();
