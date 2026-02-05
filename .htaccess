@@ -1,6 +1,6 @@
 RewriteEngine on
-RewriteCond %{HTTP_HOST} ^sistema.emporiodapizzago.com.br$ [NC,OR]
-RewriteCond %{HTTP_HOST} ^www.sistema.emporiodapizzago.com.br$
+RewriteCond %{HTTP_HOST} ^emporiodapizzago.com.br$ [NC,OR]
+RewriteCond %{HTTP_HOST} ^www.emporiodapizzago.com.br$
 RewriteCond %{REQUEST_URI} !public/
 RewriteRule (.*) /public/$1 [L]
 
