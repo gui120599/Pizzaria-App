@@ -135,35 +135,25 @@
                             canOptionLabelsWrap: @js($canOptionLabelsWrap),
                             canSelectPlaceholder: @js($canSelectPlaceholder),
                             getOptionLabelUsing: async () => {
-                                return await Livewire.fireAction(
-                                    $wire.__instance,
-                                    'callSchemaComponentMethod',
-                                    [@js($key), 'getOptionLabel'],
-                                    { async: true },
-                                )
+                                return await $wire.callSchemaComponentMethod(@js($key), 'getOptionLabel')
                             },
                             getOptionLabelsUsing: async () => {
-                                return await Livewire.fireAction(
-                                    $wire.__instance,
-                                    'callSchemaComponentMethod',
-                                    [@js($key), 'getOptionLabelsForJs'],
-                                    { async: true },
+                                return await $wire.callSchemaComponentMethod(
+                                    @js($key),
+                                    'getOptionLabelsForJs',
                                 )
                             },
                             getOptionsUsing: async () => {
-                                return await Livewire.fireAction(
-                                    $wire.__instance,
-                                    'callSchemaComponentMethod',
-                                    [@js($key), 'getOptionsForJs'],
-                                    { async: true },
+                                return await $wire.callSchemaComponentMethod(
+                                    @js($key),
+                                    'getOptionsForJs',
                                 )
                             },
                             getSearchResultsUsing: async (search) => {
-                                return await Livewire.fireAction(
-                                    $wire.__instance,
-                                    'callSchemaComponentMethod',
-                                    [@js($key), 'getSearchResultsForJs', { search }],
-                                    { async: true },
+                                return await $wire.callSchemaComponentMethod(
+                                    @js($key),
+                                    'getSearchResultsForJs',
+                                    { search },
                                 )
                             },
                             hasDynamicOptions: @js($hasDynamicOptions()),

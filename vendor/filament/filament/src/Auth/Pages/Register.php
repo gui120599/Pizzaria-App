@@ -4,14 +4,12 @@ namespace Filament\Auth\Pages;
 
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
-use Dom\Text;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Auth\Events\Registered;
 use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
 use Filament\Auth\Notifications\VerifyEmail;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Concerns\CanUseDatabaseTransactions;
@@ -20,7 +18,6 @@ use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
-use Filament\Schemas\Components\Image;
 use Filament\Schemas\Components\RenderHook;
 use Filament\Schemas\Schema;
 use Filament\View\PanelsRenderHook;
@@ -161,8 +158,6 @@ class Register extends SimplePage
     {
         return $schema
             ->components([
-                $this->getAvatarFormComponent(),
-                $this->getNameFirstFormComponent(),
                 $this->getNameFormComponent(),
                 $this->getEmailFormComponent(),
                 $this->getPasswordFormComponent(),
@@ -170,31 +165,13 @@ class Register extends SimplePage
             ]);
     }
 
-    protected function getAvatarFormComponent(): Component
-    {
-        return FileUpload::make('avatar')
-            ->alignCenter()
-            ->avatar()
-            ->hiddenLabel(true)
-            ->disk('public')
-            ->directory('avatars');
-    }
-
-    protected function getNameFirstFormComponent(): Component
-    {
-        return TextInput::make('name_first')
-            ->label('Primeiro Nome')
-            ->required()
-            ->maxLength(255)
-            ->autofocus();
-    }
-
     protected function getNameFormComponent(): Component
     {
         return TextInput::make('name')
-            ->label('Nome Completo')
+            ->label(__('filament-panels::auth/pages/register.form.name.label'))
             ->required()
-            ->maxLength(255);
+            ->maxLength(255)
+            ->autofocus();
     }
 
     protected function getEmailFormComponent(): Component
@@ -216,7 +193,7 @@ class Register extends SimplePage
             ->required()
             ->rule(Password::default())
             ->showAllValidationMessages()
-            ->dehydrateStateUsing(fn($state) => Hash::make($state))
+            ->dehydrateStateUsing(fn ($state) => Hash::make($state))
             ->same('passwordConfirmation')
             ->validationAttribute(__('filament-panels::auth/pages/register.form.password.validation_attribute'));
     }

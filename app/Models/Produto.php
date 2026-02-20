@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ProdutoTipoEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -16,6 +17,7 @@ class Produto extends Model
     protected $dates = ['deleted_at'];
     protected $fillable = [
         'produto_descricao',
+        'produto_tipo',
         'produto_codimentacao',
         'produto_cardapio',
         'produto_codigo_NCM',
@@ -44,6 +46,9 @@ class Produto extends Model
         'produto_quantidade_minima',
         'produto_quantidade_maxima',
     ];
+    protected $casts = [
+        'produto_tipo' => ProdutoTipoEnum::class,
+    ];
 
     // Relacionamento com a tabela 'categorias'
     public function categoria()
@@ -64,7 +69,7 @@ class Produto extends Model
         $this->produto_foto = $nomeArquivo;
         $this->save();
     }
-    
+
     public function getImagemUrl()
     {
         $caminho = 'img/fotos_produtos/' . $this->produto_foto;
@@ -75,7 +80,7 @@ class Produto extends Model
 
         return asset('Sem Imagem.png');
     }
-    
+
     public function saldo()
     {
         return $this->mov_produto()
@@ -89,11 +94,13 @@ class Produto extends Model
             ->withPivot('quantidade', 'valor', 'observacao', 'status', 'usuario_removeu');
     }
 
-    public function item_pedido_produto_id(){
-        return $this->hasMany(ItensPedido::class,'item_pedido_produto_id');
+    public function item_pedido_produto_id()
+    {
+        return $this->hasMany(ItensPedido::class, 'item_pedido_produto_id');
     }
 
-    public function ap_produto_id(){
-        return $this->hasMany(AdicionaisProduto::class,'ap_produto_id');
+    public function ap_produto_id()
+    {
+        return $this->hasMany(AdicionaisProduto::class, 'ap_produto_id');
     }
 }

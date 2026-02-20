@@ -29,9 +29,12 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->registration()
+            ->passwordReset()
+            ->sidebarCollapsibleOnDesktop()
+            ->topbar(false)
             ->colors([
-                'primary' => Color::Teal,
-                'secondary' => Color::Gray,
+                'primary' => '#FF6B00',
+                'secondary' => '#333333',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

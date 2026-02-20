@@ -22,6 +22,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -33,17 +34,19 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserCircle;
 
     protected static ?string $recordTitleAttribute = 'name_first';
+
+    protected static ?string $pluralLabel = 'Usuários';
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Section::make('User Information')
-                    ->description('The information of the user.')
-                    ->icon(Heroicon::OutlinedUserCircle)
+                Section::make('Usuário')
+                    ->description('As informações do usuário.')
+                    ->icon(Heroicon::OutlinedUserGroup)
                     ->columns(1)
                     ->schema([
                         FileUpload::make('avatar')
@@ -103,6 +106,9 @@ class UserResource extends Resource
         return $table
             ->recordTitleAttribute('name_first')
             ->columns([
+                ImageColumn::make('avatar')
+                    ->disk('public')
+                    ->rounded(),
                 TextColumn::make('name')
                     ->label('Nome')
                     ->searchable(),
@@ -110,8 +116,6 @@ class UserResource extends Resource
                     ->label('Primeiro nome')
                     ->searchable(),
                 TextColumn::make('email')
-                    ->searchable(),
-                TextColumn::make('avatar')
                     ->searchable(),
                 TextColumn::make('created_at')
                     ->dateTime()

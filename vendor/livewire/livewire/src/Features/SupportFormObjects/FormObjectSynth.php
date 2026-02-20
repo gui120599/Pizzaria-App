@@ -29,11 +29,6 @@ class FormObjectSynth extends Synth {
 
     function hydrate($data, $meta, $hydrateChild)
     {
-        // Verify class extends Form even though checksum protects this...
-        if (! isset($meta['class']) || ! is_a($meta['class'], Form::class, true)) {
-            throw new \Exception('Livewire: Invalid form object class.');
-        }
-
         $form = new $meta['class']($this->context->component, $this->path);
 
         $callBootMethod = static::bootFormObject($this->context->component, $form, $this->path);
@@ -71,3 +66,4 @@ class FormObjectSynth extends Synth {
         };
     }
 }
+

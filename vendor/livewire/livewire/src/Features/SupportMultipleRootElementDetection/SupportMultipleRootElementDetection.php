@@ -14,6 +14,7 @@ class SupportMultipleRootElementDetection extends ComponentHook
 
             return function ($html) use ($component) {
                 (new static)->warnAgainstMoreThanOneRootElement($component, $html);
+
             };
         });
     }

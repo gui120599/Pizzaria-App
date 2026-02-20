@@ -11,8 +11,6 @@ use function Livewire\wrap;
 
 class SupportLegacyComputedPropertySyntax extends ComponentHook
 {
-    protected static array $computedPropertyNamesCache = [];
-
     static function provide()
     {
         on('__get', function ($target, $property, $returnValue) {
@@ -25,10 +23,6 @@ class SupportLegacyComputedPropertySyntax extends ComponentHook
             if (static::hasComputedProperty($target, $property)) {
                 store($target)->unset('computedProperties', $property);
             }
-        });
-
-        on('flush-state', function () {
-            static::$computedPropertyNamesCache = [];
         });
     }
 
@@ -43,7 +37,7 @@ class SupportLegacyComputedPropertySyntax extends ComponentHook
 
     public static function hasComputedProperty($target, $property)
     {
-        return in_array((string) str($property)->camel(), static::getComputedPropertyNames($target), true);
+        return array_search((string) str($property)->camel(), static::getComputedPropertyNames($target)) !== false;
     }
 
     public static function getComputedProperty($target, $property)
@@ -65,15 +59,9 @@ class SupportLegacyComputedPropertySyntax extends ComponentHook
 
     public static function getComputedPropertyNames($target)
     {
-        $className = get_class($target);
-
-        if (isset(static::$computedPropertyNamesCache[$className])) {
-            return static::$computedPropertyNamesCache[$className];
-        }
-
         $methodNames = SyntheticUtils::getPublicMethodsDefinedBySubClass($target);
 
-        $computedPropertyNames = collect($methodNames)
+        return collect($methodNames)
             ->filter(function ($method) {
                 return str($method)->startsWith('get')
                     && str($method)->endsWith('Property');
@@ -82,9 +70,5 @@ class SupportLegacyComputedPropertySyntax extends ComponentHook
                 return (string) str($method)->between('get', 'Property')->camel();
             })
             ->all();
-
-        static::$computedPropertyNamesCache[$className] = $computedPropertyNames;
-
-        return $computedPropertyNames;
     }
 }
