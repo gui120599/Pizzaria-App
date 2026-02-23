@@ -17,9 +17,10 @@
                                 <tr class="border-b-4">
                                     <th class="w-1/12 px-1 md:px-4">#</th>
                                     <th class="w-1/6 px-1 md:px-4">Cliente</th>
-                                    <th class="w-1/12 px-1 md:px-4">Valor Total</th>
+                                    <th class="w-1/12 px-1 md:px-4">Valor Desconto</th>
                                     <th class="w-1/12 px-1 md:px-4">Valor Pago</th>
                                     <th class="w-1/12 px-1 md:px-4">Valor Troco</th>
+                                    <th class="w-1/12 px-1 md:px-4">Valor Total</th>
                                     <th class="w-1/6 px-1 md:px-4">Pagamentos</th>
                                     <th class="w-1/6 px-1 md:px-4">Status</th>
                                     <th class="w-1/6 px-1 md:px-4">Data/Hora Finalizada</th>
@@ -32,9 +33,10 @@
                                         <tr class="border-b-2 border-gray-100">
                                             <td>{{ $venda->id }}</td>
                                             <td class="uppercase">{{ $venda->cliente ? $venda->cliente->cliente_nome : 'N/A' }}</td>
-                                            <td class="uppercase">R$ {{ number_format($venda->venda_valor_total, 2, ',', '.') }}</td>
+                                            <td class="uppercase">R$ {{ number_format($venda->venda_valor_desconto, 2, ',', '.') }}</td>
                                             <td class="uppercase">R$ {{ number_format($venda->venda_valor_pago, 2, ',', '.') }}</td>
                                             <td class="uppercase">R$ {{ number_format($venda->venda_valor_troco, 2, ',', '.') }}</td>
+                                            <td class="uppercase">R$ {{ number_format($venda->venda_valor_total, 2, ',', '.') }}</td>
                                             <td class="text-[10px] text-center">
                                                 @foreach ($venda->pagamentos as $pg)
                                                     {{ $pg->opcaoPagamento->opcaopag_nome }} - R$
