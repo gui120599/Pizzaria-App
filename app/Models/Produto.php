@@ -17,6 +17,8 @@ class Produto extends Model
     protected $fillable = [
         'produto_descricao',
         'produto_codimentacao',
+        'produto_tipo',
+        'produto_controla_estoque',
         'produto_cardapio',
         'produto_codigo_NCM',
         'produto_codigo_CEST',
