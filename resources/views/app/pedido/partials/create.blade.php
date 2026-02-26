@@ -47,7 +47,7 @@
                                                     data-produto_valor="{{ $produto->produto_preco_venda }}">
                                                     <div
                                                         class="w-full flex flex-col bg-gray-100 p-2 rounded-lg opacity-95 hover:opacity-100 gap-1 justify-stretch max-h-40">
-                                                        {{--<div class="w-full ">
+                                                        {{-- <div class="w-full ">
                                                             @if ($produto->produto_foto)
                                                                 <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
                                                                     alt="{{ $produto->produtso_descricao }}"
@@ -58,7 +58,7 @@
                                                                     src="{{ asset('Sem Imagem.png') }}"
                                                                     alt="Imagem Padrão">
                                                             @endif
-                                                        </div>--}}
+                                                        </div> --}}
                                                         <div class="max-h-24 flex flex-col justify-between">
                                                             <p
                                                                 class="text-gray-900 font-bold text-sm md:text-xs uppercase produto_descricao">
@@ -223,7 +223,7 @@
             </div>
         </div>
     </form>
-    
+
     <script>
         function scrollToElement(elementId) {
             var container = document.getElementById('produtos-container');
@@ -236,6 +236,7 @@
                 });
             }
         }
+
         function selecionarCliente(id, nome) {
             document.getElementById("pedido_cliente_id").value = id;
             document.getElementById("pedido_cliente_nome").value = nome;
@@ -713,11 +714,11 @@
                             }
                             itemHtml += `
                                         <div class="flex gap-x-1">
-                                            {{--<div class="flex flex-col">
+                                            {{-- <div class="flex flex-col">
                                                 <x-input-label for="item_pedido_desconto" :value="__('Desconto R$')" />
                                                 <x-text-input id="item_pedido_desconto_${item.id}" name="item_pedido_desconto" type="text"
                                                     class="item_desconto money mt-1 w-full" value="${item.item_pedido_desconto}" data-item_id="${item.id}" data-produto_preco_venda="${item.item_pedido_valor_unitario}" autocomplete="off" />
-                                            </div>--}}
+                                            </div> --}}
 
                                             <div class="flex flex-col">
                                                 <x-input-label for="item_pedido_valor_adicionais" :value="__('Valor Adic. R$')" />
@@ -791,8 +792,11 @@
 
                         // Obtém o valor atual e converte para um número
                         var currentValue = parseFloat(item_pedido_quantidade);
+                        if (currentValue === 0.5 || currentValue === 0.33) {
+                            currentValue = 0.33;
+                        }
                         // Verifica se o valor atual é 1 ou 0.5
-                        if (currentValue === 1 || currentValue === 0.5) {
+                        else if (currentValue === 1) {
                             // Se for 1 ou 0.5, define o valor como 0.5
                             currentValue = 0.5;
                         } else {
@@ -803,7 +807,14 @@
                         $("#item_pedido_quantidade_" + id).val(currentValue.toString());
                         item_pedido_quantidade = currentValue;
                         // Atualiza a quantidade da vizualização
-                        if (item_pedido_quantidade === 0.5) {
+                        if (currentValue === 0.33) {
+                            $("#item_qtd_view_" + id).html('Um Terço');
+                            var item_pedido_valor = currentValue * produto_preco_venda - item_desconto +
+                                item_adicionais;
+                            var item_pedido_valor_unitario = item_pedido_valor;
+                            item_pedido_valor = item_pedido_valor.toFixed(
+                                2); // Limita a duas casas decimais
+                        } else if (item_pedido_quantidade === 0.5) {
                             $("#item_qtd_view_" + id).html('Meia');
                             var item_pedido_valor = (currentValue * produto_preco_venda) -
                                 item_desconto + item_adicionais;
@@ -881,6 +892,7 @@
                         });
 
                     });
+
                     $(".plus-btn").click(function(e) {
                         e.preventDefault();
                         const id = $(this).data('item_id');
@@ -897,8 +909,11 @@
 
                         // Obtém o valor atual e converte para um número
                         var currentValue = parseFloat(item_pedido_quantidade);
+                        if (currentValue === 0.33) {
+                            currentValue = 0.5;
+                        }
                         // Verifica se o valor atual é 0.5
-                        if (currentValue === 0.5) {
+                        else if (currentValue === 0.5) {
                             // Se for 0.5, incrementa em 0.5
                             currentValue += 0.5;
                         } else {
@@ -909,7 +924,14 @@
                         $("#item_pedido_quantidade_" + id).val(currentValue.toString());
                         item_pedido_quantidade = currentValue;
                         // Atualiza a quantidade da vizualização
-                        if (item_pedido_quantidade === 0.5) {
+                        if (currentValue === 0.33) {
+                            $("#item_qtd_view_" + id).html('Um Terço');
+                            var item_pedido_valor = currentValue * produto_preco_venda - item_desconto +
+                                item_adicionais;
+                            var item_pedido_valor_unitario = item_pedido_valor;
+                            item_pedido_valor = item_pedido_valor.toFixed(
+                                2); // Limita a duas casas decimais
+                        } else if (currentValue === 0.5) {
                             $("#item_qtd_view_" + id).html('Meia');
                             var item_pedido_valor = currentValue * produto_preco_venda - item_desconto +
                                 item_adicionais;
@@ -1014,76 +1036,76 @@
                                 "_adicional_" + adicionalId + "_quantidade").val()) - 1;
                             if (itemPedidoQuantidade > 1) {
                                 quantidade = 0;
-                               
-                            } 
+
+                            }
                             $("#item_pedido_" + item_pedidoId + "_adicional_" + adicionalId +
-                            "_quantidade").val(quantidade);
-                                
-                                $.ajax({
-                                    type: "POST",
-                                    url: "{{ route('adicional_item_pedido.store') }}",
-                                    data: {
-                                        adicionalId,
-                                        item_pedidoId,
-                                        quantidade,
-                                        valor_unitario,
-                                        '_token': '{{ csrf_token() }}'
-                                    },
-                                    dataType: "JSON",
-                                    success: function(response) {
-                                        console.log(response);
+                                "_quantidade").val(quantidade);
 
-                                        $("#carregando").addClass('hidden');
+                            $.ajax({
+                                type: "POST",
+                                url: "{{ route('adicional_item_pedido.store') }}",
+                                data: {
+                                    adicionalId,
+                                    item_pedidoId,
+                                    quantidade,
+                                    valor_unitario,
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                dataType: "JSON",
+                                success: function(response) {
+                                    console.log(response);
 
-                                        // Atualiza valor na visualização
-                                        $("#item_pedido_valor_adicionais_" + item_pedidoId)
-                                            .val(
-                                                (parseFloat(response.itemPedido
-                                                    .item_pedido_valor_adicionais) || 0)
-                                                .toFixed(2)
-                                            );
-                                        $("#item_pedido_valor_unitario_" + item_pedidoId)
-                                            .val(
-                                                (parseFloat(response.itemPedido
-                                                    .item_pedido_valor_unitario) || 0)
-                                                .toFixed(2)
-                                            );
-                                        $("#item_pedido_valor_" + item_pedidoId).val(
+                                    $("#carregando").addClass('hidden');
+
+                                    // Atualiza valor na visualização
+                                    $("#item_pedido_valor_adicionais_" + item_pedidoId)
+                                        .val(
                                             (parseFloat(response.itemPedido
-                                                .item_pedido_valor) || 0).toFixed(2)
+                                                .item_pedido_valor_adicionais) || 0)
+                                            .toFixed(2)
                                         );
-                                        $("#item_valor_view_" + item_pedidoId).html(
+                                    $("#item_pedido_valor_unitario_" + item_pedidoId)
+                                        .val(
                                             (parseFloat(response.itemPedido
-                                                .item_pedido_valor) || 0).toFixed(2)
+                                                .item_pedido_valor_unitario) || 0)
+                                            .toFixed(2)
                                         );
-                                        if (response.itemPedido.adicionais_item_pedido
-                                            .length > 0) {
-                                            response.itemPedido.adicionais_item_pedido
-                                                .forEach(
-                                                    adicional => {
-                                                        $("#item_pedido_" + response
-                                                            .itemPedido
-                                                            .id + "_adicional_" +
-                                                            adicional
-                                                            .aip_adicional_id +
-                                                            "_quantidade").val(adicional
-                                                            .aip_quantidade);
-                                                    });
-                                        }
-
-                                        ValorTotalItensPedido();
-
-                                        if (response.itemPedido
-                                            .item_pedido_valor_adicionais == 0) {
-                                            elementItemPedido.data('adicionais', false);
-                                        }
-                                    },
-                                    error: function() {
-                                        alert('Erro ao remover adicional!');
-
+                                    $("#item_pedido_valor_" + item_pedidoId).val(
+                                        (parseFloat(response.itemPedido
+                                            .item_pedido_valor) || 0).toFixed(2)
+                                    );
+                                    $("#item_valor_view_" + item_pedidoId).html(
+                                        (parseFloat(response.itemPedido
+                                            .item_pedido_valor) || 0).toFixed(2)
+                                    );
+                                    if (response.itemPedido.adicionais_item_pedido
+                                        .length > 0) {
+                                        response.itemPedido.adicionais_item_pedido
+                                            .forEach(
+                                                adicional => {
+                                                    $("#item_pedido_" + response
+                                                        .itemPedido
+                                                        .id + "_adicional_" +
+                                                        adicional
+                                                        .aip_adicional_id +
+                                                        "_quantidade").val(adicional
+                                                        .aip_quantidade);
+                                                });
                                     }
-                                });
-                            
+
+                                    ValorTotalItensPedido();
+
+                                    if (response.itemPedido
+                                        .item_pedido_valor_adicionais == 0) {
+                                        elementItemPedido.data('adicionais', false);
+                                    }
+                                },
+                                error: function() {
+                                    alert('Erro ao remover adicional!');
+
+                                }
+                            });
+
                         } else {
                             $("#carregando").addClass('hidden');
                         }

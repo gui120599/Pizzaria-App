@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('produto_descricao');
             $table->string('produto_codimentacao')->nullable();
+            $table->boolean('produto_cardapio')->default(false);
             $table->string('produto_codigo_NCM')->nullable();
             $table->string('produto_codigo_CEST')->nullable()->default('0000000');
             $table->string('produto_codigo_EAN')->nullable()->default('SEM GTIN');
