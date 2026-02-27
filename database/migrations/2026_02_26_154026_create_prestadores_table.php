@@ -23,6 +23,8 @@ return new class extends Migration
 
             $table->string('nome')->nullable(); // para PF
 
+            $table->string('foto')->nullable();
+
             $table->string('cpf_cnpj')->nullable();
             $table->string('inscricao_estadual')->nullable();
 
