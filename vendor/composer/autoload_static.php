@@ -569,8 +569,8 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         ),
         'Psr\\Http\\Message\\' => 
         array (
-            0 => __DIR__ . '/..' . '/psr/http-message/src',
-            1 => __DIR__ . '/..' . '/psr/http-factory/src',
+            0 => __DIR__ . '/..' . '/psr/http-factory/src',
+            1 => __DIR__ . '/..' . '/psr/http-message/src',
         ),
         'Psr\\Http\\Client\\' => 
         array (
@@ -622,9 +622,9 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         ),
         'Nette\\' => 
         array (
-            0 => __DIR__ . '/..' . '/nette/utils/src',
+            0 => __DIR__ . '/..' . '/nette/php-generator/src',
             1 => __DIR__ . '/..' . '/nette/schema/src',
-            2 => __DIR__ . '/..' . '/nette/php-generator/src',
+            2 => __DIR__ . '/..' . '/nette/utils/src',
         ),
         'Monolog\\' => 
         array (
@@ -648,9 +648,9 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         ),
         'League\\Uri\\' => 
         array (
-            0 => __DIR__ . '/..' . '/league/uri-interfaces',
-            1 => __DIR__ . '/..' . '/league/uri',
-            2 => __DIR__ . '/..' . '/league/uri-components',
+            0 => __DIR__ . '/..' . '/league/uri',
+            1 => __DIR__ . '/..' . '/league/uri-components',
+            2 => __DIR__ . '/..' . '/league/uri-interfaces',
         ),
         'League\\MimeTypeDetection\\' => 
         array (
@@ -911,6 +911,12 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         'App\\Exceptions\\Handler' => __DIR__ . '/../..' . '/app/Exceptions/Handler.php',
         'App\\Filament\\Resources\\Prestadors\\Pages\\ManagePrestadors' => __DIR__ . '/../..' . '/app/Filament/Resources/Prestadors/Pages/ManagePrestadors.php',
         'App\\Filament\\Resources\\Prestadors\\PrestadorResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Prestadors/PrestadorResource.php',
+        'App\\Filament\\Resources\\Produtos\\Pages\\CreateProduto' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/Pages/CreateProduto.php',
+        'App\\Filament\\Resources\\Produtos\\Pages\\EditProduto' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/Pages/EditProduto.php',
+        'App\\Filament\\Resources\\Produtos\\Pages\\ListProdutos' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/Pages/ListProdutos.php',
+        'App\\Filament\\Resources\\Produtos\\ProdutoResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/ProdutoResource.php',
+        'App\\Filament\\Resources\\Produtos\\Schemas\\ProdutoForm' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/Schemas/ProdutoForm.php',
+        'App\\Filament\\Resources\\Produtos\\Tables\\ProdutosTable' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/Tables/ProdutosTable.php',
         'App\\Filament\\Resources\\Users\\Pages\\ManageUsers' => __DIR__ . '/../..' . '/app/Filament/Resources/Users/Pages/ManageUsers.php',
         'App\\Filament\\Resources\\Users\\UserResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Users/UserResource.php',
         'App\\Http\\Controllers\\AdicionaisItemPedidoController' => __DIR__ . '/../..' . '/app/Http/Controllers/AdicionaisItemPedidoController.php',
@@ -1037,29 +1043,6 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         'App\\Models\\User' => __DIR__ . '/../..' . '/app/Models/User.php',
         'App\\Models\\Venda' => __DIR__ . '/../..' . '/app/Models/Venda.php',
         'App\\Observers\\PedidoObserver' => __DIR__ . '/../..' . '/app/Observers/PedidoObserver.php',
-        'App\\Policies\\AdicionaisItemPedidoPolicy' => __DIR__ . '/../..' . '/app/Policies/AdicionaisItemPedidoPolicy.php',
-        'App\\Policies\\AdicionaisItemVendaPolicy' => __DIR__ . '/../..' . '/app/Policies/AdicionaisItemVendaPolicy.php',
-        'App\\Policies\\AdicionaisProdutoPolicy' => __DIR__ . '/../..' . '/app/Policies/AdicionaisProdutoPolicy.php',
-        'App\\Policies\\AdicionalPolicy' => __DIR__ . '/../..' . '/app/Policies/AdicionalPolicy.php',
-        'App\\Policies\\CaixaPolicy' => __DIR__ . '/../..' . '/app/Policies/CaixaPolicy.php',
-        'App\\Policies\\CartoesPagamentoPolicy' => __DIR__ . '/../..' . '/app/Policies/CartoesPagamentoPolicy.php',
-        'App\\Policies\\CategoriaPolicy' => __DIR__ . '/../..' . '/app/Policies/CategoriaPolicy.php',
-        'App\\Policies\\ClientePolicy' => __DIR__ . '/../..' . '/app/Policies/ClientePolicy.php',
-        'App\\Policies\\EmpresaPolicy' => __DIR__ . '/../..' . '/app/Policies/EmpresaPolicy.php',
-        'App\\Policies\\ItensPedidoPolicy' => __DIR__ . '/../..' . '/app/Policies/ItensPedidoPolicy.php',
-        'App\\Policies\\ItensVendaPolicy' => __DIR__ . '/../..' . '/app/Policies/ItensVendaPolicy.php',
-        'App\\Policies\\MesaPolicy' => __DIR__ . '/../..' . '/app/Policies/MesaPolicy.php',
-        'App\\Policies\\MovimentacaoProdutoPolicy' => __DIR__ . '/../..' . '/app/Policies/MovimentacaoProdutoPolicy.php',
-        'App\\Policies\\MovimentacoesSessaoCaixaPolicy' => __DIR__ . '/../..' . '/app/Policies/MovimentacoesSessaoCaixaPolicy.php',
-        'App\\Policies\\NotaFiscalPolicy' => __DIR__ . '/../..' . '/app/Policies/NotaFiscalPolicy.php',
-        'App\\Policies\\OpcoesEntregasPolicy' => __DIR__ . '/../..' . '/app/Policies/OpcoesEntregasPolicy.php',
-        'App\\Policies\\OpcoesPagamentoPolicy' => __DIR__ . '/../..' . '/app/Policies/OpcoesPagamentoPolicy.php',
-        'App\\Policies\\PagamentosVendaPolicy' => __DIR__ . '/../..' . '/app/Policies/PagamentosVendaPolicy.php',
-        'App\\Policies\\PedidoPolicy' => __DIR__ . '/../..' . '/app/Policies/PedidoPolicy.php',
-        'App\\Policies\\ProdutoPolicy' => __DIR__ . '/../..' . '/app/Policies/ProdutoPolicy.php',
-        'App\\Policies\\SessaoCaixaPolicy' => __DIR__ . '/../..' . '/app/Policies/SessaoCaixaPolicy.php',
-        'App\\Policies\\SessaoMesaPolicy' => __DIR__ . '/../..' . '/app/Policies/SessaoMesaPolicy.php',
-        'App\\Policies\\VendaPolicy' => __DIR__ . '/../..' . '/app/Policies/VendaPolicy.php',
         'App\\Providers\\AppServiceProvider' => __DIR__ . '/../..' . '/app/Providers/AppServiceProvider.php',
         'App\\Providers\\AuthServiceProvider' => __DIR__ . '/../..' . '/app/Providers/AuthServiceProvider.php',
         'App\\Providers\\BroadcastServiceProvider' => __DIR__ . '/../..' . '/app/Providers/BroadcastServiceProvider.php',
