@@ -127,8 +127,8 @@ class CategoriaResource extends Resource
                         Money::make('ajuste_real')
                             ->label('Valor em R$')
                             ->placeholder('Ex: 2,00')
-                            ->visible(fn ($get) => $get('ajuste_unidade') === 'real')
-                            ->required(fn ($get) => $get('ajuste_unidade') === 'real')
+                            ->visible(fn($get) => $get('ajuste_unidade') === 'real')
+                            ->required(fn($get) => $get('ajuste_unidade') === 'real')
                             ->helperText('Valor absoluto aplicado por produto'),
 
                         TextInput::make('ajuste_percentual')
@@ -137,8 +137,8 @@ class CategoriaResource extends Resource
                             ->step(0.01)
                             ->suffix('%')
                             ->placeholder('Ex: 5')
-                            ->visible(fn ($get) => $get('ajuste_unidade') === 'porcentagem')
-                            ->required(fn ($get) => $get('ajuste_unidade') === 'porcentagem')
+                            ->visible(fn($get) => $get('ajuste_unidade') === 'porcentagem')
+                            ->required(fn($get) => $get('ajuste_unidade') === 'porcentagem')
                             ->helperText('Percentual aplicado com base no preço atual ou margem'),
                     ])
                     ->requiresConfirmation()
@@ -239,80 +239,26 @@ class CategoriaResource extends Resource
                     ->modalDescription('Aplica os mesmos valores de custo, margem e venda para todos os produtos da categoria.')
                     ->modalWidth('lg')
                     ->form([
-                        Money::make('preco_custo_exato')
-                            ->label('Preço de custo exato (R$)')
-                            ->placeholder('Ex: 10,00')
-                            ->live()
-                            ->required()
-                            ->helperText('Novo valor de custo para todos os produtos da categoria'),
-
-                        TextInput::make('percentual_venda_exato')
-                            ->label('Percentual de venda exato (%)')
-                            ->numeric()
-                            ->step(0.01)
-                            ->suffix('%')
-                            ->placeholder('Ex: 35')
-                            ->live()
-                            ->required()
-                            ->helperText('Nova margem percentual aplicada a todos os produtos (com custo 0, deve ser 100%)'),
-
                         Money::make('preco_venda_exato')
                             ->label('Preço de venda (R$)')
                             ->placeholder('Ex: 18,90')
-                            ->required(fn ($get) => self::parseDecimal($get('preco_custo_exato')) == 0.0)
-                            ->disabled(fn ($get) => self::parseDecimal($get('preco_custo_exato')) > 0)
-                            ->helperText(fn ($get) => self::parseDecimal($get('preco_custo_exato')) > 0
+                            ->required(fn($get) => self::parseDecimal($get('preco_custo_exato')) == 0.0)
+                            ->disabled(fn($get) => self::parseDecimal($get('preco_custo_exato')) > 0)
+                            ->helperText(fn($get) => self::parseDecimal($get('preco_custo_exato')) > 0
                                 ? 'Com custo maior que zero, o preço de venda será calculado automaticamente por custo + percentual.'
                                 : 'Com custo igual a zero, informe manualmente o preço de venda (percentual deve ser 100%).'),
                     ])
                     ->requiresConfirmation()
                     ->action(function (Categoria $record, array $data) {
-                        $custo = round(self::parseDecimal($data['preco_custo_exato'] ?? 0), 2);
-                        $percentual = round((float) ($data['percentual_venda_exato'] ?? 0), 2);
+
                         $vendaInformada = round(self::parseDecimal($data['preco_venda_exato'] ?? 0), 2);
                         $loteUuid = (string) Str::uuid();
                         $usuarioId = auth()->id();
-
-                        if (($custo < 0) || ($percentual < 0)) {
-                            Notification::make()
-                                ->title('Valores inválidos')
-                                ->body('Informe custo e percentual maiores ou iguais a zero.')
-                                ->danger()
-                                ->send();
-
-                            return;
-                        }
-
-                        if ($custo == 0.0) {
-                            if (abs($percentual - 100.0) > 0.0001) {
-                                Notification::make()
-                                    ->title('Percentual inválido para custo zero')
-                                    ->body('Quando o custo for zero, o percentual deve ser exatamente 100%.')
-                                    ->danger()
-                                    ->send();
-
-                                return;
-                            }
-
-                            if ($vendaInformada <= 0) {
-                                Notification::make()
-                                    ->title('Preço de venda inválido')
-                                    ->body('Com custo igual a zero, informe um preço de venda maior que zero.')
-                                    ->danger()
-                                    ->send();
-
-                                return;
-                            }
-
-                            $vendaFinal = $vendaInformada;
-                        } else {
-                            $vendaFinal = round($custo * (1 + ($percentual / 100)), 2);
-                        }
-
+                        $vendaFinal = $vendaInformada;
                         $atualizados = 0;
 
                         $record->produtos()
-                            ->chunkById(100, function ($produtos) use ($record, $loteUuid, $usuarioId, $custo, $percentual, $vendaFinal, &$atualizados) {
+                            ->chunkById(100, function ($produtos) use ($record, $loteUuid, $usuarioId, $vendaFinal, &$atualizados) {
                                 foreach ($produtos as $produto) {
                                     self::registrarHistoricoProduto(
                                         categoriaId: $record->id,
@@ -320,14 +266,14 @@ class CategoriaResource extends Resource
                                         acao: 'definir_precos_exatos',
                                         loteUuid: $loteUuid,
                                         usuarioId: $usuarioId,
-                                        novoCusto: $custo,
-                                        novoPercentual: $percentual,
+                                        novoCusto: $vendaFinal,
+                                        novoPercentual: 0,
                                         novoVenda: $vendaFinal,
                                     );
 
                                     $produto->forceFill([
-                                        'produto_preco_custo' => $custo,
-                                        'produto_valor_percentual_venda' => $percentual,
+                                        'produto_preco_custo' => $vendaFinal,
+                                        'produto_valor_percentual_venda' => 0,
                                         'produto_preco_venda' => $vendaFinal,
                                     ])->saveQuietly();
 
@@ -338,9 +284,7 @@ class CategoriaResource extends Resource
                         Notification::make()
                             ->title('Preços definidos com sucesso')
                             ->body(
-                                "{$atualizados} produtos atualizados para Custo R$ " . number_format($custo, 2, ',', '.')
-                                . " | Margem " . number_format($percentual, 2, ',', '.') . '%'
-                                . " | Venda R$ " . number_format($vendaFinal, 2, ',', '.')
+                                "{$atualizados} produtos atualizados para Custo R$ " . " | Venda R$ " . number_format($vendaFinal, 2, ',', '.')
                             )
                             ->success()
                             ->send();
