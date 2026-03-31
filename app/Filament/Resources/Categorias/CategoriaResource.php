@@ -15,6 +15,7 @@ use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Components\Toggle;
@@ -53,11 +54,17 @@ class CategoriaResource extends Resource
     {
         return $table
             ->recordTitleAttribute('categoria_nome')
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('ultimoHistoricoPreco'))
             ->columns([
                 TextColumn::make('categoria_nome')
                     ->searchable(),
                 IconColumn::make('categoria_cardapio')
                     ->boolean(),
+                TextColumn::make('ultimo_ajuste_preco')
+                    ->label('Último ajuste')
+                    ->state(fn (Categoria $record): string => self::resumoUltimoAjusteTabela($record))
+                    ->description(fn (Categoria $record): ?string => self::descricaoUltimoAjusteTabela($record))
+                    ->wrap(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -82,6 +89,10 @@ class CategoriaResource extends Resource
                     ->modalDescription('Reajuste coletivo por tipo de operação e unidade de cálculo.')
                     ->modalWidth('lg')
                     ->form([
+                        Placeholder::make('ultimo_ajuste_em_massa')
+                            ->label('Última atualização por esta função')
+                            ->content(fn(Categoria $record): string => self::resumoUltimaExecucao($record, 'ajustar_precos_venda')),
+
                         ToggleButtons::make('ajuste_tipo')
                             ->label('Operação')
                             ->options([
@@ -239,6 +250,10 @@ class CategoriaResource extends Resource
                     ->modalDescription('Aplica os mesmos valores de custo, margem e venda para todos os produtos da categoria.')
                     ->modalWidth('lg')
                     ->form([
+                        Placeholder::make('ultima_definicao_exata')
+                            ->label('Última atualização por esta função')
+                            ->content(fn(Categoria $record): string => self::resumoUltimaExecucao($record, 'definir_precos_exatos')),
+
                         Money::make('preco_venda_exato')
                             ->label('Preço de venda (R$)')
                             ->placeholder('Ex: 18,90')
@@ -418,6 +433,86 @@ class CategoriaResource extends Resource
             'valor_novo_percentual' => round($novoPercentual, 2),
             'valor_novo_venda' => round($novoVenda, 2),
         ]);
+    }
+
+    private static function resumoUltimoAjusteTabela(Categoria $record): string
+    {
+        $historico = $record->ultimoHistoricoPreco;
+
+        if (! $historico) {
+            return 'Sem ajustes';
+        }
+
+        $marcadorHoje = $historico->created_at?->isToday() ? ' (hoje)' : '';
+        $acao = $historico->acao === 'definir_precos_exatos'
+            ? 'Definição exata'
+            : 'Ajuste em massa';
+
+        return $acao . ' em ' . ($historico->created_at?->format('d/m/Y H:i') ?? '-') . $marcadorHoje;
+    }
+
+    private static function descricaoUltimoAjusteTabela(Categoria $record): ?string
+    {
+        $historico = $record->ultimoHistoricoPreco;
+
+        if (! $historico) {
+            return null;
+        }
+
+        if ($historico->acao === 'definir_precos_exatos') {
+            return 'Venda: ' . self::formatarMoeda($historico->valor_novo_venda)
+                . ' | Custo: ' . self::formatarMoeda($historico->valor_novo_custo)
+                . ' | Margem: ' . number_format((float) ($historico->valor_novo_percentual ?? 0), 2, ',', '.') . '%';
+        }
+
+        if (($historico->valor_antigo_venda === null) || ($historico->valor_novo_venda === null)) {
+            return 'Variação: sem cálculo';
+        }
+
+        $delta = (float) $historico->valor_novo_venda - (float) $historico->valor_antigo_venda;
+        $sinal = $delta >= 0 ? '+' : '-';
+
+        return 'Variação de venda: ' . $sinal . self::formatarMoeda(abs($delta));
+    }
+
+    private static function resumoUltimaExecucao(Categoria $record, string $acao): string
+    {
+        $ultimoRegistro = ProdutoPrecoHistorico::query()
+            ->where('categoria_id', $record->id)
+            ->where('acao', $acao)
+            ->latest('id')
+            ->first();
+
+        if (! $ultimoRegistro) {
+            return 'Nenhuma atualização registrada ainda.';
+        }
+
+        $dataHora = $ultimoRegistro->created_at?->format('d/m/Y H:i') ?? 'sem data';
+        $marcadorHoje = $ultimoRegistro->created_at?->isToday() ? ' (já atualizado hoje)' : '';
+
+        if ($acao === 'definir_precos_exatos') {
+            return "Última execução em {$dataHora}{$marcadorHoje} | Custo: "
+                . self::formatarMoeda($ultimoRegistro->valor_novo_custo)
+                . ' | Margem: ' . number_format((float) ($ultimoRegistro->valor_novo_percentual ?? 0), 2, ',', '.') . '%'
+                . ' | Venda: ' . self::formatarMoeda($ultimoRegistro->valor_novo_venda);
+        }
+
+        $deltaVenda = null;
+
+        if (($ultimoRegistro->valor_antigo_venda !== null) && ($ultimoRegistro->valor_novo_venda !== null)) {
+            $deltaVenda = (float) $ultimoRegistro->valor_novo_venda - (float) $ultimoRegistro->valor_antigo_venda;
+        }
+
+        $textoDelta = $deltaVenda === null
+            ? 'sem variação calculável'
+            : (($deltaVenda >= 0 ? '+' : '-') . self::formatarMoeda(abs($deltaVenda)));
+
+        return "Última execução em {$dataHora}{$marcadorHoje} | Variação de venda (amostra): {$textoDelta}";
+    }
+
+    private static function formatarMoeda(float|int|string|null $valor): string
+    {
+        return 'R$ ' . number_format((float) ($valor ?? 0), 2, ',', '.');
     }
 
     private static function parseDecimal(mixed $value): float
