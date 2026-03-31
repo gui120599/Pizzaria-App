@@ -15,6 +15,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class ProdutoForm
 {
@@ -162,15 +163,19 @@ class ProdutoForm
                             'lg' => 3,
                         ])
                         ->schema([
-                            TextInput::make('produto_preco_custo')
+                            Money::make('produto_preco_custo')
                                 ->label('Preço de Custo')
-                                ->numeric()
-                                ->step(0.01)
-                                ->prefix('R$')
                                 ->required()
                                 ->reactive()
                                 ->columnSpan(1)
-                                ->helperText('Custo do produto'),
+                                ->helperText('Custo do produto')
+                                ->live(true)
+                                ->afterStateUpdated(function ($state, $set, $get) {
+                                    if ($get('produto_preco_custo') !== null && $state !== null) {
+                                        $precoVenda = (float)$get('produto_preco_custo') * (1 + ((float)$state / 100));
+                                        $set('produto_preco_venda', round($precoVenda, 2));
+                                    }
+                                }),
 
                             TextInput::make('produto_valor_percentual_venda')
                                 ->label('Margem de Lucro (%)')
@@ -179,6 +184,7 @@ class ProdutoForm
                                 ->suffix('%')
                                 ->required()
                                 ->reactive()
+                                ->live(true)
                                 ->columnSpan(1)
                                 ->helperText('Percentual sobre custo')
                                 ->afterStateUpdated(function ($state, $set, $get) {
@@ -195,6 +201,7 @@ class ProdutoForm
                                 ->prefix('R$')
                                 ->required()
                                 ->disabled()
+                                ->dehydrated()
                                 ->reactive()
                                 ->columnSpan(1)
                                 ->helperText('Cálculo automático'),
