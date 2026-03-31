@@ -13,6 +13,7 @@
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.8",
+        "leandrocfe/filament-ptbr-form-fields": "^4.0",
         "nfe/nfe": "^2.5",
         "spatie/laravel-permission": "^6.3"
     },

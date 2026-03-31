@@ -35,7 +35,7 @@
                                         class="w-full bg-gray-100 p-2 rounded-lg flex items-start justify-between opacity-95 hover:opacity-100 gap-1">
                                         <div class="w-2/5">
                                             @if ($produto->produto_foto)
-                                                <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
+                                                <img src="{{ $produto->getImagemUrl() }}"
                                                     alt="{{ $produto->produtso_descricao }}"
                                                     class="w-40 h-28 object-cover rounded-lg ">
                                             @else
@@ -118,7 +118,7 @@
                         <tr class="border-b">
                             <td>
                                 @if ($produto->produto_foto)
-                                    <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
+                                    <img src="{{ $produto->getImagemUrl() }}"
                                         alt="{{ $produto->produtso_descricao }}"
                                         class="w-10 h-10 object-cover rounded-lg ">
                                 @else

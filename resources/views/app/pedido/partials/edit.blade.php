@@ -50,7 +50,7 @@
                             <div class="flex flex-wrap justify-center gap-y-2">
                                 @if ($produto->produto_foto)
                                     <img id="imagem-preview" class="mborder rounded-lg object-contain w-40 h-40 p-1"
-                                        src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}" />
+                                        src="{{ $produto->getImagemUrl() }}" />
                                 @else
                                     <img id="imagem-preview" class="mborder rounded-lg object-contain w-40 h-40 p-1"
                                         src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">

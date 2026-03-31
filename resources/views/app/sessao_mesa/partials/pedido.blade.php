@@ -51,7 +51,7 @@
                                                     class="w-full flex flex-col bg-gray-100 p-2 rounded-lg opacity-95 hover:opacity-100 gap-1">
                                                     {{-- <div class="w-full ">
                                                         @if ($produto->produto_foto)
-                                                            <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
+                                                            <img src="{{ $produto->getImagemUrl() }}"
                                                                 alt="{{ $produto->produtso_descricao }}"
                                                                 class="w-full max-h-12 object-cover rounded-lg ">
                                                         @else
@@ -514,12 +514,14 @@
                                             <i class='bx bxs-x-circle text-xl hover:text-red-600 transition ease-in-out duration-300'></i>
                                         </span>
                                         <div class="col-span-6 flex flex-row items-start space-x-2">`;
-                            if (item.produto.produto_foto) {
-                                itemHtml += `<img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" src="/img/fotos_produtos/${item.produto.produto_foto}" alt="Imagem Padrão">
-                                `;
+                           if (item.produto.produto_foto) {
+                                itemHtml += `<img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" 
+                                                src="/storage/${item.produto.produto_foto}" 
+                                                alt="Imagem Padrão">`;
                             } else {
-                                itemHtml += `<img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" src="/Sem Imagem.png" alt="Imagem Padrão">
-                                `;
+                                itemHtml += `<img id="imagem-preview" class="w-8 h-8 object-cover rounded-lg" 
+                                                src="/Sem Imagem.png" 
+                                                alt="Imagem Padrão">`;
                             }
                             itemHtml += `
                                             <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.categoria.categoria_nome} ${item.produto.produto_descricao}<p>R$ <span id="item_valor_view_${item.id}">${item.item_pedido_valor}</span> Qtd. <span id="item_qtd_view_${item.id}">${item.item_pedido_quantidade}</span></p></span>

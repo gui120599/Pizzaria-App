@@ -8,7 +8,7 @@
         <div class="w-full h-full mx-auto sm:px-1 lg:px-2 space-y-6">
             <div class="h-full w-full p-1 rounded-lg shadow-md">
                 @if ($produto->produto_foto)
-                <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
+                <img src="{{ $produto->getImagemUrl() }}"
                 alt="{{ $produto->produto_nome }}" class="w-full h-[50%] object-cover mb-4 rounded-2xl">
                 @else
                     <img id="imagem-preview" class="bg-white w-full h-[50%] object-cover mb-4 rounded-2xl"

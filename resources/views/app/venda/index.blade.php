@@ -452,7 +452,7 @@
                                                             class="w-full bg-gray-100 p-2 rounded-lg flex items-start justify-between opacity-95 hover:opacity-100 gap-1">
                                                             <div class="w-2/5">
                                                                 {{-- @if ($produto->produto_foto)
-                                                                    <img src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}"
+                                                                    <img src="{{ $produto->getImagemUrl() }}"
                                                                         alt="{{ $produto->produtso_descricao }}"
                                                                         class="h-14 object-cover rounded-lg ">
                                                                 @else

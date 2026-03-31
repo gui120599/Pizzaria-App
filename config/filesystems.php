@@ -56,11 +56,12 @@ return [
             'throw' => false,
         ],
 
-        'fotos_produtos' => [
+        'public_2' => [
             'driver' => 'local',
-            'root'   => public_path('img/fotos_produtos'),
-            'url'    => env('APP_URL') . '/img/fotos_produtos',
+            'root'   => public_path('img/'),
+            'url'    => env('APP_URL') . '/img',
             'visibility' => 'public',
+            'throw' => false,
         ],
 
     ],

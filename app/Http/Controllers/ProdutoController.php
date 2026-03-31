@@ -204,35 +204,4 @@ class ProdutoController extends Controller
         return redirect('/Produto')->with('success', 'Produto Ativado com sucesso!');
     }
 
-    /**
-     * Toogle Adicional de cada produto
-     */
-    public function toggleAdicional(Request $request, Produto $produto, Adicional $adicional)
-    {
-        /*try {
-            $isActive = $request->input('isActive'); // Valor enviado no corpo da requisição
-
-            if ($isActive) {
-                // Criar relacionamento se não existir
-                AdicionaisProduto::firstOrCreate([
-                    'ap_produto_id' => $produto->id,
-                    'ap_adicional_id' => $adicional->id,
-                ]);
-            } else {
-                // Remover relacionamento
-                AdicionaisProduto::where('ap_produto_id', $produto->id)
-                    ->where('ap_adicional_id', $adicional->id)
-                    ->delete();
-            }
-
-            return response()->json(['success' => true], 200);
-        } catch (\Exception $e) {
-            // Logar o erro e retornar uma resposta adequada
-            \Log::error('Erro ao alternar adicional: ' . $e->getMessage());
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
-        }*/
-        return response()->json(['success' => true], 200);
-    }
-
-
 }

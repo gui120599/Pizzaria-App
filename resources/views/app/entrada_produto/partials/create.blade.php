@@ -73,15 +73,15 @@
                     @foreach ($produtos as $produto)
                         @if ($produto->produto_foto)
                             <tr class="produto-row border hover:bg-gray-200 cursor-pointer"
-                                onclick="SelecionarProduto({{ $produto->id }},'{{ $produto->produto_descricao }}','{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}')">
+                                onclick="SelecionarProduto({{ $produto->id }},'{{ $produto->produto_descricao }}','{{ $produto->getImagemUrl() }}')">
                             @else
                             <tr class="produto-row border hover:bg-gray-200 cursor-pointer"
-                                onclick="SelecionarProduto({{ $produto->id }},'{{ $produto->produto_descricao }}','{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}')">
+                                onclick="SelecionarProduto({{ $produto->id }},'{{ $produto->produto_descricao }}','{{ $produto->getImagemUrl() }}')">
                         @endif
                         <td class="align-center">
                             @if ($produto->produto_foto)
                                 <img class="mx-auto border rounded-full object-contain w-16 h-16"
-                                    src="{{ asset('img/fotos_produtos/' . $produto->produto_foto) }}" />
+                                    src="{{ $produto->getImagemUrl() }}" />
                             @else
                                 <img class="mx-auto border rounded-full object-contain w-16 h-16"
                                     src="{{ asset('Sem Imagem.png') }}" alt="Imagem Padrão">

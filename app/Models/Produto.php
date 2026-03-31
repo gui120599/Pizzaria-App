@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class Produto extends Model
 {
@@ -47,6 +48,8 @@ class Produto extends Model
         'produto_quantidade_maxima',
     ];
 
+
+
     // Relacionamento com a tabela 'categorias'
     public function categoria()
     {
@@ -61,23 +64,20 @@ class Produto extends Model
     public function saveFoto($foto)
     {
         $nomeArquivo = time() . '.' . $foto->getClientOriginalExtension();
-        $caminho = public_path('/img/fotos_produtos');
-        $foto->move($caminho, $nomeArquivo);
-        $this->produto_foto = $nomeArquivo;
+        $foto->storeAs('fotos_produtos', $nomeArquivo, 'public');
+        $this->produto_foto = 'fotos_produtos/' . $nomeArquivo;
         $this->save();
     }
-    
+
     public function getImagemUrl()
     {
-        $caminho = 'img/fotos_produtos/' . $this->produto_foto;
-
-        if ($this->produto_foto && file_exists(public_path($caminho))) {
-            return asset($caminho);
+        if ($this->produto_foto && Storage::disk('public')->exists($this->produto_foto)) {
+            return Storage::disk('public')->url($this->produto_foto);
         }
 
         return asset('Sem Imagem.png');
     }
-    
+
     public function saldo()
     {
         return $this->mov_produto()
@@ -91,11 +91,13 @@ class Produto extends Model
             ->withPivot('quantidade', 'valor', 'observacao', 'status', 'usuario_removeu');
     }
 
-    public function item_pedido_produto_id(){
-        return $this->hasMany(ItensPedido::class,'item_pedido_produto_id');
+    public function item_pedido_produto_id()
+    {
+        return $this->hasMany(ItensPedido::class, 'item_pedido_produto_id');
     }
 
-    public function ap_produto_id(){
-        return $this->hasMany(AdicionaisProduto::class,'ap_produto_id');
+    public function ap_produto_id()
+    {
+        return $this->hasMany(AdicionaisProduto::class, 'ap_produto_id');
     }
 }
