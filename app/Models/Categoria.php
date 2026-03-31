@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Categoria extends Model
@@ -20,5 +22,15 @@ class Categoria extends Model
     public function produtos()
     {
         return $this->hasMany(Produto::class, "produto_categoria_id");
+    }
+
+    public function historicosPrecos(): HasMany
+    {
+        return $this->hasMany(ProdutoPrecoHistorico::class, 'categoria_id');
+    }
+
+    public function ultimoHistoricoPreco(): HasOne
+    {
+        return $this->hasOne(ProdutoPrecoHistorico::class, 'categoria_id')->latestOfMany();
     }
 }
