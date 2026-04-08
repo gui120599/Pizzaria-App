@@ -64,6 +64,7 @@ class UserResource extends Resource
                             ->email()
                             ->required(),
                         TextInput::make('password')
+                            ->autocomplete("new-password")
                             ->dehydrateStateUsing(fn(string $state): string => Hash::make($state))
                             ->dehydrated(fn(?string $state): bool => filled($state))
                             ->required(fn(string $operation): bool => $operation === 'create')

@@ -21,14 +21,20 @@ use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section as SchemaSection;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Leandrocfe\FilamentPtbrFormFields\Money;
 
@@ -44,9 +50,45 @@ class CategoriaResource extends Resource
     {
         return $schema
             ->components([
-                TextInput::make('categoria_nome'),
-                Toggle::make('categoria_cardapio')
-                    ->required(),
+                SchemaSection::make('Informações Básicas')
+                    ->description('Dados principais da categoria')
+                    ->icon('heroicon-o-bookmark')
+                    ->schema([
+                        TextInput::make('categoria_nome')
+                            ->label('Nome da Categoria')
+                            ->placeholder('Ex: Pizzas, Bebidas, Sobremesas')
+                            ->required()
+                            ->maxLength(100)
+                            ->helperText('Identifica a categoria de forma clara'),
+
+                        Toggle::make('categoria_cardapio')
+                            ->label('Mostrar no Cardápio')
+                            ->required()
+                            ->inline()
+                            ->helperText('Categorias visíveis aos clientes'),
+                    ]),
+
+                SchemaSection::make('Estatísticas')
+                    ->description('Informações sobre produtos e ajustes')
+                    ->icon('heroicon-o-chart-bar')
+                    ->disabled()
+                    ->collapsible()
+                    ->schema([
+                        Placeholder::make('total_produtos')
+                            ->label('Total de Produtos')
+                            ->content(fn(?Categoria $record) => $record?->produtos()->count() ?? 0),
+
+                        Placeholder::make('ultimo_ajuste_info')
+                            ->label('Último Ajuste de Preço')
+                            ->content(fn(?Categoria $record) => $record
+                                ? (self::resumoUltimoAjusteTabela($record) ?? 'Nenhum ajuste')
+                                : 'N/A'
+                            ),
+
+                        Placeholder::make('ajustes_total')
+                            ->label('Total de Ajustes')
+                            ->content(fn(?Categoria $record) => $record?->historicosPrecos()->count() ?? 0),
+                    ]),
             ]);
     }
 
@@ -54,37 +96,172 @@ class CategoriaResource extends Resource
     {
         return $table
             ->recordTitleAttribute('categoria_nome')
-            ->modifyQueryUsing(fn (Builder $query) => $query->with('ultimoHistoricoPreco'))
+            ->modifyQueryUsing(fn(Builder $query) => $query
+                ->with('ultimoHistoricoPreco')
+                ->withCount('produtos')
+            )
             ->columns([
+                TextColumn::make('id')
+                    ->label('#')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->width('60px'),
+
                 TextColumn::make('categoria_nome')
-                    ->searchable(),
+                    ->label('Nome da Categoria')
+                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->searchable()
+                    ->sortable()
+                    ->weight('bold'),
+
+                BadgeColumn::make('produtos_count')
+                    ->label('Produtos')
+                    ->getStateUsing(fn(Categoria $record) => $record->produtos_count ?? 0)
+                    ->color(fn($state) => match(true) {
+                        $state == 0 => 'warning',
+                        $state < 5 => 'info',
+                        $state < 10 => 'success',
+                        default => 'primary',
+                    })
+                    ->icon('heroicon-o-squares-2x2')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
+
                 IconColumn::make('categoria_cardapio')
-                    ->boolean(),
+                    ->label('Cardápio')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->trueIcon('heroicon-o-eye')
+                    ->falseIcon('heroicon-o-eye-slash'),
+
                 TextColumn::make('ultimo_ajuste_preco')
-                    ->label('Último ajuste')
-                    ->state(fn (Categoria $record): string => self::resumoUltimoAjusteTabela($record))
-                    ->description(fn (Categoria $record): ?string => self::descricaoUltimoAjusteTabela($record))
-                    ->wrap(),
+                    ->label('Último Ajuste')
+                    ->state(fn(Categoria $record): string => self::resumoUltimoAjusteTabela($record))
+                    ->description(fn(Categoria $record): ?string => self::descricaoUltimoAjusteTabela($record))
+                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->wrap()
+                    ->sortable(query: fn (Builder $query, $direction) =>
+                        $query->orderBy(
+                            ProdutoPrecoHistorico::selectRaw('max(created_at)')
+                                ->whereColumn('categoria_id', 'categorias.id'),
+                            $direction
+                        )
+                    ),
+
+                TextColumn::make('ajustes_count')
+                    ->label('# Ajustes')
+                    ->getStateUsing(fn(Categoria $record) => $record->historicosPrecos()->count())
+                    ->badge()
+                    ->color('secondary')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('historicosPrecos_count')
+                    ->label('Histórico')
+                    ->counts('historicosPrecos')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('created_at')
-                    ->dateTime()
+                    ->label('Criado em')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->label('Atualizado em')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('deleted_at')
-                    ->dateTime()
+                    ->label('Deletado em')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                TernaryFilter::make('categoria_cardapio')
+                    ->label('No Cardápio')
+                    ->trueLabel('Sim - Mostrar no cardápio')
+                    ->falseLabel('Não - Oculto do cardápio'),
+
+                TernaryFilter::make('com_produtos')
+                    ->label('Com Produtos')
+                    ->trueLabel('Sim - Com produtos')
+                    ->falseLabel('Não - Sem produtos')
+                    ->query(function (Builder $query, $value) {
+                        return match($value) {
+                            true => $query->has('produtos'),
+                            false => $query->doesntHave('produtos'),
+                            default => $query,
+                        };
+                    }),
+
+                Filter::make('ajustadas_hoje')
+                    ->label('Ajustadas Hoje')
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'historicosPrecos',
+                        fn (Builder $historicoQuery): Builder => $historicoQuery->whereDate('created_at', now()->toDateString())
+                    ))
+                    ->toggle(),
+
+                Filter::make('ajustadas_semana')
+                    ->label('Ajustadas essa Semana')
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'historicosPrecos',
+                        fn (Builder $historicoQuery): Builder => $historicoQuery->whereBetween('created_at', [
+                            now()->startOfWeek(),
+                            now()->endOfWeek(),
+                        ])
+                    ))
+                    ->toggle(),
+
+                Filter::make('ajustadas_mes')
+                    ->label('Ajustadas esse Mês')
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'historicosPrecos',
+                        fn (Builder $historicoQuery): Builder => $historicoQuery->whereYear('created_at', now()->year)
+                            ->whereMonth('created_at', now()->month)
+                    ))
+                    ->toggle(),
+
+                Filter::make('sem_historico')
+                    ->label('Sem Histórico de Ajustes')
+                    ->query(fn (Builder $query): Builder => $query->whereDoesntHave('historicosPrecos'))
+                    ->toggle(),
+
+                Filter::make('com_ajustes_pendentes')
+                    ->label('Com Ajustes Reversíveis')
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'historicosPrecos',
+                        fn (Builder $historicoQuery): Builder => $historicoQuery->whereNull('restaurado_em')
+                    ))
+                    ->toggle(),
+
+                SelectFilter::make('quantidade_produtos')
+                    ->label('Quantidade de Produtos')
+                    ->options([
+                        'vazio' => 'Sem produtos',
+                        'poucos' => 'Poucos (1-5)',
+                        'alguns' => 'Alguns (6-10)',
+                        'muitos' => 'Muitos (11+)',
+                    ])
+                    ->query(function (Builder $query, $value) {
+                        return match($value) {
+                            'vazio' => $query->doesnthave('produtos'),
+                            'poucos' => $query->has('produtos', '>=', 1)->has('produtos', '<=', 5),
+                            'alguns' => $query->has('produtos', '>=', 6)->has('produtos', '<=', 10),
+                            'muitos' => $query->has('produtos', '>=', 11),
+                            default => $query,
+                        };
+                    }),
+
                 TrashedFilter::make(),
             ])
             ->recordActions([
                 ActionsAction::make('ajustar_precos_venda')
-                    ->label('Ajustar preços de venda')
                     ->icon('heroicon-o-currency-dollar')
+                    ->tooltip('Ajustar preços de venda')
                     ->modalHeading('Aplicar reajuste na categoria')
                     ->modalDescription('Reajuste coletivo por tipo de operação e unidade de cálculo.')
                     ->modalWidth('lg')
@@ -243,8 +420,8 @@ class CategoriaResource extends Resource
                             ->send();
                     }),
                 ActionsAction::make('definir_precos_exatos')
-                    ->label('Definir preços exatos')
                     ->icon('heroicon-o-pencil-square')
+                    ->tooltip('Definir preços exatos')
                     ->color('warning')
                     ->modalHeading('Definir preços exatos da categoria')
                     ->modalDescription('Aplica os mesmos valores de custo, margem e venda para todos os produtos da categoria.')
@@ -305,8 +482,8 @@ class CategoriaResource extends Resource
                             ->send();
                     }),
                 ActionsAction::make('desfazer_ultimo_reajuste')
-                    ->label('Desfazer último reajuste')
                     ->icon('heroicon-o-arrow-uturn-left')
+                    ->tooltip('Desfazer último reajuste')
                     ->color('gray')
                     ->modalHeading('Desfazer último reajuste da categoria')
                     ->modalDescription('Restaura o último lote de preços alterados por ações em massa desta categoria.')
@@ -383,6 +560,37 @@ class CategoriaResource extends Resource
                             ->success()
                             ->send();
                     }),
+                ActionsAction::make('toggle_cardapio')
+                    ->icon(fn(Categoria $record): string => $record->categoria_cardapio ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
+                    ->tooltip(fn(Categoria $record): string => $record->categoria_cardapio ? 'Remover do Cardápio' : 'Adicionar ao Cardápio')
+                    ->color(fn(Categoria $record): string => $record->categoria_cardapio ? 'warning' : 'success')
+                    ->action(function (Categoria $record) {
+                        $record->update(['categoria_cardapio' => !$record->categoria_cardapio]);
+                        
+                        $acao = $record->categoria_cardapio ? 'adicionada ao' : 'removida do';
+                        $emoji = $record->categoria_cardapio ? '👁️' : '🚫';
+                        
+                        Notification::make()
+                            ->title('Status do Cardápio Alterado')
+                            ->body("{$emoji} Categoria {$acao} cardápio com sucesso.")
+                            ->success()
+                            ->send();
+                    })
+                    ->requiresConfirmation(fn(Categoria $record): bool => $record->categoria_cardapio),
+                ActionsAction::make('ver_produtos')
+                    ->icon('heroicon-o-list-bullet')
+                    ->tooltip('Ver Produtos')
+                    ->color('info')
+                    ->modalHeading(fn(Categoria $record): string => "Produtos - {$record->categoria_nome}")
+                    ->modalContent(fn(Categoria $record) => new HtmlString(self::gerarListaProdutos($record)))
+                    ->modalWidth('2xl'),
+                ActionsAction::make('ver_historico')
+                    ->icon('heroicon-o-clock')
+                    ->tooltip('Ver Histórico')
+                    ->color('gray')
+                    ->modalHeading(fn(Categoria $record): string => "Histórico de Ajustes - {$record->categoria_nome}")
+                    ->modalContent(fn(Categoria $record) => new HtmlString(self::gerarHistoricoAjustes($record)))
+                    ->modalWidth('3xl'),
                 EditAction::make(),
                 DeleteAction::make(),
                 ForceDeleteAction::make(),
@@ -513,6 +721,92 @@ class CategoriaResource extends Resource
     private static function formatarMoeda(float|int|string|null $valor): string
     {
         return 'R$ ' . number_format((float) ($valor ?? 0), 2, ',', '.');
+    }
+
+    private static function gerarListaProdutos(Categoria $record): string
+    {
+        $produtos = $record->produtos()->get();
+
+        if ($produtos->isEmpty()) {
+            return '<div class="p-4 text-center text-gray-500"><p class="text-sm">Nenhum produto nesta categoria</p></div>';
+        }
+
+        $html = '<div class="overflow-x-auto p-4"><table class="w-full text-sm"><thead>';
+        $html .= '<tr class="border-b-2 border-gray-300"><th class="text-left p-2">Descrição</th>';
+        $html .= '<th class="text-right p-2">Custo</th><th class="text-right p-2">Margem</th>';
+        $html .= '<th class="text-right p-2">Venda</th></tr></thead><tbody>';
+
+        foreach ($produtos as $produto) {
+            $descricao = $produto->produto_descricao ?? 'Sem descrição';
+            $custo = self::formatarMoeda($produto->produto_preco_custo);
+            $margem = number_format($produto->produto_valor_percentual_venda ?? 0, 2, ',', '.') . '%';
+            $venda = self::formatarMoeda($produto->produto_preco_venda);
+
+            $html .= '<tr class="border-b border-gray-200 hover:bg-gray-50">';
+            $html .= "<td class='p-2'>{$descricao}</td>";
+            $html .= "<td class='text-right p-2'>{$custo}</td>";
+            $html .= "<td class='text-right p-2'>{$margem}</td>";
+            $html .= "<td class='text-right p-2 font-semibold'>{$venda}</td>";
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody></table></div>';
+
+        return $html;
+    }
+
+    private static function gerarHistoricoAjustes(Categoria $record): string
+    {
+        $historicos = $record->historicosPrecos()
+            ->orderBy('created_at', 'desc')
+            ->limit(50)
+            ->get();
+
+        if ($historicos->isEmpty()) {
+            return '<div class="p-4 text-center text-gray-500"><p class="text-sm">Nenhum histórico de ajustes</p></div>';
+        }
+
+        $html = '<div class="overflow-x-auto p-4"><table class="w-full text-xs">';
+        $html .= '<thead><tr class="border-b-2 border-gray-300 bg-gray-50">';
+        $html .= '<th class="text-left p-2">Data</th><th class="text-left p-2">Ação</th>';
+        $html .= '<th class="text-left p-2">Produto</th><th class="text-right p-2">Venda (Antes)</th>';
+        $html .= '<th class="text-right p-2">Venda (Depois)</th><th class="text-right p-2">Variação</th>';
+        $html .= '<th class="text-center p-2">Status</th></tr></thead><tbody>';
+
+        foreach ($historicos as $historico) {
+            $data = $historico->created_at->format('d/m/Y H:i');
+            $acao = $historico->acao === 'definir_precos_exatos' ? 'Definição Exata' : 'Ajuste em Massa';
+            $produto = $historico->produto ? $historico->produto->produto_descricao : 'Produto removido';
+            
+            $vendaAntes = self::formatarMoeda($historico->valor_antigo_venda);
+            $vendaDepois = self::formatarMoeda($historico->valor_novo_venda);
+            
+            $variacao = 0;
+            if ($historico->valor_antigo_venda && $historico->valor_novo_venda) {
+                $variacao = $historico->valor_novo_venda - $historico->valor_antigo_venda;
+            }
+            
+            $sinalVariacao = $variacao >= 0 ? '+' : '-';
+            $corVariacao = $variacao >= 0 ? 'text-green-600' : 'text-red-600';
+            $variacaoFormatada = $sinalVariacao . self::formatarMoeda(abs($variacao));
+            
+            $status = $historico->restaurado_em ? 'Desfeito' : 'Ativo';
+            $corStatus = $historico->restaurado_em ? 'text-gray-500' : 'text-green-600';
+
+            $html .= '<tr class="border-b border-gray-200 hover:bg-gray-50">';
+            $html .= "<td class='p-2'>{$data}</td>";
+            $html .= "<td class='p-2'>{$acao}</td>";
+            $html .= "<td class='p-2'>{$produto}</td>";
+            $html .= "<td class='text-right p-2'>{$vendaAntes}</td>";
+            $html .= "<td class='text-right p-2'>{$vendaDepois}</td>";
+            $html .= "<td class='text-right p-2 font-semibold {$corVariacao}'>{$variacaoFormatada}</td>";
+            $html .= "<td class='text-center p-2 {$corStatus}'>{$status}</td>";
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody></table></div>';
+
+        return $html;
     }
 
     private static function parseDecimal(mixed $value): float
