@@ -6,7 +6,7 @@
             </div>
             <div class="col-span-4 flex items-center">
                 <a class="w-full"
-                    href="https://wa.me/5564981453615">
+                    href="https://wa.me/5564981380071">
                     <x-primary-button class="w-full flex items-center justify-center space-x-1"><i
                             class='bx bxl-whatsapp'></i><span>Realizar Pedido</span></x-primary-button>
                 </a>
