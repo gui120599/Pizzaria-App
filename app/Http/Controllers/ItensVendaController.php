@@ -381,7 +381,7 @@ class ItensVendaController extends Controller
             $precoVendaExistente = (float) $itemVenda->produto->produto_preco_venda;
             $precoPromoExistente = (float) ($itemVenda->produto->produto_preco_promocional ?? 0);
             $precoEfetivoExistente = $precoPromoExistente > 0 ? $precoPromoExistente : $precoVendaExistente;
-            $descontoUnitarioExistente = $precoVendaExistente - $precoEfetivoExistente;
+            $descontoUnitarioExistente = $precoEfetivoExistente < $precoVendaExistente ? ($precoVendaExistente - $precoEfetivoExistente) : 0;
 
             $itemVenda->item_venda_quantidade += 1;
             $itemVenda->item_venda_desconto += $descontoUnitarioExistente;
@@ -401,7 +401,7 @@ class ItensVendaController extends Controller
             $precoVenda = (float) $produto->produto_preco_venda;
             $precoPromo = (float) ($produto->produto_preco_promocional ?? 0);
             $precoEfetivo = $precoPromo > 0 ? $precoPromo : $precoVenda;
-            $descontoUnitario = $precoVenda - $precoEfetivo;
+            $descontoUnitario = $precoEfetivo < $precoVenda ? ($precoVenda - $precoEfetivo) : 0;
 
             // Buscar o último número sequencial da venda
             $lastItem = ItensVenda::where('item_venda_venda_id', $venda_id)
@@ -490,8 +490,12 @@ class ItensVendaController extends Controller
         }
 
 
+        $precoBaseDesconto = ($itemVenda->produto->produto_preco_promocional > 0 && $itemVenda->produto->produto_preco_promocional > $itemVenda->produto->produto_preco_venda)
+            ? (float) $itemVenda->produto->produto_preco_promocional
+            : (float) $itemVenda->produto->produto_preco_venda;
+
         // Atualizar os valores do item com o novo desconto
-        $itemVenda->item_venda_valor_base_calculo = (($itemVenda->produto->produto_preco_venda * $itemVenda->item_venda_quantidade) - $item_venda_desconto);
+        $itemVenda->item_venda_valor_base_calculo = (($precoBaseDesconto * $itemVenda->item_venda_quantidade) - $item_venda_desconto);
         $itemVenda->item_venda_desconto = $item_venda_desconto;
         $itemVenda->item_venda_valor = $itemVenda->item_venda_valor_base_calculo;
         $itemVenda->item_venda_valor_icms = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_icms) / 100;
@@ -674,8 +678,12 @@ class ItensVendaController extends Controller
                     ->first();
                 $nextItemNumber = $lastItem ? $lastItem->item_numero + 1 : 1;
 
+                $precoBase = ($item->produto->produto_preco_promocional > 0 && $item->produto->produto_preco_promocional > $item->produto->produto_preco_venda)
+                    ? (float) $item->produto->produto_preco_promocional
+                    : (float) $item->produto->produto_preco_venda;
+
                 if ($item->item_pedido_quantidade == 0.5) {
-                    $valorUnitario = $item->produto->produto_preco_venda + $item->item_pedido_valor_adicionais;
+                    $valorUnitario = $precoBase + $item->item_pedido_valor_adicionais;
                     $valor = ($valorUnitario * $item->item_pedido_quantidade) - $item->item_pedido_desconto;
                     $itemVenda = ItensVenda::create([
                         'item_numero' => $nextItemNumber,
@@ -683,7 +691,7 @@ class ItensVendaController extends Controller
                         'item_venda_produto_id' => $item->item_pedido_produto_id,
                         'item_venda_quantidade' => $item->item_pedido_quantidade,
                         'item_venda_valor_unitario' => $valorUnitario,
-                        'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais / 2, //Divide por dois pq na tela de pedido quando a quantidade é 0.5 o valor adicional é x2 para dar o valor_total do item correto 
+                        'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais / 2, //Divide por dois pq na tela de pedido quando a quantidade é 0.5 o valor adicional é x2 para dar o valor_total do item correto
                         'item_venda_desconto' => $item->item_pedido_desconto,
                         'item_venda_valor' => $valor,
                         'item_venda_status' => 'INSERIDO',
@@ -696,23 +704,24 @@ class ItensVendaController extends Controller
                         'item_venda_valor_total_tributos' => ($item->item_pedido_valor * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
                     ]);
                 } else {
+                    $valorEfetivo = $item->item_pedido_valor - $item->item_pedido_desconto + $item->item_pedido_valor_adicionais;
                     $itemVenda = ItensVenda::create([
                         'item_numero' => $nextItemNumber,
                         'item_venda_venda_id' => $venda_id,
                         'item_venda_produto_id' => $item->item_pedido_produto_id,
                         'item_venda_quantidade' => $item->item_pedido_quantidade,
-                        'item_venda_valor_unitario' => $item->produto->produto_preco_venda,
+                        'item_venda_valor_unitario' => $item->item_pedido_valor_unitario,
                         'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais,
                         'item_venda_desconto' => $item->item_pedido_desconto,
-                        'item_venda_valor' => ($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto + $item->item_pedido_valor_adicionais,
+                        'item_venda_valor' => $valorEfetivo,
                         'item_venda_status' => 'INSERIDO',
                         'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
                         'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,
-                        'item_venda_valor_base_calculo' => $item->item_pedido_valor,
-                        'item_venda_valor_icms' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100,
-                        'item_venda_valor_pis' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_pis) / 100,
-                        'item_venda_valor_cofins' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_cofins) / 100,
-                        'item_venda_valor_total_tributos' => ($item->item_pedido_valor * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
+                        'item_venda_valor_base_calculo' => $valorEfetivo,
+                        'item_venda_valor_icms' => ($valorEfetivo * $item->produto->produto_valor_percentual_icms) / 100,
+                        'item_venda_valor_pis' => ($valorEfetivo * $item->produto->produto_valor_percentual_pis) / 100,
+                        'item_venda_valor_cofins' => ($valorEfetivo * $item->produto->produto_valor_percentual_cofins) / 100,
+                        'item_venda_valor_total_tributos' => ($valorEfetivo * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
                     ]);
                 }
             }

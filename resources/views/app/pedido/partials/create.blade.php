@@ -499,8 +499,8 @@
             const item_pedido_quantidade = 1;
             const precoVenda = parseFloat(elemento.data('produto_valor')) || 0;
             const precoPromo = parseFloat(elemento.data('produto_preco_promocional')) || 0;
-            const item_pedido_valor = precoVenda;
-            const item_pedido_desconto = precoPromo > 0 ? (precoVenda - precoPromo) : 0;
+            const item_pedido_valor = (precoPromo > 0 && precoPromo > precoVenda) ? precoPromo : precoVenda;
+            const item_pedido_desconto = (precoPromo > 0 && precoPromo < precoVenda) ? (precoVenda - precoPromo) : 0;
 
             $.ajax({
                 type: "POST",
@@ -542,8 +542,8 @@
             const item_pedido_quantidade = 1;
             const precoVenda = parseFloat(elemento.data('produto_valor')) || 0;
             const precoPromo = parseFloat(elemento.data('produto_preco_promocional')) || 0;
-            const item_pedido_valor = precoVenda;
-            const item_pedido_desconto = precoPromo > 0 ? (precoVenda - precoPromo) : 0;
+            const item_pedido_valor = (precoPromo > 0 && precoPromo > precoVenda) ? precoPromo : precoVenda;
+            const item_pedido_desconto = (precoPromo > 0 && precoPromo < precoVenda) ? (precoVenda - precoPromo) : 0;
             $.ajax({
                 type: "POST",
                 url: "{{ route('item_pedido.store') }}",
@@ -814,7 +814,8 @@
                         const item_adicionais = parseFloat($("#item_pedido_valor_adicionais_" + id).val()) || 0;
                         const produto_preco_venda = parseFloat($(this).data('produto_preco_venda')) || 0;
                         const produto_preco_promocional = parseFloat($(this).data('produto_preco_promocional')) || 0;
-                        const desconto_unitario = produto_preco_promocional > 0 ? (produto_preco_venda - produto_preco_promocional) : 0;
+                        const produto_preco_base = (produto_preco_promocional > 0 && produto_preco_promocional > produto_preco_venda) ? produto_preco_promocional : produto_preco_venda;
+                        const desconto_unitario = (produto_preco_promocional > 0 && produto_preco_promocional < produto_preco_venda) ? (produto_preco_venda - produto_preco_promocional) : 0;
 
                         // Obtém o elemento de entrada de quantidade
                         var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
@@ -841,15 +842,15 @@
                         // Atualiza a quantidade da vizualização
                         if (currentValue === 0.33) {
                             $("#item_qtd_view_" + id).html('Um Terço');
-                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor = (currentValue * produto_preco_base + item_adicionais).toFixed(2);
                             item_pedido_valor_unitario = item_pedido_valor;
                         } else if (item_pedido_quantidade === 0.5) {
                             $("#item_qtd_view_" + id).html('Meia');
-                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor = (currentValue * produto_preco_base + item_adicionais).toFixed(2);
                             item_pedido_valor_unitario = item_pedido_valor;
                         } else {
                             $("#item_qtd_view_" + id).html(item_pedido_quantidade);
-                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor = (currentValue * produto_preco_base + item_adicionais).toFixed(2);
                             item_pedido_valor_unitario = (parseFloat(item_pedido_valor) / currentValue).toFixed(2);
                         }
 
@@ -918,7 +919,8 @@
                         const item_adicionais = parseFloat($("#item_pedido_valor_adicionais_" + id).val()) || 0;
                         const produto_preco_venda = parseFloat($(this).data('produto_preco_venda')) || 0;
                         const produto_preco_promocional = parseFloat($(this).data('produto_preco_promocional')) || 0;
-                        const desconto_unitario = produto_preco_promocional > 0 ? (produto_preco_venda - produto_preco_promocional) : 0;
+                        const produto_preco_base = (produto_preco_promocional > 0 && produto_preco_promocional > produto_preco_venda) ? produto_preco_promocional : produto_preco_venda;
+                        const desconto_unitario = (produto_preco_promocional > 0 && produto_preco_promocional < produto_preco_venda) ? (produto_preco_venda - produto_preco_promocional) : 0;
 
                         // Obtém o elemento de entrada de quantidade
                         var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
@@ -945,15 +947,15 @@
                         // Atualiza a quantidade da vizualização
                         if (currentValue === 0.33) {
                             $("#item_qtd_view_" + id).html('Um Terço');
-                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor = (currentValue * produto_preco_base + item_adicionais).toFixed(2);
                             item_pedido_valor_unitario = item_pedido_valor;
                         } else if (currentValue === 0.5) {
                             $("#item_qtd_view_" + id).html('Meia');
-                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor = (currentValue * produto_preco_base + item_adicionais).toFixed(2);
                             item_pedido_valor_unitario = item_pedido_valor;
                         } else {
                             $("#item_qtd_view_" + id).html(item_pedido_quantidade);
-                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor = (currentValue * produto_preco_base + item_adicionais).toFixed(2);
                             item_pedido_valor_unitario = (parseFloat(item_pedido_valor) / currentValue).toFixed(2);
                         }
 

@@ -404,8 +404,8 @@
             const item_pedido_quantidade = 1;
             const precoVenda = parseFloat(elemento.data('produto_valor')) || 0;
             const precoPromo = parseFloat(elemento.data('produto_preco_promocional')) || 0;
-            const item_pedido_valor = precoVenda;
-            const item_pedido_desconto = precoPromo > 0 ? (precoVenda - precoPromo) : 0;
+            const item_pedido_valor = (precoPromo > 0 && precoPromo > precoVenda) ? precoPromo : precoVenda;
+            const item_pedido_desconto = (precoPromo > 0 && precoPromo < precoVenda) ? (precoVenda - precoPromo) : 0;
             const item_pedido_status = 'INSERIDO';
             $.ajax({
                 type: "POST",
@@ -447,8 +447,8 @@
             const item_pedido_quantidade = 1;
             const precoVenda = parseFloat(elemento.data('produto_valor')) || 0;
             const precoPromo = parseFloat(elemento.data('produto_preco_promocional')) || 0;
-            const item_pedido_valor = precoVenda;
-            const item_pedido_desconto = precoPromo > 0 ? (precoVenda - precoPromo) : 0;
+            const item_pedido_valor = (precoPromo > 0 && precoPromo > precoVenda) ? precoPromo : precoVenda;
+            const item_pedido_desconto = (precoPromo > 0 && precoPromo < precoVenda) ? (precoVenda - precoPromo) : 0;
             const item_pedido_status = 'INSERIDO';
             $.ajax({
                 type: "POST",
@@ -719,7 +719,8 @@
                             0;
                         const produto_preco_venda = parseFloat($(this).data('produto_preco_venda')) || 0;
                         const produto_preco_promocional = parseFloat($(this).data('produto_preco_promocional')) || 0;
-                        const desconto_unitario = produto_preco_promocional > 0 ? (produto_preco_venda - produto_preco_promocional) : 0;
+                        const produto_preco_base = (produto_preco_promocional > 0 && produto_preco_promocional > produto_preco_venda) ? produto_preco_promocional : produto_preco_venda;
+                        const desconto_unitario = (produto_preco_promocional > 0 && produto_preco_promocional < produto_preco_venda) ? (produto_preco_venda - produto_preco_promocional) : 0;
                         // Obtém o elemento de entrada de quantidade
                         var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
 
@@ -740,13 +741,13 @@
                         // Atualiza a quantidade da vizualização
                         if (item_pedido_quantidade === 0.5) {
                             $("#item_qtd_view_" + id).html('Meia');
-                            var item_pedido_valor = (currentValue * produto_preco_venda) + item_adicionais;
+                            var item_pedido_valor = (currentValue * produto_preco_base) + item_adicionais;
                             var item_pedido_valor_unitario = item_pedido_valor;
                             item_pedido_valor = item_pedido_valor.toFixed(
                                 2); // Limita a duas casas decimais
                         } else {
                             $("#item_qtd_view_" + id).html(item_pedido_quantidade);
-                            var item_pedido_valor = (currentValue * produto_preco_venda) + item_adicionais;
+                            var item_pedido_valor = (currentValue * produto_preco_base) + item_adicionais;
                             var item_pedido_valor_unitario = (item_pedido_valor / currentValue).toFixed(
                                 2);
                             item_pedido_valor = item_pedido_valor.toFixed(
@@ -827,7 +828,8 @@
 
                         const produto_preco_venda = parseFloat($(this).data('produto_preco_venda')) || 0;
                         const produto_preco_promocional = parseFloat($(this).data('produto_preco_promocional')) || 0;
-                        const desconto_unitario = produto_preco_promocional > 0 ? (produto_preco_venda - produto_preco_promocional) : 0;
+                        const produto_preco_base = (produto_preco_promocional > 0 && produto_preco_promocional > produto_preco_venda) ? produto_preco_promocional : produto_preco_venda;
+                        const desconto_unitario = (produto_preco_promocional > 0 && produto_preco_promocional < produto_preco_venda) ? (produto_preco_venda - produto_preco_promocional) : 0;
 
                         // Obtém o elemento de entrada de quantidade
                         var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
@@ -849,13 +851,13 @@
                         // Atualiza a quantidade da vizualização
                         if (item_pedido_quantidade === 0.5) {
                             $("#item_qtd_view_" + id).html('Meia');
-                            var item_pedido_valor = currentValue * produto_preco_venda + item_adicionais;
+                            var item_pedido_valor = currentValue * produto_preco_base + item_adicionais;
                             var item_pedido_valor_unitario = item_pedido_valor;
                             item_pedido_valor = item_pedido_valor.toFixed(
                                 2); // Limita a duas casas decimais
                         } else {
                             $("#item_qtd_view_" + id).html(item_pedido_quantidade);
-                            var item_pedido_valor = currentValue * produto_preco_venda + item_adicionais;
+                            var item_pedido_valor = currentValue * produto_preco_base + item_adicionais;
                             var item_pedido_valor_unitario = (item_pedido_valor / currentValue).toFixed(
                                 2);
                             item_pedido_valor = item_pedido_valor.toFixed(

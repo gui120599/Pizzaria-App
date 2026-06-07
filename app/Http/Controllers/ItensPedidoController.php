@@ -107,7 +107,8 @@ class ItensPedidoController extends Controller
 
         $precoVenda = (float) $itemPedido->produto->produto_preco_venda;
         $precoPromo = (float) ($itemPedido->produto->produto_preco_promocional ?? 0);
-        $descontoUnitario = $precoPromo > 0 ? ($precoVenda - $precoPromo) : 0;
+        $precoBase = ($precoPromo > 0 && $precoPromo > $precoVenda) ? $precoPromo : $precoVenda;
+        $descontoUnitario = ($precoPromo > 0 && $precoPromo < $precoVenda) ? ($precoVenda - $precoPromo) : 0;
 
         if (!$adicionaisItemPedido->isEmpty()) {
             $novaQuantidade = $request->input('item_pedido_quantidade');
@@ -130,17 +131,17 @@ class ItensPedidoController extends Controller
                 $itemPedido->update([
                     'item_pedido_quantidade' => $qtd,
                     'item_pedido_valor_adicionais' => $valorTotalAdicionais * 2,
-                    'item_pedido_valor_unitario' => ($precoVenda * $qtd) + $valorTotalAdicionais,
+                    'item_pedido_valor_unitario' => ($precoBase * $qtd) + $valorTotalAdicionais,
                     'item_pedido_desconto' => round($descontoUnitario * $qtd, 2),
-                    'item_pedido_valor' => ($precoVenda * $qtd) + $valorTotalAdicionais,
+                    'item_pedido_valor' => ($precoBase * $qtd) + $valorTotalAdicionais,
                 ]);
             } else {
                 $itemPedido->update([
                     'item_pedido_quantidade' => $qtd,
                     'item_pedido_valor_adicionais' => $valorTotalAdicionais,
-                    'item_pedido_valor_unitario' => (($precoVenda * $qtd) + $valorTotalAdicionais) / $qtd,
+                    'item_pedido_valor_unitario' => (($precoBase * $qtd) + $valorTotalAdicionais) / $qtd,
                     'item_pedido_desconto' => round($descontoUnitario * $qtd, 2),
-                    'item_pedido_valor' => ($precoVenda * $qtd) + $valorTotalAdicionais,
+                    'item_pedido_valor' => ($precoBase * $qtd) + $valorTotalAdicionais,
                 ]);
             }
 
