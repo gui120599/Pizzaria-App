@@ -94,7 +94,9 @@
                                                 <span class="text-gray-400 text-xs">Codimentos: {{ $produto->produto_codimentacao }}</span>
                                             </div>
                                             <div class="flex flex-col">
-                                                <span class="text-gray-400 text-xs line-through">DE: R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                @if ($produto->produto_preco_promocional < $produto->produto_preco_venda)
+                                                    <span class="text-gray-400 text-xs line-through">DE: R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                @endif
                                                 <span class="text-green-400 text-lg font-bold">POR: R${{ str_replace('.', ',', $produto->produto_preco_promocional) }}</span>
                                             </div>
                                         </div>
@@ -164,7 +166,9 @@
                                             </div>
                                             <div class="flex flex-col">
                                                 @if ($produto->produto_preco_promocional > 0)
-                                                    <span class="text-gray-400 text-xs line-through">DE: R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                    @if ($produto->produto_preco_promocional < $produto->produto_preco_venda)
+                                                        <span class="text-gray-400 text-xs line-through">DE: R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                    @endif
                                                     <span class="text-green-400 text-lg font-bold">POR: R${{ str_replace('.', ',', $produto->produto_preco_promocional) }}</span>
                                                 @else
                                                     <span class="text-white text-lg font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
@@ -225,7 +229,9 @@
 
                                                 <div class="flex flex-col">
                                                     @if ($produto->produto_preco_promocional > 0)
-                                                        <span class="text-gray-400 text-xs line-through">DE: R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                        @if ($produto->produto_preco_promocional < $produto->produto_preco_venda)
+                                                            <span class="text-gray-400 text-xs line-through">DE: R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                        @endif
                                                         <span class="text-green-400 text-lg font-bold">POR: R${{ str_replace('.', ',', $produto->produto_preco_promocional) }}</span>
                                                     @else
                                                         <span class="text-white text-lg font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
