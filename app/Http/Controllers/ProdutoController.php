@@ -92,7 +92,17 @@ class ProdutoController extends Controller
      */
     public function show(Produto $produto)
     {
-        return view('app.produto.show', ['produto' => $produto]);
+        $top10Ids = Produto::where('produto_destaque_mais_vendidos', true)
+            ->where('produto_qtd_vendas', '>', 0)
+            ->orderByDesc('produto_qtd_vendas')
+            ->limit(10)
+            ->pluck('id')
+            ->all();
+
+        return view('app.produto.show', [
+            'produto' => $produto,
+            'ehMaisVendido' => in_array($produto->id, $top10Ids),
+        ]);
     }
 
     /**

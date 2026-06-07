@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AdicionaisItemPedido;
 use App\Models\ItensPedido;
+use App\Models\Produto;
 use App\Http\Requests\StoreItensPedidoRequest;
 use App\Http\Requests\UpdateItensPedidoRequest;
 use Illuminate\Http\Request;
@@ -15,20 +16,21 @@ class ItensPedidoController extends Controller
      */
     public function store(StoreItensPedidoRequest $request)
     {
-        // Criar um novo item de pedido com base nos dados recebidos
+        $desconto = (float) $request->input('item_pedido_desconto', 0);
+
         $itemPedido = new ItensPedido([
             'item_pedido_produto_id' => $request->input('item_pedido_produto_id'),
             'item_pedido_pedido_id' => $request->input('item_pedido_pedido_id'),
             'item_pedido_quantidade' => $request->input('item_pedido_quantidade'),
             'item_pedido_valor_unitario' => $request->input('item_pedido_valor'),
-            'item_pedido_desconto' => '0.00',
+            'item_pedido_desconto' => $desconto,
             'item_pedido_valor' => $request->input('item_pedido_valor')
         ]);
 
-        // Salvar o item de pedido no banco de dados
         $itemPedido->save();
 
-        // Retornar uma resposta de sucesso
+        Produto::where('id', $request->input('item_pedido_produto_id'))->increment('produto_qtd_vendas');
+
         return response()->json(['message' => 'Item de pedido criado com sucesso'], 200);
     }
 
@@ -100,14 +102,14 @@ class ItensPedidoController extends Controller
      */
     public function AtualizarQtdValor(UpdateItensPedidoRequest $request)
     {
-
-        // Encontrar o item de pedido pelo ID
         $itemPedido = ItensPedido::findOrFail($request->id);
         $adicionaisItemPedido = AdicionaisItemPedido::where('aip_item_pedido_id', $request->id)->get();
 
-        if (!$adicionaisItemPedido->isEmpty()) {
+        $precoVenda = (float) $itemPedido->produto->produto_preco_venda;
+        $precoPromo = (float) ($itemPedido->produto->produto_preco_promocional ?? 0);
+        $descontoUnitario = $precoPromo > 0 ? ($precoVenda - $precoPromo) : 0;
 
-            // Atualizar a quantidade dos adicionais para coincidir com a quantidade do item do pedido
+        if (!$adicionaisItemPedido->isEmpty()) {
             $novaQuantidade = $request->input('item_pedido_quantidade');
             if ($novaQuantidade == 0.5) {
                 $novaQuantidade = 1;
@@ -120,51 +122,44 @@ class ItensPedidoController extends Controller
                 ]);
             }
 
-            // Recarregar o array com os valores atualizados
             $adicionaisItemPedido = $itemPedido->adicionaisItemPedido()->get();
-
-            // Somar os valores totais dos adicionais, se existirem
             $valorTotalAdicionais = $adicionaisItemPedido->sum('aip_valor_total');
+            $qtd = (float) $request->input('item_pedido_quantidade');
 
-            if ($request->input('item_pedido_quantidade') == 0.5) {
-                // Atualizar os campos do item de pedido
+            if ($qtd == 0.5) {
                 $itemPedido->update([
-                    'item_pedido_quantidade' => $request->input('item_pedido_quantidade'),
+                    'item_pedido_quantidade' => $qtd,
                     'item_pedido_valor_adicionais' => $valorTotalAdicionais * 2,
-                    'item_pedido_valor_unitario' => (($itemPedido->produto->produto_preco_venda * $request->input('item_pedido_quantidade')) + $valorTotalAdicionais),
-                    'item_pedido_valor' => ($itemPedido->produto->produto_preco_venda * $request->input('item_pedido_quantidade')) + $valorTotalAdicionais,
+                    'item_pedido_valor_unitario' => ($precoVenda * $qtd) + $valorTotalAdicionais,
+                    'item_pedido_desconto' => round($descontoUnitario * $qtd, 2),
+                    'item_pedido_valor' => ($precoVenda * $qtd) + $valorTotalAdicionais,
                 ]);
             } else {
-                // Atualizar os campos do item de pedido
                 $itemPedido->update([
-                    'item_pedido_quantidade' => $request->input('item_pedido_quantidade'),
+                    'item_pedido_quantidade' => $qtd,
                     'item_pedido_valor_adicionais' => $valorTotalAdicionais,
-                    'item_pedido_valor_unitario' => (($itemPedido->produto->produto_preco_venda * $request->input('item_pedido_quantidade')) + $valorTotalAdicionais) / $request->input('item_pedido_quantidade'),
-                    'item_pedido_valor' => ($itemPedido->produto->produto_preco_venda * $request->input('item_pedido_quantidade')) + $valorTotalAdicionais,
+                    'item_pedido_valor_unitario' => (($precoVenda * $qtd) + $valorTotalAdicionais) / $qtd,
+                    'item_pedido_desconto' => round($descontoUnitario * $qtd, 2),
+                    'item_pedido_valor' => ($precoVenda * $qtd) + $valorTotalAdicionais,
                 ]);
             }
 
             $itemPedido->load('adicionaisItemPedido');
 
-            // Retornar uma resposta de sucesso
             return response()->json(['message' => 'Atualização de quantidade e valor bem-sucedida 1', 'itemPedido' => $itemPedido], 200);
         }
 
-
-
-        // Atualizar os campos do item de pedido
+        $qtd = (float) $request->input('item_pedido_quantidade');
         $itemPedido->update([
-            'item_pedido_quantidade' => $request->input('item_pedido_quantidade'),
+            'item_pedido_quantidade' => $qtd,
             'item_pedido_valor_unitario' => $request->input('item_pedido_valor_unitario'),
+            'item_pedido_desconto' => round($descontoUnitario * $qtd, 2),
             'item_pedido_valor' => $request->input('item_pedido_valor'),
         ]);
 
         $itemPedido->load('adicionaisItemPedido');
 
-        // Retornar uma resposta de sucesso
         return response()->json(['message' => 'Atualização de quantidade e valor bem-sucedida 2!', 'itemPedido' => $itemPedido], 200);
-
-        //return response()->json($itemPedido);
     }
 
 

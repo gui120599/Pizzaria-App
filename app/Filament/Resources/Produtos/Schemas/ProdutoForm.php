@@ -120,6 +120,13 @@ class ProdutoForm
                                 ->columnSpan(2)
                                 ->helperText('Visível para clientes'),
 
+                            Toggle::make('produto_destaque_mais_vendidos')
+                                ->label('Exibir em Mais Vendidos?')
+                                ->inline()
+                                ->columnSpan(2)
+                                ->default(true)
+                                ->helperText('Aparece na seção de mais vendidos'),
+
                             Select::make('produto_unidade_comercial')
                                 ->label('Unidade de Venda')
                                 ->options(
@@ -262,8 +269,7 @@ class ProdutoForm
                                 ->prefix('R$')
                                 ->reactive()
                                 ->columnSpan(1)
-                                ->visible(fn($get) => $get('produto_data_inicio_promocao') && $get('produto_data_final_promocao'))
-                                ->helperText('Preço da promoção'),
+                                ->helperText('Deixe vazio para desativar a promoção'),
                         ]),
                 ]),
 

@@ -29,10 +29,29 @@
                             {{ $produto->produto_codimentacao }}</span>
                     </div>
 
-                    <div class="flex items-center">
-                        <span
-                            class="text-white text-lg font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                    <div class="flex gap-2 flex-wrap">
+                        @if ($ehMaisVendido ?? false)
+                            <span class="bg-yellow-500 text-white text-xs font-bold px-2 py-0.5 rounded uppercase flex items-center gap-1">
+                                <i class='bx bxs-star text-xs'></i> Mais Vendido
+                            </span>
+                        @endif
+                        @if ($produto->produto_preco_promocional > 0)
+                            <span class="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded uppercase flex items-center gap-1">
+                                <i class='bx bxs-purchase-tag text-xs'></i> Em Promoção
+                            </span>
+                        @endif
                     </div>
+
+                    @if ($produto->produto_preco_promocional > 0)
+                    <div class="flex flex-col">
+                        <span class="text-gray-400 text-sm line-through">DE: R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                        <span class="text-green-400 text-2xl font-bold">POR: R${{ str_replace('.', ',', $produto->produto_preco_promocional) }}</span>
+                    </div>
+                    @else
+                    <div class="flex items-center">
+                        <span class="text-white text-lg font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                    </div>
+                    @endif
                     <a class="w-full"
                         href="https://web.whatsapp.com/send?phone=5564981453615&text=Ol%C3%A1%21+Gostaria+de+realizar+um+pedido%F0%9F%98%81">
                         <x-primary-button class="w-full flex items-center justify-center space-x-1"><i

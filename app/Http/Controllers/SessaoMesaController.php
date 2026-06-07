@@ -119,15 +119,33 @@ class SessaoMesaController extends Controller
         $opcoes_entregas = OpcoesEntregas::all();
         $produtos = Produto::all();
         $categorias = Categoria::orderByRaw("
-            CASE 
-                WHEN categoria_nome LIKE 'Pi%' THEN 0 
-                ELSE 1 
+            CASE
+                WHEN categoria_nome LIKE 'Pi%' THEN 0
+                ELSE 1
             END, categoria_nome
         ")->get();
         $sessaoMesaId = $sessaoMesa->id;
 
         $pedidos = Pedido::with('produtosInseridosPedido', 'sessaoMesa')->where('pedido_sessao_mesa_id', $sessaoMesaId)->where('pedido_status', '<>', 'CANCELADO')->get();
 
+        $top10Ids = Produto::where('produto_destaque_mais_vendidos', true)
+            ->where('produto_qtd_vendas', '>', 0)
+            ->orderByDesc('produto_qtd_vendas')
+            ->limit(10)
+            ->pluck('id')
+            ->all();
+
+        $promocoes = Produto::where('produto_preco_promocional', '>', 0)
+            ->with('categoria')
+            ->orderByDesc('produto_qtd_vendas')
+            ->get();
+
+        $maisVendidos = Produto::where('produto_qtd_vendas', '>', 0)
+            ->where('produto_destaque_mais_vendidos', true)
+            ->with('categoria')
+            ->orderByDesc('produto_qtd_vendas')
+            ->limit(8)
+            ->get();
 
         return view(
             'app.sessao_mesa.pedido_mesa',
@@ -138,7 +156,10 @@ class SessaoMesaController extends Controller
                 'opcoes_pagamento' => $opcoes_pagamento,
                 'produtos' => $produtos,
                 'categorias' => $categorias,
-                'pedidos' => $pedidos
+                'pedidos' => $pedidos,
+                'promocoes' => $promocoes,
+                'maisVendidos' => $maisVendidos,
+                'top10Ids' => $top10Ids,
             ]
         );
     }

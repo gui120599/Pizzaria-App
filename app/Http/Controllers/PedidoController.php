@@ -30,11 +30,30 @@ class PedidoController extends Controller
         $produtos = Produto::all();
         // Ordena as categorias: primeiro as que começam com 'P', depois as demais em ordem alfabética
         $categorias = Categoria::orderByRaw("
-            CASE 
-                WHEN categoria_nome LIKE 'Pi%' THEN 0 
-                ELSE 1 
+            CASE
+                WHEN categoria_nome LIKE 'Pi%' THEN 0
+                ELSE 1
             END, categoria_nome
         ")->get();
+
+        $top10Ids = Produto::where('produto_destaque_mais_vendidos', true)
+            ->where('produto_qtd_vendas', '>', 0)
+            ->orderByDesc('produto_qtd_vendas')
+            ->limit(10)
+            ->pluck('id')
+            ->all();
+
+        $promocoes = Produto::where('produto_preco_promocional', '>', 0)
+            ->with('categoria')
+            ->orderByDesc('produto_qtd_vendas')
+            ->get();
+
+        $maisVendidos = Produto::where('produto_qtd_vendas', '>', 0)
+            ->where('produto_destaque_mais_vendidos', true)
+            ->with('categoria')
+            ->orderByDesc('produto_qtd_vendas')
+            ->limit(8)
+            ->get();
 
         return view('app.pedido.index', [
             'pedidos' => $pedidos,
@@ -42,7 +61,10 @@ class PedidoController extends Controller
             'opcoes_entregas' => $opcoes_entregas,
             'opcoes_pagamento' => $opcoes_pagamento,
             'produtos' => $produtos,
-            'categorias' => $categorias
+            'categorias' => $categorias,
+            'promocoes' => $promocoes,
+            'maisVendidos' => $maisVendidos,
+            'top10Ids' => $top10Ids,
         ]);
     }
 

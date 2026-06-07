@@ -46,6 +46,8 @@ class Produto extends Model
         'produto_data_final_promocao',
         'produto_quantidade_minima',
         'produto_quantidade_maxima',
+        'produto_qtd_vendas',
+        'produto_destaque_mais_vendidos',
     ];
 
 

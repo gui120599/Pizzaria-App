@@ -20,6 +20,20 @@
                         <div class="flex flex-col mb-4">
                             <x-text-input id="buscar" class="" placeholder="Buscar Produtos"></x-text-input>
                             <div class="hidden md:flex gap-2 overflow-auto p-1">
+                                @if (isset($promocoes) && $promocoes->isNotEmpty())
+                                    <button type="button"
+                                        class="rolarCategoria inline-flex items-center gap-1 bg-orange-500 border p-1 border-orange-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest shadow-sm hover:bg-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                                        onclick="scrollToElement('secao_promocoes')">
+                                        <i class='bx bxs-purchase-tag'></i> Promoções
+                                    </button>
+                                @endif
+                                @if (isset($maisVendidos) && $maisVendidos->isNotEmpty())
+                                    <button type="button"
+                                        class="rolarCategoria inline-flex items-center gap-1 bg-yellow-500 border p-1 border-yellow-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest shadow-sm hover:bg-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                                        onclick="scrollToElement('secao_mais_vendidos')">
+                                        <i class='bx bxs-star'></i> + Vendidos
+                                    </button>
+                                @endif
                                 @foreach ($categorias as $categoria)
                                     <button type="button"
                                         class="rolarCategoria inline-flex items-center bg-gray-200 border p-1 border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
@@ -32,6 +46,7 @@
                     </div>
 
                     <div class="overflow-auto snap-y" id="produtos-container">
+                        @include('app.produto.partials._secoes_destaque')
                         @foreach ($categorias as $categoria)
                             <div class="mb-4 cate" id="categoria_{{ $categoria->id }}">
                                 <h2 class="text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
@@ -44,30 +59,32 @@
                                             <div class="relative snap-end">
                                                 <div class="produto cursor-pointer hover:shadow-lg"
                                                     data-produto_id="{{ $produto->id }}"
-                                                    data-produto_valor="{{ $produto->produto_preco_venda }}">
+                                                    data-produto_valor="{{ $produto->produto_preco_venda }}"
+                                                    data-produto_preco_promocional="{{ $produto->produto_preco_promocional ?? 0 }}">
                                                     <div
                                                         class="w-full flex flex-col bg-gray-100 p-2 rounded-lg opacity-95 hover:opacity-100 gap-1 justify-stretch max-h-40">
-                                                        {{-- <div class="w-full ">
-                                                            @if ($produto->produto_foto)
-                                                                <img src="{{ $produto->getImagemUrl() }}"
-                                                                    alt="{{ $produto->produtso_descricao }}"
-                                                                    class="w-full max-h-16 object-cover rounded-lg ">
-                                                            @else
-                                                                <img id="imagem-preview"
-                                                                    class="w-full max-h-16 object-cover rounded-lg "
-                                                                    src="{{ asset('Sem Imagem.png') }}"
-                                                                    alt="Imagem Padrão">
-                                                            @endif
-                                                        </div> --}}
                                                         <div class="max-h-24 flex flex-col justify-between">
+                                                            <div class="flex gap-1 flex-wrap">
+                                                                @if ($produto->produto_preco_promocional > 0)
+                                                                    <span class="text-[10px] bg-orange-500 text-white px-1 rounded font-bold flex items-center gap-0.5"><i class='bx bxs-purchase-tag text-xs'></i> PROMO</span>
+                                                                @endif
+                                                                @if (in_array($produto->id, $top10Ids ?? []))
+                                                                    <span class="text-[10px] bg-yellow-500 text-white px-1 rounded font-bold flex items-center gap-0.5"><i class='bx bxs-star text-xs'></i> +VENDIDO</span>
+                                                                @endif
+                                                            </div>
                                                             <p
                                                                 class="text-gray-900 font-bold text-sm md:text-xs uppercase produto_descricao">
                                                                 {{ $produto->categoria->categoria_nome }}
                                                                 {{ $produto->produto_descricao }}
                                                             </p>
-                                                            <span class="text-green-500 text-xl">
-                                                                R${{ str_replace('.', ',', $produto->produto_preco_venda) }}
-                                                            </span>
+                                                            @if ($produto->produto_preco_promocional > 0)
+                                                                <span class="text-gray-400 line-through text-sm leading-none">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                                <span class="text-orange-500 text-xl font-bold leading-tight">R${{ str_replace('.', ',', $produto->produto_preco_promocional) }}</span>
+                                                            @else
+                                                                <span class="text-green-500 text-xl">
+                                                                    R${{ str_replace('.', ',', $produto->produto_preco_venda) }}
+                                                                </span>
+                                                            @endif
                                                         </div>
                                                     </div>
                                                 </div>
@@ -480,8 +497,10 @@
             const item_pedido_produto_id = elemento.data('produto_id');
             const item_pedido_pedido_id = pedido_id;
             const item_pedido_quantidade = 1;
-            const item_pedido_valor = elemento.data('produto_valor');
-            const item_pedido_status = 'INSERIDO';
+            const precoVenda = parseFloat(elemento.data('produto_valor')) || 0;
+            const precoPromo = parseFloat(elemento.data('produto_preco_promocional')) || 0;
+            const item_pedido_valor = precoVenda;
+            const item_pedido_desconto = precoPromo > 0 ? (precoVenda - precoPromo) : 0;
 
             $.ajax({
                 type: "POST",
@@ -491,6 +510,7 @@
                     item_pedido_pedido_id,
                     item_pedido_quantidade,
                     item_pedido_valor,
+                    item_pedido_desconto,
                     '_token': '{{ csrf_token() }}'
                 },
                 dataType: "json",
@@ -520,8 +540,10 @@
             const item_pedido_produto_id = elemento.data('produto_id');
             const item_pedido_pedido_id = $("#pedido_id").val();
             const item_pedido_quantidade = 1;
-            const item_pedido_valor = elemento.data('produto_valor');
-            const item_pedido_status = 'INSERIDO';
+            const precoVenda = parseFloat(elemento.data('produto_valor')) || 0;
+            const precoPromo = parseFloat(elemento.data('produto_preco_promocional')) || 0;
+            const item_pedido_valor = precoVenda;
+            const item_pedido_desconto = precoPromo > 0 ? (precoVenda - precoPromo) : 0;
             $.ajax({
                 type: "POST",
                 url: "{{ route('item_pedido.store') }}",
@@ -530,6 +552,7 @@
                     item_pedido_pedido_id,
                     item_pedido_quantidade,
                     item_pedido_valor,
+                    item_pedido_desconto,
                     '_token': '{{ csrf_token() }}'
                 },
                 dataType: "json",
@@ -615,6 +638,7 @@
                             }
 
                             // Crie o HTML para o item de pedido e o produto associado
+                            var promoDesconto = parseFloat(item.item_pedido_desconto) || 0;
                             var itemHtml = `
                                 <div class="border-y px-2 py-1 cursor-pointer hover:bg-gray-200" data-item_pedido_id="${item.id}" data-adicionais="${adicionaisItem}" data-item_pedido_quantidade="${item.item_pedido_quantidade}" data-item_produto_id="${item.produto.id}">
                                     <div class="grid grid-cols-6 items-center">
@@ -632,7 +656,11 @@
                                                 alt="Imagem Padrão">`;
 }
                             itemHtml += `
-                                            <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.categoria.categoria_nome} ${item.produto.produto_descricao}<p>R$ <span id="item_valor_view_${item.id}">${item.item_pedido_valor}</span> Qtd. <span id="item_qtd_view_${item.id}">${item.item_pedido_quantidade}</span></p></span>
+                                            <span id="produto_nome_${item.id}" class="truncate overflow-ellipsis text-sm">${item.produto.categoria.categoria_nome} ${item.produto.produto_descricao}
+                                                <p>R$ <span id="item_valor_view_${item.id}">${item.item_pedido_valor}</span> Qtd. <span id="item_qtd_view_${item.id}">${item.item_pedido_quantidade}</span>
+                                                ${promoDesconto > 0 ? `<span class="ml-1 text-xs bg-orange-500 text-white px-1 rounded">PROMO -R$<span id="item_desconto_view_${item.id}">${promoDesconto.toFixed(2)}</span></span>` : `<span id="item_desconto_view_${item.id}" class="hidden">${promoDesconto.toFixed(2)}</span>`}
+                                                </p>
+                                            </span>
                                         </div>
                                         <span data-item_id="${item.id}" class="col-span-6 mx-auto toogle_item p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
                                             <i class="bx bx-chevron-up "></i>
@@ -643,14 +671,14 @@
                                         <div class="flex items-stretch justify-evenly">
                                             <button type="button" id="minus-btn"
                                                 class="minus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">-</button>
+                                                data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}" data-produto_preco_promocional="${item.produto.produto_preco_promocional || 0}">-</button>
                                             <input type="text" id="item_pedido_quantidade_${item.id}" name="item_pedido_quantidade"
                                                 value="${item.item_pedido_quantidade}"
                                                 class="w-20 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
                                                 readonly>
                                             <button type="button" id="plus-btn_${item.id}"
                                                 class="plus-btn w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:text-xl hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}">+</button>
+                                                data-item_id="${item.id}" data-produto_preco_venda="${item.produto.produto_preco_venda}" data-produto_preco_promocional="${item.produto.produto_preco_promocional || 0}">+</button>
                                         </div>
                             `;
                             if (item.produto.ap_produto_id && Array.isArray(item.produto
@@ -783,12 +811,11 @@
                         e.preventDefault();
 
                         const id = $(this).data('item_id');
-                        const item_desconto = parseFloat($("#item_pedido_valor_desconto_" + id)
-                            .val()) || 0;
-                        const item_adicionais = parseFloat($("#item_pedido_valor_adicionais_" + id)
-                                .val()) ||
-                            0;
-                        const produto_preco_venda = $(this).data('produto_preco_venda') || 0;
+                        const item_adicionais = parseFloat($("#item_pedido_valor_adicionais_" + id).val()) || 0;
+                        const produto_preco_venda = parseFloat($(this).data('produto_preco_venda')) || 0;
+                        const produto_preco_promocional = parseFloat($(this).data('produto_preco_promocional')) || 0;
+                        const desconto_unitario = produto_preco_promocional > 0 ? (produto_preco_venda - produto_preco_promocional) : 0;
+
                         // Obtém o elemento de entrada de quantidade
                         var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
 
@@ -808,32 +835,23 @@
                         // Define o novo valor do campo de entrada, convertendo para string
                         $("#item_pedido_quantidade_" + id).val(currentValue.toString());
                         item_pedido_quantidade = currentValue;
+
+                        var item_pedido_valor, item_pedido_valor_unitario;
+                        var item_pedido_desconto = parseFloat((desconto_unitario * currentValue).toFixed(2));
                         // Atualiza a quantidade da vizualização
                         if (currentValue === 0.33) {
                             $("#item_qtd_view_" + id).html('Um Terço');
-                            var item_pedido_valor = currentValue * produto_preco_venda - item_desconto +
-                                item_adicionais;
-                            var item_pedido_valor_unitario = item_pedido_valor;
-                            item_pedido_valor = item_pedido_valor.toFixed(
-                                2); // Limita a duas casas decimais
+                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor_unitario = item_pedido_valor;
                         } else if (item_pedido_quantidade === 0.5) {
                             $("#item_qtd_view_" + id).html('Meia');
-                            var item_pedido_valor = (currentValue * produto_preco_venda) -
-                                item_desconto + item_adicionais;
-                            var item_pedido_valor_unitario = item_pedido_valor;
-                            item_pedido_valor = item_pedido_valor.toFixed(
-                                2); // Limita a duas casas decimais
+                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor_unitario = item_pedido_valor;
                         } else {
                             $("#item_qtd_view_" + id).html(item_pedido_quantidade);
-                            var item_pedido_valor = (currentValue * produto_preco_venda) -
-                                item_desconto + item_adicionais;
-                            var item_pedido_valor_unitario = (item_pedido_valor / currentValue).toFixed(
-                                2);
-                            item_pedido_valor = item_pedido_valor.toFixed(
-                                2); // Limita a duas casas decimais
+                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor_unitario = (parseFloat(item_pedido_valor) / currentValue).toFixed(2);
                         }
-
-
 
                         const elementItemPedido = $(
                             `#itens_pedido_container [data-item_pedido_id="${id}"]`);
@@ -847,6 +865,7 @@
                                 item_pedido_valor_unitario,
                                 item_pedido_quantidade,
                                 item_pedido_valor,
+                                item_pedido_desconto,
                                 '_token': '{{ csrf_token() }}'
                             },
                             dataType: "json",
@@ -854,21 +873,19 @@
 
                                 // Atualiza valor na visualização
                                 $("#item_pedido_valor_adicionais_" + id).val(
-                                    (parseFloat(response.itemPedido
-                                        .item_pedido_valor_adicionais) || 0).toFixed(2)
+                                    (parseFloat(response.itemPedido.item_pedido_valor_adicionais) || 0).toFixed(2)
                                 );
                                 $("#item_pedido_valor_unitario_" + id).val(
-                                    (parseFloat(response.itemPedido
-                                        .item_pedido_valor_unitario) || 0).toFixed(2)
+                                    (parseFloat(response.itemPedido.item_pedido_valor_unitario) || 0).toFixed(2)
                                 );
                                 $("#item_pedido_valor_" + id).val(
-                                    (parseFloat(response.itemPedido
-                                        .item_pedido_valor) || 0).toFixed(2)
+                                    (parseFloat(response.itemPedido.item_pedido_valor) || 0).toFixed(2)
                                 );
                                 $("#item_valor_view_" + id).html(
-                                    (parseFloat(response.itemPedido
-                                        .item_pedido_valor) || 0).toFixed(2)
+                                    (parseFloat(response.itemPedido.item_pedido_valor) || 0).toFixed(2)
                                 );
+                                var descontoAtual = parseFloat(response.itemPedido.item_pedido_desconto) || 0;
+                                $("#item_desconto_view_" + id).html(descontoAtual.toFixed(2));
 
                                 ValorTotalItensPedido();
 
@@ -898,13 +915,10 @@
                     $(".plus-btn").click(function(e) {
                         e.preventDefault();
                         const id = $(this).data('item_id');
-                        const item_desconto = parseFloat($("#item_pedido_valor_desconto_" + id)
-                            .val()) || 0;
-                        const item_adicionais = parseFloat($("#item_pedido_valor_adicionais_" + id)
-                                .val()) ||
-                            0;
-
-                        const produto_preco_venda = $(this).data('produto_preco_venda') || 0;
+                        const item_adicionais = parseFloat($("#item_pedido_valor_adicionais_" + id).val()) || 0;
+                        const produto_preco_venda = parseFloat($(this).data('produto_preco_venda')) || 0;
+                        const produto_preco_promocional = parseFloat($(this).data('produto_preco_promocional')) || 0;
+                        const desconto_unitario = produto_preco_promocional > 0 ? (produto_preco_venda - produto_preco_promocional) : 0;
 
                         // Obtém o elemento de entrada de quantidade
                         var item_pedido_quantidade = $("#item_pedido_quantidade_" + id).val();
@@ -925,29 +939,22 @@
                         // Define o novo valor do campo de entrada, convertendo para string
                         $("#item_pedido_quantidade_" + id).val(currentValue.toString());
                         item_pedido_quantidade = currentValue;
+
+                        var item_pedido_valor, item_pedido_valor_unitario;
+                        var item_pedido_desconto = parseFloat((desconto_unitario * currentValue).toFixed(2));
                         // Atualiza a quantidade da vizualização
                         if (currentValue === 0.33) {
                             $("#item_qtd_view_" + id).html('Um Terço');
-                            var item_pedido_valor = currentValue * produto_preco_venda - item_desconto +
-                                item_adicionais;
-                            var item_pedido_valor_unitario = item_pedido_valor;
-                            item_pedido_valor = item_pedido_valor.toFixed(
-                                2); // Limita a duas casas decimais
+                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor_unitario = item_pedido_valor;
                         } else if (currentValue === 0.5) {
                             $("#item_qtd_view_" + id).html('Meia');
-                            var item_pedido_valor = currentValue * produto_preco_venda - item_desconto +
-                                item_adicionais;
-                            var item_pedido_valor_unitario = item_pedido_valor;
-                            item_pedido_valor = item_pedido_valor.toFixed(
-                                2); // Limita a duas casas decimais
+                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor_unitario = item_pedido_valor;
                         } else {
                             $("#item_qtd_view_" + id).html(item_pedido_quantidade);
-                            var item_pedido_valor = currentValue * produto_preco_venda - item_desconto +
-                                item_adicionais;
-                            var item_pedido_valor_unitario = (item_pedido_valor / currentValue).toFixed(
-                                2);
-                            item_pedido_valor = item_pedido_valor.toFixed(
-                                2); // Limita a duas casas decimais
+                            item_pedido_valor = (currentValue * produto_preco_venda + item_adicionais).toFixed(2);
+                            item_pedido_valor_unitario = (parseFloat(item_pedido_valor) / currentValue).toFixed(2);
                         }
 
                         const elementItemPedido = $(
@@ -961,6 +968,7 @@
                                 item_pedido_valor_unitario,
                                 item_pedido_quantidade,
                                 item_pedido_valor,
+                                item_pedido_desconto,
                                 '_token': '{{ csrf_token() }}'
                             },
                             dataType: "json",
@@ -980,9 +988,10 @@
                                         .item_pedido_valor) || 0).toFixed(2)
                                 );
                                 $("#item_valor_view_" + id).html(
-                                    (parseFloat(response.itemPedido
-                                        .item_pedido_valor) || 0).toFixed(2)
+                                    (parseFloat(response.itemPedido.item_pedido_valor) || 0).toFixed(2)
                                 );
+                                var descontoAtualPlus = parseFloat(response.itemPedido.item_pedido_desconto) || 0;
+                                $("#item_desconto_view_" + id).html(descontoAtualPlus.toFixed(2));
 
                                 ValorTotalItensPedido();
 

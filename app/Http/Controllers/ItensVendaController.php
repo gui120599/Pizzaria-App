@@ -378,19 +378,31 @@ class ItensVendaController extends Controller
 
         if ($itemVenda) {
             // Se o item já existe na venda e não possui adicionais
-            $itemVenda->item_venda_quantidade += 1;
-            $itemVenda->item_venda_valor += $itemVenda->produto->produto_preco_venda;
+            $precoVendaExistente = (float) $itemVenda->produto->produto_preco_venda;
+            $precoPromoExistente = (float) ($itemVenda->produto->produto_preco_promocional ?? 0);
+            $precoEfetivoExistente = $precoPromoExistente > 0 ? $precoPromoExistente : $precoVendaExistente;
+            $descontoUnitarioExistente = $precoVendaExistente - $precoEfetivoExistente;
 
+            $itemVenda->item_venda_quantidade += 1;
+            $itemVenda->item_venda_desconto += $descontoUnitarioExistente;
+            $itemVenda->item_venda_valor += $precoEfetivoExistente;
 
             $itemVenda->item_venda_quantidade_tributavel += 1;
-            $itemVenda->item_venda_valor_base_calculo += $itemVenda->produto->produto_preco_venda;
-            $itemVenda->item_venda_valor_icms += ($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_icms) / 100;
-            $itemVenda->item_venda_valor_pis += ($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_pis) / 100;
-            $itemVenda->item_venda_valor_cofins += ($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_cofins) / 100;
-            $itemVenda->item_venda_valor_total_tributos += (($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_icms) / 100) + (($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_pis) / 100) + (($itemVenda->produto->produto_preco_venda * $itemVenda->produto->produto_valor_percentual_cofins) / 100);
+            $itemVenda->item_venda_valor_base_calculo += $precoEfetivoExistente;
+            $itemVenda->item_venda_valor_icms += ($precoEfetivoExistente * $itemVenda->produto->produto_valor_percentual_icms) / 100;
+            $itemVenda->item_venda_valor_pis += ($precoEfetivoExistente * $itemVenda->produto->produto_valor_percentual_pis) / 100;
+            $itemVenda->item_venda_valor_cofins += ($precoEfetivoExistente * $itemVenda->produto->produto_valor_percentual_cofins) / 100;
+            $itemVenda->item_venda_valor_total_tributos += (($precoEfetivoExistente * $itemVenda->produto->produto_valor_percentual_icms) / 100) + (($precoEfetivoExistente * $itemVenda->produto->produto_valor_percentual_pis) / 100) + (($precoEfetivoExistente * $itemVenda->produto->produto_valor_percentual_cofins) / 100);
             $itemVenda->save();
+            Produto::where('id', $produto_id)->increment('produto_qtd_vendas');
         } else {
             $produto = Produto::find($produto_id);
+
+            $precoVenda = (float) $produto->produto_preco_venda;
+            $precoPromo = (float) ($produto->produto_preco_promocional ?? 0);
+            $precoEfetivo = $precoPromo > 0 ? $precoPromo : $precoVenda;
+            $descontoUnitario = $precoVenda - $precoEfetivo;
+
             // Buscar o último número sequencial da venda
             $lastItem = ItensVenda::where('item_venda_venda_id', $venda_id)
                 ->orderBy('item_numero', 'desc')
@@ -399,25 +411,26 @@ class ItensVendaController extends Controller
             // Definir o próximo número sequencial
             $nextItemNumber = $lastItem ? $lastItem->item_numero + 1 : 1;
 
-
             // Se o item não existe na venda, adicionar o item
             ItensVenda::create([
                 'item_numero' => $nextItemNumber,
                 'item_venda_venda_id' => $venda_id,
                 'item_venda_produto_id' => $produto_id,
                 'item_venda_quantidade' => 1,
-                'item_venda_valor_unitario' => $produto->produto_preco_venda,
-                'item_venda_valor' => $produto->produto_preco_venda,
+                'item_venda_valor_unitario' => $precoEfetivo,
+                'item_venda_desconto' => $descontoUnitario,
+                'item_venda_valor' => $precoEfetivo,
                 'item_venda_status' => 'INSERIDO',
                 //Impostos
                 'item_venda_quantidade_tributavel' => 1,
-                'item_venda_valor_unitario_tributavel' => $produto->produto_preco_venda,
-                'item_venda_valor_base_calculo' => $produto->produto_preco_venda,
-                'item_venda_valor_icms' => ($produto->produto_preco_venda * $produto->produto_valor_percentual_icms) / 100,
-                'item_venda_valor_pis' => ($produto->produto_preco_venda * $produto->produto_valor_percentual_pis) / 100,
-                'item_venda_valor_cofins' => ($produto->produto_preco_venda * $produto->produto_valor_percentual_cofins) / 100,
-                'item_venda_valor_total_tributos' => (($produto->produto_preco_venda * $produto->produto_valor_percentual_icms) / 100) + (($produto->produto_preco_venda * $produto->produto_valor_percentual_pis) / 100) + (($produto->produto_preco_venda * $produto->produto_valor_percentual_cofins) / 100),
+                'item_venda_valor_unitario_tributavel' => $precoEfetivo,
+                'item_venda_valor_base_calculo' => $precoEfetivo,
+                'item_venda_valor_icms' => ($precoEfetivo * $produto->produto_valor_percentual_icms) / 100,
+                'item_venda_valor_pis' => ($precoEfetivo * $produto->produto_valor_percentual_pis) / 100,
+                'item_venda_valor_cofins' => ($precoEfetivo * $produto->produto_valor_percentual_cofins) / 100,
+                'item_venda_valor_total_tributos' => (($precoEfetivo * $produto->produto_valor_percentual_icms) / 100) + (($precoEfetivo * $produto->produto_valor_percentual_pis) / 100) + (($precoEfetivo * $produto->produto_valor_percentual_cofins) / 100),
             ]);
+            $produto->increment('produto_qtd_vendas');
         }
 
         // Atualizar valores da venda

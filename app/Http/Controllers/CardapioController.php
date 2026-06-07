@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Categoria;
+use App\Models\Produto;
 use Illuminate\Http\Request;
 
 class CardapioController extends Controller
@@ -38,6 +39,28 @@ class CardapioController extends Controller
         ")
             ->get();
 
-        return view('cardapio', ['categorias' => $categorias]);
+        $top10Ids = Produto::where('produto_cardapio', true)
+            ->where('produto_destaque_mais_vendidos', true)
+            ->where('produto_qtd_vendas', '>', 0)
+            ->orderByDesc('produto_qtd_vendas')
+            ->limit(10)
+            ->pluck('id')
+            ->all();
+
+        $promocoes = Produto::where('produto_cardapio', true)
+            ->where('produto_preco_promocional', '>', 0)
+            ->with('categoria')
+            ->orderByDesc('produto_qtd_vendas')
+            ->get();
+
+        $maisVendidos = Produto::where('produto_cardapio', true)
+            ->where('produto_qtd_vendas', '>', 0)
+            ->where('produto_destaque_mais_vendidos', true)
+            ->with('categoria')
+            ->orderByDesc('produto_qtd_vendas')
+            ->limit(8)
+            ->get();
+
+        return view('cardapio', compact('categorias', 'promocoes', 'maisVendidos', 'top10Ids'));
     }
 }

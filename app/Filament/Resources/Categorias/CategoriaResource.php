@@ -7,6 +7,7 @@ use App\Models\Categoria;
 use App\Models\ProdutoPrecoHistorico;
 use BackedEnum;
 use Filament\Actions\Action as ActionsAction;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -27,6 +28,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -127,12 +129,9 @@ class CategoriaResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: false),
 
-                IconColumn::make('categoria_cardapio')
+                ToggleColumn::make('categoria_cardapio')
                     ->label('Cardápio')
-                    ->boolean()
-                    ->toggleable(isToggledHiddenByDefault: false)
-                    ->trueIcon('heroicon-o-eye')
-                    ->falseIcon('heroicon-o-eye-slash'),
+                    ->toggleable(isToggledHiddenByDefault: false),
 
                 TextColumn::make('ultimo_ajuste_preco')
                     ->label('Último Ajuste')
@@ -560,6 +559,88 @@ class CategoriaResource extends Resource
                             ->success()
                             ->send();
                     }),
+                ActionsAction::make('ajustar_preco_promocional')
+                    ->icon('heroicon-o-tag')
+                    ->tooltip('Ajustar preço promocional')
+                    ->color('warning')
+                    ->modalHeading(fn(Categoria $record) => "Preço Promocional — {$record->categoria_nome}")
+                    ->modalDescription('Aplica ou remove o preço promocional em todos os produtos desta categoria.')
+                    ->modalWidth('md')
+                    ->form([
+                        ToggleButtons::make('tipo')
+                            ->label('Operação')
+                            ->options([
+                                'valor_exato'         => 'Valor exato',
+                                'desconto_percentual' => 'Desconto %',
+                                'desconto_real'       => 'Desconto R$',
+                                'remover'             => 'Remover promoção',
+                            ])
+                            ->icons([
+                                'valor_exato'         => 'heroicon-o-pencil',
+                                'desconto_percentual' => 'heroicon-o-percent-badge',
+                                'desconto_real'       => 'heroicon-o-banknotes',
+                                'remover'             => 'heroicon-o-x-circle',
+                            ])
+                            ->colors([
+                                'valor_exato'         => 'info',
+                                'desconto_percentual' => 'warning',
+                                'desconto_real'       => 'success',
+                                'remover'             => 'danger',
+                            ])
+                            ->inline()
+                            ->grouped()
+                            ->default('desconto_percentual')
+                            ->live()
+                            ->required(),
+
+                        TextInput::make('valor')
+                            ->label(fn($get) => match($get('tipo')) {
+                                'valor_exato'         => 'Preço promocional (R$)',
+                                'desconto_percentual' => 'Desconto (%)',
+                                default               => 'Desconto (R$)',
+                            })
+                            ->numeric()
+                            ->step(0.01)
+                            ->minValue(0.01)
+                            ->prefix(fn($get) => $get('tipo') === 'desconto_percentual' ? null : 'R$')
+                            ->suffix(fn($get) => $get('tipo') === 'desconto_percentual' ? '%' : null)
+                            ->visible(fn($get) => $get('tipo') !== 'remover')
+                            ->required(fn($get) => $get('tipo') !== 'remover'),
+                    ])
+                    ->requiresConfirmation()
+                    ->action(function (Categoria $record, array $data) {
+                        $tipo  = $data['tipo'];
+                        $valor = (float) ($data['valor'] ?? 0);
+                        $atualizados = 0;
+                        $ignorados   = 0;
+
+                        $record->produtos()->chunkById(100, function ($produtos) use ($tipo, $valor, &$atualizados, &$ignorados) {
+                            foreach ($produtos as $produto) {
+                                $precoVenda = (float) $produto->produto_preco_venda;
+
+                                $novoPreco = match($tipo) {
+                                    'valor_exato'         => round($valor, 2),
+                                    'desconto_percentual' => round($precoVenda * (1 - $valor / 100), 2),
+                                    'desconto_real'       => round($precoVenda - $valor, 2),
+                                    default               => 0,
+                                };
+
+                                if ($tipo !== 'remover' && $novoPreco <= 0) {
+                                    $ignorados++;
+                                    continue;
+                                }
+
+                                $produto->update(['produto_preco_promocional' => $novoPreco]);
+                                $atualizados++;
+                            }
+                        });
+
+                        $msg = $tipo === 'remover'
+                            ? "{$atualizados} produto(s) com promoção removida."
+                            : "{$atualizados} produto(s) atualizados." . ($ignorados > 0 ? " {$ignorados} ignorado(s) por preço inválido." : '');
+
+                        Notification::make()->title('Preço promocional atualizado')->body($msg)->success()->send();
+                    }),
                 ActionsAction::make('toggle_cardapio')
                     ->icon(fn(Categoria $record): string => $record->categoria_cardapio ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
                     ->tooltip(fn(Categoria $record): string => $record->categoria_cardapio ? 'Remover do Cardápio' : 'Adicionar ao Cardápio')
@@ -598,6 +679,90 @@ class CategoriaResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    BulkAction::make('ajustar_preco_promocional')
+                        ->label('Ajustar Preço Promocional')
+                        ->icon('heroicon-o-tag')
+                        ->color('warning')
+                        ->modalHeading('Ajustar Preço Promocional')
+                        ->modalDescription('Aplica a operação em todos os produtos das categorias selecionadas.')
+                        ->modalWidth('md')
+                        ->form([
+                            ToggleButtons::make('tipo')
+                                ->label('Operação')
+                                ->options([
+                                    'valor_exato'         => 'Valor exato',
+                                    'desconto_percentual' => 'Desconto %',
+                                    'desconto_real'       => 'Desconto R$',
+                                    'remover'             => 'Remover promoção',
+                                ])
+                                ->icons([
+                                    'valor_exato'         => 'heroicon-o-pencil',
+                                    'desconto_percentual' => 'heroicon-o-percent-badge',
+                                    'desconto_real'       => 'heroicon-o-banknotes',
+                                    'remover'             => 'heroicon-o-x-circle',
+                                ])
+                                ->colors([
+                                    'valor_exato'         => 'info',
+                                    'desconto_percentual' => 'warning',
+                                    'desconto_real'       => 'success',
+                                    'remover'             => 'danger',
+                                ])
+                                ->inline()
+                                ->grouped()
+                                ->default('desconto_percentual')
+                                ->live()
+                                ->required(),
+
+                            TextInput::make('valor')
+                                ->label(fn($get) => match($get('tipo')) {
+                                    'valor_exato'         => 'Preço promocional (R$)',
+                                    'desconto_percentual' => 'Desconto (%)',
+                                    default               => 'Desconto (R$)',
+                                })
+                                ->numeric()
+                                ->step(0.01)
+                                ->minValue(0.01)
+                                ->prefix(fn($get) => $get('tipo') === 'desconto_percentual' ? null : 'R$')
+                                ->suffix(fn($get) => $get('tipo') === 'desconto_percentual' ? '%' : null)
+                                ->visible(fn($get) => $get('tipo') !== 'remover')
+                                ->required(fn($get) => $get('tipo') !== 'remover'),
+                        ])
+                        ->action(function ($records, array $data) {
+                            $tipo        = $data['tipo'];
+                            $valor       = (float) ($data['valor'] ?? 0);
+                            $atualizados = 0;
+                            $ignorados   = 0;
+
+                            foreach ($records as $categoria) {
+                                $categoria->produtos()->chunkById(100, function ($produtos) use ($tipo, $valor, &$atualizados, &$ignorados) {
+                                    foreach ($produtos as $produto) {
+                                        $precoVenda = (float) $produto->produto_preco_venda;
+
+                                        $novoPreco = match($tipo) {
+                                            'valor_exato'         => round($valor, 2),
+                                            'desconto_percentual' => round($precoVenda * (1 - $valor / 100), 2),
+                                            'desconto_real'       => round($precoVenda - $valor, 2),
+                                            default               => 0,
+                                        };
+
+                                        if ($tipo !== 'remover' && $novoPreco <= 0) {
+                                            $ignorados++;
+                                            continue;
+                                        }
+
+                                        $produto->update(['produto_preco_promocional' => $novoPreco]);
+                                        $atualizados++;
+                                    }
+                                });
+                            }
+
+                            $msg = $tipo === 'remover'
+                                ? "{$atualizados} produto(s) com promoção removida."
+                                : "{$atualizados} produto(s) atualizados." . ($ignorados > 0 ? " {$ignorados} ignorado(s) por preço inválido." : '');
+
+                            Notification::make()->title('Preço promocional atualizado')->body($msg)->success()->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
