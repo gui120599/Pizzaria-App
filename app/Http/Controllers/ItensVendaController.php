@@ -704,7 +704,7 @@ class ItensVendaController extends Controller
                         'item_venda_valor_total_tributos' => ($item->item_pedido_valor * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
                     ]);
                 } else {
-                    $valorEfetivo = $item->item_pedido_valor - $item->item_pedido_desconto + $item->item_pedido_valor_adicionais;
+                    $valorEfetivo = $item->item_pedido_valor - $item->item_pedido_desconto;
                     $itemVenda = ItensVenda::create([
                         'item_numero' => $nextItemNumber,
                         'item_venda_venda_id' => $venda_id,
