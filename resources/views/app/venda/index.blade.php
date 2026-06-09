@@ -423,7 +423,7 @@
                                                             </span>
                                                         @elseif($lancado)
                                                             <span class="lancado-badge shrink-0 text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded px-1 py-0.5 flex items-center gap-0.5">
-                                                                <i class='bx bx-time'></i> em venda
+                                                                <i class='bx bx-time'></i> venda #{{ $item->item_pedido_venda_id }}
                                                             </span>
                                                         @endif
                                                     </label>

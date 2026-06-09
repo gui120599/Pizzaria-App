@@ -15,6 +15,13 @@
                 <h3 class="flex items-center gap-2 text-sm font-bold text-yellow-700 uppercase tracking-wide mb-3">
                     <i class='bx bx-time-five'></i> Vendas em Aberto
                 </h3>
+
+                @if(session('success'))
+                    <div class="mb-3 flex items-center gap-2 px-3 py-2 bg-teal-50 border border-teal-200 rounded-lg text-teal-700 text-sm">
+                        <i class='bx bx-check-circle'></i> {{ session('success') }}
+                    </div>
+                @endif
+
                 <div class="w-full overflow-auto">
                     <table class="w-full text-center text-[7px] md:text-sm">
                         <thead>
@@ -29,7 +36,7 @@
                         <tbody>
                             @foreach($vendasIniciadas as $vi)
                                 <tr class="border-b border-yellow-100">
-                                    <td class="px-2 py-1">{{ $vi->id }}</td>
+                                    <td class="px-2 py-1 font-bold">{{ $vi->id }}</td>
                                     <td class="px-2 py-1 uppercase">{{ $vi->cliente?->cliente_nome ?? 'Sem cliente' }}</td>
                                     <td class="px-2 py-1">
                                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">
@@ -38,10 +45,20 @@
                                     </td>
                                     <td class="px-2 py-1">{{ \Carbon\Carbon::parse($vi->venda_datahora_iniciada)->format('d/m/y H:i') }}</td>
                                     <td class="px-2 py-1">
-                                        <a href="{{ route('venda.edit', $vi->id) }}"
-                                           class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition">
-                                            <i class='bx bx-edit'></i> Continuar
-                                        </a>
+                                        <div class="flex items-center justify-center gap-2">
+                                            <a href="{{ route('venda.edit', $vi->id) }}"
+                                               class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition">
+                                                <i class='bx bx-edit'></i> Continuar
+                                            </a>
+                                            <form method="POST" action="{{ route('venda.cancelar_web', $vi->id) }}"
+                                                  onsubmit="return confirm('Cancelar venda #{{ $vi->id }}? Os itens serão liberados para nova venda.')">
+                                                @csrf
+                                                <button type="submit"
+                                                    class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 rounded-lg transition">
+                                                    <i class='bx bx-x'></i> Cancelar
+                                                </button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach

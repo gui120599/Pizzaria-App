@@ -238,6 +238,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/Venda-listar', [VendaController::class, 'ListarVenda'])->name('venda.listar');
     Route::post('/Venda', [VendaController::class, 'store'])->name('venda.store');
     Route::post('/Venda-cancelar', [VendaController::class, 'cancelarVenda'])->name('venda.cancelar');
+    Route::post('/Venda/{venda}/cancelar', [VendaController::class, 'cancelarVendaWeb'])->name('venda.cancelar_web');
     Route::post('/iniciar-venda', [VendaController::class, 'iniciarVenda'])->name('venda.iniciar');
     Route::post('/Venda/{id}/Edit', [VendaController::class, 'SalvarVenda'])->name('venda.salvar_venda');
     Route::post('/Venda//EditValorFrete', [VendaController::class, 'AtualizarValorFrete'])->name('venda.update_valor_frete');

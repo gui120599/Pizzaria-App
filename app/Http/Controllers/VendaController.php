@@ -444,6 +444,19 @@ class VendaController extends Controller
         }
     }
 
+    public function cancelarVendaWeb(Venda $venda)
+    {
+        $venda->update([
+            'venda_status'             => 'CANCELADA',
+            'venda_datahora_cancelada' => Carbon::now(),
+        ]);
+
+        \App\Models\ItensPedido::where('item_pedido_venda_id', $venda->id)
+            ->update(['item_pedido_venda_id' => null]);
+
+        return redirect()->back()->with('success', 'Venda #' . $venda->id . ' cancelada. Os itens estão livres para nova venda.');
+    }
+
     public function enviarNfe($vendaId)
     {
         // Busca a venda pelo ID e carrega os relacionamentos necessários
