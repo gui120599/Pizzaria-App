@@ -30,23 +30,27 @@ class PDFController extends Controller
     public function sessaoMesaPDF(Request $request)
     {
         $sessaoMesaId = $request->id;
-        $sessaoMesa = SessaoMesa::find($sessaoMesaId);
+        $sessaoMesa = SessaoMesa::with(['mesa', 'cliente', 'garcom'])->find($sessaoMesaId);
 
-        // Carregar itens de pedido com os pedidos relacionados
         $itensInseridoPedido = ItensPedido::whereHas('pedido', function ($query) use ($sessaoMesaId) {
             $query->where('pedido_sessao_mesa_id', $sessaoMesaId)->where('pedido_status', '<>', 'CANCELADO');
-        })->where('item_pedido_status', 'INSERIDO')->with(['pedido','adicionaisItemPedido'])
+        })
+        ->where('item_pedido_status', 'INSERIDO')
+        ->with(['pedido.garcom', 'produto.categoria', 'adicionaisItemPedido.adicional', 'cliente'])
         ->get();
 
-        $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)->where('pedido_status', '<>', 'CANCELADO')->get();
-        //dd($itensInseridoPedido);
+        $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)
+            ->where('pedido_status', '<>', 'CANCELADO')
+            ->get();
+
+        // Agrupa por cliente: usa item_pedido_cliente_id; null vai para chave 0
+        $itensPorCliente = $itensInseridoPedido->groupBy(fn($item) => $item->item_pedido_cliente_id ?? 0);
+
         return view('sessaoMesaPDF', [
-            'sessao_mesa' => $sessaoMesa,
-            'itens_inserido_pedido' => $itensInseridoPedido,
-            'pedidos' => $pedidos
+            'sessao_mesa'       => $sessaoMesa,
+            'itens_por_cliente' => $itensPorCliente,
+            'pedidos'           => $pedidos,
         ]);
-        
-        /*return response()->json($itensInseridoPedido);*/
     }
 
     public function sessaoCaixaPDF(Request $request)
