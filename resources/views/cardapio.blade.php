@@ -270,6 +270,34 @@
             @endforeach
         </div>
 
+        {{-- Card de Avaliações --}}
+        @if(! empty($avaliacaoLinks))
+            <div class="px-4 pb-4 pt-2">
+                <div class="bg-gray-900 rounded-2xl p-5 text-center">
+                    <div class="flex items-center justify-center gap-0.5 mb-2">
+                        @for($s = 0; $s < 5; $s++)
+                            <i class='bx bxs-star text-yellow-400 text-2xl'></i>
+                        @endfor
+                    </div>
+                    <p class="text-white font-bold text-sm mb-1">Gostou da nossa pizzaria?</p>
+                    <p class="text-gray-400 text-xs mb-4">Deixe sua avaliação e nos ajude a melhorar!</p>
+                    <div class="flex items-center justify-center gap-4 flex-wrap">
+                        @foreach($avaliacaoLinks as $link)
+                            <a href="{{ $link['avaliacao_link_url'] }}"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="flex flex-col items-center gap-1.5 group">
+                                <div class="w-12 h-12 rounded-full bg-white shadow flex items-center justify-center overflow-hidden border border-gray-200 group-hover:scale-110 transition-transform">
+                                    <img src="{{ $link['avaliacao_link_logo_url'] }}" alt="{{ $link['avaliacao_link_nome'] }}" class="w-8 h-8 object-contain">
+                                </div>
+                                <span class="text-gray-400 text-[10px] group-hover:text-white transition-colors">{{ $link['avaliacao_link_nome'] }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- Floating Cart Button --}}
         <div x-show="$store.cart.count > 0"
              x-transition:enter="transition ease-out duration-300"
