@@ -25,6 +25,7 @@
         @php
             $nomeOpcao      = $pedido->opcaoEntrega?->opcaoentrega_nome ?? '';
             $isEntrega      = str_contains(strtolower($nomeOpcao), 'entrega') || str_contains(strtolower($nomeOpcao), 'deliver');
+            $isRetirada     = str_contains(strtolower($nomeOpcao), 'retirada');
             $abertura       = $pedido->pedido_datahora_abertura ?? $pedido->created_at;
         @endphp
         <div class="grid grid-cols-2 text-xs">
@@ -50,6 +51,9 @@
                 <div class="col-span-1 flex flex-col text-left">
                     <label class="text-lg">Nº Pedido</label>
                     <label>Cliente</label>
+                    @if ($isRetirada)
+                        <label>Telefone</label>
+                    @endif
                     <label>Atendente</label>
                     <label>Data/Hora</label>
                     <label>Tipo</label>
@@ -60,6 +64,9 @@
                 <div class="col-span-1 flex flex-col text-right font-bold">
                     <label class="text-lg">{{ $pedido->id }}</label>
                     <label class="truncate">{{ $pedido->cliente?->cliente_nome ?? 'Não informado' }}</label>
+                    @if ($isRetirada)
+                        <label>{{ $pedido->cliente?->cliente_celular ?? 'Não informado' }}</label>
+                    @endif
                     <label>{{ $pedido->garcom?->name ?? 'S/A' }}</label>
                     <label>{{ $abertura->format('d/m/Y H:i') }}</label>
                     <label>{{ $nomeOpcao ?: '—' }}</label>
