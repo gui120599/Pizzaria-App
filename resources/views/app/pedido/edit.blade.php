@@ -38,6 +38,7 @@
                 <form id="pedido-form" action="{{ route('pedido.salvar_edicao', $pedido->id) }}" method="POST" class="space-y-4">
                     @csrf
                     @method('PATCH')
+                    <input type="hidden" name="pedido_usuario_garcom_id" value="{{ $pedido->pedido_usuario_garcom_id ?? auth()->id() }}">
 
                     {{-- Cliente --}}
                     <div class="bg-white shadow-sm rounded-xl p-4 space-y-3"
