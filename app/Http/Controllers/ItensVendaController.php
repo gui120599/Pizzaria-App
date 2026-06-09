@@ -186,6 +186,10 @@ class ItensVendaController extends Controller
                 ->get();
 
             $this->adicionarItensPedidoNaVenda($venda_id, $itensPedido);
+
+            ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+                ->where('item_pedido_status', 'INSERIDO')
+                ->update(['item_pedido_venda_id' => $venda_id]);
         }
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
@@ -332,7 +336,13 @@ class ItensVendaController extends Controller
             }
         }
 
-        // Atualizar valores da venda
+        // Libera os itens dos pedidos da sessão
+        foreach ($pedidos as $pedido) {
+            ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+                ->where('item_pedido_venda_id', $venda_id)
+                ->update(['item_pedido_venda_id' => null]);
+        }
+
         $this->vendaService->atualizarValoresdaVenda($request->input('venda_id'));
 
         return response()->json(['success' => 'Itens removidos e pedidos atualizados para ENTREGUE'], 200);
@@ -362,9 +372,11 @@ class ItensVendaController extends Controller
 
         $this->adicionarItensPedidoNaVenda($venda_id, $itensPedido);
 
+        ItensPedido::where('item_pedido_pedido_id', $pedido_id)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->update(['item_pedido_venda_id' => $venda_id]);
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
-
 
         return response()->json(['success' => 'Itens adicionados!'], 200);
     }
@@ -419,7 +431,11 @@ class ItensVendaController extends Controller
             }
         }
 
-        // Atualizar valores da venda
+        // Libera os itens do pedido
+        ItensPedido::where('item_pedido_pedido_id', $pedido_id)
+            ->where('item_pedido_venda_id', $venda_id)
+            ->update(['item_pedido_venda_id' => null]);
+
         $this->vendaService->atualizarValoresdaVenda($request->input('venda_id'));
 
         return response()->json(['success' => 'Itens removidos e pedido atualizado para ENTREGUE'], 200);
