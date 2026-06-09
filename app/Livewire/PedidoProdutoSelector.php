@@ -252,12 +252,18 @@ class PedidoProdutoSelector extends Component
             ? (collect($this->sessaoMesaClientes)->firstWhere('id', $this->clienteSelecionadoId)['nome'] ?? null)
             : null;
 
-        foreach ($sel as $sabor) {
+        foreach ($sel as $idx => $sabor) {
             $sPrecoOrig     = (float) $sabor['precoOriginal'];
             $sPreco         = (float) $sabor['preco'];
             $sDescUnit      = max(0.0, $sPrecoOrig - $sPreco);
-            $valorFracao    = ceil($sPrecoOrig * $qtdFracao * 100) / 100;
-            $descontoFracao = round($sDescUnit * $qtdFracao, 2);
+
+            // Integer-cents distribution: garante que a soma das frações = preço original exato
+            $totalCentavos  = (int) round($sPrecoOrig * 100);
+            $centsPorItem   = intdiv($totalCentavos, $numSabores);
+            $centsExtra     = $totalCentavos % $numSabores;
+            $valorFracao    = ($centsPorItem + ($idx < $centsExtra ? 1 : 0)) / 100;
+
+            $descontoFracao = floor($sDescUnit * $qtdFracao * 100) / 100;
 
             if ($this->pedidoId) {
                 $itemModel = ItensPedido::create([
