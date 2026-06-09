@@ -33,6 +33,12 @@
                             </td>
                             <td class="text-start">R$ {{ number_format($pedido->item_pedido_pedido_id->sum('item_pedido_valor') - $pedido->pedido_valor_desconto, 2, ',', '.') }}</td>
 
+                            @php
+                                $nomeOpcaoPedido = strtolower($pedido->opcaoEntrega?->opcaoentrega_nome ?? '');
+                                $isEntregaOuRetirada = str_contains($nomeOpcaoPedido, 'entrega')
+                                    || str_contains($nomeOpcaoPedido, 'deliver')
+                                    || str_contains($nomeOpcaoPedido, 'retirada');
+                            @endphp
                             @if ($pedido->pedido_status != 'CANCELADO')
                                 <td class="text-center inline-flex gap-x-2">
                                     <x-secondary-button
@@ -51,7 +57,16 @@
                                     <x-secondary-button title="ALTERAR ENTREGA" x-data=""
                                         x-on:click.prevent="$dispatch('open-modal', 'alterar-pedido-{{ $pedido->id }}')"><i
                                             class='bx bxs-edit-alt'></i></x-secondary-button>
-                                            
+
+                                    @if ($isEntregaOuRetirada)
+                                        <button type="button"
+                                            title="COPIAR LINK DE ACOMPANHAMENTO"
+                                            onclick="copiarLinkAcompanhamento('{{ route('pedido.acompanhar', $pedido->id) }}', this)"
+                                            class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-md font-semibold text-xs text-teal-700 uppercase tracking-widest shadow-sm hover:bg-teal-50 hover:border-teal-400 focus:outline-none transition ease-in-out duration-150">
+                                            <i class='bx bx-link'></i>
+                                        </button>
+                                    @endif
+
                                     <form action="{{ route('pedido.cancelar', ['id' => $pedido->id]) }}"
                                         method="post">
                                         @csrf
@@ -67,11 +82,20 @@
                                     <x-secondary-button x-data=""
                                         x-on:click.prevent="$dispatch('open-modal', 'mov-pedido-{{ $pedido->id }}')"
                                         title="ALTERAR DO PEDIDO"><i class='bx bx-transfer'></i></x-secondary-button>
-                                        
+
                                     <x-secondary-button title="ALTERAR DO PEDIDO" x-data=""
                                         x-on:click.prevent="$dispatch('open-modal', 'alterar-pedido-{{ $pedido->id }}')"><i
                                             class='bx bxs-edit-alt'></i></x-secondary-button>
-                                            
+
+                                    @if ($isEntregaOuRetirada)
+                                        <button type="button"
+                                            title="COPIAR LINK DE ACOMPANHAMENTO"
+                                            onclick="copiarLinkAcompanhamento('{{ route('pedido.acompanhar', $pedido->id) }}', this)"
+                                            class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-md font-semibold text-xs text-teal-700 uppercase tracking-widest shadow-sm hover:bg-teal-50 hover:border-teal-400 focus:outline-none transition ease-in-out duration-150">
+                                            <i class='bx bx-link'></i>
+                                        </button>
+                                    @endif
+
                                     <form action="{{ route('pedido.restaurar', ['id' => $pedido->id]) }}"
                                         method="post">
                                         @csrf
@@ -176,3 +200,17 @@
         </div>
     </div>
 </section>
+
+<script>
+function copiarLinkAcompanhamento(url, btn) {
+    navigator.clipboard.writeText(url).then(function () {
+        const icon = btn.querySelector('i');
+        icon.className = 'bx bx-check';
+        btn.classList.add('border-teal-500', 'bg-teal-50');
+        setTimeout(function () {
+            icon.className = 'bx bx-link';
+            btn.classList.remove('border-teal-500', 'bg-teal-50');
+        }, 2000);
+    });
+}
+</script>
