@@ -12,6 +12,7 @@ class ItensPedido extends Model
     protected $fillable = [
         'item_pedido_produto_id',
         'item_pedido_pedido_id',
+        'item_pedido_cliente_id',
         'item_pedido_quantidade',
         'item_pedido_valor_unitario',
         'item_pedido_desconto',

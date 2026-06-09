@@ -3,102 +3,116 @@
         <h2 class="text-lg font-medium text-gray-900">
             {{ __('Abrir nova sessão para ' . $mesa->mesa_nome) }}
         </h2>
-
         <p class="mt-1 text-sm text-gray-600">
             {{ __('Insira os dados para abrir a sessão da mesa.') }}
         </p>
     </header>
 
-    <form action="{{ route('sessaoMesa.abrir') }}" method="post" class="mt-6 space-y-6" enctype="multipart/form-data">
+    <form action="{{ route('sessaoMesa.abrir') }}" method="post" class="mt-6 space-y-6">
         @csrf
-        <div
-            class="sm:col-span-4 lg:col-span-3 col-span-6 relative md:space-y-2  md:px-3 border-t pt-1 md:pt-0 pb-1 md:pb-0 md:border-t-0 border-b md:border-b-0">
-            {{-- MESA ID --}}
-            <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                <i class='bx bxs-face'></i>
-                <span>{{ __('MESA') }}</span>
+
+        {{-- Campos ocultos fixos --}}
+        <input type="hidden" name="sessao_mesa_mesa_id" value="{{ $mesa->id }}">
+        <input type="hidden" name="sessao_mesa_status" value="ABERTA">
+        <input type="hidden" name="sessao_mesa_usuario_id" value="{{ Auth::user()->id }}">
+
+        {{-- Mesa / Garçom (leitura) --}}
+        <div class="space-y-3">
+            <div>
+                <x-input-label value="Mesa" />
+                <x-text-input type="text" class="mt-1 w-full" value="{{ $mesa->mesa_nome }}" readonly />
+            </div>
+            <div>
+                <x-input-label value="Garçom" />
+                <x-text-input type="text" class="mt-1 w-full" value="{{ Auth::user()->name }}" readonly />
+            </div>
+        </div>
+
+        {{-- Clientes da sessão --}}
+        <div x-data="{
+                tel: '',
+                clienteId: null,
+                nome: '',
+                encontrado: false,
+                buscando: false,
+                clientes: [],
+                async buscar() {
+                    if (this.tel.replace(/\D/g,'').length < 8) return;
+                    this.buscando = true;
+                    const r = await fetch('/cardapio/lookup-cliente?telefone=' + encodeURIComponent(this.tel));
+                    const d = await r.json();
+                    this.buscando = false;
+                    if (d.encontrado) { this.clienteId = d.cliente_id; this.nome = d.nome; this.encontrado = true; }
+                    else { this.clienteId = null; this.nome = ''; this.encontrado = false; }
+                },
+                adicionarCliente() {
+                    if (!this.nome.trim()) return;
+                    this.clientes.push({ id: this.clienteId, nome: this.nome.trim(), tel: this.tel });
+                    this.tel = ''; this.clienteId = null; this.nome = ''; this.encontrado = false;
+                },
+                remover(i) { this.clientes.splice(i, 1); }
+             }" class="space-y-3">
+
+            <p class="flex items-center gap-2 text-sm font-bold text-teal-700">
+                <i class='bx bx-group'></i> Clientes da mesa
+                <span class="text-xs font-normal text-gray-400">(opcional — adicione quantos quiser)</span>
             </p>
-            <x-text-input id="sessao_mesa_mesa_id" name="sessao_mesa_mesa_id" type="text" class="mt-1 w-full"
-                value="{{ $mesa->id }}" autocomplete="off" hidden />
-            <x-text-input id="sessao_mesa_mesa_nome" name="sessao_mesa_mesa_nome" type="text" class="mt-1 w-full"
-                value="{{ $mesa->mesa_nome }}" autocomplete="off" readonly />
-            <x-text-input id="sessao_mesa_status" name="sessao_mesa_status" type="text" class="mt-1 w-full"
-                value="ABERTA" autocomplete="off" readonly />
-            {{-- GARÇOM ID --}}
-            <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                <i class='bx bxs-face'></i>
-                <span>{{ __('Garçom') }}</span>
-            </p>
-            <x-text-input id="sessao_mesa_usuario_id" name="sessao_mesa_usuario_id" type="text" class="mt-1 w-full"
-                value="{{ Auth::user()->id }}" autocomplete="off" hidden />
-            <x-text-input id="sessao_mesa_usuario_nome" name="sessao_mesa_usuario_nome" type="text" class="mt-1 w-full"
-                value="{{ Auth::user()->name }}" autocomplete="off" readonly />
-            {{-- CLIENTE ID --}}
-            <p class="flex items-center gap-x-2 text-sm font-bold text-teal-700">
-                <i class='bx bx-user'></i>
-                <span>{{ __('Cliente') }}</span>
-            </p>
-            <x-text-input id="sessao_mesa_cliente_id" name="sessao_mesa_cliente_id" type="text" class="mt-1 w-full"
-                autocomplete="off" hidden />
-            <x-text-input id="sessao_mesa_cliente_nome" name="sessao_mesa_cliente_nome" type="text" class="mt-1 w-full"
-                autocomplete="off" placeholder="Nome do Cliente" />
-            <x-input-error :messages="$errors->updatePassword->get('sessao_mesa_cliente_id')" class="mt-2" />
-            <div id="lista_clientes"
-                class="absolute w-full bg-white rounded-lg px-2 py-3 shadow-lg shadow-green-400/10 hidden overflow-auto max-h-96 md:max-h-80 lg:max-h-72 border">
-                @foreach ($clientes as $cliente)
-                    <div id="linha_cliente"
-                        class="border-b-2 hover:bg-teal-700 hover:text-white rounded-lg p-2 cursor-pointer transition duration-150 ease-in-out"
-                        onclick="selecionarCliente({{ $cliente->id }},'{{ $cliente->cliente_nome }}')">
-                        {{ $cliente->id }} - {{ $cliente->cliente_nome }}
+
+            {{-- Chips dos clientes já adicionados --}}
+            <template x-if="clientes.length > 0">
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="(c, i) in clientes" :key="i">
+                        <div>
+                            <input type="hidden" :name="'clientes_ids[' + i + ']'" :value="c.id ?? ''">
+                            <input type="hidden" :name="'clientes_nomes[' + i + ']'" :value="c.nome">
+                            <input type="hidden" :name="'clientes_tels[' + i + ']'" :value="c.tel">
+                            <span class="inline-flex items-center gap-1.5 bg-teal-50 border border-teal-200 rounded-full px-3 py-1 text-sm text-teal-800 font-medium">
+                                <i class='bx bx-user-check text-teal-500 text-xs'></i>
+                                <span x-text="c.nome"></span>
+                                <button type="button" @click="remover(i)"
+                                        class="text-teal-400 hover:text-red-500 transition ml-0.5 leading-none">&times;</button>
+                            </span>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            {{-- Formulário de busca/adicionar --}}
+            <div class="bg-gray-50 rounded-xl p-3 space-y-2">
+                <div>
+                    <x-input-label value="Telefone" />
+                    <div class="flex gap-2 mt-1">
+                        <input type="tel" x-model="tel" @input.debounce.500ms="buscar()"
+                               placeholder="(00) 00000-0000"
+                               class="flex-1 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-teal-500 focus:border-teal-500">
+                        <button type="button" @click="tel=''; clienteId=null; nome=''; encontrado=false;" x-show="tel"
+                                class="px-3 bg-gray-100 hover:bg-red-50 text-gray-500 rounded-lg text-xs transition-colors">✕</button>
                     </div>
-                @endforeach
+                </div>
+
+                <div x-show="buscando" class="text-xs text-gray-400">Buscando...</div>
+
+                <div x-show="encontrado && !buscando" class="flex items-center gap-2 px-2 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+                    <i class='bx bx-user-check text-green-600 text-sm'></i>
+                    <span class="text-sm text-green-700 font-medium" x-text="nome"></span>
+                </div>
+
+                <div x-show="!encontrado && !buscando && tel.replace(/\D/g,'').length >= 8">
+                    <x-input-label value="Nome (novo cliente)" />
+                    <input type="text" x-model="nome" placeholder="Nome completo"
+                           class="mt-1 w-full border-gray-300 rounded-lg shadow-sm text-sm focus:ring-teal-500 focus:border-teal-500">
+                </div>
+
+                <button type="button" @click="adicionarCliente()"
+                        x-show="nome.trim()"
+                        class="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold transition-colors">
+                    <i class='bx bx-plus mr-1'></i> Adicionar cliente
+                </button>
             </div>
         </div>
 
         <x-primary-button>
             {{ __('Abrir Sessão ' . $mesa->mesa_nome) }}
         </x-primary-button>
-
     </form>
-    <script>
-        function selecionarCliente(id, nome) {
-            document.getElementById("sessao_mesa_cliente_id").value = id;
-            document.getElementById("sessao_mesa_cliente_nome").value = nome;
-            console.log(id + ' - ' + nome);
-        }
-        document.addEventListener('DOMContentLoaded', function() {
-
-
-            const inputCliente = document.getElementById('sessao_mesa_cliente_nome');
-            const listaClientes = document.getElementById('lista_clientes');
-
-            // Mostrar a lista de clientes quando o campo de texto estiver focado
-            inputCliente.addEventListener('focus', function() {
-                listaClientes.classList.remove('hidden');
-            });
-
-            // Ocultar a lista de clientes quando o campo de texto perder o foco
-            inputCliente.addEventListener('blur', function() {
-                setTimeout(() => {
-                    listaClientes.classList.add('hidden');
-                }, 200);
-
-            });
-
-            // Filtrar a lista de clientes conforme o usuário digita
-            inputCliente.addEventListener('input', function() {
-                const textoDigitado = inputCliente.value.toLowerCase();
-                const itemsClientes = listaClientes.querySelectorAll('div');
-
-                itemsClientes.forEach(function(itemCliente) {
-                    const nomeCliente = itemCliente.textContent.toLowerCase();
-                    if (nomeCliente.includes(textoDigitado)) {
-                        itemCliente.style.display = 'block';
-                    } else {
-                        itemCliente.style.display = 'none';
-                    }
-                });
-            });
-        });
-    </script>
 </section>

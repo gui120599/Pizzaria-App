@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pedido;
-use App\Http\Requests\StorePedidoRequest;
 use App\Http\Requests\UpdatePedidoRequest;
 use App\Models\Categoria;
 use App\Models\Cliente;
@@ -111,6 +110,16 @@ class PedidoController extends Controller
     /**
      * Show the form for creating a new resource.
      */
+    public function create()
+    {
+        $pedido           = Pedido::create(['pedido_status' => 'INICIADO']);
+        $clientes         = Cliente::orderBy('cliente_nome')->get();
+        $opcoes_entregas  = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
+        $opcoes_pagamento = OpcoesPagamento::orderBy('opcaopag_nome')->get();
+
+        return view('app.pedido.create', compact('pedido', 'clientes', 'opcoes_entregas', 'opcoes_pagamento'));
+    }
+
     public function relatorio()
     {
         return view('app.pedido.relatorio');
@@ -135,9 +144,38 @@ class PedidoController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StorePedidoRequest $request)
+    public function store(Request $request)
     {
-        dd($request);
+        $pedido    = Pedido::findOrFail($request->input('pedido_id'));
+        $clienteId = $this->resolverCliente($request);
+
+        $itens         = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->get();
+
+        if ($itens->isEmpty()) {
+            return back()->with('error', 'Adicione pelo menos um item antes de abrir o pedido.');
+        }
+
+        $valorItens    = round($itens->sum('item_pedido_valor'), 2);
+        $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
+        $valorFrete    = $this->calcularFrete($request->input('pedido_opcaoentrega_id'), $valorItens - $totalDesconto);
+
+        $pedido->update([
+            'pedido_cliente_id'           => $clienteId,
+            'pedido_opcaoentrega_id'      => $request->input('pedido_opcaoentrega_id') ?: null,
+            'pedido_endereco_entrega'     => $request->input('pedido_endereco_entrega') ?: null,
+            'pedido_descricao_pagamento'  => $request->input('pedido_descricao_pagamento') ?: null,
+            'pedido_observacao_pagamento' => $request->input('pedido_observacao_pagamento') ?: null,
+            'pedido_status'               => 'ABERTO',
+            'pedido_datahora_abertura'    => Carbon::now(),
+            'pedido_valor_itens'          => $valorItens,
+            'pedido_valor_desconto'       => $totalDesconto,
+            'pedido_valor_frete'          => $valorFrete,
+            'pedido_valor_total'          => round(max(0, $valorItens - $totalDesconto + $valorFrete), 2),
+        ]);
+
+        return redirect()->route('pedidos')->with('success', 'Pedido #' . $pedido->id . ' criado com sucesso!');
     }
 
     /**
@@ -154,6 +192,99 @@ class PedidoController extends Controller
     public function edit(Pedido $pedido)
     {
         //
+    }
+
+    public function editarPedido(int $id)
+    {
+        $pedido = Pedido::with([
+            'cliente',
+            'opcaoEntrega',
+            'item_pedido_pedido_id',
+        ])->findOrFail($id);
+
+        $clientes         = Cliente::orderBy('cliente_nome')->get();
+        $opcoes_entregas  = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
+        $opcoes_pagamento = OpcoesPagamento::orderBy('opcaopag_nome')->get();
+
+        return view('app.pedido.edit', compact('pedido', 'clientes', 'opcoes_entregas', 'opcoes_pagamento'));
+    }
+
+    public function salvarEdicaoPedido(Request $request, int $id)
+    {
+        $pedido    = Pedido::findOrFail($id);
+        $clienteId = $this->resolverCliente($request);
+
+        $itens         = ItensPedido::where('item_pedido_pedido_id', $id)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->get();
+
+        $valorItens    = round($itens->sum('item_pedido_valor'), 2);
+        $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
+        $valorFrete    = $this->calcularFrete($request->input('pedido_opcaoentrega_id'), $valorItens - $totalDesconto);
+
+        $pedido->update([
+            'pedido_cliente_id'           => $clienteId,
+            'pedido_opcaoentrega_id'      => $request->input('pedido_opcaoentrega_id') ?: null,
+            'pedido_endereco_entrega'     => $request->input('pedido_endereco_entrega') ?: null,
+            'pedido_descricao_pagamento'  => $request->input('pedido_descricao_pagamento') ?: null,
+            'pedido_observacao_pagamento' => $request->input('pedido_observacao_pagamento') ?: null,
+            'pedido_status'               => $request->input('pedido_status') ?: $pedido->pedido_status,
+            'pedido_valor_itens'          => $valorItens,
+            'pedido_valor_desconto'       => $totalDesconto,
+            'pedido_valor_frete'          => $valorFrete,
+            'pedido_valor_total'          => round(max(0, $valorItens - $totalDesconto + $valorFrete), 2),
+        ]);
+
+        return redirect()->route('pedidos')->with('success', 'Pedido #' . $id . ' atualizado com sucesso!');
+    }
+
+    private function calcularFrete(?string $opcaoEntregaId, float $totalLiquido): float
+    {
+        if (! $opcaoEntregaId) {
+            return 0.0;
+        }
+
+        $opcao = OpcoesEntregas::find($opcaoEntregaId);
+        if (! $opcao || $opcao->opcaoentrega_valor_frete <= 0) {
+            return 0.0;
+        }
+
+        if ($opcao->opcaoentrega_min_valor_frete > 0 && $totalLiquido >= $opcao->opcaoentrega_min_valor_frete) {
+            return 0.0;
+        }
+
+        return (float) $opcao->opcaoentrega_valor_frete;
+    }
+
+    private function resolverCliente(Request $request): ?int
+    {
+        $clienteId = $request->input('pedido_cliente_id') ?: null;
+        if ($clienteId) {
+            return (int) $clienteId;
+        }
+
+        $nome     = trim($request->input('cliente_nome_novo', ''));
+        $telefone = preg_replace('/\D/', '', $request->input('cliente_celular_novo', ''));
+
+        if (! $nome) {
+            return null;
+        }
+
+        $cliente = $telefone
+            ? Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first()
+            : null;
+
+        if ($cliente) {
+            $cliente->update(['cliente_nome' => $nome]);
+        } else {
+            $cliente = Cliente::create([
+                'cliente_nome'    => $nome,
+                'cliente_celular' => $telefone ?: null,
+                'cliente_tipo'    => 'Física',
+            ]);
+        }
+
+        return $cliente->id;
     }
 
     /**

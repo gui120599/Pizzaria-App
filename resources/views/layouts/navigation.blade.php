@@ -40,6 +40,16 @@
         <i class='text-[13px] bx bx-receipt'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
     </x-nav-link>
+    <x-nav-link :href="route('confirmacoes')" :active="request()->routeIs('confirmacoes')">
+        <i class='text-[13px] bx bx-bell'></i>
+        <span class="text-[12px] ml-4 text-gray-200">{{ __('Confirmações') }}</span>
+        @php $pendentes = \App\Models\Pedido::where('pedido_status','INICIADO')->count(); @endphp
+        @if($pendentes > 0)
+            <span class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse">
+                {{ $pendentes }}
+            </span>
+        @endif
+    </x-nav-link>
     <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!--Financeiro-->

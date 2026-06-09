@@ -21,6 +21,7 @@ class Pedido extends Model
         'pedido_endereco_entrega',
         'pedido_valor_itens',
         'pedido_valor_desconto',
+        'pedido_valor_frete',
         'pedido_valor_total',
         'pedido_status',
         'pedido_datahora_abertura',

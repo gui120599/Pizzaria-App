@@ -14,5 +14,7 @@ class OpcoesEntregas extends Model
 
     protected $fillable = [
         'opcaoentrega_nome',
+        'opcaoentrega_valor_frete',
+        'opcaoentrega_min_valor_frete',
     ];
 }

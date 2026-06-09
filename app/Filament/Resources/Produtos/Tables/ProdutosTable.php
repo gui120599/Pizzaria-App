@@ -30,12 +30,22 @@ class ProdutosTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->reorderable('produto_ordem')
+            ->defaultSort('produto_ordem')
             ->columns([
+                TextColumn::make('produto_ordem')
+                    ->label('Ord.')
+                    ->sortable()
+                    ->alignCenter()
+                    ->badge()
+                    ->color('gray')
+                    ->width('60px'),
+
                 ImageColumn::make('produto_foto')
                     ->disk('public')
                     ->size(40)
                     ->toggleable(isToggledHiddenByDefault: false),
-                
+
                 TextColumn::make('produto_descricao')
                     ->label('Descrição')
                     ->sortable()

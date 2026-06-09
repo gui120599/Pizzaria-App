@@ -22,50 +22,49 @@
     <div id="conteudo" class="p-1">
         <img src="{{ asset('img/Logo Pizzaria login.png') }}" alt="" class="w-28 mx-auto">
         <p class="text-center font-bold mb-2">Comanda de Pedido</p>
+        @php
+            $nomeOpcao      = $pedido->opcaoEntrega?->opcaoentrega_nome ?? '';
+            $isEntrega      = str_contains(strtolower($nomeOpcao), 'entrega') || str_contains(strtolower($nomeOpcao), 'deliver');
+            $abertura       = $pedido->pedido_datahora_abertura ?? $pedido->created_at;
+        @endphp
         <div class="grid grid-cols-2 text-xs">
-            @if ($pedido->pedido_opcaoentrega_id == 3)
+            @if ($isEntrega)
                 <div class="col-span-1 flex flex-col text-left min-w-20">
                     <label class="text-lg">Nº Pedido</label>
                     <label>Cliente</label>
                     <label>Telefone</label>
-                    <label>Atendente</label>
                     <label>Data/Hora</label>
-                    <label class="text-base">Entregar</label>
+                    <label class="text-base font-bold">Entregar em:</label>
                 </div>
                 <div class="col-span-1 flex flex-col text-right font-bold">
                     <label class="text-lg">{{ $pedido->id }}</label>
-                    <label class=" truncate ...">{{ $pedido->cliente->cliente_nome }}</label>
-                    <label>
-                        @if ($pedido->cliente->cliente_celular)
-                            {{ $pedido->cliente->cliente_celular }}
-                        @else
-                            Não Informado
-                        @endif
-                    </label>
-                    <label>{{ $pedido->garcom->name_first }}</label>
-                    <label>{{ $pedido->pedido_datahora_abertura->format('d/m/Y H:i') }}</label>
+                    <label class="truncate">{{ $pedido->cliente?->cliente_nome ?? 'Não informado' }}</label>
+                    <label>{{ $pedido->cliente?->cliente_celular ?? 'Não informado' }}</label>
+                    <label>{{ $abertura->format('d/m/Y H:i') }}</label>
+                    <label class="text-base">&nbsp;</label>
                 </div>
                 <p class="text-base text-center col-span-2 uppercase font-semibold max-w-72">
-                    {{ $pedido->pedido_endereco_entrega }}</p>
+                    {{ $pedido->pedido_endereco_entrega ?? '—' }}
+                </p>
             @else
                 <div class="col-span-1 flex flex-col text-left">
                     <label class="text-lg">Nº Pedido</label>
                     <label>Cliente</label>
-                    <label>Garçom</label>
+                    <label>Atendente</label>
                     <label>Data/Hora</label>
-                    <label class="text-base">{{ $pedido->opcaoEntrega->opcaoentrega_nome }}</label>
+                    <label>Tipo</label>
                     @if ($pedido->pedido_sessao_mesa_id !== null)
-                        <label>Sessão Mesa</label>
+                        <label>Mesa / Sessão</label>
                     @endif
                 </div>
                 <div class="col-span-1 flex flex-col text-right font-bold">
                     <label class="text-lg">{{ $pedido->id }}</label>
-                    <label class="truncate ...">{{ $pedido->cliente->cliente_nome }}</label>
-                    <label>{{ $pedido->garcom->name_first }}</label>
-                    <label>{{ $pedido->pedido_datahora_abertura->format('d/m/Y H:i') }}</label>
-                    <label class="text-base">{{ $pedido->sessaoMesa->mesa->mesa_nome }}</label>
+                    <label class="truncate">{{ $pedido->cliente?->cliente_nome ?? 'Não informado' }}</label>
+                    <label>{{ $pedido->garcom?->name ?? 'S/A' }}</label>
+                    <label>{{ $abertura->format('d/m/Y H:i') }}</label>
+                    <label>{{ $nomeOpcao ?: '—' }}</label>
                     @if ($pedido->pedido_sessao_mesa_id !== null)
-                        <label class="text-base">{{ $pedido->pedido_sessao_mesa_id }}</label>
+                        <label>{{ $pedido->sessaoMesa?->mesa?->mesa_nome ?? '—' }} / {{ $pedido->pedido_sessao_mesa_id }}</label>
                     @endif
                 </div>
             @endif
@@ -120,17 +119,27 @@
         <div class="flex justify-between text-xs">
             <div id="valores" class="text-left">
                 <label>Qtd. Itens</label><br>
-                <label>(+)Valor Produtos</label><br>
-                <label>(-)Desconto</label><br>
-                <label>(=)Valor Total</label><br>
-                <label>Forma Pagamento</label><br>
+                <label>(+) Valor Produtos</label><br>
+                @if ($pedido->pedido_valor_desconto > 0)
+                    <label>(-) Desconto</label><br>
+                @endif
+                @if (isset($pedido->pedido_valor_frete) && $pedido->pedido_valor_frete > 0)
+                    <label>(+) Taxa de Entrega</label><br>
+                @endif
+                <label>(=) Valor Total</label><br>
+                <label>Forma de Pagamento</label><br>
             </div>
             <div id="dados-valores" class="text-right font-bold">
                 <label>{{ $itens_inserido_pedido->sum('item_pedido_quantidade') }}</label><br>
                 <label>R$ {{ number_format($itens_inserido_pedido->sum('item_pedido_valor'), 2, ',', '.') }}</label><br>
-                <label>R$ {{ number_format($pedido->pedido_valor_desconto, 2, ',', '.') }}</label><br>
-                <label>R$ {{ number_format($itens_inserido_pedido->sum('item_pedido_valor')-$pedido->pedido_valor_desconto, 2, ',', '.') }}</label><br>
-                <label>{{ $pedido->pedido_descricao_pagamento }}</label><br>
+                @if ($pedido->pedido_valor_desconto > 0)
+                    <label>R$ {{ number_format($pedido->pedido_valor_desconto, 2, ',', '.') }}</label><br>
+                @endif
+                @if (isset($pedido->pedido_valor_frete) && $pedido->pedido_valor_frete > 0)
+                    <label>R$ {{ number_format($pedido->pedido_valor_frete, 2, ',', '.') }}</label><br>
+                @endif
+                <label>R$ {{ number_format($pedido->pedido_valor_total, 2, ',', '.') }}</label><br>
+                <label>{{ $pedido->pedido_descricao_pagamento ?? '—' }}</label><br>
             </div>
         </div>
         @if ($pedido->pedido_observacao_pagamento !== null)

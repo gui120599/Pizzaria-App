@@ -23,6 +23,154 @@
                     x-on:click.prevent="$dispatch('open-modal', 'remover-pedido')"><i class='bx bx-minus-circle'></i>
                     {{ __('Remover pedido da mesa') }}</x-danger-button>
 
+                <x-secondary-button x-data=""
+                    x-on:click.prevent="$dispatch('open-modal', 'gerenciar-clientes')">
+                    <i class='bx bx-group'></i>
+                    Clientes
+                    @if(count($sessaoMesaClientes) > 0)
+                        <span class="ml-1 bg-teal-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{{ count($sessaoMesaClientes) }}</span>
+                    @endif
+                </x-secondary-button>
+
+                {{-- Modal: Gerenciar Clientes da Sessão --}}
+                <x-modal name="gerenciar-clientes" :show="false" :maxWidth="'md'">
+                    <div class="p-6 space-y-4"
+                         x-data="{
+                             tel: '',
+                             clienteId: null,
+                             nome: '',
+                             encontrado: false,
+                             buscando: false,
+                             clientes: [],
+                             async buscar() {
+                                 if (this.tel.replace(/\D/g,'').length < 8) return;
+                                 this.buscando = true;
+                                 const r = await fetch('/cardapio/lookup-cliente?telefone=' + encodeURIComponent(this.tel));
+                                 const d = await r.json();
+                                 this.buscando = false;
+                                 if (d.encontrado) { this.clienteId = d.cliente_id; this.nome = d.nome; this.encontrado = true; }
+                                 else { this.clienteId = null; this.nome = ''; this.encontrado = false; }
+                             },
+                             adicionar() {
+                                 if (!this.nome.trim()) return;
+                                 this.clientes.push({ id: this.clienteId, nome: this.nome.trim(), tel: this.tel });
+                                 this.tel = ''; this.clienteId = null; this.nome = ''; this.encontrado = false;
+                             },
+                             remover(i) { this.clientes.splice(i, 1); }
+                         }">
+
+                        {{-- Header --}}
+                        <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                            <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <i class='bx bx-group text-teal-600'></i> Clientes da {{ $mesa->mesa_nome }}
+                            </h2>
+                            <button x-on:click="$dispatch('close')" type="button"
+                                    class="text-gray-400 hover:text-gray-600 transition-colors">
+                                <i class='bx bx-x text-xl'></i>
+                            </button>
+                        </div>
+
+                        {{-- Clientes já registrados na sessão --}}
+                        @if (count($sessaoMesaClientes) > 0)
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                                    Já registrados
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach ($sessaoMesaClientes as $c)
+                                        <form method="POST"
+                                              action="{{ route('sessaoMesa.removerCliente', [$sessao_mesa, $c['smc_id']]) }}"
+                                              onsubmit="return confirm('Remover {{ addslashes($c['nome']) }} da sessão?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit"
+                                                    class="inline-flex items-center gap-1.5 bg-teal-50 border border-teal-200 hover:border-red-300 hover:bg-red-50 rounded-full px-3 py-1 text-sm text-teal-800 hover:text-red-600 font-medium transition-colors group">
+                                                <i class='bx bx-user-check text-teal-500 group-hover:text-red-400 text-xs'></i>
+                                                {{ $c['nome'] }}
+                                                <i class='bx bx-x text-xs opacity-0 group-hover:opacity-100 transition-opacity'></i>
+                                            </button>
+                                        </form>
+                                    @endforeach
+                                </div>
+                                <p class="text-[10px] text-gray-400 mt-1.5">Clique num cliente para removê-lo da sessão</p>
+                            </div>
+                        @else
+                            <p class="text-sm text-gray-400 text-center py-2">Nenhum cliente registrado nesta sessão.</p>
+                        @endif
+
+                        {{-- Form para adicionar novos --}}
+                        <form action="{{ route('sessaoMesa.adicionarClientes', $sessao_mesa) }}" method="POST"
+                              class="space-y-3 border-t border-gray-100 pt-4">
+                            @csrf
+
+                            {{-- Chips dos novos clientes a adicionar --}}
+                            <template x-if="clientes.length > 0">
+                                <div>
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">A adicionar</p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <template x-for="(c, i) in clientes" :key="i">
+                                            <div>
+                                                <input type="hidden" :name="'clientes_ids[' + i + ']'" :value="c.id ?? ''">
+                                                <input type="hidden" :name="'clientes_nomes[' + i + ']'" :value="c.nome">
+                                                <input type="hidden" :name="'clientes_tels[' + i + ']'" :value="c.tel">
+                                                <span class="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1 text-sm text-indigo-800 font-medium">
+                                                    <i class='bx bx-user-plus text-indigo-400 text-xs'></i>
+                                                    <span x-text="c.nome"></span>
+                                                    <button type="button" @click="remover(i)"
+                                                            class="text-indigo-400 hover:text-red-500 transition-colors ml-0.5 leading-none">&times;</button>
+                                                </span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
+                            {{-- Busca por telefone --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                                <div class="flex gap-2">
+                                    <input type="tel" x-model="tel" @input.debounce.500ms="buscar()"
+                                           placeholder="(00) 00000-0000"
+                                           class="flex-1 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-teal-500 focus:border-teal-500">
+                                    <button type="button" @click="tel=''; clienteId=null; nome=''; encontrado=false;" x-show="tel"
+                                            class="px-3 bg-gray-100 hover:bg-red-50 text-gray-500 rounded-lg text-xs transition-colors">✕</button>
+                                </div>
+                            </div>
+
+                            <div x-show="buscando" class="text-xs text-gray-400">Buscando...</div>
+
+                            <div x-show="encontrado && !buscando"
+                                 class="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                                <i class='bx bx-user-check text-green-600'></i>
+                                <span class="text-sm text-green-700 font-medium" x-text="nome"></span>
+                            </div>
+
+                            <div x-show="!encontrado && !buscando && tel.replace(/\D/g,'').length >= 8">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nome (novo cliente)</label>
+                                <input type="text" x-model="nome" placeholder="Nome completo"
+                                       class="w-full border-gray-300 rounded-lg shadow-sm text-sm focus:ring-teal-500 focus:border-teal-500">
+                            </div>
+
+                            <button type="button" @click="adicionar()" x-show="nome.trim()"
+                                    class="w-full py-2 bg-teal-50 hover:bg-teal-100 border border-teal-300 text-teal-700 rounded-lg text-sm font-semibold transition-colors">
+                                <i class='bx bx-plus mr-1'></i> Adicionar à lista
+                            </button>
+
+                            {{-- Botões de ação --}}
+                            <div class="flex justify-end gap-3 pt-2 border-t border-gray-100">
+                                <x-secondary-button x-on:click="$dispatch('close')" type="button">
+                                    Fechar
+                                </x-secondary-button>
+                                <button type="submit" x-show="clientes.length > 0"
+                                        class="inline-flex items-center gap-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-bold transition-colors shadow-sm">
+                                    <i class='bx bx-user-plus'></i>
+                                    Confirmar (<span x-text="clientes.length"></span>)
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </x-modal>
+
                 <x-modal name="seleciona-pedido" :show="$openPedidosExistentes" :maxWidth="'6xl'">
 
                     <form method="POST"
@@ -504,11 +652,17 @@
 
                         <div>
                             <hr class="h-px my-1 border-0 bg-gray-200">
-                            <div class="flex justify-between">
+                            <div class="flex justify-between items-center">
                                 <span>Valor do Pedido</span>
                                 <span class="font-bold">R$
                                     {{ str_replace('.', ',', $pedido->pedido_valor_total) }}</span>
                             </div>
+                            @if (!in_array($pedido->pedido_status, ['INICIADO', 'ENTREGUE', 'FINALIZADO', 'CANCELADO']))
+                                <a href="{{ route('sessaoMesa.editarPedido', ['mesa_id' => $mesa->id, 'pedido' => $pedido->id]) }}"
+                                   class="mt-1.5 flex items-center justify-center gap-1 w-full py-1.5 bg-teal-50 hover:bg-teal-100 border border-teal-300 text-teal-700 rounded-lg text-xs font-semibold transition-colors">
+                                    <i class='bx bx-edit-alt'></i> Editar pedido
+                                </a>
+                            @endif
                         </div>
                     </div>
                 @endforeach

@@ -14,15 +14,18 @@ class OpcoesPagamento extends Model
 
     protected $fillable = [
         'opcaopag_nome',
+        'opcaopag_aparece_cardapio',
+        'opcaopag_descricao',
         'opcaopag_tipo_taxa',
         'opcaopag_desc_nfe',
-        'opcaopag_valor_percentual_taxa'
+        'opcaopag_valor_percentual_taxa',
     ];
 
     protected $casts = [
-        'opcaopag_tipo_taxa' => 'string',
-        'opcaopag_desc_nfe' => 'string',
-        'opcaopag_valor_percentual_taxa' => 'float'
+        'opcaopag_aparece_cardapio'      => 'boolean',
+        'opcaopag_tipo_taxa'             => 'string',
+        'opcaopag_desc_nfe'              => 'string',
+        'opcaopag_valor_percentual_taxa' => 'float',
     ];
 
     const TIPO_TAXA = [

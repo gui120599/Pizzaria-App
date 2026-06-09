@@ -15,8 +15,18 @@ class Categoria extends Model
 
     protected $dates = ['deleted_at'];
     protected $fillable = [
-        "categoria_nome",
-        "categoria_cardapio"
+        'categoria_nome',
+        'categoria_ordem',
+        'categoria_cardapio',
+        'categoria_permite_sabores',
+        'categoria_max_sabores',
+    ];
+
+    protected $casts = [
+        'categoria_cardapio'        => 'boolean',
+        'categoria_permite_sabores' => 'boolean',
+        'categoria_max_sabores'     => 'integer',
+        'categoria_ordem'           => 'integer',
     ];
 
     public function produtos()

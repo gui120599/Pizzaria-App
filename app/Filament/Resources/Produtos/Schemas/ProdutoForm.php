@@ -107,6 +107,15 @@ class ProdutoForm
                             'lg' => 4,
                         ])
                         ->schema([
+                            TextInput::make('produto_ordem')
+                                ->label('Ordem de Exibição')
+                                ->numeric()
+                                ->integer()
+                                ->default(0)
+                                ->minValue(0)
+                                ->columnSpan(2)
+                                ->helperText('Menor número aparece primeiro dentro da categoria'),
+
                             Toggle::make('produto_controla_estoque')
                                 ->label('Controla Estoque?')
                                 ->inline()

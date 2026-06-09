@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Categoria;
+use App\Models\HorarioFuncionamento;
+use App\Models\OpcoesPagamento;
+use App\Models\OpcoesEntregas;
 use App\Models\Produto;
 use Illuminate\Http\Request;
 
@@ -15,28 +18,14 @@ class CardapioController extends Controller
         })
             ->with([
                 'produtos' => function ($query) {
-                    $query->where('produto_cardapio', true);
+                    $query->where('produto_cardapio', true)
+                          ->orderBy('produto_ordem')
+                          ->orderBy('produto_descricao');
                 }
             ])
-            ->where('categoria_cardapio',true)
-            ->orderByRaw("
-            CASE 
-                WHEN categoria_nome LIKE 'Combo%' THEN 0 
-                WHEN categoria_nome LIKE 'Pizza G%' THEN 1
-                WHEN categoria_nome LIKE 'Pizza M%' THEN 2
-                WHEN categoria_nome LIKE 'Pizza B%' THEN 3
-                WHEN categoria_nome LIKE 'Pizza Q%' THEN 4
-                WHEN categoria_nome LIKE 'Torta%' THEN 5
-                WHEN categoria_nome LIKE 'Sandu%' THEN 6
-                WHEN categoria_nome LIKE 'Pastel%' THEN 7
-                WHEN categoria_nome LIKE 'Paneli%' THEN 8
-                WHEN categoria_nome LIKE 'Refri%' THEN 9
-                WHEN categoria_nome LIKE 'Cerveja%' THEN 10
-                WHEN categoria_nome LIKE 'Suco%' THEN 11
-                WHEN categoria_nome LIKE 'Cremes%' THEN 12
-                ELSE 13
-            END, categoria_nome
-        ")
+            ->where('categoria_cardapio', true)
+            ->orderBy('categoria_ordem')
+            ->orderBy('categoria_nome')
             ->get();
 
         $top10Ids = Produto::where('produto_cardapio', true)
@@ -61,6 +50,46 @@ class CardapioController extends Controller
             ->limit(8)
             ->get();
 
-        return view('cardapio', compact('categorias', 'promocoes', 'maisVendidos', 'top10Ids'));
+        $opcoesEntregas = OpcoesEntregas::whereNull('deleted_at')
+            ->whereNotIn('opcaoentrega_nome', ['Comer no Local'])
+            ->get()
+            ->map(fn($o) => [
+                'id'              => $o->id,
+                'nome'            => $o->opcaoentrega_nome,
+                'requer_endereco' => str_contains(strtolower($o->opcaoentrega_nome), 'entrega') || str_contains(strtolower($o->opcaoentrega_nome), 'deliver'),
+                'valor_frete'     => (float) $o->opcaoentrega_valor_frete,
+                'min_frete'       => (float) $o->opcaoentrega_min_valor_frete,
+            ]);
+
+        $opcoesPagamento = OpcoesPagamento::whereNull('deleted_at')
+            ->where('opcaopag_aparece_cardapio', true)
+            ->get()
+            ->map(fn($p) => [
+                'id'        => $p->id,
+                'nome'      => $p->opcaopag_nome,
+                'descricao' => $p->opcaopag_descricao,
+                'dinheiro'  => str_contains(strtolower($p->opcaopag_nome), 'dinheiro'),
+            ]);
+
+        $categoriasComSabores = $categorias
+            ->filter(fn($c) => $c->categoria_permite_sabores)
+            ->map(fn($c) => [
+                'id'         => $c->id,
+                'nome'       => $c->categoria_nome,
+                'maxSabores' => $c->categoria_max_sabores ?? 2,
+                'produtos'   => $c->produtos->map(fn($p) => [
+                    'id'           => $p->id,
+                    'nome'         => $p->produto_descricao,
+                    'preco'        => $p->produto_preco_promocional > 0 ? (float) $p->produto_preco_promocional : (float) $p->produto_preco_venda,
+                    'precoOriginal'=> (float) $p->produto_preco_venda,
+                    'foto'         => $p->getImagemUrl(),
+                ])->values(),
+            ])
+            ->values();
+
+        $estaAberto      = HorarioFuncionamento::estaAberto();
+        $proximoHorario  = $estaAberto ? null : HorarioFuncionamento::proximoHorario();
+
+        return view('cardapio', compact('categorias', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'estaAberto', 'proximoHorario'));
     }
 }

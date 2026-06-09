@@ -23,13 +23,13 @@
                     @foreach ($pedidos as $pedido)
                         <tr class="border-b-2 border-gray-100">
                             <td class="text-center">{{ $pedido->id }}</td>
-                            <td class="text-center">{{ $pedido->pedido_datahora_abertura->format('d/m/Y H:i') }}</td>
+                            <td class="text-center">{{ $pedido->pedido_datahora_abertura?->format('d/m/Y H:i') ?? $pedido->created_at->format('d/m/Y H:i') }}</td>
                             <td class="text-center">{{ $pedido->pedido_status }}</td>
-                            <td class="">{{ $pedido->cliente->cliente_nome }}</td>
-                            <td class="">{{ $pedido->sessaoMesa->mesa->mesa_nome }}</td>
-                            <td class="text-start">{{ $pedido->garcom->name_first }}</td>
+                            <td class="">{{ $pedido->cliente?->cliente_nome ?? '—' }}</td>
+                            <td class="">{{ $pedido->sessaoMesa?->mesa?->mesa_nome ?? '—' }}</td>
+                            <td class="text-start">{{ $pedido->garcom?->name_first ?? '—' }}</td>
                             <td class="text-start">
-                                <span>{{ $pedido->opcaoEntrega->opcaoentrega_nome }}</span>
+                                <span>{{ $pedido->opcaoEntrega?->opcaoentrega_nome ?? '—' }}</span>
                             </td>
                             <td class="text-start">R$ {{ number_format($pedido->item_pedido_pedido_id->sum('item_pedido_valor') - $pedido->pedido_valor_desconto, 2, ',', '.') }}</td>
 
@@ -41,8 +41,14 @@
                                     <x-secondary-button title="MOVIMENTAÇÃO DO PEDIDO" x-data=""
                                         x-on:click.prevent="$dispatch('open-modal', 'mov-pedido-{{ $pedido->id }}')"><i
                                             class='bx bx-transfer'></i></x-secondary-button>
-                                            
-                                    <x-secondary-button title="ALTERAR DO PEDIDO" x-data=""
+
+                                    <a href="{{ route('pedido.editar', $pedido->id) }}"
+                                       title="EDITAR PEDIDO COMPLETO"
+                                       class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-teal-50 hover:border-teal-400 hover:text-teal-700 focus:outline-none transition ease-in-out duration-150">
+                                        <i class='bx bxs-edit'></i>
+                                    </a>
+
+                                    <x-secondary-button title="ALTERAR ENTREGA" x-data=""
                                         x-on:click.prevent="$dispatch('open-modal', 'alterar-pedido-{{ $pedido->id }}')"><i
                                             class='bx bxs-edit-alt'></i></x-secondary-button>
                                             

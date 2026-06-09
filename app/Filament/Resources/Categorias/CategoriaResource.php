@@ -63,11 +63,33 @@ class CategoriaResource extends Resource
                             ->maxLength(100)
                             ->helperText('Identifica a categoria de forma clara'),
 
+                        TextInput::make('categoria_ordem')
+                            ->label('Ordem de Exibição')
+                            ->numeric()
+                            ->integer()
+                            ->default(0)
+                            ->minValue(0)
+                            ->helperText('Menor número aparece primeiro. Categorias com mesma ordem ficam em ordem alfabética'),
+
                         Toggle::make('categoria_cardapio')
                             ->label('Mostrar no Cardápio')
                             ->required()
                             ->inline()
                             ->helperText('Categorias visíveis aos clientes'),
+
+                        Toggle::make('categoria_permite_sabores')
+                            ->label('Permite Múltiplos Sabores')
+                            ->inline()
+                            ->live()
+                            ->helperText('Ative para categorias como pizzas (meia a meia, terços)'),
+
+                        \Filament\Forms\Components\Select::make('categoria_max_sabores')
+                            ->label('Máximo de Sabores')
+                            ->options([2 => 'Até 2 (Meia a Meia)', 3 => 'Até 3 (Terços)'])
+                            ->default(2)
+                            ->visible(fn($get) => (bool) $get('categoria_permite_sabores'))
+                            ->required(fn($get) => (bool) $get('categoria_permite_sabores'))
+                            ->helperText('Quantos sabores o cliente pode combinar'),
                     ]),
 
                 SchemaSection::make('Estatísticas')
@@ -98,6 +120,8 @@ class CategoriaResource extends Resource
     {
         return $table
             ->recordTitleAttribute('categoria_nome')
+            ->reorderable('categoria_ordem')
+            ->defaultSort('categoria_ordem')
             ->modifyQueryUsing(fn(Builder $query) => $query
                 ->with('ultimoHistoricoPreco')
                 ->withCount('produtos')
@@ -108,6 +132,14 @@ class CategoriaResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: false)
                     ->width('60px'),
+
+                TextColumn::make('categoria_ordem')
+                    ->label('Ordem')
+                    ->sortable()
+                    ->alignCenter()
+                    ->badge()
+                    ->color('gray')
+                    ->width('70px'),
 
                 TextColumn::make('categoria_nome')
                     ->label('Nome da Categoria')

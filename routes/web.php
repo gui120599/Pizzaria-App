@@ -25,6 +25,7 @@ use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
 use App\Http\Controllers\VendaController;
 use App\Models\ItensVenda;
+use App\Http\Controllers\CardapioCheckoutController;
 use App\Http\Controllers\EmpresaController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +49,9 @@ Route::get('/', function () {
 });
 
 Route::get('/Cardapio', [CardapioController::class, 'index'])->name('cardapio');
+Route::get('/cardapio/lookup-cliente', [CardapioCheckoutController::class, 'lookupCliente'])->name('cardapio.lookup_cliente');
+Route::post('/cardapio/checkout', [CardapioCheckoutController::class, 'checkout'])->name('cardapio.checkout');
+Route::get('/acompanhar/{id}', fn ($id) => view('app.acompanhamento.index', ['pedidoId' => (int) $id]))->name('pedido.acompanhar');
 Route::get('/Produto/{produto}', [ProdutoController::class, 'show'])->name('produto.show');
 
 Route::get('/Pedido/{id}/Imprimir', [PDFController::class, 'pedidoPDF'])->name('pedido.imprimir');
@@ -60,6 +64,8 @@ Route::get('/pedidosEntregasPDF/{datahora_abertura}/Imprimir', [PDFController::c
 Route::get('/dashboard', [Dashboard::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/confirmacoes', fn () => view('app.confirmacoes.index'))->name('confirmacoes');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -186,6 +192,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/Avancar-Pedido-Entregue', [PedidoController::class, 'AvancarPedidoEntregue'])->name('avancar_pedido_entregue');
     Route::post('/Pedido/{id}/Edit', [PedidoController::class, 'SalvarPedido'])->name('pedido.salvar_pedido');
     Route::post('/Pedido-Mesa/{id}/Edit', [PedidoController::class, 'SalvarPedidoMesa'])->name('pedido.salvar_pedido_mesa');
+    Route::get('/Pedido/{id}/Editar', [PedidoController::class, 'editarPedido'])->name('pedido.editar');
+    Route::patch('/Pedido/{id}/Editar', [PedidoController::class, 'salvarEdicaoPedido'])->name('pedido.salvar_edicao');
     Route::patch('/Pedido/{pedido}', [PedidoController::class, 'update'])->name('pedido.update');
     Route::delete('/Pedido/{pedido}', [PedidoController::class, 'destroy'])->name('pedido.destroy');
     Route::post('/iniciar-pedido', [PedidoController::class, 'iniciarPedido'])->name('pedido.iniciar');
@@ -204,6 +212,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/SessaoMesa/{mesa_id}/Abrir-Sessao', [SessaoMesaController::class, 'index'])->name('sessaoMesa');
     Route::get('/SessaoMesa/{mesa_id}/Pedidos', [SessaoMesaController::class, 'PedidosMesa'])->name('sessaoMesa.pedidosMesa');
     Route::get('/SessaoMesa/{mesa_id}/Realizar-Pedido', [SessaoMesaController::class, 'PedidoMesa'])->name('sessaoMesa.pedidoMesa');
+    Route::post('/SessaoMesa/{mesa_id}/Salvar-Novo-Pedido', [SessaoMesaController::class, 'salvarNovoPedidoMesa'])->name('sessaoMesa.salvarNovoPedidoMesa');
+    Route::get('/SessaoMesa/{mesa_id}/Pedido/{pedido}/Editar', [SessaoMesaController::class, 'editarPedidoMesa'])->name('sessaoMesa.editarPedido');
+    Route::patch('/SessaoMesa/{mesa_id}/Pedido/{pedido}/Salvar-Edicao', [SessaoMesaController::class, 'salvarEdicaoPedidoMesa'])->name('sessaoMesa.salvarEdicaoPedido');
     Route::get('/SessaoMesa/{item_pedido_id}/{pedido_id}/Remover-Item-Pedido', [SessaoMesaController::class, 'RemoverItemPedidoMesa'])->name('removerItemPedidoMesa');
     Route::get('/SessaoMesa-Inativas', [SessaoMesaController::class, 'inactive'])->name('sessaoMesa.inactive');
     Route::get('/SessaoMesa/Create', [SessaoMesaController::class, 'create'])->name('sessaoMesa.create');
@@ -213,6 +224,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/SessaoMesa/{sessaoMesa}/Selecionar-Mesa', [SessaoMesaController::class, 'editAlterarMesaSessaMesa'])->name('sessaoMesa.editAlterarMesa');
     Route::patch('/SessaoMesa/{sessaoMesa}/Alterar-Mesa', [SessaoMesaController::class, 'updateAlterarMesaSessaMesa'])->name('sessao_mesa.updateAlterarMesa');
     Route::patch('/SessaoMesa/{sessaoMesa}/Adicona-pedidos-existentes', [SessaoMesaController::class, 'updateAdicionarPedidosExistentes'])->name('sessaoMesa.updateAdicionarExistentes');
+    Route::post('/SessaoMesa/{sessaoMesa}/Adicionar-Clientes', [SessaoMesaController::class, 'adicionarClientesSessao'])->name('sessaoMesa.adicionarClientes');
+    Route::delete('/SessaoMesa/{sessaoMesa}/Remover-Cliente/{sessaoMesaCliente}', [SessaoMesaController::class, 'removerClienteSessao'])->name('sessaoMesa.removerCliente');
     Route::patch('/SessaoMesa/{sessaoMesa}/Remover-pedidos-mesa', [SessaoMesaController::class, 'updateRemoverPedidosSessaoMesa'])->name('sessaoMesa.updateRemoverPedidosSessaoMesa');
     Route::get('/SessaoMesa/{sessaoMesa}', [SessaoMesaController::class, 'show'])->name('sessaoMesa.show');
     Route::get('/SessaoMesa/{sessaoMesa}/Edit', [SessaoMesaController::class, 'edit'])->name('sessaoMesa.edit');

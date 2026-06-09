@@ -19,27 +19,35 @@
 
                         <div class="flex flex-col mb-4">
                             <x-text-input id="buscar" class="" placeholder="Buscar Produtos"></x-text-input>
-                            <div class="hidden md:flex gap-2 overflow-auto p-1">
+                            <div class="hidden md:flex gap-3 overflow-x-auto overflow-y-hidden px-1 py-2 scrollbar-none">
                                 @if (isset($promocoes) && $promocoes->isNotEmpty())
                                     <button type="button"
-                                        class="rolarCategoria inline-flex items-center gap-1 bg-orange-500 border p-1 border-orange-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest shadow-sm hover:bg-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                                        class="rolarCategoria flex flex-col items-center gap-1 shrink-0 w-16 focus:outline-none group"
                                         onclick="scrollToElement('secao_promocoes')">
-                                        <i class='bx bxs-purchase-tag'></i> Promoções
+                                        <div class="w-14 h-14 rounded-xl overflow-hidden border-2 border-orange-400 group-hover:border-orange-500 transition-colors duration-150 shadow-sm bg-orange-50 flex items-center justify-center">
+                                            <i class='bx bxs-purchase-tag text-orange-500 text-3xl'></i>
+                                        </div>
+                                        <span class="text-[9px] text-orange-600 font-semibold uppercase tracking-wide leading-tight text-center line-clamp-2 w-full">Promoções</span>
                                     </button>
                                 @endif
                                 @if (isset($maisVendidos) && $maisVendidos->isNotEmpty())
                                     <button type="button"
-                                        class="rolarCategoria inline-flex items-center gap-1 bg-yellow-500 border p-1 border-yellow-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest shadow-sm hover:bg-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                                        class="rolarCategoria flex flex-col items-center gap-1 shrink-0 w-16 focus:outline-none group"
                                         onclick="scrollToElement('secao_mais_vendidos')">
-                                        <i class='bx bxs-star'></i> + Vendidos
+                                        <div class="w-14 h-14 rounded-xl overflow-hidden border-2 border-yellow-400 group-hover:border-yellow-500 transition-colors duration-150 shadow-sm bg-yellow-50 flex items-center justify-center">
+                                            <i class='bx bxs-star text-yellow-500 text-3xl'></i>
+                                        </div>
+                                        <span class="text-[9px] text-yellow-600 font-semibold uppercase tracking-wide leading-tight text-center line-clamp-2 w-full">+ Vendidos</span>
                                     </button>
                                 @endif
                                 @foreach ($categorias as $categoria)
-                                    <button type="button"
-                                        class="rolarCategoria inline-flex items-center bg-gray-200 border p-1 border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
-                                        onclick="scrollToElement('categoria_{{ $categoria->id }}')">
-                                        {{ $categoria->categoria_nome }}
-                                    </button>
+                                    <x-categoria-button
+                                        type="button"
+                                        :categoria="$categoria"
+                                        :dark="false"
+                                        class="rolarCategoria"
+                                        onclick="scrollToElement('categoria_{{ $categoria->id }}')"
+                                    />
                                 @endforeach
                             </div>
                         </div>

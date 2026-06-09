@@ -44,4 +44,9 @@ class SessaoMesa extends Model
     {
         return $this->hasMany(Pedido::class, 'pedido_sessao_mesa_id');
     }
+
+    public function clientes()
+    {
+        return $this->hasMany(SessaoMesaCliente::class, 'smc_sessao_mesa_id');
+    }
 }

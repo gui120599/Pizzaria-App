@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MovimentacaoPedido;
 use App\Models\SessaoMesa;
+use App\Models\SessaoMesaCliente;
 use App\Http\Requests\StoreSessaoMesaRequest;
 use App\Http\Requests\UpdateSessaoMesaRequest;
 use App\Models\Categoria;
@@ -74,12 +75,12 @@ class SessaoMesaController extends Controller
 
         $pedidos = Pedido::with('produtosInseridosPedido', 'sessaoMesa')
         ->where('pedido_sessao_mesa_id', $sessaoMesaId)
-        ->where('pedido_status', '<>', 'CANCELADO')
+        ->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO'])
         ->orderByDesc('id')->get();
 
         $pedidosRemover = Pedido::with('produtosInseridosPedido', 'sessaoMesa')
         ->where('pedido_sessao_mesa_id', $sessaoMesaId)
-        ->where('pedido_status', '<>', 'CANCELADO')
+        ->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO'])
         ->orderByDesc('id')
         ->paginate(8,['*'],'page_RemoverPedidos');
 
@@ -91,17 +92,80 @@ class SessaoMesaController extends Controller
             ->orderByDesc('id')
             ->paginate(8,['*'],'page_PedidosExistentes');
 
+        $sessaoMesaClientes = $sessaoMesa->clientes()
+            ->with('cliente')
+            ->get()
+            ->map(fn($c) => [
+                'smc_id'     => $c->id,
+                'cliente_id' => $c->smc_cliente_id,
+                'nome'       => $c->cliente?->cliente_nome ?? 'Cliente',
+            ])
+            ->toArray();
 
         return view(
             'app.sessao_mesa.pedidos_mesa',
             [
-                'mesa' => $mesa,
-                'sessao_mesa' => $sessaoMesa,
-                'pedidos' => $pedidos,
-                'pedidosExistentes' => $pedidosExistentes,
-                'pedidosRemover' => $pedidosRemover,
+                'mesa'               => $mesa,
+                'sessao_mesa'        => $sessaoMesa,
+                'pedidos'            => $pedidos,
+                'pedidosExistentes'  => $pedidosExistentes,
+                'pedidosRemover'     => $pedidosRemover,
+                'sessaoMesaClientes' => $sessaoMesaClientes,
             ]
         );
+    }
+
+    public function adicionarClientesSessao(Request $request, SessaoMesa $sessaoMesa)
+    {
+        $clientesIds   = $request->input('clientes_ids', []);
+        $clientesNomes = $request->input('clientes_nomes', []);
+        $clientesTels  = $request->input('clientes_tels', []);
+
+        $existentes = $sessaoMesa->clientes()->pluck('smc_cliente_id')->toArray();
+
+        foreach ($clientesIds as $i => $clienteId) {
+            if ($clienteId) {
+                if (! in_array((int) $clienteId, $existentes)) {
+                    SessaoMesaCliente::create([
+                        'smc_sessao_mesa_id' => $sessaoMesa->id,
+                        'smc_cliente_id'     => $clienteId,
+                    ]);
+                }
+            } elseif (! empty($clientesNomes[$i])) {
+                $telefone = preg_replace('/\D/', '', $clientesTels[$i] ?? '');
+                $cliente  = $telefone
+                    ? Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first()
+                    : null;
+                if (! $cliente) {
+                    $cliente = Cliente::create([
+                        'cliente_nome'    => $clientesNomes[$i],
+                        'cliente_celular' => $telefone ?: null,
+                        'cliente_tipo'    => 'Física',
+                    ]);
+                }
+                if (! in_array($cliente->id, $existentes)) {
+                    SessaoMesaCliente::create([
+                        'smc_sessao_mesa_id' => $sessaoMesa->id,
+                        'smc_cliente_id'     => $cliente->id,
+                    ]);
+                }
+            }
+        }
+
+        return redirect()
+            ->route('sessaoMesa.pedidosMesa', ['mesa_id' => $sessaoMesa->sessao_mesa_mesa_id])
+            ->with('success', 'Clientes adicionados à sessão!');
+    }
+
+    public function removerClienteSessao(SessaoMesa $sessaoMesa, SessaoMesaCliente $sessaoMesaCliente)
+    {
+        if ($sessaoMesaCliente->smc_sessao_mesa_id === $sessaoMesa->id) {
+            $sessaoMesaCliente->delete();
+        }
+
+        return redirect()
+            ->route('sessaoMesa.pedidosMesa', ['mesa_id' => $sessaoMesa->sessao_mesa_mesa_id])
+            ->with('success', 'Cliente removido da sessão.');
     }
 
     /**
@@ -112,56 +176,147 @@ class SessaoMesaController extends Controller
 
     public function PedidoMesa(string|int $mesa_id)
     {
-
-        $mesa = Mesa::find($mesa_id);
+        $mesa       = Mesa::find($mesa_id);
         $sessaoMesa = SessaoMesa::where('sessao_mesa_mesa_id', $mesa_id)->where('sessao_mesa_status', 'ABERTA')->first();
-        $opcoes_pagamento = OpcoesPagamento::all();
-        $opcoes_entregas = OpcoesEntregas::all();
-        $produtos = Produto::all();
-        $categorias = Categoria::orderByRaw("
-            CASE
-                WHEN categoria_nome LIKE 'Pi%' THEN 0
-                ELSE 1
-            END, categoria_nome
-        ")->get();
-        $sessaoMesaId = $sessaoMesa->id;
 
-        $pedidos = Pedido::with('produtosInseridosPedido', 'sessaoMesa')->where('pedido_sessao_mesa_id', $sessaoMesaId)->where('pedido_status', '<>', 'CANCELADO')->get();
+        if (!$sessaoMesa) {
+            return redirect()->route('sessaoMesa', ['mesa_id' => $mesa_id])->with('error', 'Sessão não encontrada!');
+        }
 
-        $top10Ids = Produto::where('produto_destaque_mais_vendidos', true)
-            ->where('produto_qtd_vendas', '>', 0)
-            ->orderByDesc('produto_qtd_vendas')
-            ->limit(10)
-            ->pluck('id')
-            ->all();
+        $pedido = Pedido::where('pedido_sessao_mesa_id', $sessaoMesa->id)
+            ->where('pedido_status', 'INICIADO')
+            ->latest()
+            ->first()
+            ?? Pedido::create([
+                'pedido_status'         => 'INICIADO',
+                'pedido_sessao_mesa_id' => $sessaoMesa->id,
+            ]);
 
-        $promocoes = Produto::where('produto_preco_promocional', '>', 0)
-            ->with('categoria')
-            ->orderByDesc('produto_qtd_vendas')
+        $opcoes_pagamento = OpcoesPagamento::orderBy('opcaopag_nome')->get();
+
+        $sessaoMesaClientes = $sessaoMesa->clientes()
+            ->with('cliente')
+            ->get()
+            ->map(fn($c) => [
+                'id'   => $c->smc_cliente_id,
+                'nome' => $c->cliente?->cliente_nome ?? 'Cliente',
+            ])
+            ->toArray();
+
+        return view('app.sessao_mesa.pedido_mesa', compact('mesa', 'sessaoMesa', 'pedido', 'opcoes_pagamento', 'sessaoMesaClientes'));
+    }
+
+    public function salvarNovoPedidoMesa(Request $request, string|int $mesa_id)
+    {
+        $pedido = Pedido::findOrFail($request->input('pedido_id'));
+
+        $itens         = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+            ->where('item_pedido_status', 'INSERIDO')
             ->get();
 
-        $maisVendidos = Produto::where('produto_qtd_vendas', '>', 0)
-            ->where('produto_destaque_mais_vendidos', true)
-            ->with('categoria')
-            ->orderByDesc('produto_qtd_vendas')
-            ->limit(8)
+        if ($itens->isEmpty()) {
+            return back()->with('error', 'Adicione pelo menos um item antes de abrir o pedido.');
+        }
+
+        $valorItens    = round($itens->sum('item_pedido_valor'), 2);
+        $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
+
+        $clienteId = $this->resolverClienteMesa($request);
+
+        $pedido->update([
+            'pedido_cliente_id'           => $clienteId,
+            'pedido_opcaoentrega_id'      => $request->input('pedido_opcaoentrega_id') ?: 1,
+            'pedido_usuario_garcom_id'    => $request->input('pedido_usuario_garcom_id') ?: auth()->id(),
+            'pedido_descricao_pagamento'  => $request->input('pedido_descricao_pagamento') ?: null,
+            'pedido_observacao_pagamento' => $request->input('pedido_observacao_pagamento') ?: null,
+            'pedido_status'               => 'ABERTO',
+            'pedido_datahora_abertura'    => Carbon::now(),
+            'pedido_valor_itens'          => $valorItens,
+            'pedido_valor_desconto'       => $totalDesconto,
+            'pedido_valor_total'          => round(max(0, $valorItens - $totalDesconto), 2),
+        ]);
+
+        return redirect()->route('sessaoMesa.pedidosMesa', ['mesa_id' => $mesa_id])
+            ->with('success', 'Pedido #' . $pedido->id . ' aberto com sucesso!');
+    }
+
+    public function editarPedidoMesa(string|int $mesa_id, Pedido $pedido)
+    {
+        $mesa       = Mesa::find($mesa_id);
+        $sessaoMesa = SessaoMesa::where('sessao_mesa_mesa_id', $mesa_id)->where('sessao_mesa_status', 'ABERTA')->first();
+
+        if (! $sessaoMesa) {
+            return redirect()->route('sessaoMesa.pedidosMesa', ['mesa_id' => $mesa_id])
+                ->with('error', 'Sessão não encontrada!');
+        }
+
+        $statusNaoEditaveis = ['INICIADO', 'ENTREGUE', 'FINALIZADO', 'CANCELADO'];
+        if (in_array($pedido->pedido_status, $statusNaoEditaveis)) {
+            return redirect()->route('sessaoMesa.pedidosMesa', ['mesa_id' => $mesa_id])
+                ->with('error', 'Este pedido não pode ser editado.');
+        }
+
+        $sessaoMesaClientes = $sessaoMesa->clientes()
+            ->with('cliente')
+            ->get()
+            ->map(fn($c) => [
+                'id'   => $c->smc_cliente_id,
+                'nome' => $c->cliente?->cliente_nome ?? 'Cliente',
+            ])
+            ->toArray();
+
+        return view('app.sessao_mesa.pedido_edit', compact('mesa', 'sessaoMesa', 'pedido', 'sessaoMesaClientes'));
+    }
+
+    public function salvarEdicaoPedidoMesa(Request $request, string|int $mesa_id, Pedido $pedido)
+    {
+        $statusNaoEditaveis = ['INICIADO', 'ENTREGUE', 'FINALIZADO', 'CANCELADO'];
+        if (in_array($pedido->pedido_status, $statusNaoEditaveis)) {
+            return redirect()->route('sessaoMesa.pedidosMesa', ['mesa_id' => $mesa_id])
+                ->with('error', 'Este pedido não pode ser editado.');
+        }
+
+        $itens         = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+            ->where('item_pedido_status', 'INSERIDO')
             ->get();
 
-        return view(
-            'app.sessao_mesa.pedido_mesa',
-            [
-                'mesa' => $mesa,
-                'sessao_mesa' => $sessaoMesa,
-                'opcoes_entregas' => $opcoes_entregas,
-                'opcoes_pagamento' => $opcoes_pagamento,
-                'produtos' => $produtos,
-                'categorias' => $categorias,
-                'pedidos' => $pedidos,
-                'promocoes' => $promocoes,
-                'maisVendidos' => $maisVendidos,
-                'top10Ids' => $top10Ids,
-            ]
-        );
+        $valorItens    = round($itens->sum('item_pedido_valor'), 2);
+        $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
+
+        $pedido->update([
+            'pedido_valor_itens'    => $valorItens,
+            'pedido_valor_desconto' => $totalDesconto,
+            'pedido_valor_total'    => round(max(0, $valorItens - $totalDesconto), 2),
+        ]);
+
+        return redirect()->route('sessaoMesa.pedidosMesa', ['mesa_id' => $mesa_id])
+            ->with('success', 'Pedido #' . $pedido->id . ' atualizado com sucesso!');
+    }
+
+    private function resolverClienteMesa(Request $request): ?int
+    {
+        $clienteId = $request->input('pedido_cliente_id') ?: null;
+        if ($clienteId) {
+            return (int) $clienteId;
+        }
+        $nome     = trim($request->input('cliente_nome_novo', ''));
+        $telefone = preg_replace('/\D/', '', $request->input('cliente_celular_novo', ''));
+        if (! $nome) {
+            return null;
+        }
+        $cliente = $telefone
+            ? Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first()
+            : null;
+        if ($cliente) {
+            $cliente->update(['cliente_nome' => $nome]);
+        } else {
+            $cliente = Cliente::create([
+                'cliente_nome'    => $nome,
+                'cliente_celular' => $telefone ?: null,
+                'cliente_tipo'    => 'Física',
+            ]);
+        }
+        return $cliente->id;
     }
 
     /**
@@ -169,24 +324,49 @@ class SessaoMesaController extends Controller
      */
     public function AbrirSessaoMesa(StoreSessaoMesaRequest $request)
     {
-        // Cria a nova sessão para a mesa
-        $sessaoMesa = SessaoMesa::create($request->all());
+        $sessaoMesa = SessaoMesa::create($request->only([
+            'sessao_mesa_mesa_id',
+            'sessao_mesa_status',
+            'sessao_mesa_usuario_id',
+            'sessao_mesa_cliente_id',
+        ]));
 
-        // Obtém o ID da mesa a partir do request
         $mesa_id = $request->input('sessao_mesa_mesa_id');
-
-        // Recupera a mesa do banco de dados
-        $mesa = Mesa::findOrFail($mesa_id);
-
-        // Atualiza o status da mesa para "OCUPADA"
+        $mesa    = Mesa::findOrFail($mesa_id);
         $mesa->mesa_status = 'OCUPADA';
         $mesa->save();
 
-        // Obtém a última sessão criada
-        $ultimaSessaoMesa = SessaoMesa::latest()->first();
+        // Registrar clientes na sessão
+        $clientesIds   = $request->input('clientes_ids', []);
+        $clientesNomes = $request->input('clientes_nomes', []);
+        $clientesTels  = $request->input('clientes_tels', []);
 
-        // Redireciona para a página de pedidos da mesa
-        return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $mesa_id, 'sessao_mesa' => $ultimaSessaoMesa]);
+        foreach ($clientesIds as $i => $clienteId) {
+            if ($clienteId) {
+                SessaoMesaCliente::create([
+                    'smc_sessao_mesa_id' => $sessaoMesa->id,
+                    'smc_cliente_id'     => $clienteId,
+                ]);
+            } elseif (!empty($clientesNomes[$i])) {
+                $telefone = preg_replace('/\D/', '', $clientesTels[$i] ?? '');
+                $cliente  = $telefone
+                    ? Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first()
+                    : null;
+                if (! $cliente) {
+                    $cliente = Cliente::create([
+                        'cliente_nome'    => $clientesNomes[$i],
+                        'cliente_celular' => $telefone ?: null,
+                        'cliente_tipo'    => 'Física',
+                    ]);
+                }
+                SessaoMesaCliente::create([
+                    'smc_sessao_mesa_id' => $sessaoMesa->id,
+                    'smc_cliente_id'     => $cliente->id,
+                ]);
+            }
+        }
+
+        return redirect()->route('sessaoMesa.pedidosMesa', ['mesa_id' => $mesa_id]);
     }
 
     /**
