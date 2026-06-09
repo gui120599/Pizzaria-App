@@ -301,7 +301,8 @@
                                     $totalCobrado    = 0;
                                     foreach ($sessaoMesa->pedidos as $pedido) {
                                         foreach ($pedido->item_pedido_pedido_id as $item) {
-                                            $cobrado = $item->item_pedido_venda_id !== null;
+                                            $cobrado = $item->item_pedido_venda_id !== null
+                                                        && optional($item->venda)->venda_status === 'FINALIZADA';
                                             if ($cobrado) {
                                                 $totalCobrado += $item->item_pedido_valor;
                                             } else {
@@ -386,7 +387,8 @@
                                         <div class="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
                                             @foreach($sessaoMesa->pedidos as $pedido)
                                                 @foreach($pedido->item_pedido_pedido_id as $item)
-                                                    @php $cobrado = $item->item_pedido_venda_id !== null; @endphp
+                                                    @php $cobrado = $item->item_pedido_venda_id !== null
+                                                        && optional($item->venda)->venda_status === 'FINALIZADA'; @endphp
                                                     <label class="flex items-center gap-2 px-3 py-2 select-none
                                                         {{ $cobrado ? 'bg-gray-50 opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-teal-50' }}">
                                                         <input type="checkbox"

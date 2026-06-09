@@ -51,6 +51,7 @@ class VendaController extends Controller
                             'item_pedido_pedido_id.produto.categoria',
                             'item_pedido_pedido_id.adicionaisItemPedido.adicional',
                             'item_pedido_pedido_id.cliente',
+                            'item_pedido_pedido_id.venda',
                             'item_pedido_pedido_id' => function ($query) {
                                 $query->where('item_pedido_status', 'INSERIDO');
                             }
