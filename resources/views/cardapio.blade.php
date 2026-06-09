@@ -769,6 +769,47 @@
         </div>
     </div>
 
+    {{-- ══════════════════════════════════════════════════ --}}
+    {{-- Botão flutuante de avaliações (speed dial)        --}}
+    {{-- ══════════════════════════════════════════════════ --}}
+    <template x-if="_avaliacaoLinks.length > 0">
+        <div class="fixed bottom-6 left-4 z-40 flex flex-col items-center gap-2"
+             x-data="{ open: false }"
+             @click.away="open = false">
+
+            {{-- Links expandidos acima do botão principal --}}
+            <div x-show="open"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-y-2"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 translate-y-2"
+                 class="flex flex-col items-center gap-2"
+                 style="display:none">
+                <template x-for="link in _avaliacaoLinks" :key="link.avaliacao_link_url">
+                    <a :href="link.avaliacao_link_url"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center overflow-hidden border border-gray-200 hover:scale-110 transition-transform"
+                       :title="link.avaliacao_link_nome">
+                        <img :src="link.avaliacao_link_logo_url"
+                             :alt="link.avaliacao_link_nome"
+                             class="w-8 h-8 object-contain">
+                    </a>
+                </template>
+            </div>
+
+            {{-- Botão principal --}}
+            <button @click="open = !open"
+                    class="w-12 h-12 rounded-full bg-yellow-400 hover:bg-yellow-300 shadow-lg flex items-center justify-center transition-all duration-200"
+                    :class="open ? 'rotate-45' : ''"
+                    title="Avalie-nos">
+                <i class='bx bxs-star text-white text-2xl'></i>
+            </button>
+        </div>
+    </template>
+
     </div>{{-- /x-data --}}
 
     @if(config('services.recaptcha.site_key'))
@@ -785,6 +826,7 @@
         const _estaAberto           = @js($estaAberto);
         const _proximoHorario       = @js($proximoHorario);
         const _horarios             = @js($horarios);
+        const _avaliacaoLinks       = @js($avaliacaoLinks);
 
         document.addEventListener('alpine:init', () => {
             Alpine.store('cart', {

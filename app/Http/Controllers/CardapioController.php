@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AvaliacaoLink;
 use App\Models\Categoria;
+use Illuminate\Support\Facades\Storage;
 use App\Models\HorarioFuncionamento;
 use App\Models\OpcoesPagamento;
 use App\Models\OpcoesEntregas;
@@ -100,6 +102,16 @@ class CardapioController extends Controller
             ->values()
             ->all();
 
-        return view('cardapio', compact('categorias', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'estaAberto', 'proximoHorario', 'horarios'));
+        $avaliacaoLinks = AvaliacaoLink::where('avaliacao_link_ativo', true)
+            ->orderBy('avaliacao_link_ordem')
+            ->get(['avaliacao_link_nome', 'avaliacao_link_url', 'avaliacao_link_logo_url'])
+            ->map(fn ($l) => [
+                'avaliacao_link_nome'     => $l->avaliacao_link_nome,
+                'avaliacao_link_url'      => $l->avaliacao_link_url,
+                'avaliacao_link_logo_url' => Storage::disk('public')->url($l->avaliacao_link_logo_url),
+            ])
+            ->toArray();
+
+        return view('cardapio', compact('categorias', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks'));
     }
 }

@@ -2,7 +2,9 @@
 
 namespace App\Livewire;
 
+use App\Models\AvaliacaoLink;
 use App\Models\Pedido;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class AcompanhamentoPedido extends Component
@@ -49,6 +51,18 @@ class AcompanhamentoPedido extends Component
             }
         }
 
-        return view('livewire.acompanhamento-pedido', compact('pedido', 'steps', 'stepIndex', 'cancelado', 'finalizado'));
+        $avaliacaoLinks = in_array($pedido?->pedido_status, ['ENTREGUE', 'FINALIZADO'])
+            ? AvaliacaoLink::where('avaliacao_link_ativo', true)
+                ->orderBy('avaliacao_link_ordem')
+                ->get()
+                ->map(fn ($l) => [
+                    'nome'     => $l->avaliacao_link_nome,
+                    'url'      => $l->avaliacao_link_url,
+                    'logo_url' => Storage::disk('public')->url($l->avaliacao_link_logo_url),
+                ])
+                ->all()
+            : [];
+
+        return view('livewire.acompanhamento-pedido', compact('pedido', 'steps', 'stepIndex', 'cancelado', 'finalizado', 'avaliacaoLinks'));
     }
 }
