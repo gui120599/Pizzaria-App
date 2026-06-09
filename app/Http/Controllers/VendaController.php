@@ -404,7 +404,14 @@ class VendaController extends Controller
      */
     public function edit(Venda $venda)
     {
-        //
+        $venda->load(['cliente', 'sessaoCaixa.caixa', 'sessaoCaixa.user', 'pagamentos.opcaoPagamento']);
+
+        $categorias       = Categoria::with('produtos')->get();
+        $clientes         = Cliente::all();
+        $opcoesPagamentos = OpcoesPagamento::all();
+        $cartoes          = CartoesPagamento::all();
+
+        return view('app.venda.edit', compact('venda', 'categorias', 'clientes', 'opcoesPagamentos', 'cartoes'));
     }
 
     /**

@@ -233,6 +233,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/SessaoMesa/{sessaoMesa}', [SessaoMesaController::class, 'destroy'])->name('sessaoMesa.destroy');
     Route::get('/Ativar-SessaoMesa/{id}', [SessaoMesaController::class, 'active'])->name('sessaoMesa.active');
 
+    Route::get('/Venda/{venda}/editar', [VendaController::class, 'edit'])->name('venda.edit');
     Route::get('/Venda', [VendaController::class, 'index'])->name('venda');
     Route::get('/Venda-listar', [VendaController::class, 'ListarVenda'])->name('venda.listar');
     Route::post('/Venda', [VendaController::class, 'store'])->name('venda.store');

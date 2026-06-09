@@ -9,6 +9,48 @@
     <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
+            {{-- Vendas em aberto (INICIADA) --}}
+            @if($vendasIniciadas->isNotEmpty())
+            <div class="p-4 sm:p-8 bg-yellow-50 border border-yellow-200 shadow sm:rounded-lg">
+                <h3 class="flex items-center gap-2 text-sm font-bold text-yellow-700 uppercase tracking-wide mb-3">
+                    <i class='bx bx-time-five'></i> Vendas em Aberto
+                </h3>
+                <div class="w-full overflow-auto">
+                    <table class="w-full text-center text-[7px] md:text-sm">
+                        <thead>
+                            <tr class="border-b-2 border-yellow-200">
+                                <th class="px-2 py-1">#</th>
+                                <th class="px-2 py-1">Cliente</th>
+                                <th class="px-2 py-1">Status</th>
+                                <th class="px-2 py-1">Iniciada em</th>
+                                <th class="px-2 py-1">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($vendasIniciadas as $vi)
+                                <tr class="border-b border-yellow-100">
+                                    <td class="px-2 py-1">{{ $vi->id }}</td>
+                                    <td class="px-2 py-1 uppercase">{{ $vi->cliente?->cliente_nome ?? 'Sem cliente' }}</td>
+                                    <td class="px-2 py-1">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">
+                                            {{ $vi->venda_status }}
+                                        </span>
+                                    </td>
+                                    <td class="px-2 py-1">{{ \Carbon\Carbon::parse($vi->venda_datahora_iniciada)->format('d/m/y H:i') }}</td>
+                                    <td class="px-2 py-1">
+                                        <a href="{{ route('venda.edit', $vi->id) }}"
+                                           class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition">
+                                            <i class='bx bx-edit'></i> Continuar
+                                        </a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endif
+
             <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
                 <div class="w-full">
                     <div class="w-[18rem] sm:w-[99%] overflow-auto mx-auto h-2/4">
