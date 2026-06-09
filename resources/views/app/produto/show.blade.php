@@ -52,11 +52,34 @@
                         <span class="text-white text-lg font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
                     </div>
                     @endif
-                    <a class="w-full"
-                        href="https://web.whatsapp.com/send?phone=5564981453615&text=Ol%C3%A1%21+Gostaria+de+realizar+um+pedido%F0%9F%98%81">
-                        <x-primary-button class="w-full flex items-center justify-center space-x-1"><i
-                                class='bx bxl-whatsapp'></i><span>Realizar Pedido</span></x-primary-button>
-                    </a>
+                    <div x-data="{
+                        adicionarEAbrirPedido() {
+                            const cart = JSON.parse(localStorage.getItem('cardapio_cart') || '[]');
+                            const key  = String({{ $produto->id }});
+                            const idx  = cart.findIndex(i => i.cartKey === key);
+                            if (idx >= 0) {
+                                cart[idx].qty++;
+                            } else {
+                                cart.push({
+                                    cartKey:       key,
+                                    id:            {{ $produto->id }},
+                                    nome:          @js($produto->categoria->categoria_nome . ' ' . $produto->produto_descricao),
+                                    preco:         {{ $produto->produto_preco_promocional > 0 ? (float) $produto->produto_preco_promocional : (float) $produto->produto_preco_venda }},
+                                    precoOriginal: {{ (float) $produto->produto_preco_venda }},
+                                    qty:           1,
+                                    foto:          @js($produto->getImagemUrl()),
+                                    obs:           ''
+                                });
+                            }
+                            localStorage.setItem('cardapio_cart', JSON.stringify(cart));
+                            window.location.href = @js(route('cardapio')) + '?abrir=carrinho';
+                        }
+                    }">
+                        <x-primary-button @click="adicionarEAbrirPedido()"
+                            class="w-full flex items-center justify-center space-x-1">
+                            <i class='bx bxl-whatsapp'></i><span>Realizar Pedido</span>
+                        </x-primary-button>
+                    </div>
                 </div>
                 <!-- Adicione mais detalhes conforme necessário -->
             </div>

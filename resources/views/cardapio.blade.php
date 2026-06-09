@@ -863,7 +863,7 @@
                     cartKey: i.cartKey ?? String(i.id),
                     ...i,
                 })),
-                drawerOpen: false,
+                drawerOpen: new URLSearchParams(window.location.search).get('abrir') === 'carrinho',
                 step: 'cart',   // 'cart' | 'checkout'
 
                 // ── Modal de sabores ──
