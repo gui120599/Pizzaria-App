@@ -12,6 +12,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
@@ -373,6 +374,37 @@ class ProdutosTable
                                 : "{$atualizados} produto(s) atualizados." . ($ignorados > 0 ? " {$ignorados} ignorado(s) por preço inválido." : '');
 
                             Notification::make()->title('Preço promocional atualizado')->body($msg)->success()->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('duplicar_para_categoria')
+                        ->label('Duplicar para Categoria')
+                        ->icon('heroicon-o-document-duplicate')
+                        ->color('info')
+                        ->modalHeading('Duplicar Produtos para outra Categoria')
+                        ->modalDescription('Os produtos selecionados serão copiados para a categoria escolhida. Os originais não serão alterados.')
+                        ->modalWidth('md')
+                        ->form([
+                            Select::make('categoria_id')
+                                ->label('Categoria destino')
+                                ->options(fn () => Categoria::orderBy('categoria_nome')->pluck('categoria_nome', 'id'))
+                                ->searchable()
+                                ->preload()
+                                ->required(),
+                        ])
+                        ->action(function ($records, array $data) {
+                            $count = 0;
+                            foreach ($records as $produto) {
+                                $clone = $produto->replicate();
+                                $clone->produto_categoria_id = $data['categoria_id'];
+                                $clone->produto_qtd_vendas   = 0;
+                                $clone->save();
+                                $count++;
+                            }
+
+                            Notification::make()
+                                ->title("{$count} produto(s) duplicado(s) com sucesso.")
+                                ->success()
+                                ->send();
                         })
                         ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make(),
