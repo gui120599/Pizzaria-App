@@ -271,7 +271,7 @@
         </div>
 
         {{-- Card de Avaliações --}}
-        @if(! empty($avaliacaoLinks))
+       {{-- @if(! empty($avaliacaoLinks))
             <div class="px-4 pb-4 pt-2">
                 <div class="bg-gray-900 rounded-2xl p-5 text-center">
                     <div class="flex items-center justify-center gap-0.5 mb-2">
@@ -296,7 +296,7 @@
                     </div>
                 </div>
             </div>
-        @endif
+        @endif--}}
 
         {{-- Floating Cart Button --}}
         <div x-show="$store.cart.count > 0"
