@@ -167,6 +167,7 @@ class PedidoController extends Controller
             'pedido_endereco_entrega'     => $request->input('pedido_endereco_entrega') ?: null,
             'pedido_descricao_pagamento'  => $request->input('pedido_descricao_pagamento') ?: null,
             'pedido_observacao_pagamento' => $request->input('pedido_observacao_pagamento') ?: null,
+            'pedido_usuario_garcom_id'    => $request->input('pedido_usuario_garcom_id') ?: null,
             'pedido_status'               => 'ABERTO',
             'pedido_datahora_abertura'    => Carbon::now(),
             'pedido_valor_itens'          => $valorItens,

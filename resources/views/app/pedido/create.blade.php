@@ -39,6 +39,7 @@
                 <form id="pedido-form" action="{{ route('pedido.store') }}" method="POST" class="space-y-4">
                     @csrf
                     <input type="hidden" name="pedido_id" value="{{ $pedido->id }}">
+                    <input type="hidden" name="pedido_usuario_garcom_id" value="{{ auth()->id() }}">
 
                     {{-- Cliente --}}
                     <div class="bg-white shadow-sm rounded-xl p-4 space-y-3"
