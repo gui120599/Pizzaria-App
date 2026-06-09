@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\ItensPedido;
+use App\Models\Pedido;
 use App\Models\Venda;
 
 class VendaService
@@ -21,7 +23,18 @@ class VendaService
         $venda_valor_pis = 0;
         $venda_valor_cofins = 0;
         $venda_valor_itens = 0;
-        $venda_valor_frete = $venda->venda_valor_frete ?? 0;
+        // Soma o frete de todos os pedidos que têm itens lançados nesta venda
+        $pedidoIds = ItensPedido::where('item_pedido_venda_id', $venda_id)
+            ->whereNotNull('item_pedido_pedido_id')
+            ->distinct()
+            ->pluck('item_pedido_pedido_id');
+
+        $fretePedidos = $pedidoIds->isEmpty()
+            ? 0
+            : Pedido::whereIn('id', $pedidoIds)->sum('pedido_valor_frete');
+
+        // Se há frete dos pedidos usa ele; caso contrário preserva o frete manual da venda
+        $venda_valor_frete = $fretePedidos > 0 ? $fretePedidos : ($venda->venda_valor_frete ?? 0);
         $venda_valor_acrescimo = 0;
         $venda_valor_desconto = 0;
         $venda_valor_total = 0;
@@ -49,9 +62,9 @@ class VendaService
         $venda->venda_valor_pis = $venda_valor_pis;
         $venda->venda_valor_cofins = $venda_valor_cofins;
         $venda->venda_valor_itens = $venda_valor_itens;
+        $venda->venda_valor_frete = $venda_valor_frete;
         $venda->venda_valor_desconto = $venda_valor_desconto;
-        // Não precisa descontar o valor do frete, pois já vem descontando no valor do produto e a adição do acrescimos já vem do produto tbm!
-        $venda->venda_valor_total = $venda_valor_total + $venda_valor_frete ; 
+        $venda->venda_valor_total = $venda_valor_total + $venda_valor_frete;
         $venda->venda_valor_pago = $venda_valor_pago;
         $venda->venda_valor_acrescimo = $venda_valor_acrescimo;
         
