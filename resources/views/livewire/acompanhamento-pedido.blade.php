@@ -82,7 +82,11 @@
             {{-- ── Avaliações ── --}}
             @if(! empty($avaliacaoLinks))
                 <div class="bg-gray-900 rounded-2xl p-5 mb-4 text-center">
-                    <i class='bx bxs-star text-yellow-400 text-2xl mb-2'></i>
+                    <div class="flex items-center justify-center gap-0.5 mb-2">
+                        @for($s = 0; $s < 5; $s++)
+                            <i class='bx bxs-star text-yellow-400 text-2xl'></i>
+                        @endfor
+                    </div>
                     <p class="text-white font-bold text-sm mb-1">Gostou do seu pedido?</p>
                     <p class="text-gray-400 text-xs mb-4">Deixe sua avaliação e nos ajude a melhorar!</p>
                     <div class="flex items-center justify-center gap-4 flex-wrap">
