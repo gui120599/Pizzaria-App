@@ -33,8 +33,8 @@ class VendaService
             ? 0
             : Pedido::whereIn('id', $pedidoIds)->sum('pedido_valor_frete');
 
-        // Se há frete dos pedidos usa ele; caso contrário preserva o frete manual da venda
-        $venda_valor_frete = $fretePedidos > 0 ? $fretePedidos : ($venda->venda_valor_frete ?? 0);
+        // Frete sempre recalculado dos pedidos; zera quando não há pedidos vinculados
+        $venda_valor_frete = $fretePedidos;
         $venda_valor_acrescimo = 0;
         $venda_valor_desconto = 0;
         $venda_valor_total = 0;
