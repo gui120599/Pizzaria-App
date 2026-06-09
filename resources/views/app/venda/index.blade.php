@@ -298,13 +298,17 @@
                                 @php
                                     $clientesNaMesa  = [];
                                     $totalNaoCobrado = 0;
+                                    $totalLancado    = 0;
                                     $totalCobrado    = 0;
                                     foreach ($sessaoMesa->pedidos as $pedido) {
                                         foreach ($pedido->item_pedido_pedido_id as $item) {
-                                            $cobrado = $item->item_pedido_venda_id !== null
-                                                        && optional($item->venda)->venda_status === 'FINALIZADA';
+                                            $vendaDoItem   = $item->item_pedido_venda_id !== null ? optional($item->venda) : null;
+                                            $cobrado       = $vendaDoItem && $vendaDoItem->venda_status === 'FINALIZADA';
+                                            $lancado       = $item->item_pedido_venda_id !== null && !$cobrado;
                                             if ($cobrado) {
                                                 $totalCobrado += $item->item_pedido_valor;
+                                            } elseif ($lancado) {
+                                                $totalLancado += $item->item_pedido_valor;
                                             } else {
                                                 $totalNaoCobrado += $item->item_pedido_valor;
                                                 $cid = $item->item_pedido_cliente_id !== null
@@ -387,14 +391,17 @@
                                         <div class="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
                                             @foreach($sessaoMesa->pedidos as $pedido)
                                                 @foreach($pedido->item_pedido_pedido_id as $item)
-                                                    @php $cobrado = $item->item_pedido_venda_id !== null
-                                                        && optional($item->venda)->venda_status === 'FINALIZADA'; @endphp
+                                                    @php
+                                                        $vendaDoItem = $item->item_pedido_venda_id !== null ? optional($item->venda) : null;
+                                                        $cobrado     = $vendaDoItem && $vendaDoItem->venda_status === 'FINALIZADA';
+                                                        $lancado     = $item->item_pedido_venda_id !== null && !$cobrado;
+                                                    @endphp
                                                     <label class="flex items-center gap-2 px-3 py-2 select-none
-                                                        {{ $cobrado ? 'bg-gray-50 opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-teal-50' }}">
+                                                        {{ $cobrado || $lancado ? 'bg-gray-50 opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-teal-50' }}">
                                                         <input type="checkbox"
                                                             value="{{ $item->id }}"
                                                             x-model="selecionados"
-                                                            {{ $cobrado ? 'disabled' : '' }}
+                                                            {{ $cobrado || $lancado ? 'disabled' : '' }}
                                                             class="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 shrink-0">
                                                         @if($item->item_pedido_cliente_id)
                                                             <span class="shrink-0 text-[9px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1 py-0.5">
@@ -414,6 +421,10 @@
                                                             <span class="cobrado-badge shrink-0 text-[9px] font-bold text-green-600 bg-green-50 border border-green-200 rounded px-1 py-0.5 flex items-center gap-0.5">
                                                                 <i class='bx bx-check'></i> cobrado
                                                             </span>
+                                                        @elseif($lancado)
+                                                            <span class="lancado-badge shrink-0 text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded px-1 py-0.5 flex items-center gap-0.5">
+                                                                <i class='bx bx-time'></i> em venda
+                                                            </span>
                                                         @endif
                                                     </label>
                                                 @endforeach
@@ -424,6 +435,9 @@
                                         <div class="mt-2 flex items-center justify-between gap-2">
                                             <div class="text-xs text-gray-500">
                                                 <span class="font-bold text-gray-700">R$ {{ number_format($totalNaoCobrado, 2, ',', '.') }}</span> a cobrar
+                                                @if($totalLancado > 0)
+                                                    · <span class="text-blue-600">R$ {{ number_format($totalLancado, 2, ',', '.') }} em venda</span>
+                                                @endif
                                                 @if($totalCobrado > 0)
                                                     · <span class="text-green-600">R$ {{ number_format($totalCobrado, 2, ',', '.') }} cobrado</span>
                                                 @endif
@@ -1096,18 +1110,17 @@
                         if (componentEl && typeof Alpine !== 'undefined') {
                             try { Alpine.$data(componentEl).selecionados = []; } catch(e) {}
                         }
-                        // Marca visualmente os itens como cobrados
+                        // Marca visualmente os itens como "em venda" (cobrado só após finalizar)
                         (response.cobrados || []).forEach(function(id) {
                             const cb = $('input[type=checkbox][value="' + id + '"]');
                             cb.prop('disabled', true).prop('checked', false);
                             cb.closest('label')
                                 .addClass('opacity-60 bg-gray-50 cursor-not-allowed')
                                 .removeClass('hover:bg-teal-50 cursor-pointer');
-                            if (!cb.siblings('.cobrado-badge').length) {
-                                cb.closest('label').append(
-                                    `<span class="cobrado-badge shrink-0 text-[9px] font-bold text-green-600 bg-green-50 border border-green-200 rounded px-1 py-0.5 flex items-center gap-0.5"><i class='bx bx-check'></i> cobrado</span>`
-                                );
-                            }
+                            cb.siblings('.cobrado-badge, .lancado-badge').remove();
+                            cb.closest('label').append(
+                                `<span class="lancado-badge shrink-0 text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded px-1 py-0.5 flex items-center gap-0.5"><i class='bx bx-time'></i> em venda</span>`
+                            );
                         });
                         ListaItensVenda(venda_id);
                         showToast('Itens lançados na venda!', 'success');
