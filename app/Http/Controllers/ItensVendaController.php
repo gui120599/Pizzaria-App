@@ -193,6 +193,74 @@ class ItensVendaController extends Controller
         return response()->json(['success' => 'Itens adicionados e pedidos finalizados'], 200);
     }
 
+    public function adicionarItensSessaoMesaPorCliente(Request $request)
+    {
+        $sessaoMesa_id = $request->input('sessaoMesa_id');
+        $cliente_id    = $request->input('cliente_id');
+        $venda_id      = $request->input('venda_id');
+
+        $venda = Venda::find($venda_id);
+        if (!$venda) {
+            return response()->json(['error' => 'Venda não encontrada'], 404);
+        }
+
+        $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesa_id)
+            ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
+            ->whereNull('pedido_venda_id')
+            ->get();
+
+        foreach ($pedidos as $pedido) {
+            $query = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+                ->where('item_pedido_status', 'INSERIDO')
+                ->with('adicionaisItemPedido');
+
+            if ($cliente_id === 'sem_cliente') {
+                $query->whereNull('item_pedido_cliente_id');
+            } else {
+                $query->where('item_pedido_cliente_id', $cliente_id);
+            }
+
+            $this->adicionarItensPedidoNaVenda($venda_id, $query->get());
+        }
+
+        $this->vendaService->atualizarValoresdaVenda($venda_id);
+
+        return response()->json(['success' => 'Itens do cliente adicionados'], 200);
+    }
+
+    public function adicionarItensPorSelecao(Request $request)
+    {
+        $item_ids = $request->input('item_ids', []);
+        $venda_id = $request->input('venda_id');
+
+        $venda = Venda::find($venda_id);
+        if (!$venda) {
+            return response()->json(['error' => 'Venda não encontrada'], 404);
+        }
+
+        $itensPedido = ItensPedido::whereIn('id', $item_ids)
+            ->whereNull('item_pedido_venda_id')
+            ->where('item_pedido_status', 'INSERIDO')
+            ->with('adicionaisItemPedido', 'produto')
+            ->get();
+
+        if ($itensPedido->isEmpty()) {
+            return response()->json(['warning' => 'Nenhum item disponível para lançar'], 200);
+        }
+
+        $this->adicionarItensPedidoNaVenda($venda_id, $itensPedido);
+
+        ItensPedido::whereIn('id', $itensPedido->pluck('id'))
+            ->update(['item_pedido_venda_id' => $venda_id]);
+
+        $this->vendaService->atualizarValoresdaVenda($venda_id);
+
+        return response()->json([
+            'success'  => 'Itens lançados na venda',
+            'cobrados' => $itensPedido->pluck('id'),
+        ], 200);
+    }
+
     public function removerItensSessaoMesa(Request $request)
     {
         // Recebe os IDs da sessão da mesa e da venda do request

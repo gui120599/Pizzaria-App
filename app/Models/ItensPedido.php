@@ -13,6 +13,7 @@ class ItensPedido extends Model
         'item_pedido_produto_id',
         'item_pedido_pedido_id',
         'item_pedido_cliente_id',
+        'item_pedido_venda_id',
         'item_pedido_quantidade',
         'item_pedido_valor_unitario',
         'item_pedido_desconto',
@@ -40,5 +41,15 @@ class ItensPedido extends Model
 
     public function adicionaisItemPedido(){
         return $this->hasMany( AdicionaisItemPedido::class, 'aip_item_pedido_id');
+    }
+
+    public function cliente()
+    {
+        return $this->belongsTo(Cliente::class, 'item_pedido_cliente_id');
+    }
+
+    public function venda()
+    {
+        return $this->belongsTo(\App\Models\Venda::class, 'item_pedido_venda_id');
     }
 }

@@ -5,14 +5,15 @@
         ::-webkit-scrollbar-thumb { background-color: #888; border-radius: 10px; }
         ::-webkit-scrollbar-track { background-color: #f1f1f1; border-radius: 10px; }
         .nav-link.active { color: rgb(20 184 166); border-bottom-color: rgb(20 184 166); font-weight: bold; }
+        [x-cloak] { display: none !important; }
     </style>
     {{-- Container de toasts --}}
     <div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"></div>
 
-    <div class="mx-auto p-2">
+    <div class="mx-auto p-2" x-data>
         <form action="{{ route('venda.store') }}" method="post" id="formVenda" class="w-full">
             @csrf
-            <div class="relative p-2 bg-white shadow-sm rounded-lg grid grid-cols-1 lg:grid-cols-10 gap-2 items-start">
+            <div class="relative p-2 bg-white shadow-sm rounded-lg grid grid-cols-1 lg:grid-cols-8 gap-2 items-start">
                 <!-- Overlay de carregamento -->
                 <div id="carregando"
                     class="hidden absolute inset-0 z-10 flex justify-center items-center bg-slate-600/50 rounded-lg transition duration-150 ease-in-out">
@@ -23,51 +24,53 @@
                 </div>
 
                 {{-- Coluna principal: abas + seções --}}
-                <div class="lg:col-span-6 flex flex-col min-h-0">
+                <div class="lg:col-span-6 flex flex-col min-h-0" x-data>
 
                     <nav class="bg-transparent border-b border-gray-100">
                         <div class="w-full px-2">
                             <div class="overflow-x-auto">
                                 <div class="flex space-x-3 h-8 min-w-max">
 
-                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
-                                        data-section="dados-section">
+                                    @php $navBase = "nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"; @endphp
+
+                                    <div class="{{ $navBase }}"
+                                        :class="{ 'active': $store.venda.secao === 'dados-section' }"
+                                        @click="$store.venda.secao = 'dados-section'">
                                         <i class='bx bxs-receipt me-2'></i>
                                         {{ __('Dados') }}
                                     </div>
 
-
-                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
-                                        data-section="mesas-section">
-                                        <div class="flex items-center">
-                                            <i class='bx bx-chair me-2'></i>
-                                            {{ __('Mesas') }}
-                                        </div>
+                                    <div class="{{ $navBase }}"
+                                        :class="{ 'active': $store.venda.secao === 'mesas-section' }"
+                                        @click="$store.venda.secao = 'mesas-section'">
+                                        <i class='bx bx-chair me-2'></i>
+                                        {{ __('Mesas') }}
                                     </div>
 
-                                    <div class="nav-link active cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
-                                        data-section="pedidos-section">
-                                        <div class="flex items-center">
-                                            <i class="bx bx-basket me-2"></i>
-                                            {{ __('Pedidos') }}
-                                        </div>
+                                    <div class="{{ $navBase }}"
+                                        :class="{ 'active': $store.venda.secao === 'pedidos-section' }"
+                                        @click="$store.venda.secao = 'pedidos-section'">
+                                        <i class="bx bx-basket me-2"></i>
+                                        {{ __('Pedidos') }}
                                     </div>
 
-                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
-                                        data-section="produtos-section">
+                                    <div class="{{ $navBase }}"
+                                        :class="{ 'active': $store.venda.secao === 'produtos-section' }"
+                                        @click="$store.venda.secao = 'produtos-section'">
                                         <i class='bx bxs-pizza me-2'></i>
                                         {{ __('Produtos') }}
                                     </div>
-                                    <div id="pagamentos"
-                                        class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
-                                        data-section="pagamentos-section">
+
+                                    <div id="pagamentos" class="{{ $navBase }}"
+                                        :class="{ 'active': $store.venda.secao === 'pagamentos-section' }"
+                                        @click="$store.venda.secao = 'pagamentos-section'">
                                         <i class='bx bx-dollar me-2'></i>
                                         {{ __('Pagamentos') }}
                                     </div>
 
-                                    <div id="finalizar"
-                                        class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
-                                        data-section="finalizar-section">
+                                    <div id="finalizar" class="{{ $navBase }}"
+                                        :class="{ 'active': $store.venda.secao === 'finalizar-section' }"
+                                        @click="handleFinalizarClick()">
                                         <i class='bx bx-check-double me-2'></i>
                                         {{ __('Finalizar Venda') }}
                                     </div>
@@ -79,7 +82,7 @@
 
                     <div class="w-full overflow-auto">
 
-                        <div class="dados-section secao p-3" style="display: none">
+                        <div class="dados-section secao p-3" x-show="$store.venda.secao === 'dados-section'" x-cloak>
                             <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700 mb-3">
                                 <i class='bx bxs-receipt'></i>
                                 <span>{{ __('Dados da Venda') }}</span>
@@ -178,7 +181,19 @@
                             </div>
                         </div>
 
-                        <div class="pagamentos-section secao p-3" style="display: none">
+                        <div class="pagamentos-section secao p-3"
+                             x-show="$store.venda.secao === 'pagamentos-section'"
+                             x-cloak
+                             x-data="{
+                                 opcoes: @js($opcoesPagamentos),
+                                 selectedId: '',
+                                 get opcaoSelecionada() { return this.opcoes.find(o => String(o.id) === String(this.selectedId)) ?? null; },
+                                 get showTaxa() { const t = this.opcaoSelecionada?.opcaopag_tipo_taxa; return t === 'ACRESCENTAR' || t === 'DESCONTAR'; },
+                                 get showCartao() { const n = (this.opcaoSelecionada?.opcaopag_nome ?? '').toUpperCase(); return n.includes('CARTÃO') || n.includes('PIX'); },
+                                 get isAcrescimo() { return this.opcaoSelecionada?.opcaopag_tipo_taxa === 'ACRESCENTAR'; },
+                                 get isDesconto()  { return this.opcaoSelecionada?.opcaopag_tipo_taxa === 'DESCONTAR'; },
+                                 get taxa() { return parseFloat(this.opcaoSelecionada?.opcaopag_valor_percentual_taxa ?? 0) || 0; }
+                             }">
                             <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4">
 
                                 {{-- Pagamento --}}
@@ -191,7 +206,7 @@
                                     <x-input-label for="pg_venda_opcaopagamento_id" :value="__('Tipo Pagamento')" />
                                     <x-select-input :options="$opcoesPagamentos" value-field="id" display-field="opcaopag_nome"
                                         id="pg_venda_opcaopagamento_id" name="pg_venda_opcaopagamento_id"
-                                        class="mt-1 w-full" />
+                                        class="mt-1 w-full" x-model="selectedId" />
                                 </div>
                                 <div class="md:col-span-2">
                                     <x-input-label for="pg_venda_valor_pagamento" :value="__('Valor Pagamento')" />
@@ -201,31 +216,31 @@
                                 </div>
                                 <div id="dadosTaxa"
                                     class="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1"
-                                    style="display: none">
+                                    x-show="showTaxa" x-cloak>
 
                                     <div class="md:col-span-3">
                                         <x-input-label for="opcao_pag_taxa" :value="__('% Taxa')" />
                                         <x-text-input id="opcao_pag_taxa" name="opcao_pag_taxa" type="text"
                                             class="mt-1 w-full" autocomplete="off" readonly
-                                            value="{{ old('opcao_pag_taxa') }}" />
+                                            x-bind:value="taxa" />
                                     </div>
-                                    <div class="md:col-span-3 hidden valor_acrescimo">
+                                    <div class="md:col-span-3" x-show="isAcrescimo" x-cloak>
                                         <x-input-label for="pg_venda_valor_acrescimo" :value="__('Valor Acrescimo')" />
                                         <x-money-input id="pg_venda_valor_acrescimo" name="pg_venda_valor_acrescimo"
-                                            type="text" class=" money mt-1 w-full" autocomplete="off"
+                                            type="text" class="money mt-1 w-full" autocomplete="off"
                                             value="{{ old('valor_pagamento') }}" readonly />
                                     </div>
-                                    <div class="md:col-span-3 hidden valor_desconto">
+                                    <div class="md:col-span-3" x-show="isDesconto" x-cloak>
                                         <x-input-label for="pg_venda_valor_desconto" :value="__('Valor Desconto')" />
                                         <x-money-input id="pg_venda_valor_desconto" name="pg_venda_valor_desconto"
-                                            type="text" class=" money mt-1 w-full" autocomplete="off"
+                                            type="text" class="money mt-1 w-full" autocomplete="off"
                                             value="{{ old('valor_pagamento') }}" readonly />
                                     </div>
                                 </div>
 
                                 <div id="dadosCartao"
                                     class="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1"
-                                    style="display: none">
+                                    x-show="showCartao" x-cloak>
 
                                     <div class="md:col-span-3">
                                         <x-input-label for="pg_venda_cartao_id" :value="__('Bandeira do Cartão')" />
@@ -274,118 +289,168 @@
                             </div>
                         </div>
 
-                        <div class="mesas-section secao p-3" style="display: none">
+                        <div class="mesas-section secao p-3" x-show="$store.venda.secao === 'mesas-section'" x-cloak>
                             <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700 mb-3">
                                 <i class='bx bx-chair'></i>
                                 <span>{{ __('Mesas com Pedidos') }}</span>
                             </h2>
                             @foreach ($sessaoMesas as $sessaoMesa)
-                                <div class="w-full border border-gray-200 p-3 my-2 rounded-xl shadow-sm">
-                                    <div class=" flex justify-between">
+                                @php
+                                    $clientesNaMesa  = [];
+                                    $totalNaoCobrado = 0;
+                                    $totalCobrado    = 0;
+                                    foreach ($sessaoMesa->pedidos as $pedido) {
+                                        foreach ($pedido->item_pedido_pedido_id as $item) {
+                                            $cobrado = $item->item_pedido_venda_id !== null;
+                                            if ($cobrado) {
+                                                $totalCobrado += $item->item_pedido_valor;
+                                            } else {
+                                                $totalNaoCobrado += $item->item_pedido_valor;
+                                                $cid = $item->item_pedido_cliente_id !== null
+                                                    ? (string) $item->item_pedido_cliente_id
+                                                    : 'sem_cliente';
+                                                if (!isset($clientesNaMesa[$cid])) {
+                                                    $clientesNaMesa[$cid] = [
+                                                        'id'       => $cid,
+                                                        'nome'     => $item->item_pedido_cliente_id
+                                                            ? ($item->cliente?->cliente_nome ?? 'Cliente #'.$item->item_pedido_cliente_id)
+                                                            : 'Sem identificação',
+                                                        'item_ids' => [],
+                                                    ];
+                                                }
+                                                $clientesNaMesa[$cid]['item_ids'][] = $item->id;
+                                            }
+                                        }
+                                    }
+                                @endphp
+                                <div class="w-full border border-gray-200 p-3 my-2 rounded-xl shadow-sm"
+                                    x-data="{
+                                        aberto: true,
+                                        selecionados: [],
+                                        selecionarCliente(ids) {
+                                            ids.forEach(id => {
+                                                if (!this.selecionados.includes(String(id))) this.selecionados.push(String(id));
+                                            });
+                                        },
+                                        limparSelecao() { this.selecionados = []; },
+                                        get temSelecionados() { return this.selecionados.length > 0; }
+                                    }">
+                                    <div class="flex justify-between">
                                         <div class="cursor-pointer flex space-x-2 justify-between items-center">
                                             <input type="checkbox" class="sessaoMesa" name="id_sessao_mesa[]"
                                                 id="mesa_id_{{ $sessaoMesa->mesa->id }}"
                                                 value="{{ $sessaoMesa->id }}"
                                                 data-sessaomesa_id="{{ $sessaoMesa->id }}" />
-                                            <x-input-label class="text-sm"
-                                                for="mesa_id_{{ $sessaoMesa->mesa->id }}">{{ $sessaoMesa->mesa->mesa_nome }}</x-text-input>
+                                            <x-input-label class="text-sm font-bold"
+                                                for="mesa_id_{{ $sessaoMesa->mesa->id }}">{{ $sessaoMesa->mesa->mesa_nome }}</x-input-label>
+                                            <span class="text-[10px] text-gray-400 ml-1">{{ $sessaoMesa->sessao_mesa_status }}</span>
                                             <x-secondary-button
-                                            onclick="window.open('{{ route('sessaoMesa.imprimir', ['id' => $sessaoMesa->id]) }}', 'Itens Sessão Mesa','width=600,height=400');"
-                                            title="IMPRIMIR">
+                                                onclick="window.open('{{ route('sessaoMesa.imprimir', ['id' => $sessaoMesa->id]) }}', 'Itens Sessão Mesa','width=600,height=400');"
+                                                title="IMPRIMIR">
                                                 <i class='bx bx-printer'></i>
                                             </x-secondary-button>
                                         </div>
-                                        
-                                        <span data-mesa_id="{{ $sessaoMesa->mesa->id }}"
-                                            class="toogle_mesa toogle_mesa_{{ $sessaoMesa->mesa->id }} bx bx-chevron-up col-span-6 p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
+                                        <span @click.prevent="aberto = !aberto"
+                                            :class="{ 'rotate-180': aberto }"
+                                            class="bx bx-chevron-up p-1 hover:bg-slate-400 cursor-pointer rounded-full transition duration-300 ease-in-out">
                                         </span>
                                     </div>
 
-                                    @php
-                                        $itensAgrupados = [];
-
-                                        // Agrupa itens de todos os pedidos por mesa
-                                        foreach ($sessaoMesa->pedidos as $pedido) {
-                                            foreach ($pedido->item_pedido_pedido_id as $item) {
-                                                $produtoId = $item->item_pedido_produto_id;
-
-                                                if (!isset($itensAgrupados[$produtoId])) {
-                                                    $itensAgrupados[$produtoId] = [
-                                                        'produto' => $item->produto,
-                                                        'categoria' => $item->produto->categoria,
-                                                        'item' => $item,
-                                                        'total_quantidade' => 0,
-                                                        'total_desconto' => 0,
-                                                        'total_valor' => 0,
-                                                    ];
-                                                }
-
-                                                $itensAgrupados[$produtoId]['total_quantidade'] +=
-                                                    $item->item_pedido_quantidade;
-                                                $itensAgrupados[$produtoId]['total_desconto'] +=
-                                                    $item->item_pedido_desconto;
-                                                $itensAgrupados[$produtoId]['total_valor'] += $item->item_pedido_valor;
-                                            }
-                                        }
-                                        $valorTotal = array_sum(array_column($itensAgrupados, 'total_valor'));
-                                    @endphp
-
-                                    <div class="flex justify-between">
-                                        <span>
+                                    {{-- Pedidos IDs --}}
+                                    <div class="flex justify-between mt-1">
+                                        <span class="text-[10px] text-gray-400">
                                             Pedidos:
                                             @foreach ($sessaoMesa->pedidos as $pedido)
-                                                @if ($loop->last)
-                                                    <!-- Este é o último elemento -->
-                                                    {{ $pedido->id }}
-                                                @else
-                                                    {{ $pedido->id }} -
-                                                @endif
+                                                {{ $pedido->id }}{{ !$loop->last ? ' · ' : '' }}
                                             @endforeach
                                         </span>
                                     </div>
 
-                                    <div id="table_mesa_{{ $sessaoMesa->mesa->id }}">
-                                        <table class="w-full text-center text-[7px] md:text-base">
-                                            <thead>
-                                                <tr class="border-b-4">
-                                                    <th class="px-1 md:px-4">#</th>
-                                                    <th class="px-1 md:px-4">Produto</th>
-                                                    <th class="px-1 md:px-4">Qtd</th>
-                                                    <th class="px-1 md:px-4">Valor Unt.</th>
-                                                    <th class="px-1 md:px-4">Valor Desc.</th>
-                                                    <th class="px-1 md:px-4">Valor Total R$</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach ($itensAgrupados as $produtoId => $item)
-                                                    <tr>
-                                                        <td>{{ $item['produto']->id }}</td>
-                                                        <td>
-                                                            {{ $item['categoria']->categoria_nome ?? 'Sem categoria' }}
-                                                            {{ $item['produto']->produto_descricao }}
-                                                        </td>
-                                                        <td>{{ $item['total_quantidade'] }}</td>
-                                                        <td>{{ number_format($item['produto']->produto_preco_venda, 2, ',', '.') }}
-                                                        </td>
-                                                        <td>{{ number_format($item['total_desconto'], 2, ',', '.') }}
-                                                        </td>
-                                                        <td>{{ number_format($item['total_valor'], 2, ',', '.') }}</td>
-                                                    </tr>
+                                    <div x-show="aberto" class="mt-2">
+                                        {{-- Filtros por cliente --}}
+                                        @if(!empty($clientesNaMesa))
+                                            <div class="flex flex-wrap gap-1 mb-2">
+                                                @foreach($clientesNaMesa as $cliente)
+                                                    <button type="button"
+                                                        @click="selecionarCliente({{ json_encode(array_values($cliente['item_ids'])) }})"
+                                                        class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg transition">
+                                                        <i class='bx bx-user text-[10px]'></i>
+                                                        {{ $cliente['nome'] }}
+                                                        <span class="font-bold">({{ count($cliente['item_ids']) }})</span>
+                                                    </button>
                                                 @endforeach
-                                            </tbody>
-                                        </table>
+                                            </div>
+                                        @endif
+
+                                        {{-- Lista de itens com checkbox --}}
+                                        <div class="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+                                            @foreach($sessaoMesa->pedidos as $pedido)
+                                                @foreach($pedido->item_pedido_pedido_id as $item)
+                                                    @php $cobrado = $item->item_pedido_venda_id !== null; @endphp
+                                                    <label class="flex items-center gap-2 px-3 py-2 select-none
+                                                        {{ $cobrado ? 'bg-gray-50 opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-teal-50' }}">
+                                                        <input type="checkbox"
+                                                            value="{{ $item->id }}"
+                                                            x-model="selecionados"
+                                                            {{ $cobrado ? 'disabled' : '' }}
+                                                            class="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 shrink-0">
+                                                        @if($item->item_pedido_cliente_id)
+                                                            <span class="shrink-0 text-[9px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1 py-0.5">
+                                                                {{ $item->cliente?->cliente_nome ?? '#'.$item->item_pedido_cliente_id }}
+                                                            </span>
+                                                        @endif
+                                                        <span class="flex-1 text-xs text-gray-800">
+                                                            {{ $item->produto?->produto_descricao ?? 'Produto #'.$item->item_pedido_produto_id }}
+                                                            <span class="text-gray-400">
+                                                                × {{ $item->item_pedido_quantidade == floor($item->item_pedido_quantidade) ? (int)$item->item_pedido_quantidade : $item->item_pedido_quantidade }}
+                                                            </span>
+                                                        </span>
+                                                        <span class="shrink-0 text-xs font-semibold {{ $cobrado ? 'text-gray-400 line-through' : 'text-gray-700' }}">
+                                                            R$ {{ number_format($item->item_pedido_valor, 2, ',', '.') }}
+                                                        </span>
+                                                        @if($cobrado)
+                                                            <span class="cobrado-badge shrink-0 text-[9px] font-bold text-green-600 bg-green-50 border border-green-200 rounded px-1 py-0.5 flex items-center gap-0.5">
+                                                                <i class='bx bx-check'></i> cobrado
+                                                            </span>
+                                                        @endif
+                                                    </label>
+                                                @endforeach
+                                            @endforeach
+                                        </div>
+
+                                        {{-- Total + botão Lançar --}}
+                                        <div class="mt-2 flex items-center justify-between gap-2">
+                                            <div class="text-xs text-gray-500">
+                                                <span class="font-bold text-gray-700">R$ {{ number_format($totalNaoCobrado, 2, ',', '.') }}</span> a cobrar
+                                                @if($totalCobrado > 0)
+                                                    · <span class="text-green-600">R$ {{ number_format($totalCobrado, 2, ',', '.') }} cobrado</span>
+                                                @endif
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <button type="button"
+                                                    @click="limparSelecao()"
+                                                    x-show="temSelecionados" x-cloak
+                                                    class="text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1 hover:bg-gray-100 rounded-lg">
+                                                    Limpar
+                                                </button>
+                                                <button type="button"
+                                                    @click="if(temSelecionados) window.lancarItensVenda([...selecionados], $el.closest('[x-data]'))"
+                                                    :disabled="!temSelecionados"
+                                                    :class="temSelecionados
+                                                        ? 'bg-teal-600 hover:bg-teal-700 text-white shadow'
+                                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
+                                                    class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition">
+                                                    <i class='bx bx-send text-sm'></i>
+                                                    <span x-text="temSelecionados ? 'Lançar ' + selecionados.length + ' item(s)' : 'Selecione itens'">Selecione itens</span>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <span class="text-end">
-                                        <p>Valor Total R$ {{ number_format($valorTotal, 2, ',', '.') }}</p>
-                                    </span>
-                                    <span class="text-end">
-                                        <p>{{ $sessaoMesa->sessao_mesa_status }}</p>
-                                    </span>
                                 </div>
                             @endforeach
                         </div>
 
-                        <div class="produtos-section secao p-3" style="display: none">
+                        <div class="produtos-section secao p-3" x-show="$store.venda.secao === 'produtos-section'" x-cloak>
                             <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700 mb-3">
                                 <i class='bx bxs-pizza'></i>
                                 <span>{{ __('Produtos') }}</span>
@@ -430,14 +495,14 @@
                             @endforeach
                         </div>
 
-                        <div class="pedidos-section secao p-3">
+                        <div class="pedidos-section secao p-3" x-show="$store.venda.secao === 'pedidos-section'">
                             <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700 mb-3">
                                 <i class='bx bx-basket'></i>
                                 <span>{{ __('Pedidos Avulsos') }}</span>
                             </h2>
                             @foreach ($pedidos as $pedido)
                                 @if ($pedido->pedido_sessao_mesa_id == null || $pedido->pedido_sessao_mesa_id == '')
-                                    <div class="w-full border border-gray-200 p-3 my-2 rounded-xl shadow-sm">
+                                    <div class="w-full border border-gray-200 p-3 my-2 rounded-xl shadow-sm" x-data="{ aberto: true }">
                                         <div class="flex justify-between">
                                             <div>
                                                 <input type="checkbox" class="pedido" name="id_pedido[]"
@@ -448,15 +513,15 @@
                                                     {{ \Carbon\Carbon::parse($pedido->updated_at)->format('d/m/Y H:i:s') }} -
                                                     {{ $pedido->opcaoEntrega->opcaoentrega_nome }}
                                                 </label>
-                                                    <x-secondary-button
-                                                        onclick="window.open('{{ route('pedido.imprimir', ['id' => $pedido->id]) }}', 'Teste', 'width=600,height=400' );"
-                                                        title="IMPRIMIR">
-                                                        <i class='bx bx-printer'></i>
-                                                    </x-secondary-button>
+                                                <x-secondary-button
+                                                    onclick="window.open('{{ route('pedido.imprimir', ['id' => $pedido->id]) }}', 'Teste', 'width=600,height=400' );"
+                                                    title="IMPRIMIR">
+                                                    <i class='bx bx-printer'></i>
+                                                </x-secondary-button>
                                             </div>
-
-                                            <span data-pedido_id="{{ $pedido->id }}"
-                                                class="toogle_pedido bx bx-chevron-up col-span-6 p-1 hover:bg-slate-400 cursor-pointer rotate-180 rounded-full transition duration-300 ease-in-out ">
+                                            <span @click.prevent="aberto = !aberto"
+                                                :class="{ 'rotate-180': aberto }"
+                                                class="bx bx-chevron-up p-1 hover:bg-slate-400 cursor-pointer rounded-full transition duration-300 ease-in-out">
                                             </span>
                                         </div>
                                         @php
@@ -486,7 +551,7 @@
                                             $valorTotal = array_sum(array_column($itensAgrupados, 'total_valor'));
                                         @endphp
 
-                                        <div id="table_pedido_{{ $pedido->id }}">
+                                        <div id="table_pedido_{{ $pedido->id }}" x-show="aberto">
                                             <table class="w-full text-center text-[7px] md:text-base">
                                                 <thead>
                                                     <tr class="border-b-4">
@@ -582,18 +647,69 @@
                     </div>
                 </div>
 
-                {{-- Coluna de itens da venda --}}
-                <div class="lg:col-span-2 border border-gray-200 rounded-xl shadow-sm flex flex-col lg:sticky lg:top-2 lg:max-h-screen">
-                    <div class="px-3 py-2 border-b border-gray-100 bg-gray-50 rounded-t-xl shrink-0">
-                        <h3 class="text-sm font-bold text-teal-700 flex items-center gap-1">
-                            <i class='bx bx-list-ul'></i> Itens
-                        </h3>
-                    </div>
-                    <div id="itens_venda" class="overflow-y-auto flex-grow"></div>
-                </div>
-
             </div>
         </form>
+
+        {{-- FAB: abre o drawer de itens da venda --}}
+        <div class="fixed bottom-5 inset-x-0 px-4 z-40 flex justify-center pointer-events-none"
+             x-show="$store.venda.qtdItens > 0" x-cloak>
+            <button @click="$store.venda.drawerOpen = true" type="button"
+                class="pointer-events-auto flex items-center gap-3 bg-teal-600 hover:bg-teal-500 text-white font-semibold px-6 py-3 rounded-2xl shadow-2xl transition">
+                <span class="flex items-center justify-center w-6 h-6 bg-white text-teal-700 rounded-full text-xs font-bold"
+                      x-text="$store.venda.qtdItens">0</span>
+                <span class="text-sm">Itens na venda</span>
+                <span class="font-bold text-sm">R$ <span x-text="$store.venda.valorTotal">0,00</span></span>
+                <i class='bx bx-list-ul text-lg'></i>
+            </button>
+        </div>
+
+        {{-- Drawer de itens da venda --}}
+        <div x-show="$store.venda.drawerOpen"
+             class="fixed inset-0 z-50 flex flex-col justify-end"
+             x-cloak>
+            {{-- Backdrop --}}
+            <div @click="$store.venda.drawerOpen = false"
+                 class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0">
+            </div>
+            {{-- Sheet --}}
+            <div class="relative bg-white rounded-t-3xl max-h-[85vh] flex flex-col z-10 w-full md:max-w-2xl md:mx-auto shadow-2xl"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="translate-y-full"
+                 x-transition:enter-end="translate-y-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="translate-y-0"
+                 x-transition:leave-end="translate-y-full">
+                {{-- Handle --}}
+                <div class="flex justify-center pt-3 pb-2 shrink-0">
+                    <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+                </div>
+                {{-- Header --}}
+                <div class="flex items-center justify-between px-4 pb-3 shrink-0 border-b border-gray-100">
+                    <h3 class="text-base font-bold text-teal-700 flex items-center gap-2">
+                        <i class='bx bx-list-ul'></i> Itens da Venda
+                    </h3>
+                    <button @click="$store.venda.drawerOpen = false" type="button"
+                        class="p-1 hover:bg-gray-100 rounded-full transition">
+                        <i class='bx bx-x text-xl'></i>
+                    </button>
+                </div>
+                {{-- Body --}}
+                <div id="itens_venda" class="overflow-y-auto flex-grow px-2 py-1"></div>
+                {{-- Footer --}}
+                <div class="px-4 py-4 border-t border-gray-100 bg-gray-50 shrink-0 rounded-b-3xl">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-500">Total da venda</span>
+                        <span class="text-xl font-bold text-teal-700">R$ <span x-text="$store.venda.valorTotal">0,00</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <script>
         function selecionarCliente(cliente) {
@@ -641,6 +757,37 @@
         });
     </script>
     <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('venda', {
+                secao: 'pedidos-section',
+                drawerOpen: false,
+                qtdItens: 0,
+                valorTotal: '0,00',
+            });
+        });
+
+        function handleFinalizarClick() {
+            const valorPago  = parseFloat(document.getElementById('venda_valor_pago').value)  || 0;
+            const valorTotal = parseFloat(document.getElementById('venda_valor_total').value) || 0;
+            if (valorTotal > 0 && valorPago >= valorTotal) {
+                document.getElementById('formVenda').submit();
+                return;
+            }
+            document.querySelector('.abrir-modal')?.click();
+            const titulo = document.getElementById('modal-title');
+            const corpo  = document.getElementById('modal-body');
+            if (titulo) titulo.innerHTML = `<h2>OLÁ {{ Auth::user()->name }}</h2>`;
+            if (corpo)  corpo.innerHTML  = `
+                <div class="p-2 flex items-center">
+                    <i class="bx bx-info-circle text-4xl text-yellow-500"></i>
+                    <div class="ml-4">
+                        <h4 class="text-xl font-bold">Atenção</h4>
+                        <p>Valor Pago é insuficiente para finalizar a venda!</p>
+                    </div>
+                </div>`;
+            Alpine.store('venda').secao = 'pagamentos-section';
+        }
+
         function showToast(message, type = 'error') {
             const container = document.getElementById('toast-container');
             const colors = {
@@ -673,88 +820,6 @@
             let opcao_pag = @json($opcoesPagamentos);
 
             if ($(".toggleSideBar").length) $(".toggleSideBar").trigger("click");
-
-            // Mostra a seção correspondente quando um link da navegação é clicado
-            $('.nav-link').click(function() {
-                var targetSection = $(this).data('section');
-                if (targetSection === "finalizar-section") {
-                    var valor_pago = parseFloat($("#venda_valor_pago").val());
-                    var valor_total = parseFloat($("#venda_valor_total").val());
-
-                    // Verifica se os valores são números válidos antes de comparar
-                    if (!isNaN(valor_pago) && !isNaN(valor_total)) {
-                        if (valor_pago >= valor_total) {
-                            $("#formVenda").submit();
-                        } else {
-                            // Se o produto já estiver na lista de itens, aumente a quantidade
-                            $(".abrir-modal").trigger("click");
-                            $("#modal-title").html(`<h2>OLÁ {{ Auth::user()->name }}</h2>`);
-                            $("#modal-body").html(`
-                <div class="p-2 flex items-center">
-                    <!-- Ícone de atenção -->
-                    <i class="bx bx-info-circle text-4xl text-yellow-500"></i>
-                    <!-- Mensagem -->
-                    <div class="ml-4">
-                        <h4 class="text-xl font-bold">Atenção</h4>
-                        <p>Valor Pago é insuficiente para finalizar a venda!</p>
-                    </div>
-                </div>
-            `);
-                            $('.secao').fadeOut().delay('400');
-                            $('.pagamentos-section').fadeIn();
-
-                            $('.nav-link').removeClass('active');
-                            $('#pagamentos').addClass('active');
-                        }
-                    } else {
-                    }
-                } else {
-                    // Oculta todas as seções e mostra apenas a correspondente
-                    $('.secao').fadeOut().delay('400');
-                    $('.' + targetSection).fadeIn();
-
-                    // Destaca visualmente o link ativo
-                    $('.nav-link').removeClass('active');
-                    $(this).addClass('active');
-                }
-
-            });
-
-            //Abre a table de itens da mesa
-            $(".toogle_mesa").click(function(e) {
-                e.preventDefault();
-                const mesa_id = $(this).data('mesa_id');
-                const tableMesa = $("#table_mesa_" + mesa_id);
-
-                // Verifica se o item já está visível
-                if (tableMesa.is(":visible")) {
-                    // Se estiver visível, contrai o elemento com slideup
-                    tableMesa.slideUp();
-                    $(this).addClass('rotate-180');
-                } else {
-                    // Se não estiver visível, expande o elemento com slidedown
-                    tableMesa.slideDown();
-                    $(this).removeClass('rotate-180');
-                }
-            });
-
-            //Abre a table dos itens da venda
-            $(".toogle_pedido").click(function(e) {
-                e.preventDefault();
-                const pedido_id = $(this).data('pedido_id');
-                const tablePedido = $("#table_pedido_" + pedido_id);
-
-                // Verifica se o item já está visível
-                if (tablePedido.is(":visible")) {
-                    // Se estiver visível, contrai o elemento com slideup
-                    tablePedido.slideUp();
-                    $(this).addClass('rotate-180');
-                } else {
-                    // Se não estiver visível, expande o elemento com slidedown
-                    tablePedido.slideDown();
-                    $(this).removeClass('rotate-180');
-                }
-            });
 
             //Adiciona/Remove Itens dos pedidos da Sessão de Mesa Selecionada pelo usuário
             $('.sessaoMesa').click(function() {
@@ -823,6 +888,20 @@
 
             });
 
+            // Lança itens selecionados por checkbox na venda (acessível pelo Alpine via window.lancarItensVenda)
+            window.lancarItensVenda = function(item_ids, componentEl) {
+                if (!item_ids || item_ids.length === 0) return;
+                const venda_id = $("#venda_id").val();
+                $("#carregando").removeClass('hidden');
+                if (venda_id === "") {
+                    IniciarVenda().then(vendaId => {
+                        LancarItensPorSelecao(item_ids, vendaId, componentEl);
+                    }).catch(() => { $("#carregando").addClass('hidden'); });
+                } else {
+                    LancarItensPorSelecao(item_ids, venda_id, componentEl);
+                }
+            };
+
             let venda_valor_frete;
 
             // Função que atualiza o valor total quando insere qualquer valor no campo de desconto
@@ -872,74 +951,18 @@
                 }
             });
 
-            $("#pg_venda_opcaopagamento_id").change(function(e) {
-                e.preventDefault();
-
-                const pg_venda_opcaopagamento_id = $(this).val();
-
-                // Encontra a opção de pagamento correspondente
-                const selectedOption = opcao_pag.find(op => op.id == pg_venda_opcaopagamento_id);
-
-                const desc = selectedOption.opcaopag_nome.toUpperCase();
-
-                $("#opcao_pag_taxa").val(selectedOption.opcaopag_valor_percentual_taxa);
-                switch (selectedOption.opcaopag_tipo_taxa) {
-                    case 'ACRESCENTAR':
-                        $('#dadosTaxa').slideDown();
-                        $('.valor_acrescimo').removeClass('hidden');
-                        $('.valor_desconto').addClass('hidden');
-                        break;
-                    case 'DESCONTAR':
-                        $('#dadosTaxa').slideDown();
-                        $('.valor_acrescimo').addClass('hidden');
-                        $('.valor_desconto').removeClass('hidden');
-                        break;
-                    default:
-                        $('#dadosTaxa').slideUp();
-                        break;
-                }
-
-                if (desc.includes('CARTÃO') || desc.includes('PIX')) {
-                    $("#dadosCartao").slideDown();
-                } else {
-                    $("#dadosCartao").slideUp();
-                }
-
-            });
-
+            // Cálculo de acréscimo/desconto ao digitar o valor do pagamento
             $("#pg_venda_valor_pagamento").keyup(function(e) {
-                var valor_pag = $(this).val() || 0;
-                var valor_taxa = $("#opcao_pag_taxa").val() || 0;
-                const pg_venda_opcaopagamento_id = $("#pg_venda_opcaopagamento_id").val();
-
-                // Encontra a opção de pagamento correspondente
-                const selectedOption = opcao_pag.find(op => op.id == pg_venda_opcaopagamento_id);
-                switch (selectedOption.opcaopag_tipo_taxa) {
-                    case 'ACRESCENTAR':
-                        var valor_acrescimo = parseFloat(valor_pag) * parseFloat(valor_taxa) / 100;
-
-                        if (isNaN(valor_acrescimo)) {
-                            valor_acrescimo = 0;
-                        }
-
-                        $("#pg_venda_valor_acrescimo").val(valor_acrescimo.toFixed(2));
-                        break;
-
-                    case 'DESCONTAR':
-                        var valor_desconto = parseFloat(valor_pag) * parseFloat(valor_taxa) / 100;
-
-                        if (isNaN(valor_desconto)) {
-                            valor_desconto = 0;
-                        }
-
-                        $("#pg_venda_valor_desconto").val(valor_desconto.toFixed(2));
-                        break;
-
-                    default:
-                        $('#dadosTaxa').slideUp();
-                        break;
+                const valor_pag = parseFloat($(this).val()) || 0;
+                const valor_taxa = parseFloat($("#opcao_pag_taxa").val()) || 0;
+                const selectedId = $("#pg_venda_opcaopagamento_id").val();
+                const selectedOption = opcao_pag.find(op => String(op.id) === String(selectedId));
+                if (!selectedOption) return;
+                if (selectedOption.opcaopag_tipo_taxa === 'ACRESCENTAR') {
+                    $("#pg_venda_valor_acrescimo").val((valor_pag * valor_taxa / 100).toFixed(2));
+                } else if (selectedOption.opcaopag_tipo_taxa === 'DESCONTAR') {
+                    $("#pg_venda_valor_desconto").val((valor_pag * valor_taxa / 100).toFixed(2));
                 }
-
             });
 
             $("#registar_pagamento").click(function(e) {
@@ -1056,6 +1079,44 @@
                 });
             }
 
+            function LancarItensPorSelecao(item_ids, venda_id, componentEl) {
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('item_venda.add_por_selecao') }}",
+                    data: {
+                        '_token': '{{ csrf_token() }}',
+                        item_ids,
+                        venda_id
+                    },
+                    dataType: "JSON",
+                    success: function(response) {
+                        // Limpa Alpine selecionados do card
+                        if (componentEl && typeof Alpine !== 'undefined') {
+                            try { Alpine.$data(componentEl).selecionados = []; } catch(e) {}
+                        }
+                        // Marca visualmente os itens como cobrados
+                        (response.cobrados || []).forEach(function(id) {
+                            const cb = $('input[type=checkbox][value="' + id + '"]');
+                            cb.prop('disabled', true).prop('checked', false);
+                            cb.closest('label')
+                                .addClass('opacity-60 bg-gray-50 cursor-not-allowed')
+                                .removeClass('hover:bg-teal-50 cursor-pointer');
+                            if (!cb.siblings('.cobrado-badge').length) {
+                                cb.closest('label').append(
+                                    `<span class="cobrado-badge shrink-0 text-[9px] font-bold text-green-600 bg-green-50 border border-green-200 rounded px-1 py-0.5 flex items-center gap-0.5"><i class='bx bx-check'></i> cobrado</span>`
+                                );
+                            }
+                        });
+                        ListaItensVenda(venda_id);
+                        showToast('Itens lançados na venda!', 'success');
+                    },
+                    error: function() {
+                        showToast('Erro ao lançar itens!');
+                        $("#carregando").addClass('hidden');
+                    }
+                });
+            }
+
             function AdicionaItensPedido(pedido_id, venda_id) {
                 $.ajax({
                     type: "POST",
@@ -1144,7 +1205,7 @@
                     },
                     dataType: "JSON",
                     success: function(response) {
-
+                        Alpine.store('venda').qtdItens = response.length;
 
                         // Limpe o conteúdo atual antes de adicionar os novos itens
                         $('#itens_venda').empty();
@@ -1450,6 +1511,7 @@
                                 $("#venda_valor_total").val(venda.venda_valor_total);
                                 $("#venda_valor_pago").val(venda.venda_valor_pago);
                                 $("#venda_valor_troco").val(venda.venda_valor_troco);
+                                Alpine.store('venda').valorTotal = parseFloat(venda.venda_valor_total || 0).toFixed(2).replace('.', ',');
                             });
                         }
 

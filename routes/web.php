@@ -259,6 +259,8 @@ Route::middleware('auth')->group(function () {
 
 
     Route::post('/ItemVenda/AddSessaoMesa', [ItensVendaController::class, 'adicionarItensSessaoMesa'])->name('item_venda.add_item_sessaoMesa');
+    Route::post('/ItemVenda/AddSessaoMesaPorCliente', [ItensVendaController::class, 'adicionarItensSessaoMesaPorCliente'])->name('item_venda.add_sessaomesa_por_cliente');
+    Route::post('/ItemVenda/AddPorSelecao', [ItensVendaController::class, 'adicionarItensPorSelecao'])->name('item_venda.add_por_selecao');
     Route::post('/ItemVenda/RemoveSessaoMesa', [ItensVendaController::class, 'removerItensSessaoMesa'])->name('item_venda.remove_item_sessaoMesa');
     Route::post('/ItemVenda/AddPedido', [ItensVendaController::class, 'adicionarItensPedido'])->name('item_venda.add_item_pedido');
     Route::post('/ItemVenda/RemovePedido', [ItensVendaController::class, 'removerItensPedido'])->name('item_venda.remove_item_pedido');

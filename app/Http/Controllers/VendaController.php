@@ -50,6 +50,7 @@ class VendaController extends Controller
                         ->with([
                             'item_pedido_pedido_id.produto.categoria',
                             'item_pedido_pedido_id.adicionaisItemPedido.adicional',
+                            'item_pedido_pedido_id.cliente',
                             'item_pedido_pedido_id' => function ($query) {
                                 $query->where('item_pedido_status', 'INSERIDO');
                             }
@@ -425,6 +426,10 @@ class VendaController extends Controller
             $venda->venda_status = 'CANCELADA';
             $venda->venda_datahora_cancelada = Carbon::now();
             $venda->save();
+
+            \App\Models\ItensPedido::where('item_pedido_venda_id', $venda_id)
+                ->update(['item_pedido_venda_id' => null]);
+
             return response()->json(['success' => 'Venda cancelada com sucesso!'], 200);
         } else {
             return response()->json(['error' => 'Venda não encontrada'], 404);
