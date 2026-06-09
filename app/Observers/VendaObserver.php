@@ -37,12 +37,20 @@ class VendaObserver
         $sessaoMesaIds = [];
 
         foreach ($pedidos as $pedido) {
+            // Só finaliza o pedido se não houver itens ainda sem venda atribuída
+            $temItensNaoLancados = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+                ->whereNull('item_pedido_venda_id')
+                ->exists();
+
+            if ($temItensNaoLancados) {
+                continue;
+            }
+
             $dados = [
                 'pedido_venda_id'            => $venda->id,
                 'pedido_datahora_finalizado' => Carbon::now(),
             ];
 
-            // Só avança o status se ainda não estiver finalizado
             if ($pedido->pedido_status !== 'FINALIZADO') {
                 $dados['pedido_status'] = 'FINALIZADO';
             }
