@@ -28,7 +28,7 @@
         <i class='text-[13px] bx bx-money-withdraw'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Saída') }}</span>
     </x-nav-link>
-    <x-nav-link :href="route('pedido')" :active="request()->routeIs('pedido')">
+    <x-nav-link :href="route('pedido.create')" :active="request()->routeIs('pedido.create')">
         <i class="text-[13px] bx bx-message-square-add"></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Realizar Pedido') }}</span>
     </x-nav-link>

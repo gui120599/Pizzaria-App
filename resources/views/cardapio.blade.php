@@ -332,18 +332,17 @@
                 {{-- ── ETAPA 1: CARRINHO ── --}}
                 <div x-show="$store.cart.step === 'cart'" class="flex flex-col flex-1 min-h-0">
 
-                    {{-- Banner de fechado --}}
-                    @if(!$estaAberto)
+                    {{-- Banner de fechado (reativo — recalcula ao abrir o drawer) --}}
+                    <template x-if="!$store.cart.estaAbertoAgora()">
                         <div class="mx-4 mt-3 px-4 py-3 bg-red-900/60 border border-red-700 rounded-xl flex items-start gap-3">
                             <i class='bx bx-time-five text-red-400 text-xl shrink-0 mt-0.5'></i>
                             <div>
                                 <p class="text-red-300 font-bold text-sm">Estamos fechados no momento</p>
-                                @if($proximoHorario)
-                                    <p class="text-red-400/80 text-xs mt-0.5">Voltamos {{ $proximoHorario }}</p>
-                                @endif
+                                <p class="text-red-400/80 text-xs mt-0.5"
+                                   x-text="$store.cart.proximoHorarioAgora() ? 'Voltamos ' + $store.cart.proximoHorarioAgora() : ''"></p>
                             </div>
                         </div>
-                    @endif
+                    </template>
 
                     <div class="overflow-y-auto flex-1 px-4 py-3 space-y-1">
                         <template x-if="$store.cart.items.length === 0">
@@ -418,13 +417,14 @@
                                   x-text="'R$ ' + $store.cart.total.toFixed(2).replace('.', ',')"></span>
                         </div>
                         <button @click="$store.cart.step = 'checkout'"
-                                :disabled="$store.cart.items.length === 0 || !_estaAberto"
+                                :disabled="$store.cart.items.length === 0 || !$store.cart.estaAbertoAgora()"
                                 class="w-full py-4 bg-green-500 hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl flex items-center justify-center gap-2 uppercase tracking-wide transition-colors text-sm">
-                            @if(!$estaAberto)
-                                <i class='bx bx-lock-alt'></i> Pedidos fechados
-                            @else
-                                Continuar <i class='bx bx-chevron-right text-lg'></i>
-                            @endif
+                            <template x-if="!$store.cart.estaAbertoAgora()">
+                                <span class="flex items-center gap-2"><i class='bx bx-lock-alt'></i> Pedidos fechados</span>
+                            </template>
+                            <template x-if="$store.cart.estaAbertoAgora()">
+                                <span class="flex items-center gap-2">Continuar <i class='bx bx-chevron-right text-lg'></i></span>
+                            </template>
                         </button>
                         <button @click="$store.cart.clear()"
                                 x-show="$store.cart.items.length > 0"
@@ -635,7 +635,7 @@
                                   x-text="'R$ ' + $store.cart.totalComFrete.toFixed(2).replace('.', ',')"></span>
                         </div>
                         <button @click="$store.cart.submitCheckout()"
-                                :disabled="$store.cart.submitting || !_estaAberto"
+                                :disabled="$store.cart.submitting || !$store.cart.estaAbertoAgora()"
                                 class="w-full py-4 bg-green-500 hover:bg-green-400 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold rounded-xl flex items-center justify-center gap-2 uppercase tracking-wide transition-colors text-sm">
                             <template x-if="!$store.cart.submitting">
                                 <span class="flex items-center gap-2"><i class='bx bxl-whatsapp text-xl'></i> Confirmar e Pedir</span>
@@ -773,6 +773,7 @@
         const _categoriasComSabores = @js($categoriasComSabores);
         const _estaAberto           = @js($estaAberto);
         const _proximoHorario       = @js($proximoHorario);
+        const _horarios             = @js($horarios);
 
         document.addEventListener('alpine:init', () => {
             Alpine.store('cart', {
@@ -808,8 +809,43 @@
                 submitting:       false,
                 erros:            {},
 
+                // ── Verificação de horário (recalcula a cada chamada) ──
+                estaAbertoAgora() {
+                    if (!_horarios.length) return true;
+                    const agora = new Date();
+                    const dia   = agora.getDay();
+                    const hh    = agora.getHours().toString().padStart(2, '0');
+                    const mm    = agora.getMinutes().toString().padStart(2, '0');
+                    const hora  = `${hh}:${mm}`;
+                    return _horarios.some(h => h.dia === dia && h.abertura <= hora && h.fechamento >= hora);
+                },
+                proximoHorarioAgora() {
+                    if (!_horarios.length) return null;
+                    const agora = new Date();
+                    const dias  = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+                    const hh    = agora.getHours().toString().padStart(2, '0');
+                    const mm    = agora.getMinutes().toString().padStart(2, '0');
+                    const hora  = `${hh}:${mm}`;
+                    const hoje  = _horarios.filter(h => h.dia === agora.getDay() && h.abertura > hora)
+                        .sort((a, b) => a.abertura.localeCompare(b.abertura));
+                    if (hoje.length) return 'hoje às ' + hoje[0].abertura;
+                    for (let i = 1; i <= 7; i++) {
+                        const dia  = (agora.getDay() + i) % 7;
+                        const prox = _horarios.filter(h => h.dia === dia).sort((a, b) => a.abertura.localeCompare(b.abertura));
+                        if (prox.length) {
+                            const label = i === 1 ? 'amanhã' : (dia === 0 ? 'no Domingo' : dia === 6 ? 'no Sábado' : 'na ' + dias[dia] + '-feira');
+                            return label + ' às ' + prox[0].abertura;
+                        }
+                    }
+                    return null;
+                },
+
                 // ── Carrinho ──
                 add(id, nome, preco, precoOriginal, foto = '') {
+                    if (!this.estaAbertoAgora()) {
+                        this.drawerOpen = true;
+                        return;
+                    }
                     const key = String(id);
                     const idx = this.items.findIndex(i => i.cartKey === key);
                     idx >= 0 ? this.items[idx].qty++ : this.items.push({ cartKey: key, id, nome, preco, precoOriginal: precoOriginal ?? preco, qty: 1, foto, obs: '' });
@@ -846,6 +882,10 @@
 
                 // ── Sabores (meia a meia / terços) ──
                 abrirSabores(categoriaId, categoriaNome, maxSabores, produtoId = null) {
+                    if (!this.estaAbertoAgora()) {
+                        this.drawerOpen = true;
+                        return;
+                    }
                     const cat      = _categoriasComSabores.find(c => c.id === categoriaId);
                     const produtos  = cat ? cat.produtos : [];
                     const presel   = produtoId ? (produtos.find(p => p.id === produtoId) ?? null) : null;
@@ -876,6 +916,11 @@
                     }
                 },
                 confirmarSabores() {
+                    if (!this.estaAbertoAgora()) {
+                        this.saboresModal.open = false;
+                        this.drawerOpen = true;
+                        return;
+                    }
                     const sel = this.saboresModal.selecionados;
                     if (sel.length !== this.saboresModal.modo) return;
                     const preco   = Math.max(...sel.map(s => s.preco));
@@ -955,6 +1000,11 @@
 
                 // ── Checkout ──
                 async submitCheckout() {
+                    if (!this.estaAbertoAgora()) {
+                        const proximo = this.proximoHorarioAgora();
+                        this.erros = { geral: 'Não estamos aceitando pedidos no momento.' + (proximo ? ' Voltamos ' + proximo + '.' : '') };
+                        return;
+                    }
                     if (!this.validar()) return;
 
                     // reCAPTCHA v2 token (se widget estiver presente)

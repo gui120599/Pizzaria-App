@@ -90,6 +90,16 @@ class CardapioController extends Controller
         $estaAberto      = HorarioFuncionamento::estaAberto();
         $proximoHorario  = $estaAberto ? null : HorarioFuncionamento::proximoHorario();
 
-        return view('cardapio', compact('categorias', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'estaAberto', 'proximoHorario'));
+        $horarios = HorarioFuncionamento::where('horario_ativo', true)
+            ->get()
+            ->map(fn ($h) => [
+                'dia'       => (int) $h->horario_dia_semana,
+                'abertura'  => substr($h->horario_abertura, 0, 5),
+                'fechamento' => substr($h->horario_fechamento, 0, 5),
+            ])
+            ->values()
+            ->all();
+
+        return view('cardapio', compact('categorias', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'estaAberto', 'proximoHorario', 'horarios'));
     }
 }
