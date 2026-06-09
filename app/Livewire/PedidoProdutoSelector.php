@@ -257,13 +257,16 @@ class PedidoProdutoSelector extends Component
             $sPreco         = (float) $sabor['preco'];
             $sDescUnit      = max(0.0, $sPrecoOrig - $sPreco);
 
-            // Integer-cents distribution: garante que a soma das frações = preço original exato
+            // Integer-cents distribution: garante que a soma das frações = preço/desconto exato
             $totalCentavos  = (int) round($sPrecoOrig * 100);
             $centsPorItem   = intdiv($totalCentavos, $numSabores);
             $centsExtra     = $totalCentavos % $numSabores;
             $valorFracao    = ($centsPorItem + ($idx < $centsExtra ? 1 : 0)) / 100;
 
-            $descontoFracao = floor($sDescUnit * $qtdFracao * 100) / 100;
+            $descCentavos   = (int) round($sDescUnit * 100);
+            $descPorItem    = intdiv($descCentavos, $numSabores);
+            $descExtra      = $descCentavos % $numSabores;
+            $descontoFracao = ($descPorItem + ($idx < $descExtra ? 1 : 0)) / 100;
 
             if ($this->pedidoId) {
                 $itemModel = ItensPedido::create([
