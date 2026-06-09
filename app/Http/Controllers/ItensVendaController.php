@@ -470,6 +470,42 @@ class ItensVendaController extends Controller
         return response()->json(['success' => 'Removido']);
     }
 
+    public function atualizarQtdValorItemVenda(Request $request)
+    {
+        $item_id  = $request->input('item_id');
+        $venda_id = $request->input('venda_id');
+        $novaQtd  = (float) $request->input('item_venda_quantidade');
+
+        $itemVenda = ItensVenda::find($item_id);
+        if (! $itemVenda) {
+            return response()->json(['error' => 'Item não encontrado'], 200);
+        }
+
+        $precoBase = ($itemVenda->produto->produto_preco_promocional > 0 && $itemVenda->produto->produto_preco_promocional > $itemVenda->produto->produto_preco_venda)
+            ? (float) $itemVenda->produto->produto_preco_promocional
+            : (float) $itemVenda->produto->produto_preco_venda;
+
+        $desconto  = (float) $itemVenda->item_venda_desconto;
+        $valorBase = round($precoBase * $novaQtd - $desconto, 2);
+
+        $itemVenda->item_venda_quantidade            = $novaQtd;
+        $itemVenda->item_venda_quantidade_tributavel = $novaQtd;
+        $itemVenda->item_venda_valor_base_calculo    = $valorBase;
+        $itemVenda->item_venda_valor                 = $valorBase;
+        $itemVenda->item_venda_valor_icms    = round($valorBase * $itemVenda->produto->produto_valor_percentual_icms   / 100, 4);
+        $itemVenda->item_venda_valor_pis     = round($valorBase * $itemVenda->produto->produto_valor_percentual_pis    / 100, 4);
+        $itemVenda->item_venda_valor_cofins  = round($valorBase * $itemVenda->produto->produto_valor_percentual_cofins / 100, 4);
+        $itemVenda->save();
+
+        $this->vendaService->atualizarValoresdaVenda($venda_id);
+
+        return response()->json([
+            'success'             => 'Quantidade atualizada!',
+            'item_venda_valor'    => $itemVenda->item_venda_valor,
+            'item_venda_quantidade' => $itemVenda->item_venda_quantidade,
+        ]);
+    }
+
     public function atualizarDescontoItemVenda(Request $request)
     {
         // Recebe os IDs dos pedidos e o ID da venda do request

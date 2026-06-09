@@ -1,56 +1,43 @@
 <x-app-layout>
     <style>
-        /* Estilo da barra de rolagem para Webkit e Firefox */
-        body {
-            scrollbar-width: thin;
-            scrollbar-color: #888 #f1f1f1;
-        }
-
-        ::-webkit-scrollbar {
-            width: 12px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background-color: #888;
-            border-radius: 10px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background-color: #f1f1f1;
-            border-radius: 10px;
-        }
+        body { scrollbar-width: thin; scrollbar-color: #888 #f1f1f1; }
+        ::-webkit-scrollbar { width: 12px; }
+        ::-webkit-scrollbar-thumb { background-color: #888; border-radius: 10px; }
+        ::-webkit-scrollbar-track { background-color: #f1f1f1; border-radius: 10px; }
+        .nav-link.active { color: rgb(20 184 166); border-bottom-color: rgb(20 184 166); font-weight: bold; }
     </style>
-    <div class="mx-auto p-2 ">
-        <form action="{{ route('venda.store') }}" method="post" id="formVenda" class="w-full h-full"
-            enctype="multipart/form-data">
+    {{-- Container de toasts --}}
+    <div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+    <div class="mx-auto p-2">
+        <form action="{{ route('venda.store') }}" method="post" id="formVenda" class="w-full">
             @csrf
-            <div class="p-2 min-h-[95vh] bg-white shadow-sm rounded-lg flex">
-                <!-- Ícone de carregamento e mensagem -->
+            <div class="relative p-2 bg-white shadow-sm rounded-lg grid grid-cols-1 lg:grid-cols-10 gap-2 items-start">
+                <!-- Overlay de carregamento -->
                 <div id="carregando"
-                    class="hidden absolute inset-0 z-10 flex justify-center items-center bg-slate-600 bg-opacity-50 transition duration-150 ease-in-out">
-                    <div class="text-center">
+                    class="hidden absolute inset-0 z-10 flex justify-center items-center bg-slate-600/50 rounded-lg transition duration-150 ease-in-out">
+                    <div class="text-center text-white">
                         <i class='bx bx-loader-circle bx-spin bx-rotate-90 text-5xl'></i>
-                        <p>Carregando Produtos</p>
+                        <p class="mt-2 text-sm font-medium">Carregando...</p>
                     </div>
                 </div>
 
-                <div class="w-[60%] 2xl:w-[50%] h-[95vh] mx-auto pe-2 flex flex-col">
+                {{-- Coluna principal: abas + seções --}}
+                <div class="lg:col-span-6 flex flex-col min-h-0">
 
                     <nav class="bg-transparent border-b border-gray-100">
-                        <!-- Primary Navigation Menu -->
-                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                            <div class="flex justify-center h-8">
-                                <!-- Navigation Links -->
-                                <div class="space-x-5 flex ">
+                        <div class="w-full px-2">
+                            <div class="overflow-x-auto">
+                                <div class="flex space-x-3 h-8 min-w-max">
 
-                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
                                         data-section="dados-section">
                                         <i class='bx bxs-receipt me-2'></i>
                                         {{ __('Dados') }}
                                     </div>
 
 
-                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
                                         data-section="mesas-section">
                                         <div class="flex items-center">
                                             <i class='bx bx-chair me-2'></i>
@@ -58,7 +45,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="nav-link active cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                    <div class="nav-link active cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
                                         data-section="pedidos-section">
                                         <div class="flex items-center">
                                             <i class="bx bx-basket me-2"></i>
@@ -66,35 +53,38 @@
                                         </div>
                                     </div>
 
-                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                    <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
                                         data-section="produtos-section">
                                         <i class='bx bxs-pizza me-2'></i>
                                         {{ __('Produtos') }}
                                     </div>
                                     <div id="pagamentos"
-                                        class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                        class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
                                         data-section="pagamentos-section">
                                         <i class='bx bx-dollar me-2'></i>
                                         {{ __('Pagamentos') }}
                                     </div>
 
                                     <div id="finalizar"
-                                        class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                        class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:text-teal-600 hover:border-teal-400 focus:outline-none transition duration-150 ease-in-out"
                                         data-section="finalizar-section">
                                         <i class='bx bx-check-double me-2'></i>
                                         {{ __('Finalizar Venda') }}
                                     </div>
 
                                 </div>
-
                             </div>
                         </div>
                     </nav>
 
                     <div class="w-full overflow-auto">
 
-                        <div class="h-[90vh] dados-section secao" style="display: none">
-                            <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1">
+                        <div class="dados-section secao p-3" style="display: none">
+                            <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700 mb-3">
+                                <i class='bx bxs-receipt'></i>
+                                <span>{{ __('Dados da Venda') }}</span>
+                            </h2>
+                            <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4">
                                 {{-- Dados do Caixa --}}
                                 <div class="md:col-span-1">
                                     <x-input-label for="venda_id" :value="__('Cód. Venda')" />
@@ -185,52 +175,11 @@
                                     <x-input-error :messages="$errors->updatePassword->get('venda_cliente_email')" class="mt-2" />
                                 </div>
 
-                                <!--<div class="md:col-span-full grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-4">
-                                    <div class="lg:col-span-6 md:col-span-6">
-                                        <x-input-label for="venda_cliente_endereco" :value="__('Endereço')" />
-                                        <x-text-input id="venda_cliente_endereco" name="venda_cliente_endereco"
-                                            type="text" class="mt-1 w-full" autocomplete="off"
-                                            value="{{ old('venda_cliente_endereco') }}" />
-                                        <x-input-error :messages="$errors->get('venda_cliente_endereco')" class="mt-2" />
-                                    </div>
-
-                                    <div class="lg:col-span-1 md:col-span-3">
-                                        <x-input-label for="cliente_bairro" :value="__('Bairro')" />
-                                        <x-text-input id="cliente_bairro" name="cliente_bairro" type="text"
-                                            class="cep mt-1 w-full" autocomplete="off"
-                                            value="{{ old('cliente_bairro') }}" />
-                                        <x-input-error :messages="$errors->get('cliente_bairro')" class="mt-2" />
-                                    </div>
-
-                                    <div class="lg:col-span-1 md:col-span-3">
-                                        <x-input-label for="cliente_cidade" :value="__('Cidade')" />
-                                        <x-text-input id="cliente_cidade" name="cliente_cidade" type="text"
-                                            class="mt-1 w-full" autocomplete="off"
-                                            value="{{ old('cliente_cidade') }}" />
-                                        <x-input-error :messages="$errors->get('cliente_cidade')" class="mt-2" />
-                                    </div>
-
-                                    <div class="lg:col-span-1 md:col-span-3">
-                                        <x-input-label for="cliente_estado" :value="__('Estado')" />
-                                        <x-text-input id="cliente_estado" name="cliente_estado" type="text"
-                                            class="mt-1 w-full" autocomplete="off"
-                                            value="{{ old('cliente_estado') }}" />
-                                        <x-input-error :messages="$errors->get('cliente_estado')" class="mt-2" />
-                                    </div>
-
-                                    <div class="lg:col-span-1 md:col-span-3">
-                                        <x-input-label for="cliente_cep" :value="__('CEP')" />
-                                        <x-text-input id="cliente_cep" name="cliente_cep" type="text"
-                                            class="cep mt-1 w-full" autocomplete="off"
-                                            value="{{ old('cliente_cep') }}" />
-                                        <x-input-error :messages="$errors->get('cliente_cep')" class="mt-2" />
-                                    </div>
-                                </div>-->
                             </div>
                         </div>
 
-                        <div class="pagamentos-section secao" style="display: none">
-                            <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4 p-1">
+                        <div class="pagamentos-section secao p-3" style="display: none">
+                            <div class="grid grid-cols-1 md:grid-cols-6 gap-x-2 gap-y-4">
 
                                 {{-- Pagamento --}}
                                 <div class="col-span-full">
@@ -325,10 +274,13 @@
                             </div>
                         </div>
 
-                        <div class="mesas-section secao" style="display: none">
-                            <p>Mesas com Pedidos</p>
+                        <div class="mesas-section secao p-3" style="display: none">
+                            <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700 mb-3">
+                                <i class='bx bx-chair'></i>
+                                <span>{{ __('Mesas com Pedidos') }}</span>
+                            </h2>
                             @foreach ($sessaoMesas as $sessaoMesa)
-                                <div class="w-full border border-gray-200 p-3 my-2 rounded-lg ">
+                                <div class="w-full border border-gray-200 p-3 my-2 rounded-xl shadow-sm">
                                     <div class=" flex justify-between">
                                         <div class="cursor-pointer flex space-x-2 justify-between items-center">
                                             <input type="checkbox" class="sessaoMesa" name="id_sessao_mesa[]"
@@ -433,11 +385,14 @@
                             @endforeach
                         </div>
 
-                        <div class="produtos-section secao" style="display: none">
-                            <p>Produtos</p>
+                        <div class="produtos-section secao p-3" style="display: none">
+                            <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700 mb-3">
+                                <i class='bx bxs-pizza'></i>
+                                <span>{{ __('Produtos') }}</span>
+                            </h2>
                             @foreach ($categorias as $categoria)
                                 <div class="mb-4" id="categoria_{{ $categoria->id }}">
-                                    <h2 class="text-lg font-bold">{{ $categoria->categoria_nome }}</h2>
+                                    <h3 class="text-sm font-semibold text-teal-700 uppercase tracking-wide mb-2">{{ $categoria->categoria_nome }}</h3>
                                     @if ($categoria->produtos->isEmpty())
                                         <p class="text-gray-400">Não há produtos disponíveis nesta categoria.</p>
                                     @else
@@ -449,20 +404,8 @@
                                                         data-produto_id="{{ $produto->id }}"
                                                         data-produto_valor="{{ $produto->produto_preco_venda }}">
                                                         <div
-                                                            class="w-full bg-gray-100 p-2 rounded-lg flex items-start justify-between opacity-95 hover:opacity-100 gap-1">
-                                                            <div class="w-2/5">
-                                                                {{-- @if ($produto->produto_foto)
-                                                                    <img src="{{ $produto->getImagemUrl() }}"
-                                                                        alt="{{ $produto->produtso_descricao }}"
-                                                                        class="h-14 object-cover rounded-lg ">
-                                                                @else
-                                                                    <img id="imagem-preview"
-                                                                        class="h-14 object-cover rounded-lg "
-                                                                        src="{{ asset('Sem Imagem.png') }}"
-                                                                        alt="Imagem Padrão">
-                                                                @endif --}}
-                                                            </div>
-                                                            <div class="w-3/5 flex flex-col justify-center">
+                                                            class="w-full bg-gray-50 border border-gray-200 p-2 rounded-xl flex items-start justify-between hover:border-teal-300 hover:bg-teal-50 transition duration-150 gap-1">
+                                                            <div class="flex flex-col justify-center w-full">
                                                                 <h2 class="text-gray-900 text-[8px] uppercase">
                                                                     @if (isset($produto->produto_referencia) && $produto->produto_referencia !== null)
                                                                         {{ $produto->produto_descricao }} - <span>Ref.
@@ -487,11 +430,14 @@
                             @endforeach
                         </div>
 
-                        <div class="pedidos-section secao">
-                            <p>Pedidos Avulsos</p>
+                        <div class="pedidos-section secao p-3">
+                            <h2 class="flex items-center gap-x-2 text-lg font-bold text-teal-700 mb-3">
+                                <i class='bx bx-basket'></i>
+                                <span>{{ __('Pedidos Avulsos') }}</span>
+                            </h2>
                             @foreach ($pedidos as $pedido)
                                 @if ($pedido->pedido_sessao_mesa_id == null || $pedido->pedido_sessao_mesa_id == '')
-                                    <div class="w-full border border-gray-200 p-3 my-2 rounded-lg">
+                                    <div class="w-full border border-gray-200 p-3 my-2 rounded-xl shadow-sm">
                                         <div class="flex justify-between">
                                             <div>
                                                 <input type="checkbox" class="pedido" name="id_pedido[]"
@@ -589,66 +535,66 @@
                     </div>
                 </div>
 
-                <div class="w-[20%] h-[95vh] border mx-1 border-gray-200 rounded-lg flex flex-col">
-                    <div class="p-1 flex flex-col flex-grow">
-                        <div class="flex-1">
-                            <x-input-label for="venda_valor_frete">{{ __('Valor Frete') }}</x-input-label>
+                {{-- Coluna de totais --}}
+                <div class="lg:col-span-2 border border-gray-200 rounded-xl shadow-sm flex flex-col lg:sticky lg:top-2">
+                    <div class="px-3 py-2 border-b border-gray-100 bg-gray-50 rounded-t-xl">
+                        <h3 class="text-sm font-bold text-teal-700 flex items-center gap-1">
+                            <i class='bx bx-calculator'></i> Totais
+                        </h3>
+                    </div>
+                    <div class="p-2 flex flex-col gap-2">
+                        <div>
+                            <x-input-label for="venda_valor_frete">{{ __('Frete') }}</x-input-label>
                             <x-money-input id="venda_valor_frete" name="venda_valor_frete"
-                                class="venda_valor_frete money w-full h-full text-4xl"
+                                class="venda_valor_frete money w-full text-lg font-bold"
                                 autocomplete="off"></x-input-text>
                         </div>
-                        <div class="flex-1">
-                            <x-input-label for="venda_valor_itens">{{ __('Valor Itens') }}</x-input-label>
+                        <div>
+                            <x-input-label for="venda_valor_itens">{{ __('Itens') }}</x-input-label>
                             <x-money-input id="venda_valor_itens" name="venda_valor_itens" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full text-lg font-bold"></x-input-text>
                         </div>
-                        <div class="flex-1">
-                            <x-input-label for="venda_valor_acrescimo">{{ __('Valor Acréscimo') }}</x-input-label>
+                        <div>
+                            <x-input-label for="venda_valor_acrescimo">{{ __('Acréscimo') }}</x-input-label>
                             <x-money-input id="venda_valor_acrescimo" name="venda_valor_acrescimo" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full text-lg font-bold"></x-input-text>
                         </div>
-                        <div class="flex-1">
-                            <x-input-label for="venda_valor_desconto">{{ __('Valor Desconto') }}</x-input-label>
+                        <div>
+                            <x-input-label for="venda_valor_desconto">{{ __('Desconto') }}</x-input-label>
                             <x-money-input id="venda_valor_desconto" name="venda_valor_desconto" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full text-lg font-bold"></x-input-text>
                         </div>
-                        <div class="flex-1">
-                            <x-input-label for="venda_valor_total">{{ __('Valor Total') }}</x-input-label>
+                        <div class="border-t border-gray-200 pt-2">
+                            <x-input-label for="venda_valor_total" class="font-semibold text-teal-700">{{ __('Total') }}</x-input-label>
                             <x-money-input id="venda_valor_total" name="venda_valor_total" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full text-2xl font-bold text-teal-700"></x-input-text>
                         </div>
-                        <div class="flex-1">
-                            <x-input-label for="venda_valor_pago">{{ __('Valor Pago') }}</x-input-label>
+                        <div>
+                            <x-input-label for="venda_valor_pago">{{ __('Pago') }}</x-input-label>
                             <x-money-input id="venda_valor_pago" name="venda_valor_pago" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full text-lg font-bold"></x-input-text>
                         </div>
-                        <div class="flex-1">
-                            <x-input-label for="venda_valor_troco">{{ __('Valor Troco') }}</x-input-label>
+                        <div>
+                            <x-input-label for="venda_valor_troco">{{ __('Troco') }}</x-input-label>
                             <x-money-input id="venda_valor_troco" name="venda_valor_troco" readonly
-                                class="money w-full h-full text-4xl"></x-input-text>
+                                class="money w-full text-lg font-bold"></x-input-text>
                         </div>
                     </div>
                 </div>
 
-                <div class="w-[20%] 2xl:w-[30%] h-[95vh] overflow-auto border border-gray-200 rounded-lg">
-                    <div id="itens_venda">
-
+                {{-- Coluna de itens da venda --}}
+                <div class="lg:col-span-2 border border-gray-200 rounded-xl shadow-sm flex flex-col lg:sticky lg:top-2 lg:max-h-screen">
+                    <div class="px-3 py-2 border-b border-gray-100 bg-gray-50 rounded-t-xl shrink-0">
+                        <h3 class="text-sm font-bold text-teal-700 flex items-center gap-1">
+                            <i class='bx bx-list-ul'></i> Itens
+                        </h3>
                     </div>
+                    <div id="itens_venda" class="overflow-y-auto flex-grow"></div>
                 </div>
 
             </div>
         </form>
     </div>
-    <style>
-        .nav-link.active {
-            /* Adicione estilos desejados para o link ativo aqui */
-            color: rgb(20 184 166 / var(--tw-bg-opacity));
-            /* Exemplo: altera a cor do texto para branco */
-            border-bottom-color: rgb(20 184 166 / var(--tw-bg-opacity));
-            /* Exemplo: altera a cor da borda inferior para branco */
-            font-weight: bold;
-        }
-    </style>
     <script>
         function selecionarCliente(cliente) {
             document.getElementById("venda_cliente_id").value = cliente.id;
@@ -694,20 +640,39 @@
             });
         });
     </script>
+    <script>
+        function showToast(message, type = 'error') {
+            const container = document.getElementById('toast-container');
+            const colors = {
+                error:   'bg-red-600 border-red-700',
+                success: 'bg-teal-600 border-teal-700',
+                warning: 'bg-yellow-500 border-yellow-600',
+            };
+            const icons = {
+                error:   'bx-error-circle',
+                success: 'bx-check-circle',
+                warning: 'bx-info-circle',
+            };
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border shadow-xl text-white text-sm font-medium max-w-xs transition-all duration-300 opacity-0 translate-x-4 ${colors[type] ?? colors.error}`;
+            toast.innerHTML = `<i class="bx ${icons[type] ?? icons.error} text-lg shrink-0"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('opacity-0', 'translate-x-4');
+            });
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-4');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 4000);
+        }
+    </script>
     <script type="module">
         $(document).ready(function() {
 
             // Converte o array PHP para JSON e o passa para o JavaScript
             let opcao_pag = @json($opcoesPagamentos);
 
-            $(".toggleSideBar").trigger("click");
-
-            // Oculta todas as seções ao carregar a página
-            /*$('.pedidos-section').hide();
-            $('.pagamentos-section').hide();
-            $('.produtos-section').hide();
-            $('.mesas-section').hide();
-            $('.finalizar-section').hide();*/
+            if ($(".toggleSideBar").length) $(".toggleSideBar").trigger("click");
 
             // Mostra a seção correspondente quando um link da navegação é clicado
             $('.nav-link').click(function() {
@@ -742,7 +707,6 @@
                             $('#pagamentos').addClass('active');
                         }
                     } else {
-                        console.error("Valores inválidos de pagamento ou total.");
                     }
                 } else {
                     // Oculta todas as seções e mostra apenas a correspondente
@@ -804,10 +768,8 @@
 
                         // Uso da função com a promessa
                         IniciarVenda().then(vendaId => {
-                            console.log('Venda iniciada com ID:', vendaId);
                             AdicionaItensSessaoMesa($(this).data('sessaomesa_id'), vendaId);
                         }).catch(error => {
-                            console.error(error);
                         });
                     } else {
                         AdicionaItensSessaoMesa($(this).data('sessaomesa_id'), venda_id);
@@ -829,10 +791,8 @@
 
                         // Uso da função com a promessa
                         IniciarVenda().then(vendaId => {
-                            console.log('Venda iniciada com ID:', vendaId);
                             AdicionaItensPedido($(this).data('pedido_id'), vendaId);
                         }).catch(error => {
-                            console.error(error);
                         });
                     } else {
                         AdicionaItensPedido($(this).data('pedido_id'), venda_id);
@@ -849,20 +809,16 @@
                 const item_venda_produto_id = $(this).data('produto_id');
                 const venda_id = $("#venda_id").val();
                 $("#carregando").removeClass('hidden');
-                //console.log(item_venda_produto_id + '--' + venda_id);
                 if (venda_id === "") {
                     //Se não estiver ele abre um novo e já adiciona os itens do pedido selecionado na venda aberta
 
                     // Uso da função com a promessa
                     IniciarVenda().then(vendaId => {
-                        console.log('Venda iniciada com ID:', vendaId);
                         AdicionaProduto($(this).data('produto_id'), vendaId);
                     }).catch(error => {
-                        console.error(error);
                     });
                 } else {
                     AdicionaProduto($(this).data('produto_id'), venda_id);
-                    console.log('Venda já iniciada: ' + venda_id);
                 }
 
             });
@@ -883,7 +839,6 @@
                         AtualizaValorFrete(venda_valor_frete, vendaId);
                         $("#venda_valor_frete").attr('readonly', false);
                     }).catch(error => {
-                        console.error(error);
                     });
                 } else {
                     AtualizaValorFrete(venda_valor_frete, venda_id);
@@ -1016,11 +971,6 @@
                     $("#venda_cliente_cnpj").val("");
                     $("#venda_cliente_telefone").val("");
                     $("#venda_cliente_email").val("");
-                    $("#venda_cliente_endereco").val("");
-                    $("#cliente_bairro").val("");
-                    $("#cliente_cidade").val("");
-                    $("#cliente_estado").val("");
-                    $("#cliente_cep").val("");
                 }
             });
 
@@ -1046,7 +996,6 @@
                             venda_cliente_id
                         },
                         success: function(response) {
-                            // Lidar com a resposta
                             if (response && response.venda_id) {
                                 $("#venda_id").val(response.venda_id);
                                 $("#venda_id_titulo").text("Nº: " + response.venda_id);
@@ -1054,13 +1003,13 @@
                                 resolve($("#venda_id").val());
                                 $("#carregando").addClass('hidden');
                             } else {
-                                alert('Erro ao iniciar a venda. Por favor, tente novamente 1.');
+                                showToast('Erro ao iniciar a venda. Por favor, tente novamente.');
                                 reject('Erro ao iniciar a venda.');
                                 $("#carregando").addClass('hidden');
                             }
                         },
                         error: function() {
-                            alert('Erro ao iniciar a venda. Por favor, tente novamente 2.');
+                            showToast('Erro ao iniciar a venda. Por favor, tente novamente.');
                             reject('Erro ao iniciar a venda.');
                             $("#carregando").addClass('hidden');
                         }
@@ -1079,11 +1028,10 @@
                     },
                     dataType: "JSON",
                     success: function(response) {
-                        console.log(response);
                         ListaItensVenda(venda_id);
                     },
                     error: function() {
-                        alert('Erro ao adicionar Itens da Sessão da mesa!');
+                        showToast('Erro ao adicionar itens da sessão de mesa!');
                     }
                 });
             }
@@ -1099,12 +1047,11 @@
                     },
                     dataType: "JSON",
                     success: function(response) {
-                        console.log(response);
                         ListaItensVenda(venda_id);
 
                     },
                     error: function() {
-                        alert('Erro ao remover Itens da Sessão da mesa!');
+                        showToast('Erro ao remover itens da sessão de mesa!');
                     }
                 });
             }
@@ -1120,11 +1067,10 @@
                     },
                     dataType: "JSON",
                     success: function(response) {
-                        console.log(response);
                         ListaItensVenda(venda_id);
                     },
                     error: function() {
-                        alert('Erro ao adicionar Itens do Pedido!');
+                        showToast('Erro ao adicionar itens do pedido!');
                     }
                 });
 
@@ -1141,12 +1087,10 @@
                     },
                     dataType: "JSON",
                     success: function(response) {
-                        console.log(response);
                         ListaItensVenda(venda_id);
                     },
                     error: function() {
-                        alert('Erro ao remover Itens do Pedido: ' + pedido_id +
-                            ' /n Contate o administrador!');
+                        showToast('Erro ao remover itens do pedido #' + pedido_id + '. Contate o administrador.');
                     }
                 });
             }
@@ -1162,11 +1106,10 @@
                     },
                     dataType: "JSON",
                     success: function(response) {
-                        console.log(response);
                         ListaItensVenda(venda_id);
                     },
                     error: function() {
-                        alert('Erro ao adicionar Itens do Pedido!');
+                        showToast('Erro ao adicionar produto!');
                     }
                 });
 
@@ -1183,12 +1126,10 @@
                     },
                     dataType: "JSON",
                     success: function(response) {
-                        console.log(response);
                         ListaItensVenda(venda_id);
                     },
                     error: function() {
-                        alert('Erro ao remover Itens do Pedido: ' + produto_id +
-                            ' /n Contate o administrador!');
+                        showToast('Erro ao remover produto #' + produto_id + '. Contate o administrador.');
                     }
                 });
             }
@@ -1203,7 +1144,6 @@
                     },
                     dataType: "JSON",
                     success: function(response) {
-                        console.log(response.length);
 
 
                         // Limpe o conteúdo atual antes de adicionar os novos itens
@@ -1272,18 +1212,10 @@
                                                 <span class="text-end">R$ ${add.adicional.adicional_valor}</span>
                                             </div>
                                             <div class="col-span-3">
-                                                <div class="flex items-stretch justify-evenly">
-                                                    {{-- <button type="button" id="minus-btn-adicional"
-                                                        class="minus-btn-adicional w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-l-md hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                        data-item_pedido_id="${item.id}" data-adicional_id="${add.adicional.id}" data-adicional_valor="${add.adicional.adicional_valor}">-</button> --}}
-                                                    <input type="text" id="item_pedido_adicional_quantidade_${add.adicional.id}" name="item_pedido_adicional_quantidade"
-                                                        value="${quantidade}"
-                                                        class="max-w-14 text-center border border-gray-300 rounded-none focus:outline-none focus:ring-1 focus:ring-gray-400"
-                                                        readonly />
-                                                    {{-- <button type="button" id="plus-btn-adicional"
-                                                        class="plus-btn-adicional w-full px-3 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:font-semibold hover:bg-gray-300 focus:outline-none"
-                                                        data-item_pedido_id="${item.id}" data-adicional_id="${add.adicional.id}" data-adicional_valor="${add.adicional.adicional_valor}">+</button> --}}
-                                                </div>
+                                                <input type="text" id="item_pedido_adicional_quantidade_${add.adicional.id}" name="item_pedido_adicional_quantidade"
+                                                    value="${quantidade}"
+                                                    class="max-w-14 text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+                                                    readonly />
                                             </div>
                                         </div>
                                     `;
@@ -1332,7 +1264,6 @@
                         //Abre o form do item do pedido
                         $(".toogle_item").click(function(e) {
                             e.preventDefault();
-                            console.log('foi');
                             const item_id = $(this).data('item_id');
                             const itemPedido = $("#item_venda_" + item_id);
                             const produtoNome = $("#produto_nome_" + item_id);
@@ -1351,175 +1282,86 @@
                             }
                         });
 
-                        //Altera a quantidade e valor do produto
+                        //Altera a quantidade e valor do item de venda
+                        function atualizarQtdItemVenda(id, novaQtd) {
+                            const venda_id = $("#venda_id").val();
+                            $("#item_venda_quantidade_" + id).val(novaQtd.toString());
+                            $("#item_qtd_view_" + id).html(novaQtd === 0.5 ? 'Meia' : novaQtd);
+
+                            $.ajax({
+                                type: "POST",
+                                url: "{{ route('item_venda.update_qtd_valor') }}",
+                                data: {
+                                    item_id: id,
+                                    venda_id,
+                                    item_venda_quantidade: novaQtd,
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                dataType: "json",
+                                success: function(response) {
+                                    if (response.item_venda_valor !== undefined) {
+                                        $("#item_venda_valor_" + id).val(parseFloat(response.item_venda_valor).toFixed(2));
+                                        $("#item_valor_view_" + id).html(parseFloat(response.item_venda_valor).toFixed(2));
+                                    }
+                                    listarVenda(venda_id);
+                                },
+                                error: function() {
+                                    showToast('Erro ao atualizar a quantidade do item.');
+                                }
+                            });
+                        }
+
                         $(".minus-btn").click(function(e) {
                             e.preventDefault();
-
-                            const id = $(this).data('item_id');
-                            const item_desconto = parseFloat($("#item_pedido_desconto_" + id)
-                                .val());
-                            const produto_preco_venda = $(this).data('produto_preco_venda');
-
-                            // Obtém o elemento de entrada de quantidade
-                            var item_pedido_quantidade = $("#item_pedido_quantidade_" + id)
-                                .val();
-
-                            // Obtém o valor atual e converte para um número
-                            var currentValue = parseFloat(item_pedido_quantidade);
-                            // Verifica se o valor atual é 1 ou 0.5
-                            if (currentValue === 1 || currentValue === 0.5) {
-                                // Se for 1 ou 0.5, define o valor como 0.5
-                                currentValue = 0.5;
-                            } else {
-                                // Se não for 1 ou 0.5, decrementa em 1
-                                currentValue -= 1;
-                            }
-                            // Define o novo valor do campo de entrada, convertendo para string
-                            $("#item_pedido_quantidade_" + id).val(currentValue.toString());
-                            item_pedido_quantidade = currentValue;
-                            // Atualiza a quantidade da vizualização
-                            if (item_pedido_quantidade === 0.5) {
-                                $("#item_qtd_view_" + id).html('Meia');
-                            } else {
-                                $("#item_qtd_view_" + id).html(item_pedido_quantidade);
-                            }
-
-                            var item_pedido_valor = currentValue * produto_preco_venda -
-                                item_desconto;
-                            item_pedido_valor = item_pedido_valor.toFixed(
-                                2); // Limita a duas casas decimais
-                            $("#item_pedido_valor_" + id).val(item_pedido_valor);
-                            //Atualiza valor na vizualização
-                            $("#item_valor_view_" + id).html(item_pedido_valor);
-
-                            $.ajax({
-                                type: "POST",
-                                url: "{{ route('item_pedido.update_qtd_valor') }}",
-                                data: {
-                                    id,
-                                    item_pedido_quantidade,
-                                    item_pedido_valor,
-                                    '_token': '{{ csrf_token() }}'
-                                },
-                                dataType: "json",
-                                success: function(response) {
-                                    console.log(response);
-                                    ValorTotalItensPedido();
-                                },
-                                error: function() {
-                                    alert('Erro ao atualizar o item do pedido')
-                                }
-                            });
-
+                            const id  = $(this).data('item_id');
+                            const cur = parseFloat($("#item_venda_quantidade_" + id).val()) || 1;
+                            const nova = (cur === 1 || cur === 0.5) ? 0.5 : cur - 1;
+                            atualizarQtdItemVenda(id, nova);
                         });
+
                         $(".plus-btn").click(function(e) {
                             e.preventDefault();
-                            const id = $(this).data('item_id');
-                            const item_desconto = parseFloat($("#item_pedido_desconto_" + id)
-                                .val());
-                            const produto_preco_venda = $(this).data('produto_preco_venda');
-
-                            // Obtém o elemento de entrada de quantidade
-                            var item_pedido_quantidade = $("#item_pedido_quantidade_" + id)
-                                .val();
-
-                            // Obtém o valor atual e converte para um número
-                            var currentValue = parseFloat(item_pedido_quantidade);
-                            // Verifica se o valor atual é 0.5
-                            if (currentValue === 0.5) {
-                                // Se for 0.5, incrementa em 0.5
-                                currentValue += 0.5;
-                            } else {
-                                // Se não for 0.5, incrementa em 1
-                                currentValue += 1;
-                            }
-                            // Define o novo valor do campo de entrada, convertendo para string
-                            $("#item_pedido_quantidade_" + id).val(currentValue.toString());
-                            item_pedido_quantidade = currentValue;
-                            // Atualiza a quantidade da vizualização
-                            if (item_pedido_quantidade === 0.5) {
-                                $("#item_qtd_view_" + id).html('Meia');
-                            } else {
-                                $("#item_qtd_view_" + id).html(item_pedido_quantidade);
-                            }
-
-
-                            var item_pedido_valor = currentValue * produto_preco_venda -
-                                item_desconto;
-                            item_pedido_valor = item_pedido_valor.toFixed(
-                                2); // Limita a duas casas decimais
-                            $("#item_pedido_valor_" + id).val(item_pedido_valor);
-                            //Atualiza valor na vizualização
-                            $("#item_valor_view_" + id).html(item_pedido_valor);
-
-                            $.ajax({
-                                type: "POST",
-                                url: "{{ route('item_pedido.update_qtd_valor') }}",
-                                data: {
-                                    id,
-                                    item_pedido_quantidade,
-                                    item_pedido_valor,
-                                    '_token': '{{ csrf_token() }}'
-                                },
-                                dataType: "json",
-                                success: function(response) {
-                                    console.log(response);
-                                    ValorTotalItensPedido();
-                                },
-                                error: function() {
-                                    alert('Erro ao atualizar o item do pedido')
-                                }
-                            });
+                            const id  = $(this).data('item_id');
+                            const cur = parseFloat($("#item_venda_quantidade_" + id).val()) || 0.5;
+                            const nova = cur === 0.5 ? 1 : cur + 1;
+                            atualizarQtdItemVenda(id, nova);
                         });
 
                         let item_desconto;
 
                         // Função que atualiza o valor total quando insere qualquer valor no campo de desconto
                         $(".item_desconto").keyup(function(e) {
-                            const item_id = $(this).data('item_id');
-                            // Obter o valor do desconto e substituir vírgulas por pontos antes de converter para um número
-                            item_desconto = parseFloat($(this).val().replace(',', '.'));
-                            item_desconto = item_desconto.toFixed(2);
+                            const item_id  = $(this).data('item_id');
+                            const venda_id_desconto = $("#venda_id").val();
+                            item_desconto  = parseFloat($(this).val().replace(',', '.'));
+                            item_desconto  = item_desconto.toFixed(2);
 
-                            // Se o valor do desconto não for um número válido, defina-o como 0.00
                             if (isNaN(item_desconto)) {
                                 item_desconto = 0.00;
                             }
 
-                            // Obter o valor total dos itens
-                            const valorTotalItem = parseFloat($("#item_venda_valor_unitario_" +
-                                    item_id)
-                                .val()) * parseFloat($("#item_venda_quantidade_" + item_id)
-                                .val());
-
-                            // Calcular o novo valor total subtraindo o desconto
+                            const valorTotalItem = parseFloat($("#item_venda_valor_unitario_" + item_id).val())
+                                * parseFloat($("#item_venda_quantidade_" + item_id).val());
                             const novoValorTotal = valorTotalItem - item_desconto;
 
-                            // Atualizar o elemento na sua página com o novo valor total
                             $("#item_venda_valor_" + item_id).val(novoValorTotal.toFixed(2));
-
-
 
                             $.ajax({
                                 type: "POST",
                                 url: "{{ route('item_venda.update_desconto') }}",
                                 data: {
                                     item_id,
-                                    venda_id,
+                                    venda_id: venda_id_desconto,
                                     item_desconto,
                                     '_token': '{{ csrf_token() }}'
                                 },
                                 dataType: "json",
                                 success: function(response) {
-                                    $("#item_valor_view_" + item_id)
-                                        .html(
-                                            novoValorTotal
-                                            .toFixed(2));
-                                    listarVenda(venda_id);
+                                    $("#item_valor_view_" + item_id).html(novoValorTotal.toFixed(2));
+                                    listarVenda(venda_id_desconto);
                                 },
                                 error: function() {
-                                    alert(
-                                        'Erro ao atualizar o item do venda')
+                                    showToast('Erro ao atualizar o desconto do item.');
                                 }
 
                             });
@@ -1570,7 +1412,7 @@
                                     ListaItensVenda(venda_id);
                                 },
                                 error: function() {
-                                    alert('Erro ao atualizar o item do pedido')
+                                    showToast('Erro ao remover o item da venda.');
                                 }
                             });
 
@@ -1581,7 +1423,7 @@
                         });
                     },
                     error: function() {
-                        alert('Erro ao listar Itens da Venda!');
+                        showToast('Erro ao listar itens da venda!');
                         $("#carregando").addClass('hidden');
                     }
                 });
@@ -1613,7 +1455,7 @@
 
                     },
                     error: function() {
-                        alert('Erro ao listar Itens da Venda!');
+                        showToast('Erro ao listar itens da venda!');
                         $("#carregando").addClass('hidden');
                     }
                 });
@@ -1629,10 +1471,8 @@
                             venda_id
                         },
                         success: function(response) {
-                            console.log('Venda cancelada com sucesso!');
                         },
                         error: function() {
-                            console.log('Erro ao cancelada a venda.');
                         }
                     });
                 }
@@ -1664,10 +1504,9 @@
                     dataType: "json",
                     success: function(response) {
                         listarVenda(venda_id);
-                        console.log(response);
                     },
                     error: function() {
-                        alert('Erro ao atualizar o valor do frete!');
+                        showToast('Erro ao atualizar o valor do frete!');
                     }
                 });
             }
@@ -1682,7 +1521,6 @@
                     IniciarVenda().then(vendaId => {
                         venda_id = vendaId;
                     }).catch(error => {
-                        console.error(error);
                     });
                 }
 
@@ -1720,7 +1558,6 @@
                     },
                     dataType: "json",
                     success: function(response) {
-                        console.log(response);
 
                         listarPagamentos(response.pagamentosVenda);
                         listarVenda(venda_id);
@@ -1733,7 +1570,6 @@
 
                     },
                     error: function(error) {
-                        console.error(error);
 
                     }
                 });
@@ -1776,7 +1612,6 @@
                         },
                         dataType: "json",
                         success: function(response) {
-                            console.log(response);
 
 
                             listarPagamentos(response.pagamentosVenda);
@@ -1785,7 +1620,6 @@
                             $('#carregando').addClass('hidden');
                         },
                         error: function(error) {
-                            console.log(error);
                             $('#carregando').removeClass('hidden');
                         }
                     });

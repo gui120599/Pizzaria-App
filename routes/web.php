@@ -265,6 +265,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemVenda/AddProduto', [ItensVendaController::class, 'adicionarProduto'])->name('item_venda.add_produto');
     Route::post('/ItemVenda/RemoveProduto', [ItensVendaController::class, 'removerProduto'])->name('item_venda.remove_produto');
     Route::post('/ItemVenda/AtualziarDesconto', [ItensVendaController::class, 'atualizarDescontoItemVenda'])->name('item_venda.update_desconto');
+    Route::post('/ItemVenda/AtualizarQtdValor', [ItensVendaController::class, 'atualizarQtdValorItemVenda'])->name('item_venda.update_qtd_valor');
 
     Route::post('/PagamentoVenda', [PagamentosVendaController::class, 'store'])->name('pagamento_venda.store');
     Route::post('/RemoverPagamentoVenda', [PagamentosVendaController::class, 'destroy'])->name('pagamento_venda.destroy');
