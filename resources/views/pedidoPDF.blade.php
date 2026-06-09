@@ -65,7 +65,15 @@
                     <label class="text-lg">{{ $pedido->id }}</label>
                     <label class="truncate">{{ $pedido->cliente?->cliente_nome ?? 'Não informado' }}</label>
                     @if ($isRetirada)
-                        <label>{{ $pedido->cliente?->cliente_celular ?? 'Não informado' }}</label>
+                        @php
+                            $tel = preg_replace('/\D/', '', $pedido->cliente?->cliente_celular ?? '');
+                            $telFormatado = match(strlen($tel)) {
+                                11 => '(' . substr($tel,0,2) . ') ' . substr($tel,2,5) . '-' . substr($tel,7),
+                                10 => '(' . substr($tel,0,2) . ') ' . substr($tel,2,4) . '-' . substr($tel,6),
+                                default => $pedido->cliente?->cliente_celular ?? 'Não informado',
+                            };
+                        @endphp
+                        <label>{{ $telFormatado }}</label>
                     @endif
                     <label>{{ $pedido->garcom?->name ?? 'S/A' }}</label>
                     <label>{{ $abertura->format('d/m/Y H:i') }}</label>
