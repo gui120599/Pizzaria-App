@@ -616,7 +616,18 @@
                                 <span x-text="$store.cart.count"></span> iten(s)
                             </span>
                             <span class="text-gray-400 font-medium text-base"
-                                  x-text="'R$ ' + ($store.cart.total - $store.cart.totalDesconto).toFixed(2).replace('.', ',')"></span>
+                                  x-text="'R$ ' + $store.cart.totalOriginal.toFixed(2).replace('.', ',')"></span>
+                        </div>
+                        {{-- Desconto --}}
+                        <div x-show="$store.cart.totalDesconto > 0"
+                             class="flex justify-between items-center text-sm"
+                             style="display:none">
+                            <span class="text-green-400 flex items-center gap-1.5">
+                                <i class='bx bx-tag text-base'></i>
+                                Desconto
+                            </span>
+                            <span class="text-green-400 font-medium"
+                                  x-text="'- R$ ' + $store.cart.totalDesconto.toFixed(2).replace('.', ',')"></span>
                         </div>
                         {{-- Taxa de entrega --}}
                         <div x-show="$store.cart.valorFrete > 0"
@@ -872,11 +883,10 @@
                     if (!this.form.opcaoEntregaId) return 0;
                     const opcao = _opcoesEntregas.find(o => o.id === this.form.opcaoEntregaId);
                     if (!opcao || !opcao.valor_frete) return 0;
-                    const liquido = this.total - this.totalDesconto;
-                    if (opcao.min_frete > 0 && liquido >= opcao.min_frete) return 0;
+                    if (opcao.min_frete > 0 && this.total >= opcao.min_frete) return 0;
                     return opcao.valor_frete;
                 },
-                get totalComFrete() { return this.total - this.totalDesconto + this.valorFrete; },
+                get totalComFrete() { return this.total + this.valorFrete; },
                 save()  { localStorage.setItem('cardapio_cart', JSON.stringify(this.items)); },
                 clear() { this.items = []; localStorage.removeItem('cardapio_cart'); },
 
@@ -1060,14 +1070,15 @@
                         const opcao   = _opcoesEntregas.find(o => o.id === this.form.opcaoEntregaId);
                         let msg = `Olá! Gostaria de confirmar meu pedido *#${data.pedido_id}*:\n\n`;
                         this.items.forEach(i => {
-                            const sub = (i.preco * i.qty).toFixed(2).replace('.', ',');
+                            const precoExib = (i.precoOriginal ?? i.preco);
+                            const sub = (precoExib * i.qty).toFixed(2).replace('.', ',');
                             msg += `• ${i.qty}x ${i.nome} — R$${sub}\n`;
                         });
-                        if (this.totalDesconto > 0)
-                            msg += `\nDesconto: -R$${this.totalDesconto.toFixed(2).replace('.', ',')}`;
-                        if (this.valorFrete > 0)
-                            msg += `\nTaxa de entrega: R$${this.valorFrete.toFixed(2).replace('.', ',')}`;
-                        msg += `\n*Total: R$${this.totalComFrete.toFixed(2).replace('.', ',')}*`;
+                        if (data.total_desconto > 0)
+                            msg += `\nDesconto: -R$${data.total_desconto.toFixed(2).replace('.', ',')}`;
+                        if (data.valor_frete > 0)
+                            msg += `\nTaxa de entrega: R$${data.valor_frete.toFixed(2).replace('.', ',')}`;
+                        msg += `\n*Total: R$${data.total_final.toFixed(2).replace('.', ',')}*`;
                         msg += `\n*Entrega:* ${opcao?.nome ?? ''}`;
                         if (this.form.endereco) msg += `\n*Endereço:* ${this.form.endereco}`;
                         msg += `\n*Pagamento:* ${this.form.pagamentoNome}`;

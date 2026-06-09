@@ -204,8 +204,12 @@ class CardapioCheckoutController extends Controller
         }
 
         return response()->json([
-            'pedido_id'  => $pedido->id,
-            'cliente_id' => $cliente->id,
+            'pedido_id'      => $pedido->id,
+            'cliente_id'     => $cliente->id,
+            'total_bruto'    => $totalBruto,
+            'total_desconto' => $totalDesconto,
+            'valor_frete'    => $valorFrete,
+            'total_final'    => round(max(0, $totalBruto - $totalDesconto + $valorFrete), 2),
         ]);
     }
 }
