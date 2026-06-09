@@ -256,7 +256,7 @@ class PedidoProdutoSelector extends Component
             $sPrecoOrig     = (float) $sabor['precoOriginal'];
             $sPreco         = (float) $sabor['preco'];
             $sDescUnit      = max(0.0, $sPrecoOrig - $sPreco);
-            $valorFracao    = round($sPrecoOrig * $qtdFracao, 2);
+            $valorFracao    = ceil($sPrecoOrig * $qtdFracao * 100) / 100;
             $descontoFracao = round($sDescUnit * $qtdFracao, 2);
 
             if ($this->pedidoId) {
