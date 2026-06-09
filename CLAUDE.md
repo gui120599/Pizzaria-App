@@ -1,4 +1,4 @@
-# CLAUDE.md
+#CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -7,14 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Laravel 12** (PHP 8.2+) + **Filament 4** (admin panel)
 - **MySQL** via Laravel Sail (Docker)
 - **Vite** + Tailwind CSS 4 + Alpine.js
-- Locale: `pt_BR` em toda a aplicação
+- Locale: `pt_BR` throughout the application
 
-## Comandos de Desenvolvimento
+## Development Commands
 
 ```bash
-# Ambiente Docker (Laravel Sail)
-./vendor/bin/sail up -d          # Subir containers
-./vendor/bin/sail down           # Derrubar containers
+# Docker Environment (Laravel Sail)
+./vendor/bin/sail up -d # Start containers
+./vendor/bin/sail down # Stop containers
 
 # Artisan
 ./vendor/bin/sail artisan migrate
@@ -22,79 +22,88 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./vendor/bin/sail artisan cache:clear && artisan config:clear && artisan view:clear
 
 # Frontend
-npm run dev      # Vite dev server
-npm run build    # Build para produção
+npm run dev
+# Vite dev server
+npm run build # Production build
 
-# Testes
+# Tests
 ./vendor/bin/sail artisan test
-./vendor/bin/sail artisan test --filter=NomeDaClasse   # Teste específico
+./vendor/bin/sail artisan test --filter=ClassName # Specific test
 
 # Code style
-./vendor/bin/sail composer pint   # Laravel Pint (PSR-12)
+./vendor/bin/sail composer pint # Laravel Pint (PSR-12)
 
 # Filament
-./vendor/bin/sail artisan filament:upgrade   # Rodar após atualizar o Filament
+./vendor/bin/sail artisan filament:upgrade # Run after updating the Filament
+
+## Architecture
+
+### Two Parallel Interfaces
+
+The project has **two distinct interfaces** coexisting:
+
+1. **Legacy Interface** — Traditional MVC via `routes/web.php`. Controllers in `app/Http/Controllers/`, Blade views in `resources/views/`. Covers the operational service flow (orders, sales, tables, cash register).
+
+2. **Filament Panel** — accessible via `/admin`, configured in `app/Providers/Filament/AdminPanelProvider.php`. Resources are located in `app/Filament/Resources/`, with automatic discovery. It is the management/back office panel.
+
+### Resource Filament Structure
+
+Each resource follows the pattern of subdirectories by responsibility:
+
+```
+app/Filament/Resources/{Domain}/
+
+{Domain}Resource.php # Main resource record
+
+Schemas/{Domain}Form.php # Form definition (Schema)
+
+Tables/{Domain}Table.php # Table definition
+
+Pages/
+
+Create{Domain}.php
+Edit{Domain}.php
+List{Domain}.php # or Manage for simple resources
+
 ```
 
-## Arquitetura
+### Column Naming Convention
 
-### Duas Interfaces Paralelas
+All database columns follow the model prefix:
+- `order_*` → `orders` table
+- `product_*` → `products` table
+- `client_*` → `clients` table
+- `order_item_*` → table `items_orders`
 
-O projeto possui **duas interfaces distintas** em coexistência:
+### Order Lifecycle
 
-1. **Interface legada** — MVC tradicional via `routes/web.php`. Controllers em `app/Http/Controllers/`, views Blade em `resources/views/`. Cobre o fluxo operacional de atendimento (pedidos, vendas, mesas, caixa).
+Sequential status: `STARTED` → `OPEN` → `PREPARING` → `READY` → `IN TRANSIT` → `DELIVERED` → `FINISHED`
+Alternative terminal status: `CANCELLED`
 
-2. **Painel Filament** — acessível em `/admin`, configurado em `app/Providers/Filament/AdminPanelProvider.php`. Recursos em `app/Filament/Resources/`, com descoberta automática. É o painel de gestão/backoffice.
-
-### Estrutura dos Resources Filament
-
-Cada resource segue o padrão de subdiretórios por responsabilidade:
-
-```
-app/Filament/Resources/{Dominio}/
-    {Dominio}Resource.php          # Registro principal do resource
-    Schemas/{Dominio}Form.php      # Definição do formulário (Schema)
-    Tables/{Dominio}Table.php      # Definição da tabela
-    Pages/
-        Create{Dominio}.php
-        Edit{Dominio}.php
-        List{Dominio}.php          # ou Manage para recursos simples
-```
-
-### Convenção de Nomenclatura de Colunas
-
-Todas as colunas de banco seguem prefixo do modelo:
-- `pedido_*` → tabela `pedidos`
-- `produto_*` → tabela `produtos`
-- `cliente_*` → tabela `clientes`
-- `item_pedido_*` → tabela `itens_pedidos`
-
-### Ciclo de Vida do Pedido
-
-Status sequencial: `INICIADO` → `ABERTO` → `PREPARANDO` → `PRONTO` → `EM TRANSPORTE` → `ENTREGUE` → `FINALIZADO`  
-Status terminal alternativo: `CANCELADO`
-
-Cada transição registra datahora no campo correspondente (`pedido_datahora_preparo`, `pedido_datahora_pronto`, etc).
+Each transaction records the date and time in the corresponding field (`order_preparation_date_time`, `order_ready_date_time`, etc.).
 
 ### Enums
 
-Em `app/Enums/`:
-- `EstoqueModoControleEnum` — `bloquear | avisar | nao_controlar`
-- `MovTipoEnum` / `MovOrigemEnum` — movimentações de estoque
-- `ProdutoTipoEnum` — `produzido | revenda | insumo | consumo_interno`
-- `UnidadeProdutoEnum` — unidades de medida
-- `PrestadorCategoriaEnum` / `PrestadorTipoEnum` — fornecedores/funcionários
+In `app/Enums/`:
 
-### Autorização
+- `StockControlModeEnum` — `block | warn | do_not_control`
+- `EnumTypeMovement` / `EnumOriginMovement` — stock movements
+- `EnumTypeProduct` — `produced | resale | input | Internal consumption`
+- `ProductUnitEnum` — units of measure
+- `ProviderCategoryEnum` / `ProviderTypeEnum` — suppliers/employees
 
-Usa `spatie/laravel-permission`. Rotas sensíveis (sessão de caixa, relatórios) exigem `middleware('permission:Admin')`. O model `User` implementa `HasRoles`.
+### Authorization
 
-### Integrações Externas
+Uses `spatie/laravel-permission`. Sensitive routes (cash register session, reports) require `middleware('permission:Admin')`. The `User` model implements `HasRoles`.
 
-- **NFe.io** — emissão de NF-e via pacote `nfe/nfe`. Webhook de status em `POST /api/webhook/nfe-status`.
-- **IBGE** — `app/Services/IBGEServices.php` para busca de endereços.
-- **DomPDF** — geração de PDFs via `PDFController` (pedidos, sessões, relatórios).
+### External Integrations
 
-### Banco de Dados
+- **NFe.io** — NF-e issuance via the `nfe/nfe` package. Status webhook in `POST /api/webhook/nfe-status`.
 
-Conexão padrão: MySQL rodando no container Sail. A sessão do usuário é armazenada no banco (`SESSION_DRIVER=database`). Para testes, usa banco `testing` em memória (`array` driver).
+- **IBGE** — `app/Services/IBGEServices.php` for address lookup.
+
+- **DomPDF** — PDF generation via `PDFController` (orders, sessions, reports).
+
+### Database
+
+Default connection: MySQL running in the Sail container. The user session is stored in the database (`SESSION_DRIVER=database`). For testing, it uses an in-memory `testing` database (`array` driver).
