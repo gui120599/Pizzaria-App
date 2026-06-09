@@ -51,7 +51,7 @@ class VendaObserver
                 'pedido_datahora_finalizado' => Carbon::now(),
             ];
 
-            if ($pedido->pedido_status !== 'FINALIZADO') {
+            if (in_array($pedido->pedido_status, ['ENTREGUE', 'EM TRANSPORTE'])) {
                 $dados['pedido_status'] = 'FINALIZADO';
             }
 
