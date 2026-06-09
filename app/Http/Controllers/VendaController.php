@@ -280,16 +280,11 @@ class VendaController extends Controller
                     ->get();
 
                 foreach ($pedidos as $pedido) {
-                    $dados = [
-                        'pedido_venda_id' => $vendaId,
-                        'pedido_datahora_finalizado' => Carbon::now()
-                    ];
-
-                    if (in_array($pedido->pedido_status, ['ENTREGUE'])) {
-                        $dados['pedido_status'] = 'FINALIZADO';
-                    }
-
-                    $pedido->update($dados);
+                    $pedido->update([
+                        'pedido_venda_id'            => $vendaId,
+                        'pedido_status'              => 'FINALIZADO',
+                        'pedido_datahora_finalizado' => Carbon::now(),
+                    ]);
                 }
             }
         }
@@ -300,16 +295,11 @@ class VendaController extends Controller
         foreach ($idPedido as $pedidoId) {
             $pedido = Pedido::where('id', $pedidoId)->where('pedido_status', '<>', 'CANCELADO')->first();
             if ($pedido) {
-                $dados = [
-                    'pedido_venda_id' => $vendaId,
-                    'pedido_datahora_finalizado' => Carbon::now()
-                ];
-
-                if (in_array($pedido->pedido_status, ['ENTREGUE', 'EM TRANSPORTE'])) {
-                    $dados['pedido_status'] = 'FINALIZADO';
-                }
-
-                $pedido->update($dados);
+                $pedido->update([
+                    'pedido_venda_id'            => $vendaId,
+                    'pedido_status'              => 'FINALIZADO',
+                    'pedido_datahora_finalizado' => Carbon::now(),
+                ]);
             }
         }
     }
