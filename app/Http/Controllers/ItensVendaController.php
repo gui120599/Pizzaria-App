@@ -312,21 +312,28 @@ class ItensVendaController extends Controller
                         AdicionaisItemVenda::where('aiv_item_venda_id', $itemVenda->id)->delete();
                         $itemVenda->delete();
                     } else {
-                        // Atualizar adicionais do item
-                        $adicionais = AdicionaisItemVenda::where('aiv_item_venda_id', $itemVenda->id)->get();
+                        // Abate cada adicional usando a quantidade e o valor do próprio
+                        // adicional do pedido (aip_quantidade / aip_valor_total), e não a
+                        // quantidade do item — espelha a lógica de adicionarOuAtualizarAdicionais().
+                        $adicionaisPedido = AdicionaisItemPedido::where('aip_item_pedido_id', $item->id)->get();
 
-                        foreach ($adicionais as $adicional) {
-                            $adicional->aiv_quantidade -= $item->item_pedido_quantidade;
-                            $adicional->aiv_valor_total -= $adicional->aiv_valor_unitario * $item->item_pedido_quantidade;
+                        foreach ($adicionaisPedido as $adicionalPedido) {
+                            $adicionalVenda = AdicionaisItemVenda::where('aiv_item_venda_id', $itemVenda->id)
+                                ->where('aiv_adicional_id', $adicionalPedido->aip_adicional_id)
+                                ->first();
+
+                            if (! $adicionalVenda) {
+                                continue;
+                            }
+
+                            $adicionalVenda->aiv_quantidade  -= $adicionalPedido->aip_quantidade;
+                            $adicionalVenda->aiv_valor_total -= $adicionalPedido->aip_valor_total;
 
                             // Remover o adicional se a quantidade for menor ou igual a zero
-                            if ($adicional->aiv_quantidade <= 0) {
-                                if ($itemVenda->adicionaisItemVenda()) {
-                                    $this->removeAdicionais($itemVenda);
-                                }
-                                $adicional->delete();
+                            if ($adicionalVenda->aiv_quantidade <= 0) {
+                                $adicionalVenda->delete();
                             } else {
-                                $adicional->save();
+                                $adicionalVenda->save();
                             }
                         }
 
