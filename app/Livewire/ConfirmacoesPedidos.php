@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Enums\PedidoOrigemEnum;
 use App\Models\ItensPedido;
 use App\Models\OpcoesPagamento;
 use App\Models\OpcoesEntregas;
@@ -110,8 +111,7 @@ class ConfirmacoesPedidos extends Component
     public function render()
     {
         $pedidos = Pedido::where('pedido_status', 'INICIADO')
-            ->whereNull('pedido_sessao_mesa_id')
-            ->whereNull('pedido_usuario_garcom_id')
+            ->where('pedido_origem', PedidoOrigemEnum::CARDAPIO)
             ->with([
                 'cliente',
                 'opcaoEntrega',

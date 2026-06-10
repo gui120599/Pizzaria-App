@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PedidoOrigemEnum;
 use App\Models\Cliente;
 use App\Models\HorarioFuncionamento;
 use App\Models\ItensPedido;
@@ -157,6 +158,7 @@ class CardapioCheckoutController extends Controller
             'pedido_valor_frete'           => $valorFrete,
             'pedido_valor_total'           => round(max(0, $totalBruto - $totalDesconto + $valorFrete), 2),
             'pedido_status'                => 'INICIADO',
+            'pedido_origem'                => PedidoOrigemEnum::CARDAPIO,
             'pedido_datahora_abertura'     => now(),
         ]);
 

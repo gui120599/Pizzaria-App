@@ -13,6 +13,7 @@ use App\Models\ItensPedido;
 use App\Models\Mesa;
 use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
+use App\Enums\PedidoOrigemEnum;
 use App\Models\Pedido;
 use App\Models\Produto;
 use Carbon\Carbon;
@@ -189,6 +190,7 @@ class SessaoMesaController extends Controller
             ->first()
             ?? Pedido::create([
                 'pedido_status'         => 'INICIADO',
+                'pedido_origem'         => PedidoOrigemEnum::MESA,
                 'pedido_sessao_mesa_id' => $sessaoMesa->id,
             ]);
 

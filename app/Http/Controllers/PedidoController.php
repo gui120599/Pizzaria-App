@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PedidoOrigemEnum;
 use App\Models\Pedido;
 use App\Http\Requests\UpdatePedidoRequest;
 use App\Models\Categoria;
@@ -114,6 +115,7 @@ class PedidoController extends Controller
     {
         $pedido           = Pedido::create([
             'pedido_status'            => 'INICIADO',
+            'pedido_origem'            => PedidoOrigemEnum::ATENDENTE,
             'pedido_usuario_garcom_id' => auth()->id(),
         ]);
         $clientes         = Cliente::orderBy('cliente_nome')->get();

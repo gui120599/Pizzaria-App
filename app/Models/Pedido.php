@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PedidoOrigemEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -24,6 +25,7 @@ class Pedido extends Model
         'pedido_valor_frete',
         'pedido_valor_total',
         'pedido_status',
+        'pedido_origem',
         'pedido_datahora_abertura',
         'pedido_datahora_preparo',
         'pedido_datahora_pronto',
@@ -34,6 +36,7 @@ class Pedido extends Model
     ];
 
     protected $casts = [
+        'pedido_origem' => PedidoOrigemEnum::class,
         'pedido_datahora_abertura' => 'datetime',
         'pedido_datahora_preparo' => 'datetime',
         'pedido_datahora_pronto' => 'datetime',
