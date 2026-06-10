@@ -255,10 +255,12 @@ class PedidoProdutoSelector extends Component
         foreach ($sel as $idx => $sabor) {
             $sPrecoOrig     = (float) $sabor['precoOriginal'];
             $sPreco         = (float) $sabor['preco'];
+            // Preço base é sempre o maior entre original e promocional
+            $sPrecoBase     = max($sPrecoOrig, $sPreco);
             $sDescUnit      = max(0.0, $sPrecoOrig - $sPreco);
 
             // Integer-cents distribution: garante que a soma das frações = preço/desconto exato
-            $totalCentavos  = (int) round($sPrecoOrig * 100);
+            $totalCentavos  = (int) round($sPrecoBase * 100);
             $centsPorItem   = intdiv($totalCentavos, $numSabores);
             $centsExtra     = $totalCentavos % $numSabores;
             $valorFracao    = ($centsPorItem + ($idx < $centsExtra ? 1 : 0)) / 100;
@@ -274,7 +276,7 @@ class PedidoProdutoSelector extends Component
                     'item_pedido_produto_id'       => $sabor['id'],
                     'item_pedido_cliente_id'       => $this->clienteSelecionadoId ?: null,
                     'item_pedido_quantidade'       => $qtdFracao,
-                    'item_pedido_valor_unitario'   => $sPrecoOrig,
+                    'item_pedido_valor_unitario'   => $sPrecoBase,
                     'item_pedido_valor'            => $valorFracao,
                     'item_pedido_desconto'         => $descontoFracao,
                     'item_pedido_valor_adicionais' => 0,
@@ -295,7 +297,7 @@ class PedidoProdutoSelector extends Component
                 'cliente_id'      => $this->clienteSelecionadoId ?: null,
                 'cliente_nome'    => $clienteNome,
                 'quantidade'      => $qtdFracao,
-                'valor_unitario'  => $sPrecoOrig,
+                'valor_unitario'  => $sPrecoBase,
                 'desconto_unit'   => $sDescUnit,
                 'valor'           => $valorFracao,
                 'desconto'        => $descontoFracao,
