@@ -112,7 +112,10 @@ class PedidoController extends Controller
      */
     public function create()
     {
-        $pedido           = Pedido::create(['pedido_status' => 'INICIADO']);
+        $pedido           = Pedido::create([
+            'pedido_status'            => 'INICIADO',
+            'pedido_usuario_garcom_id' => auth()->id(),
+        ]);
         $clientes         = Cliente::orderBy('cliente_nome')->get();
         $opcoes_entregas  = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
         $opcoes_pagamento = OpcoesPagamento::orderBy('opcaopag_nome')->get();
