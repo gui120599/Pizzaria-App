@@ -760,8 +760,10 @@
                         <i class='bx bx-x-circle mr-1'></i> Sem troco
                     </button>
                     <button type="button"
-                            @click="$store.cart.form.trocoPara && $store.cart.form.trocoPara !== '0,00' || ($store.cart.form.trocoPara = '0,00'); $store.cart.trocoModal.open = false"
-                            class="py-3 rounded-xl bg-green-500 hover:bg-green-400 text-white text-sm font-bold transition-colors">
+                            @click="$store.cart.trocoModal.open = false"
+                            :disabled="!$store.cart.form.trocoPara?.trim()"
+                            :class="$store.cart.form.trocoPara?.trim() ? 'bg-green-500 hover:bg-green-400 text-white cursor-pointer' : 'bg-gray-700 text-gray-500 cursor-not-allowed'"
+                            class="py-3 rounded-xl text-sm font-bold transition-colors">
                         <i class='bx bx-check mr-1'></i> Confirmar
                     </button>
                 </div>
