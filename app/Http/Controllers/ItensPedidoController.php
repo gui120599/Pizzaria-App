@@ -16,16 +16,15 @@ class ItensPedidoController extends Controller
      */
     public function store(StoreItensPedidoRequest $request)
     {
-        $desconto = (float) $request->input('item_pedido_desconto', 0);
-
         $itemPedido = new ItensPedido([
             'item_pedido_produto_id' => $request->input('item_pedido_produto_id'),
-            'item_pedido_pedido_id' => $request->input('item_pedido_pedido_id'),
+            'item_pedido_pedido_id'  => $request->input('item_pedido_pedido_id'),
             'item_pedido_quantidade' => $request->input('item_pedido_quantidade'),
-            'item_pedido_valor_unitario' => $request->input('item_pedido_valor'),
-            'item_pedido_desconto' => $desconto,
-            'item_pedido_valor' => $request->input('item_pedido_valor')
         ]);
+
+        // Regra de negócio centralizada no model (valor líquido; sem adicionais na criação)
+        $itemPedido->setRelation('produto', Produto::find($request->input('item_pedido_produto_id')));
+        $itemPedido->recalcularValores(0.0);
 
         $itemPedido->save();
 
@@ -87,9 +86,9 @@ class ItensPedidoController extends Controller
 
         // Itere sobre os itens do pedido e adicione o valor de cada item ao valor total do pedido
         foreach ($itensPedidoInseridos as $item) {
-            $valorTotalItensPedido += $item->item_pedido_valor;
+            $valorTotalItensPedido    += $item->item_pedido_valor + $item->item_pedido_desconto; // bruto (antes do desconto)
             $valorTotalDescontoPedido += $item->item_pedido_desconto;
-            $valorTotalPedido += $item->item_pedido_valor - $item->item_pedido_desconto;
+            $valorTotalPedido         += $item->item_pedido_valor;                                // líquido (já com desconto)
         }
 
         // Retorne o valor total do pedido
@@ -133,7 +132,7 @@ class ItensPedidoController extends Controller
                     'item_pedido_valor_adicionais' => $valorTotalAdicionais * 2,
                     'item_pedido_valor_unitario' => ($precoBase * $qtd) + $valorTotalAdicionais,
                     'item_pedido_desconto' => round($descontoUnitario * $qtd, 2),
-                    'item_pedido_valor' => ($precoBase * $qtd) + $valorTotalAdicionais,
+                    'item_pedido_valor' => round((($precoBase * $qtd) + $valorTotalAdicionais) - ($descontoUnitario * $qtd), 2),
                 ]);
             } else {
                 $itemPedido->update([
@@ -141,7 +140,7 @@ class ItensPedidoController extends Controller
                     'item_pedido_valor_adicionais' => $valorTotalAdicionais,
                     'item_pedido_valor_unitario' => (($precoBase * $qtd) + $valorTotalAdicionais) / $qtd,
                     'item_pedido_desconto' => round($descontoUnitario * $qtd, 2),
-                    'item_pedido_valor' => ($precoBase * $qtd) + $valorTotalAdicionais,
+                    'item_pedido_valor' => round((($precoBase * $qtd) + $valorTotalAdicionais) - ($descontoUnitario * $qtd), 2),
                 ]);
             }
 
@@ -155,7 +154,7 @@ class ItensPedidoController extends Controller
             'item_pedido_quantidade' => $qtd,
             'item_pedido_valor_unitario' => $request->input('item_pedido_valor_unitario'),
             'item_pedido_desconto' => round($descontoUnitario * $qtd, 2),
-            'item_pedido_valor' => $request->input('item_pedido_valor'),
+            'item_pedido_valor' => round((float) $request->input('item_pedido_valor') - ($descontoUnitario * $qtd), 2),
         ]);
 
         $itemPedido->load('adicionaisItemPedido');

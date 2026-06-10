@@ -125,8 +125,9 @@
                                  this.opcaoNome = e.target.options[e.target.selectedIndex].text;
                              },
                              onItensAtualizar(itens) {
-                                 this.totalItens    = itens.reduce((s, i) => s + (parseFloat(i.valor)    || 0), 0);
+                                 // item.valor é líquido (já abatido o desconto); totalItens exibe o bruto
                                  this.totalDesconto = itens.reduce((s, i) => s + (parseFloat(i.desconto) || 0), 0);
+                                 this.totalItens    = itens.reduce((s, i) => s + (parseFloat(i.valor) || 0) + (parseFloat(i.desconto) || 0), 0);
                              }
                          }"
                          @itens-pedido-atualizados.window="onItensAtualizar($event.detail.itens)">

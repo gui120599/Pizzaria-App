@@ -93,7 +93,7 @@ class AdicionaisItemPedidoController extends Controller
                 $itemPedido->update([
                     'item_pedido_valor_adicionais' => $valorTotalAdicionais,
                     'item_pedido_valor_unitario' => ($itemPedido->produto->produto_preco_venda * $itemPedido->item_pedido_quantidade) + $valorTotalAdicionais / 2,
-                    'item_pedido_valor' => ($itemPedido->produto->produto_preco_venda * $itemPedido->item_pedido_quantidade) + $valorTotalAdicionais / 2,
+                    'item_pedido_valor' => round((($itemPedido->produto->produto_preco_venda * $itemPedido->item_pedido_quantidade) + $valorTotalAdicionais / 2) - $itemPedido->item_pedido_desconto, 2),
                 ]);
             } else {
                 // Atualize o adicional existente
@@ -112,7 +112,7 @@ class AdicionaisItemPedidoController extends Controller
                 $itemPedido->update([
                     'item_pedido_valor_adicionais' => $valorTotalAdicionais,
                     'item_pedido_valor_unitario' => (($itemPedido->produto->produto_preco_venda * $itemPedido->item_pedido_quantidade) + $valorTotalAdicionais) / $itemPedido->item_pedido_quantidade,
-                    'item_pedido_valor' => ($itemPedido->produto->produto_preco_venda * $itemPedido->item_pedido_quantidade) + $valorTotalAdicionais,
+                    'item_pedido_valor' => round((($itemPedido->produto->produto_preco_venda * $itemPedido->item_pedido_quantidade) + $valorTotalAdicionais) - $itemPedido->item_pedido_desconto, 2),
                 ]);
             }
 

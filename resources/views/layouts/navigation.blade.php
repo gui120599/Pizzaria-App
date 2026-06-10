@@ -20,7 +20,7 @@
         <i class='text-[13px] bx bxs-dashboard'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
     </x-nav-link>
-    <x-nav-link :href="route('venda')" :active="request()->routeIs('venda')">
+    <x-nav-link :href="route('venda')" :active="request()->routeIs('venda') || request()->routeIs('venda.edit')">
         <i class='text-[13px] bx bx-money-withdraw'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Venda') }}</span>
     </x-nav-link>

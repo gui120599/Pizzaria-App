@@ -114,7 +114,7 @@
 
 
     {{-- ── FAB: Salvar + Ver itens ─────────────────────────────────────────── --}}
-    @php $totalFab = collect($itens)->sum(fn($i) => $i['valor'] - $i['desconto']); @endphp
+    @php $totalFab = collect($itens)->sum('valor'); @endphp
     <div class="fixed bottom-5 inset-x-0 px-4 z-40 flex justify-center pointer-events-none">
         <div class="flex flex-col sm:flex-row items-center gap-2 pointer-events-none">
 
@@ -224,8 +224,8 @@
                         {{-- Valor --}}
                         <div class="text-right shrink-0 min-w-[5rem]">
                             @if ($item['desconto'] > 0)
-                                <p class="text-xs text-gray-400 line-through leading-tight">R$ {{ number_format($item['valor'], 2, ',', '.') }}</p>
-                                <p class="text-sm font-bold text-green-600">R$ {{ number_format($item['valor'] - $item['desconto'], 2, ',', '.') }}</p>
+                                <p class="text-xs text-gray-400 line-through leading-tight">R$ {{ number_format($item['valor'] + $item['desconto'], 2, ',', '.') }}</p>
+                                <p class="text-sm font-bold text-green-600">R$ {{ number_format($item['valor'], 2, ',', '.') }}</p>
                             @else
                                 <p class="text-sm font-bold text-gray-800">R$ {{ number_format($item['valor'], 2, ',', '.') }}</p>
                             @endif
@@ -256,9 +256,9 @@
 
             {{-- Footer: totais --}}
             @php
-                $totalValor    = collect($itens)->sum('valor');
                 $totalDesconto = collect($itens)->sum('desconto');
-                $totalLiquido  = $totalValor - $totalDesconto;
+                $totalLiquido  = collect($itens)->sum('valor');
+                $totalValor    = $totalLiquido + $totalDesconto;
             @endphp
             <div class="px-4 py-4 border-t border-gray-100 bg-gray-50 shrink-0">
                 <div class="flex items-center justify-between">

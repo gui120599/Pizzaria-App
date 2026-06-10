@@ -220,8 +220,9 @@ class SessaoMesaController extends Controller
             return back()->with('error', 'Adicione pelo menos um item antes de abrir o pedido.');
         }
 
-        $valorItens    = round($itens->sum('item_pedido_valor'), 2);
+        $valorLiquido  = round($itens->sum('item_pedido_valor'), 2);      // item_pedido_valor já é líquido
         $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
+        $valorItens    = round($valorLiquido + $totalDesconto, 2);        // bruto (antes do desconto), para exibição
 
         $clienteId = $this->resolverClienteMesa($request);
 
@@ -235,7 +236,7 @@ class SessaoMesaController extends Controller
             'pedido_datahora_abertura'    => Carbon::now(),
             'pedido_valor_itens'          => $valorItens,
             'pedido_valor_desconto'       => $totalDesconto,
-            'pedido_valor_total'          => round(max(0, $valorItens - $totalDesconto), 2),
+            'pedido_valor_total'          => round(max(0, $valorLiquido), 2),
         ]);
 
         return redirect()->route('sessaoMesa.pedidosMesa', ['mesa_id' => $mesa_id])
@@ -282,13 +283,14 @@ class SessaoMesaController extends Controller
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
 
-        $valorItens    = round($itens->sum('item_pedido_valor'), 2);
+        $valorLiquido  = round($itens->sum('item_pedido_valor'), 2);      // item_pedido_valor já é líquido
         $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
+        $valorItens    = round($valorLiquido + $totalDesconto, 2);        // bruto (antes do desconto), para exibição
 
         $pedido->update([
             'pedido_valor_itens'    => $valorItens,
             'pedido_valor_desconto' => $totalDesconto,
-            'pedido_valor_total'    => round(max(0, $valorItens - $totalDesconto), 2),
+            'pedido_valor_total'    => round(max(0, $valorLiquido), 2),
         ]);
 
         return redirect()->route('sessaoMesa.pedidosMesa', ['mesa_id' => $mesa_id])
