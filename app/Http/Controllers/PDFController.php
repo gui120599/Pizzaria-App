@@ -32,16 +32,21 @@ class PDFController extends Controller
         $sessaoMesaId = $request->id;
         $sessaoMesa = SessaoMesa::with(['mesa', 'cliente', 'garcom'])->find($sessaoMesaId);
 
+        // Mesmo escopo da baixa na venda: ignora rascunhos (INICIADO), cancelados,
+        // já finalizados e itens já vinculados a uma venda (cobrados/lançados).
+        // Assim o total da comanda bate com o valor a cobrar na venda.
         $itensInseridoPedido = ItensPedido::whereHas('pedido', function ($query) use ($sessaoMesaId) {
-            $query->where('pedido_sessao_mesa_id', $sessaoMesaId)->where('pedido_status', '<>', 'CANCELADO');
+            $query->where('pedido_sessao_mesa_id', $sessaoMesaId)
+                ->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO']);
         })
         ->where('item_pedido_status', 'INSERIDO')
+        ->whereNull('item_pedido_venda_id')
         ->with(['pedido.garcom', 'produto.categoria', 'adicionaisItemPedido.adicional', 'cliente'])
         ->get();
 
-        $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)
-            ->where('pedido_status', '<>', 'CANCELADO')
-            ->get();
+        // Desconto pelo conjunto de itens exibido (não pelo cabeçalho do pedido),
+        // para ficar correto também em pagamentos parciais.
+        $totalDesconto = round($itensInseridoPedido->sum('item_pedido_desconto'), 2);
 
         // Agrupa por cliente: usa item_pedido_cliente_id; null vai para chave 0
         $itensPorCliente = $itensInseridoPedido->groupBy(fn($item) => $item->item_pedido_cliente_id ?? 0);
@@ -49,7 +54,7 @@ class PDFController extends Controller
         return view('sessaoMesaPDF', [
             'sessao_mesa'       => $sessaoMesa,
             'itens_por_cliente' => $itensPorCliente,
-            'pedidos'           => $pedidos,
+            'total_desconto'    => $totalDesconto,
         ]);
     }
 

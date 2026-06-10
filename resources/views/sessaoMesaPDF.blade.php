@@ -96,7 +96,7 @@
 
         {{-- Total geral --}}
         @php
-            $totalDesconto = $pedidos->sum('pedido_valor_desconto');
+            $totalDesconto = $total_desconto ?? 0;
             $totalFinal    = $totalGeral - $totalDesconto;
         @endphp
         <div class="flex justify-between text-xs mt-1">
