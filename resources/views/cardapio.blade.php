@@ -573,7 +573,7 @@
                             <div class="grid grid-cols-2 gap-2">
                                 @foreach ($opcoesPagamento as $pag)
                                     <button type="button"
-                                            @click="$store.cart.form.pagamentoId = {{ $pag['id'] }}; $store.cart.form.pagamentoNome = @js($pag['nome']); $store.cart.form.isDinheiro = {{ $pag['dinheiro'] ? 'true' : 'false' }}; $store.cart.form.trocoPara = ''"
+                                            @click="$store.cart.form.pagamentoId = {{ $pag['id'] }}; $store.cart.form.pagamentoNome = @js($pag['nome']); $store.cart.form.isDinheiro = {{ $pag['dinheiro'] ? 'true' : 'false' }}; $store.cart.form.trocoPara = ''; $store.cart.form.isDinheiro && $nextTick(() => $store.cart.trocoModal.open = true)"
                                             :class="$store.cart.form.pagamentoId === {{ $pag['id'] }} ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-gray-600 bg-gray-800 text-gray-300'"
                                             class="border rounded-lg px-2 py-2.5 text-xs font-semibold text-center transition-colors flex flex-col items-center gap-1">
                                         @if($pag['dinheiro'])
@@ -690,6 +690,85 @@
         </div>
 
     {{-- ═══════════════════════════════════════════════════ --}}
+    {{-- Modal de Troco --}}
+    {{-- ══════════════ --}}
+    <div x-show="$store.cart.trocoModal.open"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click.self="$store.cart.trocoModal.open = false"
+         class="fixed inset-0 z-50 bg-black/70 flex items-end justify-center"
+         style="display:none">
+
+        <div x-show="$store.cart.trocoModal.open"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="translate-y-full"
+             x-transition:enter-end="translate-y-0"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="translate-y-0"
+             x-transition:leave-end="translate-y-full"
+             class="w-full max-w-lg bg-gray-900 rounded-t-2xl shadow-2xl">
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+                <div class="flex items-center gap-2">
+                    <i class='bx bx-money text-green-400 text-xl'></i>
+                    <div>
+                        <h3 class="text-white font-bold text-base">Pagamento em dinheiro</h3>
+                        <p class="text-gray-400 text-xs">Informe o valor para calcular o troco</p>
+                    </div>
+                </div>
+                <button @click="$store.cart.trocoModal.open = false"
+                        class="text-gray-400 hover:text-white transition p-1">
+                    <i class='bx bx-x text-2xl'></i>
+                </button>
+            </div>
+
+            {{-- Corpo --}}
+            <div class="px-4 py-5 space-y-4">
+                <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                    <i class='bx bx-info-circle text-yellow-400 text-base mt-0.5 shrink-0'></i>
+                    <p class="text-yellow-300 text-xs leading-snug">
+                        Se precisar de troco, informe o valor que vai pagar. Se não precisar, clique em <strong>"Não preciso de troco"</strong>.
+                    </p>
+                </div>
+
+                <div>
+                    <label class="text-gray-300 text-xs font-semibold uppercase tracking-wide block mb-1.5">
+                        Troco para quanto? <span class="text-red-400">*</span>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">R$</span>
+                        <input type="text"
+                               inputmode="numeric"
+                               x-model="$store.cart.form.trocoPara"
+                               @input="$store.cart.maskTroco($event)"
+                               x-init="$nextTick(() => $el.focus())"
+                               placeholder="0,00"
+                               class="w-full bg-gray-800 border border-gray-600 focus:border-green-500 text-white rounded-lg pl-9 pr-3 py-3 text-sm focus:outline-none transition-colors">
+                    </div>
+                    <p class="text-gray-500 text-[10px] mt-1">Digite 0,00 se não precisar de troco</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button type="button"
+                            @click="$store.cart.form.trocoPara = '0,00'; $store.cart.trocoModal.open = false"
+                            class="py-3 rounded-xl border border-gray-600 text-gray-300 text-sm font-semibold hover:bg-gray-800 transition-colors">
+                        <i class='bx bx-x-circle mr-1'></i> Sem troco
+                    </button>
+                    <button type="button"
+                            @click="$store.cart.form.trocoPara && $store.cart.form.trocoPara !== '0,00' || ($store.cart.form.trocoPara = '0,00'); $store.cart.trocoModal.open = false"
+                            class="py-3 rounded-xl bg-green-500 hover:bg-green-400 text-white text-sm font-bold transition-colors">
+                        <i class='bx bx-check mr-1'></i> Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Modal de Seleção de Sabores (Meia a Meia / Terços) --}}
     {{-- ═══════════════════════════════════════════════════ --}}
     <div x-show="$store.cart.saboresModal.open"
@@ -871,6 +950,9 @@
                     open: false, categoriaId: null, categoriaNome: '', maxSabores: 2,
                     modo: 1, produtos: [], selecionados: [],
                 },
+
+                // ── Modal de troco ──
+                trocoModal: { open: false },
 
                 // ── Estado do formulário ──
                 form: {
