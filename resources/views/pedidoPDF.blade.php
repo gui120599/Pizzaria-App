@@ -34,6 +34,7 @@
                     <label class="text-lg">Nº Pedido</label>
                     <label>Cliente</label>
                     <label>Telefone</label>
+                    <label>Atendente</label>
                     <label>Data/Hora</label>
                     <label class="text-base font-bold">Entregar em:</label>
                 </div>
@@ -41,6 +42,7 @@
                     <label class="text-lg">{{ $pedido->id }}</label>
                     <label class="truncate">{{ $pedido->cliente?->cliente_nome ?? 'Não informado' }}</label>
                     <label>{{ $pedido->cliente?->cliente_celular ?? 'Não informado' }}</label>
+                    <label>{{ $pedido->garcom?->name_first ?? 'S/A' }}</label>
                     <label>{{ $abertura->format('d/m/Y H:i') }}</label>
                     <label class="text-base">&nbsp;</label>
                 </div>
@@ -75,7 +77,7 @@
                         @endphp
                         <label>{{ $telFormatado }}</label>
                     @endif
-                    <label>{{ $pedido->garcom?->name ?? 'S/A' }}</label>
+                    <label>{{ $pedido->garcom?->name_first ?? 'S/A' }}</label>
                     <label>{{ $abertura->format('d/m/Y H:i') }}</label>
                     <label>{{ $nomeOpcao ?: '—' }}</label>
                     @if ($pedido->pedido_sessao_mesa_id !== null)
