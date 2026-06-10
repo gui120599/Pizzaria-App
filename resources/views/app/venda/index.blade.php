@@ -2,7 +2,10 @@
     <style>[x-cloak] { display: none !important; }</style>
     <div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"></div>
 
-    <div class="py-2 px-2 sm:px-4">
+  <div x-data="{ showCliente: false, showPagamento: false }"
+       @keydown.escape.window="showCliente = false; showPagamento = false">
+
+    <div class="py-2 px-2 sm:px-4 pb-28">
 
         {{-- Cabeçalho --}}
         <div class="flex items-center gap-3 mb-4">
@@ -31,24 +34,39 @@
             {{-- ════════════ COLUNA ESQUERDA: fontes de itens ════════════ --}}
             <div class="xl:col-span-3"
                  x-data="{
-                     aba: 'produtos',
+                     aba: 'pedidos',
                      catId: null,
                      busca: '',
+                     buscaPedido: '',
+                     buscaMesa: '',
                      mostra(nome, catId) {
                          const textoOk = this.busca === '' || nome.toLowerCase().includes(this.busca.toLowerCase());
                          const catOk   = this.catId === null || this.catId === catId;
                          return textoOk && catOk;
+                     },
+                     mostraPedido(hay) {
+                         return this.buscaPedido === '' || hay.includes(this.buscaPedido.toLowerCase());
+                     },
+                     mostraMesa(hay) {
+                         return this.buscaMesa === '' || hay.includes(this.buscaMesa.toLowerCase());
+                     },
+                     focarBusca() {
+                         this.$nextTick(() => {
+                             const ref = { pedidos: 'buscaPedidoInput', mesas: 'buscaMesaInput', produtos: 'buscaInput' }[this.aba];
+                             this.$refs[ref]?.focus();
+                         });
                      }
-                 }">
+                 }"
+                 x-init="focarBusca(); $watch('aba', () => focarBusca())">
 
                 <div class="bg-white shadow-sm rounded-xl overflow-hidden">
 
                     {{-- Sub-navegação de fontes --}}
                     <div class="flex border-b border-gray-100">
-                        <button @click="aba = 'produtos'" type="button"
+                        <button @click="aba = 'pedidos'" type="button"
                                 class="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold border-b-2 transition-colors"
-                                :class="aba === 'produtos' ? 'border-teal-500 text-teal-700' : 'border-transparent text-gray-400 hover:text-gray-600'">
-                            <i class='bx bxs-pizza'></i> Produtos
+                                :class="aba === 'pedidos' ? 'border-teal-500 text-teal-700' : 'border-transparent text-gray-400 hover:text-gray-600'">
+                            <i class='bx bx-basket'></i> Pedidos
                         </button>
                         <button @click="aba = 'mesas'" type="button"
                                 class="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold border-b-2 transition-colors"
@@ -58,10 +76,10 @@
                                 <span class="bg-teal-100 text-teal-700 rounded-full px-1.5 text-[10px] font-bold">{{ $sessaoMesas->count() }}</span>
                             @endif
                         </button>
-                        <button @click="aba = 'pedidos'" type="button"
+                        <button @click="aba = 'produtos'" type="button"
                                 class="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold border-b-2 transition-colors"
-                                :class="aba === 'pedidos' ? 'border-teal-500 text-teal-700' : 'border-transparent text-gray-400 hover:text-gray-600'">
-                            <i class='bx bx-basket'></i> Pedidos
+                                :class="aba === 'produtos' ? 'border-teal-500 text-teal-700' : 'border-transparent text-gray-400 hover:text-gray-600'">
+                            <i class='bx bxs-pizza'></i> Produtos
                         </button>
                     </div>
 
@@ -74,7 +92,7 @@
                                      xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                                 </svg>
-                                <input x-model.debounce.200ms="busca" type="text" placeholder="Buscar produto..."
+                                <input x-ref="buscaInput" x-model.debounce.200ms="busca" type="text" placeholder="Buscar produto..."
                                        class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-xl bg-white text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent">
                             </div>
                             <div class="flex gap-2 overflow-x-auto pb-1">
@@ -147,15 +165,30 @@
                     </div>
 
                     {{-- ─── ABA: MESAS ────────────────────────────────────── --}}
-                    <div x-show="aba === 'mesas'" x-cloak class="p-3 space-y-3 overflow-y-auto" style="max-height: clamp(18rem, 65vh, 52rem)">
+                    <div x-show="aba === 'mesas'" x-cloak>
+                        {{-- Busca --}}
+                        <div class="px-4 pt-4 pb-3 border-b border-gray-100">
+                            <div class="relative">
+                                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                                     xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                                </svg>
+                                <input x-ref="buscaMesaInput" x-model.debounce.200ms="buscaMesa" type="text" placeholder="Buscar mesa..."
+                                       class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-xl bg-white text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                            </div>
+                        </div>
+
+                        <div class="p-3 space-y-3 overflow-y-auto" style="max-height: clamp(18rem, 60vh, 50rem)">
                         @forelse($sessaoMesas as $sessaoMesa)
                             @php
                                 $clientesNaMesa  = [];
                                 $totalNaoCobrado = 0;
                                 $totalLancado    = 0;
                                 $totalCobrado    = 0;
+                                $produtosNaMesa  = [];
                                 foreach ($sessaoMesa->pedidos as $pedido) {
                                     foreach ($pedido->item_pedido_pedido_id as $item) {
+                                        $produtosNaMesa[] = $item->produto?->produto_descricao ?? '';
                                         $vendaDoItem = $item->item_pedido_venda_id !== null ? optional($item->venda) : null;
                                         $cobrado     = $vendaDoItem && $vendaDoItem->venda_status === 'FINALIZADA';
                                         $lancado     = $item->item_pedido_venda_id !== null && !$cobrado;
@@ -178,8 +211,14 @@
                                         }
                                     }
                                 }
+                                $buscaMesaTxt = strtolower(
+                                    ($sessaoMesa->mesa->mesa_nome ?? '') . ' '
+                                    . collect($clientesNaMesa)->pluck('nome')->join(' ') . ' '
+                                    . implode(' ', $produtosNaMesa)
+                                );
                             @endphp
                             <div class="border border-gray-200 rounded-xl shadow-sm overflow-hidden"
+                                 x-show="mostraMesa(@js($buscaMesaTxt))"
                                  x-data="{
                                      aberto: true,
                                      selecionados: [],
@@ -240,21 +279,33 @@
                                                     $cobrado     = $vendaDoItem && $vendaDoItem->venda_status === 'FINALIZADA';
                                                     $lancado     = $item->item_pedido_venda_id !== null && !$cobrado;
                                                 @endphp
-                                                <label class="flex items-center gap-2 px-3 py-2 select-none
+                                                <label class="flex items-start gap-2 px-3 py-2 select-none
                                                     {{ $cobrado || $lancado ? 'bg-gray-50 opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-teal-50' }}">
                                                     <input type="checkbox" value="{{ $item->id }}" x-model="selecionados"
                                                         {{ $cobrado || $lancado ? 'disabled' : '' }}
-                                                        class="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 shrink-0">
+                                                        class="mt-0.5 w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 shrink-0">
                                                     @if($item->item_pedido_cliente_id)
-                                                        <span class="shrink-0 text-[9px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1 py-0.5">
+                                                        <span class="mt-0.5 shrink-0 text-[9px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1 py-0.5">
                                                             {{ $item->cliente?->cliente_nome ?? '#'.$item->item_pedido_cliente_id }}
                                                         </span>
                                                     @endif
-                                                    <span class="flex-1 text-xs text-gray-800">
+                                                    <span class="flex-1 min-w-0 text-xs text-gray-800">
                                                         {{ $item->produto?->produto_descricao ?? 'Produto #'.$item->item_pedido_produto_id }}
                                                         <span class="text-gray-400">× {{ $item->item_pedido_quantidade == floor($item->item_pedido_quantidade) ? (int)$item->item_pedido_quantidade : $item->item_pedido_quantidade }}</span>
+                                                        @foreach($item->adicionaisItemPedido as $adic)
+                                                            <span class="block text-[10px] text-gray-500 pl-2">
+                                                                + {{ $adic->adicional->adicional_nome ?? 'Adicional' }}
+                                                                @if($adic->aip_quantidade > 1)<span class="text-gray-400">× {{ (int) $adic->aip_quantidade }}</span>@endif
+                                                                <span class="text-gray-400">(R$ {{ number_format($adic->aip_valor_total, 2, ',', '.') }})</span>
+                                                            </span>
+                                                        @endforeach
+                                                        @if($item->item_pedido_desconto > 0)
+                                                            <span class="block text-[10px] font-medium text-orange-500 pl-2">
+                                                                Desc. − R$ {{ number_format($item->item_pedido_desconto, 2, ',', '.') }}
+                                                            </span>
+                                                        @endif
                                                     </span>
-                                                    <span class="shrink-0 text-xs font-semibold {{ $cobrado ? 'text-gray-400 line-through' : 'text-gray-700' }}">
+                                                    <span class="mt-0.5 shrink-0 text-xs font-semibold {{ $cobrado ? 'text-gray-400 line-through' : 'text-gray-700' }}">
                                                         R$ {{ number_format($item->item_pedido_valor, 2, ',', '.') }}
                                                     </span>
                                                     @if($cobrado)
@@ -305,10 +356,24 @@
                                 <p class="text-sm">Nenhuma mesa com pedidos em aberto.</p>
                             </div>
                         @endforelse
+                        </div>
                     </div>
 
                     {{-- ─── ABA: PEDIDOS AVULSOS ──────────────────────────── --}}
-                    <div x-show="aba === 'pedidos'" x-cloak class="p-3 space-y-3 overflow-y-auto" style="max-height: clamp(18rem, 65vh, 52rem)">
+                    <div x-show="aba === 'pedidos'" x-cloak>
+                        {{-- Busca --}}
+                        <div class="px-4 pt-4 pb-3 border-b border-gray-100">
+                            <div class="relative">
+                                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                                     xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                                </svg>
+                                <input x-ref="buscaPedidoInput" x-model.debounce.200ms="buscaPedido" type="text" placeholder="Buscar pedido..."
+                                       class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-xl bg-white text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                            </div>
+                        </div>
+
+                        <div class="p-3 space-y-3 overflow-y-auto" style="max-height: clamp(18rem, 60vh, 50rem)">
                         @php $temAvulso = false; @endphp
                         @foreach($pedidos as $pedido)
                             @if(empty($pedido->pedido_sessao_mesa_id))
@@ -316,8 +381,15 @@
                                     $temAvulso = true;
                                     $valorPedido = $pedido->item_pedido_pedido_id->sum('item_pedido_valor');
                                     $jaEmVenda   = $pedido->pedido_venda_id !== null;
+                                    $buscaPedidoTxt = strtolower(
+                                        'pedido ' . $pedido->id . ' '
+                                        . ($pedido->opcaoEntrega->opcaoentrega_nome ?? '') . ' '
+                                        . $pedido->item_pedido_pedido_id
+                                            ->map(fn($i) => $i->produto->produto_descricao ?? '')->join(' ')
+                                    );
                                 @endphp
-                                <div class="border border-gray-200 rounded-xl shadow-sm overflow-hidden" x-data="{ aberto: false }">
+                                <div class="border border-gray-200 rounded-xl shadow-sm overflow-hidden" x-data="{ aberto: false }"
+                                     x-show="mostraPedido(@js($buscaPedidoTxt))">
                                     <div class="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
                                         <label class="flex items-center gap-2 min-w-0 {{ $jaEmVenda ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer' }}">
                                             <input type="checkbox" class="pedido w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 shrink-0"
@@ -346,11 +418,25 @@
                                     <div x-show="aberto" x-cloak class="p-3">
                                         <div class="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
                                             @foreach($pedido->item_pedido_pedido_id as $item)
-                                                <div class="flex items-center gap-2 px-3 py-2">
-                                                    <span class="flex-1 text-xs text-gray-800">
-                                                        {{ $item->produto->categoria->categoria_nome ?? '' }} {{ $item->produto->produto_descricao ?? '' }}
-                                                        <span class="text-gray-400">× {{ $item->item_pedido_quantidade == floor($item->item_pedido_quantidade) ? (int)$item->item_pedido_quantidade : $item->item_pedido_quantidade }}</span>
-                                                    </span>
+                                                <div class="flex items-start gap-2 px-3 py-2">
+                                                    <div class="flex-1 min-w-0 text-xs text-gray-800">
+                                                        <span>
+                                                            {{ $item->produto->categoria->categoria_nome ?? '' }} {{ $item->produto->produto_descricao ?? '' }}
+                                                            <span class="text-gray-400">× {{ $item->item_pedido_quantidade == floor($item->item_pedido_quantidade) ? (int)$item->item_pedido_quantidade : $item->item_pedido_quantidade }}</span>
+                                                        </span>
+                                                        @foreach($item->adicionaisItemPedido as $adic)
+                                                            <span class="block text-[10px] text-gray-500 pl-2">
+                                                                + {{ $adic->adicional->adicional_nome ?? 'Adicional' }}
+                                                                @if($adic->aip_quantidade > 1)<span class="text-gray-400">× {{ (int) $adic->aip_quantidade }}</span>@endif
+                                                                <span class="text-gray-400">(R$ {{ number_format($adic->aip_valor_total, 2, ',', '.') }})</span>
+                                                            </span>
+                                                        @endforeach
+                                                        @if($item->item_pedido_desconto > 0)
+                                                            <span class="block text-[10px] font-medium text-orange-500 pl-2">
+                                                                Desc. − R$ {{ number_format($item->item_pedido_desconto, 2, ',', '.') }}
+                                                            </span>
+                                                        @endif
+                                                    </div>
                                                     <span class="shrink-0 text-xs font-semibold text-gray-700">R$ {{ number_format($item->item_pedido_valor, 2, ',', '.') }}</span>
                                                 </div>
                                             @endforeach
@@ -371,6 +457,7 @@
                                 <p class="text-sm">Nenhum pedido avulso disponível.</p>
                             </div>
                         @endif
+                        </div>
                     </div>
 
                 </div>
@@ -407,50 +494,68 @@
                             </div>
                         </div>
 
-                        {{-- Cliente --}}
-                        <div class="bg-white shadow-sm rounded-xl p-4 space-y-3">
-                            <p class="flex items-center gap-2 text-sm font-bold text-teal-700">
-                                <i class='bx bx-user'></i> Cliente
-                            </p>
-                            <input type="hidden" id="venda_cliente_id" name="venda_cliente_id">
+                        {{-- Modal: Cliente (campos permanecem dentro do #formVenda para o submit) --}}
+                        <div x-show="showCliente" x-cloak class="fixed inset-0 z-[80] flex items-center justify-center p-4">
+                            <div x-show="showCliente" x-transition.opacity
+                                 class="absolute inset-0 bg-black/40" @click="showCliente = false"></div>
+                            <div x-show="showCliente" x-transition
+                                 class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                                <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+                                    <p class="flex items-center gap-2 text-base font-bold text-teal-700">
+                                        <i class='bx bx-user'></i> Cliente
+                                    </p>
+                                    <button type="button" @click="showCliente = false"
+                                            class="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-400 flex items-center justify-center transition-colors">
+                                        <i class='bx bx-x text-2xl'></i>
+                                    </button>
+                                </div>
+                                <div class="p-5 space-y-3">
+                                    <input type="hidden" id="venda_cliente_id" name="venda_cliente_id">
 
-                            {{-- Busca por nome --}}
-                            <div class="relative">
-                                <x-input-label for="venda_cliente_nome" value="Nome do cliente" />
-                                <input id="venda_cliente_nome" name="venda_cliente_nome" type="text" autocomplete="off"
-                                       placeholder="Buscar ou digitar nome..."
-                                       class="mt-1 w-full border-gray-300 rounded-lg shadow-sm text-sm focus:ring-teal-500 focus:border-teal-500">
-                                <div id="lista_clientes"
-                                     class="absolute z-30 w-full bg-white rounded-lg mt-1 shadow-lg hidden overflow-auto max-h-72 border border-gray-100">
-                                    @foreach($clientes as $cliente)
-                                        <div class="border-b border-gray-50 hover:bg-teal-600 hover:text-white rounded-md px-3 py-2 text-sm cursor-pointer transition-colors"
-                                             onclick="selecionarCliente({{ $cliente }})">
-                                            {{ $cliente->id }} - {{ $cliente->cliente_nome }}
+                                    {{-- Busca por nome --}}
+                                    <div class="relative">
+                                        <x-input-label for="venda_cliente_nome" value="Nome do cliente" />
+                                        <input id="venda_cliente_nome" name="venda_cliente_nome" type="text" autocomplete="off"
+                                               placeholder="Buscar ou digitar nome..."
+                                               class="mt-1 w-full border-gray-300 rounded-lg shadow-sm text-sm focus:ring-teal-500 focus:border-teal-500">
+                                        <div id="lista_clientes"
+                                             class="absolute z-30 w-full bg-white rounded-lg mt-1 shadow-lg hidden overflow-auto max-h-72 border border-gray-100">
+                                            @foreach($clientes as $cliente)
+                                                <div class="border-b border-gray-50 hover:bg-teal-600 hover:text-white rounded-md px-3 py-2 text-sm cursor-pointer transition-colors"
+                                                     onclick="selecionarCliente({{ $cliente }})">
+                                                    {{ $cliente->id }} - {{ $cliente->cliente_nome }}
+                                                </div>
+                                            @endforeach
                                         </div>
-                                    @endforeach
-                                </div>
-                            </div>
+                                    </div>
 
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <x-input-label for="venda_cliente_cpf" value="CPF" />
-                                    <x-text-input id="venda_cliente_cpf" name="venda_cliente_cpf" type="text"
-                                        class="cpf mt-1 w-full text-sm" placeholder="000.000.000-00" />
-                                </div>
-                                <div>
-                                    <x-input-label for="venda_cliente_cnpj" value="CNPJ" />
-                                    <x-text-input id="venda_cliente_cnpj" name="venda_cliente_cnpj" type="text"
-                                        class="cnpj mt-1 w-full text-sm" placeholder="00.000.000/0000-00" />
-                                </div>
-                                <div>
-                                    <x-input-label for="venda_cliente_telefone" value="Telefone" />
-                                    <x-text-input id="venda_cliente_telefone" name="venda_cliente_telefone" type="text"
-                                        class="phone_ddd mt-1 w-full text-sm" placeholder="(00) 0 0000-0000" />
-                                </div>
-                                <div>
-                                    <x-input-label for="venda_cliente_email" value="Email" />
-                                    <x-text-input id="venda_cliente_email" name="venda_cliente_email" type="email"
-                                        class="mt-1 w-full text-sm" placeholder="exemplo@email.com" />
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <x-input-label for="venda_cliente_cpf" value="CPF" />
+                                            <x-text-input id="venda_cliente_cpf" name="venda_cliente_cpf" type="text"
+                                                class="cpf mt-1 w-full text-sm" placeholder="000.000.000-00" />
+                                        </div>
+                                        <div>
+                                            <x-input-label for="venda_cliente_cnpj" value="CNPJ" />
+                                            <x-text-input id="venda_cliente_cnpj" name="venda_cliente_cnpj" type="text"
+                                                class="cnpj mt-1 w-full text-sm" placeholder="00.000.000/0000-00" />
+                                        </div>
+                                        <div>
+                                            <x-input-label for="venda_cliente_telefone" value="Telefone" />
+                                            <x-text-input id="venda_cliente_telefone" name="venda_cliente_telefone" type="text"
+                                                class="phone_ddd mt-1 w-full text-sm" placeholder="(00) 0 0000-0000" />
+                                        </div>
+                                        <div>
+                                            <x-input-label for="venda_cliente_email" value="Email" />
+                                            <x-text-input id="venda_cliente_email" name="venda_cliente_email" type="email"
+                                                class="mt-1 w-full text-sm" placeholder="exemplo@email.com" />
+                                        </div>
+                                    </div>
+
+                                    <button type="button" @click="showCliente = false"
+                                            class="w-full mt-2 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-lg text-sm font-bold transition-colors">
+                                        Confirmar
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -514,9 +619,13 @@
                     </div>
                 </form>
 
-                {{-- Pagamento --}}
-                <div class="bg-white shadow-sm rounded-xl p-4 space-y-3"
-                     x-data="{
+                {{-- Modal: Pagamento --}}
+                <div x-show="showPagamento" x-cloak class="fixed inset-0 z-[80] flex items-center justify-center p-4">
+                    <div x-show="showPagamento" x-transition.opacity
+                         class="absolute inset-0 bg-black/40" @click="showPagamento = false"></div>
+                    <div x-show="showPagamento" x-transition
+                         class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5 space-y-3"
+                         x-data="{
                          opcoes: @js($opcoesPagamentos),
                          selectedId: '',
                          get opcaoSelecionada() { return this.opcoes.find(o => String(o.id) === String(this.selectedId)) ?? null; },
@@ -526,9 +635,15 @@
                          get isDesconto() { return this.opcaoSelecionada?.opcaopag_tipo_taxa === 'DESCONTAR'; },
                          get taxa()       { return parseFloat(this.opcaoSelecionada?.opcaopag_valor_percentual_taxa ?? 0) || 0; }
                      }">
-                    <p class="flex items-center gap-2 text-sm font-bold text-teal-700">
-                        <i class='bx bx-credit-card'></i> Pagamento
-                    </p>
+                    <div class="flex items-center justify-between -mt-1">
+                        <p class="flex items-center gap-2 text-base font-bold text-teal-700">
+                            <i class='bx bx-credit-card'></i> Pagamento
+                        </p>
+                        <button type="button" @click="showPagamento = false"
+                                class="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-400 flex items-center justify-center transition-colors">
+                            <i class='bx bx-x text-2xl'></i>
+                        </button>
+                    </div>
                     <div>
                         <x-input-label for="pg_venda_opcaopagamento_id" value="Tipo de pagamento" />
                         <x-select-input :options="$opcoesPagamentos" value-field="id" display-field="opcaopag_nome"
@@ -589,9 +704,8 @@
                             </table>
                         </div>
                     </div>
+                    </div>
                 </div>
-
-                <div class="pb-28"></div>
             </div>
         </div>
     </div>
@@ -604,23 +718,39 @@
         </div>
     </div>
 
-    {{-- FAB: Finalizar Venda --}}
-    <div class="fixed bottom-5 inset-x-0 px-4 z-40 flex justify-end pointer-events-none">
-        <button type="button" onclick="handleFinalizarClick()"
-                class="pointer-events-auto py-3 px-6 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 rounded-2xl text-white font-bold flex items-center gap-2 shadow-xl transition-colors whitespace-nowrap">
-            <i class='bx bx-check-double text-lg'></i>
-            <span class="text-sm uppercase tracking-widest">Finalizar Venda</span>
-        </button>
+    {{-- ════════════ BOTÕES FLUTUANTES (centralizados, sem barra) ════════════ --}}
+    <div class="fixed bottom-5 inset-x-0 z-40 px-4 flex justify-center pointer-events-none">
+        <div class="pointer-events-auto flex items-center gap-2">
+
+            {{-- Cancelar (somente após iniciar a venda) --}}
+            <div id="fab-cancelar" class="hidden">
+                <button type="button" onclick="cancelarVendaAtual()"
+                        class="py-2.5 px-4 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl font-semibold flex items-center gap-1.5 shadow-xl transition-colors">
+                    <i class='bx bx-x-circle text-lg'></i>
+                    <span class="text-xs uppercase tracking-wide hidden sm:inline">Cancelar</span>
+                </button>
+            </div>
+
+            {{-- Cliente · Pagamento · Finalizar --}}
+            <button type="button" @click="showCliente = true"
+                    class="py-2.5 px-4 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl font-semibold flex items-center gap-1.5 shadow-xl transition-colors">
+                <i class='bx bx-user text-lg'></i>
+                <span class="text-xs uppercase tracking-wide hidden sm:inline">Cliente</span>
+            </button>
+            <button type="button" @click="showPagamento = true"
+                    class="py-2.5 px-4 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl font-semibold flex items-center gap-1.5 shadow-xl transition-colors">
+                <i class='bx bx-credit-card text-lg'></i>
+                <span class="text-xs uppercase tracking-wide hidden sm:inline">Pagamento</span>
+            </button>
+            <button type="button" onclick="handleFinalizarClick()"
+                    class="py-2.5 px-5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 rounded-xl text-white font-bold flex items-center gap-2 shadow-xl transition-colors whitespace-nowrap">
+                <i class='bx bx-check-double text-lg'></i>
+                <span class="text-xs uppercase tracking-widest">Finalizar</span>
+            </button>
+        </div>
     </div>
 
-    {{-- FAB: Cancelar Venda (somente após iniciar) --}}
-    <div id="fab-cancelar" class="hidden fixed bottom-5 inset-x-0 px-4 z-[39] flex justify-start pointer-events-none">
-        <button type="button" onclick="cancelarVendaAtual()"
-                class="pointer-events-auto py-2.5 px-5 bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-2xl text-white font-bold flex items-center gap-2 shadow-xl transition-colors whitespace-nowrap">
-            <i class='bx bx-x-circle text-lg'></i>
-            <span class="text-sm uppercase tracking-widest">Cancelar</span>
-        </button>
-    </div>
+  </div>{{-- /root x-data (showCliente / showPagamento) --}}
 
     <script>
         function selecionarCliente(cliente) {
@@ -1144,4 +1274,5 @@
 
         });
     </script>
+
 </x-app-layout>
