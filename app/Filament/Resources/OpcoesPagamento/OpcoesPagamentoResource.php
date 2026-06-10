@@ -104,6 +104,23 @@ class OpcoesPagamentoResource extends Resource
                         ->default(0)
                         ->helperText('Percentual aplicado sobre o total (acréscimo ou desconto)'),
                 ]),
+
+            SchemaSection::make('Operação no PDV')
+                ->icon('heroicon-o-credit-card')
+                ->collapsible()
+                ->schema([
+                    Toggle::make('opcaopag_requer_bandeira')
+                        ->label('Exige bandeira do cartão')
+                        ->default(false)
+                        ->inline()
+                        ->helperText('Quando ativado, o operador deve informar a bandeira ao registrar este pagamento na venda'),
+
+                    Toggle::make('opcaopag_requer_autorizacao')
+                        ->label('Exige nº de autorização')
+                        ->default(false)
+                        ->inline()
+                        ->helperText('Quando ativado, o operador deve informar o número de autorização ao registrar este pagamento na venda'),
+                ]),
         ]);
     }
 

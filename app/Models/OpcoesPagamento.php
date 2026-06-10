@@ -19,6 +19,8 @@ class OpcoesPagamento extends Model
         'opcaopag_tipo_taxa',
         'opcaopag_desc_nfe',
         'opcaopag_valor_percentual_taxa',
+        'opcaopag_requer_bandeira',
+        'opcaopag_requer_autorizacao',
     ];
 
     protected $casts = [
@@ -26,6 +28,8 @@ class OpcoesPagamento extends Model
         'opcaopag_tipo_taxa'             => 'string',
         'opcaopag_desc_nfe'              => 'string',
         'opcaopag_valor_percentual_taxa' => 'float',
+        'opcaopag_requer_bandeira'       => 'boolean',
+        'opcaopag_requer_autorizacao'    => 'boolean',
     ];
 
     const TIPO_TAXA = [

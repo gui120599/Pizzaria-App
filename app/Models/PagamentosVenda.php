@@ -18,12 +18,18 @@ class PagamentosVenda extends Model
         'pg_venda_numero_autorizacao_cartao',
         'pg_venda_tipo_integracao',
         'pg_venda_valor_pagamento',
+        'pg_venda_valor_recebido',
+        'pg_venda_valor_pago_pelo_cliente',
+        'pg_venda_valor_troco',
         'pg_venda_valor_acrescimo',
         'pg_venda_valor_desconto',
     ];
 
     protected $casts = [
         'pg_venda_valor_pagamento' => 'decimal:2',
+        'pg_venda_valor_recebido' => 'decimal:2',
+        'pg_venda_valor_pago_pelo_cliente' => 'decimal:2',
+        'pg_venda_valor_troco' => 'decimal:2',
         'pg_venda_valor_acrescimo' => 'decimal:2',
         'pg_venda_valor_desconto' => 'decimal:2',
     ];

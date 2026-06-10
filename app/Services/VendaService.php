@@ -55,6 +55,7 @@ class VendaService
             $venda_valor_pago += $pagamento->pg_venda_valor_pagamento;
             $venda_valor_acrescimo += $pagamento->pg_venda_valor_acrescimo;
             $venda_valor_desconto += $pagamento->pg_venda_valor_desconto;
+            $venda_valor_troco += $pagamento->pg_venda_valor_troco;
         }
 
         $venda->venda_valor_base_calculo = $venda_valor_base_calculo;
@@ -67,13 +68,9 @@ class VendaService
         $venda->venda_valor_total = $venda_valor_total + $venda_valor_frete;
         $venda->venda_valor_pago = $venda_valor_pago;
         $venda->venda_valor_acrescimo = $venda_valor_acrescimo;
-        
-        if($venda->venda_valor_total < $venda->venda_valor_pago){
-            $venda->venda_valor_troco = $venda->venda_valor_pago - $venda->venda_valor_total;
-        }else{
-            $venda->venda_valor_troco = 0;
-        }
-        
+        // Troco agora é a soma dos trocos registrados em cada pagamento
+        $venda->venda_valor_troco = $venda_valor_troco;
+
 
         $venda->save();
 

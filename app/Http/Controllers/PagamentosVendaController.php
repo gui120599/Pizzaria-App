@@ -45,78 +45,43 @@ class PagamentosVendaController extends Controller
         $opcao_pagamento = OpcoesPagamento::find($request->input('pg_venda_opcaopagamento_id'));
 
         // Converte valores monetários e trata valores nulos
-        $valor_pagamento = (float)str_replace(',', '.', $request->input('pg_venda_valor_pagamento') ?? 0);
-        $valor_acrescimo = (float)str_replace(',', '.', $request->input('pg_venda_valor_acrescimo') ?? 0);
-        $valor_desconto = (float)str_replace(',', '.', $request->input('pg_venda_valor_desconto') ?? 0);
+        // pg_venda_valor_pagamento representa o valor RECEBIDO (aplicado à venda)
+        $valor_recebido     = (float) str_replace(',', '.', $request->input('pg_venda_valor_pagamento') ?? 0);
+        $valor_acrescimo    = (float) str_replace(',', '.', $request->input('pg_venda_valor_acrescimo') ?? 0);
+        $valor_desconto     = (float) str_replace(',', '.', $request->input('pg_venda_valor_desconto') ?? 0);
+        $valor_pago_cliente = (float) str_replace(',', '.', $request->input('pg_venda_valor_pago_pelo_cliente') ?? 0);
 
-        // Verifica se a taxa deve ser acrescida
-        if ($opcao_pagamento->opcaopag_tipo_taxa == 'ACRESCENTAR') {
-            // Cria o registro de pagamento com o valor ajustado pela taxa
-            PagamentosVenda::create([
-                'pg_venda_venda_id' => $request->input('venda_id'),
-                'pg_venda_opcaopagamento_id' => $request->input('pg_venda_opcaopagamento_id'),
-                'pg_venda_cartao_id' => $request->input('pg_venda_cartao_id') ?? null,
-                'pg_venda_numero_autorizacao_cartao' => $request->input('pg_venda_numero_autorizacao_cartao') ?? null,
-                'pg_venda_valor_pagamento' => $valor_pagamento,
-                'pg_venda_valor_acrescimo' => $valor_acrescimo,
-            ]);
-
-            // Atualiza os valores da venda considerando o acréscimo
-            $venda->venda_valor_acrescimo += $valor_acrescimo;
-            $venda->venda_valor_pago += $valor_pagamento + $valor_acrescimo;
-            $venda->venda_valor_total += $valor_acrescimo;
-
-            // Verifica se há troco a ser devolvido
-            if ($venda->venda_valor_total < $venda->venda_valor_pago) {
-                $venda->venda_valor_troco = $venda->venda_valor_pago - $venda->venda_valor_total;
-            }
-
-            // Salva as alterações na venda
-            $venda->save();
-        } else if ($opcao_pagamento->opcaopag_tipo_taxa == 'DESCONTAR') {
-            // Cria o registro de pagamento com o valor ajustado pela taxa
-            PagamentosVenda::create([
-                'pg_venda_venda_id' => $request->input('venda_id'),
-                'pg_venda_opcaopagamento_id' => $request->input('pg_venda_opcaopagamento_id'),
-                'pg_venda_cartao_id' => $request->input('pg_venda_cartao_id') ?? null,
-                'pg_venda_numero_autorizacao_cartao' => $request->input('pg_venda_numero_autorizacao_cartao') ?? null,
-                'pg_venda_valor_pagamento' => $valor_pagamento,
-                'pg_venda_valor_desconto' => $valor_desconto,
-            ]);
-
-            // Atualiza os valores da venda considerando o desconto
-            $venda->venda_valor_desconto += $valor_desconto;
-            $venda->venda_valor_pago += $valor_pagamento - $valor_desconto;
-            $venda->venda_valor_total -= $valor_desconto;
-
-            // Verifica se há troco a ser devolvido
-            if ($venda->venda_valor_total < $venda->venda_valor_pago) {
-                $venda->venda_valor_troco = $venda->venda_valor_pago - $venda->venda_valor_total;
-            }
-
-            // Salva as alterações na venda
-            $venda->save();
-        } else {
-            // Quando não há taxa a ser acrescentada, apenas cria o pagamento com o valor fornecido
-            PagamentosVenda::create([
-                'pg_venda_venda_id' => $request->input('venda_id'),
-                'pg_venda_opcaopagamento_id' => $request->input('pg_venda_opcaopagamento_id'),
-                'pg_venda_cartao_id' => $request->input('pg_venda_cartao_id') ?? null,
-                'pg_venda_numero_autorizacao_cartao' => $request->input('pg_venda_numero_autorizacao_cartao') ?? null,
-                'pg_venda_valor_pagamento' => $valor_pagamento,
-            ]);
-
-            // Atualiza os valores da venda com o valor do pagamento
-            $venda->venda_valor_pago += $valor_pagamento;
-
-            // Verifica se há troco a ser devolvido
-            if ($venda->venda_valor_total < $venda->venda_valor_pago) {
-                $venda->venda_valor_troco = $venda->venda_valor_pago - $venda->venda_valor_total;
-            }
-
-            // Salva as alterações na venda
-            $venda->save();
+        // Se o valor pago pelo cliente não foi informado, assume o recebido (sem troco)
+        if ($valor_pago_cliente <= 0) {
+            $valor_pago_cliente = $valor_recebido;
         }
+        $valor_troco = max(0, round($valor_pago_cliente - $valor_recebido, 2));
+
+        // Taxa só conta no campo correspondente ao tipo configurado na opção
+        $tipoTaxa  = $opcao_pagamento->opcaopag_tipo_taxa;
+        $acrescimo = $tipoTaxa === 'ACRESCENTAR' ? $valor_acrescimo : 0.0;
+        $desconto  = $tipoTaxa === 'DESCONTAR'  ? $valor_desconto  : 0.0;
+
+        PagamentosVenda::create([
+            'pg_venda_venda_id'                  => $venda->id,
+            'pg_venda_opcaopagamento_id'         => $request->input('pg_venda_opcaopagamento_id'),
+            'pg_venda_cartao_id'                 => $request->input('pg_venda_cartao_id') ?: null,
+            'pg_venda_numero_autorizacao_cartao' => $request->input('pg_venda_numero_autorizacao_cartao') ?: null,
+            'pg_venda_valor_pagamento'           => $valor_recebido, // espelha o recebido (compatibilidade)
+            'pg_venda_valor_recebido'            => $valor_recebido,
+            'pg_venda_valor_pago_pelo_cliente'   => $valor_pago_cliente,
+            'pg_venda_valor_troco'               => $valor_troco,
+            'pg_venda_valor_acrescimo'           => $acrescimo,
+            'pg_venda_valor_desconto'            => $desconto,
+        ]);
+
+        // Atualiza os totais da venda (mesma semântica de taxa de antes; troco agora é por pagamento)
+        $venda->venda_valor_acrescimo += $acrescimo;
+        $venda->venda_valor_desconto  += $desconto;
+        $venda->venda_valor_pago      += $valor_recebido + $acrescimo - $desconto;
+        $venda->venda_valor_total     += $acrescimo - $desconto;
+        $venda->venda_valor_troco     += $valor_troco;
+        $venda->save();
 
         $pagamentosVenda = PagamentosVenda::with('opcaoPagamento')->where('pg_venda_venda_id', $venda->id)->get();
 

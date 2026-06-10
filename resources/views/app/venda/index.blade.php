@@ -630,7 +630,9 @@
                          selectedId: '',
                          get opcaoSelecionada() { return this.opcoes.find(o => String(o.id) === String(this.selectedId)) ?? null; },
                          get showTaxa()   { const t = this.opcaoSelecionada?.opcaopag_tipo_taxa; return t === 'ACRESCENTAR' || t === 'DESCONTAR'; },
-                         get showCartao() { const n = (this.opcaoSelecionada?.opcaopag_nome ?? '').toUpperCase(); return n.includes('CARTÃO') || n.includes('PIX'); },
+                         get requerBandeira()    { return !!this.opcaoSelecionada?.opcaopag_requer_bandeira; },
+                         get requerAutorizacao() { return !!this.opcaoSelecionada?.opcaopag_requer_autorizacao; },
+                         get showCartao() { return this.requerBandeira || this.requerAutorizacao; },
                          get isAcrescimo(){ return this.opcaoSelecionada?.opcaopag_tipo_taxa === 'ACRESCENTAR'; },
                          get isDesconto() { return this.opcaoSelecionada?.opcaopag_tipo_taxa === 'DESCONTAR'; },
                          get taxa()       { return parseFloat(this.opcaoSelecionada?.opcaopag_valor_percentual_taxa ?? 0) || 0; }
@@ -650,10 +652,21 @@
                             id="pg_venda_opcaopagamento_id" name="pg_venda_opcaopagamento_id"
                             class="mt-1 w-full" x-model="selectedId" />
                     </div>
-                    <div>
-                        <x-input-label for="pg_venda_valor_pagamento" value="Valor" />
-                        <x-money-input id="pg_venda_valor_pagamento" name="pg_venda_valor_pagamento"
-                            type="text" class="money mt-1 w-full" autocomplete="off" />
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <x-input-label for="pg_venda_valor_pagamento" value="Valor recebido" />
+                            <x-money-input id="pg_venda_valor_pagamento" name="pg_venda_valor_pagamento"
+                                type="text" class="money mt-1 w-full" autocomplete="off" />
+                        </div>
+                        <div>
+                            <x-input-label for="pg_venda_valor_pago_pelo_cliente" value="Pago pelo cliente" />
+                            <x-money-input id="pg_venda_valor_pago_pelo_cliente" name="pg_venda_valor_pago_pelo_cliente"
+                                type="text" class="money mt-1 w-full" autocomplete="off" />
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                        <span class="text-xs font-semibold text-amber-700 uppercase tracking-wide">Troco a devolver</span>
+                        <span class="text-base font-bold text-amber-700">R$ <span id="pg_venda_troco_view">0,00</span></span>
                     </div>
                     <div class="grid grid-cols-2 gap-2" x-show="showTaxa" x-cloak>
                         <div>
@@ -673,12 +686,12 @@
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2" x-show="showCartao" x-cloak>
-                        <div>
+                        <div x-show="requerBandeira" x-cloak>
                             <x-input-label for="pg_venda_cartao_id" value="Bandeira" />
                             <x-select-input :options="$cartoes" value-field="id" display-field="cartao_bandeira"
                                 id="pg_venda_cartao_id" name="pg_venda_cartao_id" class="mt-1 w-full" />
                         </div>
-                        <div>
+                        <div x-show="requerAutorizacao" x-cloak>
                             <x-input-label for="pg_venda_numero_autorizacao_cartao" value="Nº Autorização" />
                             <x-text-input id="pg_venda_numero_autorizacao_cartao"
                                 name="pg_venda_numero_autorizacao_cartao" type="text" class="mt-1 w-full" />
@@ -696,7 +709,8 @@
                                     <tr class="border-b border-gray-100 text-gray-500">
                                         <th class="pb-1.5 text-left font-semibold">#</th>
                                         <th class="pb-1.5 text-left font-semibold">Tipo</th>
-                                        <th class="pb-1.5 text-right font-semibold">Valor</th>
+                                        <th class="pb-1.5 text-right font-semibold">Recebido</th>
+                                        <th class="pb-1.5 text-right font-semibold">Troco</th>
                                         <th class="pb-1.5"></th>
                                     </tr>
                                 </thead>
@@ -922,19 +936,33 @@
             $(".venda_valor_frete").blur(function ()  { if (vendaId()) listarVenda(vendaId()); });
 
             // ── Pagamento ────────────────────────────────────────────────────
+            // Converte valor mascarado (1.234,56) para número
+            function parseMoeda(v) {
+                return parseFloat((v || '0').replace(/\./g, '').replace(',', '.')) || 0;
+            }
+            // Troco = pago pelo cliente − recebido (nunca negativo)
+            function atualizarTrocoPagamento() {
+                const recebido = parseMoeda($("#pg_venda_valor_pagamento").val());
+                const pagoCli  = parseMoeda($("#pg_venda_valor_pago_pelo_cliente").val());
+                const troco    = pagoCli > recebido ? (pagoCli - recebido) : 0;
+                $("#pg_venda_troco_view").text(troco.toFixed(2).replace('.', ','));
+            }
             $("#pg_venda_valor_pagamento").keyup(function () {
-                const valor_pag  = parseFloat($(this).val().replace(',', '.')) || 0;
+                const valor_pag  = parseMoeda($(this).val());
                 const valor_taxa = parseFloat($("#opcao_pag_taxa").val()) || 0;
                 const opt = opcao_pag.find(op => String(op.id) === String($("#pg_venda_opcaopagamento_id").val()));
-                if (!opt) return;
-                if (opt.opcaopag_tipo_taxa === 'ACRESCENTAR') {
-                    $("#pg_venda_valor_acrescimo").val((valor_pag * valor_taxa / 100).toFixed(2));
-                } else if (opt.opcaopag_tipo_taxa === 'DESCONTAR') {
-                    $("#pg_venda_valor_desconto").val((valor_pag * valor_taxa / 100).toFixed(2));
+                if (opt) {
+                    if (opt.opcaopag_tipo_taxa === 'ACRESCENTAR') {
+                        $("#pg_venda_valor_acrescimo").val((valor_pag * valor_taxa / 100).toFixed(2));
+                    } else if (opt.opcaopag_tipo_taxa === 'DESCONTAR') {
+                        $("#pg_venda_valor_desconto").val((valor_pag * valor_taxa / 100).toFixed(2));
+                    }
                 }
+                atualizarTrocoPagamento();
             });
+            $("#pg_venda_valor_pago_pelo_cliente").keyup(atualizarTrocoPagamento);
             $("#registar_pagamento").click(function (e) { e.preventDefault(); InserePagamento(); });
-            $('#pg_venda_valor_pagamento, #pg_venda_numero_autorizacao_cartao').on('keypress', function (e) {
+            $('#pg_venda_valor_pagamento, #pg_venda_valor_pago_pelo_cliente, #pg_venda_numero_autorizacao_cartao').on('keypress', function (e) {
                 if (e.which === 13) { e.preventDefault(); InserePagamento(); }
             });
 
@@ -1188,8 +1216,8 @@
                 comVenda(function (venda_id) {
                     const selectedId = $("#pg_venda_opcaopagamento_id").val();
                     const opt  = opcao_pag.find(op => String(op.id) === String(selectedId));
-                    const desc = (opt?.opcaopag_nome ?? '').toUpperCase();
-                    const cartao_id = (desc.includes('CARTÃO') || desc.includes('PIX')) ? $("#pg_venda_cartao_id").val() : null;
+                    const cartao_id = opt?.opcaopag_requer_bandeira ? $("#pg_venda_cartao_id").val() : null;
+                    const num_aut   = opt?.opcaopag_requer_autorizacao ? $("#pg_venda_numero_autorizacao_cartao").val() : null;
 
                     $.ajax({
                         type: "POST", url: "{{ route('pagamento_venda.store') }}",
@@ -1197,17 +1225,19 @@
                             venda_id,
                             pg_venda_opcaopagamento_id:         selectedId,
                             pg_venda_valor_pagamento:           $("#pg_venda_valor_pagamento").val(),
+                            pg_venda_valor_pago_pelo_cliente:   $("#pg_venda_valor_pago_pelo_cliente").val(),
                             pg_venda_valor_acrescimo:           $("#pg_venda_valor_acrescimo").val(),
                             pg_venda_valor_desconto:            $("#pg_venda_valor_desconto").val(),
                             pg_venda_cartao_id:                 cartao_id,
-                            pg_venda_numero_autorizacao_cartao: $("#pg_venda_numero_autorizacao_cartao").val(),
+                            pg_venda_numero_autorizacao_cartao: num_aut,
                             '_token': '{{ csrf_token() }}'
                         },
                         dataType: "json",
                         success: function (response) {
                             listarPagamentos(response.pagamentosVenda);
                             listarVenda(venda_id);
-                            $("#pg_venda_valor_pagamento, #pg_venda_valor_acrescimo, #pg_venda_valor_desconto, #pg_venda_numero_autorizacao_cartao").val("");
+                            $("#pg_venda_valor_pagamento, #pg_venda_valor_pago_pelo_cliente, #pg_venda_valor_acrescimo, #pg_venda_valor_desconto, #pg_venda_numero_autorizacao_cartao").val("");
+                            $("#pg_venda_troco_view").text('0,00');
                             showToast('Pagamento registrado!', 'success');
                         },
                         error: function () { showToast('Erro ao registrar pagamento!'); }
@@ -1219,11 +1249,16 @@
                 const tbody = $('#body_tabela_pagamentos');
                 tbody.empty();
                 $.each(pagamentosVenda, function (index, pagamento) {
+                    const troco = parseFloat(pagamento.pg_venda_valor_troco) || 0;
+                    const trocoCell = troco > 0
+                        ? `<span class="text-amber-600 font-semibold">R$ ${troco.toFixed(2).replace('.', ',')}</span>`
+                        : `<span class="text-gray-300">—</span>`;
                     tbody.append(`
                         <tr class="border-b border-gray-50">
                             <td class="py-1.5 text-gray-500">${index + 1}</td>
                             <td class="py-1.5 text-gray-700 font-medium">${pagamento.opcao_pagamento.opcaopag_nome}</td>
                             <td class="py-1.5 text-right text-gray-800 font-semibold">R$ ${pagamento.pg_venda_valor_pagamento}</td>
+                            <td class="py-1.5 text-right">${trocoCell}</td>
                             <td class="py-1.5 pl-2">
                                 <button type="button" class="remover_pg_venda w-6 h-6 flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-500 rounded-full transition-colors"
                                         data-pg_venda_id="${pagamento.id}" title="Remover"><i class="bx bx-x text-sm"></i></button>
