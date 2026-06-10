@@ -245,8 +245,8 @@ class PedidoProdutoSelector extends Component
 
         $numSabores = count($sel);
         $qtdFracao  = round(1 / $numSabores, 4);
-        $nomes      = implode(' / ', array_column($sel, 'nome'));
-        $nomeCombo  = $numSabores > 1 ? ($this->saboresCategoriaNome . ' — ' . $nomes) : null;
+        // Cada fração de sabor já é exibida como item próprio (com o nome do sabor),
+        // então não gravamos o combo na observação — o campo fica livre para nota real.
 
         $clienteNome = $this->clienteSelecionadoId
             ? (collect($this->sessaoMesaClientes)->firstWhere('id', $this->clienteSelecionadoId)['nome'] ?? null)
@@ -270,6 +270,9 @@ class PedidoProdutoSelector extends Component
             $descExtra      = $descCentavos % $numSabores;
             $descontoFracao = ($descPorItem + ($idx < $descExtra ? 1 : 0)) / 100;
 
+            // Valor líquido da fração: bruto da fração − desconto da fração (sabores não têm adicionais)
+            $valorFracaoLiquido = round($valorFracao - $descontoFracao, 2);
+
             if ($this->pedidoId) {
                 $itemModel = ItensPedido::create([
                     'item_pedido_pedido_id'        => $this->pedidoId,
@@ -277,10 +280,10 @@ class PedidoProdutoSelector extends Component
                     'item_pedido_cliente_id'       => $this->clienteSelecionadoId ?: null,
                     'item_pedido_quantidade'       => $qtdFracao,
                     'item_pedido_valor_unitario'   => $sPrecoBase,
-                    'item_pedido_valor'            => $valorFracao,
+                    'item_pedido_valor'            => $valorFracaoLiquido,
                     'item_pedido_desconto'         => $descontoFracao,
                     'item_pedido_valor_adicionais' => 0,
-                    'item_pedido_observacao'       => $nomeCombo,
+                    'item_pedido_observacao'       => null,
                     'item_pedido_status'           => 'INSERIDO',
                 ]);
                 $itemId = $itemModel->id;
@@ -299,11 +302,11 @@ class PedidoProdutoSelector extends Component
                 'quantidade'      => $qtdFracao,
                 'valor_unitario'  => $sPrecoBase,
                 'desconto_unit'   => $sDescUnit,
-                'valor'           => $valorFracao,
+                'valor'           => $valorFracaoLiquido,
                 'desconto'        => $descontoFracao,
                 'adicionais_valor'=> 0,
                 'adicionais'      => [],
-                'observacao'      => $nomeCombo ?? '',
+                'observacao'      => '',
             ];
         }
 
@@ -350,8 +353,10 @@ class PedidoProdutoSelector extends Component
             }
         }
 
-        $valorItem     = round(($precoBase * $this->quantidade) + $adicionaisValor, 2);
-        $descontoTotal = round($descontoUnit * $this->quantidade, 2);
+        // Regra de negócio centralizada no model: valor líquido = (qtd × unit) − desconto + adicionais
+        $linha         = ItensPedido::calcularLinha($this->quantidade, $precoBase, $descontoUnit, $adicionaisValor);
+        $valorItem     = $linha['valor'];
+        $descontoTotal = $linha['desconto'];
 
         $clienteNome = $this->clienteSelecionadoId
             ? (collect($this->sessaoMesaClientes)->firstWhere('id', $this->clienteSelecionadoId)['nome'] ?? null)
@@ -439,8 +444,8 @@ class PedidoProdutoSelector extends Component
 
             $novaQtd            = max(0.5, round((float) $item['quantidade'] + $delta, 2));
             $item['quantidade'] = $novaQtd;
-            $item['valor']      = round(($item['valor_unitario'] * $novaQtd) + $item['adicionais_valor'], 2);
             $item['desconto']   = round(($item['desconto_unit'] ?? 0) * $novaQtd, 2);
+            $item['valor']      = round(($item['valor_unitario'] * $novaQtd) - $item['desconto'] + $item['adicionais_valor'], 2);
 
             if ($this->pedidoId && is_numeric($itemId)) {
                 ItensPedido::find($itemId)?->update([
@@ -535,7 +540,7 @@ class PedidoProdutoSelector extends Component
             $item['observacao']      = $this->editObservacao;
             $item['adicionais']      = $adicionaisList;
             $item['adicionais_valor']= $adicionaisValor;
-            $item['valor']           = round(($item['valor_unitario'] * $item['quantidade']) + $adicionaisValor, 2);
+            $item['valor']           = round(($item['valor_unitario'] * $item['quantidade']) - ($item['desconto'] ?? 0) + $adicionaisValor, 2);
             $item['cliente_id']      = $this->editClienteId ?: null;
             $item['cliente_nome']    = $editClienteNome;
             break;
@@ -546,7 +551,8 @@ class PedidoProdutoSelector extends Component
             $itemModel = ItensPedido::find($itemId);
             if ($itemModel) {
                 $novoValor = round(
-                    ((float) $itemModel->item_pedido_valor_unitario * (float) $itemModel->item_pedido_quantidade) + $adicionaisValor,
+                    ((float) $itemModel->item_pedido_valor_unitario * (float) $itemModel->item_pedido_quantidade)
+                    - (float) $itemModel->item_pedido_desconto + $adicionaisValor,
                     2
                 );
                 $itemModel->update([

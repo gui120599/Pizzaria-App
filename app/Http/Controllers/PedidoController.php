@@ -162,9 +162,10 @@ class PedidoController extends Controller
             return back()->with('error', 'Adicione pelo menos um item antes de abrir o pedido.');
         }
 
-        $valorItens    = round($itens->sum('item_pedido_valor'), 2);
+        $valorLiquido  = round($itens->sum('item_pedido_valor'), 2);      // item_pedido_valor já é líquido
         $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
-        $valorFrete    = $this->calcularFrete($request->input('pedido_opcaoentrega_id'), $valorItens - $totalDesconto);
+        $valorItens    = round($valorLiquido + $totalDesconto, 2);        // bruto (antes do desconto), para exibição
+        $valorFrete    = $this->calcularFrete($request->input('pedido_opcaoentrega_id'), $valorLiquido);
 
         $pedido->update([
             'pedido_cliente_id'           => $clienteId,
@@ -178,10 +179,10 @@ class PedidoController extends Controller
             'pedido_valor_itens'          => $valorItens,
             'pedido_valor_desconto'       => $totalDesconto,
             'pedido_valor_frete'          => $valorFrete,
-            'pedido_valor_total'          => round(max(0, $valorItens - $totalDesconto + $valorFrete), 2),
+            'pedido_valor_total'          => round(max(0, $valorLiquido + $valorFrete), 2),
         ]);
 
-        return redirect()->route('pedidos')->with('success', 'Pedido #' . $pedido->id . ' criado com sucesso!');
+        return redirect()->route('pedido.create')->with('success', 'Pedido #' . $pedido->id . ' criado com sucesso!');
     }
 
     /**
@@ -224,9 +225,10 @@ class PedidoController extends Controller
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
 
-        $valorItens    = round($itens->sum('item_pedido_valor'), 2);
+        $valorLiquido  = round($itens->sum('item_pedido_valor'), 2);      // item_pedido_valor já é líquido
         $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
-        $valorFrete    = $this->calcularFrete($request->input('pedido_opcaoentrega_id'), $valorItens - $totalDesconto);
+        $valorItens    = round($valorLiquido + $totalDesconto, 2);        // bruto (antes do desconto), para exibição
+        $valorFrete    = $this->calcularFrete($request->input('pedido_opcaoentrega_id'), $valorLiquido);
 
         $pedido->update([
             'pedido_cliente_id'           => $clienteId,
@@ -239,7 +241,7 @@ class PedidoController extends Controller
             'pedido_valor_itens'          => $valorItens,
             'pedido_valor_desconto'       => $totalDesconto,
             'pedido_valor_frete'          => $valorFrete,
-            'pedido_valor_total'          => round(max(0, $valorItens - $totalDesconto + $valorFrete), 2),
+            'pedido_valor_total'          => round(max(0, $valorLiquido + $valorFrete), 2),
         ]);
 
         return redirect()->route('pedidos')->with('success', 'Pedido #' . $id . ' atualizado com sucesso!');
