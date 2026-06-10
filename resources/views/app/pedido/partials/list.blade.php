@@ -13,6 +13,7 @@
                     <th class="text-start max-w-max">Cliente</th>
                     <th class="text-start">Mesa</th>
                     <th class="text-start">Garçom</th>
+                    <th class="text-start">Origem</th>
                     <th class="text-start">ENTREGA</th>
                     <th class="text-start">Valor total</th>
                     <th class="text-start max-w-max">Opções</th>
@@ -28,6 +29,19 @@
                             <td class="">{{ $pedido->cliente?->cliente_nome ?? '—' }}</td>
                             <td class="">{{ $pedido->sessaoMesa?->mesa?->mesa_nome ?? '—' }}</td>
                             <td class="text-start">{{ $pedido->garcom?->name_first ?? '—' }}</td>
+                            <td class="text-start">
+                                @php
+                                    $origemClasse = match($pedido->pedido_origem?->value) {
+                                        'cardapio'  => 'bg-green-100 text-green-700',
+                                        'mesa'      => 'bg-amber-100 text-amber-700',
+                                        'atendente' => 'bg-blue-100 text-blue-700',
+                                        default     => 'bg-gray-100 text-gray-600',
+                                    };
+                                @endphp
+                                <span class="px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap {{ $origemClasse }}">
+                                    {{ $pedido->pedido_origem?->label() ?? '—' }}
+                                </span>
+                            </td>
                             <td class="text-start">
                                 <span>{{ $pedido->opcaoEntrega?->opcaoentrega_nome ?? '—' }}</span>
                             </td>
