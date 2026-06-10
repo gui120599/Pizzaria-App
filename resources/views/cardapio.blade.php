@@ -732,7 +732,7 @@
                 <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-3 py-2.5 flex items-start gap-2">
                     <i class='bx bx-info-circle text-yellow-400 text-base mt-0.5 shrink-0'></i>
                     <p class="text-yellow-300 text-xs leading-snug">
-                        Se precisar de troco, informe o valor que vai pagar. Se não precisar, clique em <strong>"Não preciso de troco"</strong>.
+                        Se precisar de troco, informe o valor que vai pagar. Se não precisar, clique em <strong>"Sem troco"</strong>.
                     </p>
                 </div>
 
