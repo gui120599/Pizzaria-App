@@ -8,6 +8,7 @@ use App\Models\ItensPedido;
 use App\Models\ItensVenda;
 use App\Http\Requests\StoreItensVendaRequest;
 use App\Http\Requests\UpdateItensVendaRequest;
+use App\Models\Mesa;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoMesa;
@@ -194,7 +195,12 @@ class ItensVendaController extends Controller
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
 
-        return response()->json(['success' => 'Itens adicionados e pedidos finalizados'], 200);
+        $finalizada = $this->finalizarSessaoSeCompleta((int) $sessaoMesa_id);
+
+        return response()->json([
+            'success'            => 'Itens adicionados e pedidos finalizados',
+            'sessoes_finalizadas' => $finalizada ? [(int) $sessaoMesa_id] : [],
+        ], 200);
     }
 
     public function adicionarItensSessaoMesaPorCliente(Request $request)
@@ -229,7 +235,12 @@ class ItensVendaController extends Controller
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
 
-        return response()->json(['success' => 'Itens do cliente adicionados'], 200);
+        $finalizada = $this->finalizarSessaoSeCompleta((int) $sessaoMesa_id);
+
+        return response()->json([
+            'success'            => 'Itens do cliente adicionados',
+            'sessoes_finalizadas' => $finalizada ? [(int) $sessaoMesa_id] : [],
+        ], 200);
     }
 
     public function adicionarItensPorSelecao(Request $request)
@@ -259,9 +270,22 @@ class ItensVendaController extends Controller
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
 
+        $sessaoIds = Pedido::whereIn('id', $itensPedido->pluck('item_pedido_pedido_id')->filter()->unique())
+            ->whereNotNull('pedido_sessao_mesa_id')
+            ->pluck('pedido_sessao_mesa_id')
+            ->unique();
+
+        $sessoesFinalizadas = [];
+        foreach ($sessaoIds as $sessaoId) {
+            if ($this->finalizarSessaoSeCompleta((int) $sessaoId)) {
+                $sessoesFinalizadas[] = (int) $sessaoId;
+            }
+        }
+
         return response()->json([
-            'success'  => 'Itens lançados na venda',
-            'cobrados' => $itensPedido->pluck('id'),
+            'success'             => 'Itens lançados na venda',
+            'cobrados'            => $itensPedido->pluck('id'),
+            'sessoes_finalizadas' => $sessoesFinalizadas,
         ], 200);
     }
 
@@ -870,5 +894,56 @@ class ItensVendaController extends Controller
 
             $adicionalVenda->delete();
         }
+    }
+
+    /**
+     * Fecha a sessão de mesa e libera a mesa quando todos os itens foram cobrados.
+     * Retorna true se a sessão foi fechada automaticamente, false caso contrário.
+     */
+    private function finalizarSessaoSeCompleta(int $sessaoMesaId): bool
+    {
+        $sessao = SessaoMesa::find($sessaoMesaId);
+        if (!$sessao || $sessao->sessao_mesa_status !== 'ABERTA') {
+            return false;
+        }
+
+        // Deve haver pelo menos um pedido ativo para que a sessão faça sentido
+        $temPedidosAtivos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)
+            ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
+            ->exists();
+
+        if (!$temPedidosAtivos) {
+            return false;
+        }
+
+        // Verifica se ainda há itens não cobrados nos pedidos ativos da sessão
+        $pendentes = ItensPedido::whereHas('pedido', function ($q) use ($sessaoMesaId) {
+            $q->where('pedido_sessao_mesa_id', $sessaoMesaId)
+              ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO']);
+        })
+        ->where('item_pedido_status', 'INSERIDO')
+        ->whereNull('item_pedido_venda_id')
+        ->count();
+
+        if ($pendentes > 0) {
+            return false;
+        }
+
+        // Todos os itens cobrados: fecha a sessão
+        $sessao->update(['sessao_mesa_status' => 'FECHADA']);
+
+        // Libera a mesa se não houver outra sessão ABERTA para ela
+        $mesa = Mesa::find($sessao->sessao_mesa_mesa_id);
+        if ($mesa) {
+            $outraSessaoAberta = SessaoMesa::where('sessao_mesa_mesa_id', $mesa->id)
+                ->where('sessao_mesa_status', 'ABERTA')
+                ->exists();
+
+            if (!$outraSessaoAberta) {
+                $mesa->update(['mesa_status' => 'LIBERADA']);
+            }
+        }
+
+        return true;
     }
 }

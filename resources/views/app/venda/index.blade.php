@@ -219,6 +219,7 @@
                             @endphp
                             <div class="border border-gray-200 rounded-xl shadow-sm overflow-hidden"
                                  x-show="mostraMesa(@js($buscaMesaTxt))"
+                                 data-sessao-id="{{ $sessaoMesa->id }}"
                                  x-data="{
                                      aberto: true,
                                      selecionados: [],
@@ -233,7 +234,7 @@
                                     <div class="flex items-center gap-2 min-w-0">
                                         <i class='bx bx-chair text-teal-600'></i>
                                         <span class="text-sm font-bold text-gray-800 truncate">{{ $sessaoMesa->mesa->mesa_nome }}</span>
-                                        <span class="text-[10px] text-gray-400 uppercase">{{ $sessaoMesa->sessao_mesa_status }}</span>
+                                        <span class="sessao-status-badge text-[10px] text-gray-400 uppercase">{{ $sessaoMesa->sessao_mesa_status }}</span>
                                     </div>
                                     <div class="flex items-center gap-1 shrink-0">
                                         <button type="button"
@@ -1019,7 +1020,19 @@
                             );
                         });
                         ListaItensVenda(venda_id);
-                        showToast('Itens lançados na venda!', 'success');
+                        if (response.sessoes_finalizadas && response.sessoes_finalizadas.length > 0) {
+                            response.sessoes_finalizadas.forEach(function (sessaoId) {
+                                const card = $('[data-sessao-id="' + sessaoId + '"]');
+                                card.find('.sessao-status-badge').text('FECHADA').addClass('text-orange-500').removeClass('text-gray-400');
+                                card.find('input[type=checkbox]').prop('disabled', true);
+                                card.find('button[\\@click*="lancarItensVenda"]').prop('disabled', true)
+                                    .removeClass('bg-teal-600 hover:bg-teal-700 text-white shadow')
+                                    .addClass('bg-gray-100 text-gray-400 cursor-not-allowed');
+                            });
+                            showToast('Todos os itens cobrados! Sessão da mesa encerrada automaticamente.', 'success');
+                        } else {
+                            showToast('Itens lançados na venda!', 'success');
+                        }
                     },
                     error: function () { showToast('Erro ao lançar itens!'); $("#carregando").addClass('hidden'); }
                 });
