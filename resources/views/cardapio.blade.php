@@ -865,7 +865,7 @@
                     <p class="text-white text-sm font-medium leading-snug"
                        x-text="$store.cart.saboresModal.selecionados.map(s=>s.nome).join(' / ')"></p>
                     <p class="text-green-400 text-base font-bold mt-0.5"
-                       x-text="'Preço: R$ ' + Math.max(...$store.cart.saboresModal.selecionados.map(s=>s.preco)).toFixed(2).replace('.', ',')"></p>
+                       x-text="'Preço: R$ ' + $store.cart.precoSabores($store.cart.saboresModal.selecionados).preco.toFixed(2).replace('.', ',')"></p>
                 </div>
                 <button @click="$store.cart.confirmarSabores()"
                         :disabled="$store.cart.saboresModal.selecionados.length !== $store.cart.saboresModal.modo"
@@ -1079,6 +1079,32 @@
                         this.saboresModal.selecionados.push(produto);
                     }
                 },
+                // Preço de pizza multi-sabor = MÉDIA dos sabores, distribuída em
+                // centavos (mesma regra do back-end), evitando perda de arredondamento.
+                // Retorna { preco (líquido), precoOriginal (bruto) } por pizza.
+                precoSabores(sel) {
+                    const n = sel.length;
+                    if (n === 1) {
+                        const s = sel[0];
+                        return { preco: s.preco, precoOriginal: s.precoOriginal ?? s.preco };
+                    }
+                    const fatia = (valor, idx) => {
+                        const tc = Math.round(valor * 100);
+                        const base = Math.floor(tc / n);
+                        const extra = tc % n;
+                        return (base + (idx < extra ? 1 : 0)) / 100;
+                    };
+                    let bruto = 0, desc = 0;
+                    sel.forEach((s, idx) => {
+                        const orig = Math.max(s.precoOriginal ?? s.preco, s.preco);
+                        const descUnit = Math.max(0, orig - s.preco);
+                        bruto += fatia(orig, idx);
+                        desc  += fatia(descUnit, idx);
+                    });
+                    bruto = Math.round(bruto * 100) / 100;
+                    desc  = Math.round(desc * 100) / 100;
+                    return { preco: Math.round((bruto - desc) * 100) / 100, precoOriginal: bruto };
+                },
                 confirmarSabores() {
                     if (!this.estaAbertoAgora()) {
                         this.saboresModal.open = false;
@@ -1087,12 +1113,11 @@
                     }
                     const sel = this.saboresModal.selecionados;
                     if (sel.length !== this.saboresModal.modo) return;
-                    const preco   = Math.max(...sel.map(s => s.preco));
+                    const { preco, precoOriginal } = this.precoSabores(sel);
                     const nomes   = sel.map(s => s.nome).join(' / ');
                     const nome    = this.saboresModal.categoriaNome + ' — ' + nomes;
                     const cartKey = 'sabor-' + sel.map(s => s.id).sort((a,b)=>a-b).join('-');
                     const idx = this.items.findIndex(i => i.cartKey === cartKey);
-                    const precoOriginal = Math.max(...sel.map(s => s.precoOriginal ?? s.preco));
                     const sabores = sel.length > 1 ? sel.map(s => ({ id: s.id, nome: s.nome, preco: s.preco, precoOriginal: s.precoOriginal ?? s.preco })) : null;
                     const foto = sel[0]?.foto ?? '';
                     idx >= 0 ? this.items[idx].qty++ : this.items.push({ cartKey, id: sel[0].id, nome, preco, precoOriginal, qty: 1, foto, sabores, obs: '' });

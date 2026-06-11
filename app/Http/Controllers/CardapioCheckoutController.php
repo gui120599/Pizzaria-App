@@ -108,40 +108,83 @@ class CardapioCheckoutController extends Controller
             $observacaoPagamento = 'Troco para R$ ' . number_format($request->troco_para, 2, ',', '.');
         }
 
-        // Pré-calcula totais bruto e desconto (igual ao CreatePedido interno)
-        $itens          = collect($request->itens);
-        $totalBruto     = 0.0;
-        $totalDesconto  = 0.0;
+        // Monta as linhas de itens já com o valor LÍQUIDO (desconto embutido).
+        // Para sabores (meia/terço) usa distribuição em centavos para evitar
+        // perda de arredondamento com quantidades fracionadas (ex.: 1/3 = 0,3333).
+        $itens  = collect($request->itens);
+        $linhas = [];
 
         foreach ($itens as $item) {
+            $qty           = (int) $item['qty'];
             $precoOriginal = max((float) ($item['preco_original'] ?? 0), (float) $item['preco']);
             $descontoUnit  = max(0.0, $precoOriginal - (float) $item['preco']);
             $sabores       = $item['sabores'] ?? null;
+            $observacao    = $item['observacao'] ?? null;
 
             if (! empty($sabores) && count($sabores) > 1) {
-                $qtdFracao = round($item['qty'] / count($sabores), 4);
-                foreach ($sabores as $sabor) {
-                    // Usa o precoOriginal do sabor individual quando disponível
-                    $sPrecoOrig   = max((float) ($sabor['precoOriginal'] ?? 0), (float) $sabor['preco']);
-                    $sDescUnit    = max(0.0, $sPrecoOrig - (float) $sabor['preco']);
-                    $totalBruto    += $sPrecoOrig * $qtdFracao;
-                    $totalDesconto += round($sDescUnit * $qtdFracao, 4);
+                // Meia a meia / terços: um item_pedido por sabor com quantidade fracionada
+                $numSabores = count($sabores);
+                $qtdFracao  = round($qty / $numSabores, 4);
+
+                foreach ($sabores as $idx => $sabor) {
+                    $sPrecoOrig = max((float) ($sabor['precoOriginal'] ?? 0), (float) $sabor['preco']);
+                    $sPreco     = (float) $sabor['preco'];
+                    $sPrecoBase = max($sPrecoOrig, $sPreco);
+                    $sDescUnit  = max(0.0, $sPrecoOrig - $sPreco);
+
+                    // 1/N do preço (e do desconto) do sabor, em centavos, por pizza
+                    $totalCentavos  = (int) round($sPrecoBase * 100);
+                    $centsPorItem   = intdiv($totalCentavos, $numSabores);
+                    $centsExtra     = $totalCentavos % $numSabores;
+                    $brutoFracaoUma = ($centsPorItem + ($idx < $centsExtra ? 1 : 0)) / 100;
+
+                    $descCentavos   = (int) round($sDescUnit * 100);
+                    $descPorItem    = intdiv($descCentavos, $numSabores);
+                    $descExtra      = $descCentavos % $numSabores;
+                    $descFracaoUma  = ($descPorItem + ($idx < $descExtra ? 1 : 0)) / 100;
+
+                    // Multiplica pela quantidade de pizzas pedidas
+                    $brutoFracao    = round($brutoFracaoUma * $qty, 2);
+                    $descontoFracao = round($descFracaoUma * $qty, 2);
+
+                    $linhas[] = [
+                        'item_pedido_produto_id'       => $sabor['id'],
+                        'item_pedido_quantidade'       => $qtdFracao,
+                        'item_pedido_valor_unitario'   => $sPrecoBase,
+                        'item_pedido_valor'            => round($brutoFracao - $descontoFracao, 2),
+                        'item_pedido_desconto'         => $descontoFracao,
+                        'item_pedido_valor_adicionais' => 0,
+                        'item_pedido_observacao'       => $observacao,
+                        'item_pedido_status'           => 'INSERIDO',
+                    ];
                 }
             } else {
-                $totalBruto    += $precoOriginal * $item['qty'];
-                $totalDesconto += round($descontoUnit * $item['qty'], 4);
+                $bruto    = round($precoOriginal * $qty, 2);
+                $desconto = round($descontoUnit * $qty, 2);
+
+                $linhas[] = [
+                    'item_pedido_produto_id'       => $item['id'],
+                    'item_pedido_quantidade'       => $qty,
+                    'item_pedido_valor_unitario'   => $precoOriginal,
+                    'item_pedido_valor'            => round($bruto - $desconto, 2),
+                    'item_pedido_desconto'         => $desconto,
+                    'item_pedido_valor_adicionais' => 0,
+                    'item_pedido_observacao'       => $observacao,
+                    'item_pedido_status'           => 'INSERIDO',
+                ];
             }
         }
 
-        $totalBruto    = round($totalBruto, 2);
-        $totalDesconto = round($totalDesconto, 2);
+        // Totais derivados das próprias linhas (total == soma exata dos itens)
+        $somaLiquido   = round(array_sum(array_column($linhas, 'item_pedido_valor')), 2);
+        $totalDesconto = round(array_sum(array_column($linhas, 'item_pedido_desconto')), 2);
+        $totalBruto    = round($somaLiquido + $totalDesconto, 2);
 
         // Calcula taxa de entrega
         $valorFrete   = 0.0;
         $opcaoEntrega = OpcoesEntregas::find($request->opcao_entrega_id);
         if ($opcaoEntrega && $opcaoEntrega->opcaoentrega_valor_frete > 0) {
-            $totalLiquido = round($totalBruto - $totalDesconto, 2);
-            if ($opcaoEntrega->opcaoentrega_min_valor_frete <= 0 || $totalLiquido < $opcaoEntrega->opcaoentrega_min_valor_frete) {
+            if ($opcaoEntrega->opcaoentrega_min_valor_frete <= 0 || $somaLiquido < $opcaoEntrega->opcaoentrega_min_valor_frete) {
                 $valorFrete = (float) $opcaoEntrega->opcaoentrega_valor_frete;
             }
         }
@@ -156,53 +199,16 @@ class CardapioCheckoutController extends Controller
             'pedido_valor_itens'           => $totalBruto,
             'pedido_valor_desconto'        => $totalDesconto,
             'pedido_valor_frete'           => $valorFrete,
-            'pedido_valor_total'           => round(max(0, $totalBruto - $totalDesconto + $valorFrete), 2),
+            'pedido_valor_total'           => round(max(0, $somaLiquido + $valorFrete), 2),
             'pedido_status'                => 'INICIADO',
             'pedido_origem'                => PedidoOrigemEnum::CARDAPIO,
             'pedido_datahora_abertura'     => now(),
         ]);
 
         // Cria os itens do pedido
-        foreach ($itens as $item) {
-            $precoOriginal = max((float) ($item['preco_original'] ?? 0), (float) $item['preco']);
-            $descontoUnit  = max(0.0, $precoOriginal - (float) $item['preco']);
-            $sabores       = $item['sabores'] ?? null;
-
-            if (! empty($sabores) && count($sabores) > 1) {
-                // Meia a meia / terços: um item_pedido por sabor com quantidade fracionada
-                $numSabores = count($sabores);
-                $qtdFracao  = round($item['qty'] / $numSabores, 4);
-                $observacao = $item['observacao'] ?? null;
-
-                foreach ($sabores as $sabor) {
-                    $sPrecoOrig = max((float) ($sabor['precoOriginal'] ?? 0), (float) $sabor['preco']);
-                    $sDescUnit  = max(0.0, $sPrecoOrig - (float) $sabor['preco']);
-
-                    ItensPedido::create([
-                        'item_pedido_pedido_id'        => $pedido->id,
-                        'item_pedido_produto_id'       => $sabor['id'],
-                        'item_pedido_quantidade'       => $qtdFracao,
-                        'item_pedido_valor_unitario'   => $sPrecoOrig,
-                        'item_pedido_valor'            => round($sPrecoOrig * $qtdFracao, 2),
-                        'item_pedido_desconto'         => round($sDescUnit * $qtdFracao, 2),
-                        'item_pedido_valor_adicionais' => 0,
-                        'item_pedido_observacao'       => $observacao,
-                        'item_pedido_status'           => 'INSERIDO',
-                    ]);
-                }
-            } else {
-                ItensPedido::create([
-                    'item_pedido_pedido_id'        => $pedido->id,
-                    'item_pedido_produto_id'       => $item['id'],
-                    'item_pedido_quantidade'       => $item['qty'],
-                    'item_pedido_valor_unitario'   => $precoOriginal,
-                    'item_pedido_valor'            => round($precoOriginal * $item['qty'], 2),
-                    'item_pedido_desconto'         => round($descontoUnit * $item['qty'], 2),
-                    'item_pedido_valor_adicionais' => 0,
-                    'item_pedido_observacao'       => $item['observacao'] ?? null,
-                    'item_pedido_status'           => 'INSERIDO',
-                ]);
-            }
+        foreach ($linhas as $linha) {
+            $linha['item_pedido_pedido_id'] = $pedido->id;
+            ItensPedido::create($linha);
         }
 
         return response()->json([
@@ -211,7 +217,7 @@ class CardapioCheckoutController extends Controller
             'total_bruto'    => $totalBruto,
             'total_desconto' => $totalDesconto,
             'valor_frete'    => $valorFrete,
-            'total_final'    => round(max(0, $totalBruto - $totalDesconto + $valorFrete), 2),
+            'total_final'    => round(max(0, $somaLiquido + $valorFrete), 2),
         ]);
     }
 }
