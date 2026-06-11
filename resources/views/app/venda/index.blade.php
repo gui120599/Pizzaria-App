@@ -3,7 +3,13 @@
     <div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"></div>
 
   <div x-data="{ showCliente: false, showPagamento: false }"
-       @keydown.escape.window="showCliente = false; showPagamento = false">
+       @keydown.escape.window="showCliente = false; showPagamento = false"
+       @keydown.window="
+           if ($event.altKey && !$event.ctrlKey && !$event.metaKey && !$event.repeat) {
+               if ($event.code === 'KeyC') { $event.preventDefault(); showPagamento = false; showCliente = !showCliente; }
+               else if ($event.code === 'KeyP') { $event.preventDefault(); showCliente = false; showPagamento = !showPagamento; }
+           }
+       ">
 
     <div class="py-2 px-2 sm:px-4 pb-28">
 
@@ -57,7 +63,14 @@
                          });
                      }
                  }"
-                 x-init="focarBusca(); $watch('aba', () => focarBusca())">
+                 x-init="focarBusca(); $watch('aba', () => focarBusca())"
+                 @keydown.window="
+                     if ($event.altKey && !$event.ctrlKey && !$event.metaKey && !$event.repeat) {
+                         if ($event.code === 'KeyM')      { $event.preventDefault(); aba = 'mesas'; }
+                         else if ($event.code === 'KeyE') { $event.preventDefault(); aba = 'pedidos'; }
+                         else if ($event.code === 'KeyO') { $event.preventDefault(); aba = 'produtos'; }
+                     }
+                 ">
 
                 <div class="bg-white shadow-sm rounded-xl overflow-hidden">
 
@@ -67,6 +80,7 @@
                                 class="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold border-b-2 transition-colors"
                                 :class="aba === 'pedidos' ? 'border-teal-500 text-teal-700' : 'border-transparent text-gray-400 hover:text-gray-600'">
                             <i class='bx bx-basket'></i> Pedidos
+                            <span class="ml-0.5 text-[9px] font-bold text-gray-400 border border-gray-300 rounded px-1 py-px hidden md:inline">Alt+E</span>
                         </button>
                         <button @click="aba = 'mesas'" type="button"
                                 class="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold border-b-2 transition-colors"
@@ -75,11 +89,13 @@
                             @if($sessaoMesas->isNotEmpty())
                                 <span class="bg-teal-100 text-teal-700 rounded-full px-1.5 text-[10px] font-bold">{{ $sessaoMesas->count() }}</span>
                             @endif
+                            <span class="ml-0.5 text-[9px] font-bold text-gray-400 border border-gray-300 rounded px-1 py-px hidden md:inline">Alt+M</span>
                         </button>
                         <button @click="aba = 'produtos'" type="button"
                                 class="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold border-b-2 transition-colors"
                                 :class="aba === 'produtos' ? 'border-teal-500 text-teal-700' : 'border-transparent text-gray-400 hover:text-gray-600'">
                             <i class='bx bxs-pizza'></i> Produtos
+                            <span class="ml-0.5 text-[9px] font-bold text-gray-400 border border-gray-300 rounded px-1 py-px hidden md:inline">Alt+O</span>
                         </button>
                     </div>
 
@@ -747,15 +763,17 @@
             </div>
 
             {{-- Cliente · Pagamento · Finalizar --}}
-            <button type="button" @click="showCliente = true"
+            <button type="button" @click="showPagamento = false; showCliente = !showCliente"
                     class="py-2.5 px-4 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl font-semibold flex items-center gap-1.5 shadow-xl transition-colors">
                 <i class='bx bx-user text-lg'></i>
                 <span class="text-xs uppercase tracking-wide hidden sm:inline">Cliente</span>
+                <span class="text-[9px] font-bold text-gray-400 border border-gray-300 rounded px-1 py-px hidden md:inline">Alt+C</span>
             </button>
-            <button type="button" @click="showPagamento = true"
+            <button type="button" @click="showCliente = false; showPagamento = !showPagamento"
                     class="py-2.5 px-4 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl font-semibold flex items-center gap-1.5 shadow-xl transition-colors">
                 <i class='bx bx-credit-card text-lg'></i>
                 <span class="text-xs uppercase tracking-wide hidden sm:inline">Pagamento</span>
+                <span class="text-[9px] font-bold text-gray-400 border border-gray-300 rounded px-1 py-px hidden md:inline">Alt+P</span>
             </button>
             <button type="button" onclick="handleFinalizarClick()"
                     class="py-2.5 px-5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 rounded-xl text-white font-bold flex items-center gap-2 shadow-xl transition-colors whitespace-nowrap">
