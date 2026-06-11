@@ -96,12 +96,14 @@
 
         {{-- Total geral --}}
         @php
+            // $totalGeral é a soma de item_pedido_valor, que já é LÍQUIDO (desconto embutido).
+            // O bruto (antes do desconto) = líquido + desconto, para exibir o detalhamento.
             $totalDesconto = $total_desconto ?? 0;
-            $totalFinal    = $totalGeral - $totalDesconto;
+            $totalBruto    = $totalGeral + $totalDesconto;
         @endphp
         <div class="flex justify-between text-xs mt-1">
             <span>(+) Valor Produtos</span>
-            <span class="font-bold">R$ {{ number_format($totalGeral, 2, ',', '.') }}</span>
+            <span class="font-bold">R$ {{ number_format($totalBruto, 2, ',', '.') }}</span>
         </div>
         @if ($totalDesconto > 0)
         <div class="flex justify-between text-xs">
@@ -111,7 +113,7 @@
         @endif
         <div class="flex justify-between text-sm font-bold border-t-2 border-black pt-1 mt-1">
             <span>(=) TOTAL GERAL</span>
-            <span>R$ {{ number_format($totalFinal, 2, ',', '.') }}</span>
+            <span>R$ {{ number_format($totalGeral, 2, ',', '.') }}</span>
         </div>
 
         <p class="text-center font-bold mt-2">**COMPROVANTE NÃO FISCAL**</p>
