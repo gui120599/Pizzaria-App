@@ -50,6 +50,7 @@
                     {{ $pedido->pedido_endereco_entrega ?? '—' }}
                 </p>
             @else
+            
                 <div class="col-span-1 flex flex-col text-left">
                     <label class="text-lg">Nº Pedido</label>
                     <label>Cliente</label>
