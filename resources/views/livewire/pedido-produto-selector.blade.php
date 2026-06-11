@@ -313,7 +313,7 @@
                             <button wire:click="incrementarQuantidadeModal" type="button"
                                 class="w-10 h-10 rounded-full bg-gray-100 hover:bg-green-50 text-gray-700 font-bold text-xl flex items-center justify-center transition-colors">+</button>
                             <div class="flex gap-1.5 ml-1">
-                                <button wire:click="setQuantidadeModal(0.33)" type="button" class="px-2.5 py-1 bg-gray-100 hover:bg-teal-50 rounded-lg text-xs font-semibold text-gray-600 transition-colors">⅓</button>
+                                <button wire:click="setQuantidadeModal(0.3333)" type="button" class="px-2.5 py-1 bg-gray-100 hover:bg-teal-50 rounded-lg text-xs font-semibold text-gray-600 transition-colors">⅓</button>
                                 <button wire:click="setQuantidadeModal(0.5)"  type="button" class="px-2.5 py-1 bg-gray-100 hover:bg-teal-50 rounded-lg text-xs font-semibold text-gray-600 transition-colors">½</button>
                             </div>
                         </div>

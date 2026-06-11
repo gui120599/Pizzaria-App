@@ -169,12 +169,17 @@ class PedidoProdutoSelector extends Component
 
     public function decrementarQuantidadeModal(): void
     {
-        $this->quantidade = max(0.5, $this->quantidade - 1);
+        // Só decrementa em passo inteiro quando há mais de 1 unidade.
+        // Frações (⅓/½) são definidas pelos botões dedicados.
+        if ($this->quantidade > 1) {
+            $this->quantidade = $this->quantidade - 1;
+        }
     }
 
     public function setQuantidadeModal(float $valor): void
     {
-        $this->quantidade = max(0.5, $valor);
+        // Permite frações (⅓ = 0,3333, ½ = 0,5) sem forçar mínimo de 0,5.
+        $this->quantidade = $valor > 0 ? round($valor, 4) : 1;
     }
 
     // ── Modal de sabores ─────────────────────────────────────────────────────
@@ -442,7 +447,22 @@ class PedidoProdutoSelector extends Component
                 continue;
             }
 
-            $novaQtd            = max(0.5, round((float) $item['quantidade'] + $delta, 2));
+            // Incrementa/decrementa na grade da fração: inteiro (1), meia (½) ou
+            // terço (⅓). Trabalha em "unidades da fração" para evitar resíduo
+            // (ex.: ⅓ → 0,3333 → 0,6667 → 1,0), sem corromper a precisão.
+            $qtdAtual = (float) $item['quantidade'];
+            $fracPart = $qtdAtual - floor($qtdAtual);
+            if ($fracPart < 0.01) {
+                $denom = 1;          // item inteiro
+            } elseif (abs($fracPart - 0.5) < 0.02) {
+                $denom = 2;          // meia
+            } else {
+                $denom = 3;          // terço
+            }
+
+            $unidades = max(1, (int) round($qtdAtual * $denom) + (int) $delta);
+            $novaQtd  = $denom === 1 ? (float) $unidades : round($unidades / $denom, 4);
+
             $item['quantidade'] = $novaQtd;
             $item['desconto']   = round(($item['desconto_unit'] ?? 0) * $novaQtd, 2);
             $item['valor']      = round(($item['valor_unitario'] * $novaQtd) - $item['desconto'] + $item['adicionais_valor'], 2);
@@ -537,10 +557,13 @@ class PedidoProdutoSelector extends Component
                 continue;
             }
 
+            // Preserva o valor base (já distribuído em centavos nas frações de
+            // sabor) e apenas troca os adicionais — evita re-arredondar a fração.
+            $baseSemAdic             = round((float) $item['valor'] - (float) ($item['adicionais_valor'] ?? 0), 2);
             $item['observacao']      = $this->editObservacao;
             $item['adicionais']      = $adicionaisList;
             $item['adicionais_valor']= $adicionaisValor;
-            $item['valor']           = round(($item['valor_unitario'] * $item['quantidade']) - ($item['desconto'] ?? 0) + $adicionaisValor, 2);
+            $item['valor']           = round($baseSemAdic + $adicionaisValor, 2);
             $item['cliente_id']      = $this->editClienteId ?: null;
             $item['cliente_nome']    = $editClienteNome;
             break;
@@ -550,11 +573,10 @@ class PedidoProdutoSelector extends Component
         if ($this->pedidoId && is_numeric($itemId)) {
             $itemModel = ItensPedido::find($itemId);
             if ($itemModel) {
-                $novoValor = round(
-                    ((float) $itemModel->item_pedido_valor_unitario * (float) $itemModel->item_pedido_quantidade)
-                    - (float) $itemModel->item_pedido_desconto + $adicionaisValor,
-                    2
-                );
+                // Mantém o valor base distribuído (líquido sem adicionais) e
+                // apenas soma os novos adicionais — preserva a fração de sabor.
+                $baseSemAdic = round((float) $itemModel->item_pedido_valor - (float) $itemModel->item_pedido_valor_adicionais, 2);
+                $novoValor   = round($baseSemAdic + $adicionaisValor, 2);
                 $itemModel->update([
                     'item_pedido_observacao'       => $this->editObservacao ?: null,
                     'item_pedido_cliente_id'       => $this->editClienteId ?: null,
