@@ -263,16 +263,15 @@ class VendaController extends Controller
             if ($sessaoMesa) {
                 $sessaoMesa->update(['sessao_mesa_status' => 'FINALIZADA']);
                 $mesa = Mesa::find($sessaoMesa->sessao_mesa_mesa_id);
-                if ($mesa) {
-                    /*// Verifica se existem outras sessões ativas para essa mesa
-                    $outrasSessoesAtivas = SessaoMesa::where('sessao_mesa_mesa_id', $mesa->id)
-                        ->where('id', '<>', $sessaoMesa->id)
-                        ->where('sessao_mesa_status', '!=', 'FINALIZADA')
-                        ->exists();
-
-                    if (!$outrasSessoesAtivas) {*/
-                    $mesa->update(['mesa_status' => 'LIBERADA']);
-                    //}
+                // Libera a mesa apenas se ela ainda estiver ocupada por ESTA sessão.
+                // Se uma nova sessão já ocupa a mesa, ela permanece OCUPADA.
+                if ($mesa
+                    && $mesa->mesa_status === 'OCUPADA'
+                    && (int) $mesa->mesa_sessao_atual_id === (int) $sessaoMesa->id) {
+                    $mesa->update([
+                        'mesa_status'          => 'LIBERADA',
+                        'mesa_sessao_atual_id' => null,
+                    ]);
                 }
 
                 $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoId)

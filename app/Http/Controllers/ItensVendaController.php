@@ -897,13 +897,17 @@ class ItensVendaController extends Controller
     }
 
     /**
-     * Fecha a sessão de mesa e libera a mesa quando todos os itens foram cobrados.
-     * Retorna true se a sessão foi fechada automaticamente, false caso contrário.
+     * Finaliza a sessão de mesa quando todos os itens dos seus pedidos foram
+     * recebidos (lançados) na venda. A mesa só é liberada se a sessão recebida
+     * for a mesma que está ocupando a mesa no momento (mesa_sessao_atual_id).
+     *
+     * Retorna true se a sessão foi finalizada automaticamente, false caso contrário.
      */
     private function finalizarSessaoSeCompleta(int $sessaoMesaId): bool
     {
         $sessao = SessaoMesa::find($sessaoMesaId);
-        if (!$sessao || $sessao->sessao_mesa_status !== 'ABERTA') {
+        // Só finaliza sessões que ainda estão em aberto ou fechadas (não recebidas)
+        if (!$sessao || !in_array($sessao->sessao_mesa_status, ['ABERTA', 'FECHADA'])) {
             return false;
         }
 
@@ -916,7 +920,7 @@ class ItensVendaController extends Controller
             return false;
         }
 
-        // Verifica se ainda há itens não cobrados nos pedidos ativos da sessão
+        // Verifica se ainda há itens não recebidos nos pedidos ativos da sessão
         $pendentes = ItensPedido::whereHas('pedido', function ($q) use ($sessaoMesaId) {
             $q->where('pedido_sessao_mesa_id', $sessaoMesaId)
               ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO']);
@@ -929,19 +933,19 @@ class ItensVendaController extends Controller
             return false;
         }
 
-        // Todos os itens cobrados: fecha a sessão
-        $sessao->update(['sessao_mesa_status' => 'FECHADA']);
+        // Todos os itens recebidos: finaliza a sessão
+        $sessao->update(['sessao_mesa_status' => 'FINALIZADA']);
 
-        // Libera a mesa se não houver outra sessão ABERTA para ela
+        // Libera a mesa apenas se ela ainda estiver ocupada por ESTA sessão.
+        // Se já houver uma nova sessão ocupando a mesa, ela permanece OCUPADA.
         $mesa = Mesa::find($sessao->sessao_mesa_mesa_id);
-        if ($mesa) {
-            $outraSessaoAberta = SessaoMesa::where('sessao_mesa_mesa_id', $mesa->id)
-                ->where('sessao_mesa_status', 'ABERTA')
-                ->exists();
-
-            if (!$outraSessaoAberta) {
-                $mesa->update(['mesa_status' => 'LIBERADA']);
-            }
+        if ($mesa
+            && $mesa->mesa_status === 'OCUPADA'
+            && (int) $mesa->mesa_sessao_atual_id === (int) $sessao->id) {
+            $mesa->update([
+                'mesa_status'          => 'LIBERADA',
+                'mesa_sessao_atual_id' => null,
+            ]);
         }
 
         return true;

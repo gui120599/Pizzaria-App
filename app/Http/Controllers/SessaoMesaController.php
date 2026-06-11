@@ -338,6 +338,7 @@ class SessaoMesaController extends Controller
         $mesa_id = $request->input('sessao_mesa_mesa_id');
         $mesa    = Mesa::findOrFail($mesa_id);
         $mesa->mesa_status = 'OCUPADA';
+        $mesa->mesa_sessao_atual_id = $sessaoMesa->id;
         $mesa->save();
 
         // Registrar clientes na sessão
@@ -390,9 +391,14 @@ class SessaoMesaController extends Controller
             $sessaoMesa->update(['sessao_mesa_status' => 'CANCELADA']);
         }
 
-        // Atualiza a mesa para 'LIBERADA' em ambos os casos
+        // Atualiza a mesa para 'LIBERADA' em ambos os casos.
+        // Só limpa a sessão atual da mesa se for esta sessão que a ocupa.
         $mesa = Mesa::find($sessaoMesa->sessao_mesa_mesa_id);
-        $mesa->update(['mesa_status' => 'LIBERADA']);
+        $dadosMesa = ['mesa_status' => 'LIBERADA'];
+        if ((int) $mesa->mesa_sessao_atual_id === (int) $sessaoMesa->id) {
+            $dadosMesa['mesa_sessao_atual_id'] = null;
+        }
+        $mesa->update($dadosMesa);
 
         // Redireciona para a rota da sessão da mesa
         return redirect()->route('sessaoMesa', ['mesa_id' => $sessaoMesa->sessao_mesa_mesa_id]);
@@ -417,7 +423,8 @@ class SessaoMesaController extends Controller
                         'sessao_mesa_status' => 'ABERTA'
                     ]);
                     $mesa->update([
-                        'mesa_status' => 'OCUPADA'
+                        'mesa_status'          => 'OCUPADA',
+                        'mesa_sessao_atual_id' => $sessaoMesa->id,
                     ]);
                     return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $mesa->id]);
                     break;
@@ -511,9 +518,11 @@ class SessaoMesaController extends Controller
         // Atualiza a mesa antiga para LIBERADA
         $mesaAntiga = Mesa::find($request->input('mesa_id_antiga'));
         if ($mesaAntiga) {
-            $mesaAntiga->update([
-                'mesa_status' => 'LIBERADA'
-            ]);
+            $dadosMesaAntiga = ['mesa_status' => 'LIBERADA'];
+            if ((int) $mesaAntiga->mesa_sessao_atual_id === (int) $sessaoMesa->id) {
+                $dadosMesaAntiga['mesa_sessao_atual_id'] = null;
+            }
+            $mesaAntiga->update($dadosMesaAntiga);
         } else {
             return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $request->input('mesa_id_antiga')])->with('error', 'Mesa antiga não encontrada!');
         }
@@ -522,7 +531,8 @@ class SessaoMesaController extends Controller
         $mesaNova = Mesa::find($request->input('mesa_id_nova'));
         if ($mesaNova) {
             $mesaNova->update([
-                'mesa_status' => 'OCUPADA'
+                'mesa_status'          => 'OCUPADA',
+                'mesa_sessao_atual_id' => $sessaoMesa->id,
             ]);
         } else {
             return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $request->input('mesa_id_antiga')])->with('error', 'Mesa antiga não encontrada!');

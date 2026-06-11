@@ -1023,13 +1023,13 @@
                         if (response.sessoes_finalizadas && response.sessoes_finalizadas.length > 0) {
                             response.sessoes_finalizadas.forEach(function (sessaoId) {
                                 const card = $('[data-sessao-id="' + sessaoId + '"]');
-                                card.find('.sessao-status-badge').text('FECHADA').addClass('text-orange-500').removeClass('text-gray-400');
+                                card.find('.sessao-status-badge').text('FINALIZADA').addClass('text-green-600').removeClass('text-gray-400');
                                 card.find('input[type=checkbox]').prop('disabled', true);
                                 card.find('button[\\@click*="lancarItensVenda"]').prop('disabled', true)
                                     .removeClass('bg-teal-600 hover:bg-teal-700 text-white shadow')
                                     .addClass('bg-gray-100 text-gray-400 cursor-not-allowed');
                             });
-                            showToast('Todos os itens cobrados! Sessão da mesa encerrada automaticamente.', 'success');
+                            showToast('Todos os itens recebidos! Sessão da mesa finalizada automaticamente.', 'success');
                         } else {
                             showToast('Itens lançados na venda!', 'success');
                         }
