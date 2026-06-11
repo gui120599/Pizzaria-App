@@ -78,8 +78,19 @@
                                 @if ($item->item_pedido_observacao)
                                     <p class="text-[8px] font-bold">Obs: {{ $item->item_pedido_observacao }}</p>
                                 @endif
+                                @if ($item->item_pedido_desconto > 0)
+                                    <p class="text-[8px] font-bold normal-case">Promoção: você economizou R$ {{ number_format($item->item_pedido_desconto, 2, ',', '.') }}</p>
+                                @endif
                             </td>
-                            <td class="text-[9px] font-bold text-right align-top">R$ {{ number_format($item->item_pedido_valor, 2, ',', '.') }}</td>
+                            <td class="text-[9px] font-bold text-right align-top">
+                                @if ($item->item_pedido_desconto > 0)
+                                    @php $valorSemDesconto = $item->item_pedido_valor + $item->item_pedido_desconto; @endphp
+                                    <span class="text-[8px] font-normal line-through">R$ {{ number_format($valorSemDesconto, 2, ',', '.') }}</span><br>
+                                    R$ {{ number_format($item->item_pedido_valor, 2, ',', '.') }}
+                                @else
+                                    R$ {{ number_format($item->item_pedido_valor, 2, ',', '.') }}
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
