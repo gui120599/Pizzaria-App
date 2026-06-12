@@ -50,7 +50,7 @@
                     {{ $pedido->pedido_endereco_entrega ?? '—' }}
                 </p>
             @else
-            
+
                 <div class="col-span-1 flex flex-col text-left">
                     <label class="text-lg">Nº Pedido</label>
                     <label>Cliente</label>
@@ -156,7 +156,7 @@
                 @if (isset($pedido->pedido_valor_frete) && $pedido->pedido_valor_frete > 0)
                     <label>R$ {{ number_format($pedido->pedido_valor_frete, 2, ',', '.') }}</label><br>
                 @endif
-                <label>R$ {{ number_format($pedido->pedido_valor_total, 2, ',', '.') }}</label><br>
+                <label>R$ {{ number_format($itens_inserido_pedido->sum('item_pedido_valor'), 2, ',', '.') }}</label><br>
                 <label>{{ $pedido->pedido_descricao_pagamento ?? '—' }}</label><br>
             </div>
         </div>
