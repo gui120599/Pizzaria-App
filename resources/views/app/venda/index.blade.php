@@ -3,6 +3,7 @@
     <div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"></div>
 
   <div x-data="{ showCliente: false, showPagamento: false }"
+       x-init="$watch('showPagamento', v => { if (v) window.prepararModalPagamento && window.prepararModalPagamento(); })"
        @keydown.escape.window="showCliente = false; showPagamento = false"
        @keydown.window="
            if ($event.altKey && !$event.ctrlKey && !$event.metaKey && !$event.repeat) {
@@ -664,10 +665,9 @@
                         </button>
                     </div>
                     <div>
-                        <x-input-label for="pg_venda_opcaopagamento_id" value="Tipo de pagamento" />
-                        <x-select-input :options="$opcoesPagamentos" value-field="id" display-field="opcaopag_nome"
-                            id="pg_venda_opcaopagamento_id" name="pg_venda_opcaopagamento_id"
-                            class="mt-1 w-full" x-model="selectedId" />
+                        <x-input-label value="Tipo de pagamento" />
+                        <x-radio-group :options="$opcoesPagamentos" value-field="id" display-field="opcaopag_nome"
+                            name="pg_venda_opcaopagamento_id" x-model="selectedId" />
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
@@ -796,21 +796,31 @@
         }
 
         function handleFinalizarClick() {
-            const rawPago  = document.getElementById('venda_valor_pago').value.replace(/\./g, '').replace(',', '.') || '0';
-            const rawTotal = document.getElementById('venda_valor_total').value.replace(/\./g, '').replace(',', '.') || '0';
-            const valorPago  = parseFloat(rawPago)  || 0;
-            const valorTotal = parseFloat(rawTotal) || 0;
-            if (valorTotal > 0 && valorPago >= valorTotal) {
-                document.getElementById('formVenda').submit();
-                return;
-            }
+            const toNum = v => parseFloat((v || '0').replace(/\./g, '').replace(',', '.')) || 0;
+            const valorPago  = toNum(document.getElementById('venda_valor_pago').value);
+            const valorTotal = toNum(document.getElementById('venda_valor_total').value);
+            const valorTroco = toNum(document.getElementById('venda_valor_troco').value);
+            const tol = 0.005;
+
             if (valorTotal <= 0) {
                 showToast('Adicione itens à venda antes de finalizar.', 'warning');
                 return;
             }
-            showToast('Valor pago insuficiente para finalizar a venda!', 'warning');
-            document.getElementById('pg_venda_valor_pagamento')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            document.getElementById('pg_venda_valor_pagamento')?.focus();
+            if (valorPago + tol < valorTotal) {
+                showToast('Valor pago insuficiente para finalizar a venda!', 'warning');
+                document.getElementById('pg_venda_valor_pagamento')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                document.getElementById('pg_venda_valor_pagamento')?.focus();
+                return;
+            }
+            // Recebido maior que o total mas sem troco informado: bloqueia (evita finalizar
+            // com troco zerado quando o cliente, na verdade, tem troco a receber).
+            if ((valorPago - valorTotal) > tol && valorTroco <= tol) {
+                showToast('O valor recebido excede o total da venda, mas nenhum troco foi informado. Ajuste o "Valor recebido" para o total da venda ou informe o "Pago pelo cliente" para gerar o troco.', 'warning');
+                document.getElementById('pg_venda_valor_pago_pelo_cliente')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                document.getElementById('pg_venda_valor_pago_pelo_cliente')?.focus();
+                return;
+            }
+            document.getElementById('formVenda').submit();
         }
 
         function showToast(message, type = 'error') {
@@ -969,7 +979,7 @@
             $("#pg_venda_valor_pagamento").keyup(function () {
                 const valor_pag  = parseMoeda($(this).val());
                 const valor_taxa = parseFloat($("#opcao_pag_taxa").val()) || 0;
-                const opt = opcao_pag.find(op => String(op.id) === String($("#pg_venda_opcaopagamento_id").val()));
+                const opt = opcao_pag.find(op => String(op.id) === String($("input[name='pg_venda_opcaopagamento_id']:checked").val()));
                 if (opt) {
                     if (opt.opcaopag_tipo_taxa === 'ACRESCENTAR') {
                         $("#pg_venda_valor_acrescimo").val((valor_pag * valor_taxa / 100).toFixed(2));
@@ -984,6 +994,23 @@
             $('#pg_venda_valor_pagamento, #pg_venda_valor_pago_pelo_cliente, #pg_venda_numero_autorizacao_cartao').on('keypress', function (e) {
                 if (e.which === 13) { e.preventDefault(); InserePagamento(); }
             });
+
+            // Ao abrir o modal de pagamento: preenche "Valor recebido" com o que falta
+            // pagar (= total na primeira vez, editável) e foca em "Pago pelo cliente".
+            window.prepararModalPagamento = function () {
+                const total = parseMoeda($("#venda_valor_total").val());
+                const pago  = parseMoeda($("#venda_valor_pago").val());
+                const falta = Math.max(0, Math.round((total - pago) * 100) / 100);
+                const $recebido = $("#pg_venda_valor_pagamento");
+                if (parseMoeda($recebido.val()) === 0) {
+                    $recebido.val(falta.toFixed(2).replace('.', ',')).trigger('input');
+                }
+                atualizarTrocoPagamento();
+                setTimeout(function () {
+                    const f = document.getElementById('pg_venda_valor_pago_pelo_cliente');
+                    if (f) { f.focus(); if (f.select) f.select(); }
+                }, 120);
+            };
 
             // Evita backspace fora de inputs
             document.addEventListener('keydown', function (e) {
@@ -1245,7 +1272,8 @@
 
             function InserePagamento() {
                 comVenda(function (venda_id) {
-                    const selectedId = $("#pg_venda_opcaopagamento_id").val();
+                    const selectedId = $("input[name='pg_venda_opcaopagamento_id']:checked").val();
+                    if (!selectedId) { showToast('Selecione o tipo de pagamento.', 'warning'); return; }
                     const opt  = opcao_pag.find(op => String(op.id) === String(selectedId));
                     const cartao_id = opt?.opcaopag_requer_bandeira ? $("#pg_venda_cartao_id").val() : null;
                     const num_aut   = opt?.opcaopag_requer_autorizacao ? $("#pg_venda_numero_autorizacao_cartao").val() : null;

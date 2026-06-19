@@ -158,6 +158,26 @@ class VendaController extends Controller
             $sessaoCaixa = SessaoCaixa::findOrFail($request->input('venda_sessao_caixa_id'));
 
             // =========================
+            // VALIDAÇÃO DE PAGAMENTO / TROCO
+            // =========================
+            $totalVenda = round((float) $venda->venda_valor_total, 2);
+            $pagoVenda  = round((float) $venda->venda_valor_pago, 2);
+            $trocoVenda = round((float) $venda->venda_valor_troco, 2);
+            $tol = 0.005;
+
+            if ($totalVenda > 0) {
+                if ($pagoVenda + $tol < $totalVenda) {
+                    DB::rollBack();
+                    return redirect()->back()->with('error', 'Valor pago insuficiente para finalizar a venda.');
+                }
+                // Recebido maior que o total sem troco informado: pagamento inconsistente.
+                if (($pagoVenda - $totalVenda) > $tol && $trocoVenda <= $tol) {
+                    DB::rollBack();
+                    return redirect()->back()->with('error', 'O valor recebido excede o total da venda, mas nenhum troco foi informado. Ajuste o valor recebido para o total ou informe o valor pago pelo cliente para gerar o troco.');
+                }
+            }
+
+            // =========================
             // TRATAMENTO DO CLIENTE
             // =========================
             if (
