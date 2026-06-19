@@ -249,7 +249,10 @@ class PedidoProdutoSelector extends Component
         }
 
         $numSabores = count($sel);
-        $qtdFracao  = round(1 / $numSabores, 4);
+        // Quantidade distribuída em centésimos para somar exatamente 1 inteiro
+        // (ex.: 1/3 → 0,33 + 0,33 + 0,34). O resto vai para os últimos sabores.
+        $qtdPorItem = intdiv(100, $numSabores);
+        $qtdExtra   = 100 % $numSabores;
         // Cada fração de sabor já é exibida como item próprio (com o nome do sabor),
         // então não gravamos o combo na observação — o campo fica livre para nota real.
 
@@ -258,6 +261,9 @@ class PedidoProdutoSelector extends Component
             : null;
 
         foreach ($sel as $idx => $sabor) {
+            // Quantidade da fração: resto distribuído nos últimos sabores (último = 0,34)
+            $qtdFracao      = ($qtdPorItem + ($idx >= $numSabores - $qtdExtra ? 1 : 0)) / 100;
+
             $sPrecoOrig     = (float) $sabor['precoOriginal'];
             $sPreco         = (float) $sabor['preco'];
             // Preço base é sempre o maior entre original e promocional

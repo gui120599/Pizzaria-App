@@ -124,9 +124,16 @@ class CardapioCheckoutController extends Controller
             if (! empty($sabores) && count($sabores) > 1) {
                 // Meia a meia / terços: um item_pedido por sabor com quantidade fracionada
                 $numSabores = count($sabores);
-                $qtdFracao  = round($qty / $numSabores, 4);
+                // Quantidade distribuída em centésimos para somar exatamente $qty inteiros
+                // (ex.: 1 pizza em 1/3 → 0,33 + 0,33 + 0,34). O resto vai para os últimos sabores.
+                $qtdCentesimos = $qty * 100;
+                $qtdPorItem    = intdiv($qtdCentesimos, $numSabores);
+                $qtdExtra      = $qtdCentesimos % $numSabores;
 
                 foreach ($sabores as $idx => $sabor) {
+                    // Quantidade da fração: resto distribuído nos últimos sabores (último = 0,34)
+                    $qtdFracao  = ($qtdPorItem + ($idx >= $numSabores - $qtdExtra ? 1 : 0)) / 100;
+
                     $sPrecoOrig = max((float) ($sabor['precoOriginal'] ?? 0), (float) $sabor['preco']);
                     $sPreco     = (float) $sabor['preco'];
                     $sPrecoBase = max($sPrecoOrig, $sPreco);
