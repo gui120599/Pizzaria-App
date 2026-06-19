@@ -425,12 +425,47 @@ class VendaController extends Controller
     {
         $venda->load(['cliente', 'sessaoCaixa.caixa', 'sessaoCaixa.user', 'pagamentos.opcaoPagamento']);
 
+        $sessaoCaixa = $venda->sessaoCaixa;
+
+        // Mesmas fontes de itens da tela de criação (paridade de UI)
+        $sessaoMesas = SessaoMesa::whereIn('sessao_mesa_status', ['ABERTA', 'FECHADA'])
+            ->with([
+                'pedidos' => function ($query) {
+                    $query->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO'])
+                        ->with([
+                            'item_pedido_pedido_id.produto.categoria',
+                            'item_pedido_pedido_id.adicionaisItemPedido.adicional',
+                            'item_pedido_pedido_id.cliente',
+                            'item_pedido_pedido_id.venda',
+                            'item_pedido_pedido_id' => function ($query) {
+                                $query->where('item_pedido_status', 'INSERIDO');
+                            }
+                        ]);
+                }
+            ])
+            ->get();
+
+        $pedidos = Pedido::whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO'])
+            ->with([
+                'item_pedido_pedido_id.produto.categoria',
+                'item_pedido_pedido_id.adicionaisItemPedido.adicional',
+                'item_pedido_pedido_id' => function ($query) {
+                    $query->where('item_pedido_status', 'INSERIDO');
+                }
+            ])
+            ->whereNull('pedido_venda_id')
+            ->orderByDesc('id')
+            ->get();
+
         $categorias       = Categoria::with('produtos')->get();
         $clientes         = Cliente::all();
         $opcoesPagamentos = OpcoesPagamento::all();
         $cartoes          = CartoesPagamento::all();
 
-        return view('app.venda.edit', compact('venda', 'categorias', 'clientes', 'opcoesPagamentos', 'cartoes'));
+        return view('app.venda.edit', compact(
+            'venda', 'sessaoCaixa', 'sessaoMesas', 'pedidos',
+            'categorias', 'clientes', 'opcoesPagamentos', 'cartoes'
+        ));
     }
 
     /**
