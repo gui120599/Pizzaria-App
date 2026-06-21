@@ -50,7 +50,8 @@
                     this.clientes.push({ id: this.clienteId, nome: this.nome.trim(), tel: this.tel });
                     this.tel = ''; this.clienteId = null; this.nome = ''; this.encontrado = false;
                 },
-                remover(i) { this.clientes.splice(i, 1); }
+                remover(i) { this.clientes.splice(i, 1); },
+                @include('app.sessao_mesa.partials._busca_cliente_nome_js')
              }" class="space-y-3">
 
             <p class="flex items-center gap-2 text-sm font-bold text-teal-700">
@@ -79,6 +80,10 @@
 
             {{-- Formulário de busca/adicionar --}}
             <div class="bg-gray-50 rounded-xl p-3 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-gray-700">Adicionar cliente</span>
+                    @include('app.sessao_mesa.partials._busca_cliente_nome')
+                </div>
                 <div>
                     <x-input-label value="Telefone" />
                     <div class="flex gap-2 mt-1">

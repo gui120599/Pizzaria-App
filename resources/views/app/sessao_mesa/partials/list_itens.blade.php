@@ -56,7 +56,8 @@
                                  this.clientes.push({ id: this.clienteId, nome: this.nome.trim(), tel: this.tel });
                                  this.tel = ''; this.clienteId = null; this.nome = ''; this.encontrado = false;
                              },
-                             remover(i) { this.clientes.splice(i, 1); }
+                             remover(i) { this.clientes.splice(i, 1); },
+                             @include('app.sessao_mesa.partials._busca_cliente_nome_js')
                          }">
 
                         {{-- Header --}}
@@ -127,7 +128,10 @@
 
                             {{-- Busca por telefone --}}
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block text-sm font-medium text-gray-700">Telefone</label>
+                                    @include('app.sessao_mesa.partials._busca_cliente_nome')
+                                </div>
                                 <div class="flex gap-2">
                                     <input type="tel" x-model="tel" @input.debounce.500ms="buscar()"
                                            placeholder="(00) 00000-0000"
