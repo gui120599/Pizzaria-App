@@ -98,7 +98,8 @@
                     <div class="grid grid-cols-1 gap-4">
                         @foreach ($promocoes as $produto)
                             @php
-                                $nomeCarrinho = $produto->categoria->categoria_nome . ' ' . $produto->produto_descricao;
+                                $nomeExibicao = $produto->nomeExibicao();
+                                $nomeCarrinho = $nomeExibicao;
                                 $precoCarrinho = $produto->produto_preco_promocional;
                             @endphp
                             <div class="relative snap-end" x-show="catAtiva === 'todos' || catAtiva === '{{ $produto->categoria->id }}'">
@@ -109,7 +110,7 @@
                                             <span class="absolute top-1 left-1 bg-orange-500 text-white text-[10px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5"><i class='bx bxs-purchase-tag text-xs'></i> PROMO</span>
                                         </div>
                                         <div class="w-full h-28 flex flex-col justify-center space-y-1">
-                                            <h2 class="text-gray-100 text-base uppercase">{{ $produto->categoria->categoria_nome }} {{ $produto->produto_descricao }}</h2>
+                                            <h2 class="text-gray-100 text-base uppercase">{{ $nomeExibicao }}</h2>
                                             <span class="text-gray-400 text-xs">Codimentos: {{ $produto->produto_codimentacao }}</span>
                                             <div class="flex flex-col">
                                                 @if ($produto->produto_preco_promocional < $produto->produto_preco_venda)
@@ -167,7 +168,8 @@
                     <div class="grid grid-cols-1 gap-4">
                         @foreach ($maisVendidos as $produto)
                             @php
-                                $nomeCarrinho = $produto->categoria->categoria_nome . ' ' . $produto->produto_descricao;
+                                $nomeExibicao = $produto->nomeExibicao();
+                                $nomeCarrinho = $nomeExibicao;
                                 $precoCarrinho = $produto->produto_preco_promocional > 0 ? $produto->produto_preco_promocional : $produto->produto_preco_venda;
                             @endphp
                             <div class="relative snap-end" x-show="catAtiva === 'todos' || catAtiva === '{{ $produto->categoria->id }}'">
@@ -181,7 +183,7 @@
                                             @endif
                                         </div>
                                         <div class="w-full h-28 flex flex-col justify-center space-y-1">
-                                            <h2 class="text-gray-100 text-base uppercase">{{ $produto->categoria->categoria_nome }} {{ $produto->produto_descricao }}</h2>
+                                            <h2 class="text-gray-100 text-base uppercase">{{ $nomeExibicao }}</h2>
                                             <span class="text-gray-400 text-xs">Codimentos: {{ $produto->produto_codimentacao }}</span>
                                             <div class="flex flex-col">
                                                 @if ($produto->produto_preco_promocional > 0)
@@ -230,12 +232,9 @@
                         <div class="grid grid-cols-1 gap-4">
                             @foreach ($categoria->produtos as $produto)
                                 @php
-                                    $nomeCarrinho = $produto->categoria->categoria_nome . ' ' . $produto->produto_descricao;
+                                    $nomeExibicao = $produto->nomeExibicao();
+                                    $nomeCarrinho = $nomeExibicao;
                                     $precoCarrinho = $produto->produto_preco_promocional > 0 ? $produto->produto_preco_promocional : $produto->produto_preco_venda;
-                                    $ehProduzido = $produto->produto_tipo === \App\Enums\ProdutoTipoEnum::PRODUZIDO->value;
-                                    $nomeExibicao = $ehProduzido
-                                        ? $produto->categoria->categoria_nome . ' ' . $produto->produto_descricao
-                                        : $produto->produto_descricao;
                                 @endphp
                                 <div class="relative snap-end">
                                     <a href="{{ route('produto.show', ['produto' => $produto]) }}">

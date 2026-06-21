@@ -17,6 +17,8 @@ class Produto extends Model
     protected $dates = ['deleted_at'];
     protected $fillable = [
         'produto_descricao',
+        'produto_exibe_categoria',
+        'produto_preposicao',
         'produto_ordem',
         'produto_codimentacao',
         'produto_tipo',
@@ -51,7 +53,29 @@ class Produto extends Model
         'produto_destaque_mais_vendidos',
     ];
 
+    protected $casts = [
+        'produto_exibe_categoria' => 'boolean',
+    ];
 
+    /**
+     * Nome para exibição no cardápio. Quando o produto está marcado para
+     * exibir a categoria, monta "Categoria [preposição] Descrição"
+     * (ex.: "PASTEL DE FRANGO"). Caso contrário, retorna só a descrição.
+     */
+    public function nomeExibicao(): string
+    {
+        if (! $this->produto_exibe_categoria || ! $this->categoria) {
+            return $this->produto_descricao;
+        }
+
+        $preposicao = trim((string) $this->produto_preposicao);
+
+        return collect([
+            $this->categoria->categoria_nome,
+            $preposicao !== '' ? $preposicao : null,
+            $this->produto_descricao,
+        ])->filter()->implode(' ');
+    }
 
     // Relacionamento com a tabela 'categorias'
     public function categoria()

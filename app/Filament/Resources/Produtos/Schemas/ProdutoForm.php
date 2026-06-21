@@ -86,6 +86,22 @@ class ProdutoForm
                                 ->columnSpanFull()
                                 ->helperText('Descrição breve e clara'),
 
+                            Toggle::make('produto_exibe_categoria')
+                                ->label('Exibir categoria na descrição?')
+                                ->inline()
+                                ->live()
+                                ->columnSpan(2)
+                                ->helperText('Ex.: "PASTEL DE FRANGO" — categoria + preposição + descrição'),
+
+                            TextInput::make('produto_preposicao')
+                                ->label('Preposição')
+                                ->placeholder('Ex.: DE, DO, DA, COM')
+                                ->maxLength(20)
+                                ->columnSpan(1)
+                                ->visible(fn(Get $get): bool => (bool) $get('produto_exibe_categoria'))
+                                ->dehydrateStateUsing(fn(?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
+                                ->helperText('Liga categoria e descrição (opcional)'),
+
                             TextInput::make('produto_codimentacao')
                                 ->label('Código de Alimentação')
                                 ->placeholder('Ex: 123456')
