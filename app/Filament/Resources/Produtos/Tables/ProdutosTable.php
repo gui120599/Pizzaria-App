@@ -114,6 +114,10 @@ class ProdutosTable
                 ToggleColumn::make('produto_destaque_mais_vendidos')
                     ->label('Mais Vendidos')
                     ->toggleable(isToggledHiddenByDefault: false),
+
+                ToggleColumn::make('produto_exibe_categoria')
+                    ->label('Exibe Categoria')
+                    ->toggleable(isToggledHiddenByDefault: false),
                 
                 TextColumn::make('produto_quantidade_minima')
                     ->label('Qtd. Mín.')
