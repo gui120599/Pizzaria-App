@@ -173,6 +173,11 @@
         <i class='bx bx-user-circle'></i>
         <span class="text-[11px] ml-4 text-gray-200">{{ Auth::user()->name_first }}</span>
     </x-nav-link>
+    <a href="{{ route('filament.admin.pages.dashboard') }}"
+        class="nav-link p2.5 mt-3 h-10 flex items-center rounded-md px-4 cursor-pointer hover:bg-amber-700 transition duration-150 ease-in-out">
+        <i class='bx bx-shield-quarter'></i>
+        <span class="text-[11px] ml-4 text-gray-200 uppercase">{{ __('Painel Admin') }}</span>
+    </a>
     <style>
         /* Adicione estas regras CSS no seu arquivo de estilo ou diretamente na tag <style> no head do HTML */
         .sidebar {
