@@ -9,15 +9,21 @@ abrirBusca() {
     this.modalBuscaAberta = true;
     this.termo = '';
     this.resultados = [];
-    this.$nextTick(() => this.$refs.inputBuscaNome?.focus());
+    this.$nextTick(() => document.getElementById('input-busca-nome-mesa')?.focus());
 },
 async buscarPorNome() {
     if (this.termo.trim().length < 2) { this.resultados = []; return; }
     this.buscandoNome = true;
-    const r = await fetch('{{ route('cliente.buscar_nome') }}?nome=' + encodeURIComponent(this.termo));
-    const d = await r.json();
-    this.buscandoNome = false;
-    this.resultados = d.clientes ?? [];
+    try {
+        const r = await fetch('{{ route('cliente.buscar_nome') }}?nome=' + encodeURIComponent(this.termo));
+        if (!r.ok) throw new Error(r.status);
+        const d = await r.json();
+        this.resultados = d.clientes ?? [];
+    } catch {
+        this.resultados = [];
+    } finally {
+        this.buscandoNome = false;
+    }
 },
 selecionarBusca(c) {
     this.clienteId = c.cliente_id;

@@ -14,7 +14,7 @@
          style="display:none">
         <div class="absolute inset-0 bg-black/40" @click="modalBuscaAberta = false"></div>
         <div class="relative bg-white w-full max-w-md rounded-2xl shadow-xl flex flex-col max-h-[80vh]"
-             x-transition.origin.top>
+             x-transition>
             <div class="flex items-center justify-between p-4 border-b border-gray-100">
                 <p class="flex items-center gap-2 text-sm font-bold text-teal-700">
                     <i class='bx bx-search-alt'></i> Buscar cliente por nome
@@ -22,7 +22,7 @@
                 <button type="button" @click="modalBuscaAberta = false" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
             </div>
             <div class="p-4">
-                <input type="text" x-ref="inputBuscaNome" x-model="termo" @input.debounce.400ms="buscarPorNome()"
+                <input type="text" id="input-busca-nome-mesa" x-model="termo" @input.debounce.400ms="buscarPorNome()"
                        placeholder="Digite o nome do cliente..."
                        class="w-full border-gray-300 rounded-lg shadow-sm text-sm focus:ring-teal-500 focus:border-teal-500">
             </div>
