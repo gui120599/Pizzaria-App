@@ -41,6 +41,32 @@ class CardapioCheckoutController extends Controller
         ]);
     }
 
+    public function buscarClientesPorNome(Request $request)
+    {
+        $termo = trim($request->string('nome'));
+
+        if (mb_strlen($termo) < 2) {
+            return response()->json(['clientes' => []]);
+        }
+
+        $clientes = Cliente::where('cliente_nome', 'like', "%{$termo}%")
+            ->orderBy('cliente_nome')
+            ->limit(15)
+            ->get()
+            ->map(fn (Cliente $cliente) => [
+                'cliente_id' => $cliente->id,
+                'nome'       => $cliente->cliente_nome,
+                'celular'    => $cliente->cliente_celular,
+                'endereco'   => collect([
+                    $cliente->cliente_endereco,
+                    $cliente->cliente_numero_endereco,
+                    $cliente->cliente_bairro,
+                ])->filter()->implode(', '),
+            ]);
+
+        return response()->json(['clientes' => $clientes]);
+    }
+
     public function checkout(Request $request)
     {
         if (! HorarioFuncionamento::estaAberto()) {

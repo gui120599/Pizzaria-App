@@ -175,6 +175,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/Pedido-relatorio-pdf', [PedidoController::class, 'relatorioLista'])->name('pedido.relatorioPDF')->middleware('permission:Admin');
     Route::get('/Pedidos', [PedidoController::class, 'list'])->name('pedidos');
     Route::get('/Pedido/Create', [PedidoController::class, 'create'])->name('pedido.create');
+    Route::get('/Clientes/Buscar-Nome', [CardapioCheckoutController::class, 'buscarClientesPorNome'])->name('cliente.buscar_nome');
     Route::post('/Pedido', [PedidoController::class, 'store'])->name('pedido.store');
     Route::get('/Pedido/{pedido}', [PedidoController::class, 'show'])->name('pedido.show');
     Route::get('/Pedidos-Abertos', [PedidoController::class, 'PedidosAbertos'])->name('pedidos.abertos');
