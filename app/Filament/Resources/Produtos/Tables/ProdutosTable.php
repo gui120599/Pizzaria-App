@@ -33,6 +33,7 @@ class ProdutosTable
         return $table
             ->reorderable('produto_ordem')
             ->defaultSort('produto_ordem')
+            ->deferFilters(false)
             ->columns([
                 TextColumn::make('produto_ordem')
                     ->label('Ord.')
@@ -164,6 +165,7 @@ class ProdutosTable
                 SelectFilter::make('produto_categoria_id')
                     ->label('Categoria')
                     ->relationship('categoria', 'categoria_nome')
+                    ->multiple()
                     ->searchable()
                     ->preload(),
                 
