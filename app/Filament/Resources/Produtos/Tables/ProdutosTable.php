@@ -63,11 +63,13 @@ class ProdutosTable
                 TextColumn::make('produto_tipo')
                     ->label('Tipo')
                     ->badge()
-                    ->color(fn($state) => match($state) {
-                        'simples' => 'info',
-                        'composio' => 'warning',
-                        'servico' => 'success',
-                        default => 'gray',
+                    ->formatStateUsing(fn ($state) => ProdutoTipoEnum::tryFrom($state)?->label() ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        ProdutoTipoEnum::PRODUZIDO->value       => 'success',
+                        ProdutoTipoEnum::REVENDA->value         => 'info',
+                        ProdutoTipoEnum::INSUMO->value          => 'warning',
+                        ProdutoTipoEnum::CONSUMO_INTERNO->value => 'danger',
+                        default                                 => 'gray',
                     })
                     ->toggleable(isToggledHiddenByDefault: false),
                 
@@ -403,6 +405,40 @@ class ProdutosTable
 
                             Notification::make()
                                 ->title("{$count} produto(s) duplicado(s) com sucesso.")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('alterar_tipo')
+                        ->label('Alterar Tipo do Produto')
+                        ->icon('heroicon-o-adjustments-horizontal')
+                        ->color('gray')
+                        ->modalHeading('Alterar Tipo do Produto')
+                        ->modalDescription('Define o tipo dos produtos selecionados.')
+                        ->modalWidth('md')
+                        ->form([
+                            Select::make('produto_tipo')
+                                ->label('Tipo do produto')
+                                ->options(
+                                    collect(ProdutoTipoEnum::cases())
+                                        ->mapWithKeys(fn ($type) => [$type->value => $type->label()])
+                                        ->toArray()
+                                )
+                                ->native(false)
+                                ->required(),
+                        ])
+                        ->action(function ($records, array $data) {
+                            $count = 0;
+                            foreach ($records as $produto) {
+                                $produto->update(['produto_tipo' => $data['produto_tipo']]);
+                                $count++;
+                            }
+
+                            $label = ProdutoTipoEnum::from($data['produto_tipo'])->label();
+
+                            Notification::make()
+                                ->title('Tipo atualizado')
+                                ->body("{$count} produto(s) alterado(s) para \"{$label}\".")
                                 ->success()
                                 ->send();
                         })
