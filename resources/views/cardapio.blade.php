@@ -19,7 +19,30 @@
                 </x-primary-button>
             </div>
             <div class="col-span-1 flex items-center justify-center">
-                <button class="text-white text-3xl mt-2"><i class='bx bx-dots-vertical-rounded'></i></button>
+                <div class="relative mt-2" x-data="{ menuOpen: false }" @keydown.escape.window="menuOpen = false">
+                    <button type="button"
+                        @click="menuOpen = !menuOpen"
+                        class="text-white text-3xl focus:outline-none"
+                        aria-label="Menu">
+                        <i class='bx bx-dots-vertical-rounded'></i>
+                    </button>
+                    <div x-show="menuOpen"
+                        @click.outside="menuOpen = false"
+                        x-transition.origin.top.right
+                        class="absolute right-0 mt-2 w-48 rounded-lg bg-white shadow-lg ring-1 ring-black/10 py-1 z-50"
+                        style="display:none">
+                        <a href="{{ route('filament.admin.auth.login') }}"
+                            class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class='bx bx-shield-quarter text-lg'></i>
+                            <span>Painel Admin</span>
+                        </a>
+                        <a href="{{ route('dashboard') }}"
+                            class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class='bx bx-grid-alt text-lg'></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </div>
+                </div>
             </div>
             <div class="col-span-full">
                 <hr class="h-px my-1 border-0 bg-gray-400">
