@@ -77,14 +77,13 @@
                class="mt-1 w-full border-gray-300 rounded-lg shadow-sm text-sm focus:ring-teal-500 focus:border-teal-500">
     </div>
 
-    {{-- Modal de busca por nome --}}
-    <template x-teleport="body">
-        <div x-show="modalAberta" x-cloak
-             class="fixed inset-0 z-50 flex items-start justify-center p-4 sm:pt-24"
-             style="display:none">
-            <div class="absolute inset-0 bg-black/40" @click="fecharModal()"></div>
-            <div class="relative bg-white w-full max-w-md rounded-2xl shadow-xl flex flex-col max-h-[80vh]"
-                 x-transition.origin.top>
+    {{-- Modal de busca por nome (inline, sem x-teleport para evitar duplicação com Livewire) --}}
+    <div x-show="modalAberta" x-cloak
+         class="fixed inset-0 z-50 flex items-start justify-center p-4 sm:pt-24"
+         style="display:none">
+        <div class="absolute inset-0 bg-black/40" @click="fecharModal()"></div>
+        <div class="relative bg-white w-full max-w-md rounded-2xl shadow-xl flex flex-col max-h-[80vh]"
+             x-transition>
                 <div class="flex items-center justify-between p-4 border-b border-gray-100">
                     <p class="flex items-center gap-2 text-sm font-bold text-teal-700">
                         <i class='bx bx-search-alt'></i> Buscar cliente por nome
@@ -117,5 +116,4 @@
                 </div>
             </div>
         </div>
-    </template>
 </div>
