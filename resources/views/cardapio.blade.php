@@ -232,6 +232,10 @@
                                 @php
                                     $nomeCarrinho = $produto->categoria->categoria_nome . ' ' . $produto->produto_descricao;
                                     $precoCarrinho = $produto->produto_preco_promocional > 0 ? $produto->produto_preco_promocional : $produto->produto_preco_venda;
+                                    $ehProduzido = $produto->produto_tipo === \App\Enums\ProdutoTipoEnum::PRODUZIDO->value;
+                                    $nomeExibicao = $ehProduzido
+                                        ? $produto->categoria->categoria_nome . ' ' . $produto->produto_descricao
+                                        : $produto->produto_descricao;
                                 @endphp
                                 <div class="relative snap-end">
                                     <a href="{{ route('produto.show', ['produto' => $produto]) }}">
@@ -248,9 +252,9 @@
                                             <div class="w-full h-28 flex flex-col justify-center space-y-2">
                                                 <h2 class="text-gray-100 text-lg uppercase">
                                                     @if (isset($produto->produto_referencia) && $produto->produto_referencia !== null)
-                                                        {{ $produto->produto_descricao }} - <span>Ref. {{ $produto->produto_referencia }}</span>
+                                                        {{ $nomeExibicao }} - <span>Ref. {{ $produto->produto_referencia }}</span>
                                                     @else
-                                                        {{ $produto->produto_descricao }}
+                                                        {{ $nomeExibicao }}
                                                     @endif
                                                 </h2>
                                                 <span class="text-gray-200 text-xs">Codimentos: {{ $produto->produto_codimentacao }}</span>
