@@ -16,6 +16,7 @@ class Categoria extends Model
     protected $dates = ['deleted_at'];
     protected $fillable = [
         'categoria_nome',
+        'categoria_preposicao_padrao',
         'categoria_ordem',
         'categoria_cardapio',
         'categoria_permite_sabores',

@@ -68,7 +68,8 @@ class Produto extends Model
             return $this->produto_descricao;
         }
 
-        $preposicao = trim((string) $this->produto_preposicao);
+        // Usa a preposição do produto; se vazia, recorre à padrão da categoria.
+        $preposicao = trim((string) ($this->produto_preposicao ?: $this->categoria->categoria_preposicao_padrao));
 
         return collect([
             $this->categoria->categoria_nome,

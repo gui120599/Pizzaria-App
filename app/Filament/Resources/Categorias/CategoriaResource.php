@@ -63,6 +63,13 @@ class CategoriaResource extends Resource
                             ->maxLength(100)
                             ->helperText('Identifica a categoria de forma clara'),
 
+                        TextInput::make('categoria_preposicao_padrao')
+                            ->label('Preposição Padrão')
+                            ->placeholder('Ex: DE, DO, DA, COM')
+                            ->maxLength(20)
+                            ->dehydrateStateUsing(fn(?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
+                            ->helperText('Aplicada ao marcar "Exibe Categoria" nos produtos. Ex.: PASTEL DE FRANGO'),
+
                         TextInput::make('categoria_ordem')
                             ->label('Ordem de Exibição')
                             ->numeric()

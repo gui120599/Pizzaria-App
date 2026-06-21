@@ -14,6 +14,7 @@ use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Leandrocfe\FilamentPtbrFormFields\Money;
 
@@ -91,6 +92,11 @@ class ProdutoForm
                                 ->inline()
                                 ->live()
                                 ->columnSpan(2)
+                                ->afterStateUpdated(function (bool $state, Set $set, Get $get): void {
+                                    if ($state && blank($get('produto_preposicao'))) {
+                                        $set('produto_preposicao', Categoria::find($get('produto_categoria_id'))?->categoria_preposicao_padrao);
+                                    }
+                                })
                                 ->helperText('Ex.: "PASTEL DE FRANGO" — categoria + preposição + descrição'),
 
                             TextInput::make('produto_preposicao')
@@ -100,7 +106,7 @@ class ProdutoForm
                                 ->columnSpan(1)
                                 ->visible(fn(Get $get): bool => (bool) $get('produto_exibe_categoria'))
                                 ->dehydrateStateUsing(fn(?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
-                                ->helperText('Liga categoria e descrição (opcional)'),
+                                ->helperText('Vazio usa a preposição padrão da categoria'),
 
                             TextInput::make('produto_codimentacao')
                                 ->label('Código de Alimentação')
