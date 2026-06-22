@@ -19,6 +19,11 @@ class Produto extends Model
         'produto_descricao',
         'produto_exibe_categoria',
         'produto_preposicao',
+        'produto_custo_medio',
+        'produto_saldo_estoque',
+        'produto_unidade_estoque',
+        'produto_controla_lote',
+        'produto_perecivel',
         'produto_ordem',
         'produto_codimentacao',
         'produto_tipo',
@@ -55,6 +60,10 @@ class Produto extends Model
 
     protected $casts = [
         'produto_exibe_categoria' => 'boolean',
+        'produto_controla_lote' => 'boolean',
+        'produto_perecivel' => 'boolean',
+        'produto_custo_medio' => 'decimal:4',
+        'produto_saldo_estoque' => 'decimal:3',
     ];
 
     /**
@@ -87,6 +96,18 @@ class Produto extends Model
     public function mov_produto()
     {
         return $this->hasMany(MovimentacaoProduto::class, 'mov_produto_id');
+    }
+
+    // Lotes de estoque (controle físico/validade — baixa FEFO)
+    public function lotes()
+    {
+        return $this->hasMany(EstoqueLote::class, 'lote_produto_id');
+    }
+
+    // De-para de fornecedores (código do fornecedor ↔ insumo, p/ NF e XML)
+    public function fornecedores()
+    {
+        return $this->hasMany(FornecedorProduto::class, 'fp_produto_id');
     }
 
     public function saveFoto($foto)

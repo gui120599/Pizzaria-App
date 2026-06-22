@@ -1,0 +1,225 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\MovimentacaoOrigemEnum;
+use App\Enums\MovimentacaoTipoEnum;
+use App\Models\EstoqueLote;
+use App\Models\MovimentacaoProduto;
+use App\Models\Produto;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Ponto único de escrita do estoque.
+ *
+ * Valoração por Custo Médio Móvel Ponderado (WAC): toda entrada recalcula o
+ * custo médio do produto; toda saída é valorada pelo médio vigente. Quando o
+ * produto controla lote, o físico é baixado em FEFO (vence primeiro, sai
+ * primeiro) gerando uma movimentação por lote consumido.
+ *
+ * $opts aceito (todas opcionais): validade, lote_codigo, centro_custo_id,
+ * referencia (Model), motivo, data, venda_id, user_id.
+ */
+class EstoqueService
+{
+    /**
+     * Registra uma entrada de estoque, recalcula o custo médio (WAC) e,
+     * se o produto controla lote, cria o lote correspondente.
+     */
+    public function registrarEntrada(
+        Produto $produto,
+        float $quantidade,
+        float $custoUnitario,
+        MovimentacaoOrigemEnum $origem,
+        array $opts = []
+    ): MovimentacaoProduto {
+        return DB::transaction(function () use ($produto, $quantidade, $custoUnitario, $origem, $opts) {
+            /** @var Produto $produto */
+            $produto = Produto::lockForUpdate()->findOrFail($produto->id);
+
+            $saldoAtual = (float) $produto->produto_saldo_estoque;
+            $medioAtual = (float) $produto->produto_custo_medio;
+            $novoSaldo = $saldoAtual + $quantidade;
+
+            $novoMedio = $novoSaldo > 0
+                ? (($saldoAtual * $medioAtual) + ($quantidade * $custoUnitario)) / $novoSaldo
+                : $custoUnitario;
+
+            $lote = null;
+            if ($produto->produto_controla_lote) {
+                $lote = EstoqueLote::create([
+                    'lote_produto_id' => $produto->id,
+                    'lote_codigo' => $opts['lote_codigo'] ?? null,
+                    'lote_validade' => $opts['validade'] ?? null,
+                    'lote_qtd_inicial' => $quantidade,
+                    'lote_qtd_atual' => $quantidade,
+                    'lote_custo_unitario' => round($custoUnitario, 4),
+                    'lote_data_entrada' => $opts['data'] ?? now(),
+                    'lote_status' => 'ativo',
+                ]);
+            }
+
+            $produto->update([
+                'produto_saldo_estoque' => round($novoSaldo, 3),
+                'produto_custo_medio' => round($novoMedio, 4),
+            ]);
+
+            return $this->criarMovimentacao(
+                produto: $produto,
+                tipo: MovimentacaoTipoEnum::ENTRADA,
+                origem: $origem,
+                quantidade: $quantidade,
+                custoUnitario: $custoUnitario,
+                saldoApos: $novoSaldo,
+                lote: $lote,
+                opts: $opts,
+            );
+        });
+    }
+
+    /**
+     * Registra uma saída de estoque valorada pelo custo médio vigente.
+     * Com controle de lote, baixa em FEFO (uma movimentação por lote).
+     *
+     * @return Collection<int, MovimentacaoProduto>
+     */
+    public function registrarSaida(
+        Produto $produto,
+        float $quantidade,
+        MovimentacaoOrigemEnum $origem,
+        array $opts = []
+    ): Collection {
+        return DB::transaction(function () use ($produto, $quantidade, $origem, $opts) {
+            /** @var Produto $produto */
+            $produto = Produto::lockForUpdate()->findOrFail($produto->id);
+
+            $custoMedio = (float) $produto->produto_custo_medio;
+            $saldoCorrente = (float) $produto->produto_saldo_estoque;
+            $restante = $quantidade;
+            $movimentacoes = collect();
+
+            if ($produto->produto_controla_lote) {
+                $lotes = EstoqueLote::where('lote_produto_id', $produto->id)
+                    ->ativos()
+                    ->fefo()
+                    ->lockForUpdate()
+                    ->get();
+
+                foreach ($lotes as $lote) {
+                    if ($restante <= 0) {
+                        break;
+                    }
+
+                    $consumir = min($restante, (float) $lote->lote_qtd_atual);
+                    $lote->lote_qtd_atual = round((float) $lote->lote_qtd_atual - $consumir, 3);
+                    if ($lote->lote_qtd_atual <= 0) {
+                        $lote->lote_status = 'esgotado';
+                    }
+                    $lote->save();
+
+                    $saldoCorrente -= $consumir;
+                    $restante -= $consumir;
+
+                    $movimentacoes->push($this->criarMovimentacao(
+                        produto: $produto,
+                        tipo: MovimentacaoTipoEnum::SAIDA,
+                        origem: $origem,
+                        quantidade: $consumir,
+                        custoUnitario: $custoMedio,
+                        saldoApos: $saldoCorrente,
+                        lote: $lote,
+                        opts: $opts,
+                    ));
+                }
+            }
+
+            // Remanescente (produto sem lote, ou estoque de lote insuficiente).
+            if ($restante > 0) {
+                $saldoCorrente -= $restante;
+                $movimentacoes->push($this->criarMovimentacao(
+                    produto: $produto,
+                    tipo: MovimentacaoTipoEnum::SAIDA,
+                    origem: $origem,
+                    quantidade: $restante,
+                    custoUnitario: $custoMedio,
+                    saldoApos: $saldoCorrente,
+                    lote: null,
+                    opts: $opts,
+                ));
+            }
+
+            // Custo médio não muda na saída; apenas o saldo.
+            $produto->update(['produto_saldo_estoque' => round($saldoCorrente, 3)]);
+
+            return $movimentacoes;
+        });
+    }
+
+    /**
+     * Ajusta o saldo do produto para uma quantidade contada (inventário),
+     * gerando entrada ou saída conforme a diferença.
+     *
+     * @return MovimentacaoProduto|Collection<int, MovimentacaoProduto>|null
+     */
+    public function registrarAjuste(
+        Produto $produto,
+        float $quantidadeContada,
+        array $opts = []
+    ): MovimentacaoProduto|Collection|null {
+        $origem = $opts['origem'] ?? MovimentacaoOrigemEnum::INVENTARIO;
+        $diferenca = round($quantidadeContada - (float) $produto->produto_saldo_estoque, 3);
+
+        if ($diferenca > 0) {
+            return $this->registrarEntrada($produto, $diferenca, (float) $produto->produto_custo_medio, $origem, $opts);
+        }
+
+        if ($diferenca < 0) {
+            return $this->registrarSaida($produto, abs($diferenca), $origem, $opts);
+        }
+
+        return null;
+    }
+
+    private function criarMovimentacao(
+        Produto $produto,
+        MovimentacaoTipoEnum $tipo,
+        MovimentacaoOrigemEnum $origem,
+        float $quantidade,
+        float $custoUnitario,
+        float $saldoApos,
+        ?EstoqueLote $lote,
+        array $opts,
+    ): MovimentacaoProduto {
+        $data = $opts['data'] ?? null;
+        if ($data && ! $data instanceof Carbon) {
+            $data = Carbon::parse($data);
+        }
+
+        $movimentacao = new MovimentacaoProduto([
+            'mov_produto_id' => $produto->id,
+            'mov_quantidade' => round($quantidade, 3),
+            'mov_custo_unitario' => round($custoUnitario, 4),
+            'mov_custo_total' => round($quantidade * $custoUnitario, 2),
+            'mov_tipo' => $tipo,
+            'mov_origem' => $origem,
+            'mov_saldo_apos' => round($saldoApos, 3),
+            'mov_data' => $data ?? now(),
+            'mov_motivo' => $opts['motivo'] ?? null,
+            'mov_venda_id' => $opts['venda_id'] ?? null,
+            'mov_user_id' => $opts['user_id'] ?? null,
+            'mov_centro_custo_id' => $opts['centro_custo_id'] ?? null,
+            'mov_lote_id' => $lote?->id,
+        ]);
+
+        if (! empty($opts['referencia']) && $opts['referencia'] instanceof Model) {
+            $movimentacao->referencia()->associate($opts['referencia']);
+        }
+
+        $movimentacao->save();
+
+        return $movimentacao;
+    }
+}

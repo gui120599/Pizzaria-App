@@ -59,6 +59,21 @@ class Prestador extends Model
         return $query->where('categoria', $categoria);
     }
 
+    public function scopeFornecedores($query)
+    {
+        return $query->where('categoria', \App\Enums\PrestadorCategoriaEnum::FORNECEDOR);
+    }
+
+    // ─────────────────────────────────────────
+    // Relacionamentos
+    // ─────────────────────────────────────────
+
+    /** De-para dos produtos deste fornecedor (código do fornecedor ↔ insumo). */
+    public function fornecedorProdutos()
+    {
+        return $this->hasMany(FornecedorProduto::class, 'fp_prestador_id');
+    }
+
     // ─────────────────────────────────────────
     // Accessors
     // ─────────────────────────────────────────
