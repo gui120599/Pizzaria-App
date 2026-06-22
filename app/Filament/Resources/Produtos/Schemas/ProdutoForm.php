@@ -11,8 +11,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Fieldset;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -23,416 +23,322 @@ class ProdutoForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            // ========== SEÇÃO: INFORMAÇÕES BÁSICAS ==========
-            Section::make('Informações Básicas')
-                ->description('Dados principais do produto')
-                ->icon('heroicon-o-cube')
-                ->columnSpan(2)
-                ->schema([
-                    Grid::make(3)
-                        ->columns([
-                            'default' => 1,
-                            'md' => 2,
-                            'lg' => 3,
-                        ])
-                        ->schema([
-
-                            Grid::make(2)
-                                ->columns([
-                                    'default' => 1,
-                                    'md' => 2,
-                                ])
-                                ->schema([
-                                    Select::make('produto_tipo')
-                                        ->label('Tipo do Produto')
-                                        ->options(
-                                            collect(ProdutoTipoEnum::cases())
-                                                ->mapWithKeys(fn($type) => [
-                                                    $type->value => $type->label()
-                                                ])
-                                                ->toArray()
-                                        )
-                                        ->required()
-                                        ->searchable()
-                                        ->native(false)
-                                        ->helperText('Selecione o tipo'),
-
-                                    Select::make('produto_categoria_id')
-                                        ->label('Categoria')
-                                        ->options(fn() => Categoria::pluck('categoria_nome', 'id')->toArray())
-                                        ->searchable()
-                                        ->preload()
-                                        ->required()
-                                        ->native(false)
-                                        ->helperText('Organize em categorias'),
-                                ])->columnSpan(2),
-
-                                FileUpload::make('produto_foto')
-                                ->label('Foto do Produto')
-                                ->disk('public')
-                                ->directory('fotos_produtos')
-                                ->image()
-                                ->imageResizeMode('cover')
-                                ->imageCropAspectRatio('1:1')
-                                ->imageResizeTargetWidth(500)
-                                ->imageResizeTargetHeight(500)
-                                ->helperText('Formatos: JPG, PNG. Máx. 5MB')
-                                ->columnSpan(1),
-
-                            TextInput::make('produto_descricao')
-                                ->label('Descrição')
-                                ->placeholder('Digite a descrição do produto')
-                                ->required()
-                                ->maxLength(255)
-                                ->columnSpanFull()
-                                ->helperText('Descrição breve e clara'),
-
-                            Toggle::make('produto_exibe_categoria')
-                                ->label('Exibir categoria na descrição?')
-                                ->inline()
-                                ->live()
-                                ->columnSpan(2)
-                                ->afterStateUpdated(function (bool $state, Set $set, Get $get): void {
-                                    if ($state && blank($get('produto_preposicao'))) {
-                                        $set('produto_preposicao', Categoria::find($get('produto_categoria_id'))?->categoria_preposicao_padrao);
-                                    }
-                                })
-                                ->helperText('Ex.: "PASTEL DE FRANGO" — categoria + preposição + descrição'),
-
-                            TextInput::make('produto_preposicao')
-                                ->label('Preposição')
-                                ->placeholder('Ex.: DE, DO, DA, COM')
-                                ->maxLength(20)
-                                ->columnSpan(1)
-                                ->visible(fn(Get $get): bool => (bool) $get('produto_exibe_categoria'))
-                                ->dehydrateStateUsing(fn(?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
-                                ->helperText('Vazio usa a preposição padrão da categoria'),
-
-                            TextInput::make('produto_codimentacao')
-                                ->label('Código de Alimentação')
-                                ->placeholder('Ex: 123456')
-                                ->columnSpanFull()
-                                ->helperText('Código opcional de rastreamento'),
-                        ]),
+            Tabs::make('Produto')
+                ->columnSpanFull()
+                ->persistTabInQueryString()
+                ->tabs([
+                    self::abaIdentificacao(),
+                    self::abaCardapio(),
+                    self::abaPrecificacao(),
+                    self::abaEstoque(),
+                    self::abaPromocao(),
+                    self::abaFiscal(),
                 ]),
+        ]);
+    }
 
-            // ========== SEÇÃO: ESTOQUE E CARDÁPIO ==========
-            Section::make('Estoque e Visibilidade')
-                ->description('Controle de estoque e exibição')
-                ->icon('heroicon-o-list-bullet')
-                ->columnSpan(1)
-                ->schema([
-                    Grid::make(4)
-                        ->columns([
-                            'default' => 1,
-                            'md' => 2,
-                            'lg' => 4,
-                        ])
-                        ->schema([
-                            TextInput::make('produto_ordem')
-                                ->label('Ordem de Exibição')
-                                ->numeric()
-                                ->integer()
-                                ->default(0)
-                                ->minValue(0)
-                                ->columnSpan(2)
-                                ->helperText('Menor número aparece primeiro dentro da categoria'),
+    /** Dados que identificam o produto. */
+    private static function abaIdentificacao(): Tab
+    {
+        return Tab::make('Identificação')
+            ->icon('heroicon-o-cube')
+            ->columns(3)
+            ->schema([
+                Select::make('produto_tipo')
+                    ->label('Tipo do Produto')
+                    ->options(collect(ProdutoTipoEnum::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->toArray())
+                    ->required()
+                    ->native(false)
+                    ->columnSpan(1)
+                    ->helperText('Produzido, revenda, insumo ou consumo interno'),
 
-                            Toggle::make('produto_controla_estoque')
-                                ->label('Controla Estoque?')
-                                ->inline()
-                                ->columnSpan(2)
-                                ->required()
-                                ->helperText('Ativar controle de estoque'),
+                Select::make('produto_categoria_id')
+                    ->label('Categoria')
+                    ->options(fn () => Categoria::orderBy('categoria_nome')->pluck('categoria_nome', 'id')->toArray())
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    ->native(false)
+                    ->columnSpan(2),
 
-                            Toggle::make('produto_controla_lote')
-                                ->label('Controla Lote/Validade?')
-                                ->inline()
-                                ->columnSpan(2)
-                                ->helperText('Baixa por lote em FEFO (vence primeiro, sai primeiro)'),
+                TextInput::make('produto_descricao')
+                    ->label('Descrição')
+                    ->placeholder('Ex.: Calabresa, Coca-Cola 2L, Farinha de trigo')
+                    ->required()
+                    ->maxLength(255)
+                    ->columnSpan(2),
 
-                            Toggle::make('produto_perecivel')
-                                ->label('Perecível?')
-                                ->inline()
-                                ->columnSpan(2)
-                                ->helperText('Insumo com vencimento'),
+                TextInput::make('produto_codimentacao')
+                    ->label('Código de Alimentação')
+                    ->placeholder('Opcional')
+                    ->columnSpan(1)
+                    ->helperText('Código interno de rastreamento'),
 
-                            Select::make('produto_unidade_estoque')
-                                ->label('Unidade de Estoque')
-                                ->options(
-                                    collect(UnidadeProdutoEnum::cases())
-                                        ->mapWithKeys(fn($type) => [$type->value => $type->label()])
-                                        ->toArray()
-                                )
-                                ->columnSpan(2)
-                                ->searchable()
-                                ->native(false)
-                                ->helperText('Unidade usada no controle de estoque (g, ml, un...)'),
+                FileUpload::make('produto_foto')
+                    ->label('Foto do Produto')
+                    ->disk('public')
+                    ->directory('fotos_produtos')
+                    ->image()
+                    ->imageEditor()
+                    ->imageResizeMode('cover')
+                    ->imageCropAspectRatio('1:1')
+                    ->imageResizeTargetWidth(500)
+                    ->imageResizeTargetHeight(500)
+                    ->columnSpanFull()
+                    ->helperText('JPG ou PNG, quadrada (1:1). Máx. 5MB'),
+            ]);
+    }
 
-                            TextInput::make('produto_ficha_rendimento')
-                                ->label('Rendimento da Ficha')
-                                ->numeric()
-                                ->step(0.001)
-                                ->minValue(0.001)
-                                ->default(1)
-                                ->columnSpan(2)
-                                ->helperText('Quanto a ficha técnica produz (ex.: 1 un, ou 5000 ml de molho por batelada)'),
+    /** Como o produto aparece e é vendido no cardápio. */
+    private static function abaCardapio(): Tab
+    {
+        return Tab::make('Cardápio')
+            ->icon('heroicon-o-bars-3-bottom-left')
+            ->columns(3)
+            ->schema([
+                Fieldset::make('Exibição no cardápio')
+                    ->columns(3)
+                    ->schema([
+                        Toggle::make('produto_cardapio')
+                            ->label('Mostrar no cardápio')
+                            ->helperText('Visível para os clientes')
+                            ->inline(false)
+                            ->columnSpan(1),
 
-                            Toggle::make('produto_cardapio')
-                                ->label('Mostrar no Cardápio?')
-                                ->inline()
-                                ->columnSpan(2)
-                                ->helperText('Visível para clientes'),
+                        Toggle::make('produto_destaque_mais_vendidos')
+                            ->label('Destaque "Mais Vendidos"')
+                            ->default(true)
+                            ->inline(false)
+                            ->columnSpan(1),
 
-                            Toggle::make('produto_destaque_mais_vendidos')
-                                ->label('Exibir em Mais Vendidos?')
-                                ->inline()
-                                ->columnSpan(2)
-                                ->default(true)
-                                ->helperText('Aparece na seção de mais vendidos'),
+                        TextInput::make('produto_ordem')
+                            ->label('Ordem de exibição')
+                            ->numeric()
+                            ->integer()
+                            ->default(0)
+                            ->minValue(0)
+                            ->columnSpan(1)
+                            ->helperText('Menor aparece primeiro na categoria'),
+                    ]),
 
-                            Select::make('produto_unidade_comercial')
-                                ->label('Unidade de Venda')
-                                ->options(
-                                    collect(UnidadeProdutoEnum::cases())
-                                        ->mapWithKeys(fn($type) => [
-                                            $type->value => $type->label()
-                                        ])
-                                        ->toArray()
-                                )
-                                ->columnSpan(2)
-                                ->searchable()
-                                ->native(false)
-                                ->helperText('Un., Kg, L, etc'),
+                Fieldset::make('Nome exibido')
+                    ->columns(3)
+                    ->schema([
+                        Toggle::make('produto_exibe_categoria')
+                            ->label('Incluir a categoria no nome')
+                            ->live()
+                            ->inline(false)
+                            ->columnSpan(1)
+                            ->afterStateUpdated(function (bool $state, Set $set, Get $get): void {
+                                if ($state && blank($get('produto_preposicao'))) {
+                                    $set('produto_preposicao', Categoria::find($get('produto_categoria_id'))?->categoria_preposicao_padrao);
+                                }
+                            })
+                            ->helperText('Monta "PASTEL DE FRANGO"'),
 
-                            TextInput::make('produto_quantidade_minima')
-                                ->label('Qtd. Mínima')
-                                ->numeric()
-                                ->minValue(0)
-                                ->columnSpan(1)
-                                ->helperText('Qtd. mín. venda'),
+                        TextInput::make('produto_preposicao')
+                            ->label('Preposição')
+                            ->placeholder('DE, DO, DA, COM')
+                            ->maxLength(20)
+                            ->visible(fn (Get $get): bool => (bool) $get('produto_exibe_categoria'))
+                            ->dehydrateStateUsing(fn (?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
+                            ->columnSpan(1)
+                            ->helperText('Vazio usa a padrão da categoria'),
+                    ]),
 
-                            TextInput::make('produto_quantidade_maxima')
-                                ->label('Qtd. Máxima')
-                                ->numeric()
-                                ->minValue(0)
-                                ->columnSpan(1)
-                                ->helperText('Qtd. máx. venda'),
-                        ]),
-                ]),
+                Fieldset::make('Venda')
+                    ->columns(3)
+                    ->schema([
+                        Select::make('produto_unidade_comercial')
+                            ->label('Unidade de venda')
+                            ->options(collect(UnidadeProdutoEnum::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->toArray())
+                            ->searchable()
+                            ->native(false)
+                            ->columnSpan(1)
+                            ->helperText('Un., Kg, L...'),
 
-            // ========== SEÇÃO: PRECIFICAÇÃO ==========
-            Section::make('Precificação')
-                ->description('Gestão de custos e preços')
-                ->icon('heroicon-o-currency-dollar')
-                ->columnSpan(3)
-                ->schema([
-                    Grid::make(3)
-                        ->columns([
-                            'default' => 1,
-                            'md' => 2,
-                            'lg' => 3,
-                        ])
-                        ->schema([
-                            Money::make('produto_preco_custo')
-                                ->label('Preço de Custo')
-                                ->required()
-                                ->reactive()
-                                ->columnSpan(1)
-                                ->helperText('Custo do produto')
-                                ->live(true)
-                                ->afterStateUpdated(function ($state, $set, $get) {
-                                    if ($get('produto_preco_custo') !== null && $state !== null) {
-                                        $precoVenda = (float)$get('produto_preco_custo') * (1 + ((float)$state / 100));
-                                        $set('produto_preco_venda', round($precoVenda, 2));
-                                    }
-                                }),
+                        TextInput::make('produto_quantidade_minima')
+                            ->label('Qtd. mínima por venda')
+                            ->numeric()
+                            ->minValue(0)
+                            ->columnSpan(1),
 
-                            TextInput::make('produto_valor_percentual_venda')
-                                ->label('Margem de Lucro (%)')
-                                ->numeric()
-                                ->step(0.01)
-                                ->suffix('%')
-                                ->required()
-                                ->reactive()
-                                ->live(true)
-                                ->columnSpan(1)
-                                ->helperText('Percentual sobre custo')
-                                ->afterStateUpdated(function ($state, $set, $get) {
-                                    if ($get('produto_preco_custo') !== null && $state !== null) {
-                                        $precoVenda = (float)$get('produto_preco_custo') * (1 + ((float)$state / 100));
-                                        $set('produto_preco_venda', round($precoVenda, 2));
-                                    }
-                                }),
+                        TextInput::make('produto_quantidade_maxima')
+                            ->label('Qtd. máxima por venda')
+                            ->numeric()
+                            ->minValue(0)
+                            ->columnSpan(1),
+                    ]),
+            ]);
+    }
 
-                            TextInput::make('produto_preco_venda')
-                                ->label('Preço de Venda')
-                                ->numeric()
-                                ->step(0.01)
-                                ->prefix('R$')
-                                ->required()
-                                ->disabled()
-                                ->dehydrated()
-                                ->reactive()
-                                ->columnSpan(1)
-                                ->helperText('Cálculo automático'),
-                        ]),
+    /** Custos, margem e preço de venda. */
+    private static function abaPrecificacao(): Tab
+    {
+        $recalcularVenda = function ($state, Set $set, Get $get): void {
+            $custo = (float) $get('produto_preco_custo');
+            $margem = (float) $get('produto_valor_percentual_venda');
+            $set('produto_preco_venda', round($custo * (1 + ($margem / 100)), 2));
+        };
 
-                    // Seção de Comissão
-                    Fieldset::make('Comissão')
-                        ->schema([
-                            TextInput::make('produto_valor_percentual_comissao')
-                                ->label('% Comissão')
-                                ->numeric()
-                                ->step(0.01)
-                                ->suffix('%')
-                                ->columnSpan(1)
-                                ->helperText('Percentual de comissão'),
+        return Tab::make('Precificação')
+            ->icon('heroicon-o-currency-dollar')
+            ->columns(3)
+            ->schema([
+                Money::make('produto_preco_custo')
+                    ->label('Preço de Custo')
+                    ->required()
+                    ->live(true)
+                    ->columnSpan(1)
+                    ->afterStateUpdated($recalcularVenda),
 
-                            TextInput::make('produto_preco_comissao')
-                                ->label('Valor da Comissão')
-                                ->numeric()
-                                ->step(0.01)
-                                ->prefix('R$')
-                                ->columnSpan(1)
-                                ->disabled()
-                                ->helperText('Cálculo automático'),
-                        ]),
-                ]),
+                TextInput::make('produto_valor_percentual_venda')
+                    ->label('Margem de Lucro (%)')
+                    ->numeric()
+                    ->step(0.01)
+                    ->suffix('%')
+                    ->required()
+                    ->live(true)
+                    ->columnSpan(1)
+                    ->afterStateUpdated($recalcularVenda),
 
-            // ========== SEÇÃO: PROMOÇÃO ==========
-            Section::make('Promoção')
-                ->description('Configure promoções e descontos')
-                ->icon('heroicon-o-tag')
-                ->collapsible()
-                ->collapsed()
-                ->columnSpan(3)
-                ->schema([
-                    Grid::make(2)
-                        ->columns([
-                            'default' => 1,
-                            'md' => 2,
-                        ])
-                        ->schema([
-                            DatePicker::make('produto_data_inicio_promocao')
-                                ->label('Data Inicial')
-                                ->reactive()
-                                ->columnSpan(1)
-                                ->helperText('Quando inicia'),
+                TextInput::make('produto_preco_venda')
+                    ->label('Preço de Venda')
+                    ->numeric()
+                    ->step(0.01)
+                    ->prefix('R$')
+                    ->required()
+                    ->disabled()
+                    ->dehydrated()
+                    ->columnSpan(1)
+                    ->helperText('Calculado: custo + margem'),
 
-                            DatePicker::make('produto_data_final_promocao')
-                                ->label('Data Final')
-                                ->reactive()
-                                ->columnSpan(1)
-                                ->helperText('Quando termina'),
+                Fieldset::make('Comissão')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('produto_valor_percentual_comissao')
+                            ->label('% Comissão')
+                            ->numeric()
+                            ->step(0.01)
+                            ->suffix('%')
+                            ->columnSpan(1),
 
-                            TextInput::make('produto_preco_promocional')
-                                ->label('Preço Promocional')
-                                ->numeric()
-                                ->step(0.01)
-                                ->prefix('R$')
-                                ->reactive()
-                                ->columnSpan(1)
-                                ->helperText('Deixe vazio para desativar a promoção'),
-                        ]),
-                ]),
+                        TextInput::make('produto_preco_comissao')
+                            ->label('Valor da Comissão')
+                            ->numeric()
+                            ->step(0.01)
+                            ->prefix('R$')
+                            ->disabled()
+                            ->columnSpan(1)
+                            ->helperText('Cálculo automático'),
+                    ]),
+            ]);
+    }
 
-            // ========== SEÇÃO: INFORMAÇÕES FISCAIS ==========
-            Section::make('Informações Fiscais e Códigos')
-                ->description('Dados de tributação e códigos de produto')
-                ->icon('heroicon-o-document-text')
-                ->collapsible()
-                ->columnSpan(3)
-                ->schema([
-                    // Grid de Códigos Principais
-                    Fieldset::make('Códigos de Produto')
-                        ->columns(1)
-                        ->schema([
-                            TextInput::make('produto_codigo_EAN')
-                                ->label('EAN/GTIN')
-                                ->placeholder('SEM GTIN')
-                                ->columnSpan(1)
-                                ->helperText('Código de barras'),
+    /** Controle de estoque, lote/validade e ficha técnica. */
+    private static function abaEstoque(): Tab
+    {
+        return Tab::make('Estoque')
+            ->icon('heroicon-o-archive-box')
+            ->columns(3)
+            ->schema([
+                Toggle::make('produto_controla_estoque')
+                    ->label('Controla estoque')
+                    ->required()
+                    ->inline(false)
+                    ->columnSpan(1)
+                    ->helperText('Movimenta saldo e custo médio'),
 
-                            TextInput::make('produto_codigo_NCM')
-                                ->required(fn(Get $get): bool => in_array($get('produto_tipo'), ['produzido', 'revenda']))
-                                ->label('NCM')
-                                ->placeholder('Ex: 12345678')
-                                ->maxLength(8)
-                                ->columnSpan(1)
-                                ->helperText('Nomenclatura comum'),
+                Toggle::make('produto_controla_lote')
+                    ->label('Controla lote/validade')
+                    ->inline(false)
+                    ->columnSpan(1)
+                    ->helperText('Baixa FEFO (vence primeiro, sai primeiro)'),
 
-                            TextInput::make('produto_codigo_CEST')
-                                ->label('CEST')
-                                ->placeholder('0000000')
-                                ->default('0000000')
-                                ->columnSpan(1)
-                                ->helperText('Código CEST'),
-                        ]),
+                Toggle::make('produto_perecivel')
+                    ->label('Perecível')
+                    ->inline(false)
+                    ->columnSpan(1)
+                    ->helperText('Insumo com vencimento'),
 
-                    // Grid de Fiscalização
-                    Fieldset::make('Tributação ICMS')
-                        ->schema([
-                            TextInput::make('produto_cod_tributacao_icms')
-                                ->label('Tributação ICMS')
-                                ->columnSpan(2)
-                                ->helperText('Regime tributário'),
+                Select::make('produto_unidade_estoque')
+                    ->label('Unidade de estoque')
+                    ->options(collect(UnidadeProdutoEnum::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->toArray())
+                    ->searchable()
+                    ->native(false)
+                    ->columnSpan(1)
+                    ->helperText('g, ml, un... (base do custo)'),
 
-                            TextInput::make('produto_CFOP')
-                                ->required(fn(Get $get): bool => in_array($get('produto_tipo'), ['produzido', 'revenda']))
-                                ->label('CFOP')
-                                ->columnSpan(1)
-                                ->helperText('Código de operação'),
+                TextInput::make('produto_ficha_rendimento')
+                    ->label('Rendimento da ficha técnica')
+                    ->numeric()
+                    ->step(0.001)
+                    ->minValue(0.001)
+                    ->default(1)
+                    ->columnSpan(2)
+                    ->helperText('Quanto a receita produz (ex.: 1 un, ou 5000 ml de molho por batelada)'),
+            ]);
+    }
 
-                            TextInput::make('produto_CSOSN')
-                                ->required(fn(Get $get): bool => in_array($get('produto_tipo'), ['produzido', 'revenda']))
-                                ->label('CSOSN')
-                                ->columnSpan(1)
-                                ->helperText('Classificação'),
+    /** Promoção por período. */
+    private static function abaPromocao(): Tab
+    {
+        return Tab::make('Promoção')
+            ->icon('heroicon-o-tag')
+            ->columns(3)
+            ->schema([
+                TextInput::make('produto_preco_promocional')
+                    ->label('Preço Promocional')
+                    ->numeric()
+                    ->step(0.01)
+                    ->prefix('R$')
+                    ->columnSpan(1)
+                    ->helperText('Vazio = sem promoção'),
 
-                            TextInput::make('produto_valor_percentual_icms')
-                                ->label('% ICMS')
-                                ->numeric()
-                                ->suffix('%')
-                                ->columnSpan(1)
-                                ->helperText('Alíquota ICMS'),
+                DatePicker::make('produto_data_inicio_promocao')
+                    ->label('Início')
+                    ->columnSpan(1),
 
-                            TextInput::make('produto_valor_percentual_reducao_icms')
-                                ->label('% Redução ICMS')
-                                ->numeric()
-                                ->suffix('%')
-                                ->columnSpan(1)
-                                ->helperText('Se houver redução'),
+                DatePicker::make('produto_data_final_promocao')
+                    ->label('Fim')
+                    ->columnSpan(1),
+            ]);
+    }
 
-                            TextInput::make('produto_cod_origem_mercadoria')
-                                ->label('Origem')
-                                ->columnSpan(1)
-                                ->helperText('País/região origem'),
+    /** Códigos e tributação fiscal. */
+    private static function abaFiscal(): Tab
+    {
+        $obrigatorioVenda = fn (Get $get): bool => in_array($get('produto_tipo'), ['produzido', 'revenda'], true);
 
-                            TextInput::make('produto_codigo_beneficio_fiscal_uf')
-                                ->label('Benef. Fiscal UF')
-                                ->columnSpan(1)
-                                ->helperText('Se aplicável'),
-                        ]),
+        return Tab::make('Fiscal')
+            ->icon('heroicon-o-document-text')
+            ->schema([
+                Fieldset::make('Códigos')
+                    ->columns(3)
+                    ->schema([
+                        TextInput::make('produto_codigo_EAN')->label('EAN/GTIN')->placeholder('SEM GTIN'),
+                        TextInput::make('produto_codigo_NCM')->label('NCM')->placeholder('Ex.: 12345678')->maxLength(8)->required($obrigatorioVenda),
+                        TextInput::make('produto_codigo_CEST')->label('CEST')->default('0000000'),
+                    ]),
 
-                    // Grid de Impostos Federais
-                    Fieldset::make('Outros Impostos')
-                        ->schema([
-                            TextInput::make('produto_valor_percentual_cofins')
-                                ->label('% COFINS')
-                                ->numeric()
-                                ->suffix('%')
-                                ->columnSpan(1)
-                                ->helperText('Alíquota COFINS'),
+                Fieldset::make('Tributação ICMS')
+                    ->columns(3)
+                    ->schema([
+                        TextInput::make('produto_cod_tributacao_icms')->label('Tributação ICMS'),
+                        TextInput::make('produto_CFOP')->label('CFOP')->required($obrigatorioVenda),
+                        TextInput::make('produto_CSOSN')->label('CSOSN')->required($obrigatorioVenda),
+                        TextInput::make('produto_valor_percentual_icms')->label('% ICMS')->numeric()->suffix('%'),
+                        TextInput::make('produto_valor_percentual_reducao_icms')->label('% Redução ICMS')->numeric()->suffix('%'),
+                        TextInput::make('produto_cod_origem_mercadoria')->label('Origem'),
+                        TextInput::make('produto_codigo_beneficio_fiscal_uf')->label('Benef. Fiscal UF'),
+                    ]),
 
-                            TextInput::make('produto_valor_percentual_pis')
-                                ->label('% PIS')
-                                ->numeric()
-                                ->suffix('%')
-                                ->columnSpan(1)
-                                ->helperText('Alíquota PIS'),
-                        ]),
-                ]),
-        ])->columns(3);
+                Fieldset::make('Outros Impostos')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('produto_valor_percentual_cofins')->label('% COFINS')->numeric()->suffix('%'),
+                        TextInput::make('produto_valor_percentual_pis')->label('% PIS')->numeric()->suffix('%'),
+                    ]),
+            ]);
     }
 }

@@ -21,6 +21,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -39,33 +40,28 @@ class ProdutosTable
             ->reorderable('produto_ordem')
             ->defaultSort('produto_ordem')
             ->deferFilters(false)
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('categoria'))
             ->columns([
                 TextColumn::make('produto_ordem')
-                    ->label('Ord.')
-                    ->sortable()
-                    ->alignCenter()
-                    ->badge()
-                    ->color('gray')
-                    ->width('60px'),
+                    ->label('#')
+                    ->badge()->color('gray')->alignCenter()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 ImageColumn::make('produto_foto')
+                    ->label('')
                     ->disk('public')
-                    ->size(40)
-                    ->toggleable(isToggledHiddenByDefault: false),
+                    ->circular()
+                    ->size(44)
+                    ->defaultImageUrl(asset('Sem Imagem.png')),
 
                 TextColumn::make('produto_descricao')
-                    ->label('Descrição')
-                    ->sortable()
+                    ->label('Produto')
                     ->searchable()
-                    ->limit(50)
-                    ->toggleable(isToggledHiddenByDefault: false),
-                
-                TextColumn::make('categoria.categoria_nome')
-                    ->label('Categoria')
                     ->sortable()
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: false),
-                
+                    ->weight(FontWeight::SemiBold)
+                    ->description(fn (Produto $record): ?string => $record->categoria?->categoria_nome)
+                    ->wrap(),
+
                 TextColumn::make('produto_tipo')
                     ->label('Tipo')
                     ->badge()
@@ -77,45 +73,56 @@ class ProdutosTable
                         ProdutoTipoEnum::CONSUMO_INTERNO->value => 'danger',
                         default                                 => 'gray',
                     })
-                    ->toggleable(isToggledHiddenByDefault: false),
-                
-                TextColumn::make('produto_unidade_comercial')
-                    ->label('Unidade')
-                    ->toggleable(isToggledHiddenByDefault: false),
-                
-                TextColumn::make('produto_preco_custo')
-                    ->label('Custo')
-                    ->money('BRL')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: false),
-                
+                    ->toggleable(),
+
                 TextColumn::make('produto_preco_venda')
                     ->label('Venda')
                     ->money('BRL')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: false),
-                
-                TextColumn::make('produto_saldo_estoque')
-                    ->label('Saldo')
-                    ->numeric(decimalPlaces: 3)
-                    ->suffix(fn(Produto $record): string => ' ' . ($record->produto_unidade_estoque ?? ''))
                     ->alignEnd()
-                    ->color(fn(Produto $record) => $record->produto_saldo_estoque <= $record->produto_quantidade_minima ? 'danger' : null)
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: false),
+                    ->description(fn (Produto $record): ?string => $record->produto_preco_promocional > 0
+                        ? 'Promo R$ ' . number_format((float) $record->produto_preco_promocional, 2, ',', '.')
+                        : null),
 
                 TextColumn::make('produto_custo_medio')
                     ->label('Custo Médio')
                     ->money('BRL')
                     ->alignEnd()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: false),
+                    ->toggleable(),
+
+                TextColumn::make('produto_saldo_estoque')
+                    ->label('Saldo')
+                    ->numeric(decimalPlaces: 3)
+                    ->suffix(fn (Produto $record): string => ' ' . ($record->produto_unidade_estoque ?? ''))
+                    ->badge()
+                    ->color(fn (Produto $record): string => ! $record->produto_controla_estoque
+                        ? 'gray'
+                        : ((float) $record->produto_saldo_estoque <= (float) $record->produto_quantidade_minima ? 'danger' : 'success'))
+                    ->icon(fn (Produto $record): ?string => $record->produto_controla_estoque
+                        && (float) $record->produto_saldo_estoque <= (float) $record->produto_quantidade_minima
+                        ? 'heroicon-m-exclamation-triangle' : null)
+                    ->sortable()
+                    ->alignEnd(),
 
                 TextColumn::make('valor_imobilizado')
                     ->label('Valor em Estoque')
-                    ->state(fn(Produto $record): float => (float) $record->produto_saldo_estoque * (float) $record->produto_custo_medio)
+                    ->state(fn (Produto $record): float => (float) $record->produto_saldo_estoque * (float) $record->produto_custo_medio)
                     ->money('BRL')
                     ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                ToggleColumn::make('produto_cardapio')
+                    ->label('Cardápio'),
+
+                TextColumn::make('produto_unidade_comercial')
+                    ->label('Un. venda')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('produto_preco_custo')
+                    ->label('Custo compra')
+                    ->money('BRL')
+                    ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('produto_valor_percentual_venda')
@@ -124,69 +131,39 @@ class ProdutosTable
                     ->suffix('%')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                
-                TextColumn::make('produto_preco_promocional')
-                    ->label('Preço Promo')
-                    ->money('BRL')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                ToggleColumn::make('produto_cardapio')
-                    ->label('Cardápio')
-                    ->toggleable(isToggledHiddenByDefault: false),
 
                 ToggleColumn::make('produto_controla_estoque')
                     ->label('Controla Estoque')
-                    ->toggleable(isToggledHiddenByDefault: false),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 ToggleColumn::make('produto_destaque_mais_vendidos')
                     ->label('Mais Vendidos')
-                    ->toggleable(isToggledHiddenByDefault: false),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 ToggleColumn::make('produto_exibe_categoria')
                     ->label('Exibe Categoria')
-                    ->toggleable(isToggledHiddenByDefault: false),
-                
-                TextColumn::make('produto_quantidade_minima')
-                    ->label('Qtd. Mín.')
-                    ->numeric()
-                    ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                
-                TextColumn::make('produto_quantidade_maxima')
-                    ->label('Qtd. Máx.')
-                    ->numeric()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                
-                TextColumn::make('produto_codimentacao')
-                    ->label('Cod. Alimentação')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                
+
                 TextColumn::make('produto_codigo_EAN')
                     ->label('EAN')
                     ->toggleable(isToggledHiddenByDefault: true),
-                
+
                 TextColumn::make('produto_codigo_NCM')
                     ->label('NCM')
                     ->toggleable(isToggledHiddenByDefault: true),
-                
-                TextColumn::make('produto_codigo_CEST')
-                    ->label('CEST')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                
+
                 TextColumn::make('created_at')
                     ->label('Criado em')
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                
+
                 TextColumn::make('updated_at')
                     ->label('Atualizado em')
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                
+
                 TextColumn::make('deleted_at')
                     ->label('Deletado em')
                     ->dateTime('d/m/Y H:i')

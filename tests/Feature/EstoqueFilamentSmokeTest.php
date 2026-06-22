@@ -12,6 +12,7 @@ use App\Filament\Resources\Fornecedores\Pages\ListFornecedores;
 use App\Filament\Resources\Fornecedores\RelationManagers\FornecedorProdutosRelationManager;
 use App\Filament\Resources\MovimentacaoProdutos\Pages\ManageMovimentacaoProdutos;
 use App\Models\Prestador;
+use App\Filament\Resources\Produtos\Pages\CreateProduto;
 use App\Filament\Resources\Produtos\Pages\EditProduto;
 use App\Filament\Resources\Produtos\Pages\ListProdutos;
 use App\Filament\Resources\Produtos\RelationManagers\FichaItensRelationManager;
@@ -83,6 +84,11 @@ class EstoqueFilamentSmokeTest extends TestCase
             'mov_tipo' => 'ENTRADA',
             'mov_origem' => 'compra',
         ]);
+    }
+
+    public function test_form_de_produto_em_abas_monta(): void
+    {
+        Livewire::test(CreateProduto::class)->assertOk();
     }
 
     public function test_relation_manager_da_ficha_tecnica_monta(): void
