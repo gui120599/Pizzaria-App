@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\ProdutoTipoEnum;
 use App\Filament\Resources\CentroCustos\Pages\ManageCentroCustos;
+use App\Filament\Resources\Compras\Pages\CreateCompra;
+use App\Filament\Resources\Compras\Pages\ListCompras;
 use App\Filament\Resources\MovimentacaoProdutos\Pages\ManageMovimentacaoProdutos;
 use App\Filament\Resources\Produtos\Pages\EditProduto;
 use App\Filament\Resources\Produtos\Pages\ListProdutos;
@@ -86,5 +88,11 @@ class EstoqueFilamentSmokeTest extends TestCase
             'ownerRecord' => $produto,
             'pageClass' => EditProduto::class,
         ])->assertOk();
+    }
+
+    public function test_paginas_de_compras_montam(): void
+    {
+        Livewire::test(ListCompras::class)->assertOk();
+        Livewire::test(CreateCompra::class)->assertOk();
     }
 }

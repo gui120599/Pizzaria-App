@@ -17,6 +17,7 @@ class EstoqueLote extends Model
 
     protected $fillable = [
         'lote_produto_id',
+        'lote_compra_item_id',
         'lote_codigo',
         'lote_validade',
         'lote_qtd_inicial',
