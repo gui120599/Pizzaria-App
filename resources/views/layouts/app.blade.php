@@ -15,6 +15,7 @@
 
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
     <style>
         /* Estilização da barra de rolagem */
 
@@ -169,6 +170,8 @@
         window.addEventListener('load', updateSidebarPosition);
         window.addEventListener('resize', updateSidebarPosition);
     </script>
+
+    @livewireScripts
 </body>
 
 

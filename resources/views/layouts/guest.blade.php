@@ -15,6 +15,7 @@
 
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
     <style>
         /* Estilização da barra de rolagem */
 
@@ -55,6 +56,7 @@
 
 <body class="font-sans text-gray-900 antialiased bg-black">
     {{ $slot }}
+    @livewireScripts
 </body>
 
 </html>
