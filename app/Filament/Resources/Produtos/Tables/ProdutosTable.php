@@ -2,9 +2,12 @@
 
 namespace App\Filament\Resources\Produtos\Tables;
 
+use App\Enums\MovimentacaoOrigemEnum;
 use App\Enums\ProdutoTipoEnum;
+use App\Models\CentroCusto;
 use App\Models\Categoria;
 use App\Models\Produto;
+use App\Services\EstoqueService;
 use Filament\Actions\Action as ActionsAction;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -12,10 +15,12 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -90,6 +95,29 @@ class ProdutosTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: false),
                 
+                TextColumn::make('produto_saldo_estoque')
+                    ->label('Saldo')
+                    ->numeric(decimalPlaces: 3)
+                    ->suffix(fn(Produto $record): string => ' ' . ($record->produto_unidade_estoque ?? ''))
+                    ->alignEnd()
+                    ->color(fn(Produto $record) => $record->produto_saldo_estoque <= $record->produto_quantidade_minima ? 'danger' : null)
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
+
+                TextColumn::make('produto_custo_medio')
+                    ->label('Custo Médio')
+                    ->money('BRL')
+                    ->alignEnd()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
+
+                TextColumn::make('valor_imobilizado')
+                    ->label('Valor em Estoque')
+                    ->state(fn(Produto $record): float => (float) $record->produto_saldo_estoque * (float) $record->produto_custo_medio)
+                    ->money('BRL')
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('produto_valor_percentual_venda')
                     ->label('Margem %')
                     ->numeric(decimalPlaces: 2)
@@ -221,7 +249,14 @@ class ProdutosTable
                     ->label('Controla Estoque')
                     ->query(fn (Builder $query): Builder => $query->where('produto_controla_estoque', true))
                     ->toggle(),
-                
+
+                Filter::make('abaixo_minimo')
+                    ->label('Abaixo do estoque mínimo')
+                    ->query(fn (Builder $query): Builder => $query
+                        ->where('produto_controla_estoque', true)
+                        ->whereColumn('produto_saldo_estoque', '<=', 'produto_quantidade_minima'))
+                    ->toggle(),
+
                 TrashedFilter::make(),
             ])
             ->recordActions([
@@ -299,6 +334,143 @@ class ProdutosTable
                             : "Promoção removida do produto.";
 
                         Notification::make()->title('Preço promocional atualizado')->body($msg)->success()->send();
+                    }),
+                ActionsAction::make('movimentar_estoque')
+                    ->label('Movimentar')
+                    ->icon('heroicon-o-arrows-right-left')
+                    ->tooltip('Registrar entrada/saída de estoque')
+                    ->color('primary')
+                    ->modalHeading(fn(Produto $record) => "Movimentar Estoque — {$record->produto_descricao}")
+                    ->modalWidth('md')
+                    ->form([
+                        ToggleButtons::make('tipo')
+                            ->label('Tipo')
+                            ->options(['entrada' => 'Entrada', 'saida' => 'Saída'])
+                            ->icons(['entrada' => 'heroicon-o-arrow-down-tray', 'saida' => 'heroicon-o-arrow-up-tray'])
+                            ->colors(['entrada' => 'success', 'saida' => 'danger'])
+                            ->inline()
+                            ->grouped()
+                            ->default('entrada')
+                            ->live()
+                            ->required(),
+
+                        Select::make('origem')
+                            ->label('Origem')
+                            ->options(fn(Get $get): array => $get('tipo') === 'entrada'
+                                ? [
+                                    MovimentacaoOrigemEnum::COMPRA->value => MovimentacaoOrigemEnum::COMPRA->label(),
+                                    MovimentacaoOrigemEnum::PRODUCAO->value => MovimentacaoOrigemEnum::PRODUCAO->label(),
+                                    MovimentacaoOrigemEnum::TRANSFERENCIA->value => MovimentacaoOrigemEnum::TRANSFERENCIA->label(),
+                                ]
+                                : [
+                                    MovimentacaoOrigemEnum::PERDA->value => MovimentacaoOrigemEnum::PERDA->label(),
+                                    MovimentacaoOrigemEnum::CONSUMO_INTERNO->value => MovimentacaoOrigemEnum::CONSUMO_INTERNO->label(),
+                                    MovimentacaoOrigemEnum::TRANSFERENCIA->value => MovimentacaoOrigemEnum::TRANSFERENCIA->label(),
+                                ])
+                            ->default(fn(Get $get): string => $get('tipo') === 'entrada'
+                                ? MovimentacaoOrigemEnum::COMPRA->value
+                                : MovimentacaoOrigemEnum::PERDA->value)
+                            ->native(false)
+                            ->required(),
+
+                        TextInput::make('quantidade')
+                            ->label('Quantidade')
+                            ->numeric()
+                            ->step(0.001)
+                            ->minValue(0.001)
+                            ->required()
+                            ->suffix(fn(Produto $record): string => $record->produto_unidade_estoque ?? ''),
+
+                        TextInput::make('custo_unitario')
+                            ->label('Custo unitário')
+                            ->numeric()
+                            ->step(0.0001)
+                            ->minValue(0)
+                            ->prefix('R$')
+                            ->visible(fn(Get $get): bool => $get('tipo') === 'entrada')
+                            ->required(fn(Get $get): bool => $get('tipo') === 'entrada')
+                            ->helperText('Custo de compra; recalcula o custo médio.'),
+
+                        TextInput::make('lote_codigo')
+                            ->label('Lote')
+                            ->visible(fn(Get $get, Produto $record): bool => $get('tipo') === 'entrada' && $record->produto_controla_lote),
+
+                        DatePicker::make('validade')
+                            ->label('Validade')
+                            ->visible(fn(Get $get, Produto $record): bool => $get('tipo') === 'entrada' && $record->produto_controla_lote),
+
+                        Select::make('centro_custo_id')
+                            ->label('Centro de custo')
+                            ->options(fn(): array => CentroCusto::ativos()->orderBy('centro_custo_nome')->pluck('centro_custo_nome', 'id')->toArray())
+                            ->searchable()
+                            ->placeholder('Opcional'),
+
+                        TextInput::make('motivo')
+                            ->label('Motivo / observação')
+                            ->maxLength(255),
+                    ])
+                    ->action(function (Produto $record, array $data) {
+                        $service = app(EstoqueService::class);
+                        $origem = MovimentacaoOrigemEnum::from($data['origem']);
+                        $opts = [
+                            'centro_custo_id' => $data['centro_custo_id'] ?? null,
+                            'motivo' => $data['motivo'] ?? null,
+                            'lote_codigo' => $data['lote_codigo'] ?? null,
+                            'validade' => $data['validade'] ?? null,
+                        ];
+
+                        if ($data['tipo'] === 'entrada') {
+                            $service->registrarEntrada($record, (float) $data['quantidade'], (float) $data['custo_unitario'], $origem, $opts);
+                        } else {
+                            $service->registrarSaida($record, (float) $data['quantidade'], $origem, $opts);
+                        }
+
+                        $record->refresh();
+                        Notification::make()
+                            ->title('Estoque movimentado')
+                            ->body('Novo saldo: ' . number_format((float) $record->produto_saldo_estoque, 3, ',', '.') . ' ' . ($record->produto_unidade_estoque ?? ''))
+                            ->success()
+                            ->send();
+                    }),
+                ActionsAction::make('ajuste_estoque')
+                    ->label('Ajuste')
+                    ->icon('heroicon-o-adjustments-horizontal')
+                    ->tooltip('Ajuste de inventário (contagem)')
+                    ->color('gray')
+                    ->modalHeading(fn(Produto $record) => "Ajuste de Inventário — {$record->produto_descricao}")
+                    ->modalWidth('md')
+                    ->form([
+                        TextInput::make('quantidade_contada')
+                            ->label('Quantidade contada')
+                            ->numeric()
+                            ->step(0.001)
+                            ->minValue(0)
+                            ->required()
+                            ->suffix(fn(Produto $record): string => $record->produto_unidade_estoque ?? '')
+                            ->helperText(fn(Produto $record): string => 'Saldo atual no sistema: ' . number_format((float) $record->produto_saldo_estoque, 3, ',', '.')),
+
+                        Select::make('centro_custo_id')
+                            ->label('Centro de custo')
+                            ->options(fn(): array => CentroCusto::ativos()->orderBy('centro_custo_nome')->pluck('centro_custo_nome', 'id')->toArray())
+                            ->searchable()
+                            ->placeholder('Opcional'),
+
+                        TextInput::make('motivo')
+                            ->label('Motivo / observação')
+                            ->maxLength(255),
+                    ])
+                    ->action(function (Produto $record, array $data) {
+                        $movs = app(EstoqueService::class)->registrarAjuste($record, (float) $data['quantidade_contada'], [
+                            'centro_custo_id' => $data['centro_custo_id'] ?? null,
+                            'motivo' => $data['motivo'] ?? null,
+                        ]);
+
+                        $record->refresh();
+                        Notification::make()
+                            ->title($movs === null ? 'Sem diferença' : 'Inventário ajustado')
+                            ->body('Saldo: ' . number_format((float) $record->produto_saldo_estoque, 3, ',', '.') . ' ' . ($record->produto_unidade_estoque ?? ''))
+                            ->success()
+                            ->send();
                     }),
                 EditAction::make(),
             ])

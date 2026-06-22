@@ -145,6 +145,30 @@ class ProdutoForm
                                 ->required()
                                 ->helperText('Ativar controle de estoque'),
 
+                            Toggle::make('produto_controla_lote')
+                                ->label('Controla Lote/Validade?')
+                                ->inline()
+                                ->columnSpan(2)
+                                ->helperText('Baixa por lote em FEFO (vence primeiro, sai primeiro)'),
+
+                            Toggle::make('produto_perecivel')
+                                ->label('Perecível?')
+                                ->inline()
+                                ->columnSpan(2)
+                                ->helperText('Insumo com vencimento'),
+
+                            Select::make('produto_unidade_estoque')
+                                ->label('Unidade de Estoque')
+                                ->options(
+                                    collect(UnidadeProdutoEnum::cases())
+                                        ->mapWithKeys(fn($type) => [$type->value => $type->label()])
+                                        ->toArray()
+                                )
+                                ->columnSpan(2)
+                                ->searchable()
+                                ->native(false)
+                                ->helperText('Unidade usada no controle de estoque (g, ml, un...)'),
+
                             Toggle::make('produto_cardapio')
                                 ->label('Mostrar no Cardápio?')
                                 ->inline()
