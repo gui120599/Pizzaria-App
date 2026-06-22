@@ -13,11 +13,9 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -63,11 +61,6 @@ class CentroCustoResource extends Resource
                     ])
                     ->native(false)
                     ->placeholder('Opcional'),
-
-                Toggle::make('centro_custo_ativo')
-                    ->label('Ativo')
-                    ->default(true)
-                    ->inline(false),
             ]);
     }
 
@@ -84,10 +77,6 @@ class CentroCustoResource extends Resource
                     ->label('Tipo')
                     ->badge()
                     ->placeholder('—'),
-
-                IconColumn::make('centro_custo_ativo')
-                    ->label('Ativo')
-                    ->boolean(),
 
                 TextColumn::make('movimentacoes_count')
                     ->label('Movimentações')

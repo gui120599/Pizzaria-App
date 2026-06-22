@@ -401,7 +401,7 @@ class ProdutosTable
 
                         Select::make('centro_custo_id')
                             ->label('Centro de custo')
-                            ->options(fn(): array => CentroCusto::ativos()->orderBy('centro_custo_nome')->pluck('centro_custo_nome', 'id')->toArray())
+                            ->options(fn(): array => CentroCusto::query()->orderBy('centro_custo_nome')->pluck('centro_custo_nome', 'id')->toArray())
                             ->searchable()
                             ->placeholder('Opcional'),
 
@@ -451,7 +451,7 @@ class ProdutosTable
 
                         Select::make('centro_custo_id')
                             ->label('Centro de custo')
-                            ->options(fn(): array => CentroCusto::ativos()->orderBy('centro_custo_nome')->pluck('centro_custo_nome', 'id')->toArray())
+                            ->options(fn(): array => CentroCusto::query()->orderBy('centro_custo_nome')->pluck('centro_custo_nome', 'id')->toArray())
                             ->searchable()
                             ->placeholder('Opcional'),
 
