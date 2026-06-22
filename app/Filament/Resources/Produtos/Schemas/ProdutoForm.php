@@ -169,6 +169,15 @@ class ProdutoForm
                                 ->native(false)
                                 ->helperText('Unidade usada no controle de estoque (g, ml, un...)'),
 
+                            TextInput::make('produto_ficha_rendimento')
+                                ->label('Rendimento da Ficha')
+                                ->numeric()
+                                ->step(0.001)
+                                ->minValue(0.001)
+                                ->default(1)
+                                ->columnSpan(2)
+                                ->helperText('Quanto a ficha técnica produz (ex.: 1 un, ou 5000 ml de molho por batelada)'),
+
                             Toggle::make('produto_cardapio')
                                 ->label('Mostrar no Cardápio?')
                                 ->inline()

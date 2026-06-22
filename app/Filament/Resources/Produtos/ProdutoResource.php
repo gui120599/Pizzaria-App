@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Produtos;
 use App\Filament\Resources\Produtos\Pages\CreateProduto;
 use App\Filament\Resources\Produtos\Pages\EditProduto;
 use App\Filament\Resources\Produtos\Pages\ListProdutos;
+use App\Filament\Resources\Produtos\RelationManagers\FichaItensRelationManager;
 use App\Filament\Resources\Produtos\Schemas\ProdutoForm;
 use App\Filament\Resources\Produtos\Tables\ProdutosTable;
 use App\Models\Produto;
@@ -37,7 +38,7 @@ class ProdutoResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            FichaItensRelationManager::class,
         ];
     }
 

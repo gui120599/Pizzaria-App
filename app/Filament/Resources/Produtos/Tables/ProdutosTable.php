@@ -472,6 +472,25 @@ class ProdutosTable
                             ->success()
                             ->send();
                     }),
+                ActionsAction::make('custo_pela_ficha')
+                    ->label('Custo pela ficha')
+                    ->icon('heroicon-o-calculator')
+                    ->tooltip('Recalcular o custo médio a partir da ficha técnica')
+                    ->color('info')
+                    ->visible(fn(Produto $record): bool => $record->temFichaTecnica())
+                    ->requiresConfirmation()
+                    ->modalHeading(fn(Produto $record) => "Custo pela Ficha — {$record->produto_descricao}")
+                    ->modalDescription(fn(Produto $record) => 'Custo calculado: R$ ' . number_format($record->custoUnitario(), 4, ',', '.') . ' por ' . ($record->produto_unidade_estoque ?? 'unidade') . '. Aplicar ao custo médio do produto?')
+                    ->action(function (Produto $record) {
+                        $custo = round($record->custoUnitario(), 4);
+                        $record->update(['produto_custo_medio' => $custo]);
+
+                        Notification::make()
+                            ->title('Custo atualizado pela ficha')
+                            ->body('Novo custo médio: R$ ' . number_format($custo, 4, ',', '.'))
+                            ->success()
+                            ->send();
+                    }),
                 EditAction::make(),
             ])
             ->toolbarActions([

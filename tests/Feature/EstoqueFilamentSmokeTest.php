@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Enums\ProdutoTipoEnum;
 use App\Filament\Resources\CentroCustos\Pages\ManageCentroCustos;
 use App\Filament\Resources\MovimentacaoProdutos\Pages\ManageMovimentacaoProdutos;
+use App\Filament\Resources\Produtos\Pages\EditProduto;
 use App\Filament\Resources\Produtos\Pages\ListProdutos;
+use App\Filament\Resources\Produtos\RelationManagers\FichaItensRelationManager;
 use App\Models\Categoria;
 use App\Models\Produto;
 use App\Models\User;
@@ -74,5 +76,15 @@ class EstoqueFilamentSmokeTest extends TestCase
             'mov_tipo' => 'ENTRADA',
             'mov_origem' => 'compra',
         ]);
+    }
+
+    public function test_relation_manager_da_ficha_tecnica_monta(): void
+    {
+        $produto = $this->produto();
+
+        Livewire::test(FichaItensRelationManager::class, [
+            'ownerRecord' => $produto,
+            'pageClass' => EditProduto::class,
+        ])->assertOk();
     }
 }

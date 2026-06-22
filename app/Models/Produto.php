@@ -24,6 +24,7 @@ class Produto extends Model
         'produto_unidade_estoque',
         'produto_controla_lote',
         'produto_perecivel',
+        'produto_ficha_rendimento',
         'produto_ordem',
         'produto_codimentacao',
         'produto_tipo',
@@ -64,6 +65,7 @@ class Produto extends Model
         'produto_perecivel' => 'boolean',
         'produto_custo_medio' => 'decimal:4',
         'produto_saldo_estoque' => 'decimal:3',
+        'produto_ficha_rendimento' => 'decimal:3',
     ];
 
     /**
@@ -108,6 +110,59 @@ class Produto extends Model
     public function fornecedores()
     {
         return $this->hasMany(FornecedorProduto::class, 'fp_produto_id');
+    }
+
+    // Itens da ficha técnica deste produto (componentes que ele consome)
+    public function fichaItens()
+    {
+        return $this->hasMany(FichaTecnicaItem::class, 'fti_produto_id');
+    }
+
+    // Linhas de ficha onde este produto é usado como insumo de outros
+    public function usadoComoInsumo()
+    {
+        return $this->hasMany(FichaTecnicaItem::class, 'fti_insumo_id');
+    }
+
+    public function temFichaTecnica(): bool
+    {
+        return $this->fichaItens()->exists();
+    }
+
+    /**
+     * Custo unitário do produto.
+     *
+     * Para produtos com ficha técnica, calcula o custo a partir dos insumos
+     * (recursivo — suporta semi-acabados/codimentação), dividido pelo rendimento.
+     * Sem ficha, usa o custo médio (alimentado pelas compras via WAC).
+     *
+     * @param  array<int>  $visitados  ids já visitados (proteção contra ciclo)
+     */
+    public function custoUnitario(array $visitados = []): float
+    {
+        if (in_array($this->id, $visitados, true)) {
+            return (float) $this->produto_custo_medio;
+        }
+        $visitados[] = $this->id;
+
+        $itens = $this->relationLoaded('fichaItens')
+            ? $this->fichaItens
+            : $this->fichaItens()->with('insumo')->get();
+
+        if ($itens->isEmpty()) {
+            return (float) $this->produto_custo_medio;
+        }
+
+        $custoTotal = $itens->sum(fn (FichaTecnicaItem $item) => $item->custo($visitados));
+        $rendimento = (float) $this->produto_ficha_rendimento ?: 1;
+
+        return $custoTotal / $rendimento;
+    }
+
+    /** Custo total da ficha (para o rendimento configurado). */
+    public function custoFicha(): float
+    {
+        return $this->custoUnitario() * ((float) $this->produto_ficha_rendimento ?: 1);
     }
 
     public function saveFoto($foto)
