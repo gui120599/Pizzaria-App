@@ -6,7 +6,12 @@ use App\Enums\ProdutoTipoEnum;
 use App\Filament\Resources\CentroCustos\Pages\ManageCentroCustos;
 use App\Filament\Resources\Compras\Pages\CreateCompra;
 use App\Filament\Resources\Compras\Pages\ListCompras;
+use App\Filament\Resources\Fornecedores\Pages\CreateFornecedor;
+use App\Filament\Resources\Fornecedores\Pages\EditFornecedor;
+use App\Filament\Resources\Fornecedores\Pages\ListFornecedores;
+use App\Filament\Resources\Fornecedores\RelationManagers\FornecedorProdutosRelationManager;
 use App\Filament\Resources\MovimentacaoProdutos\Pages\ManageMovimentacaoProdutos;
+use App\Models\Prestador;
 use App\Filament\Resources\Produtos\Pages\EditProduto;
 use App\Filament\Resources\Produtos\Pages\ListProdutos;
 use App\Filament\Resources\Produtos\RelationManagers\FichaItensRelationManager;
@@ -94,5 +99,24 @@ class EstoqueFilamentSmokeTest extends TestCase
     {
         Livewire::test(ListCompras::class)->assertOk();
         Livewire::test(CreateCompra::class)->assertOk();
+    }
+
+    public function test_paginas_de_fornecedores_e_depara_montam(): void
+    {
+        Livewire::test(ListFornecedores::class)->assertOk();
+        Livewire::test(CreateFornecedor::class)->assertOk();
+
+        $fornecedor = Prestador::create([
+            'tipo' => 'pj',
+            'categoria' => 'fornecedor',
+            'razao_social' => 'Distribuidora X',
+            'nome' => 'Distribuidora X',
+            'cpf_cnpj' => '12345678000199',
+        ]);
+
+        Livewire::test(FornecedorProdutosRelationManager::class, [
+            'ownerRecord' => $fornecedor,
+            'pageClass' => EditFornecedor::class,
+        ])->assertOk();
     }
 }
