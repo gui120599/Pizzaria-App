@@ -1,0 +1,188 @@
+<?php
+
+namespace App\Filament\Resources\Compras\RelationManagers;
+
+use App\Models\Compra;
+use App\Models\FornecedorProduto;
+use App\Models\Produto;
+use App\Services\CompraService;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+
+class ItensRelationManager extends RelationManager
+{
+    protected static string $relationship = 'itens';
+
+    protected static ?string $title = 'Itens da compra';
+
+    protected static ?string $modelLabel = 'item';
+
+    protected static ?string $pluralModelLabel = 'itens';
+
+    /** Rótulo rico do produto no resultado da busca. */
+    private static function rotuloProduto(Produto $p): string
+    {
+        $un = $p->produto_unidade_estoque ?: '';
+        $saldo = number_format((float) $p->produto_saldo_estoque, 3, ',', '.');
+        $custo = number_format((float) $p->produto_custo_medio, 2, ',', '.');
+
+        return "{$p->produto_descricao}  ·  saldo {$saldo} {$un}  ·  custo méd. R$ {$custo}";
+    }
+
+    private function rascunho(): bool
+    {
+        $owner = $this->getOwnerRecord();
+
+        return $owner instanceof Compra && $owner->isRascunho();
+    }
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema
+            ->columns(2)
+            ->components([
+                Select::make('ci_produto_id')
+                    ->label('Buscar produto / insumo')
+                    ->placeholder('Digite o nome do produto...')
+                    ->searchable()
+                    ->getSearchResultsUsing(fn (string $search): array => Produto::query()
+                        ->where('produto_descricao', 'like', "%{$search}%")
+                        ->orderBy('produto_descricao')
+                        ->limit(30)
+                        ->get()
+                        ->mapWithKeys(fn (Produto $p) => [$p->id => self::rotuloProduto($p)])
+                        ->toArray())
+                    ->getOptionLabelUsing(fn ($value): ?string => ($p = Produto::find($value)) ? self::rotuloProduto($p) : null)
+                    ->required()
+                    ->live()
+                    ->columnSpanFull()
+                    ->afterStateUpdated(function ($state, Set $set): void {
+                        $produto = $state ? Produto::find($state) : null;
+                        if (! $produto) {
+                            return;
+                        }
+
+                        $set('ci_descricao_fornecedor', $produto->produto_descricao);
+                        $set('ci_unidade_compra', $produto->produto_unidade_estoque);
+                        $set('ci_custo_unitario_compra', (float) $produto->produto_custo_medio);
+
+                        // Prefill pelo de-para do fornecedor, se existir.
+                        $owner = $this->getOwnerRecord();
+                        if ($owner?->compra_prestador_id) {
+                            $dp = FornecedorProduto::where('fp_prestador_id', $owner->compra_prestador_id)
+                                ->where('fp_produto_id', $produto->id)
+                                ->first();
+                            if ($dp) {
+                                $set('ci_codigo_fornecedor', $dp->fp_codigo_fornecedor);
+                                $set('ci_unidade_compra', $dp->fp_unidade_compra ?: $produto->produto_unidade_estoque);
+                                $set('ci_fator_conversao', (float) $dp->fp_fator_conversao ?: 1);
+                            }
+                        }
+                    }),
+
+                TextInput::make('ci_quantidade_compra')
+                    ->label('Quantidade comprada')
+                    ->numeric()->step(0.0001)->minValue(0.0001)->required()->default(1),
+
+                TextInput::make('ci_custo_unitario_compra')
+                    ->label('Custo por unidade de compra')
+                    ->numeric()->step(0.0001)->minValue(0)->required()->prefix('R$'),
+
+                TextInput::make('ci_unidade_compra')
+                    ->label('Unidade de compra')
+                    ->placeholder('CX, KG, UN...'),
+
+                TextInput::make('ci_fator_conversao')
+                    ->label('Fator para o estoque')
+                    ->numeric()->step(0.0001)->minValue(0.0001)->default(1)->required()
+                    ->helperText('1 unidade de compra = X unidades de estoque (ex.: 1 CX = 10 KG → 10)'),
+
+                TextInput::make('ci_lote_codigo')
+                    ->label('Lote')
+                    ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('ci_produto_id')))->produto_controla_lote),
+
+                DatePicker::make('ci_validade')
+                    ->label('Validade')
+                    ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('ci_produto_id')))->produto_controla_lote),
+
+                TextInput::make('ci_codigo_fornecedor')->label('Código no fornecedor')->columnSpan(1),
+                TextInput::make('ci_descricao_fornecedor')->label('Descrição na NF')->columnSpan(1),
+            ]);
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->recordTitleAttribute('ci_descricao_fornecedor')
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('insumo'))
+            ->emptyStateHeading('Nenhum item ainda')
+            ->emptyStateDescription('Clique em "Adicionar item" e busque o produto pelo nome.')
+            ->emptyStateIcon('heroicon-o-magnifying-glass')
+            ->columns([
+                TextColumn::make('insumo.produto_descricao')
+                    ->label('Produto')
+                    ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
+                    ->description(fn ($record): ?string => $record->ci_codigo_fornecedor ? 'Cód. forn.: ' . $record->ci_codigo_fornecedor : null)
+                    ->searchable(),
+
+                TextColumn::make('ci_quantidade_compra')
+                    ->label('Qtd.')
+                    ->numeric(decimalPlaces: 4)
+                    ->suffix(fn ($record): string => ' ' . ($record->ci_unidade_compra ?? ''))
+                    ->alignEnd(),
+
+                TextColumn::make('ci_custo_unitario_compra')
+                    ->label('Custo unit.')
+                    ->money('BRL')
+                    ->alignEnd(),
+
+                TextColumn::make('total_item')
+                    ->label('Total')
+                    ->state(fn ($record): float => $record->valorProdutos())
+                    ->money('BRL')
+                    ->alignEnd()
+                    ->weight(\Filament\Support\Enums\FontWeight::Bold),
+
+                TextColumn::make('estoque')
+                    ->label('Entra no estoque')
+                    ->state(fn ($record): string => number_format($record->quantidadeEstoque(), 3, ',', '.')
+                        . ' ' . (optional($record->insumo)->produto_unidade_estoque ?? ''))
+                    ->alignEnd()
+                    ->color('gray'),
+
+                TextColumn::make('ci_validade')
+                    ->label('Validade')
+                    ->date('d/m/Y')
+                    ->placeholder('—')
+                    ->toggleable(),
+            ])
+            ->headerActions([
+                CreateAction::make()
+                    ->label('Adicionar item')
+                    ->icon('heroicon-o-plus')
+                    ->modalHeading('Buscar e adicionar item')
+                    ->modalWidth('xl')
+                    ->visible(fn (): bool => $this->rascunho())
+                    ->after(fn () => app(CompraService::class)->recalcularTotais($this->getOwnerRecord()->load('itens'))),
+            ])
+            ->recordActions([
+                EditAction::make()
+                    ->visible(fn (): bool => $this->rascunho())
+                    ->after(fn () => app(CompraService::class)->recalcularTotais($this->getOwnerRecord()->load('itens'))),
+                DeleteAction::make()
+                    ->visible(fn (): bool => $this->rascunho())
+                    ->after(fn () => app(CompraService::class)->recalcularTotais($this->getOwnerRecord()->load('itens'))),
+            ]);
+    }
+}

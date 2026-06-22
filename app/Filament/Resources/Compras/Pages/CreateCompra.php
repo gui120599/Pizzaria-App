@@ -21,4 +21,10 @@ class CreateCompra extends CreateRecord
     {
         app(CompraService::class)->recalcularTotais($this->record->load('itens'));
     }
+
+    /** Após criar o cabeçalho, vai para a edição para adicionar os itens. */
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('edit', ['record' => $this->record]);
+    }
 }

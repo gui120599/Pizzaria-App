@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use App\Enums\ProdutoTipoEnum;
 use App\Filament\Resources\CentroCustos\Pages\ManageCentroCustos;
 use App\Filament\Resources\Compras\Pages\CreateCompra;
+use App\Filament\Resources\Compras\Pages\EditCompra;
 use App\Filament\Resources\Compras\Pages\ListCompras;
+use App\Filament\Resources\Compras\RelationManagers\ItensRelationManager;
+use App\Models\Compra;
 use App\Filament\Resources\Fornecedores\Pages\CreateFornecedor;
 use App\Filament\Resources\Fornecedores\Pages\EditFornecedor;
 use App\Filament\Resources\Fornecedores\Pages\ListFornecedores;
@@ -105,6 +108,19 @@ class EstoqueFilamentSmokeTest extends TestCase
     {
         Livewire::test(ListCompras::class)->assertOk();
         Livewire::test(CreateCompra::class)->assertOk();
+    }
+
+    public function test_relation_manager_de_itens_da_compra_monta(): void
+    {
+        $compra = Compra::create([
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_status' => 'rascunho',
+        ]);
+
+        Livewire::test(ItensRelationManager::class, [
+            'ownerRecord' => $compra,
+            'pageClass' => EditCompra::class,
+        ])->assertOk();
     }
 
     public function test_paginas_de_fornecedores_e_depara_montam(): void
