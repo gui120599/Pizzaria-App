@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Filament\Widgets\Concerns\InteractsComPeriodoFinanceiro;
+use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\ItensVenda;
 use App\Models\Venda;
 use Carbon\Carbon;
@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class FinanceiroStatsOverview extends BaseWidget
 {
-    use InteractsComPeriodoFinanceiro;
+    use InteractsComPeriodo;
     use InteractsWithPageFilters;
 
     protected ?string $heading = 'Indicadores do período';

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Filament\Widgets\Concerns\InteractsComPeriodoFinanceiro;
+use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\Venda;
 use Carbon\Carbon;
 use Filament\Widgets\ChartWidget;
@@ -10,7 +10,7 @@ use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class FaturamentoPorDiaChart extends ChartWidget
 {
-    use InteractsComPeriodoFinanceiro;
+    use InteractsComPeriodo;
     use InteractsWithPageFilters;
 
     protected ?string $heading = 'Faturamento por dia';

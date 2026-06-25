@@ -5,11 +5,11 @@ namespace App\Filament\Widgets\Concerns;
 use Carbon\Carbon;
 
 /**
- * Lê o período selecionado no filtro do FinanceiroDashboard e oferece
- * helpers de formatação. Use junto com InteractsWithPageFilters, que
- * expõe a propriedade $pageFilters preenchida pela página.
+ * Lê o período selecionado no filtro de um dashboard e oferece helpers de
+ * formatação. Use junto com InteractsWithPageFilters, que expõe a
+ * propriedade $pageFilters preenchida pela página.
  */
-trait InteractsComPeriodoFinanceiro
+trait InteractsComPeriodo
 {
     /**
      * Retorna [início, fim] como Carbon. Sem filtro, assume o mês corrente.
@@ -39,5 +39,10 @@ trait InteractsComPeriodoFinanceiro
     protected function pct(float $valor): string
     {
         return number_format($valor, 1, ',', '.').'%';
+    }
+
+    protected function minutos(float $valor): string
+    {
+        return number_format($valor, 0, ',', '.').' min';
     }
 }

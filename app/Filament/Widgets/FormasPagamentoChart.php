@@ -2,14 +2,14 @@
 
 namespace App\Filament\Widgets;
 
-use App\Filament\Widgets\Concerns\InteractsComPeriodoFinanceiro;
+use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\PagamentosVenda;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class FormasPagamentoChart extends ChartWidget
 {
-    use InteractsComPeriodoFinanceiro;
+    use InteractsComPeriodo;
     use InteractsWithPageFilters;
 
     protected ?string $heading = 'Formas de pagamento';

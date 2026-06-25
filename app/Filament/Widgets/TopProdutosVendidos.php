@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Filament\Widgets\Concerns\InteractsComPeriodoFinanceiro;
+use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\ItensVenda;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class TopProdutosVendidos extends BaseWidget
 {
-    use InteractsComPeriodoFinanceiro;
+    use InteractsComPeriodo;
     use InteractsWithPageFilters;
 
     protected int|string|array $columnSpan = 'full';
