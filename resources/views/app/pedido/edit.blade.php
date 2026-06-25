@@ -163,16 +163,51 @@
     {{-- FAB: Cancelar Pedido (acima do FAB de salvar do PedidoProdutoSelector) --}}
     @if(!in_array($pedido->pedido_status, ['CANCELADO', 'FINALIZADO']))
         <div class="fixed bottom-24 inset-x-0 px-4 z-[39] flex justify-center pointer-events-none">
-            <form action="{{ route('pedido.cancelar', $pedido->id) }}" method="POST"
-                  x-data
-                  @submit.prevent="if (confirm('Cancelar o pedido #{{ $pedido->id }}? Esta ação não pode ser desfeita.')) $el.submit()">
-                @csrf
-                <button type="submit"
-                        class="pointer-events-auto py-2.5 px-5 bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-2xl text-white font-bold flex items-center gap-2 shadow-xl transition-colors whitespace-nowrap">
-                    <i class='bx bx-x-circle text-lg'></i>
-                    <span class="text-sm uppercase tracking-widest">Cancelar Pedido</span>
-                </button>
-            </form>
+            <button type="button" x-data
+                    x-on:click="$dispatch('open-modal', 'cancelar-pedido-{{ $pedido->id }}')"
+                    class="pointer-events-auto py-2.5 px-5 bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-2xl text-white font-bold flex items-center gap-2 shadow-xl transition-colors whitespace-nowrap">
+                <i class='bx bx-x-circle text-lg'></i>
+                <span class="text-sm uppercase tracking-widest">Cancelar Pedido</span>
+            </button>
+        </div>
+
+        {{-- z-[70] para ficar acima do selector (FAB z-40, painéis z-50, modais z-[60]). --}}
+        <div x-data="{ open: false }"
+            x-on:open-modal.window="$event.detail === 'cancelar-pedido-{{ $pedido->id }}' && (open = true)"
+            x-on:close-modal.window="$event.detail === 'cancelar-pedido-{{ $pedido->id }}' && (open = false)"
+            x-on:keydown.escape.window="open = false"
+            x-show="open" style="display: none;"
+            class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-gray-500/75" x-on:click="open = false"></div>
+            <div class="relative w-full max-w-md bg-white rounded-lg shadow-xl" x-show="open" x-transition>
+                <form action="{{ route('pedido.cancelar', $pedido->id) }}" method="POST" class="p-6">
+                    @csrf
+                    <h2 class="text-lg font-medium text-gray-900">
+                        {{ __('Cancelar pedido #' . $pedido->id) }}
+                    </h2>
+                    <p class="mt-1 text-sm text-gray-600">
+                        {{ __('Esta ação não pode ser desfeita. Selecione o motivo do cancelamento.') }}
+                    </p>
+
+                    <div class="mt-4">
+                        <x-input-label for="pedido_motivo_cancelamento_{{ $pedido->id }}" :value="__('Motivo')" />
+                        <select id="pedido_motivo_cancelamento_{{ $pedido->id }}" name="pedido_motivo_cancelamento" required
+                            class="mt-1 block w-full border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-md shadow-sm">
+                            <option value="" disabled selected>{{ __('Selecione...') }}</option>
+                            @foreach (\App\Enums\MotivoCancelamentoEnum::paraSelect() as $valor => $rotulo)
+                                <option value="{{ $valor }}">{{ $rotulo }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="mt-6 flex justify-end gap-x-3">
+                        <x-secondary-button type="button" x-on:click="open = false">
+                            {{ __('Voltar') }}
+                        </x-secondary-button>
+                        <x-danger-button>{{ __('Confirmar cancelamento') }}</x-danger-button>
+                    </div>
+                </form>
+            </div>
         </div>
     @endif
 </x-app-layout>

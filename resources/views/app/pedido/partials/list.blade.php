@@ -81,11 +81,11 @@
                                         </button>
                                     @endif
 
-                                    <form action="{{ route('pedido.cancelar', ['id' => $pedido->id]) }}"
-                                        method="post">
-                                        @csrf
-                                        <x-danger-button title="CANCELAR"><i class='bx bx-trash'></i></x-danger-button>
-                                    </form>
+                                    <x-danger-button type="button" title="CANCELAR"
+                                        x-data=""
+                                        x-on:click.prevent="$dispatch('open-modal', 'cancelar-pedido-{{ $pedido->id }}')">
+                                        <i class='bx bx-trash'></i>
+                                    </x-danger-button>
                                 </td>
                             @else
                                 <td class="text-center inline-flex gap-x-2">
@@ -209,6 +209,49 @@
                 </div>
             </x-modal>
         @endforeach
+        {{-- Modal de cancelamento (captura o motivo p/ análise de perdas).
+             z-[70] para ficar acima de qualquer overlay (selector usa até z-[60]). --}}
+        @foreach ($pedidos as $pedido)
+            <div x-data="{ open: false }"
+                x-on:open-modal.window="$event.detail === 'cancelar-pedido-{{ $pedido->id }}' && (open = true)"
+                x-on:close-modal.window="$event.detail === 'cancelar-pedido-{{ $pedido->id }}' && (open = false)"
+                x-on:keydown.escape.window="open = false"
+                x-show="open" style="display: none;"
+                class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-gray-500/75" x-on:click="open = false"></div>
+                <div class="relative w-full max-w-md bg-white rounded-lg shadow-xl"
+                    x-show="open" x-transition>
+                    <form action="{{ route('pedido.cancelar', ['id' => $pedido->id]) }}" method="post" class="p-6">
+                        @csrf
+                        <h2 class="text-lg font-medium text-gray-900">
+                            {{ __('Cancelar pedido #' . $pedido->id) }}
+                        </h2>
+                        <p class="mt-1 text-sm text-gray-600">
+                            {{ __('Selecione o motivo. Essa informação alimenta a análise de perdas.') }}
+                        </p>
+
+                        <div class="mt-4">
+                            <x-input-label for="pedido_motivo_cancelamento_{{ $pedido->id }}" :value="__('Motivo')" />
+                            <select id="pedido_motivo_cancelamento_{{ $pedido->id }}" name="pedido_motivo_cancelamento" required
+                                class="mt-1 block w-full border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-md shadow-sm">
+                                <option value="" disabled selected>{{ __('Selecione...') }}</option>
+                                @foreach (\App\Enums\MotivoCancelamentoEnum::paraSelect() as $valor => $rotulo)
+                                    <option value="{{ $valor }}">{{ $rotulo }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="mt-6 flex justify-end gap-x-3">
+                            <x-secondary-button type="button" x-on:click="open = false">
+                                {{ __('Voltar') }}
+                            </x-secondary-button>
+                            <x-danger-button>{{ __('Confirmar cancelamento') }}</x-danger-button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endforeach
+
         <div class="py-4">
             {{ $pedidos->links() }}
         </div>

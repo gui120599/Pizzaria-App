@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\MotivosCancelamentoChart;
 use App\Filament\Widgets\PedidosPorDiaSemanaChart;
 use App\Filament\Widgets\PedidosPorHoraChart;
 use App\Filament\Widgets\PedidosPorOrigemChart;
@@ -63,6 +64,7 @@ class PedidosDashboard extends BaseDashboard
             PedidosPorHoraChart::class,
             PedidosPorDiaSemanaChart::class,
             PedidosPorOrigemChart::class,
+            MotivosCancelamentoChart::class,
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\PedidoOrigemEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +26,8 @@ class Pedido extends Model
         'pedido_valor_frete',
         'pedido_valor_total',
         'pedido_status',
+        'pedido_motivo_cancelamento',
+        'pedido_usuario_cancelou_id',
         'pedido_origem',
         'pedido_datahora_abertura',
         'pedido_datahora_preparo',
@@ -37,6 +40,7 @@ class Pedido extends Model
 
     protected $casts = [
         'pedido_origem' => PedidoOrigemEnum::class,
+        'pedido_motivo_cancelamento' => MotivoCancelamentoEnum::class,
         'pedido_datahora_abertura' => 'datetime',
         'pedido_datahora_preparo' => 'datetime',
         'pedido_datahora_pronto' => 'datetime',
@@ -49,35 +53,40 @@ class Pedido extends Model
     public function cliente()
     {
         return $this->belongsTo(Cliente::class, 'pedido_cliente_id')->withDefault([
-            'cliente_nome' => 'Não informado'
+            'cliente_nome' => 'Não informado',
         ]);
     }
 
     public function sessaoMesa()
     {
         return $this->belongsTo(SessaoMesa::class, 'pedido_sessao_mesa_id')->withDefault([
-            'mesa_nome' => 'S/M'
+            'mesa_nome' => 'S/M',
         ]);
     }
 
     public function garcom()
     {
         return $this->belongsTo(User::class, 'pedido_usuario_garcom_id')->withDefault([
-            'name' => 'S/G'
+            'name' => 'S/G',
         ]);
     }
 
     public function entregador()
     {
         return $this->belongsTo(User::class, 'pedido_usuario_entrega_id')->withDefault([
-            'name' => 'S/E'
+            'name' => 'S/E',
         ]);
+    }
+
+    public function usuarioCancelou()
+    {
+        return $this->belongsTo(User::class, 'pedido_usuario_cancelou_id');
     }
 
     public function opcaoEntrega()
     {
         return $this->belongsTo(OpcoesEntregas::class, 'pedido_opcaoentrega_id')->withDefault([
-            'opcaoentrega_nome' => 'S/OPE'
+            'opcaoentrega_nome' => 'S/OPE',
         ]);
     }
 
@@ -90,24 +99,24 @@ class Pedido extends Model
     public function produtosInseridosPedido()
     {
         return $this->belongsToMany(Produto::class, 'itens_pedidos', 'item_pedido_pedido_id', 'item_pedido_produto_id')
-            ->withPivot('id','item_pedido_quantidade', 'item_pedido_valor', 'item_pedido_observacao', 'item_pedido_status', 'item_pedido_usuario_removeu')
+            ->withPivot('id', 'item_pedido_quantidade', 'item_pedido_valor', 'item_pedido_observacao', 'item_pedido_status', 'item_pedido_usuario_removeu')
             ->wherePivot('item_pedido_status', 'INSERIDO')
             ->with('categoria');
     }
 
-
-    public function item_pedido_pedido_id(){
-        return $this->hasMany(ItensPedido::class,'item_pedido_pedido_id');
+    public function item_pedido_pedido_id()
+    {
+        return $this->hasMany(ItensPedido::class, 'item_pedido_pedido_id');
     }
 
-    public function vendas(){
+    public function vendas()
+    {
         return $this->belongsTo(Venda::class, 'pedido_venda_id')->withDefault([
             'venda_id' => 'N/Venda']);
     }
-    
-    public function mov_pedido(){
-        return $this->hasMany(MovimentacaoPedido::class,'mov_pedido_pedido_id');
-    }
-    
 
+    public function mov_pedido()
+    {
+        return $this->hasMany(MovimentacaoPedido::class, 'mov_pedido_pedido_id');
+    }
 }

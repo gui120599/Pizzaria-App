@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MotivoCancelamentoEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -28,6 +29,8 @@ class Venda extends Model
         'venda_valor_pago',
         'venda_valor_troco',
         'venda_status',
+        'venda_motivo_cancelamento',
+        'venda_usuario_cancelou_id',
         'venda_status_nfe',
         'venda_datahora_iniciada',
         'venda_datahora_finalizada',
@@ -46,6 +49,7 @@ class Venda extends Model
         'venda_valor_total' => 'decimal:2',
         'venda_valor_pago' => 'decimal:2',
         'venda_valor_troco' => 'decimal:2',
+        'venda_motivo_cancelamento' => MotivoCancelamentoEnum::class,
         'venda_datahora_iniciada' => 'datetime',
         'venda_datahora_finalizada' => 'datetime',
     ];
@@ -60,9 +64,14 @@ class Venda extends Model
         return $this->belongsTo(Cliente::class, 'venda_cliente_id');
     }
 
+    public function usuarioCancelou()
+    {
+        return $this->belongsTo(User::class, 'venda_usuario_cancelou_id');
+    }
+
     public function itensVenda()
     {
-        return $this->hasMany(ItensVenda::class, 'item_venda_venda_id','id');
+        return $this->hasMany(ItensVenda::class, 'item_venda_venda_id', 'id');
     }
 
     public function pagamentos()
@@ -70,11 +79,13 @@ class Venda extends Model
         return $this->hasMany(PagamentosVenda::class, 'pg_venda_venda_id');
     }
 
-    public function pedidos(){
-        return $this->hasMany(Pedido::class, 'pedido_venda_id','id');
+    public function pedidos()
+    {
+        return $this->hasMany(Pedido::class, 'pedido_venda_id', 'id');
     }
 
-    public function movimentacoesSessaoCaixa(){
-        return $this->hasMany(MovimentacoesSessaoCaixa::class, 'mov_venda_id','id');
+    public function movimentacoesSessaoCaixa()
+    {
+        return $this->hasMany(MovimentacoesSessaoCaixa::class, 'mov_venda_id', 'id');
     }
 }

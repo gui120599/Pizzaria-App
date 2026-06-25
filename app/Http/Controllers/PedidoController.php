@@ -2,20 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\ProdutoTipoEnum;
-use App\Models\Pedido;
 use App\Http\Requests\UpdatePedidoRequest;
 use App\Models\Categoria;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
+use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoMesa;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use PhpParser\Node\Expr\FuncCall;
+use Illuminate\Validation\Rule;
 
 class PedidoController extends Controller
 {
@@ -78,16 +79,17 @@ class PedidoController extends Controller
 
     /**
      * Lista todos os pedidos
+     *
      * @return \Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
     public function list(Request $request)
     {
         if ($request->input('search')) {
-            $pedidos = Pedido::where('id', '=', $request->input('search'))->where('pedido_status', '<>', 'INICIADO')->with('mov_pedido','item_pedido_pedido_id')->orderByDesc('id')->paginate(50);
+            $pedidos = Pedido::where('id', '=', $request->input('search'))->where('pedido_status', '<>', 'INICIADO')->with('mov_pedido', 'item_pedido_pedido_id')->orderByDesc('id')->paginate(50);
         } else {
-            $pedidos = Pedido::with('mov_pedido','item_pedido_pedido_id')->orderByDesc('id')->where('pedido_status', '<>', 'INICIADO')->paginate(50);
+            $pedidos = Pedido::with('mov_pedido', 'item_pedido_pedido_id')->orderByDesc('id')->where('pedido_status', '<>', 'INICIADO')->paginate(50);
         }
-        //return response()->json($pedidos);
+        // return response()->json($pedidos);
 
         $clientes = Cliente::all();
         $opcoes_pagamento = OpcoesPagamento::all();
@@ -107,7 +109,7 @@ class PedidoController extends Controller
     public function iniciarPedido(Request $request)
     {
         // Criar um novo pedido
-        $pedido = new Pedido();
+        $pedido = new Pedido;
         $pedido->pedido_status = 'INICIADO'; // Definir o status do pedido como 'INICIADO'
         $pedido->save();
 
@@ -115,19 +117,18 @@ class PedidoController extends Controller
         return response()->json(['pedido_id' => $pedido->id]);
     }
 
-
     /**
      * Show the form for creating a new resource.
      */
     public function create()
     {
-        $pedido           = Pedido::create([
-            'pedido_status'            => 'INICIADO',
-            'pedido_origem'            => PedidoOrigemEnum::ATENDENTE,
+        $pedido = Pedido::create([
+            'pedido_status' => 'INICIADO',
+            'pedido_origem' => PedidoOrigemEnum::ATENDENTE,
             'pedido_usuario_garcom_id' => auth()->id(),
         ]);
-        $clientes         = Cliente::orderBy('cliente_nome')->get();
-        $opcoes_entregas  = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
+        $clientes = Cliente::orderBy('cliente_nome')->get();
+        $opcoes_entregas = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
         $opcoes_pagamento = OpcoesPagamento::orderBy('opcaopag_nome')->get();
 
         return view('app.pedido.create', compact('pedido', 'clientes', 'opcoes_entregas', 'opcoes_pagamento'));
@@ -159,10 +160,10 @@ class PedidoController extends Controller
      */
     public function store(Request $request)
     {
-        $pedido    = Pedido::findOrFail($request->input('pedido_id'));
+        $pedido = Pedido::findOrFail($request->input('pedido_id'));
         $clienteId = $this->resolverCliente($request);
 
-        $itens         = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+        $itens = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
 
@@ -170,27 +171,27 @@ class PedidoController extends Controller
             return back()->with('error', 'Adicione pelo menos um item antes de abrir o pedido.');
         }
 
-        $valorLiquido  = round($itens->sum('item_pedido_valor'), 2);      // item_pedido_valor já é líquido
+        $valorLiquido = round($itens->sum('item_pedido_valor'), 2);      // item_pedido_valor já é líquido
         $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
-        $valorItens    = round($valorLiquido + $totalDesconto, 2);        // bruto (antes do desconto), para exibição
-        $valorFrete    = $this->calcularFrete($request->input('pedido_opcaoentrega_id'), $valorLiquido);
+        $valorItens = round($valorLiquido + $totalDesconto, 2);        // bruto (antes do desconto), para exibição
+        $valorFrete = $this->calcularFrete($request->input('pedido_opcaoentrega_id'), $valorLiquido);
 
         $pedido->update([
-            'pedido_cliente_id'           => $clienteId,
-            'pedido_opcaoentrega_id'      => $request->input('pedido_opcaoentrega_id') ?: null,
-            'pedido_endereco_entrega'     => $request->input('pedido_endereco_entrega') ?: null,
-            'pedido_descricao_pagamento'  => $request->input('pedido_descricao_pagamento') ?: null,
+            'pedido_cliente_id' => $clienteId,
+            'pedido_opcaoentrega_id' => $request->input('pedido_opcaoentrega_id') ?: null,
+            'pedido_endereco_entrega' => $request->input('pedido_endereco_entrega') ?: null,
+            'pedido_descricao_pagamento' => $request->input('pedido_descricao_pagamento') ?: null,
             'pedido_observacao_pagamento' => $request->input('pedido_observacao_pagamento') ?: null,
-            'pedido_usuario_garcom_id'    => $request->input('pedido_usuario_garcom_id') ?: null,
-            'pedido_status'               => 'ABERTO',
-            'pedido_datahora_abertura'    => Carbon::now(),
-            'pedido_valor_itens'          => $valorItens,
-            'pedido_valor_desconto'       => $totalDesconto,
-            'pedido_valor_frete'          => $valorFrete,
-            'pedido_valor_total'          => round(max(0, $valorLiquido + $valorFrete), 2),
+            'pedido_usuario_garcom_id' => $request->input('pedido_usuario_garcom_id') ?: null,
+            'pedido_status' => 'ABERTO',
+            'pedido_datahora_abertura' => Carbon::now(),
+            'pedido_valor_itens' => $valorItens,
+            'pedido_valor_desconto' => $totalDesconto,
+            'pedido_valor_frete' => $valorFrete,
+            'pedido_valor_total' => round(max(0, $valorLiquido + $valorFrete), 2),
         ]);
 
-        return redirect()->route('pedido.create')->with('success', 'Pedido #' . $pedido->id . ' criado com sucesso!');
+        return redirect()->route('pedido.create')->with('success', 'Pedido #'.$pedido->id.' criado com sucesso!');
     }
 
     /**
@@ -217,8 +218,8 @@ class PedidoController extends Controller
             'item_pedido_pedido_id',
         ])->findOrFail($id);
 
-        $clientes         = Cliente::orderBy('cliente_nome')->get();
-        $opcoes_entregas  = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
+        $clientes = Cliente::orderBy('cliente_nome')->get();
+        $opcoes_entregas = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
         $opcoes_pagamento = OpcoesPagamento::orderBy('opcaopag_nome')->get();
 
         return view('app.pedido.edit', compact('pedido', 'clientes', 'opcoes_entregas', 'opcoes_pagamento'));
@@ -226,33 +227,33 @@ class PedidoController extends Controller
 
     public function salvarEdicaoPedido(Request $request, int $id)
     {
-        $pedido    = Pedido::findOrFail($id);
+        $pedido = Pedido::findOrFail($id);
         $clienteId = $this->resolverCliente($request);
 
-        $itens         = ItensPedido::where('item_pedido_pedido_id', $id)
+        $itens = ItensPedido::where('item_pedido_pedido_id', $id)
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
 
-        $valorLiquido  = round($itens->sum('item_pedido_valor'), 2);      // item_pedido_valor já é líquido
+        $valorLiquido = round($itens->sum('item_pedido_valor'), 2);      // item_pedido_valor já é líquido
         $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
-        $valorItens    = round($valorLiquido + $totalDesconto, 2);        // bruto (antes do desconto), para exibição
-        $valorFrete    = $this->calcularFrete($request->input('pedido_opcaoentrega_id'), $valorLiquido);
+        $valorItens = round($valorLiquido + $totalDesconto, 2);        // bruto (antes do desconto), para exibição
+        $valorFrete = $this->calcularFrete($request->input('pedido_opcaoentrega_id'), $valorLiquido);
 
         $pedido->update([
-            'pedido_cliente_id'           => $clienteId,
-            'pedido_opcaoentrega_id'      => $request->input('pedido_opcaoentrega_id') ?: null,
-            'pedido_endereco_entrega'     => $request->input('pedido_endereco_entrega') ?: null,
-            'pedido_descricao_pagamento'  => $request->input('pedido_descricao_pagamento') ?: null,
+            'pedido_cliente_id' => $clienteId,
+            'pedido_opcaoentrega_id' => $request->input('pedido_opcaoentrega_id') ?: null,
+            'pedido_endereco_entrega' => $request->input('pedido_endereco_entrega') ?: null,
+            'pedido_descricao_pagamento' => $request->input('pedido_descricao_pagamento') ?: null,
             'pedido_observacao_pagamento' => $request->input('pedido_observacao_pagamento') ?: null,
-            'pedido_usuario_garcom_id'    => $request->input('pedido_usuario_garcom_id') ?: null,
-            'pedido_status'               => $request->input('pedido_status') ?: $pedido->pedido_status,
-            'pedido_valor_itens'          => $valorItens,
-            'pedido_valor_desconto'       => $totalDesconto,
-            'pedido_valor_frete'          => $valorFrete,
-            'pedido_valor_total'          => round(max(0, $valorLiquido + $valorFrete), 2),
+            'pedido_usuario_garcom_id' => $request->input('pedido_usuario_garcom_id') ?: null,
+            'pedido_status' => $request->input('pedido_status') ?: $pedido->pedido_status,
+            'pedido_valor_itens' => $valorItens,
+            'pedido_valor_desconto' => $totalDesconto,
+            'pedido_valor_frete' => $valorFrete,
+            'pedido_valor_total' => round(max(0, $valorLiquido + $valorFrete), 2),
         ]);
 
-        return redirect()->route('pedidos')->with('success', 'Pedido #' . $id . ' atualizado com sucesso!');
+        return redirect()->route('pedidos')->with('success', 'Pedido #'.$id.' atualizado com sucesso!');
     }
 
     private function calcularFrete(?string $opcaoEntregaId, float $totalLiquido): float
@@ -280,7 +281,7 @@ class PedidoController extends Controller
             return (int) $clienteId;
         }
 
-        $nome     = trim($request->input('cliente_nome_novo', ''));
+        $nome = trim($request->input('cliente_nome_novo', ''));
         $telefone = preg_replace('/\D/', '', $request->input('cliente_celular_novo', ''));
 
         if (! $nome) {
@@ -295,9 +296,9 @@ class PedidoController extends Controller
             $cliente->update(['cliente_nome' => $nome]);
         } else {
             $cliente = Cliente::create([
-                'cliente_nome'    => $nome,
+                'cliente_nome' => $nome,
                 'cliente_celular' => $telefone ?: null,
-                'cliente_tipo'    => 'Física',
+                'cliente_tipo' => 'Física',
             ]);
         }
 
@@ -311,7 +312,7 @@ class PedidoController extends Controller
     {
         $pedido->update([
             'pedido_opcaoentrega_id' => $request->input('pedido_opcaoentrega_id'),
-            'pedido_endereco_entrega' => $request->input('pedido_endereco_entrega')
+            'pedido_endereco_entrega' => $request->input('pedido_endereco_entrega'),
         ]);
 
         return redirect()->route('pedidos')->with('success', 'Pedido alterado com sucesso!');
@@ -325,7 +326,6 @@ class PedidoController extends Controller
         return view('app.pedido.abertos');
     }
 
-
     public function PedidosAbertosLista()
     {
         // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
@@ -336,7 +336,6 @@ class PedidoController extends Controller
         // Retorna os pedidos como JSON
         return response()->json($pedidos);
     }
-
 
     public function PedidosPreparandoLista()
     {
@@ -349,7 +348,6 @@ class PedidoController extends Controller
         return response()->json($pedidos);
     }
 
-
     public function PedidosProntoLista()
     {
         // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
@@ -361,7 +359,6 @@ class PedidoController extends Controller
         return response()->json($pedidos);
     }
 
-
     public function PedidosEmTransporteLista()
     {
         // Pega todos os pedidos com status 'aberto' (ajuste o valor do status conforme sua lógica)
@@ -372,7 +369,6 @@ class PedidoController extends Controller
         // Retorna os pedidos como JSON
         return response()->json($pedidos);
     }
-
 
     public function PedidosEntregueLista()
     {
@@ -398,19 +394,18 @@ class PedidoController extends Controller
         return response()->json($pedidos);
     }
 
-
     public function AceitarPedido(Request $request)
     {
 
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
         $pedido->update([
-            'pedido_status' => "PREPARANDO",
-            'pedido_datahora_preparo' => Carbon::now()
+            'pedido_status' => 'PREPARANDO',
+            'pedido_datahora_preparo' => Carbon::now(),
         ]);
+
         return response()->json(['message' => 'Pedido aceito!'], 200);
     }
-
 
     public function RejeitarPedido(Request $request)
     {
@@ -418,9 +413,12 @@ class PedidoController extends Controller
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
         $pedido->update([
-            'pedido_status' => "CANCELADO",
-            'pedido_datahora_cancelado' => Carbon::now()
+            'pedido_status' => 'CANCELADO',
+            'pedido_motivo_cancelamento' => $request->input('pedido_motivo_cancelamento', MotivoCancelamentoEnum::OUTRO->value),
+            'pedido_usuario_cancelou_id' => auth()->id(),
+            'pedido_datahora_cancelado' => Carbon::now(),
         ]);
+
         return response()->json(['message' => 'Pedido Cancelado!'], 200);
     }
 
@@ -429,24 +427,29 @@ class PedidoController extends Controller
      */
     public function CancelarPedido(Request $request)
     {
+        $request->validate(
+            ['pedido_motivo_cancelamento' => ['required', Rule::enum(MotivoCancelamentoEnum::class)]],
+            ['pedido_motivo_cancelamento.required' => 'Selecione o motivo do cancelamento.']
+        );
+
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
 
-        if (!$pedido) {
+        if (! $pedido) {
             return redirect()->route('pedidos')->with('error', 'Pedido não encontrado!');
         }
 
         if ($pedido->pedido_sessao_mesa_id != null) {
             $sessaoMesa = SessaoMesa::find($pedido->pedido_sessao_mesa_id);
 
-            if (!$sessaoMesa) {
+            if (! $sessaoMesa) {
                 return redirect()->route('pedidos')->with('error', 'Sessão de mesa não encontrada!');
             }
 
             if ($sessaoMesa->sessao_mesa_status != 'ABERTA') {
                 return redirect()->route('pedidos')->with(
                     'error',
-                    'Pedido não pode ser restaurado, pois a sessão(' . $sessaoMesa->id . ') da ' . $sessaoMesa->mesa->mesa_nome . ' está ' . $sessaoMesa->sessao_mesa_status
+                    'Pedido não pode ser restaurado, pois a sessão('.$sessaoMesa->id.') da '.$sessaoMesa->mesa->mesa_nome.' está '.$sessaoMesa->sessao_mesa_status
                 );
             }
         }
@@ -454,16 +457,18 @@ class PedidoController extends Controller
         if ($pedido->pedido_venda_id != null) {
             return redirect()->route('pedidos')->with(
                 'error',
-                'Pedido não pode ser restaurado, pois já está pago! Venda: ' . $pedido->pedido_venda_id
+                'Pedido não pode ser restaurado, pois já está pago! Venda: '.$pedido->pedido_venda_id
             );
         }
 
         $pedido->update([
             'pedido_status' => 'CANCELADO',
+            'pedido_motivo_cancelamento' => $request->input('pedido_motivo_cancelamento'),
+            'pedido_usuario_cancelou_id' => auth()->id(),
             'pedido_datahora_cancelado' => Carbon::now(),
         ]);
 
-        return redirect()->route('pedidos')->with('success', 'Pedido ' . $pedido->id . ' cancelado com sucesso!');
+        return redirect()->route('pedidos')->with('success', 'Pedido '.$pedido->id.' cancelado com sucesso!');
     }
 
     /**
@@ -474,44 +479,44 @@ class PedidoController extends Controller
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
 
-        if (!$pedido) {
+        if (! $pedido) {
             return redirect()->route('pedidos')->with('error', 'Pedido não encontrado!');
         }
 
         if ($pedido->pedido_sessao_mesa_id != null) {
             $sessaoMesa = SessaoMesa::find($pedido->pedido_sessao_mesa_id);
 
-            if (!$sessaoMesa) {
+            if (! $sessaoMesa) {
                 return redirect()->route('pedidos')->with('error', 'Sessão de mesa não encontrada!');
             }
 
             if ($sessaoMesa->sessao_mesa_status != 'ABERTA') {
                 return redirect()->route('pedidos')->with(
                     'error',
-                    'Pedido não pode ser restaurado, pois a sessão(' . $sessaoMesa->id . ') da ' . $sessaoMesa->mesa->mesa_nome . ' está ' . $sessaoMesa->sessao_mesa_status
+                    'Pedido não pode ser restaurado, pois a sessão('.$sessaoMesa->id.') da '.$sessaoMesa->mesa->mesa_nome.' está '.$sessaoMesa->sessao_mesa_status
                 );
             }
         }
 
         // Atualizar status com base nas condições
         if ($pedido->pedidodatahora_aberto != null && $pedido->pedido_datahora_preparo == null) {
-            return $this->restaurarStatusPedido($pedido, "ABERTO", 'pedido_datahora_abertura');
+            return $this->restaurarStatusPedido($pedido, 'ABERTO', 'pedido_datahora_abertura');
         }
 
         if ($pedido->pedido_datahora_preparo != null && $pedido->pedido_datahora_pronto == null) {
-            return $this->restaurarStatusPedido($pedido, "PREPARANDO", 'pedido_datahora_preparando');
+            return $this->restaurarStatusPedido($pedido, 'PREPARANDO', 'pedido_datahora_preparando');
         }
 
         if ($pedido->pedido_datahora_pronto != null && $pedido->pedido_datahora_transporte == null) {
-            return $this->restaurarStatusPedido($pedido, "PRONTO", 'pedido_datahora_pronto');
+            return $this->restaurarStatusPedido($pedido, 'PRONTO', 'pedido_datahora_pronto');
         }
 
         if ($pedido->pedido_datahora_transporte != null && $pedido->pedido_datahora_entregue == null) {
-            return $this->restaurarStatusPedido($pedido, "EM TRANSPORTE", 'pedido_datahora_transporte');
+            return $this->restaurarStatusPedido($pedido, 'EM TRANSPORTE', 'pedido_datahora_transporte');
         }
 
         if ($pedido->pedido_datahora_entregue != null) {
-            return $this->restaurarStatusPedido($pedido, "ENTREGUE", 'pedido_datahora_entregue');
+            return $this->restaurarStatusPedido($pedido, 'ENTREGUE', 'pedido_datahora_entregue');
         }
 
         return redirect()->route('pedidos')->with('error', 'Erro ao restaurar o pedido!');
@@ -525,10 +530,8 @@ class PedidoController extends Controller
             'pedido_datahora_cancelado' => null,
         ]);
 
-        return redirect()->route('pedidos')->with('success', 'Pedido ' . $pedido->id . ' restaurado com sucesso! STATUS: ' . $status);
+        return redirect()->route('pedidos')->with('success', 'Pedido '.$pedido->id.' restaurado com sucesso! STATUS: '.$status);
     }
-
-
 
     public function AvancarPedidoPronto(Request $request)
     {
@@ -536,12 +539,12 @@ class PedidoController extends Controller
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
         $pedido->update([
-            'pedido_status' => "PRONTO",
-            'pedido_datahora_pronto' => Carbon::now()
+            'pedido_status' => 'PRONTO',
+            'pedido_datahora_pronto' => Carbon::now(),
         ]);
+
         return response()->json(['message' => 'Pedido Pronto!'], 200);
     }
-
 
     public function AvancarPedidoEmTransporte(Request $request)
     {
@@ -549,12 +552,12 @@ class PedidoController extends Controller
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
         $pedido->update([
-            'pedido_status' => "EM TRANSPORTE",
-            'pedido_datahora_transporte' => Carbon::now()
+            'pedido_status' => 'EM TRANSPORTE',
+            'pedido_datahora_transporte' => Carbon::now(),
         ]);
+
         return response()->json(['message' => 'Pedido Pronto!'], 200);
     }
-
 
     public function AvancarPedidoEntregue(Request $request)
     {
@@ -563,13 +566,13 @@ class PedidoController extends Controller
         $pedido = Pedido::find($pedido_id);
         if ($pedido->pedido_datahora_finalizado) {
             $pedido->update([
-                'pedido_status' => "FINALIZADO",
-                'pedido_datahora_entrega' => Carbon::now()
+                'pedido_status' => 'FINALIZADO',
+                'pedido_datahora_entrega' => Carbon::now(),
             ]);
         } else {
             $pedido->update([
-                'pedido_status' => "ENTREGUE",
-                'pedido_datahora_entrega' => Carbon::now()
+                'pedido_status' => 'ENTREGUE',
+                'pedido_datahora_entrega' => Carbon::now(),
             ]);
         }
 
@@ -583,18 +586,18 @@ class PedidoController extends Controller
     {
         $pedido = $pedido->find($id);
         $pedido->update([
-            'pedido_cliente_id' => $request->input("pedido_cliente_id"),
-            'pedido_sessao_mesa_id' => $request->input("pedido_mesa_id"),
-            'pedido_usuario_garcom_id' => $request->input("pedido_usuario_garcom_id"),
-            'pedido_opcaoentrega_id' => $request->input("pedido_opcaoentrega_id"),
-            'pedido_descricao_pagamento' => $request->input("pedido_descricao_pagamento"),
-            'pedido_observacao_pagamento' => $request->input("pedido_observacao_pagamento"),
-            'pedido_endereco_entrega' => $request->input("pedido_endereco_entrega"),
-            'pedido_valor_itens' => $request->input("pedido_valor_itens") ? str_replace(',', '.', $request->input('pedido_valor_itens')) : '0.00',
-            'pedido_valor_desconto' => $request->input("pedido_valor_desconto") ? str_replace(',', '.', $request->input('pedido_valor_desconto')) : '0.00',
-            'pedido_valor_total' => $request->input("pedido_valor_total") ? str_replace(',', '.', $request->input('pedido_valor_total')) : '0.00',
-            'pedido_status' => "ABERTO",
-            'pedido_datahora_abertura' => Carbon::now() // Define a data e hora de abertura do pedido
+            'pedido_cliente_id' => $request->input('pedido_cliente_id'),
+            'pedido_sessao_mesa_id' => $request->input('pedido_mesa_id'),
+            'pedido_usuario_garcom_id' => $request->input('pedido_usuario_garcom_id'),
+            'pedido_opcaoentrega_id' => $request->input('pedido_opcaoentrega_id'),
+            'pedido_descricao_pagamento' => $request->input('pedido_descricao_pagamento'),
+            'pedido_observacao_pagamento' => $request->input('pedido_observacao_pagamento'),
+            'pedido_endereco_entrega' => $request->input('pedido_endereco_entrega'),
+            'pedido_valor_itens' => $request->input('pedido_valor_itens') ? str_replace(',', '.', $request->input('pedido_valor_itens')) : '0.00',
+            'pedido_valor_desconto' => $request->input('pedido_valor_desconto') ? str_replace(',', '.', $request->input('pedido_valor_desconto')) : '0.00',
+            'pedido_valor_total' => $request->input('pedido_valor_total') ? str_replace(',', '.', $request->input('pedido_valor_total')) : '0.00',
+            'pedido_status' => 'ABERTO',
+            'pedido_datahora_abertura' => Carbon::now(), // Define a data e hora de abertura do pedido
         ]);
 
         return redirect()->route('dashboard')->with('success', 'Pedido aberto com sucesso!');
@@ -607,26 +610,20 @@ class PedidoController extends Controller
     {
         $pedido = $pedido->find($id);
         $pedido->update([
-            'pedido_sessao_mesa_id' => $request->input("pedido_sessao_mesa_id"),
-            'pedido_usuario_garcom_id' => $request->input("pedido_usuario_garcom_id"),
+            'pedido_sessao_mesa_id' => $request->input('pedido_sessao_mesa_id'),
+            'pedido_usuario_garcom_id' => $request->input('pedido_usuario_garcom_id'),
             'pedido_opcaoentrega_id' => 1, // 1 é o codigo de "Comer no Local"
-            'pedido_valor_itens' => $request->input("pedido_valor_itens") ? str_replace(',', '.', $request->input('pedido_valor_itens')) : '0.00',
-            'pedido_valor_desconto' => $request->input("pedido_valor_desconto") ? str_replace(',', '.', $request->input('pedido_valor_desconto')) : '0.00',
-            'pedido_valor_total' => $request->input("pedido_valor_total") ? str_replace(',', '.', $request->input('pedido_valor_total')) : '0.00',
-            'pedido_status' => "ABERTO",
-            'pedido_datahora_abertura' => Carbon::now() // Define a data e hora de abertura do pedido
+            'pedido_valor_itens' => $request->input('pedido_valor_itens') ? str_replace(',', '.', $request->input('pedido_valor_itens')) : '0.00',
+            'pedido_valor_desconto' => $request->input('pedido_valor_desconto') ? str_replace(',', '.', $request->input('pedido_valor_desconto')) : '0.00',
+            'pedido_valor_total' => $request->input('pedido_valor_total') ? str_replace(',', '.', $request->input('pedido_valor_total')) : '0.00',
+            'pedido_status' => 'ABERTO',
+            'pedido_datahora_abertura' => Carbon::now(), // Define a data e hora de abertura do pedido
         ]);
 
         return redirect()->route('dashboard')->with('success', 'Pedido aberto com sucesso!');
     }
 
-    /**
-     * 
-     */
-    public function AlterarSessaoMesaPedido()
-    {
-
-    }
+    public function AlterarSessaoMesaPedido() {}
 
     /**
      * Remove the specified resource from storage.
