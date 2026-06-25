@@ -4,7 +4,9 @@ namespace App\Filament\Resources\Produtos\Schemas;
 
 use App\Enums\ProdutoTipoEnum;
 use App\Enums\UnidadeProdutoEnum;
+use App\Filament\Resources\Categorias\CategoriaResource;
 use App\Models\Categoria;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -42,37 +44,46 @@ class ProdutoForm
     {
         return Tab::make('Identificação')
             ->icon('heroicon-o-cube')
-            ->columns(3)
+            ->columns(9)
             ->schema([
-                Select::make('produto_tipo')
-                    ->label('Tipo do Produto')
-                    ->options(collect(ProdutoTipoEnum::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->toArray())
-                    ->required()
-                    ->native(false)
-                    ->columnSpan(1)
-                    ->helperText('Produzido, revenda, insumo ou consumo interno'),
-
-                Select::make('produto_categoria_id')
-                    ->label('Categoria')
-                    ->options(fn () => Categoria::orderBy('categoria_nome')->pluck('categoria_nome', 'id')->toArray())
-                    ->searchable()
-                    ->preload()
-                    ->required()
-                    ->native(false)
-                    ->columnSpan(2),
 
                 TextInput::make('produto_descricao')
                     ->label('Descrição')
                     ->placeholder('Ex.: Calabresa, Coca-Cola 2L, Farinha de trigo')
                     ->required()
                     ->maxLength(255)
-                    ->columnSpan(2),
+                    ->columnSpan(4),
+
+                Select::make('produto_categoria_id')
+                    ->label('Categoria')
+                    ->options(fn() => Categoria::orderBy('categoria_nome')->pluck('categoria_nome', 'id')->toArray())
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    ->native(false)
+                    ->columnSpan(3)
+                    ->createOptionForm(fn (Schema $schema) => CategoriaResource::form($schema))
+                    ->createOptionAction(fn (Action $action) => $action
+                        ->modalHeading('Cadastrar nova categoria')
+                        ->modalWidth('2xl')
+                    )
+                    ->createOptionUsing(function (array $data): int {
+                        return Categoria::create($data)->getKey();
+                    }),
+
+                Select::make('produto_tipo')
+                    ->label('Tipo do Produto')
+                    ->options(collect(ProdutoTipoEnum::cases())->mapWithKeys(fn($t) => [$t->value => $t->label()])->toArray())
+                    ->required()
+                    ->native(false)
+                    ->columnSpan(2)
+                    ->helperText('Produzido, revenda, insumo...'),
 
                 TextInput::make('produto_codimentacao')
-                    ->label('Código de Alimentação')
+                    ->label('Codimentação')
                     ->placeholder('Opcional')
-                    ->columnSpan(1)
-                    ->helperText('Código interno de rastreamento'),
+                    ->columnSpanFull()
+                    ->helperText('Descrição da ficha técnica para mostrar no cardápio.'),
 
                 FileUpload::make('produto_foto')
                     ->label('Foto do Produto')
@@ -94,10 +105,11 @@ class ProdutoForm
     {
         return Tab::make('Cardápio')
             ->icon('heroicon-o-bars-3-bottom-left')
-            ->columns(3)
+            ->columns(4)
             ->schema([
                 Fieldset::make('Exibição no cardápio')
-                    ->columns(3)
+                    ->columns(2)
+                    ->columnSpan(2)
                     ->schema([
                         Toggle::make('produto_cardapio')
                             ->label('Mostrar no cardápio')
@@ -110,19 +122,11 @@ class ProdutoForm
                             ->default(true)
                             ->inline(false)
                             ->columnSpan(1),
-
-                        TextInput::make('produto_ordem')
-                            ->label('Ordem de exibição')
-                            ->numeric()
-                            ->integer()
-                            ->default(0)
-                            ->minValue(0)
-                            ->columnSpan(1)
-                            ->helperText('Menor aparece primeiro na categoria'),
                     ]),
-
+                    
                 Fieldset::make('Nome exibido')
-                    ->columns(3)
+                    ->columns(2)
+                    ->columnSpan(2)
                     ->schema([
                         Toggle::make('produto_exibe_categoria')
                             ->label('Incluir a categoria no nome')
@@ -140,18 +144,19 @@ class ProdutoForm
                             ->label('Preposição')
                             ->placeholder('DE, DO, DA, COM')
                             ->maxLength(20)
-                            ->visible(fn (Get $get): bool => (bool) $get('produto_exibe_categoria'))
-                            ->dehydrateStateUsing(fn (?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
+                            ->visible(fn(Get $get): bool => (bool) $get('produto_exibe_categoria'))
+                            ->dehydrateStateUsing(fn(?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
                             ->columnSpan(1)
                             ->helperText('Vazio usa a padrão da categoria'),
                     ]),
 
                 Fieldset::make('Venda')
-                    ->columns(3)
+                    ->columns(2)
+                    ->columnSpanFull()
                     ->schema([
                         Select::make('produto_unidade_comercial')
                             ->label('Unidade de venda')
-                            ->options(collect(UnidadeProdutoEnum::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->toArray())
+                            ->options(collect(UnidadeProdutoEnum::cases())->mapWithKeys(fn($t) => [$t->value => $t->label()])->toArray())
                             ->searchable()
                             ->native(false)
                             ->columnSpan(1)
@@ -169,6 +174,8 @@ class ProdutoForm
                             ->minValue(0)
                             ->columnSpan(1),
                     ]),
+
+
             ]);
     }
 
@@ -215,6 +222,7 @@ class ProdutoForm
 
                 Fieldset::make('Comissão')
                     ->columns(2)
+                    ->columnSpanFull()
                     ->schema([
                         TextInput::make('produto_valor_percentual_comissao')
                             ->label('% Comissão')
@@ -263,7 +271,7 @@ class ProdutoForm
 
                 Select::make('produto_unidade_estoque')
                     ->label('Unidade de estoque')
-                    ->options(collect(UnidadeProdutoEnum::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->toArray())
+                    ->options(collect(UnidadeProdutoEnum::cases())->mapWithKeys(fn($t) => [$t->value => $t->label()])->toArray())
                     ->searchable()
                     ->native(false)
                     ->columnSpan(1)
@@ -308,7 +316,7 @@ class ProdutoForm
     /** Códigos e tributação fiscal. */
     private static function abaFiscal(): Tab
     {
-        $obrigatorioVenda = fn (Get $get): bool => in_array($get('produto_tipo'), ['produzido', 'revenda'], true);
+        $obrigatorioVenda = fn(Get $get): bool => in_array($get('produto_tipo'), ['produzido', 'revenda'], true);
 
         return Tab::make('Fiscal')
             ->icon('heroicon-o-document-text')

@@ -61,5 +61,8 @@ class User extends Authenticatable implements HasAvatar
         'password' => 'hashed',
     ];
 
-    
+    public function balancos()
+    {
+        return $this->hasMany(MovimentacaoBalanco::class, 'mbal_usuario_id');
+    }
 }

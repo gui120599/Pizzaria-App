@@ -204,4 +204,9 @@ class Produto extends Model
     {
         return $this->hasMany(AdicionaisProduto::class, 'ap_produto_id');
     }
+
+    public function balancos()
+    {
+        return $this->hasMany(MovimentacaoBalanco::class, 'mbal_produto_id');
+    }
 }

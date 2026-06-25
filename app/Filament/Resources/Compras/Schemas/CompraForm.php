@@ -2,9 +2,13 @@
 
 namespace App\Filament\Resources\Compras\Schemas;
 
+use App\Enums\PrestadorCategoriaEnum;
+use App\Filament\Resources\CentroCustos\CentroCustoResource;
+use App\Filament\Resources\Fornecedores\FornecedorResource;
 use App\Models\CentroCusto;
 use App\Models\Compra;
 use App\Models\Prestador;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -12,6 +16,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class CompraForm
 {
@@ -37,7 +42,17 @@ class CompraForm
                                 ->toArray())
                             ->searchable()
                             ->native(false)
-                            ->columnSpan(2),
+                            ->columnSpan(2)
+                            ->createOptionForm(fn (Schema $schema) => FornecedorResource::form($schema))
+                            ->createOptionAction(fn (Action $action) => $action
+                                ->modalHeading('Cadastrar novo fornecedor')
+                                ->slideOver()
+                            )
+                            ->createOptionUsing(function (array $data): int {
+                                $data['categoria'] = PrestadorCategoriaEnum::FORNECEDOR;
+
+                                return Prestador::create($data)->getKey();
+                            }),
 
                         Select::make('compra_centro_custo_id')
                             ->label('Centro de custo')
@@ -45,7 +60,15 @@ class CompraForm
                             ->searchable()
                             ->native(false)
                             ->placeholder('Opcional')
-                            ->columnSpan(1),
+                            ->columnSpan(1)
+                            ->createOptionForm(fn (Schema $schema) => CentroCustoResource::form($schema))
+                            ->createOptionAction(fn (Action $action) => $action
+                                ->modalHeading('Cadastrar novo centro de custo')
+                                ->modalWidth('lg')
+                            )
+                            ->createOptionUsing(function (array $data): int {
+                                return CentroCusto::create($data)->getKey();
+                            }),
 
                         TextInput::make('compra_numero')->label('Número da NF')->columnSpan(1),
                         TextInput::make('compra_serie')->label('Série')->columnSpan(1),
@@ -66,9 +89,9 @@ class CompraForm
                     ->columns(3)
                     ->disabled($bloqueado)
                     ->schema([
-                        TextInput::make('compra_valor_frete')->label('Frete')->numeric()->step(0.01)->default(0)->prefix('R$'),
-                        TextInput::make('compra_valor_desconto')->label('Desconto')->numeric()->step(0.01)->default(0)->prefix('R$'),
-                        TextInput::make('compra_valor_outros')->label('Outras despesas')->numeric()->step(0.01)->default(0)->prefix('R$'),
+                        Money::make('compra_valor_frete')->label('Frete')->default(0),
+                        Money::make('compra_valor_desconto')->label('Desconto')->default(0),
+                        Money::make('compra_valor_outros')->label('Outras despesas')->default(0),
 
                         Placeholder::make('resumo_produtos')
                             ->label('Total dos produtos')
