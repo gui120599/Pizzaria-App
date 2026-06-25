@@ -36,15 +36,14 @@ class FinanceiroStatsOverview extends BaseWidget
         $descontos = (float) (clone $vendas)->sum('venda_valor_desconto');
         $ticket = $numVendas > 0 ? $faturamento / $numVendas : 0.0;
 
-        // CMV: usa o custo médio ATUAL do produto (itens_vendas não guarda o
-        // custo no momento da venda). É uma aproximação aceitável para gestão.
+        // CMV: usa o custo congelado no momento da venda (item_venda_custo_unitario,
+        // preenchido pelo ItensVendaObserver). Fiel ao período mesmo que o custo mude.
         $cmv = (float) ItensVenda::query()
             ->join('vendas', 'vendas.id', '=', 'itens_vendas.item_venda_venda_id')
-            ->join('produtos', 'produtos.id', '=', 'itens_vendas.item_venda_produto_id')
             ->where('vendas.venda_status', 'FINALIZADA')
             ->where('itens_vendas.item_venda_status', 'INSERIDO')
             ->whereBetween('vendas.venda_datahora_finalizada', [$inicio, $fim])
-            ->sum(DB::raw('itens_vendas.item_venda_quantidade * produtos.produto_custo_medio'));
+            ->sum(DB::raw('itens_vendas.item_venda_quantidade * itens_vendas.item_venda_custo_unitario'));
 
         $cmvPct = $faturamento > 0 ? $cmv / $faturamento * 100 : 0.0;
         $margem = $faturamento - $cmv;

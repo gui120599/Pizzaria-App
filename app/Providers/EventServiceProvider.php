@@ -35,12 +35,13 @@ class EventServiceProvider extends ServiceProvider
     {
         return false;
     }
-    
+
     /**
      * Observadores de inserção ou alteração de objetos
      */
     protected $observers = [
         \App\Models\Pedido::class => [\App\Observers\PedidoObserver::class],
-        \App\Models\Venda::class  => [\App\Observers\VendaObserver::class],
+        \App\Models\Venda::class => [\App\Observers\VendaObserver::class],
+        \App\Models\ItensVenda::class => [\App\Observers\ItensVendaObserver::class],
     ];
 }

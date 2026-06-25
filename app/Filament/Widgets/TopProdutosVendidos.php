@@ -23,7 +23,7 @@ class TopProdutosVendidos extends BaseWidget
 
         return $table
             ->heading('Produtos mais vendidos no período')
-            ->description('Receita e margem por produto. O custo usa o custo médio atual.')
+            ->description('Receita e margem por produto, com o custo congelado no momento da venda.')
             ->query(
                 // Agrega numa subquery e expõe como tabela derivada plana.
                 // Assim o Filament (ordenação por chave, count de paginação)
@@ -41,7 +41,7 @@ class TopProdutosVendidos extends BaseWidget
                             produtos.produto_descricao as produto,
                             SUM(itens_vendas.item_venda_quantidade) as qtd,
                             SUM(itens_vendas.item_venda_valor) as receita,
-                            SUM(itens_vendas.item_venda_quantidade * produtos.produto_custo_medio) as custo
+                            SUM(itens_vendas.item_venda_quantidade * itens_vendas.item_venda_custo_unitario) as custo
                         '),
                     'itens_vendas',
                 )

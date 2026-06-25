@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class ItensVenda extends Model
 {
     use HasFactory;
+
     protected $table = 'itens_vendas';
 
     protected $fillable = [
@@ -17,6 +18,7 @@ class ItensVenda extends Model
         'item_venda_quantidade',
         'item_venda_quantidade_tributavel',
         'item_venda_valor_unitario',
+        'item_venda_custo_unitario',
         'item_venda_valor_adicionais',
         'item_venda_valor_unitario_tributavel',
         'item_venda_desconto',
@@ -28,13 +30,14 @@ class ItensVenda extends Model
         'item_venda_valor_total_tributos',
         'item_venda_observacao',
         'item_venda_status',
-        'item_venda_usuario_removeu'
+        'item_venda_usuario_removeu',
     ];
 
     protected $casts = [
         'item_venda_quantidade' => 'double',
         'item_venda_quantidade_tributavel' => 'double',
         'item_venda_valor_unitario' => 'decimal:2',
+        'item_venda_custo_unitario' => 'decimal:4',
         'item_venda_valor_adicionais' => 'decimal:2',
         'item_venda_valor_unitario_tributavel' => 'decimal:2',
         'item_venda_desconto' => 'decimal:2',
@@ -61,7 +64,8 @@ class ItensVenda extends Model
         return $this->belongsTo(User::class, 'item_venda_usuario_removeu');
     }
 
-    public function adicionaisItemVenda(){
-        return $this->hasMany( AdicionaisItemVenda::class, 'aiv_item_venda_id');
+    public function adicionaisItemVenda()
+    {
+        return $this->hasMany(AdicionaisItemVenda::class, 'aiv_item_venda_id');
     }
 }
