@@ -1,0 +1,101 @@
+<?php
+
+namespace App\Filament\Widgets;
+
+use App\Filament\Widgets\Concerns\InteractsComPeriodoFinanceiro;
+use App\Models\ItensVenda;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use Filament\Widgets\TableWidget as BaseWidget;
+use Illuminate\Support\Facades\DB;
+
+class TopProdutosVendidos extends BaseWidget
+{
+    use InteractsComPeriodoFinanceiro;
+    use InteractsWithPageFilters;
+
+    protected int|string|array $columnSpan = 'full';
+
+    public function table(Table $table): Table
+    {
+        [$inicio, $fim] = $this->periodo();
+
+        return $table
+            ->heading('Produtos mais vendidos no período')
+            ->description('Receita e margem por produto. O custo usa o custo médio atual.')
+            ->query(
+                // Agrega numa subquery e expõe como tabela derivada plana.
+                // Assim o Filament (ordenação por chave, count de paginação)
+                // opera sobre colunas simples, sem violar only_full_group_by.
+                ItensVenda::query()->fromSub(
+                    DB::table('itens_vendas')
+                        ->join('vendas', 'vendas.id', '=', 'itens_vendas.item_venda_venda_id')
+                        ->join('produtos', 'produtos.id', '=', 'itens_vendas.item_venda_produto_id')
+                        ->where('vendas.venda_status', 'FINALIZADA')
+                        ->where('itens_vendas.item_venda_status', 'INSERIDO')
+                        ->whereBetween('vendas.venda_datahora_finalizada', [$inicio, $fim])
+                        ->groupBy('itens_vendas.item_venda_produto_id', 'produtos.produto_descricao')
+                        ->selectRaw('
+                            itens_vendas.item_venda_produto_id as id,
+                            produtos.produto_descricao as produto,
+                            SUM(itens_vendas.item_venda_quantidade) as qtd,
+                            SUM(itens_vendas.item_venda_valor) as receita,
+                            SUM(itens_vendas.item_venda_quantidade * produtos.produto_custo_medio) as custo
+                        '),
+                    'itens_vendas',
+                )
+            )
+            ->columns([
+                TextColumn::make('produto')
+                    ->label('Produto')
+                    ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
+                    ->wrap(),
+
+                TextColumn::make('qtd')
+                    ->label('Qtd. vendida')
+                    ->numeric(decimalPlaces: 0)
+                    ->alignEnd()
+                    ->sortable(),
+
+                TextColumn::make('receita')
+                    ->label('Receita')
+                    ->money('BRL')
+                    ->alignEnd()
+                    ->sortable(),
+
+                TextColumn::make('custo')
+                    ->label('Custo (CMV)')
+                    ->money('BRL')
+                    ->alignEnd()
+                    ->color('gray'),
+
+                TextColumn::make('margem')
+                    ->label('Margem')
+                    ->state(function ($record): string {
+                        $receita = (float) $record->receita;
+                        $custo = (float) $record->custo;
+                        if ($receita <= 0) {
+                            return '—';
+                        }
+                        $pct = ($receita - $custo) / $receita * 100;
+
+                        return number_format($pct, 1, ',', '.').'%';
+                    })
+                    ->badge()
+                    ->color(function ($record): string {
+                        $receita = (float) $record->receita;
+                        $custo = (float) $record->custo;
+                        if ($receita <= 0) {
+                            return 'gray';
+                        }
+                        $pct = ($receita - $custo) / $receita * 100;
+
+                        return $pct >= 60 ? 'success' : ($pct >= 40 ? 'warning' : 'danger');
+                    })
+                    ->alignEnd(),
+            ])
+            ->defaultSort('receita', 'desc')
+            ->paginated([10, 25, 50]);
+    }
+}
