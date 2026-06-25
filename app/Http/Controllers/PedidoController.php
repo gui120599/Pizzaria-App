@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PedidoOrigemEnum;
+use App\Enums\ProdutoTipoEnum;
 use App\Models\Pedido;
 use App\Http\Requests\UpdatePedidoRequest;
 use App\Models\Categoria;
@@ -27,28 +28,35 @@ class PedidoController extends Controller
         $clientes = Cliente::all();
         $opcoes_pagamento = OpcoesPagamento::all();
         $opcoes_entregas = OpcoesEntregas::all();
-        $produtos = Produto::all();
-        // Ordena as categorias: primeiro as que começam com 'P', depois as demais em ordem alfabética
-        $categorias = Categoria::orderByRaw("
-            CASE
-                WHEN categoria_nome LIKE 'Pi%' THEN 0
-                ELSE 1
-            END, categoria_nome
-        ")->get();
+        $tiposVenda = [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value];
 
-        $top10Ids = Produto::where('produto_destaque_mais_vendidos', true)
+        $produtos = Produto::whereIn('produto_tipo', $tiposVenda)->get();
+
+        // Ordena as categorias: primeiro as que começam com 'P', depois as demais em ordem alfabética
+        $categorias = Categoria::whereHas('produtos', fn ($q) => $q->whereIn('produto_tipo', $tiposVenda))
+            ->orderByRaw("
+                CASE
+                    WHEN categoria_nome LIKE 'Pi%' THEN 0
+                    ELSE 1
+                END, categoria_nome
+            ")->get();
+
+        $top10Ids = Produto::whereIn('produto_tipo', $tiposVenda)
+            ->where('produto_destaque_mais_vendidos', true)
             ->where('produto_qtd_vendas', '>', 0)
             ->orderByDesc('produto_qtd_vendas')
             ->limit(10)
             ->pluck('id')
             ->all();
 
-        $promocoes = Produto::where('produto_preco_promocional', '>', 0)
+        $promocoes = Produto::whereIn('produto_tipo', $tiposVenda)
+            ->where('produto_preco_promocional', '>', 0)
             ->with('categoria')
             ->orderByDesc('produto_qtd_vendas')
             ->get();
 
-        $maisVendidos = Produto::where('produto_qtd_vendas', '>', 0)
+        $maisVendidos = Produto::whereIn('produto_tipo', $tiposVenda)
+            ->where('produto_qtd_vendas', '>', 0)
             ->where('produto_destaque_mais_vendidos', true)
             ->with('categoria')
             ->orderByDesc('produto_qtd_vendas')

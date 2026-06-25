@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Enums\ProdutoTipoEnum;
 use App\Models\AdicionaisItemPedido;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
@@ -98,7 +99,10 @@ class PedidoProdutoSelector extends Component
     #[Computed]
     public function categorias()
     {
-        return Categoria::with(['produtos' => fn($q) => $q->whereNotNull('produto_foto')])
+        $tiposVenda = [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value];
+
+        return Categoria::with(['produtos' => fn ($q) => $q->whereIn('produto_tipo', $tiposVenda)->whereNotNull('produto_foto')])
+            ->whereHas('produtos', fn ($q) => $q->whereIn('produto_tipo', $tiposVenda))
             ->orderBy('categoria_ordem')
             ->orderBy('categoria_nome')
             ->get();
@@ -107,9 +111,12 @@ class PedidoProdutoSelector extends Component
     #[Computed]
     public function produtos()
     {
+        $tiposVenda = [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value];
+
         return Produto::with('categoria')
-            ->when($this->busca, fn($q) => $q->where('produto_descricao', 'like', "%{$this->busca}%"))
-            ->when($this->categoriaId, fn($q) => $q->where('produto_categoria_id', $this->categoriaId))
+            ->whereIn('produto_tipo', $tiposVenda)
+            ->when($this->busca, fn ($q) => $q->where('produto_descricao', 'like', "%{$this->busca}%"))
+            ->when($this->categoriaId, fn ($q) => $q->where('produto_categoria_id', $this->categoriaId))
             ->orderBy('produto_ordem')
             ->orderBy('produto_descricao')
             ->limit(60)
@@ -186,7 +193,10 @@ class PedidoProdutoSelector extends Component
 
     protected function abrirSaboresModal(int $produtoId, Categoria $categoria): void
     {
+        $tiposVenda = [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value];
+
         $produtos = Produto::where('produto_categoria_id', $categoria->id)
+            ->whereIn('produto_tipo', $tiposVenda)
             ->orderBy('produto_descricao')
             ->get()
             ->map(fn($p) => [
