@@ -354,8 +354,8 @@
                  class="absolute inset-0 bg-black/60"></div>
 
             {{-- Sheet --}}
-            <div x-transition:enter="transition ease-out duration-300" x-transition:enter-start="transform translate-y-full" x-transition:enter-end="transform translate-y-0"
-                 x-transition:leave="transition ease-in duration-200" x-transition:leave-start="transform translate-y-0" x-transition:leave-end="transform translate-y-full"
+            <div x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+                 x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
                  class="relative bg-gray-900 rounded-t-3xl max-h-[90vh] flex flex-col z-10 w-full md:max-w-lg md:mx-auto">
 
                 {{-- Handle --}}
