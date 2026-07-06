@@ -40,7 +40,7 @@ class Cliente extends Model
 
     public function saveFoto($foto)
     {
-        $nomeArquivo = time() . '.' . $foto->getClientOriginalExtension();
+        $nomeArquivo = time().'.'.$foto->getClientOriginalExtension();
         $caminho = public_path('/img/fotos_clientes');
         $foto->move($caminho, $nomeArquivo);
         $this->cliente_foto = $nomeArquivo;
@@ -50,5 +50,10 @@ class Cliente extends Model
     public function pedidos()
     {
         return $this->hasMany(Pedido::class, 'pedido_cliente_id');
+    }
+
+    public function vendas()
+    {
+        return $this->hasMany(Venda::class, 'venda_cliente_id');
     }
 }

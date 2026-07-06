@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Clientes;
 use App\Filament\Resources\Clientes\Pages\CreateCliente;
 use App\Filament\Resources\Clientes\Pages\EditCliente;
 use App\Filament\Resources\Clientes\Pages\ListClientes;
+use App\Filament\Resources\Clientes\RelationManagers\VendasRelationManager;
 use App\Filament\Resources\Clientes\Schemas\ClienteForm;
 use App\Filament\Resources\Clientes\Tables\ClientesTable;
 use App\Models\Cliente;
@@ -37,7 +38,7 @@ class ClienteResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            VendasRelationManager::class,
         ];
     }
 
