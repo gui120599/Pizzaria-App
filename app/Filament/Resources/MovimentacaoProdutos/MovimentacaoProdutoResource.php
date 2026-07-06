@@ -32,7 +32,7 @@ class MovimentacaoProdutoResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Movimentações';
 
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 30;
 
     /** Livro-razão imutável: criação/edição só pelo EstoqueService. */
     public static function canCreate(): bool

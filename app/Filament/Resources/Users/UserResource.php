@@ -27,12 +27,19 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Hash;
+use UnitEnum;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
-    
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserCircle;
+
+    protected static ?string $navigationLabel = 'Usuários';
+
+    protected static UnitEnum|string|null $navigationGroup = 'Pessoas';
+
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $recordTitleAttribute = 'name_first';
 

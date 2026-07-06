@@ -37,7 +37,7 @@ class CentroCustoResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Centros de Custo';
 
-    protected static ?int $navigationSort = 40;
+    protected static ?int $navigationSort = 50;
 
     protected static ?string $recordTitleAttribute = 'centro_custo_nome';
 

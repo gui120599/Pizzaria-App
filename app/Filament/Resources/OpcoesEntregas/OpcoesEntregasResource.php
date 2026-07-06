@@ -28,11 +28,13 @@ class OpcoesEntregasResource extends Resource
 {
     protected static ?string $model = OpcoesEntregas::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMapPin;
 
     protected static ?string $navigationLabel = 'Opções de Entrega';
 
     protected static UnitEnum|string|null $navigationGroup = 'Configurações';
+
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $recordTitleAttribute = 'opcaoentrega_nome';
 

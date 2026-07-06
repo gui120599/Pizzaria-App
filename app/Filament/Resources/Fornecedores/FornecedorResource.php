@@ -39,7 +39,7 @@ class FornecedorResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Fornecedores';
 
-    protected static ?int $navigationSort = 50;
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $slug = 'fornecedores';
 

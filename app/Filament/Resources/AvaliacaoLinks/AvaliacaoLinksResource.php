@@ -38,6 +38,8 @@ class AvaliacaoLinksResource extends Resource
 
     protected static UnitEnum|string|null $navigationGroup = 'Configurações';
 
+    protected static ?int $navigationSort = 40;
+
     protected static ?string $recordTitleAttribute = 'avaliacao_link_nome';
 
     public static function form(Schema $schema): Schema

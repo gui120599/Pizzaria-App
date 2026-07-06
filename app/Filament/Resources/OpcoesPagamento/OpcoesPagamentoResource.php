@@ -39,6 +39,8 @@ class OpcoesPagamentoResource extends Resource
 
     protected static UnitEnum|string|null $navigationGroup = 'Configurações';
 
+    protected static ?int $navigationSort = 30;
+
     protected static ?string $recordTitleAttribute = 'opcaopag_nome';
 
     public static function form(Schema $schema): Schema

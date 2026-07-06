@@ -7,10 +7,12 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use App\Filament\Pages\Dashboard;
+use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -41,8 +43,24 @@ class AdminPanelProvider extends PanelProvider
             ->navigationItems([
                 NavigationItem::make('Sistema Operacional')
                     ->url(fn (): string => route('dashboard'))
-                    ->icon('heroicon-o-computer-desktop')
+                    ->icon(Heroicon::OutlinedComputerDesktop)
                     ->sort(-1),
+            ])
+            ->navigationGroups([
+                NavigationGroup::make('Operacional')
+                    ->collapsible(),
+                NavigationGroup::make('Financeiro')
+                    ->collapsible(),
+                NavigationGroup::make('Comercial')
+                    ->collapsible(),
+                NavigationGroup::make('Cardápio')
+                    ->collapsible(),
+                NavigationGroup::make('Estoque')
+                    ->collapsible(),
+                NavigationGroup::make('Pessoas')
+                    ->collapsible(),
+                NavigationGroup::make('Configurações')
+                    ->collapsible(),
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
