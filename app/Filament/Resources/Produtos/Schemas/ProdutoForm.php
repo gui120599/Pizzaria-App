@@ -30,10 +30,12 @@ class ProdutoForm
                 ->persistTabInQueryString()
                 ->tabs([
                     self::abaIdentificacao(),
-                    self::abaCardapio(),
+                    self::abaCardapio()
+                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
                     self::abaPrecificacao(),
                     self::abaEstoque(),
-                    self::abaPromocao(),
+                    self::abaPromocao()
+                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
                     self::abaFiscal(),
                 ]),
         ]);
@@ -76,11 +78,13 @@ class ProdutoForm
                     ->options(collect(ProdutoTipoEnum::cases())->mapWithKeys(fn($t) => [$t->value => $t->label()])->toArray())
                     ->required()
                     ->native(false)
+                    ->live()
                     ->columnSpan(2)
                     ->helperText('Produzido, revenda, insumo...'),
 
                 TextInput::make('produto_codimentacao')
-                    ->label('Codimentação')
+                    ->label('Condimentação')
+                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
                     ->placeholder('Opcional')
                     ->columnSpanFull()
                     ->helperText('Descrição da ficha técnica para mostrar no cardápio.'),
@@ -119,7 +123,7 @@ class ProdutoForm
 
                         Toggle::make('produto_destaque_mais_vendidos')
                             ->label('Destaque "Mais Vendidos"')
-                            ->default(true)
+                            ->default(false)
                             ->inline(false)
                             ->columnSpan(1),
                     ]),
@@ -202,6 +206,7 @@ class ProdutoForm
                 TextInput::make('produto_valor_percentual_venda')
                     ->label('Margem de Lucro (%)')
                     ->numeric()
+                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
                     ->step(0.01)
                     ->suffix('%')
                     ->required()
@@ -211,6 +216,7 @@ class ProdutoForm
 
                 TextInput::make('produto_preco_venda')
                     ->label('Preço de Venda')
+                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
                     ->numeric()
                     ->step(0.01)
                     ->prefix('R$')
@@ -221,6 +227,7 @@ class ProdutoForm
                     ->helperText('Calculado: custo + margem'),
 
                 Fieldset::make('Comissão')
+                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
                     ->columns(2)
                     ->columnSpanFull()
                     ->schema([

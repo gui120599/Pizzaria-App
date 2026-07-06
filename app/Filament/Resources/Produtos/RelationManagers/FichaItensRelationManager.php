@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Produtos\RelationManagers;
 
+use App\Enums\ProdutoTipoEnum;
 use App\Models\Produto;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -16,12 +17,18 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class FichaItensRelationManager extends RelationManager
 {
     protected static string $relationship = 'fichaItens';
 
     protected static ?string $title = 'Ficha Técnica';
+
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    {
+        return $ownerRecord->produto_tipo === ProdutoTipoEnum::PRODUZIDO->value;
+    }
 
     protected static ?string $modelLabel = 'item';
 

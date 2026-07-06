@@ -66,7 +66,10 @@ class ItensRelationManager extends RelationManager
                     ->searchable()
                     ->allowHtml()
                     ->getSearchResultsUsing(fn(string $search): array => Produto::query()
-                        ->where('produto_descricao', 'like', "%{$search}%")
+                        ->where(function (Builder $q) use ($search): void {
+                            $q->where('produto_descricao', 'like', "%{$search}%")
+                              ->orWhereHas('categoria', fn(Builder $c) => $c->where('categoria_nome', 'like', "%{$search}%"));
+                        })
                         ->with('categoria')
                         ->orderBy('produto_descricao')
                         ->limit(30)

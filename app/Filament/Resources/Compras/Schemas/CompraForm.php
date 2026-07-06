@@ -30,6 +30,7 @@ class CompraForm
                     ->description('Quem vendeu e quando entra no estoque. Depois de salvar, você adiciona os itens.')
                     ->icon('heroicon-o-document-text')
                     ->columns(3)
+                    ->columnSpan(6)
                     ->disabled($bloqueado)
                     ->schema([
                         Select::make('compra_prestador_id')
@@ -80,13 +81,14 @@ class CompraForm
                             ->columnSpan(1)
                             ->helperText('Data usada nas movimentações'),
 
-                        Textarea::make('compra_observacao')->label('Observação')->rows(2)->columnSpanFull(),
+                        Textarea::make('compra_observacao')->label('Observação')->rows(5)->columnSpanFull(),
                     ]),
 
                 Section::make('2. Acréscimos e Resumo')
                     ->description('Frete e despesas são rateados entre os itens ao confirmar.')
                     ->icon('heroicon-o-calculator')
-                    ->columns(3)
+                    ->columns(1)
+                    ->columnSpan(3)
                     ->disabled($bloqueado)
                     ->schema([
                         Money::make('compra_valor_frete')->label('Frete')->default(0),
@@ -105,6 +107,7 @@ class CompraForm
                             ->label('Itens lançados')
                             ->content(fn (?Compra $record): string => (string) ($record?->itens()->count() ?? 0)),
                     ]),
-            ]);
+            ])
+            ->columns(9);
     }
 }
