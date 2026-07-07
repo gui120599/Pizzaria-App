@@ -676,9 +676,9 @@
                                 type="text" class="money mt-1 w-full" autocomplete="off" />
                         </div>
                         <div>
-                            <x-input-label for="pg_venda_valor_pago_pelo_cliente" value="Pago pelo cliente" />
+                            <x-input-label for="pg_venda_valor_pago_pelo_cliente" value="Pago pelo cliente *" />
                             <x-money-input id="pg_venda_valor_pago_pelo_cliente" name="pg_venda_valor_pago_pelo_cliente"
-                                type="text" class="money mt-1 w-full" autocomplete="off" />
+                                type="text" class="money mt-1 w-full" autocomplete="off" required />
                         </div>
                     </div>
                     <div class="flex items-center justify-between rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
@@ -803,11 +803,11 @@
             const tol = 0.005;
 
             if (valorTotal <= 0) {
-                showToast('Adicione itens à venda antes de finalizar.', 'warning');
+                showAvisoVenda('Adicione itens à venda antes de finalizar.', 'warning');
                 return;
             }
             if (valorPago + tol < valorTotal) {
-                showToast('Valor pago insuficiente para finalizar a venda!', 'warning');
+                showAvisoVenda('Valor pago insuficiente para finalizar a venda!', 'warning');
                 document.getElementById('pg_venda_valor_pagamento')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 document.getElementById('pg_venda_valor_pagamento')?.focus();
                 return;
@@ -815,7 +815,7 @@
             // Recebido maior que o total mas sem troco informado: bloqueia (evita finalizar
             // com troco zerado quando o cliente, na verdade, tem troco a receber).
             if ((valorPago - valorTotal) > tol && valorTroco <= tol) {
-                showToast('O valor recebido excede o total da venda, mas nenhum troco foi informado. Ajuste o "Valor recebido" para o total da venda ou informe o "Pago pelo cliente" para gerar o troco.', 'warning');
+                showAvisoVenda('O valor recebido excede o total da venda, mas nenhum troco foi informado. Ajuste o "Valor recebido" para o total da venda ou informe o "Pago pelo cliente" para gerar o troco.', 'warning');
                 document.getElementById('pg_venda_valor_pago_pelo_cliente')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 document.getElementById('pg_venda_valor_pago_pelo_cliente')?.focus();
                 return;
@@ -823,7 +823,7 @@
             document.getElementById('formVenda').submit();
         }
 
-        function showToast(message, type = 'error') {
+        function showAvisoVenda(message, type = 'error') {
             const container = document.getElementById('toast-container');
             const colors = {
                 error:   'bg-red-600 border-red-700',
@@ -903,13 +903,13 @@
                                 marcarVendaIniciada(response.venda_id);
                                 resolve(response.venda_id);
                             } else {
-                                showToast('Erro ao iniciar a venda.');
+                                showAvisoVenda('Erro ao iniciar a venda.');
                                 $("#carregando").addClass('hidden');
                                 reject();
                             }
                         },
                         error: function () {
-                            showToast('Erro ao iniciar a venda.');
+                            showAvisoVenda('Erro ao iniciar a venda.');
                             $("#carregando").addClass('hidden');
                             reject();
                         }
@@ -1025,7 +1025,7 @@
                     type: "POST", url: "{{ route('item_venda.add_produto') }}",
                     data: { '_token': '{{ csrf_token() }}', produto_id, venda_id }, dataType: "JSON",
                     success: function () { ListaItensVenda(venda_id); },
-                    error: function () { showToast('Erro ao adicionar produto!'); $("#carregando").addClass('hidden'); }
+                    error: function () { showAvisoVenda('Erro ao adicionar produto!'); $("#carregando").addClass('hidden'); }
                 });
             }
 
@@ -1034,7 +1034,7 @@
                     type: "POST", url: "{{ route('item_venda.add_item_pedido') }}",
                     data: { '_token': '{{ csrf_token() }}', pedido_id, venda_id }, dataType: "JSON",
                     success: function () { ListaItensVenda(venda_id); },
-                    error: function () { showToast('Erro ao adicionar itens do pedido!'); $("#carregando").addClass('hidden'); }
+                    error: function () { showAvisoVenda('Erro ao adicionar itens do pedido!'); $("#carregando").addClass('hidden'); }
                 });
             }
 
@@ -1043,7 +1043,7 @@
                     type: "POST", url: "{{ route('item_venda.remove_item_pedido') }}",
                     data: { '_token': '{{ csrf_token() }}', pedido_id, venda_id }, dataType: "JSON",
                     success: function () { ListaItensVenda(venda_id); },
-                    error: function () { showToast('Erro ao remover itens do pedido #' + pedido_id + '.'); $("#carregando").addClass('hidden'); }
+                    error: function () { showAvisoVenda('Erro ao remover itens do pedido #' + pedido_id + '.'); $("#carregando").addClass('hidden'); }
                 });
             }
 
@@ -1074,12 +1074,12 @@
                                     .removeClass('bg-teal-600 hover:bg-teal-700 text-white shadow')
                                     .addClass('bg-gray-100 text-gray-400 cursor-not-allowed');
                             });
-                            showToast('Todos os itens recebidos! Sessão da mesa finalizada automaticamente.', 'success');
+                            showAvisoVenda('Todos os itens recebidos! Sessão da mesa finalizada automaticamente.', 'success');
                         } else {
-                            showToast('Itens lançados na venda!', 'success');
+                            showAvisoVenda('Itens lançados na venda!', 'success');
                         }
                     },
-                    error: function () { showToast('Erro ao lançar itens!'); $("#carregando").addClass('hidden'); }
+                    error: function () { showAvisoVenda('Erro ao lançar itens!'); $("#carregando").addClass('hidden'); }
                 });
             }
 
@@ -1177,7 +1177,7 @@
                                     }
                                     listarVenda(venda_id);
                                 },
-                                error: function () { showToast('Erro ao atualizar quantidade.'); }
+                                error: function () { showAvisoVenda('Erro ao atualizar quantidade.'); }
                             });
                         }
                         $(".minus-btn").click(function (e) {
@@ -1211,7 +1211,7 @@
                                     $("#item_valor_view_" + item_id).html(novo.toFixed(2).replace('.', ','));
                                     listarVenda(venda_id);
                                 },
-                                error: function () { showToast('Erro ao atualizar desconto.'); }
+                                error: function () { showAvisoVenda('Erro ao atualizar desconto.'); }
                             });
                         });
                         $(".item_desconto").focus(function () { item_desconto = $(this).val(); $(this).val(""); });
@@ -1227,13 +1227,13 @@
                                 type: "POST", url: "{{ route('item_venda.remove_produto') }}",
                                 data: { item_id, venda_id: v_id, '_token': '{{ csrf_token() }}' }, dataType: "json",
                                 success: function () { ListaItensVenda(venda_id); },
-                                error: function () { showToast('Erro ao remover item.'); }
+                                error: function () { showAvisoVenda('Erro ao remover item.'); }
                             });
                         });
 
                         $('.money').mask('#.##0,00', { reverse: true });
                     },
-                    error: function () { showToast('Erro ao listar itens!'); $("#carregando").addClass('hidden'); }
+                    error: function () { showAvisoVenda('Erro ao listar itens!'); $("#carregando").addClass('hidden'); }
                 });
                 listarVenda(venda_id);
             }
@@ -1254,7 +1254,7 @@
                             $("#venda_valor_troco").val(v.venda_valor_troco);
                         }
                     },
-                    error: function () { showToast('Erro ao carregar totais!'); }
+                    error: function () { showAvisoVenda('Erro ao carregar totais!'); }
                 });
             }
 
@@ -1266,14 +1266,22 @@
                     data: { venda_id, venda_valor_frete: isNaN(frete) ? 0 : frete, '_token': '{{ csrf_token() }}' },
                     dataType: "json",
                     success: function () { listarVenda(venda_id); $("#carregando").addClass('hidden'); },
-                    error: function () { showToast('Erro ao atualizar frete!'); $("#carregando").addClass('hidden'); }
+                    error: function () { showAvisoVenda('Erro ao atualizar frete!'); $("#carregando").addClass('hidden'); }
                 });
             }
 
             function InserePagamento() {
                 comVenda(function (venda_id) {
                     const selectedId = $("input[name='pg_venda_opcaopagamento_id']:checked").val();
-                    if (!selectedId) { showToast('Selecione o tipo de pagamento.', 'warning'); return; }
+                    if (!selectedId) { showAvisoVenda('Selecione o tipo de pagamento.', 'warning'); return; }
+
+                    const pagoCliente = parseMoeda($("#pg_venda_valor_pago_pelo_cliente").val());
+                    if (!pagoCliente || pagoCliente <= 0) {
+                        showAvisoVenda('Informe o valor pago pelo cliente.', 'warning');
+                        $("#pg_venda_valor_pago_pelo_cliente").focus();
+                        return;
+                    }
+
                     const opt  = opcao_pag.find(op => String(op.id) === String(selectedId));
                     const cartao_id = opt?.opcaopag_requer_bandeira ? $("#pg_venda_cartao_id").val() : null;
                     const num_aut   = opt?.opcaopag_requer_autorizacao ? $("#pg_venda_numero_autorizacao_cartao").val() : null;
@@ -1297,9 +1305,9 @@
                             listarVenda(venda_id);
                             $("#pg_venda_valor_pagamento, #pg_venda_valor_pago_pelo_cliente, #pg_venda_valor_acrescimo, #pg_venda_valor_desconto, #pg_venda_numero_autorizacao_cartao").val("");
                             $("#pg_venda_troco_view").text('0,00');
-                            showToast('Pagamento registrado!', 'success');
+                            showAvisoVenda('Pagamento registrado!', 'success');
                         },
-                        error: function () { showToast('Erro ao registrar pagamento!'); }
+                        error: function () { showAvisoVenda('Erro ao registrar pagamento!'); }
                     });
                 });
             }
@@ -1337,7 +1345,7 @@
                             listarVenda(response.venda.id);
                             $('#carregando').addClass('hidden');
                         },
-                        error: function () { showToast('Erro ao remover pagamento!'); $('#carregando').addClass('hidden'); }
+                        error: function () { showAvisoVenda('Erro ao remover pagamento!'); $('#carregando').addClass('hidden'); }
                     });
                 });
             }
@@ -1349,7 +1357,7 @@
                     type: 'POST', url: "{{ route('venda.cancelar') }}",
                     data: { '_token': '{{ csrf_token() }}', venda_id },
                     success: function () { window.location.href = "{{ route('sessao_caixa') }}"; },
-                    error: function () { showToast('Erro ao cancelar a venda!'); $('#carregando').addClass('hidden'); }
+                    error: function () { showAvisoVenda('Erro ao cancelar a venda!'); $('#carregando').addClass('hidden'); }
                 });
             };
 
