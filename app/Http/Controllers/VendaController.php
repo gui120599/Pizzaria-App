@@ -780,6 +780,10 @@ class VendaController extends Controller
 
         $itensArray = [];
 
+        // Rateia o valor do frete da venda (se houver) dividindo igualmente entre a quantidade de itens.
+        $qtdItens = $venda->itensVenda->count();
+        $freteItem = $qtdItens > 0 ? round((float) ($venda->venda_valor_frete ?? 0) / $qtdItens, 2) : 0;
+
         foreach ($venda->itensVenda as $item) {
             $produto = $item->produto;
 
@@ -808,7 +812,7 @@ class VendaController extends Controller
                         'quantityTax' => $item->item_venda_quantidade_tributavel,
                         'taxUnitAmount' => $item->item_venda_valor_unitario,
                         'discountAmount' => (float) $item->item_venda_desconto,
-                        'othersAmount' => $item->item_venda_valor_adicionais,
+                        'othersAmount' => $item->item_venda_valor_adicionais + $freteItem,
                         'totalIndicator' => (bool) $item->item_venda_valor,
                         'cest' => $produto->produto_codigo_CEST,
                         'tax' => [
@@ -847,7 +851,7 @@ class VendaController extends Controller
                         'quantityTax' => $item->item_venda_quantidade_tributavel,
                         'taxUnitAmount' => $item->item_venda_valor_unitario,
                         'discountAmount' => $item->item_venda_desconto,
-                        'othersAmount' => $item->item_venda_valor_adicionais,
+                        'othersAmount' => $item->item_venda_valor_adicionais + $freteItem,
                         'totalIndicator' => (bool) $item->item_venda_valor,
                         'cest' => $produto->produto_codigo_CEST,
                         'tax' => [
@@ -885,7 +889,7 @@ class VendaController extends Controller
                         'quantityTax' => $item->item_venda_quantidade_tributavel,
                         'taxUnitAmount' => $item->item_venda_valor_unitario,
                         'discountAmount' => $item->item_venda_desconto,
-                        'othersAmount' => $item->item_venda_valor_adicionais,
+                        'othersAmount' => $item->item_venda_valor_adicionais + $freteItem,
                         'totalIndicator' => (bool) $item->item_venda_valor,
                         'cest' => $produto->produto_codigo_CEST,
                         'tax' => [
@@ -923,7 +927,7 @@ class VendaController extends Controller
                         'quantityTax' => $item->item_venda_quantidade_tributavel,
                         'taxUnitAmount' => $item->item_venda_valor_unitario,
                         'discountAmount' => $item->item_venda_desconto,
-                        'othersAmount' => $item->item_venda_valor_adicionais,
+                        'othersAmount' => $item->item_venda_valor_adicionais + $freteItem,
                         'totalIndicator' => (bool) $item->item_venda_valor,
                         'cest' => $produto->produto_codigo_CEST,
                         'tax' => [
