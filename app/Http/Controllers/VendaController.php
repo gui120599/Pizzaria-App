@@ -631,7 +631,7 @@ class VendaController extends Controller
             if (stripos($pagamento->opcaoPagamento->opcaopag_nome, 'Cartão') !== false || stripos($pagamento->opcaoPagamento->opcaopag_nome, 'Pix') !== false) { // O nome da opção de pagamento contém a palavra "cartão"
                 $pagamentoDetalhe[] = [
                     'method' => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
-                    'amount' => $pagamento->pg_venda_valor_pagamento,
+                    'amount' => $pagamento->pg_venda_valor_pago_pelo_cliente,
                     'card' => [
                         'federalTaxNumber' => $pagamento->cartao->cartao_cnpj_credenciadora ?? null,
                         'flag' => $pagamento->cartao->cartao_bandeira ?? null,
@@ -642,13 +642,13 @@ class VendaController extends Controller
             } else {
                 $pagamentoDetalhe[] = [
                     'method' => $pagamento->opcaoPagamento->opcaopag_desc_nfe,  // Nome do método de pagamento
-                    'amount' => $pagamento->pg_venda_valor_pagamento,
+                    'amount' => $pagamento->pg_venda_valor_pago_pelo_cliente,
                 ];
             }
         }
         $pagamentosArray[] = [
             'paymentDetail' => $pagamentoDetalhe,
-            'payback' => $venda->venda_valor_troco,
+            'payback' => $venda->pagamentos->sum('pg_venda_valor_troco'),
         ];
 
         return $pagamentosArray;
