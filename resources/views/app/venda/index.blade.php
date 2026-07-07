@@ -681,6 +681,10 @@
                                 type="text" class="money mt-1 w-full" autocomplete="off" required />
                         </div>
                     </div>
+                    <div class="flex items-center justify-between rounded-lg bg-rose-50 border border-rose-200 px-3 py-2">
+                        <span class="text-xs font-semibold text-rose-700 uppercase tracking-wide">Restante a pagar</span>
+                        <span class="text-base font-bold text-rose-700">R$ <span id="pg_venda_restante_view">0,00</span></span>
+                    </div>
                     <div class="flex items-center justify-between rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
                         <span class="text-xs font-semibold text-amber-700 uppercase tracking-wide">Troco a devolver</span>
                         <span class="text-base font-bold text-amber-700">R$ <span id="pg_venda_troco_view">0,00</span></span>
@@ -795,11 +799,21 @@
             document.getElementById("venda_cliente_cnpj").value     = cliente.cliente_cnpj ?? '';
         }
 
+        // Converte texto de valor para número aceitando tanto o formato cru do backend
+        // (ponto decimal: "14.00") quanto o formato brasileiro mascarado ("1.234,56").
+        function parseValor(v) {
+            v = (v || '').toString().trim();
+            if (v === '') return 0;
+            if (v.indexOf(',') !== -1) {
+                return parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0;
+            }
+            return parseFloat(v) || 0;
+        }
+
         function handleFinalizarClick() {
-            const toNum = v => parseFloat((v || '0').replace(/\./g, '').replace(',', '.')) || 0;
-            const valorPago  = toNum(document.getElementById('venda_valor_pago').value);
-            const valorTotal = toNum(document.getElementById('venda_valor_total').value);
-            const valorTroco = toNum(document.getElementById('venda_valor_troco').value);
+            const valorPago  = parseValor(document.getElementById('venda_valor_pago').value);
+            const valorTotal = parseValor(document.getElementById('venda_valor_total').value);
+            const valorTroco = parseValor(document.getElementById('venda_valor_troco').value);
             const tol = 0.005;
 
             if (valorTotal <= 0) {
@@ -976,6 +990,13 @@
                 const troco    = pagoCli > recebido ? (pagoCli - recebido) : 0;
                 $("#pg_venda_troco_view").text(troco.toFixed(2).replace('.', ','));
             }
+            // Restante a pagar = total da venda − o que já foi pago (nunca negativo)
+            function atualizarRestantePagamento() {
+                const total = parseValor($("#venda_valor_total").val());
+                const pago  = parseValor($("#venda_valor_pago").val());
+                const restante = Math.max(0, Math.round((total - pago) * 100) / 100);
+                $("#pg_venda_restante_view").text(restante.toFixed(2).replace('.', ','));
+            }
             $("#pg_venda_valor_pagamento").keyup(function () {
                 const valor_pag  = parseMoeda($(this).val());
                 const valor_taxa = parseFloat($("#opcao_pag_taxa").val()) || 0;
@@ -998,9 +1019,10 @@
             // Ao abrir o modal de pagamento: preenche "Valor recebido" com o que falta
             // pagar (= total na primeira vez, editável) e foca em "Pago pelo cliente".
             window.prepararModalPagamento = function () {
-                const total = parseMoeda($("#venda_valor_total").val());
-                const pago  = parseMoeda($("#venda_valor_pago").val());
+                const total = parseValor($("#venda_valor_total").val());
+                const pago  = parseValor($("#venda_valor_pago").val());
                 const falta = Math.max(0, Math.round((total - pago) * 100) / 100);
+                atualizarRestantePagamento();
                 const $recebido = $("#pg_venda_valor_pagamento");
                 if (parseMoeda($recebido.val()) === 0) {
                     $recebido.val(falta.toFixed(2).replace('.', ',')).trigger('input');
@@ -1252,6 +1274,7 @@
                             $("#venda_valor_total").val(v.venda_valor_total);
                             $("#venda_valor_pago").val(v.venda_valor_pago);
                             $("#venda_valor_troco").val(v.venda_valor_troco);
+                            atualizarRestantePagamento();
                         }
                     },
                     error: function () { showAvisoVenda('Erro ao carregar totais!'); }
@@ -1364,7 +1387,7 @@
             // Auto-cancela venda iniciada e zerada ao sair/recarregar
             window.addEventListener('beforeunload', function () {
                 const id    = vendaId();
-                const total = parseFloat(($("#venda_valor_total").val() || '0').replace(/\./g, '').replace(',', '.')) || 0;
+                const total = parseValor($("#venda_valor_total").val());
                 if (id && total === 0) {
                     navigator.sendBeacon(
                         "{{ route('venda.cancelar') }}",
