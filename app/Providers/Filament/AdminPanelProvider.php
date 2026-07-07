@@ -46,8 +46,10 @@ class AdminPanelProvider extends PanelProvider
                     ->icon(Heroicon::OutlinedComputerDesktop)
                     ->sort(-1),
             ])
+            ->topbar(false)
+            ->sidebarCollapsibleOnDesktop()
             ->navigationGroups([
-                NavigationGroup::make('Operacional')
+                NavigationGroup::make("Dashboard's")
                     ->collapsible(),
                 NavigationGroup::make('Financeiro')
                     ->collapsible(),
