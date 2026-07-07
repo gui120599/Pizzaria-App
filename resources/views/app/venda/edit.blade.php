@@ -1021,6 +1021,16 @@
                 const restante = Math.max(0, Math.round((total - pago) * 100) / 100);
                 $("#pg_venda_restante_view").text(restante.toFixed(2).replace('.', ','));
             }
+            // Preenche automaticamente o "Valor recebido" com o saldo restante da venda (se houver)
+            function preencherRecebidoComRestante() {
+                const total = parseValor($("#venda_valor_total").val());
+                const pago  = parseValor($("#venda_valor_pago").val());
+                const restante = Math.max(0, Math.round((total - pago) * 100) / 100);
+                $("#pg_venda_valor_pagamento")
+                    .val(restante > 0 ? restante.toFixed(2).replace('.', ',') : '')
+                    .trigger('input');
+                atualizarTrocoPagamento();
+            }
             $("#pg_venda_valor_pagamento").keyup(function () {
                 const valor_pag  = parseMoeda($(this).val());
                 const valor_taxa = parseFloat($("#opcao_pag_taxa").val()) || 0;
@@ -1043,15 +1053,8 @@
             // Ao abrir o modal de pagamento: preenche "Valor recebido" com o que falta
             // pagar (= total na primeira vez, editável) e foca em "Pago pelo cliente".
             window.prepararModalPagamento = function () {
-                const total = parseValor($("#venda_valor_total").val());
-                const pago  = parseValor($("#venda_valor_pago").val());
-                const falta = Math.max(0, Math.round((total - pago) * 100) / 100);
                 atualizarRestantePagamento();
-                const $recebido = $("#pg_venda_valor_pagamento");
-                if (parseMoeda($recebido.val()) === 0) {
-                    $recebido.val(falta.toFixed(2).replace('.', ',')).trigger('input');
-                }
-                atualizarTrocoPagamento();
+                preencherRecebidoComRestante();
                 setTimeout(function () {
                     const f = document.getElementById('pg_venda_valor_pago_pelo_cliente');
                     if (f) { f.focus(); if (f.select) f.select(); }
@@ -1284,7 +1287,7 @@
                 listarVenda(venda_id);
             }
 
-            function listarVenda(venda_id) {
+            function listarVenda(venda_id, onDone) {
                 $.ajax({
                     type: "GET", url: "{{ route('venda.listar') }}",
                     data: { '_token': '{{ csrf_token() }}', venda_id }, dataType: "JSON",
@@ -1300,6 +1303,7 @@
                             $("#venda_valor_troco").val(v.venda_valor_troco);
                             atualizarRestantePagamento();
                         }
+                        if (typeof onDone === 'function') onDone();
                     },
                     error: function () { showAvisoVenda('Erro ao carregar totais!'); }
                 });
@@ -1349,9 +1353,10 @@
                         dataType: "json",
                         success: function (response) {
                             listarPagamentos(response.pagamentosVenda);
-                            listarVenda(venda_id);
                             $("#pg_venda_valor_pagamento, #pg_venda_valor_pago_pelo_cliente, #pg_venda_valor_acrescimo, #pg_venda_valor_desconto, #pg_venda_numero_autorizacao_cartao").val("");
                             $("#pg_venda_troco_view").text('0,00');
+                            // Recarrega os totais e, havendo saldo, sugere o restante no "Valor recebido"
+                            listarVenda(venda_id, preencherRecebidoComRestante);
                             showAvisoVenda('Pagamento registrado!', 'success');
                         },
                         error: function () { showAvisoVenda('Erro ao registrar pagamento!'); }
