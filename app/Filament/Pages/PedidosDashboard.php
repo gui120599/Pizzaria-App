@@ -28,7 +28,7 @@ class PedidosDashboard extends BaseDashboard
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
 
-    protected static UnitEnum|string|null $navigationGroup = 'Operacional';
+    protected static UnitEnum|string|null $navigationGroup = 'Indicadores';
 
     protected static ?int $navigationSort = -1;
 

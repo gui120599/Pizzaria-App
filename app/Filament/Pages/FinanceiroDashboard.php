@@ -27,7 +27,7 @@ class FinanceiroDashboard extends BaseDashboard
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
 
-    protected static UnitEnum|string|null $navigationGroup = 'Financeiro';
+    protected static UnitEnum|string|null $navigationGroup = 'Indicadores';
 
     protected static ?int $navigationSort = -1;
 

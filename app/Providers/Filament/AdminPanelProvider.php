@@ -2,11 +2,11 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Dashboard;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use App\Filament\Pages\Dashboard;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Panel;
@@ -49,9 +49,7 @@ class AdminPanelProvider extends PanelProvider
             ->topbar(false)
             ->sidebarCollapsibleOnDesktop()
             ->navigationGroups([
-                NavigationGroup::make("Dashboard's")
-                    ->collapsible(),
-                NavigationGroup::make('Financeiro')
+                NavigationGroup::make('Indicadores')
                     ->collapsible(),
                 NavigationGroup::make('Comercial')
                     ->collapsible(),
