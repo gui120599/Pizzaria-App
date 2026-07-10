@@ -42,6 +42,12 @@ class ProdutoForm
         ]);
     }
 
+    /** Tipos de produto que entram numa compra e portanto têm custo próprio a classificar. */
+    private static function ehComprado(Get $get): bool
+    {
+        return in_array($get('produto_tipo'), ['insumo', 'revenda', 'consumo_interno'], true);
+    }
+
     /** Dados que identificam o produto. */
     private static function abaIdentificacao(): Tab
     {
@@ -257,7 +263,10 @@ class ProdutoForm
                     ->options(fn(): array => PlanoDespesa::orderBy('nome')->pluck('nome', 'id')->toArray())
                     ->searchable()
                     ->native(false)
-                    ->required()
+                    // Só produtos que entram numa compra têm custo a classificar. Produto
+                    // produzido tem o custo classificado via os insumos da ficha técnica.
+                    ->visible(self::ehComprado(...))
+                    ->required(self::ehComprado(...))
                     ->helperText('Classificação do custo deste produto na DRE. Usado ao gerar a conta a pagar de uma compra.'),
             ]);
     }
