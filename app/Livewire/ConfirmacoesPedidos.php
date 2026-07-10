@@ -4,21 +4,28 @@ namespace App\Livewire;
 
 use App\Enums\PedidoOrigemEnum;
 use App\Models\ItensPedido;
-use App\Models\OpcoesPagamento;
 use App\Models\OpcoesEntregas;
+use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
+use App\Services\PromocaoRelampagoService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Title('Confirmações de Pedidos')]
 class ConfirmacoesPedidos extends Component
 {
-    public int    $contagem          = 0;
-    public int    $pedidoEditandoId  = 0;
+    public int $contagem = 0;
+
+    public int $pedidoEditandoId = 0;
+
     public string $editOpcaoEntregaId = '';
-    public string $editEndereco      = '';
+
+    public string $editEndereco = '';
+
     public string $editPagamentoNome = '';
-    public string $editObsPagamento  = '';
+
+    public string $editObsPagamento = '';
 
     public function confirmar(int $id): void
     {
@@ -29,38 +36,51 @@ class ConfirmacoesPedidos extends Component
 
     public function cancelar(int $id): void
     {
-        Pedido::where('id', $id)
-            ->where('pedido_status', 'INICIADO')
-            ->update([
-                'pedido_status'             => 'CANCELADO',
+        $pedido = Pedido::where('id', $id)->where('pedido_status', 'INICIADO')->first();
+        if (! $pedido) {
+            return;
+        }
+
+        DB::transaction(function () use ($pedido) {
+            // Devolve ao saldo qualquer promoção relâmpago consumida pelos
+            // itens deste pedido (checkout público) antes de cancelá-lo.
+            app(PromocaoRelampagoService::class)->estornarPedido($pedido);
+
+            $pedido->update([
+                'pedido_status' => 'CANCELADO',
                 'pedido_datahora_cancelado' => now(),
             ]);
+        });
     }
 
     public function abrirEdicao(int $id): void
     {
         $pedido = Pedido::find($id);
-        if (! $pedido) return;
+        if (! $pedido) {
+            return;
+        }
 
-        $this->pedidoEditandoId   = $id;
+        $this->pedidoEditandoId = $id;
         $this->editOpcaoEntregaId = (string) ($pedido->pedido_opcaoentrega_id ?? '');
-        $this->editEndereco       = $pedido->pedido_endereco_entrega ?? '';
-        $this->editPagamentoNome  = $pedido->pedido_descricao_pagamento ?? '';
-        $this->editObsPagamento   = $pedido->pedido_observacao_pagamento ?? '';
+        $this->editEndereco = $pedido->pedido_endereco_entrega ?? '';
+        $this->editPagamentoNome = $pedido->pedido_descricao_pagamento ?? '';
+        $this->editObsPagamento = $pedido->pedido_observacao_pagamento ?? '';
     }
 
     public function fecharEdicao(): void
     {
-        $this->pedidoEditandoId   = 0;
+        $this->pedidoEditandoId = 0;
         $this->editOpcaoEntregaId = '';
-        $this->editEndereco       = '';
-        $this->editPagamentoNome  = '';
-        $this->editObsPagamento   = '';
+        $this->editEndereco = '';
+        $this->editPagamentoNome = '';
+        $this->editObsPagamento = '';
     }
 
     public function salvarAlteracoes(): void
     {
-        if (! $this->pedidoEditandoId) return;
+        if (! $this->pedidoEditandoId) {
+            return;
+        }
 
         $pedido = Pedido::where('id', $this->pedidoEditandoId)
             ->where('pedido_status', 'INICIADO')
@@ -71,19 +91,19 @@ class ConfirmacoesPedidos extends Component
                 ->where('item_pedido_status', 'INSERIDO')
                 ->get();
 
-            $valorItens    = round($itens->sum('item_pedido_valor'), 2);
+            $valorItens = round($itens->sum('item_pedido_valor'), 2);
             $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
-            $valorFrete    = $this->calcularFrete($this->editOpcaoEntregaId, $valorItens - $totalDesconto);
+            $valorFrete = $this->calcularFrete($this->editOpcaoEntregaId, $valorItens - $totalDesconto);
 
             $pedido->update([
-                'pedido_opcaoentrega_id'      => $this->editOpcaoEntregaId ?: null,
-                'pedido_endereco_entrega'     => $this->editEndereco ?: null,
-                'pedido_descricao_pagamento'  => $this->editPagamentoNome ?: null,
+                'pedido_opcaoentrega_id' => $this->editOpcaoEntregaId ?: null,
+                'pedido_endereco_entrega' => $this->editEndereco ?: null,
+                'pedido_descricao_pagamento' => $this->editPagamentoNome ?: null,
                 'pedido_observacao_pagamento' => $this->editObsPagamento ?: null,
-                'pedido_valor_itens'          => $valorItens,
-                'pedido_valor_desconto'       => $totalDesconto,
-                'pedido_valor_frete'          => $valorFrete,
-                'pedido_valor_total'          => round(max(0, $valorItens - $totalDesconto + $valorFrete), 2),
+                'pedido_valor_itens' => $valorItens,
+                'pedido_valor_desconto' => $totalDesconto,
+                'pedido_valor_frete' => $valorFrete,
+                'pedido_valor_total' => round(max(0, $valorItens - $totalDesconto + $valorFrete), 2),
             ]);
         }
 
@@ -123,14 +143,14 @@ class ConfirmacoesPedidos extends Component
             ->get();
 
         $novaContagem = $pedidos->count();
-        $temNovo      = $novaContagem > $this->contagem && $this->contagem > 0;
+        $temNovo = $novaContagem > $this->contagem && $this->contagem > 0;
         $this->contagem = $novaContagem;
 
         if ($temNovo) {
             $this->dispatch('novo-pedido');
         }
 
-        $opcoesEntregas  = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
+        $opcoesEntregas = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
         $opcoesPagamento = OpcoesPagamento::orderBy('opcaopag_nome')->get();
 
         return view('livewire.confirmacoes-pedidos', compact('pedidos', 'opcoesEntregas', 'opcoesPagamento'));

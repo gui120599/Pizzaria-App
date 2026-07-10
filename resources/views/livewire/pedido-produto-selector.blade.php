@@ -1,5 +1,16 @@
 <div x-data="{ drawerOpen: false }" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
 
+    {{-- Erro de promoção relâmpago (saldo esgotou / limite excedido) --}}
+    @if ($erroPromocao)
+        <div class="flex items-start gap-2 px-4 py-3 bg-red-50 border-b border-red-200 text-red-700 text-sm">
+            <i class='bx bx-error-circle text-base mt-0.5 shrink-0'></i>
+            <span class="flex-1">{{ $erroPromocao }}</span>
+            <button wire:click="$set('erroPromocao', null)" type="button" class="text-red-400 hover:text-red-600 shrink-0">
+                <i class='bx bx-x text-lg'></i>
+            </button>
+        </div>
+    @endif
+
     {{-- ── Busca + categorias ─────────────────────────────────────────────── --}}
     <div class="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3">
 
@@ -52,11 +63,16 @@
     <div class="divide-y divide-gray-100 overflow-y-auto" style="max-height: clamp(18rem, 60vh, 48rem)">
         @forelse ($this->produtos as $produto)
             @php
-                $precoVenda   = (float) $produto->produto_preco_venda;
-                $precoPromo   = (float) $produto->produto_preco_promocional;
-                $temPromo     = $precoPromo > 0;
-                $precoExibido = $temPromo ? $precoPromo : $precoVenda;
-                $temDesconto  = $temPromo && $precoPromo < $precoVenda;
+                // Mesma resolução de preço do cardápio — inclui promoção relâmpago
+                // vigente com saldo (ver Produto::precoResolvido()). O balcão vende
+                // pelo mesmo preço exibido: confirmarItem()/confirmarSabores() debitam
+                // o contador da promoção ao gravar o item.
+                $preco        = $produto->precoResolvido();
+                $precoVenda   = $preco->valorUnitario;
+                $precoExibido = $preco->precoFinal();
+                $temDesconto  = $preco->descontoUnitario > 0;
+                $temPromo     = $temDesconto;
+                $temRelampago = $preco->temPromocaoRelampago();
             @endphp
             <div wire:key="produto-{{ $produto->id }}"
                  class="relative p-2 flex items-start gap-2 bg-white hover:bg-gray-50 transition-colors">
@@ -67,7 +83,11 @@
                          alt="{{ $produto->produto_descricao }}"
                          class="w-20 h-16 object-cover rounded-lg bg-gray-100"
                          onerror="this.src=''">
-                    @if ($temPromo)
+                    @if ($temRelampago)
+                        <span class="absolute top-1 left-1 bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5">
+                            <i class='bx bxs-bolt text-[9px]'></i> RELÂMPAGO
+                        </span>
+                    @elseif ($temPromo)
                         <span class="absolute top-1 left-1 bg-orange-500 text-white text-[9px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5">
                             <i class='bx bxs-purchase-tag text-[9px]'></i> PROMO
                         </span>
@@ -200,6 +220,11 @@
                                         <i class='bx bx-user text-[9px]'></i> {{ $item['cliente_nome'] }}
                                     </span>
                                 @endif
+                                @if (!empty($item['promocao_id']))
+                                    <span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded px-1.5 py-0.5">
+                                        <i class='bx bxs-bolt text-[9px]'></i> RELÂMPAGO
+                                    </span>
+                                @endif
                             </div>
                             <p class="text-sm font-medium text-gray-800 truncate">{{ $item['produto_nome'] }}</p>
                             @if (!empty($item['adicionais']))
@@ -211,15 +236,27 @@
                         </div>
 
                         {{-- Quantidade --}}
-                        <div class="flex items-center gap-1 shrink-0">
-                            <button wire:click="decrementarQtd('{{ $item['id'] }}')" type="button"
-                                class="w-7 h-7 rounded-full bg-gray-100 hover:bg-red-100 text-gray-600 flex items-center justify-center text-base font-bold leading-none transition-colors">−</button>
-                            <span class="w-8 text-center text-sm font-semibold text-gray-700 tabular-nums">
-                                {{ $item['quantidade'] == floor($item['quantidade']) ? (int)$item['quantidade'] : number_format($item['quantidade'], 2, ',', '') }}
-                            </span>
-                            <button wire:click="incrementarQtd('{{ $item['id'] }}')" type="button"
-                                class="w-7 h-7 rounded-full bg-gray-100 hover:bg-green-100 text-gray-600 flex items-center justify-center text-base font-bold leading-none transition-colors">+</button>
-                        </div>
+                        @if (!empty($item['promocao_id']))
+                            {{-- Item promocional: preço e quantidade congelados no momento da
+                                 venda (o débito da promoção não pode ser ajustado parcialmente).
+                                 Para mudar a quantidade, remova e adicione de novo. --}}
+                            <div class="flex items-center gap-1 shrink-0 px-2" title="Quantidade fixa: item da promoção relâmpago">
+                                <i class='bx bxs-lock-alt text-gray-300 text-sm'></i>
+                                <span class="w-8 text-center text-sm font-semibold text-gray-700 tabular-nums">
+                                    {{ $item['quantidade'] == floor($item['quantidade']) ? (int)$item['quantidade'] : number_format($item['quantidade'], 2, ',', '') }}
+                                </span>
+                            </div>
+                        @else
+                            <div class="flex items-center gap-1 shrink-0">
+                                <button wire:click="decrementarQtd('{{ $item['id'] }}')" type="button"
+                                    class="w-7 h-7 rounded-full bg-gray-100 hover:bg-red-100 text-gray-600 flex items-center justify-center text-base font-bold leading-none transition-colors">−</button>
+                                <span class="w-8 text-center text-sm font-semibold text-gray-700 tabular-nums">
+                                    {{ $item['quantidade'] == floor($item['quantidade']) ? (int)$item['quantidade'] : number_format($item['quantidade'], 2, ',', '') }}
+                                </span>
+                                <button wire:click="incrementarQtd('{{ $item['id'] }}')" type="button"
+                                    class="w-7 h-7 rounded-full bg-gray-100 hover:bg-green-100 text-gray-600 flex items-center justify-center text-base font-bold leading-none transition-colors">+</button>
+                            </div>
+                        @endif
 
                         {{-- Valor --}}
                         <div class="text-right shrink-0 min-w-[5rem]">
@@ -284,7 +321,14 @@
                 {{-- Header --}}
                 <div class="flex items-start justify-between gap-3 px-5 pt-5 pb-4 border-b border-gray-100">
                     <div>
-                        <h3 class="text-base font-bold text-gray-800 leading-snug">{{ $produtoSelecionado['nome'] }}</h3>
+                        <h3 class="text-base font-bold text-gray-800 leading-snug flex items-center gap-1.5">
+                            {{ $produtoSelecionado['nome'] }}
+                            @if (!empty($produtoSelecionado['promocao_id']))
+                                <span class="inline-flex items-center gap-0.5 text-[9px] font-bold text-white bg-red-600 rounded px-1 py-0.5 shrink-0">
+                                    <i class='bx bxs-bolt text-[9px]'></i> RELÂMPAGO
+                                </span>
+                            @endif
+                        </h3>
                         <div class="flex items-baseline gap-2 mt-1">
                             @if ($produtoSelecionado['desconto_unit'] > 0)
                                 <span class="text-xs text-gray-400 line-through">R$ {{ number_format($produtoSelecionado['preco_venda'], 2, ',', '.') }}</span>
@@ -596,7 +640,14 @@
                                 </div>
                             @endif
                             <div class="flex-1 min-w-0">
-                                <p class="text-gray-800 text-sm font-semibold leading-tight">{{ $sabor['nome'] }}</p>
+                                <p class="text-gray-800 text-sm font-semibold leading-tight flex items-center gap-1">
+                                    {{ $sabor['nome'] }}
+                                    @if (!empty($sabor['temRelampago']))
+                                        <span class="inline-flex items-center gap-0.5 text-[9px] font-bold text-white bg-red-600 rounded px-1 py-0.5 shrink-0">
+                                            <i class='bx bxs-bolt text-[9px]'></i> RELÂMPAGO
+                                        </span>
+                                    @endif
+                                </p>
                                 @if (!empty($sabor['codimentacao']))
                                     <p class="text-xs text-gray-400 mt-0.5">{{ $sabor['codimentacao'] }}</p>
                                 @endif

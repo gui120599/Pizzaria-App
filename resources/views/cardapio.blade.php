@@ -48,6 +48,15 @@
                 <hr class="h-px my-1 border-0 bg-gray-400">
             </div>
             <div class="col-span-full flex gap-3 overflow-x-auto overflow-y-hidden px-1 py-2 scrollbar-none">
+                @if ($promocoesRelampago->isNotEmpty())
+                    <button class="flex flex-col items-center gap-1 shrink-0 w-16 focus:outline-none group"
+                        onclick="scrollToElement('secao_relampago')">
+                        <div class="w-14 h-14 rounded-xl overflow-hidden border-2 border-red-500 group-hover:border-red-400 transition-colors duration-150 shadow-sm bg-red-500/20 flex items-center justify-center">
+                            <i class='bx bxs-bolt text-red-400 text-3xl'></i>
+                        </div>
+                        <span class="text-[9px] text-red-400 font-semibold uppercase tracking-wide leading-tight text-center line-clamp-2 w-full">Relâmpago</span>
+                    </button>
+                @endif
                 @if ($promocoes->isNotEmpty())
                     <button class="flex flex-col items-center gap-1 shrink-0 w-16 focus:outline-none group"
                         onclick="scrollToElement('secao_promocoes')">
@@ -75,6 +84,36 @@
         {{-- CONTENT --}}
         <div class="h-[74%] overflow-y-auto p-2">
 
+            {{-- Seção de Promoções Relâmpago (destaque, com contador de escassez) --}}
+            @if ($promocoesRelampago->isNotEmpty())
+                @foreach ($promocoesRelampago as $promo)
+                    <div class="mb-6" id="{{ $loop->first ? 'secao_relampago' : 'secao_relampago_' . $promo['id'] }}">
+                        <div class="rounded-t-xl bg-gradient-to-r from-red-600 to-orange-500 px-3 py-2 flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <i class='bx bxs-bolt text-yellow-300 text-2xl animate-pulse shrink-0'></i>
+                                <div class="min-w-0">
+                                    <h2 class="text-white font-extrabold uppercase text-base leading-tight truncate">{{ $promo['nome'] }}</h2>
+                                    @if ($promo['descricao'])
+                                        <p class="text-white/80 text-[11px] leading-tight truncate">{{ $promo['descricao'] }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                            @if ($promo['exibe_contador'])
+                                <div class="shrink-0 bg-white/95 text-red-600 rounded-lg px-2 py-1 text-center shadow">
+                                    <span class="block text-lg font-extrabold leading-none">{{ number_format($promo['saldo'], 0, ',', '.') }}</span>
+                                    <span class="block text-[9px] font-bold uppercase tracking-wide">restam</span>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="border border-t-0 border-red-500/40 rounded-b-xl bg-red-500/5 p-2 grid grid-cols-1 gap-3">
+                            @foreach ($promo['produtos'] as $produto)
+                                <x-cardapio.promo-relampago-card :produto="$produto" />
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            @endif
+
             {{-- Seção de Promoções --}}
             @if ($promocoes->isNotEmpty())
                 @php $catsPromo = $promocoes->pluck('categoria')->unique('id')->sortBy('categoria_nome'); @endphp
@@ -100,7 +139,8 @@
                             @php
                                 $nomeExibicao = $produto->nomeExibicao();
                                 $nomeCarrinho = $nomeExibicao;
-                                $precoCarrinho = $produto->produto_preco_promocional;
+                                $preco = $produto->precoResolvido();
+                                $precoCarrinho = $preco->precoFinal();
                             @endphp
                             <div class="relative snap-end" x-show="catAtiva === 'todos' || catAtiva === '{{ $produto->categoria->id }}'">
                                 <a href="{{ route('produto.show', ['produto' => $produto]) }}">
@@ -113,21 +153,21 @@
                                             <h2 class="text-gray-100 text-base uppercase">{{ $nomeExibicao }}</h2>
                                             <span class="text-gray-400 text-xs">Codimentos: {{ $produto->produto_codimentacao }}</span>
                                             <div class="flex flex-col">
-                                                @if ($produto->produto_preco_promocional < $produto->produto_preco_venda)
-                                                    <span class="text-gray-400 text-xs line-through">DE: R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                @if ($preco->descontoUnitario > 0)
+                                                    <span class="text-gray-400 text-xs line-through">DE: R${{ number_format($preco->valorUnitario, 2, ',', '.') }}</span>
                                                 @endif
-                                                <span class="text-green-400 text-lg font-bold">POR: R${{ str_replace('.', ',', $produto->produto_preco_promocional) }}</span>
+                                                <span class="text-green-400 text-lg font-bold">POR: R${{ number_format($precoCarrinho, 2, ',', '.') }}</span>
                                             </div>
                                         </div>
                                     </div>
                                 </a>
                                 <div class="absolute bottom-3 right-2 flex items-center gap-1 z-10">
-                                    @if($produto->categoria->categoria_permite_sabores ?? false)
+                                    @if($produto->permiteSaboresCardapio())
                                         <div x-show="$store.cart.qty({{ $produto->id }}) > 0" class="flex items-center gap-1 bg-black/70 rounded-full px-1.5 py-0.5 text-white text-xs font-bold" style="display:none">
                                             <i class='bx bx-bowl-hot text-xs'></i>
                                             <span x-text="$store.cart.qty({{ $produto->id }})"></span>
                                         </div>
-                                        <button @click.stop="$store.cart.abrirSabores({{ $produto->categoria->id }}, @js($produto->categoria->categoria_nome), {{ $produto->categoria->categoria_max_sabores ?? 2 }}, {{ $produto->id }})"
+                                        <button @click.stop="$store.cart.abrirSabores({{ $produto->categoria->id }}, @js($produto->categoria->categoria_nome), {{ $produto->maxSaboresCardapio() }}, {{ $produto->id }})"
                                                 class="w-8 h-8 rounded-full bg-green-500 hover:bg-green-400 active:scale-90 text-white text-xl font-bold flex items-center justify-center shadow-lg transition-all">+</button>
                                     @else
                                         <div x-show="$store.cart.qty({{ $produto->id }}) > 0" class="flex items-center gap-1 bg-black/70 rounded-full px-1.5 py-0.5" style="display:none">
@@ -170,7 +210,8 @@
                             @php
                                 $nomeExibicao = $produto->nomeExibicao();
                                 $nomeCarrinho = $nomeExibicao;
-                                $precoCarrinho = $produto->produto_preco_promocional > 0 ? $produto->produto_preco_promocional : $produto->produto_preco_venda;
+                                $preco = $produto->precoResolvido();
+                                $precoCarrinho = $preco->precoFinal();
                             @endphp
                             <div class="relative snap-end" x-show="catAtiva === 'todos' || catAtiva === '{{ $produto->categoria->id }}'">
                                 <a href="{{ route('produto.show', ['produto' => $produto]) }}">
@@ -178,7 +219,7 @@
                                         <div class="w-2/5 relative">
                                             <img src="{{ $produto->getImagemUrl() }}" alt="{{ $produto->produto_descricao }}" class="w-32 h-28 object-cover rounded-lg bg-white">
                                             <span class="absolute top-1 left-1 bg-yellow-500 text-white text-[10px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5"><i class='bx bxs-star text-xs'></i> + VENDIDO</span>
-                                            @if ($produto->produto_preco_promocional > 0)
+                                            @if ($preco->descontoUnitario > 0)
                                                 <span class="absolute bottom-1 left-1 bg-orange-500 text-white text-[10px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5"><i class='bx bxs-purchase-tag text-xs'></i> PROMO</span>
                                             @endif
                                         </div>
@@ -186,25 +227,23 @@
                                             <h2 class="text-gray-100 text-base uppercase">{{ $nomeExibicao }}</h2>
                                             <span class="text-gray-400 text-xs">Codimentos: {{ $produto->produto_codimentacao }}</span>
                                             <div class="flex flex-col">
-                                                @if ($produto->produto_preco_promocional > 0)
-                                                    @if ($produto->produto_preco_promocional < $produto->produto_preco_venda)
-                                                        <span class="text-gray-400 text-xs line-through">DE: R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
-                                                    @endif
-                                                    <span class="text-green-400 text-lg font-bold">POR: R${{ str_replace('.', ',', $produto->produto_preco_promocional) }}</span>
+                                                @if ($preco->descontoUnitario > 0)
+                                                    <span class="text-gray-400 text-xs line-through">DE: R${{ number_format($preco->valorUnitario, 2, ',', '.') }}</span>
+                                                    <span class="text-green-400 text-lg font-bold">POR: R${{ number_format($precoCarrinho, 2, ',', '.') }}</span>
                                                 @else
-                                                    <span class="text-white text-lg font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                    <span class="text-white text-lg font-bold">R${{ number_format($precoCarrinho, 2, ',', '.') }}</span>
                                                 @endif
                                             </div>
                                         </div>
                                     </div>
                                 </a>
                                 <div class="absolute bottom-3 right-2 flex items-center gap-1 z-10">
-                                    @if($produto->categoria->categoria_permite_sabores ?? false)
+                                    @if($produto->permiteSaboresCardapio())
                                         <div x-show="$store.cart.qty({{ $produto->id }}) > 0" class="flex items-center gap-1 bg-black/70 rounded-full px-1.5 py-0.5 text-white text-xs font-bold" style="display:none">
                                             <i class='bx bx-bowl-hot text-xs'></i>
                                             <span x-text="$store.cart.qty({{ $produto->id }})"></span>
                                         </div>
-                                        <button @click.stop="$store.cart.abrirSabores({{ $produto->categoria->id }}, @js($produto->categoria->categoria_nome), {{ $produto->categoria->categoria_max_sabores ?? 2 }}, {{ $produto->id }})"
+                                        <button @click.stop="$store.cart.abrirSabores({{ $produto->categoria->id }}, @js($produto->categoria->categoria_nome), {{ $produto->maxSaboresCardapio() }}, {{ $produto->id }})"
                                                 class="w-8 h-8 rounded-full bg-green-500 hover:bg-green-400 active:scale-90 text-white text-xl font-bold flex items-center justify-center shadow-lg transition-all">+</button>
                                     @else
                                         <div x-show="$store.cart.qty({{ $produto->id }}) > 0" class="flex items-center gap-1 bg-black/70 rounded-full px-1.5 py-0.5" style="display:none">
@@ -234,14 +273,15 @@
                                 @php
                                     $nomeExibicao = $produto->nomeExibicao();
                                     $nomeCarrinho = $nomeExibicao;
-                                    $precoCarrinho = $produto->produto_preco_promocional > 0 ? $produto->produto_preco_promocional : $produto->produto_preco_venda;
+                                    $preco = $produto->precoResolvido();
+                                    $precoCarrinho = $preco->precoFinal();
                                 @endphp
                                 <div class="relative snap-end">
                                     <a href="{{ route('produto.show', ['produto' => $produto]) }}">
                                         <div class="w-full p-2 rounded-lg flex items-start justify-between opacity-95 hover:opacity-100 gap-1">
                                             <div class="w-2/5 relative">
                                                 <img src="{{ $produto->getImagemUrl() }}" alt="{{ $produto->produto_descricao }}" class="w-32 h-28 object-cover rounded-lg bg-white">
-                                                @if ($produto->produto_preco_promocional > 0)
+                                                @if ($preco->descontoUnitario > 0)
                                                     <span class="absolute top-1 left-1 bg-orange-500 text-white text-[10px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5"><i class='bx bxs-purchase-tag text-xs'></i> PROMO</span>
                                                 @endif
                                                 @if (in_array($produto->id, $top10Ids ?? []))
@@ -258,25 +298,23 @@
                                                 </h2>
                                                 <span class="text-gray-200 text-xs">Codimentos: {{ $produto->produto_codimentacao }}</span>
                                                 <div class="flex flex-col">
-                                                    @if ($produto->produto_preco_promocional > 0)
-                                                        @if ($produto->produto_preco_promocional < $produto->produto_preco_venda)
-                                                            <span class="text-gray-400 text-xs line-through">DE: R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
-                                                        @endif
-                                                        <span class="text-green-400 text-lg font-bold">POR: R${{ str_replace('.', ',', $produto->produto_preco_promocional) }}</span>
+                                                    @if ($preco->descontoUnitario > 0)
+                                                        <span class="text-gray-400 text-xs line-through">DE: R${{ number_format($preco->valorUnitario, 2, ',', '.') }}</span>
+                                                        <span class="text-green-400 text-lg font-bold">POR: R${{ number_format($precoCarrinho, 2, ',', '.') }}</span>
                                                     @else
-                                                        <span class="text-white text-lg font-bold">R${{ str_replace('.', ',', $produto->produto_preco_venda) }}</span>
+                                                        <span class="text-white text-lg font-bold">R${{ number_format($precoCarrinho, 2, ',', '.') }}</span>
                                                     @endif
                                                 </div>
                                             </div>
                                         </div>
                                     </a>
                                     <div class="absolute bottom-3 right-2 flex items-center gap-1 z-10">
-                                        @if($categoria->categoria_permite_sabores ?? false)
+                                        @if($produto->permiteSaboresCardapio())
                                             <div x-show="$store.cart.qty({{ $produto->id }}) > 0" class="flex items-center gap-1 bg-black/70 rounded-full px-1.5 py-0.5 text-white text-xs font-bold" style="display:none">
                                                 <i class='bx bx-bowl-hot text-xs'></i>
                                                 <span x-text="$store.cart.qty({{ $produto->id }})"></span>
                                             </div>
-                                            <button @click.stop="$store.cart.abrirSabores({{ $categoria->id }}, @js($categoria->categoria_nome), {{ $categoria->categoria_max_sabores ?? 2 }}, {{ $produto->id }})"
+                                            <button @click.stop="$store.cart.abrirSabores({{ $categoria->id }}, @js($categoria->categoria_nome), {{ $produto->maxSaboresCardapio() }}, {{ $produto->id }})"
                                                     class="w-8 h-8 rounded-full bg-green-500 hover:bg-green-400 active:scale-90 text-white text-xl font-bold flex items-center justify-center shadow-lg transition-all">+</button>
                                         @else
                                             <div x-show="$store.cart.qty({{ $produto->id }}) > 0" class="flex items-center gap-1 bg-black/70 rounded-full px-1.5 py-0.5" style="display:none">
@@ -1122,8 +1160,12 @@
                     };
                     let bruto = 0, desc = 0;
                     sel.forEach((s, idx) => {
-                        const orig = Math.max(s.precoOriginal ?? s.preco, s.preco);
-                        const descUnit = Math.max(0, orig - s.preco);
+                        // Como fração, o produto usa precoFracao: numa promoção
+                        // relâmpago "só inteira" isso é o preço normal (a promoção
+                        // não vale meia a meia); nos demais casos == s.preco.
+                        const precoFrac = s.precoFracao ?? s.preco;
+                        const orig = Math.max(s.precoOriginal ?? precoFrac, precoFrac);
+                        const descUnit = Math.max(0, orig - precoFrac);
                         bruto += fatia(orig, idx);
                         desc  += fatia(descUnit, idx);
                     });

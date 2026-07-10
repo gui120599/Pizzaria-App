@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreItensPedidoRequest;
+use App\Http\Requests\UpdateItensPedidoRequest;
 use App\Models\AdicionaisItemPedido;
 use App\Models\ItensPedido;
 use App\Models\Produto;
-use App\Http\Requests\StoreItensPedidoRequest;
-use App\Http\Requests\UpdateItensPedidoRequest;
+use App\Services\PromocaoRelampagoService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ItensPedidoController extends Controller
 {
@@ -18,7 +20,7 @@ class ItensPedidoController extends Controller
     {
         $itemPedido = new ItensPedido([
             'item_pedido_produto_id' => $request->input('item_pedido_produto_id'),
-            'item_pedido_pedido_id'  => $request->input('item_pedido_pedido_id'),
+            'item_pedido_pedido_id' => $request->input('item_pedido_pedido_id'),
             'item_pedido_quantidade' => $request->input('item_pedido_quantidade'),
         ]);
 
@@ -55,12 +57,12 @@ class ItensPedidoController extends Controller
 
         // Retorne os itens de pedido inseridos encontrados
         return response()->json($itensPedidoInseridos, 200);
-        //return response()->json($request, 200);
+        // return response()->json($request, 200);
     }
 
     /**
      * Summary of calcularValorTotalPedido
-     * @param \Illuminate\Http\Request $request
+     *
      * @return mixed|\Illuminate\Http\JsonResponse
      */
     public function calcularValorTotalPedido(Request $request)
@@ -86,15 +88,14 @@ class ItensPedidoController extends Controller
 
         // Itere sobre os itens do pedido e adicione o valor de cada item ao valor total do pedido
         foreach ($itensPedidoInseridos as $item) {
-            $valorTotalItensPedido    += $item->item_pedido_valor + $item->item_pedido_desconto; // bruto (antes do desconto)
+            $valorTotalItensPedido += $item->item_pedido_valor + $item->item_pedido_desconto; // bruto (antes do desconto)
             $valorTotalDescontoPedido += $item->item_pedido_desconto;
-            $valorTotalPedido         += $item->item_pedido_valor;                                // líquido (já com desconto)
+            $valorTotalPedido += $item->item_pedido_valor;                                // líquido (já com desconto)
         }
 
         // Retorne o valor total do pedido
         return response()->json(['valor_total_itens' => $valorTotalItensPedido, 'valor_total_desconto' => $valorTotalDescontoPedido, 'valor_total_pedido' => $valorTotalPedido], 200);
     }
-
 
     /**
      * Atualiza o valor do item via Java Script no formato JSON
@@ -109,7 +110,7 @@ class ItensPedidoController extends Controller
         $precoBase = ($precoPromo > 0 && $precoPromo > $precoVenda) ? $precoPromo : $precoVenda;
         $descontoUnitario = ($precoPromo > 0 && $precoPromo < $precoVenda) ? ($precoVenda - $precoPromo) : 0;
 
-        if (!$adicionaisItemPedido->isEmpty()) {
+        if (! $adicionaisItemPedido->isEmpty()) {
             $novaQuantidade = $request->input('item_pedido_quantidade');
             if ($novaQuantidade == 0.5) {
                 $novaQuantidade = 1;
@@ -162,7 +163,6 @@ class ItensPedidoController extends Controller
         return response()->json(['message' => 'Atualização de quantidade e valor bem-sucedida 2!', 'itemPedido' => $itemPedido], 200);
     }
 
-
     /**
      * Atualiza o item adicionando a observação via Java Script no formato JSON
      */
@@ -174,15 +174,14 @@ class ItensPedidoController extends Controller
 
         // Atualizar os campos do item de pedido
         $itemPedido->update([
-            'item_pedido_observacao' => $request->input('item_pedido_observacao')
+            'item_pedido_observacao' => $request->input('item_pedido_observacao'),
         ]);
 
         // Retornar uma resposta de sucesso
         return response()->json(['message' => 'Atualização bem-sucedida'], 200);
 
-        //return response()->json($itemPedido);
+        // return response()->json($itemPedido);
     }
-
 
     /**
      * Atualiza o item adicionando o valor de desconto via Java Script no formato JSON
@@ -196,13 +195,13 @@ class ItensPedidoController extends Controller
         // Atualizar os campos do item de pedido
         $itemPedido->update([
             'item_pedido_desconto' => $request->input('item_desconto'),
-            'item_pedido_valor' => $request->input('novoValorTotal')
+            'item_pedido_valor' => $request->input('novoValorTotal'),
         ]);
 
         // Retornar uma resposta de sucesso
         return response()->json(['message' => 'Atualização de desconto bem-sucedida'], 200);
 
-        //return response()->json($itemPedido);
+        // return response()->json($itemPedido);
     }
 
     /**
@@ -214,14 +213,22 @@ class ItensPedidoController extends Controller
         // Encontrar o item de pedido pelo ID
         $itemPedido = ItensPedido::findOrFail($request->id);
 
-        // Atualizar os campos do item de pedido
-        $itemPedido->update([
-            'item_pedido_status' => 'REMOVIDO'
-        ]);
+        DB::transaction(function () use ($itemPedido) {
+            // Devolve ao saldo a promoção relâmpago consumida por este item,
+            // se houver, antes de marcá-lo como removido.
+            if ($itemPedido->item_pedido_promocao_id) {
+                app(PromocaoRelampagoService::class)->estornarItem($itemPedido);
+            }
+
+            // Atualizar os campos do item de pedido
+            $itemPedido->update([
+                'item_pedido_status' => 'REMOVIDO',
+            ]);
+        });
 
         // Retornar uma resposta de sucesso
         return response()->json(['message' => 'Remoção bem-sucedida'], 200);
 
-        //return response()->json($itemPedido);
+        // return response()->json($itemPedido);
     }
 }

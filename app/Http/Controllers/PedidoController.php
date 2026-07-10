@@ -14,8 +14,10 @@ use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoMesa;
+use App\Services\PromocaoRelampagoService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class PedidoController extends Controller
@@ -412,12 +414,19 @@ class PedidoController extends Controller
 
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
-        $pedido->update([
-            'pedido_status' => 'CANCELADO',
-            'pedido_motivo_cancelamento' => $request->input('pedido_motivo_cancelamento', MotivoCancelamentoEnum::OUTRO->value),
-            'pedido_usuario_cancelou_id' => auth()->id(),
-            'pedido_datahora_cancelado' => Carbon::now(),
-        ]);
+
+        DB::transaction(function () use ($pedido, $request) {
+            // Devolve ao saldo qualquer promoção relâmpago consumida pelos
+            // itens deste pedido antes de marcá-lo como cancelado.
+            app(PromocaoRelampagoService::class)->estornarPedido($pedido);
+
+            $pedido->update([
+                'pedido_status' => 'CANCELADO',
+                'pedido_motivo_cancelamento' => $request->input('pedido_motivo_cancelamento', MotivoCancelamentoEnum::OUTRO->value),
+                'pedido_usuario_cancelou_id' => auth()->id(),
+                'pedido_datahora_cancelado' => Carbon::now(),
+            ]);
+        });
 
         return response()->json(['message' => 'Pedido Cancelado!'], 200);
     }
@@ -461,12 +470,18 @@ class PedidoController extends Controller
             );
         }
 
-        $pedido->update([
-            'pedido_status' => 'CANCELADO',
-            'pedido_motivo_cancelamento' => $request->input('pedido_motivo_cancelamento'),
-            'pedido_usuario_cancelou_id' => auth()->id(),
-            'pedido_datahora_cancelado' => Carbon::now(),
-        ]);
+        DB::transaction(function () use ($pedido, $request) {
+            // Devolve ao saldo qualquer promoção relâmpago consumida pelos
+            // itens deste pedido antes de marcá-lo como cancelado.
+            app(PromocaoRelampagoService::class)->estornarPedido($pedido);
+
+            $pedido->update([
+                'pedido_status' => 'CANCELADO',
+                'pedido_motivo_cancelamento' => $request->input('pedido_motivo_cancelamento'),
+                'pedido_usuario_cancelou_id' => auth()->id(),
+                'pedido_datahora_cancelado' => Carbon::now(),
+            ]);
+        });
 
         return redirect()->route('pedidos')->with('success', 'Pedido '.$pedido->id.' cancelado com sucesso!');
     }

@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Services\PrecificadorService;
+use App\Services\PrecoResolvido;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -13,6 +16,8 @@ class Produto extends Model
     use SoftDeletes;
 
     protected $table = 'produtos';
+
+    private ?PrecoResolvido $precoResolvidoCache = null;
 
     protected $dates = ['deleted_at'];
 
@@ -69,6 +74,98 @@ class Produto extends Model
         'produto_saldo_estoque' => 'decimal:3',
         'produto_ficha_rendimento' => 'decimal:3',
     ];
+
+    /**
+     * Preço que o servidor cobrará por uma unidade deste produto agora.
+     * O cardápio exibe exatamente isto — display e cobrança não podem divergir.
+     */
+    public function precoResolvido(): PrecoResolvido
+    {
+        return $this->precoResolvidoCache ??= app(PrecificadorService::class)->resolver($this);
+    }
+
+    /**
+     * Política de sabores no cardápio. A disponibilidade (meia a meia / terços)
+     * é sempre da categoria — inclusive para produto em promoção relâmpago. Uma
+     * promoção que permite sabores pode apenas restringir o máximo abaixo do da
+     * categoria; uma promoção "só inteira" não bloqueia mais a seleção como
+     * sabor: a fração apenas volta ao preço normal (ver precoFracaoCardapio()).
+     *
+     * @return array{permite: bool, max: int}
+     */
+    public function politicaSaboresCardapio(): array
+    {
+        $catPermite = (bool) ($this->categoria->categoria_permite_sabores ?? false);
+        $catMax = (int) ($this->categoria->categoria_max_sabores ?? 2);
+
+        $promos = app(PrecificadorService::class)->promocoesVigentesDoProduto($this->id);
+
+        // Promoção que permite sabores em TODAS as vigentes pode apertar o teto.
+        if ($promos->isNotEmpty() && $promos->every(fn ($p) => $p->promocao_permite_sabores)) {
+            return [
+                'permite' => $catPermite,
+                'max' => (int) $promos->map(fn ($p) => $p->maxSaboresEfetivo([$this]))->min(),
+            ];
+        }
+
+        // Sem promoção, ou promoção "só inteira": a categoria manda.
+        return [
+            'permite' => $catPermite,
+            'max' => $catMax,
+        ];
+    }
+
+    public function permiteSaboresCardapio(): bool
+    {
+        return $this->politicaSaboresCardapio()['permite'];
+    }
+
+    public function maxSaboresCardapio(): int
+    {
+        return $this->politicaSaboresCardapio()['max'];
+    }
+
+    /**
+     * A promoção relâmpago vigente deste produto vale só para a pizza inteira?
+     * Verdadeiro quando existe promoção vigente e nem todas permitem sabores —
+     * nesse caso a fração (meia/terço) sai pelo preço normal.
+     */
+    public function relampagoSoInteiraCardapio(): bool
+    {
+        $promos = app(PrecificadorService::class)->promocoesVigentesDoProduto($this->id);
+
+        return $promos->isNotEmpty() && ! $promos->every(fn ($p) => $p->promocao_permite_sabores);
+    }
+
+    /**
+     * Preço de uma unidade deste produto quando escolhido como fração de uma
+     * pizza multi-sabor. Numa promoção "só inteira" a fração volta ao preço
+     * normal (relâmpago não se aplica); nos demais casos segue o preço resolvido
+     * da unidade inteira. Espelha o que o servidor cobra em ratearCombo().
+     */
+    public function precoFracaoCardapio(): float
+    {
+        if ($this->relampagoSoInteiraCardapio()) {
+            return app(PrecificadorService::class)->resolver($this, considerarRelampago: false)->precoFinal();
+        }
+
+        return $this->precoResolvido()->precoFinal();
+    }
+
+    /**
+     * Produtos cujo produto_preco_promocional está dentro da janela de datas.
+     * Datas em branco = promoção permanente.
+     */
+    public function scopeComPromocaoDeProdutoVigente(Builder $query): Builder
+    {
+        $hoje = now()->toDateString();
+
+        return $query->where('produto_preco_promocional', '>', 0)
+            ->where(fn (Builder $q) => $q->whereNull('produto_data_inicio_promocao')
+                ->orWhere('produto_data_inicio_promocao', '<=', $hoje))
+            ->where(fn (Builder $q) => $q->whereNull('produto_data_final_promocao')
+                ->orWhere('produto_data_final_promocao', '>=', $hoje));
+    }
 
     /**
      * Nome para exibição no cardápio. Quando o produto está marcado para

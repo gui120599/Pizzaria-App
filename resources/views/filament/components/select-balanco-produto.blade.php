@@ -17,10 +17,12 @@
         <div class="font-semibold text-gray-900 dark:text-white text-sm truncate">
             {{ $name }}
         </div>
-        <div class="flex items-center gap-1 mt-0.5">
-            <span class="text-xs font-medium {{ (float) $saldo_raw > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-500 dark:text-red-400' }}">
-                Saldo: {{ $saldo }}{{ $unidade ? ' ' . $unidade : '' }}
-            </span>
-        </div>
+        @if (! is_null($saldo ?? null))
+            <div class="flex items-center gap-1 mt-0.5">
+                <span class="text-xs font-medium {{ (float) $saldo_raw > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-500 dark:text-red-400' }}">
+                    Saldo: {{ $saldo }}{{ $unidade ? ' ' . $unidade : '' }}
+                </span>
+            </div>
+        @endif
     </div>
 </div>
