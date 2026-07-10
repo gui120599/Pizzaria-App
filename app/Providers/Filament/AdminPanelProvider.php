@@ -57,6 +57,8 @@ class AdminPanelProvider extends PanelProvider
                     ->collapsible(),
                 NavigationGroup::make('Estoque')
                     ->collapsible(),
+                NavigationGroup::make('Financeiro')
+                    ->collapsible(),
                 NavigationGroup::make('Pessoas')
                     ->collapsible(),
                 NavigationGroup::make('Configurações')
