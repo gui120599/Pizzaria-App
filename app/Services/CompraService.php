@@ -3,10 +3,15 @@
 namespace App\Services;
 
 use App\Enums\CompraStatusEnum;
+use App\Enums\FormaPagamento;
 use App\Enums\MovimentacaoOrigemEnum;
+use App\Enums\StatusLancamento;
+use App\Enums\TipoLancamento;
 use App\Models\Compra;
 use App\Models\CompraItem;
 use App\Models\FornecedorProduto;
+use App\Models\Lancamento;
+use App\Models\LancamentoDespesa;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -85,6 +90,124 @@ class CompraService
 
             return $compra->refresh();
         });
+    }
+
+    /**
+     * Gera um título a pagar (Lançamento) a partir de uma compra confirmada.
+     *
+     * O valor total do título é rateado entre planos de despesa conforme a classificação
+     * de cada produto (produto_plano_despesa_id): insumos e produtos de revenda podem cair
+     * em planos diferentes, então o título tem N linhas de despesa (soma = valor do título).
+     * Produtos sem plano vão para uma linha remanescente "sem classificação" (plano nulo).
+     *
+     * @param  array{vencimento?: string|\DateTimeInterface|null, forma_pagamento?: FormaPagamento|string|null}  $dados
+     */
+    public function gerarContaPagar(Compra $compra, array $dados = []): Lancamento
+    {
+        return DB::transaction(function () use ($compra, $dados) {
+            $compra->loadMissing(['itens.insumo.planoDespesa', 'prestador']);
+
+            if ($compra->compra_status !== CompraStatusEnum::CONFIRMADA) {
+                throw ValidationException::withMessages(['compra' => 'A compra precisa estar confirmada para gerar a conta a pagar.']);
+            }
+
+            // Idempotência: uma compra gera no máximo uma conta a pagar.
+            if ($compra->contaPagar()->exists()) {
+                throw ValidationException::withMessages(['compra' => 'Esta compra já possui uma conta a pagar.']);
+            }
+
+            // Agrega o valor por plano de despesa. Chave '' = produtos sem plano.
+            $porPlano = [];
+            foreach ($compra->itens as $item) {
+                $plano = $item->insumo?->planoDespesa;
+                $chave = $plano?->id ?? '';
+                $porPlano[$chave] ??= [
+                    'plano_despesa_id' => $plano?->id,
+                    'comportamento' => $plano?->comportamento,
+                    'valor' => 0.0,
+                ];
+                // Contribuição do item ao título: produtos + rateio (frete/outros − desconto).
+                $porPlano[$chave]['valor'] += $item->valorProdutos() + (float) $item->ci_valor_rateio;
+            }
+
+            // Cabeçalho: se houver exatamente um plano (sem remanescente), usa-o no título
+            // (o hook do model faz o snapshot do comportamento). Caso contrário, fica nulo
+            // e a classificação vive nas linhas de rateio.
+            $planosClassificados = array_values(array_filter($porPlano, fn ($l) => $l['plano_despesa_id'] !== null));
+            $planoUnico = (count($planosClassificados) === 1 && ! array_key_exists('', $porPlano))
+                ? $planosClassificados[0]['plano_despesa_id']
+                : null;
+
+            $formaPagamento = $dados['forma_pagamento'] ?? null;
+            if (is_string($formaPagamento)) {
+                $formaPagamento = FormaPagamento::tryFrom($formaPagamento);
+            }
+
+            $lancamento = new Lancamento([
+                'tipo' => TipoLancamento::Pagar,
+                'compra_id' => $compra->id,
+                'plano_despesa_id' => $planoUnico,
+                'favorecido_id' => $compra->compra_prestador_id,
+                'descricao' => $this->descricaoContaPagar($compra),
+                'numero_documento' => $compra->compra_numero ?: $compra->compra_chave_nfe,
+                'valor' => $compra->compra_valor_total,
+                'vencimento' => $dados['vencimento']
+                    ?? $compra->compra_data_entrada
+                    ?? $compra->compra_data_emissao
+                    ?? now()->toDateString(),
+                'status' => StatusLancamento::Pendente,
+                'forma_pagamento' => $formaPagamento,
+            ]);
+            $lancamento->save();
+
+            $this->gravarRateio($lancamento, $porPlano);
+
+            return $lancamento->refresh();
+        });
+    }
+
+    /**
+     * Cria as linhas de rateio arredondando a 2 casas e reconciliando eventuais
+     * centavos de arredondamento na maior linha, para a soma bater com o título.
+     *
+     * @param  array<array-key, array{plano_despesa_id: ?int, comportamento: mixed, valor: float}>  $porPlano
+     */
+    private function gravarRateio(Lancamento $lancamento, array $porPlano): void
+    {
+        $linhas = array_values($porPlano);
+        if ($linhas === []) {
+            return;
+        }
+
+        foreach ($linhas as &$linha) {
+            $linha['valor'] = round($linha['valor'], 2);
+        }
+        unset($linha);
+
+        // Reconcilia o resíduo de arredondamento na maior linha.
+        $diferenca = round((float) $lancamento->valor - array_sum(array_column($linhas, 'valor')), 2);
+        if (abs($diferenca) >= 0.01) {
+            $maiorIndice = collect($linhas)->sortByDesc('valor')->keys()->first();
+            $linhas[$maiorIndice]['valor'] = round($linhas[$maiorIndice]['valor'] + $diferenca, 2);
+        }
+
+        foreach ($linhas as $linha) {
+            LancamentoDespesa::create([
+                'lancamento_id' => $lancamento->id,
+                'plano_despesa_id' => $linha['plano_despesa_id'],
+                'valor' => $linha['valor'],
+                'comportamento' => $linha['comportamento'],
+            ]);
+        }
+    }
+
+    /** Descrição legível do título a pagar gerado pela compra. */
+    private function descricaoContaPagar(Compra $compra): string
+    {
+        $numero = $compra->compra_numero ? "Compra Nº {$compra->compra_numero}" : "Compra #{$compra->id}";
+        $fornecedor = $compra->prestador?->nome_exibicao;
+
+        return $fornecedor ? "{$numero} - {$fornecedor}" : $numero;
     }
 
     /** Grava/atualiza o de-para código do fornecedor ↔ insumo para futuras NFs/XML. */

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -75,6 +76,12 @@ class Compra extends Model
     public function movimentacoes(): MorphMany
     {
         return $this->morphMany(MovimentacaoProduto::class, 'referencia', 'mov_referencia_type', 'mov_referencia_id');
+    }
+
+    /** Conta a pagar gerada a partir desta compra (idempotente: no máximo uma). */
+    public function contaPagar(): HasOne
+    {
+        return $this->hasOne(Lancamento::class, 'compra_id');
     }
 
     public function isRascunho(): bool

@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class Produto extends Model
@@ -14,7 +13,9 @@ class Produto extends Model
     use SoftDeletes;
 
     protected $table = 'produtos';
+
     protected $dates = ['deleted_at'];
+
     protected $fillable = [
         'produto_descricao',
         'produto_exibe_categoria',
@@ -37,6 +38,7 @@ class Produto extends Model
         'produto_CFOP',
         'produto_CSOSN',
         'produto_categoria_id',
+        'produto_plano_despesa_id',
         'produto_foto',
         'produto_unidade_comercial',
         'produto_preco_custo',
@@ -94,6 +96,13 @@ class Produto extends Model
     {
         return $this->belongsTo(Categoria::class, 'produto_categoria_id');
     }
+
+    /** Plano de despesas ao qual o custo deste produto pertence (classificação para a DRE). */
+    public function planoDespesa()
+    {
+        return $this->belongsTo(PlanoDespesa::class, 'produto_plano_despesa_id');
+    }
+
     // Relacionamento com a tabela 'EntradaProdutos'
     public function mov_produto()
     {
@@ -167,9 +176,9 @@ class Produto extends Model
 
     public function saveFoto($foto)
     {
-        $nomeArquivo = time() . '.' . $foto->getClientOriginalExtension();
+        $nomeArquivo = time().'.'.$foto->getClientOriginalExtension();
         $foto->storeAs('fotos_produtos', $nomeArquivo, 'public');
-        $this->produto_foto = 'fotos_produtos/' . $nomeArquivo;
+        $this->produto_foto = 'fotos_produtos/'.$nomeArquivo;
         $this->save();
     }
 

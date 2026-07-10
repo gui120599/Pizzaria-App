@@ -3,20 +3,17 @@
 namespace App\Filament\Resources\Compras\Tables;
 
 use App\Enums\CompraStatusEnum;
+use App\Filament\Resources\Compras\Support\ConfirmarCompraAction;
 use App\Models\Compra;
-use App\Services\CompraService;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Validation\ValidationException;
 
 class ComprasTable
 {
@@ -77,22 +74,7 @@ class ComprasTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                Action::make('confirmar')
-                    ->label('Confirmar')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn (Compra $record): bool => $record->isRascunho())
-                    ->requiresConfirmation()
-                    ->modalHeading('Confirmar compra')
-                    ->modalDescription('Gera as entradas de estoque e recalcula o custo médio. Esta ação não pode ser desfeita.')
-                    ->action(function (Compra $record) {
-                        try {
-                            app(CompraService::class)->confirmar($record);
-                            Notification::make()->title('Compra confirmada')->body('Estoque atualizado.')->success()->send();
-                        } catch (ValidationException $e) {
-                            Notification::make()->title('Não foi possível confirmar')->body(collect($e->errors())->flatten()->first())->danger()->send();
-                        }
-                    }),
+                ConfirmarCompraAction::make()->label('Confirmar'),
                 EditAction::make()
                     ->visible(fn (Compra $record): bool => $record->isRascunho()),
                 DeleteAction::make()

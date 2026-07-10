@@ -6,6 +6,7 @@ use App\Enums\ProdutoTipoEnum;
 use App\Enums\UnidadeProdutoEnum;
 use App\Filament\Resources\Categorias\CategoriaResource;
 use App\Models\Categoria;
+use App\Models\PlanoDespesa;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -31,11 +32,11 @@ class ProdutoForm
                 ->tabs([
                     self::abaIdentificacao(),
                     self::abaCardapio()
-                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
+                        ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
                     self::abaPrecificacao(),
                     self::abaEstoque(),
                     self::abaPromocao()
-                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
+                        ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
                     self::abaFiscal(),
                 ]),
         ]);
@@ -64,10 +65,11 @@ class ProdutoForm
                     ->required()
                     ->native(false)
                     ->columnSpan(3)
-                    ->createOptionForm(fn (Schema $schema) => CategoriaResource::form($schema))
-                    ->createOptionAction(fn (Action $action) => $action
-                        ->modalHeading('Cadastrar nova categoria')
-                        ->modalWidth('2xl')
+                    ->createOptionForm(fn(Schema $schema) => CategoriaResource::form($schema))
+                    ->createOptionAction(
+                        fn(Action $action) => $action
+                            ->modalHeading('Cadastrar nova categoria')
+                            ->modalWidth('2xl')
                     )
                     ->createOptionUsing(function (array $data): int {
                         return Categoria::create($data)->getKey();
@@ -127,7 +129,7 @@ class ProdutoForm
                             ->inline(false)
                             ->columnSpan(1),
                     ]),
-                    
+
                 Fieldset::make('Nome exibido')
                     ->columns(2)
                     ->columnSpan(2)
@@ -178,7 +180,6 @@ class ProdutoForm
                             ->minValue(0)
                             ->columnSpan(1),
                     ]),
-
 
             ]);
     }
@@ -247,6 +248,17 @@ class ProdutoForm
                             ->columnSpan(1)
                             ->helperText('Cálculo automático'),
                     ]),
+
+                // Usa options() (não relationship): a ProdutoForm é reaproveitada como
+                // createOptionForm dentro do relation manager de itens da compra, cujo record
+                // é CompraItem — e ->relationship('planoDespesa') seria resolvido nesse modelo errado.
+                Select::make('produto_plano_despesa_id')
+                    ->label('Plano de despesa')
+                    ->options(fn(): array => PlanoDespesa::orderBy('nome')->pluck('nome', 'id')->toArray())
+                    ->searchable()
+                    ->native(false)
+                    ->required()
+                    ->helperText('Classificação do custo deste produto na DRE. Usado ao gerar a conta a pagar de uma compra.'),
             ]);
     }
 
