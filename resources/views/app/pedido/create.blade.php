@@ -58,6 +58,7 @@
                              opcaoId: null,
                              opcaoNome: '',
                              opcoes: @js($opcaoEntregasCreateJS),
+                             endereco: '',
                              totalItens: 0,
                              totalDesconto: 0,
                              get requerEndereco() {
@@ -82,7 +83,8 @@
                                  this.totalItens    = itens.reduce((s, i) => s + (parseFloat(i.valor) || 0) + (parseFloat(i.desconto) || 0), 0);
                              }
                          }"
-                         @itens-pedido-atualizados.window="onItensAtualizar($event.detail.itens)">
+                         @itens-pedido-atualizados.window="onItensAtualizar($event.detail.itens)"
+                         @endereco-cliente.window="endereco = $event.detail.endereco">
 
                         <p class="flex items-center gap-2 text-sm font-bold text-teal-700">
                             <i class='bx bx-map-pin'></i> Entrega
@@ -114,6 +116,7 @@
                         <div x-show="requerEndereco" x-cloak>
                             <x-input-label for="pedido_endereco_entrega" value="Endereço de entrega" />
                             <textarea name="pedido_endereco_entrega" id="pedido_endereco_entrega" rows="2"
+                                      x-model="endereco"
                                       class="mt-1 w-full border-gray-300 rounded-lg shadow-sm text-sm focus:ring-teal-500 focus:border-teal-500"
                                       placeholder="Rua, número, bairro..."></textarea>
                         </div>

@@ -17,8 +17,13 @@
              const r = await fetch('/cardapio/lookup-cliente?telefone=' + encodeURIComponent(this.tel));
              const d = await r.json();
              this.buscando = false;
-             if (d.encontrado) { this.clienteId = d.cliente_id; this.nome = d.nome; this.encontrado = true; }
-             else { this.clienteId = null; this.nome = ''; this.encontrado = false; }
+             if (d.encontrado) {
+                 this.clienteId = d.cliente_id; this.nome = d.nome; this.encontrado = true;
+                 this.$dispatch('endereco-cliente', { endereco: d.endereco || '' });
+             } else {
+                 this.clienteId = null; this.nome = ''; this.encontrado = false;
+                 this.$dispatch('endereco-cliente', { endereco: '' });
+             }
          },
          async buscarPorNome() {
              if (this.termo.trim().length < 2) { this.resultados = []; return; }
@@ -35,9 +40,13 @@
              this.nome = c.nome;
              this.tel = c.celular ?? '';
              this.encontrado = true;
+             this.$dispatch('endereco-cliente', { endereco: c.endereco || '' });
              this.fecharModal();
          },
-         limpar() { this.tel = ''; this.clienteId = null; this.nome = ''; this.encontrado = false; }
+         limpar() {
+             this.tel = ''; this.clienteId = null; this.nome = ''; this.encontrado = false;
+             this.$dispatch('endereco-cliente', { endereco: '' });
+         }
      }"
      @keydown.escape.window="modalAberta = false">
     <div class="flex items-center justify-between">

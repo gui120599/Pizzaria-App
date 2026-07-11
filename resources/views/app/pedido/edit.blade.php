@@ -57,6 +57,7 @@
                              opcaoId: {{ $pedido->pedido_opcaoentrega_id ?? 'null' }},
                              opcaoNome: '{{ addslashes(optional($pedido->opcaoEntrega)->opcaoentrega_nome ?? '') }}',
                              opcoes: @js($opcaoEntregasJS),
+                             endereco: '{{ addslashes($pedido->pedido_endereco_entrega ?? '') }}',
                              get requerEndereco() {
                                  return this.opcaoNome.toLowerCase().includes('entrega') || this.opcaoNome.toLowerCase().includes('deliver');
                              },
@@ -66,7 +67,8 @@
                                  this.opcaoId = e.target.value ? parseInt(e.target.value) : null;
                                  this.opcaoNome = e.target.options[e.target.selectedIndex].text;
                              }
-                         }">
+                         }"
+                         @endereco-cliente.window="endereco = $event.detail.endereco">
                         <p class="flex items-center gap-2 text-sm font-bold text-teal-700">
                             <i class='bx bx-map-pin'></i> Entrega
                         </p>
@@ -98,8 +100,9 @@
                         <div x-show="requerEndereco" x-cloak>
                             <x-input-label for="pedido_endereco_entrega" value="Endereço de entrega" />
                             <textarea name="pedido_endereco_entrega" id="pedido_endereco_entrega" rows="2"
+                                      x-model="endereco"
                                       class="mt-1 w-full border-gray-300 rounded-lg shadow-sm text-sm focus:ring-teal-500 focus:border-teal-500"
-                                      placeholder="Rua, número, bairro...">{{ $pedido->pedido_endereco_entrega }}</textarea>
+                                      placeholder="Rua, número, bairro..."></textarea>
                         </div>
                     </div>
 

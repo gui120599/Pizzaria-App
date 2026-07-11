@@ -285,6 +285,7 @@ class PedidoController extends Controller
 
         $nome = trim($request->input('cliente_nome_novo', ''));
         $telefone = preg_replace('/\D/', '', $request->input('cliente_celular_novo', ''));
+        $endereco = trim($request->input('pedido_endereco_entrega', ''));
 
         if (! $nome) {
             return null;
@@ -296,10 +297,14 @@ class PedidoController extends Controller
 
         if ($cliente) {
             $cliente->update(['cliente_nome' => $nome]);
+            if ($endereco !== '') {
+                $cliente->update(['cliente_endereco' => $endereco]);
+            }
         } else {
             $cliente = Cliente::create([
                 'cliente_nome' => $nome,
                 'cliente_celular' => $telefone ?: null,
+                'cliente_endereco' => $endereco !== '' ? $endereco : null,
                 'cliente_tipo' => 'Física',
             ]);
         }
