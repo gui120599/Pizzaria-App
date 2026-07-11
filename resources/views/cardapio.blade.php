@@ -47,7 +47,7 @@
             <div class="col-span-full">
                 <hr class="h-px my-1 border-0 bg-gray-400">
             </div>
-            <div class="col-span-full flex gap-3 overflow-x-auto overflow-y-hidden px-1 py-2 scrollbar-none">
+            <div class="col-span-full flex gap-3 overflow-x-auto overflow-y-hidden px-1 py-2">
                 @if ($promocoesRelampago->isNotEmpty())
                     <button class="flex flex-col items-center gap-1 shrink-0 w-16 focus:outline-none group"
                         onclick="scrollToElement('secao_relampago')">
