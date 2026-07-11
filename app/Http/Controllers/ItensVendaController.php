@@ -6,14 +6,11 @@ use App\Models\AdicionaisItemPedido;
 use App\Models\AdicionaisItemVenda;
 use App\Models\ItensPedido;
 use App\Models\ItensVenda;
-use App\Http\Requests\StoreItensVendaRequest;
-use App\Http\Requests\UpdateItensVendaRequest;
 use App\Models\Mesa;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
-use Carbon\Carbon;
 use App\Services\VendaService;
 use Illuminate\Http\Request;
 
@@ -29,7 +26,6 @@ class ItensVendaController extends Controller
     /**
      * Retorna os itens de múltiplas sessões de mesa, unificando produtos repetidos.
      *
-     * @param  Request  $request
      * @return \Illuminate\Http\Response
      */
     /*public function adicionarItensSessaoMesa(Request $request)
@@ -171,7 +167,7 @@ class ItensVendaController extends Controller
 
         $venda = Venda::find($venda_id);
 
-        if (!$venda) {
+        if (! $venda) {
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
@@ -198,7 +194,7 @@ class ItensVendaController extends Controller
         $finalizada = $this->finalizarSessaoSeCompleta((int) $sessaoMesa_id);
 
         return response()->json([
-            'success'            => 'Itens adicionados e pedidos finalizados',
+            'success' => 'Itens adicionados e pedidos finalizados',
             'sessoes_finalizadas' => $finalizada ? [(int) $sessaoMesa_id] : [],
         ], 200);
     }
@@ -206,11 +202,11 @@ class ItensVendaController extends Controller
     public function adicionarItensSessaoMesaPorCliente(Request $request)
     {
         $sessaoMesa_id = $request->input('sessaoMesa_id');
-        $cliente_id    = $request->input('cliente_id');
-        $venda_id      = $request->input('venda_id');
+        $cliente_id = $request->input('cliente_id');
+        $venda_id = $request->input('venda_id');
 
         $venda = Venda::find($venda_id);
-        if (!$venda) {
+        if (! $venda) {
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
@@ -238,7 +234,7 @@ class ItensVendaController extends Controller
         $finalizada = $this->finalizarSessaoSeCompleta((int) $sessaoMesa_id);
 
         return response()->json([
-            'success'            => 'Itens do cliente adicionados',
+            'success' => 'Itens do cliente adicionados',
             'sessoes_finalizadas' => $finalizada ? [(int) $sessaoMesa_id] : [],
         ], 200);
     }
@@ -249,7 +245,7 @@ class ItensVendaController extends Controller
         $venda_id = $request->input('venda_id');
 
         $venda = Venda::find($venda_id);
-        if (!$venda) {
+        if (! $venda) {
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
@@ -283,8 +279,8 @@ class ItensVendaController extends Controller
         }
 
         return response()->json([
-            'success'             => 'Itens lançados na venda',
-            'cobrados'            => $itensPedido->pluck('id'),
+            'success' => 'Itens lançados na venda',
+            'cobrados' => $itensPedido->pluck('id'),
             'sessoes_finalizadas' => $sessoesFinalizadas,
         ], 200);
     }
@@ -298,7 +294,7 @@ class ItensVendaController extends Controller
         // Obter a venda
         $venda = Venda::find($venda_id);
 
-        if (!$venda) {
+        if (! $venda) {
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
@@ -350,7 +346,7 @@ class ItensVendaController extends Controller
                                 continue;
                             }
 
-                            $adicionalVenda->aiv_quantidade  -= $adicionalPedido->aip_quantidade;
+                            $adicionalVenda->aiv_quantidade -= $adicionalPedido->aip_quantidade;
                             $adicionalVenda->aiv_valor_total -= $adicionalPedido->aip_valor_total;
 
                             // Remover o adicional se a quantidade for menor ou igual a zero
@@ -388,7 +384,7 @@ class ItensVendaController extends Controller
         // Obter a venda
         $venda = Venda::find($venda_id);
 
-        if (!$venda) {
+        if (! $venda) {
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
@@ -399,7 +395,6 @@ class ItensVendaController extends Controller
                 $query->whereNull('pedido_venda_id');
             })
             ->get();
-
 
         $this->adicionarItensPedidoNaVenda($venda_id, $itensPedido);
 
@@ -421,7 +416,7 @@ class ItensVendaController extends Controller
         // Obter a venda
         $venda = Venda::find($venda_id);
 
-        if (!$venda) {
+        if (! $venda) {
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
@@ -476,12 +471,12 @@ class ItensVendaController extends Controller
     {
         // Recebe os IDs dos pedidos e o ID da venda do request
         $produto_id = $request->input('produto_id');
-        $venda_id = $request->input('venda_id');;
+        $venda_id = $request->input('venda_id');
 
         // Obter a venda
         $venda = Venda::find($venda_id);
 
-        if (!$venda) {
+        if (! $venda) {
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
@@ -536,7 +531,7 @@ class ItensVendaController extends Controller
                 'item_venda_desconto' => $descontoUnitario,
                 'item_venda_valor' => $precoEfetivo,
                 'item_venda_status' => 'INSERIDO',
-                //Impostos
+                // Impostos
                 'item_venda_quantidade_tributavel' => 1,
                 'item_venda_valor_unitario_tributavel' => $precoEfetivo,
                 'item_venda_valor_base_calculo' => $precoEfetivo,
@@ -563,7 +558,7 @@ class ItensVendaController extends Controller
         // Obter a venda
         $venda = Venda::find($venda_id);
 
-        if (!$venda) {
+        if (! $venda) {
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
@@ -587,9 +582,9 @@ class ItensVendaController extends Controller
 
     public function atualizarQtdValorItemVenda(Request $request)
     {
-        $item_id  = $request->input('item_id');
+        $item_id = $request->input('item_id');
         $venda_id = $request->input('venda_id');
-        $novaQtd  = (float) $request->input('item_venda_quantidade');
+        $novaQtd = (float) $request->input('item_venda_quantidade');
 
         $itemVenda = ItensVenda::find($item_id);
         if (! $itemVenda) {
@@ -600,23 +595,27 @@ class ItensVendaController extends Controller
             ? (float) $itemVenda->produto->produto_preco_promocional
             : (float) $itemVenda->produto->produto_preco_venda;
 
-        $desconto  = (float) $itemVenda->item_venda_desconto;
-        $valorBase = round($precoBase * $novaQtd - $desconto, 2);
+        $desconto = (float) $itemVenda->item_venda_desconto;
+        // Adicional é cobrado pela própria quantidade (1 porção), não pela
+        // quantidade do produto — por isso soma cheio aqui, sem escalar pela
+        // nova quantidade do item.
+        $adicionais = (float) $itemVenda->item_venda_valor_adicionais;
+        $valorBase = round(($precoBase * $novaQtd) + $adicionais - $desconto, 2);
 
-        $itemVenda->item_venda_quantidade            = $novaQtd;
+        $itemVenda->item_venda_quantidade = $novaQtd;
         $itemVenda->item_venda_quantidade_tributavel = $novaQtd;
-        $itemVenda->item_venda_valor_base_calculo    = $valorBase;
-        $itemVenda->item_venda_valor                 = $valorBase;
-        $itemVenda->item_venda_valor_icms    = round($valorBase * $itemVenda->produto->produto_valor_percentual_icms   / 100, 4);
-        $itemVenda->item_venda_valor_pis     = round($valorBase * $itemVenda->produto->produto_valor_percentual_pis    / 100, 4);
-        $itemVenda->item_venda_valor_cofins  = round($valorBase * $itemVenda->produto->produto_valor_percentual_cofins / 100, 4);
+        $itemVenda->item_venda_valor_base_calculo = $valorBase;
+        $itemVenda->item_venda_valor = $valorBase;
+        $itemVenda->item_venda_valor_icms = round($valorBase * $itemVenda->produto->produto_valor_percentual_icms / 100, 4);
+        $itemVenda->item_venda_valor_pis = round($valorBase * $itemVenda->produto->produto_valor_percentual_pis / 100, 4);
+        $itemVenda->item_venda_valor_cofins = round($valorBase * $itemVenda->produto->produto_valor_percentual_cofins / 100, 4);
         $itemVenda->save();
 
         $this->vendaService->atualizarValoresdaVenda($venda_id);
 
         return response()->json([
-            'success'             => 'Quantidade atualizada!',
-            'item_venda_valor'    => $itemVenda->item_venda_valor,
+            'success' => 'Quantidade atualizada!',
+            'item_venda_valor' => $itemVenda->item_venda_valor,
             'item_venda_quantidade' => $itemVenda->item_venda_quantidade,
         ]);
     }
@@ -630,23 +629,24 @@ class ItensVendaController extends Controller
 
         // Obter a venda
         $venda = Venda::find($venda_id);
-        if (!$venda) {
+        if (! $venda) {
             return response()->json(['error' => 'Venda não encontrada'], 200);
         }
 
         // Obter o item da venda
         $itemVenda = ItensVenda::find($item_id);
-        if (!$itemVenda) {
+        if (! $itemVenda) {
             return response()->json(['error' => 'Item não encontrado'], 200);
         }
-
 
         $precoBaseDesconto = ($itemVenda->produto->produto_preco_promocional > 0 && $itemVenda->produto->produto_preco_promocional > $itemVenda->produto->produto_preco_venda)
             ? (float) $itemVenda->produto->produto_preco_promocional
             : (float) $itemVenda->produto->produto_preco_venda;
 
-        // Atualizar os valores do item com o novo desconto
-        $itemVenda->item_venda_valor_base_calculo = (($precoBaseDesconto * $itemVenda->item_venda_quantidade) - $item_venda_desconto);
+        // Atualizar os valores do item com o novo desconto (adicional entra
+        // cheio, pela própria quantidade — não escala com a do produto)
+        $adicionaisDesconto = (float) $itemVenda->item_venda_valor_adicionais;
+        $itemVenda->item_venda_valor_base_calculo = (($precoBaseDesconto * $itemVenda->item_venda_quantidade) + $adicionaisDesconto - $item_venda_desconto);
         $itemVenda->item_venda_desconto = $item_venda_desconto;
         $itemVenda->item_venda_valor = $itemVenda->item_venda_valor_base_calculo;
         $itemVenda->item_venda_valor_icms = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_icms) / 100;
@@ -673,7 +673,7 @@ class ItensVendaController extends Controller
         // Obter a venda
         $venda = Venda::find($venda_id);
 
-        if (!$venda) {
+        if (! $venda) {
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
@@ -724,7 +724,7 @@ class ItensVendaController extends Controller
                     'item_venda_valor' => (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto + $item->item_pedido_valor_adicionais),
                     'item_venda_status' => 'INSERIDO',
 
-                    //Impostos
+                    // Impostos
                     'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
                     'item_venda_valor_unitario_tributavel' => $item->produto->produto_preco_venda - ($item->item_pedido_desconto / $item->item_pedido_quantidade),
                     'item_venda_valor_base_calculo' => (($item->produto->produto_preco_venda * $item->item_pedido_quantidade) - $item->item_pedido_desconto + $item->item_pedido_valor_adicionais),
@@ -736,8 +736,7 @@ class ItensVendaController extends Controller
         }
 
         // Atualizar valores da venda
-        //$this->vendaService->atualizarValoresdaVenda($request->input('venda_id'));
-
+        // $this->vendaService->atualizarValoresdaVenda($request->input('venda_id'));
 
         return response()->json(['success' => 'Adicionado']);
     }
@@ -805,7 +804,7 @@ class ItensVendaController extends Controller
             // Verifica se o ITEM ATUAL tem adicionais
             $itemAtualTemAdicionais = (isset($item->adicionaisItemVenda) &&
                 $item->adicionaisItemVenda !== null &&
-                !$item->adicionaisItemVenda->isEmpty()) ||
+                ! $item->adicionaisItemVenda->isEmpty()) ||
                 ($item->item_pedido_valor_adicionais > 0);
 
             $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
@@ -814,7 +813,7 @@ class ItensVendaController extends Controller
                 ->first();
 
             // Só atualiza item existente se o item ATUAL NÃO tiver adicionais
-            if ($itemVenda && !$itemAtualTemAdicionais) {
+            if ($itemVenda && ! $itemAtualTemAdicionais) {
                 // Atualizar item existente
                 $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
                 $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
@@ -829,59 +828,39 @@ class ItensVendaController extends Controller
                     ->first();
                 $nextItemNumber = $lastItem ? $lastItem->item_numero + 1 : 1;
 
-                $precoBase = ($item->produto->produto_preco_promocional > 0 && $item->produto->produto_preco_promocional > $item->produto->produto_preco_venda)
-                    ? (float) $item->produto->produto_preco_promocional
-                    : (float) $item->produto->produto_preco_venda;
-
-                if ($item->item_pedido_quantidade == 0.5) {
-                    $valorUnitario = $precoBase + $item->item_pedido_valor_adicionais;
-                    $valor = ($valorUnitario * $item->item_pedido_quantidade) - $item->item_pedido_desconto;
-                    $itemVenda = ItensVenda::create([
-                        'item_numero' => $nextItemNumber,
-                        'item_venda_venda_id' => $venda_id,
-                        'item_venda_produto_id' => $item->item_pedido_produto_id,
-                        'item_venda_quantidade' => $item->item_pedido_quantidade,
-                        'item_venda_valor_unitario' => $valorUnitario,
-                        'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais / 2, //Divide por dois pq na tela de pedido quando a quantidade é 0.5 o valor adicional é x2 para dar o valor_total do item correto
-                        'item_venda_desconto' => $item->item_pedido_desconto,
-                        'item_venda_valor' => $valor,
-                        'item_venda_status' => 'INSERIDO',
-                        'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
-                        'item_venda_valor_unitario_tributavel' => $valorUnitario,
-                        'item_venda_valor_base_calculo' => $item->item_pedido_valor,
-                        'item_venda_valor_icms' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100,
-                        'item_venda_valor_pis' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_pis) / 100,
-                        'item_venda_valor_cofins' => ($item->item_pedido_valor * $item->produto->produto_valor_percentual_cofins) / 100,
-                        'item_venda_valor_total_tributos' => ($item->item_pedido_valor * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
-                    ]);
-                } else {
-                    $valorEfetivo = $item->item_pedido_valor;
-                    $itemVenda = ItensVenda::create([
-                        'item_numero' => $nextItemNumber,
-                        'item_venda_venda_id' => $venda_id,
-                        'item_venda_produto_id' => $item->item_pedido_produto_id,
-                        'item_venda_quantidade' => $item->item_pedido_quantidade,
-                        'item_venda_valor_unitario' => $item->item_pedido_valor_unitario,
-                        'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais,
-                        'item_venda_desconto' => $item->item_pedido_desconto,
-                        'item_venda_valor' => $valorEfetivo,
-                        'item_venda_status' => 'INSERIDO',
-                        'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
-                        'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,
-                        'item_venda_valor_base_calculo' => $valorEfetivo,
-                        'item_venda_valor_icms' => ($valorEfetivo * $item->produto->produto_valor_percentual_icms) / 100,
-                        'item_venda_valor_pis' => ($valorEfetivo * $item->produto->produto_valor_percentual_pis) / 100,
-                        'item_venda_valor_cofins' => ($valorEfetivo * $item->produto->produto_valor_percentual_cofins) / 100,
-                        'item_venda_valor_total_tributos' => ($valorEfetivo * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
-                    ]);
-                }
+                // item_pedido_valor(_adicionais/_unitario) já vem correto do pedido
+                // — o adicional é sempre cobrado pela sua própria quantidade (1
+                // porção), independente da fração do produto (inteira, meia,
+                // terço etc.). Não recalcular nem escalar por item_pedido_quantidade
+                // aqui; só copiar. (Havia um caso especial para quantidade 0.5 que
+                // dividia o adicional por 2 para compensar uma duplicação que a
+                // tela de pedido fazia — essa duplicação não existe mais, então a
+                // divisão só cobrava metade do adicional errado.)
+                $valorEfetivo = $item->item_pedido_valor;
+                $itemVenda = ItensVenda::create([
+                    'item_numero' => $nextItemNumber,
+                    'item_venda_venda_id' => $venda_id,
+                    'item_venda_produto_id' => $item->item_pedido_produto_id,
+                    'item_venda_quantidade' => $item->item_pedido_quantidade,
+                    'item_venda_valor_unitario' => $item->item_pedido_valor_unitario,
+                    'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais,
+                    'item_venda_desconto' => $item->item_pedido_desconto,
+                    'item_venda_valor' => $valorEfetivo,
+                    'item_venda_status' => 'INSERIDO',
+                    'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
+                    'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,
+                    'item_venda_valor_base_calculo' => $valorEfetivo,
+                    'item_venda_valor_icms' => ($valorEfetivo * $item->produto->produto_valor_percentual_icms) / 100,
+                    'item_venda_valor_pis' => ($valorEfetivo * $item->produto->produto_valor_percentual_pis) / 100,
+                    'item_venda_valor_cofins' => ($valorEfetivo * $item->produto->produto_valor_percentual_cofins) / 100,
+                    'item_venda_valor_total_tributos' => ($valorEfetivo * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
+                ]);
             }
 
             // Atualizar ou criar adicionais
             $this->adicionarOuAtualizarAdicionais($item, $itemVenda);
         }
     }
-
 
     /**
      * Remove os adicionais do item.
@@ -907,7 +886,7 @@ class ItensVendaController extends Controller
     {
         $sessao = SessaoMesa::find($sessaoMesaId);
         // Só finaliza sessões que ainda estão em aberto ou fechadas (não recebidas)
-        if (!$sessao || !in_array($sessao->sessao_mesa_status, ['ABERTA', 'FECHADA'])) {
+        if (! $sessao || ! in_array($sessao->sessao_mesa_status, ['ABERTA', 'FECHADA'])) {
             return false;
         }
 
@@ -916,18 +895,18 @@ class ItensVendaController extends Controller
             ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
             ->exists();
 
-        if (!$temPedidosAtivos) {
+        if (! $temPedidosAtivos) {
             return false;
         }
 
         // Verifica se ainda há itens não recebidos nos pedidos ativos da sessão
         $pendentes = ItensPedido::whereHas('pedido', function ($q) use ($sessaoMesaId) {
             $q->where('pedido_sessao_mesa_id', $sessaoMesaId)
-              ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO']);
+                ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO']);
         })
-        ->where('item_pedido_status', 'INSERIDO')
-        ->whereNull('item_pedido_venda_id')
-        ->count();
+            ->where('item_pedido_status', 'INSERIDO')
+            ->whereNull('item_pedido_venda_id')
+            ->count();
 
         if ($pendentes > 0) {
             return false;
@@ -943,7 +922,7 @@ class ItensVendaController extends Controller
             && $mesa->mesa_status === 'OCUPADA'
             && (int) $mesa->mesa_sessao_atual_id === (int) $sessao->id) {
             $mesa->update([
-                'mesa_status'          => 'LIBERADA',
+                'mesa_status' => 'LIBERADA',
                 'mesa_sessao_atual_id' => null,
             ]);
         }
