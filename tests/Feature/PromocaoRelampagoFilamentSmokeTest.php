@@ -122,7 +122,11 @@ class PromocaoRelampagoFilamentSmokeTest extends TestCase
                 'promocao_hora_fim' => '20:00',
                 'promocaoProdutos' => [[
                     'prp_produto_id' => $produto->id,
-                    'prp_preco_promocional' => 39.90,
+                    // Money::make() espera o valor já no formato BR (vírgula
+                    // decimal) — é o que a máscara produz no navegador; um
+                    // float cru (39.90) vira R$3,99 no dehydrate (ponto tratado
+                    // como separador de milhar, não decimal).
+                    'prp_preco_promocional' => '39,90',
                 ]],
             ])
             ->call('create')
@@ -133,5 +137,6 @@ class PromocaoRelampagoFilamentSmokeTest extends TestCase
         $this->assertTrue($promocao->promocao_recorrente);
         $this->assertNull($promocao->promocao_fim);
         $this->assertSame([2], $promocao->promocao_dias_semana);
+        $this->assertSame(39.90, (float) $promocao->promocaoProdutos()->first()->prp_preco_promocional);
     }
 }

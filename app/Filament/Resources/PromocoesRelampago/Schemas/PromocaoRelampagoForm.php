@@ -14,6 +14,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class PromocaoRelampagoForm
 {
@@ -22,6 +23,7 @@ class PromocaoRelampagoForm
         return $schema->components([
             Section::make('Identificação')
                 ->columns(2)
+                ->columnSpanFull()
                 ->schema([
                     TextInput::make('promocao_nome')
                         ->label('Nome')
@@ -44,6 +46,7 @@ class PromocaoRelampagoForm
 
             Section::make('Vigência')
                 ->columns(2)
+                ->columnSpanFull()
                 ->schema([
                     Toggle::make('promocao_recorrente')
                         ->label('Recorrente')
@@ -127,6 +130,7 @@ class PromocaoRelampagoForm
 
             Section::make('Exibição no cardápio')
                 ->columns(2)
+                ->columnSpanFull()
                 ->schema([
                     Toggle::make('promocao_exibe_contador')
                         ->label('Mostrar quantidade restante')
@@ -169,10 +173,8 @@ class PromocaoRelampagoForm
                                     : null)
                                 ->native(false)
                                 ->required(),
-                            TextInput::make('prp_preco_promocional')
+                            Money::make('prp_preco_promocional')
                                 ->label('Preço promocional')
-                                ->prefix('R$')
-                                ->numeric()
                                 ->minValue(0)
                                 ->required(),
                             TextInput::make('prp_qtd_total')
