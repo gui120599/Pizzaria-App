@@ -26,9 +26,17 @@ class ReconciliarPromocoesRelampago extends Command
         $divergencias = 0;
 
         foreach (PromocaoRelampago::all() as $promocao) {
-            $real = (float) PromocaoConsumo::where('consumo_promocao_id', $promocao->id)
-                ->whereNull('consumo_revertido_em')
-                ->sum('consumo_quantidade');
+            $consumos = PromocaoConsumo::where('consumo_promocao_id', $promocao->id)
+                ->whereNull('consumo_revertido_em');
+
+            // Promoção recorrente já resetou pelo menos uma vez: consumos de
+            // ocorrências anteriores ao último reset não contam mais no saldo
+            // atual (o contador foi zerado quando a ocorrência virou).
+            if ($promocao->promocao_recorrente && $promocao->promocao_ultimo_reset_em) {
+                $consumos->where('created_at', '>=', $promocao->promocao_ultimo_reset_em);
+            }
+
+            $real = (float) $consumos->sum('consumo_quantidade');
             $registrado = (float) $promocao->promocao_qtd_vendida;
 
             if (abs($registrado - $real) > 0.001) {
@@ -41,10 +49,15 @@ class ReconciliarPromocoesRelampago extends Command
             }
         }
 
-        foreach (PromocaoRelampagoProduto::all() as $prp) {
-            $real = (float) PromocaoConsumo::where('consumo_promocao_produto_id', $prp->id)
-                ->whereNull('consumo_revertido_em')
-                ->sum('consumo_quantidade');
+        foreach (PromocaoRelampagoProduto::with('promocao')->get() as $prp) {
+            $consumos = PromocaoConsumo::where('consumo_promocao_produto_id', $prp->id)
+                ->whereNull('consumo_revertido_em');
+
+            if ($prp->promocao?->promocao_recorrente && $prp->promocao->promocao_ultimo_reset_em) {
+                $consumos->where('created_at', '>=', $prp->promocao->promocao_ultimo_reset_em);
+            }
+
+            $real = (float) $consumos->sum('consumo_quantidade');
             $registrado = (float) $prp->prp_qtd_vendida;
 
             if (abs($registrado - $real) > 0.001) {

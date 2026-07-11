@@ -22,8 +22,14 @@ class PromocaoRelampago extends Model
         'promocao_nome',
         'promocao_descricao',
         'promocao_ativa',
+        'promocao_recorrente',
         'promocao_inicio',
         'promocao_fim',
+        'promocao_dias_semana',
+        'promocao_hora_inicio',
+        'promocao_hora_fim',
+        'promocao_data_final_recorrencia',
+        'promocao_ultimo_reset_em',
         'promocao_qtd_total',
         'promocao_qtd_vendida',
         'promocao_limite_por_pedido',
@@ -38,10 +44,16 @@ class PromocaoRelampago extends Model
     {
         return [
             'promocao_ativa' => 'boolean',
+            'promocao_recorrente' => 'boolean',
             'promocao_exibe_contador' => 'boolean',
             'promocao_permite_sabores' => 'boolean',
             'promocao_inicio' => 'datetime',
             'promocao_fim' => 'datetime',
+            'promocao_dias_semana' => 'array',
+            'promocao_hora_inicio' => 'datetime:H:i:s',
+            'promocao_hora_fim' => 'datetime:H:i:s',
+            'promocao_data_final_recorrencia' => 'date',
+            'promocao_ultimo_reset_em' => 'datetime',
             'promocao_qtd_total' => 'integer',
             'promocao_qtd_vendida' => 'decimal:2',
             'promocao_limite_por_pedido' => 'integer',
@@ -70,14 +82,24 @@ class PromocaoRelampago extends Model
         return $this->hasMany(PromocaoConsumo::class, 'consumo_promocao_id');
     }
 
-    /** Ativa e dentro da janela de vigência. Não considera saldo. */
+    /**
+     * Ativa e dentro da janela de vigência. Não considera saldo.
+     *
+     * Recorrência (dia da semana + hora do dia) não é trivial de expressar em
+     * SQL portável, e o número de promoções cadastradas é pequeno — então o
+     * scope filtra grosso no banco (só `promocao_ativa`) e refina com precisão
+     * em PHP via `vigente()`, sem custo relevante.
+     */
     public function scopeVigente(Builder $query, ?CarbonInterface $momento = null): Builder
     {
         $momento ??= now();
 
-        return $query->where('promocao_ativa', true)
-            ->where('promocao_inicio', '<=', $momento)
-            ->where('promocao_fim', '>=', $momento);
+        $ids = (clone $query)->where('promocao_ativa', true)
+            ->get()
+            ->filter(fn (self $promocao) => $promocao->vigente($momento))
+            ->pluck('id');
+
+        return $query->whereIn('promocoes_relampago.id', $ids);
     }
 
     /** Ainda tem unidades no pool. Promoção sem teto sempre passa. */
@@ -110,22 +132,142 @@ class PromocaoRelampago extends Model
     {
         $momento ??= now();
 
-        return $this->promocao_ativa
-            && $this->promocao_inicio <= $momento
-            && $this->promocao_fim >= $momento;
+        if (! $this->promocao_ativa) {
+            return false;
+        }
+
+        if ($this->promocao_recorrente) {
+            return $this->vigenteRecorrente($momento);
+        }
+
+        return $this->promocao_inicio <= $momento && $this->promocao_fim >= $momento;
     }
 
     public function status(?CarbonInterface $momento = null): PromocaoStatusEnum
     {
         $momento ??= now();
 
+        if (! $this->promocao_ativa) {
+            return PromocaoStatusEnum::Inativa;
+        }
+
+        if ($this->promocao_recorrente) {
+            return $this->statusRecorrente($momento);
+        }
+
         return match (true) {
-            ! $this->promocao_ativa => PromocaoStatusEnum::Inativa,
             $this->promocao_fim < $momento => PromocaoStatusEnum::Encerrada,
             $this->promocao_inicio > $momento => PromocaoStatusEnum::Agendada,
             $this->esgotada() => PromocaoStatusEnum::Esgotada,
             default => PromocaoStatusEnum::Ativa,
         };
+    }
+
+    /**
+     * Ocorrência atual: dentro do intervalo de datas da recorrência, no dia da
+     * semana certo e (se houver janela) dentro do horário. Sem hora_inicio/fim
+     * configurados, vale o dia inteiro nos dias marcados.
+     *
+     * Janela que atravessa a meia-noite (ex.: 22:00–02:00) tem um cuidado: às
+     * 01:30 de quarta a ocorrência ainda é a de TERÇA (que começou ontem) — o
+     * dia da semana é checado contra ontem, não contra hoje, nesse trecho.
+     */
+    private function vigenteRecorrente(CarbonInterface $momento): bool
+    {
+        if (! $this->dentroDoIntervaloDeDatas($momento)) {
+            return false;
+        }
+
+        if (! $this->promocao_hora_inicio || ! $this->promocao_hora_fim) {
+            return $this->diaDaSemanaBate($momento);
+        }
+
+        $hora = $momento->format('H:i:s');
+        $inicio = $this->promocao_hora_inicio->format('H:i:s');
+        $fim = $this->promocao_hora_fim->format('H:i:s');
+
+        if ($inicio <= $fim) {
+            return $this->diaDaSemanaBate($momento) && $hora >= $inicio && $hora <= $fim;
+        }
+
+        // Atravessa meia-noite: madrugada (hora <= fim) é ocorrência de ontem;
+        // noite (hora >= início) é a ocorrência de hoje.
+        if ($hora <= $fim) {
+            return $this->diaDaSemanaBate($momento->copy()->subDay());
+        }
+
+        return $hora >= $inicio && $this->diaDaSemanaBate($momento);
+    }
+
+    private function statusRecorrente(CarbonInterface $momento): PromocaoStatusEnum
+    {
+        if ($this->promocao_inicio && $momento->lt($this->promocao_inicio)) {
+            return PromocaoStatusEnum::Agendada;
+        }
+
+        if ($this->promocao_data_final_recorrencia && $momento->toDateString() > $this->promocao_data_final_recorrencia->toDateString()) {
+            return PromocaoStatusEnum::Encerrada;
+        }
+
+        if (! $this->vigenteRecorrente($momento)) {
+            return PromocaoStatusEnum::AguardandoJanela;
+        }
+
+        if ($this->esgotada()) {
+            return PromocaoStatusEnum::Esgotada;
+        }
+
+        return PromocaoStatusEnum::Ativa;
+    }
+
+    /** Início/fim da recorrência (datas), sem considerar dia da semana ou hora. */
+    private function dentroDoIntervaloDeDatas(CarbonInterface $momento): bool
+    {
+        if ($this->promocao_inicio && $momento->lt($this->promocao_inicio)) {
+            return false;
+        }
+
+        if ($this->promocao_data_final_recorrencia && $momento->toDateString() > $this->promocao_data_final_recorrencia->toDateString()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /** Vazio = todos os dias. */
+    private function diaDaSemanaBate(CarbonInterface $momento): bool
+    {
+        $dias = $this->promocao_dias_semana ?? [];
+
+        return empty($dias) || in_array($momento->dayOfWeek, $dias, false);
+    }
+
+    /**
+     * A recorrência acabou de abrir uma nova ocorrência e ainda não resetou o
+     * contador hoje? Comparação por dia (não por horário exato) para tolerar
+     * atraso do scheduler: assim que rodar depois do horário de início, reseta.
+     */
+    public function deveResetarAgora(?CarbonInterface $momento = null): bool
+    {
+        $momento ??= now();
+
+        if (! $this->promocao_ativa || ! $this->promocao_recorrente) {
+            return false;
+        }
+
+        if ($this->promocao_ultimo_reset_em?->isSameDay($momento)) {
+            return false;
+        }
+
+        if (! $this->dentroDoIntervaloDeDatas($momento) || ! $this->diaDaSemanaBate($momento)) {
+            return false;
+        }
+
+        if ($this->promocao_hora_inicio && $momento->format('H:i:s') < $this->promocao_hora_inicio->format('H:i:s')) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

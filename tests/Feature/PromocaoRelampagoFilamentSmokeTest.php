@@ -102,4 +102,36 @@ class PromocaoRelampagoFilamentSmokeTest extends TestCase
 
         $this->assertFalse((bool) $promocao->fresh()->promocao_ativa);
     }
+
+    public function test_criacao_de_promocao_recorrente_nao_exige_data_de_fim(): void
+    {
+        $produto = Produto::create([
+            'produto_descricao' => 'Calabresa',
+            'produto_categoria_id' => Categoria::create(['categoria_nome' => 'Pizzas'])->id,
+            'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value,
+            'produto_preco_venda' => 55.00,
+        ]);
+
+        Livewire::test(CreatePromocaoRelampago::class)
+            ->fillForm([
+                'promocao_nome' => 'Terça da Pizza',
+                'promocao_recorrente' => true,
+                'promocao_inicio' => now()->subDay()->format('Y-m-d H:i:s'),
+                'promocao_dias_semana' => [2],
+                'promocao_hora_inicio' => '18:00',
+                'promocao_hora_fim' => '20:00',
+                'promocaoProdutos' => [[
+                    'prp_produto_id' => $produto->id,
+                    'prp_preco_promocional' => 39.90,
+                ]],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $promocao = PromocaoRelampago::where('promocao_nome', 'Terça da Pizza')->firstOrFail();
+
+        $this->assertTrue($promocao->promocao_recorrente);
+        $this->assertNull($promocao->promocao_fim);
+        $this->assertSame([2], $promocao->promocao_dias_semana);
+    }
 }

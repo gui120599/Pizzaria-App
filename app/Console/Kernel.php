@@ -13,6 +13,10 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // $schedule->command('inspire')->hourly();
+
+        // Zera o saldo das promoções relâmpago recorrentes a cada nova
+        // ocorrência (ver App\Console\Commands\ResetarPromocoesRecorrentes).
+        $schedule->command('promocoes:resetar-recorrentes')->everyMinute();
     }
 
     /**

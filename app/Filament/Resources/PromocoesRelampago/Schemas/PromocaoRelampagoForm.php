@@ -3,10 +3,13 @@
 namespace App\Filament\Resources\PromocoesRelampago\Schemas;
 
 use App\Models\Produto;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -42,15 +45,52 @@ class PromocaoRelampagoForm
             Section::make('Vigência')
                 ->columns(2)
                 ->schema([
+                    Toggle::make('promocao_recorrente')
+                        ->label('Recorrente')
+                        ->helperText('Em vez de uma janela única, repete em dias da semana fixos (ex.: toda terça e quinta, das 18h às 20h).')
+                        ->live()
+                        ->columnSpanFull(),
+
                     DateTimePicker::make('promocao_inicio')
-                        ->label('Início')
+                        ->label(fn (Get $get): string => $get('promocao_recorrente') ? 'A partir de' : 'Início')
                         ->seconds(false)
                         ->required(),
                     DateTimePicker::make('promocao_fim')
                         ->label('Fim')
                         ->seconds(false)
-                        ->required()
-                        ->after('promocao_inicio'),
+                        ->after('promocao_inicio')
+                        ->required(fn (Get $get): bool => ! $get('promocao_recorrente'))
+                        ->visible(fn (Get $get): bool => ! $get('promocao_recorrente')),
+
+                    DatePicker::make('promocao_data_final_recorrencia')
+                        ->label('Repetir até (opcional)')
+                        ->helperText('Em branco = para sempre.')
+                        ->visible(fn (Get $get): bool => (bool) $get('promocao_recorrente')),
+                    CheckboxList::make('promocao_dias_semana')
+                        ->label('Dias da semana')
+                        ->helperText('Em branco = todos os dias.')
+                        ->options([
+                            0 => 'Domingo',
+                            1 => 'Segunda',
+                            2 => 'Terça',
+                            3 => 'Quarta',
+                            4 => 'Quinta',
+                            5 => 'Sexta',
+                            6 => 'Sábado',
+                        ])
+                        ->columns(4)
+                        ->bulkToggleable()
+                        ->visible(fn (Get $get): bool => (bool) $get('promocao_recorrente'))
+                        ->columnSpanFull(),
+                    TimePicker::make('promocao_hora_inicio')
+                        ->label('Horário de início')
+                        ->seconds(false)
+                        ->visible(fn (Get $get): bool => (bool) $get('promocao_recorrente')),
+                    TimePicker::make('promocao_hora_fim')
+                        ->label('Horário de fim')
+                        ->seconds(false)
+                        ->helperText('Em branco nos dois = vale o dia inteiro.')
+                        ->visible(fn (Get $get): bool => (bool) $get('promocao_recorrente')),
                 ]),
 
             Section::make('Limites')

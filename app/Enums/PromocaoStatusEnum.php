@@ -16,6 +16,7 @@ enum PromocaoStatusEnum: string implements HasColor, HasLabel
     case Ativa = 'ativa';
     case Esgotada = 'esgotada';
     case Encerrada = 'encerrada';
+    case AguardandoJanela = 'aguardando_janela';
 
     public function getLabel(): string
     {
@@ -25,6 +26,7 @@ enum PromocaoStatusEnum: string implements HasColor, HasLabel
             self::Ativa => 'Ativa',
             self::Esgotada => 'Esgotada',
             self::Encerrada => 'Encerrada',
+            self::AguardandoJanela => 'Aguardando janela',
         };
     }
 
@@ -36,6 +38,7 @@ enum PromocaoStatusEnum: string implements HasColor, HasLabel
             self::Ativa => 'success',
             self::Esgotada => 'danger',
             self::Encerrada => 'gray',
+            self::AguardandoJanela => 'warning',
         };
     }
 }

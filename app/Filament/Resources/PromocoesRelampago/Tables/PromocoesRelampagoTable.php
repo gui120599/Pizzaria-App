@@ -38,14 +38,26 @@ class PromocoesRelampagoTable
                     ->state(fn (PromocaoRelampago $record) => $record->status())
                     ->badge(),
 
-                TextColumn::make('promocao_inicio')
-                    ->label('Início')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable(),
-                TextColumn::make('promocao_fim')
-                    ->label('Fim')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable(),
+                TextColumn::make('vigencia')
+                    ->label('Vigência')
+                    ->state(function (PromocaoRelampago $record): string {
+                        if (! $record->promocao_recorrente) {
+                            return $record->promocao_inicio->format('d/m/Y H:i').' até '.$record->promocao_fim?->format('d/m/Y H:i');
+                        }
+
+                        $dias = $record->promocao_dias_semana;
+                        $nomesDias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                        $diasLabel = empty($dias)
+                            ? 'todo dia'
+                            : collect($dias)->sort()->map(fn ($d) => $nomesDias[(int) $d])->implode('/');
+
+                        $horario = $record->promocao_hora_inicio && $record->promocao_hora_fim
+                            ? $record->promocao_hora_inicio->format('H:i').'-'.$record->promocao_hora_fim->format('H:i')
+                            : 'dia inteiro';
+
+                        return $diasLabel.', '.$horario;
+                    })
+                    ->wrap(),
 
                 TextColumn::make('saldo')
                     ->label('Restam')
@@ -84,7 +96,11 @@ class PromocoesRelampagoTable
                     ->color('danger')
                     ->requiresConfirmation()
                     ->modalDescription('A promoção some do cardápio imediatamente. Os pedidos já feitos mantêm o preço promocional.')
-                    ->visible(fn (PromocaoRelampago $record) => $record->vigente())
+                    // Recorrente: mostra sempre que ativa, mesmo fora da janela do
+                    // dia (o botão encerra a recorrência inteira, não só a
+                    // ocorrência de hoje). Não recorrente: só enquanto vigente.
+                    ->visible(fn (PromocaoRelampago $record) => $record->promocao_ativa
+                        && ($record->promocao_recorrente || $record->vigente()))
                     ->action(function (PromocaoRelampago $record) {
                         $record->update(['promocao_ativa' => false]);
 

@@ -45,6 +45,20 @@ class PromocaoRelampagoService
             return;
         }
 
+        // A janela de vigência (inclusive recorrente: dia da semana + hora do
+        // dia) não dá pra expressar num WHERE portável dentro do UPDATE atômico
+        // de debitarPool() — então é checada aqui, em PHP, logo antes da
+        // transação. debitarPool() continua garantindo o teto (pizza 41) de
+        // forma atômica; só a checagem de janela deixa de ser atômica, o que é
+        // aceitável (a janela não fecha no meio de uma transação de alguns ms).
+        $promocao = PromocaoRelampago::find($promocaoId);
+
+        if (! $promocao || ! $promocao->vigente()) {
+            throw new PromocaoIndisponivelException(
+                'A promoção acabou ou foi encerrada enquanto você finalizava o pedido.'
+            );
+        }
+
         $prp = PromocaoRelampagoProduto::where('prp_promocao_id', $promocaoId)
             ->where('prp_produto_id', $item->item_pedido_produto_id)
             ->first();
@@ -154,7 +168,8 @@ class PromocaoRelampagoService
     /**
      * Débito atômico do pool. O WHERE carrega a regra: o banco recusa o UPDATE
      * que estouraria promocao_qtd_total, e a linha fica travada durante a
-     * operação — é isso que impede vender a pizza 41.
+     * operação — é isso que impede vender a pizza 41. A janela de vigência já
+     * foi checada em consumir() (ver comentário lá); aqui só sobra ativa+saldo.
      *
      * @throws PromocaoIndisponivelException
      */
@@ -165,10 +180,8 @@ class PromocaoRelampagoService
                 SET promocao_qtd_vendida = promocao_qtd_vendida + ?, updated_at = ?
               WHERE id = ?
                 AND promocao_ativa = 1
-                AND promocao_inicio <= ?
-                AND promocao_fim >= ?
                 AND (promocao_qtd_total IS NULL OR promocao_qtd_vendida + ? <= promocao_qtd_total)',
-            [$quantidade, now(), $promocaoId, now(), now(), $quantidade]
+            [$quantidade, now(), $promocaoId, $quantidade]
         );
 
         if ($afetadas === 0) {
