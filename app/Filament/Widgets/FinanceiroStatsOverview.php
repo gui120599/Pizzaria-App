@@ -51,6 +51,10 @@ class FinanceiroStatsOverview extends BaseWidget
         $margem = $faturamento - $cmv;
         $margemPct = $faturamento > 0 ? $margem / $faturamento * 100 : 0.0;
 
+        // Soma de unidades vendidas no período (itens filtrados por categoria/produto,
+        // se houver), independente do filtro de categoria/produto para faturamento/CMV.
+        $qtdProdutos = (float) (clone $itens)->sum('itens_vendas.item_venda_quantidade');
+
         // Cancelamentos no período (usa a data de início, pois canceladas não têm finalização).
         // Não é filtrado por categoria/produto: cancelamento é um evento da venda inteira.
         $canceladasQuery = Venda::query()
@@ -80,6 +84,11 @@ class FinanceiroStatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->chart($this->sparklineFaturamento($inicio, $fim, $filtrandoProduto))
                 ->color('success'),
+
+            Stat::make('Qtd. total de produtos', number_format($qtdProdutos, 0, ',', '.'))
+                ->description('Unidades vendidas no período')
+                ->descriptionIcon('heroicon-m-shopping-bag')
+                ->color('info'),
 
             Stat::make('Ticket médio', $this->brl($ticket))
                 ->description('Faturamento ÷ nº de vendas')
