@@ -43,6 +43,7 @@ class FinanceiroDashboard extends BaseDashboard
                 ->description('Filtra todos os indicadores abaixo.')
                 ->icon('heroicon-o-calendar-days')
                 ->columns(2)
+                ->columnSpan(1)
                 ->schema([
                     DatePicker::make('inicio')
                         ->label('Início')
@@ -63,6 +64,7 @@ class FinanceiroDashboard extends BaseDashboard
                 ->description('Refina todos os indicadores por tipo de entrega, categoria e produto.')
                 ->icon('heroicon-o-funnel')
                 ->columns(3)
+                ->columnSpan(3)
                 ->schema([
                     Select::make('tipos_entrega')
                         ->label('Tipo de entrega')
@@ -87,7 +89,7 @@ class FinanceiroDashboard extends BaseDashboard
                         ->native(false)
                         ->preload(),
                 ]),
-        ]);
+        ])->columns(4);
     }
 
     public function getWidgets(): array
