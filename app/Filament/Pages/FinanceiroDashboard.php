@@ -6,6 +6,7 @@ use App\Filament\Widgets\FaturamentoPorDiaChart;
 use App\Filament\Widgets\FaturamentoPorTipoEntregaChart;
 use App\Filament\Widgets\FinanceiroStatsOverview;
 use App\Filament\Widgets\FormasPagamentoChart;
+use App\Filament\Widgets\ProdutosVendidosPorPeriodoChart;
 use App\Filament\Widgets\TopProdutosVendidos;
 use App\Models\Categoria;
 use App\Models\OpcoesEntregas;
@@ -97,6 +98,7 @@ class FinanceiroDashboard extends BaseDashboard
         return [
             FinanceiroStatsOverview::class,
             FaturamentoPorDiaChart::class,
+            ProdutosVendidosPorPeriodoChart::class,
             FaturamentoPorTipoEntregaChart::class,
             FormasPagamentoChart::class,
             TopProdutosVendidos::class,
