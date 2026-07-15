@@ -4,11 +4,11 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\ItensVenda;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget as BaseWidget;
-use Illuminate\Support\Facades\DB;
 
 class TopProdutosVendidos extends BaseWidget
 {
@@ -29,16 +29,19 @@ class TopProdutosVendidos extends BaseWidget
                 // Assim o Filament (ordenação por chave, count de paginação)
                 // opera sobre colunas simples, sem violar only_full_group_by.
                 ItensVenda::query()->fromSub(
-                    DB::table('itens_vendas')
-                        ->join('vendas', 'vendas.id', '=', 'itens_vendas.item_venda_venda_id')
-                        ->join('produtos', 'produtos.id', '=', 'itens_vendas.item_venda_produto_id')
-                        ->where('vendas.venda_status', 'FINALIZADA')
-                        ->where('itens_vendas.item_venda_status', 'INSERIDO')
-                        ->whereBetween('vendas.venda_datahora_finalizada', [$inicio, $fim])
-                        ->groupBy('itens_vendas.item_venda_produto_id', 'produtos.produto_descricao')
+                    $this->itensFiltradosQuery($inicio, $fim)
+                        ->leftJoin('categorias', 'categorias.id', '=', 'produtos.produto_categoria_id')
+                        ->groupBy(
+                            'itens_vendas.item_venda_produto_id',
+                            'produtos.produto_descricao',
+                            'produtos.produto_foto',
+                            'categorias.categoria_nome',
+                        )
                         ->selectRaw('
                             itens_vendas.item_venda_produto_id as id,
                             produtos.produto_descricao as produto,
+                            produtos.produto_foto as foto,
+                            COALESCE(categorias.categoria_nome, "Sem categoria") as categoria,
                             SUM(itens_vendas.item_venda_quantidade) as qtd,
                             SUM(itens_vendas.item_venda_valor) as receita,
                             SUM(itens_vendas.item_venda_quantidade * itens_vendas.item_venda_custo_unitario) as custo
@@ -47,10 +50,22 @@ class TopProdutosVendidos extends BaseWidget
                 )
             )
             ->columns([
+                ImageColumn::make('foto')
+                    ->label('')
+                    ->disk('public')
+                    ->circular()
+                    ->size(40)
+                    ->defaultImageUrl(asset('Sem Imagem.png')),
+
                 TextColumn::make('produto')
                     ->label('Produto')
                     ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
                     ->wrap(),
+
+                TextColumn::make('categoria')
+                    ->label('Categoria')
+                    ->badge()
+                    ->color('gray'),
 
                 TextColumn::make('qtd')
                     ->label('Qtd. vendida')

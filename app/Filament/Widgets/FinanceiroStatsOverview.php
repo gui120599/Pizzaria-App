@@ -3,7 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
-use App\Models\ItensVenda;
 use App\Models\Venda;
 use Carbon\Carbon;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
@@ -26,34 +25,43 @@ class FinanceiroStatsOverview extends BaseWidget
     protected function getStats(): array
     {
         [$inicio, $fim] = $this->periodo();
+        $tipos = $this->tiposEntregaSelecionados();
+        $filtrandoProduto = $this->filtrandoPorProduto();
 
-        $vendas = Venda::query()
-            ->where('venda_status', 'FINALIZADA')
-            ->whereBetween('venda_datahora_finalizada', [$inicio, $fim]);
-
-        $faturamento = (float) (clone $vendas)->sum('venda_valor_total');
+        $vendas = $this->vendasFiltradasQuery($inicio, $fim);
         $numVendas = (clone $vendas)->count();
         $descontos = (float) (clone $vendas)->sum('venda_valor_desconto');
+
+        // Quando há filtro de categoria/produto, faturamento e CMV vêm da
+        // receita/custo dos itens que batem no filtro — não do total da venda,
+        // que pode incluir outros produtos fora do recorte.
+        $itens = $this->itensFiltradosQuery($inicio, $fim);
+
+        $faturamento = $filtrandoProduto
+            ? (float) (clone $itens)->sum('itens_vendas.item_venda_valor')
+            : (float) (clone $vendas)->sum('venda_valor_total');
+
         $ticket = $numVendas > 0 ? $faturamento / $numVendas : 0.0;
 
         // CMV: usa o custo congelado no momento da venda (item_venda_custo_unitario,
         // preenchido pelo ItensVendaObserver). Fiel ao período mesmo que o custo mude.
-        $cmv = (float) ItensVenda::query()
-            ->join('vendas', 'vendas.id', '=', 'itens_vendas.item_venda_venda_id')
-            ->where('vendas.venda_status', 'FINALIZADA')
-            ->where('itens_vendas.item_venda_status', 'INSERIDO')
-            ->whereBetween('vendas.venda_datahora_finalizada', [$inicio, $fim])
-            ->sum(DB::raw('itens_vendas.item_venda_quantidade * itens_vendas.item_venda_custo_unitario'));
+        $cmv = (float) (clone $itens)->sum(DB::raw('itens_vendas.item_venda_quantidade * itens_vendas.item_venda_custo_unitario'));
 
         $cmvPct = $faturamento > 0 ? $cmv / $faturamento * 100 : 0.0;
         $margem = $faturamento - $cmv;
         $margemPct = $faturamento > 0 ? $margem / $faturamento * 100 : 0.0;
 
         // Cancelamentos no período (usa a data de início, pois canceladas não têm finalização).
-        $canceladas = Venda::query()
+        // Não é filtrado por categoria/produto: cancelamento é um evento da venda inteira.
+        $canceladasQuery = Venda::query()
             ->where('venda_status', 'CANCELADA')
-            ->whereBetween('venda_datahora_iniciada', [$inicio, $fim])
-            ->count();
+            ->whereBetween('venda_datahora_iniciada', [$inicio, $fim]);
+
+        if ($tipos !== []) {
+            $canceladasQuery->whereHas('pedidos', fn ($q) => $q->whereIn('pedido_opcaoentrega_id', $tipos));
+        }
+
+        $canceladas = $canceladasQuery->count();
         $totalTentativas = $numVendas + $canceladas;
         $taxaCancel = $totalTentativas > 0 ? $canceladas / $totalTentativas * 100 : 0.0;
 
@@ -70,7 +78,7 @@ class FinanceiroStatsOverview extends BaseWidget
             Stat::make('Faturamento', $this->brl($faturamento))
                 ->description("{$numVendas} vendas finalizadas")
                 ->descriptionIcon('heroicon-m-banknotes')
-                ->chart($this->sparklineFaturamento($inicio, $fim))
+                ->chart($this->sparklineFaturamento($inicio, $fim, $filtrandoProduto))
                 ->color('success'),
 
             Stat::make('Ticket médio', $this->brl($ticket))
@@ -102,14 +110,23 @@ class FinanceiroStatsOverview extends BaseWidget
 
     /**
      * Série de faturamento diário para o sparkline (até os últimos pontos do período).
+     * Segue os mesmos filtros de tipo de entrega/categoria/produto do restante do card.
      *
      * @return array<int, float>
      */
-    private function sparklineFaturamento(Carbon $inicio, Carbon $fim): array
+    private function sparklineFaturamento(Carbon $inicio, Carbon $fim, bool $filtrandoProduto): array
     {
-        return Venda::query()
-            ->where('venda_status', 'FINALIZADA')
-            ->whereBetween('venda_datahora_finalizada', [$inicio, $fim])
+        if ($filtrandoProduto) {
+            return $this->itensFiltradosQuery($inicio, $fim)
+                ->selectRaw('DATE(vendas.venda_datahora_finalizada) as dia, SUM(itens_vendas.item_venda_valor) as total')
+                ->groupBy('dia')
+                ->orderBy('dia')
+                ->pluck('total')
+                ->map(fn ($v) => (float) $v)
+                ->all();
+        }
+
+        return $this->vendasFiltradasQuery($inicio, $fim)
             ->selectRaw('DATE(venda_datahora_finalizada) as dia, SUM(venda_valor_total) as total')
             ->groupBy('dia')
             ->orderBy('dia')

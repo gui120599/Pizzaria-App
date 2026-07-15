@@ -3,7 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
-use App\Models\Venda;
 use Carbon\Carbon;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
@@ -28,13 +27,17 @@ class FaturamentoPorDiaChart extends ChartWidget
     {
         [$inicio, $fim] = $this->periodo();
 
-        $rows = Venda::query()
-            ->where('venda_status', 'FINALIZADA')
-            ->whereBetween('venda_datahora_finalizada', [$inicio, $fim])
-            ->selectRaw('DATE(venda_datahora_finalizada) as dia, SUM(venda_valor_total) as total')
-            ->groupBy('dia')
-            ->orderBy('dia')
-            ->get();
+        $rows = $this->filtrandoPorProduto()
+            ? $this->itensFiltradosQuery($inicio, $fim)
+                ->selectRaw('DATE(vendas.venda_datahora_finalizada) as dia, SUM(itens_vendas.item_venda_valor) as total')
+                ->groupBy('dia')
+                ->orderBy('dia')
+                ->get()
+            : $this->vendasFiltradasQuery($inicio, $fim)
+                ->selectRaw('DATE(venda_datahora_finalizada) as dia, SUM(venda_valor_total) as total')
+                ->groupBy('dia')
+                ->orderBy('dia')
+                ->get();
 
         return [
             'datasets' => [

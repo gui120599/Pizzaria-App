@@ -24,12 +24,40 @@ class FormasPagamentoChart extends ChartWidget
     protected function getData(): array
     {
         [$inicio, $fim] = $this->periodo();
+        $tipos = $this->tiposEntregaSelecionados();
 
-        $rows = PagamentosVenda::query()
+        $query = PagamentosVenda::query()
             ->join('vendas', 'vendas.id', '=', 'pagamentos_vendas.pg_venda_venda_id')
             ->leftJoin('opcoes_pagamentos', 'opcoes_pagamentos.id', '=', 'pagamentos_vendas.pg_venda_opcaopagamento_id')
             ->where('vendas.venda_status', 'FINALIZADA')
-            ->whereBetween('vendas.venda_datahora_finalizada', [$inicio, $fim])
+            ->whereBetween('vendas.venda_datahora_finalizada', [$inicio, $fim]);
+
+        if ($tipos !== []) {
+            $query->whereIn('vendas.id', function ($q) use ($tipos) {
+                $q->select('pedido_venda_id')->from('pedidos')->whereIn('pedido_opcaoentrega_id', $tipos);
+            });
+        }
+
+        if ($this->filtrandoPorProduto()) {
+            $categorias = $this->categoriasSelecionadas();
+            $produtosIds = $this->produtosSelecionados();
+
+            $query->whereIn('vendas.id', function ($q) use ($categorias, $produtosIds) {
+                $q->select('itens_vendas.item_venda_venda_id')
+                    ->from('itens_vendas')
+                    ->join('produtos', 'produtos.id', '=', 'itens_vendas.item_venda_produto_id')
+                    ->where('itens_vendas.item_venda_status', 'INSERIDO');
+
+                if ($categorias !== []) {
+                    $q->whereIn('produtos.produto_categoria_id', $categorias);
+                }
+                if ($produtosIds !== []) {
+                    $q->whereIn('produtos.id', $produtosIds);
+                }
+            });
+        }
+
+        $rows = $query
             ->selectRaw('COALESCE(opcoes_pagamentos.opcaopag_nome, "Outros") as forma, SUM(pagamentos_vendas.pg_venda_valor_pagamento) as total')
             ->groupBy('forma')
             ->orderByDesc('total')

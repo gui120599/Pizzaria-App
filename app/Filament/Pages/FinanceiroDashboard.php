@@ -3,11 +3,16 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\FaturamentoPorDiaChart;
+use App\Filament\Widgets\FaturamentoPorTipoEntregaChart;
 use App\Filament\Widgets\FinanceiroStatsOverview;
 use App\Filament\Widgets\FormasPagamentoChart;
 use App\Filament\Widgets\TopProdutosVendidos;
+use App\Models\Categoria;
+use App\Models\OpcoesEntregas;
+use App\Models\Produto;
 use BackedEnum;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Schemas\Components\Section;
@@ -53,6 +58,35 @@ class FinanceiroDashboard extends BaseDashboard
                         ->displayFormat('d/m/Y')
                         ->maxDate(now()),
                 ]),
+
+            Section::make('Filtros')
+                ->description('Refina todos os indicadores por tipo de entrega, categoria e produto.')
+                ->icon('heroicon-o-funnel')
+                ->columns(3)
+                ->schema([
+                    Select::make('tipos_entrega')
+                        ->label('Tipo de entrega')
+                        ->options(fn () => OpcoesEntregas::orderBy('opcaoentrega_nome')->pluck('opcaoentrega_nome', 'id'))
+                        ->multiple()
+                        ->native(false)
+                        ->preload(),
+
+                    Select::make('categorias')
+                        ->label('Categorias')
+                        ->options(fn () => Categoria::orderBy('categoria_nome')->pluck('categoria_nome', 'id'))
+                        ->multiple()
+                        ->searchable()
+                        ->native(false)
+                        ->preload(),
+
+                    Select::make('produtos')
+                        ->label('Produtos')
+                        ->options(fn () => Produto::orderBy('produto_descricao')->pluck('produto_descricao', 'id'))
+                        ->multiple()
+                        ->searchable()
+                        ->native(false)
+                        ->preload(),
+                ]),
         ]);
     }
 
@@ -61,6 +95,7 @@ class FinanceiroDashboard extends BaseDashboard
         return [
             FinanceiroStatsOverview::class,
             FaturamentoPorDiaChart::class,
+            FaturamentoPorTipoEntregaChart::class,
             FormasPagamentoChart::class,
             TopProdutosVendidos::class,
         ];
