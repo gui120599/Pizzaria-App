@@ -193,22 +193,62 @@ class ProdutoForm
     /** Custos, margem e preço de venda. */
     private static function abaPrecificacao(): Tab
     {
-        $recalcularVenda = function ($state, Set $set, Get $get): void {
-            $custo = (float) $get('produto_preco_custo');
+        // O componente Money mantém o state ao vivo já mascarado em pt-BR (ex.: "0,80"),
+        // só convertendo para número no dehydrate (submit). Um (float) direto nessa string
+        // para no separador decimal e zera qualquer custo menor que R$ 1 (ex.: "0,80" -> 0.0).
+        $parseMoeda = fn($valor): float => ((int) str_replace([',', '.'], '', (string) $valor)) / 100;
+
+        // $set() não passa pelo formatStateUsing do Money, então quem escreve no campo
+        // precisa formatar no mesmo padrão pt-BR que ele exibiria sozinho (ex.: "1,20").
+        $formatMoeda = fn(float $valor): string => number_format($valor, 2, ',', '.');
+
+        // Modo automático: custo + margem definem o preço de venda.
+        $recalcularVenda = function ($state, Set $set, Get $get) use ($parseMoeda, $formatMoeda): void {
+            if ($get('produto_venda_manual')) {
+                return;
+            }
+            $custo = $parseMoeda($get('produto_preco_custo'));
             $margem = (float) $get('produto_valor_percentual_venda');
-            $set('produto_preco_venda', round($custo * (1 + ($margem / 100)), 2));
+            $set('produto_preco_venda', $formatMoeda(round($custo * (1 + ($margem / 100)), 2)));
+        };
+
+        // Modo manual: custo + preço de venda digitado definem a margem.
+        $recalcularMargem = function ($state, Set $set, Get $get) use ($parseMoeda): void {
+            if (! $get('produto_venda_manual')) {
+                return;
+            }
+            $custo = $parseMoeda($get('produto_preco_custo'));
+            $venda = $parseMoeda($get('produto_preco_venda'));
+            $set('produto_valor_percentual_venda', $custo > 0 ? round((($venda / $custo) - 1) * 100, 2) : 0);
         };
 
         return Tab::make('Precificação')
             ->icon('heroicon-o-currency-dollar')
             ->columns(3)
             ->schema([
+                Toggle::make('produto_venda_manual')
+                    ->label('Definir preço de venda manualmente')
+                    ->helperText('Desligado: você define a margem e o sistema calcula o preço de venda. Ligado: você define o preço de venda e o sistema calcula a margem.')
+                    ->default(false)
+                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->live()
+                    ->inline(false)
+                    ->columnSpanFull()
+                    ->afterStateUpdated(function (bool $state, Set $set, Get $get) use ($recalcularVenda, $recalcularMargem): void {
+                        // Ao trocar de modo, recalcula o lado que ficou "travado" a partir do outro,
+                        // em vez de deixar o valor antigo (potencialmente inconsistente) parado ali.
+                        $state ? $recalcularMargem(null, $set, $get) : $recalcularVenda(null, $set, $get);
+                    }),
+
                 Money::make('produto_preco_custo')
                     ->label('Preço de Custo')
                     ->required()
                     ->live(true)
                     ->columnSpan(1)
-                    ->afterStateUpdated($recalcularVenda),
+                    ->afterStateUpdated(function ($state, Set $set, Get $get) use ($recalcularVenda, $recalcularMargem): void {
+                        $recalcularVenda($state, $set, $get);
+                        $recalcularMargem($state, $set, $get);
+                    }),
 
                 TextInput::make('produto_valor_percentual_venda')
                     ->label('Margem de Lucro (%)')
@@ -218,20 +258,21 @@ class ProdutoForm
                     ->suffix('%')
                     ->required()
                     ->live(true)
+                    ->disabled(fn(Get $get): bool => (bool) $get('produto_venda_manual'))
+                    ->dehydrated()
                     ->columnSpan(1)
                     ->afterStateUpdated($recalcularVenda),
 
-                TextInput::make('produto_preco_venda')
+                Money::make('produto_preco_venda')
                     ->label('Preço de Venda')
                     ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
-                    ->numeric()
-                    ->step(0.01)
-                    ->prefix('R$')
                     ->required()
-                    ->disabled()
+                    ->live(true)
+                    ->disabled(fn(Get $get): bool => ! $get('produto_venda_manual'))
                     ->dehydrated()
                     ->columnSpan(1)
-                    ->helperText('Calculado: custo + margem'),
+                    ->afterStateUpdated($recalcularMargem)
+                    ->helperText(fn(Get $get): string => $get('produto_venda_manual') ? 'Margem calculada automaticamente' : 'Calculado: custo + margem'),
 
                 Fieldset::make('Comissão')
                     ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
