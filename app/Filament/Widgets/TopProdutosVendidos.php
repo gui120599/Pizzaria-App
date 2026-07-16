@@ -5,7 +5,6 @@ namespace App\Filament\Widgets;
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\ItensVenda;
 use App\Models\Produto;
-use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -61,11 +60,21 @@ class TopProdutosVendidos extends BaseWidget
 
                 TextColumn::make('produto')
                     ->label('Produto')
+                    ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
+                    ->wrap(),
+
+                TextColumn::make('produto')
+                    ->label('Produto')
                     ->searchable()
                     ->sortable()
-                    ->weight(FontWeight::SemiBold)
-                    ->description(fn (Produto $record): ?string => $record->categoria?->categoria_nome)
+                    ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
+                    ->description(fn(Produto $record): ?string => $record->categoria?->categoria_nome)
                     ->wrap(),
+
+                TextColumn::make('categoria')
+                    ->label('Categoria')
+                    ->badge()
+                    ->color('gray'),
 
                 TextColumn::make('qtd')
                     ->label('Qtd. vendida')
@@ -95,7 +104,7 @@ class TopProdutosVendidos extends BaseWidget
                         }
                         $pct = ($receita - $custo) / $receita * 100;
 
-                        return number_format($pct, 1, ',', '.').'%';
+                        return number_format($pct, 1, ',', '.') . '%';
                     })
                     ->badge()
                     ->color(function ($record): string {
