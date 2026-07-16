@@ -63,14 +63,6 @@ class TopProdutosVendidos extends BaseWidget
                     ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
                     ->wrap(),
 
-                TextColumn::make('produto')
-                    ->label('Produto')
-                    ->searchable()
-                    ->sortable()
-                    ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
-                    ->description(fn(Produto $record): ?string => $record->categoria?->categoria_nome)
-                    ->wrap(),
-
                 TextColumn::make('categoria')
                     ->label('Categoria')
                     ->badge()
