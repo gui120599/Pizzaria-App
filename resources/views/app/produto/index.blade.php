@@ -23,14 +23,6 @@
                             </div>
                         </div>
 
-                        <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
-                            data-section="entradas-section">
-                            <a href="{{ route('entrada_produto') }}" class="flex items-center">
-                                <i class='bx bx-plus me-2'></i>
-                                {{ __('Entradas') }}
-                            </a>
-                        </div>
-
                     </div>
                 </div>
             </div>

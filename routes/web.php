@@ -13,7 +13,6 @@ use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\ItensPedidoController;
-use App\Http\Controllers\MovimentacaoProdutoController;
 use App\Http\Controllers\OpcoesEntregasController;
 use App\Http\Controllers\OpcoesPagamentoController;
 use App\Http\Controllers\ProfileController;
@@ -100,8 +99,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/produto/adicional/toggle', [ProdutoController::class, 'toggleAdicional'])->name('produto_adicional');
 
 
-    Route::get('/Entrada-Produto', [MovimentacaoProdutoController::class, 'indexEntrada'])->name('entrada_produto');
-    Route::post('/Entra-Produto', [MovimentacaoProdutoController::class, 'storeEntrada'])->name('mov_entrada.store');
 
     Route::get('/Cliente', [ClienteController::class, 'index'])->name('cliente');
     Route::get('/Clientes-Inativos', [ClienteController::class, 'inactive'])->name('cliente.inactive');
