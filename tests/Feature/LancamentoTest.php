@@ -7,13 +7,16 @@ use App\Enums\FormaPagamento;
 use App\Enums\Periodicidade;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
+use App\Filament\Resources\Lancamentos\Pages\ListLancamentos;
 use App\Http\Requests\LancamentoRequest;
 use App\Models\Lancamento;
 use App\Models\PlanoDespesa;
 use App\Models\PlanoReceita;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class LancamentoTest extends TestCase
@@ -98,6 +101,38 @@ class LancamentoTest extends TestCase
         $lancamento->refresh();
         $this->assertSame(StatusLancamento::Pago, $lancamento->status);
         $this->assertSame('2026-07-08', $lancamento->data_pagamento->toDateString());
+        $this->assertSame(FormaPagamento::Pix, $lancamento->forma_pagamento);
+    }
+
+    /**
+     * Regressão: a Action "Dar baixa" do Filament passava o state do Select
+     * (que já vem como instância de FormaPagamento — Select::options(Enum::class)
+     * casta automaticamente) de novo por FormaPagamento::from(), que só aceita
+     * string|int, e estourava TypeError ao confirmar a baixa pela tela.
+     */
+    public function test_acao_dar_baixa_do_filament_registra_pagamento_com_forma(): void
+    {
+        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+
+        $plano = $this->planoDespesa(Comportamento::Fixo, 'Água');
+        $lancamento = Lancamento::create([
+            'tipo' => TipoLancamento::Pagar,
+            'plano_despesa_id' => $plano->id,
+            'descricao' => 'Conta de água',
+            'valor' => 150,
+            'vencimento' => '2026-07-08',
+            'status' => StatusLancamento::Pendente,
+        ]);
+
+        Livewire::test(ListLancamentos::class)
+            ->callTableAction('marcarComoPago', $lancamento, data: [
+                'data_pagamento' => '2026-07-08',
+                'forma_pagamento' => FormaPagamento::Pix->value,
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $lancamento->refresh();
+        $this->assertSame(StatusLancamento::Pago, $lancamento->status);
         $this->assertSame(FormaPagamento::Pix, $lancamento->forma_pagamento);
     }
 

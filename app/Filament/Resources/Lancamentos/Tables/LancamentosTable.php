@@ -7,7 +7,6 @@ use App\Enums\FormaPagamento;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Models\Lancamento;
-use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -24,6 +23,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class LancamentosTable
 {
@@ -144,9 +144,12 @@ class LancamentosTable
                     ->options(FormaPagamento::class),
             ])
             ->action(function (Lancamento $record, array $data): void {
+                // Select::options(FormaPagamento::class) já entrega o state como
+                // instância do enum (Filament casta automaticamente) — nada de
+                // ::from() aqui, ou dá TypeError passando enum pra ::from().
                 $record->marcarComoPago(
                     ! empty($data['data_pagamento']) ? Carbon::parse($data['data_pagamento']) : null,
-                    ! empty($data['forma_pagamento']) ? FormaPagamento::from($data['forma_pagamento']) : null,
+                    $data['forma_pagamento'] ?? null,
                 );
 
                 Notification::make()
