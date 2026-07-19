@@ -8,6 +8,7 @@ use App\Enums\Periodicidade;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Filament\Resources\Lancamentos\LancamentoResource;
+use App\Filament\Resources\Lancamentos\Pages\CreateLancamento;
 use App\Filament\Resources\Lancamentos\Pages\EditLancamento;
 use App\Models\Cliente;
 use App\Models\Lancamento;
@@ -150,5 +151,43 @@ class LancamentoPagamentoTest extends TestCase
         $this->assertSame(1, $lancamento->pagamentos()->count());
         $this->assertSame(250.0, $lancamento->valorPago);
         $this->assertSame(StatusLancamento::Parcial, $lancamento->status);
+    }
+
+    /**
+     * O repeater "pagamentos" não precisa esperar o registro existir — dá pra lançar o
+     * pagamento já na criação do título (mesmo padrão do Repeater::relationship() usado
+     * nos resources de Aluguéis/Sessão de Caixa do LocSilva2).
+     */
+    public function test_repeater_de_pagamentos_funciona_na_criacao_e_quita_o_titulo(): void
+    {
+        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+
+        $plano = PlanoDespesa::create([
+            'nome' => 'Fornecedor pago à vista',
+            'comportamento' => Comportamento::Variavel,
+            'periodicidade' => Periodicidade::Eventual,
+        ]);
+
+        Livewire::test(CreateLancamento::class)
+            ->fillForm([
+                'tipo' => 'pagar',
+                'plano_despesa_id' => $plano->id,
+                'descricao' => 'Compra à vista já paga na hora',
+                'valor' => '500,00',
+                'vencimento' => '2026-07-20',
+                'status' => 'pendente',
+                'pagamentos' => [
+                    ['data_pagamento' => '2026-07-20', 'valor' => '500,00', 'forma_pagamento' => 'dinheiro'],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $lancamento = Lancamento::where('descricao', 'Compra à vista já paga na hora')->firstOrFail();
+
+        $this->assertSame(1, $lancamento->pagamentos()->count());
+        $this->assertSame(500.0, $lancamento->valorPago);
+        $this->assertSame(StatusLancamento::Pago, $lancamento->status);
+        $this->assertSame(FormaPagamento::Dinheiro, $lancamento->forma_pagamento);
     }
 }

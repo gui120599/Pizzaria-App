@@ -120,15 +120,19 @@ class LancamentoForm
                 ]),
 
             Section::make('Pagamentos')
-                ->description('Um título pode ser quitado em mais de um pagamento (parcial + complemento depois, por exemplo).')
-                ->visible(fn (?Lancamento $record): bool => $record?->exists ?? false)
+                ->description('Um título pode ser quitado em mais de um pagamento (parcial + complemento depois, por exemplo). Pode lançar já na criação do título.')
                 ->schema([
                     Placeholder::make('valor_pago_resumo')
                         ->label('Valor pago')
-                        ->content(fn (?Lancamento $record): string => 'R$ '.number_format($record?->valorPago ?? 0, 2, ',', '.')),
+                        ->content(fn (Get $get): string => 'R$ '.number_format(self::somaPagamentos($get), 2, ',', '.')),
                     Placeholder::make('valor_restante_resumo')
                         ->label('Valor restante')
-                        ->content(fn (?Lancamento $record): string => 'R$ '.number_format($record?->valorRestante ?? 0, 2, ',', '.')),
+                        ->content(fn (Get $get): string => 'R$ '.number_format(
+                            max(0.0, self::normalizeMoney($get('valor')) - self::somaPagamentos($get)),
+                            2,
+                            ',',
+                            '.'
+                        )),
                     Repeater::make('pagamentos')
                         ->relationship()
                         ->label('')
@@ -142,6 +146,7 @@ class LancamentoForm
                             Money::make('valor')
                                 ->label('Valor')
                                 ->minValue(0.01)
+                                ->live(onBlur: true)
                                 ->required(),
                             Select::make('forma_pagamento')
                                 ->label('Forma')
@@ -150,6 +155,7 @@ class LancamentoForm
                                 ->label('Observações')
                                 ->maxLength(255),
                         ])
+                        ->live()
                         ->columns(4)
                         ->addActionLabel('Adicionar pagamento')
                         ->reorderable(false)
@@ -195,6 +201,13 @@ class LancamentoForm
             && $record->exists
             && $record->tipo === TipoLancamento::Pagar
             && $record->plano_despesa_id === null;
+    }
+
+    /** Soma o valor dos itens do repeater "pagamentos" ainda em edição (estado do form). */
+    private static function somaPagamentos(Get $get): float
+    {
+        return collect($get('pagamentos') ?? [])
+            ->sum(fn (array $pagamento): float => self::normalizeMoney($pagamento['valor'] ?? null));
     }
 
     /**
