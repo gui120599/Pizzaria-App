@@ -24,6 +24,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
@@ -246,9 +247,32 @@ class ProdutosTable
                     ->query(fn (Builder $query): Builder => $query->where('produto_cardapio', true))
                     ->toggle(),
 
+                Filter::make('destaque_mais_vendidos')
+                    ->label('Destaque "Mais Vendidos"')
+                    ->query(fn (Builder $query): Builder => $query->where('produto_destaque_mais_vendidos', true))
+                    ->toggle(),
+
                 Filter::make('controla_estoque')
                     ->label('Controla Estoque')
                     ->query(fn (Builder $query): Builder => $query->where('produto_controla_estoque', true))
+                    ->toggle(),
+
+                SelectFilter::make('produto_modo_controle_estoque')
+                    ->label('Modo de controle de estoque')
+                    ->options(
+                        collect(EstoqueModoControleEnum::cases())
+                            ->mapWithKeys(fn ($modo) => [$modo->value => $modo->label()])
+                            ->toArray()
+                    ),
+
+                Filter::make('controla_lote')
+                    ->label('Controla Lote/Validade')
+                    ->query(fn (Builder $query): Builder => $query->where('produto_controla_lote', true))
+                    ->toggle(),
+
+                Filter::make('perecivel')
+                    ->label('Perecível')
+                    ->query(fn (Builder $query): Builder => $query->where('produto_perecivel', true))
                     ->toggle(),
 
                 Filter::make('abaixo_minimo')
@@ -260,6 +284,48 @@ class ProdutosTable
 
                 TrashedFilter::make(),
             ])
+            // Painel de filtros organizado em seções (o layout Dropdown já é o
+            // padrão do Filament — aqui é só o agrupamento visual dentro dele).
+            ->filtersFormColumns(1)
+            ->filtersFormSchema(fn (array $filters): array => [
+                Section::make('Classificação')
+                    ->icon('heroicon-o-tag')
+                    ->schema([
+                        $filters['produto_categoria_id'],
+                        $filters['categoria_pai_id'],
+                        $filters['produto_tipo'],
+                    ]),
+
+                Section::make('Preço e Promoção')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->schema([
+                        $filters['preco_venda'],
+                        $filters['promocao_ativa'],
+                    ]),
+
+                Section::make('Cardápio')
+                    ->icon('heroicon-o-book-open')
+                    ->columns(2)
+                    ->schema([
+                        $filters['cardapio'],
+                        $filters['destaque_mais_vendidos'],
+                    ]),
+
+                Section::make('Estoque')
+                    ->icon('heroicon-o-archive-box')
+                    ->schema([
+                        $filters['controla_estoque'],
+                        $filters['produto_modo_controle_estoque'],
+                        $filters['controla_lote'],
+                        $filters['perecivel'],
+                        $filters['abaixo_minimo'],
+                    ]),
+
+                $filters['trashed'],
+            ])
+            ->persistFiltersInSession()
+            ->persistSortInSession()
+            ->persistSearchInSession()
             ->recordActions([
                 ActionsAction::make('ajustar_preco_promocional')
                     ->icon('heroicon-o-tag')
