@@ -71,6 +71,14 @@ class Lancamento extends Model
                 }
             }
         });
+
+        // Se o valor total do título mudar depois de já ter pagamentos registrados,
+        // o status (Pendente/Parcial/Pago) precisa ser recalculado contra o novo total.
+        static::saved(function (Lancamento $lancamento): void {
+            if ($lancamento->wasChanged('valor') && $lancamento->pagamentos()->exists()) {
+                $lancamento->recalcularStatus();
+            }
+        });
     }
 
     public function planoDespesa(): BelongsTo
@@ -107,6 +115,14 @@ class Lancamento extends Model
         return $this->hasMany(LancamentoDespesa::class, 'lancamento_id');
     }
 
+    /** Pagamentos (parciais ou totais) do título — 1 lançamento -> N pagamentos. */
+    public function pagamentos(): HasMany
+    {
+        return $this->hasMany(LancamentoPagamento::class, 'lancamento_id')
+            ->orderBy('data_pagamento')
+            ->orderBy('id');
+    }
+
     public function scopePagar(Builder $query): Builder
     {
         return $query->where('tipo', TipoLancamento::Pagar);
@@ -117,24 +133,48 @@ class Lancamento extends Model
         return $query->where('tipo', TipoLancamento::Receber);
     }
 
+    /** Pendente ou Parcial: ainda resta algo a pagar/receber. */
     public function scopePendentes(Builder $query): Builder
     {
-        return $query->where('status', StatusLancamento::Pendente);
+        return $query->whereIn('status', [StatusLancamento::Pendente, StatusLancamento::Parcial]);
     }
 
-    /** Pendentes com vencimento anterior a hoje ("vencido" é estado derivado). */
+    /** Pendentes/parciais com vencimento anterior a hoje ("vencido" é estado derivado). */
     public function scopeVencidos(Builder $query): Builder
     {
-        return $query->where('status', StatusLancamento::Pendente)
+        return $query->whereIn('status', [StatusLancamento::Pendente, StatusLancamento::Parcial])
             ->whereDate('vencimento', '<', now()->toDateString());
     }
 
     protected function estaVencido(): Attribute
     {
         return Attribute::make(
-            get: fn (): bool => $this->status === StatusLancamento::Pendente
+            get: fn (): bool => in_array($this->status, [StatusLancamento::Pendente, StatusLancamento::Parcial], true)
                 && $this->vencimento !== null
                 && $this->vencimento->lt(now()->startOfDay()),
+        );
+    }
+
+    /** Soma dos pagamentos já registrados. Usa withSum('pagamentos','valor') se disponível (evita N+1). */
+    protected function valorPago(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => (float) ($this->pagamentos_sum_valor ?? $this->pagamentos()->sum('valor')),
+        );
+    }
+
+    /** Quanto ainda falta pagar/receber (nunca negativo). */
+    protected function valorRestante(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => max(0.0, round((float) $this->valor - $this->valorPago, 2)),
+        );
+    }
+
+    protected function estaQuitado(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): bool => $this->valorPago + 0.01 >= (float) $this->valor,
         );
     }
 
@@ -158,28 +198,72 @@ class Lancamento extends Model
         );
     }
 
-    public function marcarComoPago(?Carbon $data = null, ?FormaPagamento $forma = null): bool
-    {
-        $this->status = StatusLancamento::Pago;
-        $this->data_pagamento = $data ?? now();
-
-        if ($forma !== null) {
-            $this->forma_pagamento = $forma;
-        }
-
-        return $this->save();
+    /**
+     * Registra um pagamento (parcial ou total) do título. Dispara o recálculo do
+     * status (Pendente/Parcial/Pago) via evento do LancamentoPagamento — ver
+     * Lancamento::recalcularStatus().
+     */
+    public function registrarPagamento(
+        float $valor,
+        ?Carbon $data = null,
+        ?FormaPagamento $forma = null,
+        ?string $observacoes = null,
+    ): LancamentoPagamento {
+        return $this->pagamentos()->create([
+            'valor' => $valor,
+            'data_pagamento' => $data ?? now(),
+            'forma_pagamento' => $forma,
+            'observacoes' => $observacoes,
+        ]);
     }
 
     /**
-     * Reverte a baixa: volta para Pendente e limpa data/forma de pagamento.
-     * Único jeito de corrigir um lançamento Pago, já que ele fica travado para
-     * edição/exclusão direta (ver LancamentoResource::canEdit/canDelete).
+     * Atalho pra "Dar baixa" rápida: registra um pagamento pelo valor informado
+     * (por padrão, o valor restante inteiro — quita o título de uma vez).
+     */
+    public function marcarComoPago(?Carbon $data = null, ?FormaPagamento $forma = null, ?float $valor = null): bool
+    {
+        $valor ??= $this->valorRestante > 0 ? $this->valorRestante : (float) $this->valor;
+
+        return $this->registrarPagamento($valor, $data, $forma) !== null;
+    }
+
+    /**
+     * Apaga todos os pagamentos do título e volta pra Pendente. Único jeito de
+     * corrigir um lançamento Pago, já que ele fica travado para edição/exclusão
+     * direta (ver LancamentoResource::canEdit/canDelete).
      */
     public function estornarPagamento(): bool
     {
-        $this->status = StatusLancamento::Pendente;
-        $this->data_pagamento = null;
-        $this->forma_pagamento = null;
+        $this->pagamentos()->delete();
+
+        return $this->recalcularStatus();
+    }
+
+    /**
+     * Deriva o status (Pendente/Parcial/Pago) a partir da soma dos pagamentos,
+     * e sincroniza data_pagamento/forma_pagamento com o último pagamento registrado
+     * (mantidos por compatibilidade com exibição/relatórios que leem direto do
+     * cabeçalho). Cancelado é estado manual — não é sobrescrito por pagamentos.
+     */
+    public function recalcularStatus(): bool
+    {
+        if ($this->status === StatusLancamento::Cancelado) {
+            return true;
+        }
+
+        $pago = round((float) $this->pagamentos()->sum('valor'), 2);
+        $total = round((float) $this->valor, 2);
+        // reorder() limpa o orderBy ASC já definido em pagamentos() antes de aplicar o DESC.
+        $ultimo = $this->pagamentos()->reorder()->orderByDesc('data_pagamento')->orderByDesc('id')->first();
+
+        $this->status = match (true) {
+            $pago <= 0.0 => StatusLancamento::Pendente,
+            $pago + 0.01 < $total => StatusLancamento::Parcial,
+            default => StatusLancamento::Pago,
+        };
+        $this->data_pagamento = $ultimo?->data_pagamento;
+        $this->forma_pagamento = $ultimo?->forma_pagamento;
 
         return $this->save();
     }

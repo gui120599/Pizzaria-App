@@ -24,6 +24,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class LancamentosTable
 {
@@ -33,7 +34,8 @@ class LancamentosTable
             // Eager loading dos planos e favorecidos para evitar N+1 nas colunas "Conta" e "Favorecido"
             ->modifyQueryUsing(fn (Builder $query) => $query
                 ->with(['planoDespesa', 'planoReceita', 'favorecido', 'cliente'])
-                ->withCount('despesas'))
+                ->withCount('despesas')
+                ->withSum('pagamentos', 'valor'))
             ->defaultSort('vencimento', 'asc')
             ->columns([
                 TextColumn::make('tipo')
@@ -64,6 +66,16 @@ class LancamentosTable
                     ->money('BRL')
                     ->sortable()
                     ->summarize(Sum::make()->money('BRL')->label('Total')),
+                TextColumn::make('valorPago')
+                    ->label('Pago')
+                    ->getStateUsing(fn (Lancamento $record): float => $record->valorPago)
+                    ->money('BRL')
+                    ->toggleable(),
+                TextColumn::make('valorRestante')
+                    ->label('Restante')
+                    ->getStateUsing(fn (Lancamento $record): float => $record->valorRestante)
+                    ->money('BRL')
+                    ->toggleable(),
                 TextColumn::make('vencimento')
                     ->label('Vencimento')
                     ->date('d/m/Y')
@@ -125,17 +137,37 @@ class LancamentosTable
             ]);
     }
 
-    /** Ação de baixa: só aparece em lançamentos pendentes. */
+    /**
+     * Registra um pagamento pelo valor informado (default = valor restante, ou seja,
+     * quita o título de uma vez). Pra pagamentos parciais adicionais, ou pra ver o
+     * histórico completo, usa o repeater "Pagamentos" na tela de edição.
+     */
     protected static function acaoMarcarComoPago(): Action
     {
         return Action::make('marcarComoPago')
-            ->label('Dar baixa')
+            ->label('Registrar pagamento')
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
-            ->visible(fn (Lancamento $record): bool => $record->status === StatusLancamento::Pendente)
-            ->modalHeading('Marcar como pago / recebido')
-            ->modalSubmitActionLabel('Confirmar baixa')
+            ->visible(fn (Lancamento $record): bool => in_array($record->status, [StatusLancamento::Pendente, StatusLancamento::Parcial], true))
+            ->modalHeading('Registrar pagamento')
+            ->modalSubmitActionLabel('Confirmar')
             ->form([
+                Money::make('valor')
+                    ->label('Valor pago')
+                    ->minValue(0.01)
+                    // default() só aplica no fill inicial do modal — diferente de
+                    // fillForm() na Action, que reaplicaria (e resetaria o que o
+                    // usuário digitou) a cada round-trip do Livewire. Precisa vir em
+                    // string com 2 casas decimais (formato do cast decimal:2 do Eloquent):
+                    // Money::sanitizeState() só sabe interpretar corretamente esse formato
+                    // ou o BR ("150,00") — um float cru (150.0) vira 150 CENTAVOS (R$1,50).
+                    ->default(fn (Lancamento $record): string => number_format(
+                        $record->valorRestante > 0 ? $record->valorRestante : (float) $record->valor,
+                        2,
+                        '.',
+                        ''
+                    ))
+                    ->required(),
                 DatePicker::make('data_pagamento')
                     ->label('Data do pagamento / recebimento')
                     ->native(false)
@@ -153,30 +185,33 @@ class LancamentosTable
                 $record->marcarComoPago(
                     ! empty($data['data_pagamento']) ? Carbon::parse($data['data_pagamento']) : null,
                     $data['forma_pagamento'] ?? null,
+                    (float) $data['valor'],
                 );
 
                 Notification::make()
-                    ->title('Baixa registrada com sucesso!')
+                    ->title('Pagamento registrado com sucesso!')
                     ->success()
                     ->send();
             });
     }
 
     /**
-     * Reverte a baixa (volta a Pendente). É o único jeito de corrigir um lançamento
-     * Pago, já que ele fica travado para edição/exclusão direta (ver
-     * LancamentoResource::canEdit/canDelete).
+     * Apaga todos os pagamentos e volta o título pra Pendente. É o único jeito de
+     * corrigir um lançamento totalmente quitado, já que ele fica travado para
+     * edição/exclusão direta (ver LancamentoResource::canEdit/canDelete). Pra
+     * corrigir um pagamento específico sem apagar os outros, edita direto pelo
+     * repeater "Pagamentos" (disponível enquanto o título não estiver 100% pago).
      */
     protected static function acaoEstornarPagamento(): Action
     {
         return Action::make('estornarPagamento')
-            ->label('Estornar pagamento')
+            ->label('Estornar pagamentos')
             ->icon(Heroicon::OutlinedArrowUturnLeft)
             ->color('warning')
             ->visible(fn (Lancamento $record): bool => $record->status === StatusLancamento::Pago)
             ->requiresConfirmation()
-            ->modalHeading('Estornar pagamento')
-            ->modalDescription('O lançamento volta para Pendente e a data/forma de pagamento são apagadas.')
+            ->modalHeading('Estornar pagamentos')
+            ->modalDescription('Todos os pagamentos deste título são apagados e ele volta para Pendente.')
             ->modalSubmitActionLabel('Confirmar estorno')
             ->action(function (Lancamento $record): void {
                 $record->estornarPagamento();

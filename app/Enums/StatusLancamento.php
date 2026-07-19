@@ -8,6 +8,7 @@ use Filament\Support\Contracts\HasLabel;
 enum StatusLancamento: string implements HasColor, HasLabel
 {
     case Pendente = 'pendente';
+    case Parcial = 'parcial';
     case Pago = 'pago';
     case Cancelado = 'cancelado';
 
@@ -15,6 +16,7 @@ enum StatusLancamento: string implements HasColor, HasLabel
     {
         return match ($this) {
             self::Pendente => 'Pendente',
+            self::Parcial => 'Parcialmente pago',
             self::Pago => 'Pago / Recebido',
             self::Cancelado => 'Cancelado',
         };
@@ -24,6 +26,7 @@ enum StatusLancamento: string implements HasColor, HasLabel
     {
         return match ($this) {
             self::Pendente => 'warning',
+            self::Parcial => 'info',
             self::Pago => 'success',
             self::Cancelado => 'gray',
         };

@@ -136,6 +136,37 @@ class LancamentoTest extends TestCase
         $this->assertSame(FormaPagamento::Pix, $lancamento->forma_pagamento);
     }
 
+    public function test_acao_registrar_pagamento_aceita_valor_parcial(): void
+    {
+        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+
+        $plano = $this->planoDespesa(Comportamento::Fixo, 'Fornecedor X');
+        $lancamento = Lancamento::create([
+            'tipo' => TipoLancamento::Pagar,
+            'plano_despesa_id' => $plano->id,
+            'descricao' => 'Título parcelado',
+            'valor' => 1000,
+            'vencimento' => '2026-07-08',
+            'status' => StatusLancamento::Pendente,
+        ]);
+
+        Livewire::test(ListLancamentos::class)
+            ->callTableAction('marcarComoPago', $lancamento, data: [
+                // Money::dehydrateStateUsing() espera o valor já em formato BR
+                // (vírgula decimal) — ver feedback_filament_ptbr_form_fields.
+                'valor' => '300,00',
+                'data_pagamento' => '2026-07-06',
+                'forma_pagamento' => FormaPagamento::Pix->value,
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $lancamento->refresh();
+        $this->assertSame(StatusLancamento::Parcial, $lancamento->status);
+        $this->assertSame(300.0, $lancamento->valorPago);
+        $this->assertSame(700.0, $lancamento->valorRestante);
+        $this->assertCount(1, $lancamento->pagamentos);
+    }
+
     public function test_scope_vencidos_retorna_apenas_pendentes_com_vencimento_passado(): void
     {
         $plano = $this->planoDespesa(Comportamento::Variavel, 'Diversos');

@@ -8,6 +8,8 @@ use App\Enums\TipoLancamento;
 use App\Models\Lancamento;
 use App\Models\Prestador;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -15,6 +17,8 @@ use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Carbon;
+use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class LancamentoForm
 {
@@ -32,8 +36,14 @@ class LancamentoForm
                         ->live(),
                     Select::make('status')
                         ->label('Status')
-                        ->options(StatusLancamento::class)
+                        // Parcial/Pago são calculados a partir da soma dos pagamentos
+                        // (ver Lancamento::recalcularStatus) — não dá pra escolher manualmente.
+                        ->options([
+                            StatusLancamento::Pendente->value => StatusLancamento::Pendente->getLabel(),
+                            StatusLancamento::Cancelado->value => StatusLancamento::Cancelado->getLabel(),
+                        ])
                         ->default(StatusLancamento::Pendente)
+                        ->helperText('Parcial e Pago são calculados automaticamente pelos pagamentos registrados abaixo.')
                         ->required(),
                     Select::make('plano_despesa_id')
                         ->label('Conta (Plano de Despesas)')
@@ -86,10 +96,8 @@ class LancamentoForm
                     TextInput::make('numero_documento')
                         ->label('Nº documento')
                         ->maxLength(255),
-                    TextInput::make('valor')
+                    Money::make('valor')
                         ->label('Valor')
-                        ->numeric()
-                        ->prefix('R$')
                         ->minValue(0)
                         ->required()
                         ->disabled(fn (?Lancamento $record): bool => self::temRateio($record))
@@ -104,21 +112,57 @@ class LancamentoForm
                         ->required(),
                 ]),
 
-            Section::make('Pagamento')
-                ->columns(2)
+            Section::make('Observações')
                 ->schema([
-                    DatePicker::make('data_pagamento')
-                        ->label('Data do pagamento / recebimento')
-                        ->native(false)
-                        ->displayFormat('d/m/Y')
-                        ->required(fn (Get $get): bool => self::ehStatus($get, StatusLancamento::Pago)),
-                    Select::make('forma_pagamento')
-                        ->label('Forma de pagamento')
-                        ->options(FormaPagamento::class),
                     Textarea::make('observacoes')
                         ->label('Observações')
                         ->columnSpanFull(),
                 ]),
+
+            Section::make('Pagamentos')
+                ->description('Um título pode ser quitado em mais de um pagamento (parcial + complemento depois, por exemplo).')
+                ->visible(fn (?Lancamento $record): bool => $record?->exists ?? false)
+                ->schema([
+                    Placeholder::make('valor_pago_resumo')
+                        ->label('Valor pago')
+                        ->content(fn (?Lancamento $record): string => 'R$ '.number_format($record?->valorPago ?? 0, 2, ',', '.')),
+                    Placeholder::make('valor_restante_resumo')
+                        ->label('Valor restante')
+                        ->content(fn (?Lancamento $record): string => 'R$ '.number_format($record?->valorRestante ?? 0, 2, ',', '.')),
+                    Repeater::make('pagamentos')
+                        ->relationship()
+                        ->label('')
+                        ->schema([
+                            DatePicker::make('data_pagamento')
+                                ->label('Data')
+                                ->native(false)
+                                ->displayFormat('d/m/Y')
+                                ->default(now())
+                                ->required(),
+                            Money::make('valor')
+                                ->label('Valor')
+                                ->minValue(0.01)
+                                ->required(),
+                            Select::make('forma_pagamento')
+                                ->label('Forma')
+                                ->options(FormaPagamento::class),
+                            TextInput::make('observacoes')
+                                ->label('Observações')
+                                ->maxLength(255),
+                        ])
+                        ->columns(4)
+                        ->addActionLabel('Adicionar pagamento')
+                        ->reorderable(false)
+                        ->defaultItems(0)
+                        ->itemLabel(fn (array $state): ?string => isset($state['valor'])
+                            ? 'R$ '.number_format(self::normalizeMoney($state['valor']), 2, ',', '.')
+                                .(isset($state['data_pagamento']) ? ' — '.Carbon::parse($state['data_pagamento'])->format('d/m/Y') : '')
+                            : 'Novo pagamento')
+                        ->collapsible()
+                        ->columnSpanFull(),
+                ])
+                ->columns(2)
+                ->columnSpanFull(),
         ]);
     }
 
@@ -138,16 +182,6 @@ class LancamentoForm
             : $atual === $tipo->value;
     }
 
-    /** Mesmo cuidado de ehTipo(), mas para o campo "status". */
-    private static function ehStatus(Get $get, StatusLancamento $status): bool
-    {
-        $atual = $get('status');
-
-        return $atual instanceof StatusLancamento
-            ? $atual === $status
-            : $atual === $status->value;
-    }
-
     /**
      * Título a pagar rateado entre várias contas (gerado por compra: plano_despesa_id
      * nulo no cabeçalho de propósito — ver CompraService::gerarContaPagar). A tela de
@@ -161,5 +195,23 @@ class LancamentoForm
             && $record->exists
             && $record->tipo === TipoLancamento::Pagar
             && $record->plano_despesa_id === null;
+    }
+
+    /**
+     * Money::make() mantém o valor em estado bruto formatado (ex: "1.234,56") enquanto
+     * o form não é salvo. Pra somar/calcular em tempo real, precisa converter pro padrão
+     * decimal (ponto), igual o dehydrateCurrency() do próprio campo faz no submit.
+     */
+    private static function normalizeMoney(mixed $value): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        return (float) str_replace(['.', ','], ['', '.'], (string) $value);
     }
 }

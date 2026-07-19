@@ -27,6 +27,10 @@ trait PreparaLancamento
             $data['tipo'] = $tipo;
         }
 
+        // data_pagamento/forma_pagamento agora são 100% derivados da soma dos pagamentos
+        // (ver Lancamento::recalcularStatus) — o formulário não os edita mais diretamente.
+        unset($data['data_pagamento'], $data['forma_pagamento']);
+
         // Mantém o par tipo↔plano consistente: zera o plano não aplicável ao tipo
         // (inclusive ao trocar o tipo numa edição). O snapshot do comportamento fica
         // por conta do evento saving do model quando for despesa.

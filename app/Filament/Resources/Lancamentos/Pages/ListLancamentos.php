@@ -42,6 +42,11 @@ class ListLancamentos extends ListRecords
                 ->badge(Lancamento::vencidos()->count())
                 ->badgeColor('warning'),
 
+            'parciais' => Tab::make('Parciais')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', StatusLancamento::Parcial))
+                ->badge(Lancamento::where('status', StatusLancamento::Parcial)->count())
+                ->badgeColor('info'),
+
             'pagos' => Tab::make('Pagos')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', StatusLancamento::Pago))
                 ->badge(Lancamento::where('status', StatusLancamento::Pago)->count()),
