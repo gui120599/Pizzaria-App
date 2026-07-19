@@ -1,7 +1,9 @@
 @props(['categoria', 'onclick' => null, 'dark' => true])
 
 @php
-    $primeiroProdutoComFoto = $categoria->produtos->first(fn($p) => $p->produto_foto);
+    // Categoria "pai" pode não ter produto próprio, só nas filhas — busca lá também.
+    $primeiroProdutoComFoto = $categoria->produtos->first(fn($p) => $p->produto_foto)
+        ?? $categoria->filhas?->flatMap(fn($f) => $f->produtos)->first(fn($p) => $p->produto_foto);
     $imagemUrl = $primeiroProdutoComFoto?->getImagemUrl() ?? asset('img/logo Pizzaria Branco Colorido.png');
 
     $borderClass   = $dark ? 'border-gray-600 group-hover:border-gray-400' : 'border-gray-300 group-hover:border-gray-500';

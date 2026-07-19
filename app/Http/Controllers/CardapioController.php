@@ -15,9 +15,11 @@ class CardapioController extends Controller
 {
     public function index()
     {
-        $categorias = Categoria::whereHas('produtos', function ($query) {
-            $query->visivelCardapio();
-        })
+        // Só categorias de topo entram como seção própria — uma categoria com
+        // categoria_pai_id preenchida aparece aninhada dentro da seção da mãe
+        // (ver 'filhas' abaixo), não como seção solta no cardápio.
+        $categorias = Categoria::whereNull('categoria_pai_id')
+            ->where('categoria_cardapio', true)
             ->with([
                 'produtos' => function ($query) {
                     $query->visivelCardapio()
@@ -25,8 +27,24 @@ class CardapioController extends Controller
                         ->orderBy('produto_ordem')
                         ->orderBy('produto_descricao');
                 },
+                // Só carrega filha que tenha produto visível — evita subtítulo vazio.
+                'filhas' => function ($query) {
+                    $query->where('categoria_cardapio', true)
+                        ->whereHas('produtos', fn ($q) => $q->visivelCardapio())
+                        ->orderBy('categoria_ordem')
+                        ->orderBy('categoria_nome');
+                },
+                'filhas.produtos' => function ($query) {
+                    $query->visivelCardapio()
+                        ->with('categoria')
+                        ->orderBy('produto_ordem')
+                        ->orderBy('produto_descricao');
+                },
             ])
-            ->where('categoria_cardapio', true)
+            ->where(fn ($query) => $query
+                ->whereHas('produtos', fn ($q) => $q->visivelCardapio())
+                ->orWhereHas('filhas', fn ($q) => $q->where('categoria_cardapio', true)
+                    ->whereHas('produtos', fn ($qq) => $qq->visivelCardapio())))
             ->orderBy('categoria_ordem')
             ->orderBy('categoria_nome')
             ->get();
@@ -100,7 +118,10 @@ class CardapioController extends Controller
                 'dinheiro' => str_contains(strtolower($p->opcaopag_nome), 'dinheiro'),
             ]);
 
+        // Pai e filhas juntos: a categoria com sabores habilitados pode ser tanto
+        // uma seção de topo quanto uma filha aninhada dentro de outra.
         $categoriasComSabores = $categorias
+            ->flatMap(fn ($c) => collect([$c])->merge($c->filhas))
             ->filter(fn ($c) => $c->categoria_permite_sabores)
             ->map(fn ($c) => [
                 'id' => $c->id,
