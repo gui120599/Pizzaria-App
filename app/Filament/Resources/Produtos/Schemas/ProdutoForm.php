@@ -33,11 +33,11 @@ class ProdutoForm
                 ->tabs([
                     self::abaIdentificacao(),
                     self::abaCardapio()
-                        ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
+                        ->visible(fn (Get $get): bool => ! self::naoVendidoDireto($get)),
                     self::abaPrecificacao(),
                     self::abaEstoque(),
                     self::abaPromocao()
-                        ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
+                        ->visible(fn (Get $get): bool => ! self::naoVendidoDireto($get)),
                     self::abaFiscal(),
                 ]),
         ]);
@@ -47,6 +47,12 @@ class ProdutoForm
     private static function ehComprado(Get $get): bool
     {
         return in_array($get('produto_tipo'), ['insumo', 'revenda', 'consumo_interno'], true);
+    }
+
+    /** Tipos que não são vendidos diretamente ao cliente (não têm cardápio, preço de venda ou promoção próprios). */
+    private static function naoVendidoDireto(Get $get): bool
+    {
+        return in_array($get('produto_tipo'), ['insumo', 'consumo_interno', 'insumo_produzido'], true);
     }
 
     /** Dados que identificam o produto. */
@@ -93,7 +99,7 @@ class ProdutoForm
 
                 TextInput::make('produto_codimentacao')
                     ->label('Condimentação')
-                    ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->visible(fn (Get $get): bool => ! self::naoVendidoDireto($get))
                     ->placeholder('Opcional')
                     ->columnSpanFull()
                     ->helperText('Descrição da ficha técnica para mostrar no cardápio.'),
@@ -231,7 +237,7 @@ class ProdutoForm
                     ->label('Definir preço de venda manualmente')
                     ->helperText('Desligado: você define a margem e o sistema calcula o preço de venda. Ligado: você define o preço de venda e o sistema calcula a margem.')
                     ->default(false)
-                    ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->visible(fn (Get $get): bool => ! self::naoVendidoDireto($get))
                     ->live()
                     ->inline(false)
                     ->columnSpanFull()
@@ -254,7 +260,7 @@ class ProdutoForm
                 TextInput::make('produto_valor_percentual_venda')
                     ->label('Margem de Lucro (%)')
                     ->numeric()
-                    ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->visible(fn (Get $get): bool => ! self::naoVendidoDireto($get))
                     ->step(0.01)
                     ->suffix('%')
                     ->required()
@@ -266,7 +272,7 @@ class ProdutoForm
 
                 Money::make('produto_preco_venda')
                     ->label('Preço de Venda')
-                    ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->visible(fn (Get $get): bool => ! self::naoVendidoDireto($get))
                     ->required()
                     ->live(true)
                     ->disabled(fn (Get $get): bool => ! $get('produto_venda_manual'))
@@ -276,7 +282,7 @@ class ProdutoForm
                     ->helperText(fn (Get $get): string => $get('produto_venda_manual') ? 'Margem calculada automaticamente' : 'Calculado: custo + margem'),
 
                 Fieldset::make('Comissão')
-                    ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->visible(fn (Get $get): bool => ! self::naoVendidoDireto($get))
                     ->columns(2)
                     ->columnSpanFull()
                     ->schema([

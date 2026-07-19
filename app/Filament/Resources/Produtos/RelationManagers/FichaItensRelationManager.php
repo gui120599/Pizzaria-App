@@ -27,7 +27,10 @@ class FichaItensRelationManager extends RelationManager
 
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
-        return $ownerRecord->produto_tipo === ProdutoTipoEnum::PRODUZIDO->value;
+        return in_array($ownerRecord->produto_tipo, [
+            ProdutoTipoEnum::PRODUZIDO->value,
+            ProdutoTipoEnum::INSUMO_PRODUZIDO->value,
+        ], true);
     }
 
     protected static ?string $modelLabel = 'item';
@@ -45,6 +48,7 @@ class FichaItensRelationManager extends RelationManager
 
                         return Produto::query()
                             ->where('id', '!=', $produtoId) // não pode se referenciar
+                            ->where('produto_tipo', '!=', ProdutoTipoEnum::PRODUZIDO->value) // vendido ao cliente, não é insumo de outra ficha
                             ->orderBy('produto_descricao')
                             ->pluck('produto_descricao', 'id')
                             ->toArray();
@@ -96,7 +100,7 @@ class FichaItensRelationManager extends RelationManager
                 TextColumn::make('fti_quantidade')
                     ->label('Qtd.')
                     ->numeric(decimalPlaces: 4)
-                    ->suffix(fn ($record): string => ' ' . ($record->fti_unidade ?? ''))
+                    ->suffix(fn ($record): string => ' '.($record->fti_unidade ?? ''))
                     ->alignEnd(),
 
                 TextColumn::make('fti_percentual_perda')

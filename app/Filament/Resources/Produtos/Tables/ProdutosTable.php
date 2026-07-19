@@ -75,6 +75,7 @@ class ProdutosTable
                         ProdutoTipoEnum::PRODUZIDO->value => 'success',
                         ProdutoTipoEnum::REVENDA->value => 'info',
                         ProdutoTipoEnum::INSUMO->value => 'warning',
+                        ProdutoTipoEnum::INSUMO_PRODUZIDO->value => 'primary',
                         ProdutoTipoEnum::CONSUMO_INTERNO->value => 'danger',
                         default => 'gray',
                     })

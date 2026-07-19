@@ -188,16 +188,28 @@ class EstoqueService
 
     /**
      * Expande um produto na lista de itens efetivamente consumidos do
-     * estoque para a quantidade informada: o próprio produto (se não tem
-     * ficha técnica) ou os insumos da ficha, já multiplicados pelo fator de
-     * perda e divididos pelo rendimento. Única fonte dessa expansão — tanto
-     * a baixa real (PedidoObserver/VendaObserver) quanto a checagem de
-     * disponibilidade usam este método, para nunca divergirem entre si.
+     * estoque para a quantidade informada. Única fonte dessa expansão —
+     * tanto a baixa real (PedidoObserver/VendaObserver) quanto a checagem de
+     * disponibilidade e a produção de lote (registrarProducao) usam este
+     * método, para nunca divergirem entre si.
      *
+     * Sem ficha técnica, retorna o próprio produto. Com ficha, cada insumo
+     * vira uma linha — exceto quando o insumo é ele mesmo produzido
+     * internamente (tem ficha própria) e NÃO controla saldo próprio: nesse
+     * caso é "virtual" e a expansão continua recursivamente até a matéria-
+     * prima real. Um insumo produzido que controla estoque (lote batido via
+     * registrarProducao) é tratado como folha — baixa do saldo já produzido,
+     * sem re-explodir a ficha a cada venda.
+     *
+     * @param  array<int>  $visitados  ids já visitados (proteção contra ciclo)
      * @return Collection<int, array{produto: Produto, quantidade: float}>
      */
-    public function itensConsumo(Produto $produto, float $quantidade): Collection
+    public function itensConsumo(Produto $produto, float $quantidade, array $visitados = []): Collection
     {
+        if (in_array($produto->id, $visitados, true)) {
+            return collect([['produto' => $produto, 'quantidade' => round($quantidade, 3)]]);
+        }
+
         $fichaItens = $produto->relationLoaded('fichaItens')
             ? $produto->fichaItens
             : $produto->fichaItens()->with('insumo')->get();
@@ -206,15 +218,75 @@ class EstoqueService
             return collect([['produto' => $produto, 'quantidade' => round($quantidade, 3)]]);
         }
 
+        $visitados[] = $produto->id;
         $rendimento = (float) ($produto->produto_ficha_rendimento ?: 1);
 
         return $fichaItens
             ->filter(fn (FichaTecnicaItem $item) => $item->insumo !== null)
-            ->map(fn (FichaTecnicaItem $item) => [
-                'produto' => $item->insumo,
-                'quantidade' => round($quantidade * (float) $item->fti_quantidade * $item->fatorPerda() / $rendimento, 3),
-            ])
+            ->flatMap(function (FichaTecnicaItem $item) use ($quantidade, $rendimento, $visitados) {
+                $insumo = $item->insumo;
+                $qtdInsumo = round($quantidade * (float) $item->fti_quantidade * $item->fatorPerda() / $rendimento, 3);
+
+                if ($insumo->produto_controla_estoque) {
+                    return [['produto' => $insumo, 'quantidade' => $qtdInsumo]];
+                }
+
+                return $this->itensConsumo($insumo, $qtdInsumo, $visitados);
+            })
             ->values();
+    }
+
+    /**
+     * Registra a produção de um lote de um insumo produzido (ex.: massa,
+     * muçarela ralada): consome os itens da ficha técnica na quantidade
+     * necessária (via itensConsumo, então também respeita insumos
+     * semi-acabados) e credita a quantidade produzida no saldo do próprio
+     * produto — criando lote com validade se ele controla lote.
+     *
+     * Só faz sentido para produtos que controlam saldo próprio: um insumo
+     * "virtual" (produto_controla_estoque = false) nunca acumula estoque —
+     * ele é sempre recalculado na hora do consumo, via itensConsumo.
+     */
+    public function registrarProducao(
+        Produto $produto,
+        float $quantidade,
+        array $opts = []
+    ): MovimentacaoProduto {
+        if (! $produto->produto_controla_estoque) {
+            throw new \InvalidArgumentException("{$produto->produto_descricao} não controla estoque próprio — não há saldo para produzir.");
+        }
+
+        if (! $produto->temFichaTecnica()) {
+            throw new \InvalidArgumentException("{$produto->produto_descricao} não possui ficha técnica.");
+        }
+
+        return DB::transaction(function () use ($produto, $quantidade, $opts) {
+            $motivo = $opts['motivo'] ?? "Produção — {$produto->produto_descricao}";
+
+            foreach ($this->itensConsumo($produto, $quantidade) as $consumo) {
+                $insumo = $consumo['produto'];
+
+                if (! $insumo->produto_controla_estoque) {
+                    continue;
+                }
+
+                $this->registrarSaida($insumo, $consumo['quantidade'], MovimentacaoOrigemEnum::PRODUCAO, [
+                    'referencia' => $produto,
+                    'motivo' => $motivo,
+                    'centro_custo_id' => $opts['centro_custo_id'] ?? null,
+                    'user_id' => $opts['user_id'] ?? null,
+                    'data' => $opts['data'] ?? null,
+                ]);
+            }
+
+            return $this->registrarEntrada(
+                $produto,
+                $quantidade,
+                round($produto->custoUnitario(), 4),
+                MovimentacaoOrigemEnum::PRODUCAO,
+                $opts,
+            );
+        });
     }
 
     /**
