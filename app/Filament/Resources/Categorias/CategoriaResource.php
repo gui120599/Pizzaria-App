@@ -17,16 +17,16 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section as SchemaSection;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\BadgeColumn;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\Filter;
@@ -70,11 +70,22 @@ class CategoriaResource extends Resource
                             ->maxLength(100)
                             ->helperText('Identifica a categoria de forma clara'),
 
+                        Select::make('categoria_pai_id')
+                            ->label('Categoria Pai')
+                            ->options(fn (?Categoria $record) => Categoria::query()
+                                ->when($record, fn ($q) => $q->whereNotIn('id', [$record->id, ...$record->idsDescendentes()]))
+                                ->orderBy('categoria_nome')
+                                ->pluck('categoria_nome', 'id'))
+                            ->searchable()
+                            ->native(false)
+                            ->placeholder('Nenhuma (categoria de topo)')
+                            ->helperText('Agrupa esta categoria sob outra — usado no filtro de produtos por categoria pai.'),
+
                         TextInput::make('categoria_preposicao_padrao')
                             ->label('Preposição Padrão')
                             ->placeholder('Ex: DE, DO, DA, COM')
                             ->maxLength(20)
-                            ->dehydrateStateUsing(fn(?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
+                            ->dehydrateStateUsing(fn (?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
                             ->helperText('Aplicada ao marcar "Exibe Categoria" nos produtos. Ex.: PASTEL DE FRANGO'),
 
                         TextInput::make('categoria_ordem')
@@ -101,8 +112,8 @@ class CategoriaResource extends Resource
                             ->label('Máximo de Sabores')
                             ->options([2 => 'Até 2 (Meia a Meia)', 3 => 'Até 3 (Terços)'])
                             ->default(2)
-                            ->visible(fn($get) => (bool) $get('categoria_permite_sabores'))
-                            ->required(fn($get) => (bool) $get('categoria_permite_sabores'))
+                            ->visible(fn ($get) => (bool) $get('categoria_permite_sabores'))
+                            ->required(fn ($get) => (bool) $get('categoria_permite_sabores'))
                             ->helperText('Quantos sabores o cliente pode combinar'),
                     ]),
 
@@ -114,18 +125,18 @@ class CategoriaResource extends Resource
                     ->schema([
                         Placeholder::make('total_produtos')
                             ->label('Total de Produtos')
-                            ->content(fn(?Categoria $record) => $record?->produtos()->count() ?? 0),
+                            ->content(fn (?Categoria $record) => $record?->produtos()->count() ?? 0),
 
                         Placeholder::make('ultimo_ajuste_info')
                             ->label('Último Ajuste de Preço')
-                            ->content(fn(?Categoria $record) => $record
+                            ->content(fn (?Categoria $record) => $record
                                 ? (self::resumoUltimoAjusteTabela($record) ?? 'Nenhum ajuste')
                                 : 'N/A'
                             ),
 
                         Placeholder::make('ajustes_total')
                             ->label('Total de Ajustes')
-                            ->content(fn(?Categoria $record) => $record?->historicosPrecos()->count() ?? 0),
+                            ->content(fn (?Categoria $record) => $record?->historicosPrecos()->count() ?? 0),
                     ]),
             ]);
     }
@@ -136,8 +147,8 @@ class CategoriaResource extends Resource
             ->recordTitleAttribute('categoria_nome')
             ->reorderable('categoria_ordem')
             ->defaultSort('categoria_ordem')
-            ->modifyQueryUsing(fn(Builder $query) => $query
-                ->with('ultimoHistoricoPreco')
+            ->modifyQueryUsing(fn (Builder $query) => $query
+                ->with(['ultimoHistoricoPreco', 'pai'])
                 ->withCount('produtos')
             )
             ->columns([
@@ -162,10 +173,17 @@ class CategoriaResource extends Resource
                     ->sortable()
                     ->weight('bold'),
 
+                TextColumn::make('pai.categoria_nome')
+                    ->label('Categoria Pai')
+                    ->placeholder('—')
+                    ->badge()
+                    ->color('gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 BadgeColumn::make('produtos_count')
                     ->label('Produtos')
-                    ->getStateUsing(fn(Categoria $record) => $record->produtos_count ?? 0)
-                    ->color(fn($state) => match(true) {
+                    ->getStateUsing(fn (Categoria $record) => $record->produtos_count ?? 0)
+                    ->color(fn ($state) => match (true) {
                         $state == 0 => 'warning',
                         $state < 5 => 'info',
                         $state < 10 => 'success',
@@ -181,21 +199,20 @@ class CategoriaResource extends Resource
 
                 TextColumn::make('ultimo_ajuste_preco')
                     ->label('Último Ajuste')
-                    ->state(fn(Categoria $record): string => self::resumoUltimoAjusteTabela($record))
-                    ->description(fn(Categoria $record): ?string => self::descricaoUltimoAjusteTabela($record))
+                    ->state(fn (Categoria $record): string => self::resumoUltimoAjusteTabela($record))
+                    ->description(fn (Categoria $record): ?string => self::descricaoUltimoAjusteTabela($record))
                     ->toggleable(isToggledHiddenByDefault: false)
                     ->wrap()
-                    ->sortable(query: fn (Builder $query, $direction) =>
-                        $query->orderBy(
-                            ProdutoPrecoHistorico::selectRaw('max(created_at)')
-                                ->whereColumn('categoria_id', 'categorias.id'),
-                            $direction
-                        )
+                    ->sortable(query: fn (Builder $query, $direction) => $query->orderBy(
+                        ProdutoPrecoHistorico::selectRaw('max(created_at)')
+                            ->whereColumn('categoria_id', 'categorias.id'),
+                        $direction
+                    )
                     ),
 
                 TextColumn::make('ajustes_count')
                     ->label('# Ajustes')
-                    ->getStateUsing(fn(Categoria $record) => $record->historicosPrecos()->count())
+                    ->getStateUsing(fn (Categoria $record) => $record->historicosPrecos()->count())
                     ->badge()
                     ->color('secondary')
                     ->sortable()
@@ -235,7 +252,7 @@ class CategoriaResource extends Resource
                     ->trueLabel('Sim - Com produtos')
                     ->falseLabel('Não - Sem produtos')
                     ->query(function (Builder $query, $value) {
-                        return match($value) {
+                        return match ($value) {
                             true => $query->has('produtos'),
                             false => $query->doesntHave('produtos'),
                             default => $query,
@@ -292,7 +309,7 @@ class CategoriaResource extends Resource
                         'muitos' => 'Muitos (11+)',
                     ])
                     ->query(function (Builder $query, $value) {
-                        return match($value) {
+                        return match ($value) {
                             'vazio' => $query->doesnthave('produtos'),
                             'poucos' => $query->has('produtos', '>=', 1)->has('produtos', '<=', 5),
                             'alguns' => $query->has('produtos', '>=', 6)->has('produtos', '<=', 10),
@@ -313,7 +330,7 @@ class CategoriaResource extends Resource
                     ->form([
                         Placeholder::make('ultimo_ajuste_em_massa')
                             ->label('Última atualização por esta função')
-                            ->content(fn(Categoria $record): string => self::resumoUltimaExecucao($record, 'ajustar_precos_venda')),
+                            ->content(fn (Categoria $record): string => self::resumoUltimaExecucao($record, 'ajustar_precos_venda')),
 
                         ToggleButtons::make('ajuste_tipo')
                             ->label('Operação')
@@ -360,8 +377,8 @@ class CategoriaResource extends Resource
                         Money::make('ajuste_real')
                             ->label('Valor em R$')
                             ->placeholder('Ex: 2,00')
-                            ->visible(fn($get) => $get('ajuste_unidade') === 'real')
-                            ->required(fn($get) => $get('ajuste_unidade') === 'real')
+                            ->visible(fn ($get) => $get('ajuste_unidade') === 'real')
+                            ->required(fn ($get) => $get('ajuste_unidade') === 'real')
                             ->helperText('Valor absoluto aplicado por produto'),
 
                         TextInput::make('ajuste_percentual')
@@ -370,8 +387,8 @@ class CategoriaResource extends Resource
                             ->step(0.01)
                             ->suffix('%')
                             ->placeholder('Ex: 5')
-                            ->visible(fn($get) => $get('ajuste_unidade') === 'porcentagem')
-                            ->required(fn($get) => $get('ajuste_unidade') === 'porcentagem')
+                            ->visible(fn ($get) => $get('ajuste_unidade') === 'porcentagem')
+                            ->required(fn ($get) => $get('ajuste_unidade') === 'porcentagem')
                             ->helperText('Percentual aplicado com base no preço atual ou margem'),
                     ])
                     ->requiresConfirmation()
@@ -452,8 +469,8 @@ class CategoriaResource extends Resource
 
                         $operacao = $tipo === 'reducao' ? 'reduzidos' : 'aumentados';
                         $valorFormatado = $unidade === 'porcentagem'
-                            ? number_format(abs($ajuste), 2, ',', '.') . '%'
-                            : 'R$ ' . number_format(abs($ajuste), 2, ',', '.');
+                            ? number_format(abs($ajuste), 2, ',', '.').'%'
+                            : 'R$ '.number_format(abs($ajuste), 2, ',', '.');
                         $fallbackMensagem = $fallbackSemCusto > 0
                             ? " | {$fallbackSemCusto} produtos sem custo mantiveram preço de venda válido."
                             : '';
@@ -474,14 +491,14 @@ class CategoriaResource extends Resource
                     ->form([
                         Placeholder::make('ultima_definicao_exata')
                             ->label('Última atualização por esta função')
-                            ->content(fn(Categoria $record): string => self::resumoUltimaExecucao($record, 'definir_precos_exatos')),
+                            ->content(fn (Categoria $record): string => self::resumoUltimaExecucao($record, 'definir_precos_exatos')),
 
                         Money::make('preco_venda_exato')
                             ->label('Preço de venda (R$)')
                             ->placeholder('Ex: 18,90')
-                            ->required(fn($get) => self::parseDecimal($get('preco_custo_exato')) == 0.0)
-                            ->disabled(fn($get) => self::parseDecimal($get('preco_custo_exato')) > 0)
-                            ->helperText(fn($get) => self::parseDecimal($get('preco_custo_exato')) > 0
+                            ->required(fn ($get) => self::parseDecimal($get('preco_custo_exato')) == 0.0)
+                            ->disabled(fn ($get) => self::parseDecimal($get('preco_custo_exato')) > 0)
+                            ->helperText(fn ($get) => self::parseDecimal($get('preco_custo_exato')) > 0
                                 ? 'Com custo maior que zero, o preço de venda será calculado automaticamente por custo + percentual.'
                                 : 'Com custo igual a zero, informe manualmente o preço de venda (percentual deve ser 100%).'),
                     ])
@@ -521,7 +538,7 @@ class CategoriaResource extends Resource
                         Notification::make()
                             ->title('Preços definidos com sucesso')
                             ->body(
-                                "{$atualizados} produtos atualizados para Custo R$ " . " | Venda R$ " . number_format($vendaFinal, 2, ',', '.')
+                                "{$atualizados} produtos atualizados para Custo R$ ".' | Venda R$ '.number_format($vendaFinal, 2, ',', '.')
                             )
                             ->success()
                             ->send();
@@ -609,29 +626,29 @@ class CategoriaResource extends Resource
                     ->icon('heroicon-o-tag')
                     ->tooltip('Ajustar preço promocional')
                     ->color('warning')
-                    ->modalHeading(fn(Categoria $record) => "Preço Promocional — {$record->categoria_nome}")
+                    ->modalHeading(fn (Categoria $record) => "Preço Promocional — {$record->categoria_nome}")
                     ->modalDescription('Aplica ou remove o preço promocional em todos os produtos desta categoria.')
                     ->modalWidth('md')
                     ->form([
                         ToggleButtons::make('tipo')
                             ->label('Operação')
                             ->options([
-                                'valor_exato'         => 'Valor exato',
+                                'valor_exato' => 'Valor exato',
                                 'desconto_percentual' => 'Desconto %',
-                                'desconto_real'       => 'Desconto R$',
-                                'remover'             => 'Remover promoção',
+                                'desconto_real' => 'Desconto R$',
+                                'remover' => 'Remover promoção',
                             ])
                             ->icons([
-                                'valor_exato'         => 'heroicon-o-pencil',
+                                'valor_exato' => 'heroicon-o-pencil',
                                 'desconto_percentual' => 'heroicon-o-percent-badge',
-                                'desconto_real'       => 'heroicon-o-banknotes',
-                                'remover'             => 'heroicon-o-x-circle',
+                                'desconto_real' => 'heroicon-o-banknotes',
+                                'remover' => 'heroicon-o-x-circle',
                             ])
                             ->colors([
-                                'valor_exato'         => 'info',
+                                'valor_exato' => 'info',
                                 'desconto_percentual' => 'warning',
-                                'desconto_real'       => 'success',
-                                'remover'             => 'danger',
+                                'desconto_real' => 'success',
+                                'remover' => 'danger',
                             ])
                             ->inline()
                             ->grouped()
@@ -640,39 +657,40 @@ class CategoriaResource extends Resource
                             ->required(),
 
                         TextInput::make('valor')
-                            ->label(fn($get) => match($get('tipo')) {
-                                'valor_exato'         => 'Preço promocional (R$)',
+                            ->label(fn ($get) => match ($get('tipo')) {
+                                'valor_exato' => 'Preço promocional (R$)',
                                 'desconto_percentual' => 'Desconto (%)',
-                                default               => 'Desconto (R$)',
+                                default => 'Desconto (R$)',
                             })
                             ->numeric()
                             ->step(0.01)
                             ->minValue(0.01)
-                            ->prefix(fn($get) => $get('tipo') === 'desconto_percentual' ? null : 'R$')
-                            ->suffix(fn($get) => $get('tipo') === 'desconto_percentual' ? '%' : null)
-                            ->visible(fn($get) => $get('tipo') !== 'remover')
-                            ->required(fn($get) => $get('tipo') !== 'remover'),
+                            ->prefix(fn ($get) => $get('tipo') === 'desconto_percentual' ? null : 'R$')
+                            ->suffix(fn ($get) => $get('tipo') === 'desconto_percentual' ? '%' : null)
+                            ->visible(fn ($get) => $get('tipo') !== 'remover')
+                            ->required(fn ($get) => $get('tipo') !== 'remover'),
                     ])
                     ->requiresConfirmation()
                     ->action(function (Categoria $record, array $data) {
-                        $tipo  = $data['tipo'];
+                        $tipo = $data['tipo'];
                         $valor = (float) ($data['valor'] ?? 0);
                         $atualizados = 0;
-                        $ignorados   = 0;
+                        $ignorados = 0;
 
                         $record->produtos()->chunkById(100, function ($produtos) use ($tipo, $valor, &$atualizados, &$ignorados) {
                             foreach ($produtos as $produto) {
                                 $precoVenda = (float) $produto->produto_preco_venda;
 
-                                $novoPreco = match($tipo) {
-                                    'valor_exato'         => round($valor, 2),
+                                $novoPreco = match ($tipo) {
+                                    'valor_exato' => round($valor, 2),
                                     'desconto_percentual' => round($precoVenda * (1 - $valor / 100), 2),
-                                    'desconto_real'       => round($precoVenda - $valor, 2),
-                                    default               => 0,
+                                    'desconto_real' => round($precoVenda - $valor, 2),
+                                    default => 0,
                                 };
 
                                 if ($tipo !== 'remover' && $novoPreco <= 0) {
                                     $ignorados++;
+
                                     continue;
                                 }
 
@@ -683,40 +701,40 @@ class CategoriaResource extends Resource
 
                         $msg = $tipo === 'remover'
                             ? "{$atualizados} produto(s) com promoção removida."
-                            : "{$atualizados} produto(s) atualizados." . ($ignorados > 0 ? " {$ignorados} ignorado(s) por preço inválido." : '');
+                            : "{$atualizados} produto(s) atualizados.".($ignorados > 0 ? " {$ignorados} ignorado(s) por preço inválido." : '');
 
                         Notification::make()->title('Preço promocional atualizado')->body($msg)->success()->send();
                     }),
                 ActionsAction::make('toggle_cardapio')
-                    ->icon(fn(Categoria $record): string => $record->categoria_cardapio ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
-                    ->tooltip(fn(Categoria $record): string => $record->categoria_cardapio ? 'Remover do Cardápio' : 'Adicionar ao Cardápio')
-                    ->color(fn(Categoria $record): string => $record->categoria_cardapio ? 'warning' : 'success')
+                    ->icon(fn (Categoria $record): string => $record->categoria_cardapio ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
+                    ->tooltip(fn (Categoria $record): string => $record->categoria_cardapio ? 'Remover do Cardápio' : 'Adicionar ao Cardápio')
+                    ->color(fn (Categoria $record): string => $record->categoria_cardapio ? 'warning' : 'success')
                     ->action(function (Categoria $record) {
-                        $record->update(['categoria_cardapio' => !$record->categoria_cardapio]);
-                        
+                        $record->update(['categoria_cardapio' => ! $record->categoria_cardapio]);
+
                         $acao = $record->categoria_cardapio ? 'adicionada ao' : 'removida do';
                         $emoji = $record->categoria_cardapio ? '👁️' : '🚫';
-                        
+
                         Notification::make()
                             ->title('Status do Cardápio Alterado')
                             ->body("{$emoji} Categoria {$acao} cardápio com sucesso.")
                             ->success()
                             ->send();
                     })
-                    ->requiresConfirmation(fn(Categoria $record): bool => $record->categoria_cardapio),
+                    ->requiresConfirmation(fn (Categoria $record): bool => $record->categoria_cardapio),
                 ActionsAction::make('ver_produtos')
                     ->icon('heroicon-o-list-bullet')
                     ->tooltip('Ver Produtos')
                     ->color('info')
-                    ->modalHeading(fn(Categoria $record): string => "Produtos - {$record->categoria_nome}")
-                    ->modalContent(fn(Categoria $record) => new HtmlString(self::gerarListaProdutos($record)))
+                    ->modalHeading(fn (Categoria $record): string => "Produtos - {$record->categoria_nome}")
+                    ->modalContent(fn (Categoria $record) => new HtmlString(self::gerarListaProdutos($record)))
                     ->modalWidth('2xl'),
                 ActionsAction::make('ver_historico')
                     ->icon('heroicon-o-clock')
                     ->tooltip('Ver Histórico')
                     ->color('gray')
-                    ->modalHeading(fn(Categoria $record): string => "Histórico de Ajustes - {$record->categoria_nome}")
-                    ->modalContent(fn(Categoria $record) => new HtmlString(self::gerarHistoricoAjustes($record)))
+                    ->modalHeading(fn (Categoria $record): string => "Histórico de Ajustes - {$record->categoria_nome}")
+                    ->modalContent(fn (Categoria $record) => new HtmlString(self::gerarHistoricoAjustes($record)))
                     ->modalWidth('3xl'),
                 EditAction::make(),
                 DeleteAction::make(),
@@ -736,22 +754,22 @@ class CategoriaResource extends Resource
                             ToggleButtons::make('tipo')
                                 ->label('Operação')
                                 ->options([
-                                    'valor_exato'         => 'Valor exato',
+                                    'valor_exato' => 'Valor exato',
                                     'desconto_percentual' => 'Desconto %',
-                                    'desconto_real'       => 'Desconto R$',
-                                    'remover'             => 'Remover promoção',
+                                    'desconto_real' => 'Desconto R$',
+                                    'remover' => 'Remover promoção',
                                 ])
                                 ->icons([
-                                    'valor_exato'         => 'heroicon-o-pencil',
+                                    'valor_exato' => 'heroicon-o-pencil',
                                     'desconto_percentual' => 'heroicon-o-percent-badge',
-                                    'desconto_real'       => 'heroicon-o-banknotes',
-                                    'remover'             => 'heroicon-o-x-circle',
+                                    'desconto_real' => 'heroicon-o-banknotes',
+                                    'remover' => 'heroicon-o-x-circle',
                                 ])
                                 ->colors([
-                                    'valor_exato'         => 'info',
+                                    'valor_exato' => 'info',
                                     'desconto_percentual' => 'warning',
-                                    'desconto_real'       => 'success',
-                                    'remover'             => 'danger',
+                                    'desconto_real' => 'success',
+                                    'remover' => 'danger',
                                 ])
                                 ->inline()
                                 ->grouped()
@@ -760,39 +778,40 @@ class CategoriaResource extends Resource
                                 ->required(),
 
                             TextInput::make('valor')
-                                ->label(fn($get) => match($get('tipo')) {
-                                    'valor_exato'         => 'Preço promocional (R$)',
+                                ->label(fn ($get) => match ($get('tipo')) {
+                                    'valor_exato' => 'Preço promocional (R$)',
                                     'desconto_percentual' => 'Desconto (%)',
-                                    default               => 'Desconto (R$)',
+                                    default => 'Desconto (R$)',
                                 })
                                 ->numeric()
                                 ->step(0.01)
                                 ->minValue(0.01)
-                                ->prefix(fn($get) => $get('tipo') === 'desconto_percentual' ? null : 'R$')
-                                ->suffix(fn($get) => $get('tipo') === 'desconto_percentual' ? '%' : null)
-                                ->visible(fn($get) => $get('tipo') !== 'remover')
-                                ->required(fn($get) => $get('tipo') !== 'remover'),
+                                ->prefix(fn ($get) => $get('tipo') === 'desconto_percentual' ? null : 'R$')
+                                ->suffix(fn ($get) => $get('tipo') === 'desconto_percentual' ? '%' : null)
+                                ->visible(fn ($get) => $get('tipo') !== 'remover')
+                                ->required(fn ($get) => $get('tipo') !== 'remover'),
                         ])
                         ->action(function ($records, array $data) {
-                            $tipo        = $data['tipo'];
-                            $valor       = (float) ($data['valor'] ?? 0);
+                            $tipo = $data['tipo'];
+                            $valor = (float) ($data['valor'] ?? 0);
                             $atualizados = 0;
-                            $ignorados   = 0;
+                            $ignorados = 0;
 
                             foreach ($records as $categoria) {
                                 $categoria->produtos()->chunkById(100, function ($produtos) use ($tipo, $valor, &$atualizados, &$ignorados) {
                                     foreach ($produtos as $produto) {
                                         $precoVenda = (float) $produto->produto_preco_venda;
 
-                                        $novoPreco = match($tipo) {
-                                            'valor_exato'         => round($valor, 2),
+                                        $novoPreco = match ($tipo) {
+                                            'valor_exato' => round($valor, 2),
                                             'desconto_percentual' => round($precoVenda * (1 - $valor / 100), 2),
-                                            'desconto_real'       => round($precoVenda - $valor, 2),
-                                            default               => 0,
+                                            'desconto_real' => round($precoVenda - $valor, 2),
+                                            default => 0,
                                         };
 
                                         if ($tipo !== 'remover' && $novoPreco <= 0) {
                                             $ignorados++;
+
                                             continue;
                                         }
 
@@ -804,9 +823,50 @@ class CategoriaResource extends Resource
 
                             $msg = $tipo === 'remover'
                                 ? "{$atualizados} produto(s) com promoção removida."
-                                : "{$atualizados} produto(s) atualizados." . ($ignorados > 0 ? " {$ignorados} ignorado(s) por preço inválido." : '');
+                                : "{$atualizados} produto(s) atualizados.".($ignorados > 0 ? " {$ignorados} ignorado(s) por preço inválido." : '');
 
                             Notification::make()->title('Preço promocional atualizado')->body($msg)->success()->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('definir_categoria_pai')
+                        ->label('Definir Categoria Pai')
+                        ->icon('heroicon-o-squares-2x2')
+                        ->color('gray')
+                        ->modalHeading('Definir Categoria Pai')
+                        ->modalDescription('Define a categoria pai das categorias selecionadas. Deixe em branco para tornar as categorias selecionadas categorias de topo.')
+                        ->modalWidth('md')
+                        ->form([
+                            Select::make('categoria_pai_id')
+                                ->label('Categoria Pai')
+                                ->options(fn () => Categoria::orderBy('categoria_nome')->pluck('categoria_nome', 'id'))
+                                ->searchable()
+                                ->native(false)
+                                ->placeholder('Nenhuma (categoria de topo)'),
+                        ])
+                        ->action(function ($records, array $data) {
+                            $paiId = $data['categoria_pai_id'] ?? null;
+                            $atualizados = 0;
+                            $ignorados = 0;
+
+                            foreach ($records as $categoria) {
+                                // Impede ciclo: a categoria escolhida como pai não pode ser
+                                // a própria categoria sendo atualizada nem uma descendente dela.
+                                if ($paiId && ((int) $paiId === $categoria->id || in_array((int) $paiId, $categoria->idsDescendentes(), true))) {
+                                    $ignorados++;
+
+                                    continue;
+                                }
+
+                                $categoria->update(['categoria_pai_id' => $paiId]);
+                                $atualizados++;
+                            }
+
+                            $msg = $paiId
+                                ? "{$atualizados} categoria(s) atualizada(s)."
+                                : "{$atualizados} categoria(s) tornada(s) categoria de topo.";
+                            $msg .= $ignorados > 0 ? " {$ignorados} ignorada(s) por criar ciclo na hierarquia." : '';
+
+                            Notification::make()->title('Categoria pai atualizada')->body($msg)->success()->send();
                         })
                         ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make(),
@@ -867,7 +927,7 @@ class CategoriaResource extends Resource
             ? 'Definição exata'
             : 'Ajuste em massa';
 
-        return $acao . ' em ' . ($historico->created_at?->format('d/m/Y H:i') ?? '-') . $marcadorHoje;
+        return $acao.' em '.($historico->created_at?->format('d/m/Y H:i') ?? '-').$marcadorHoje;
     }
 
     private static function descricaoUltimoAjusteTabela(Categoria $record): ?string
@@ -879,9 +939,9 @@ class CategoriaResource extends Resource
         }
 
         if ($historico->acao === 'definir_precos_exatos') {
-            return 'Venda: ' . self::formatarMoeda($historico->valor_novo_venda)
-                . ' | Custo: ' . self::formatarMoeda($historico->valor_novo_custo)
-                . ' | Margem: ' . number_format((float) ($historico->valor_novo_percentual ?? 0), 2, ',', '.') . '%';
+            return 'Venda: '.self::formatarMoeda($historico->valor_novo_venda)
+                .' | Custo: '.self::formatarMoeda($historico->valor_novo_custo)
+                .' | Margem: '.number_format((float) ($historico->valor_novo_percentual ?? 0), 2, ',', '.').'%';
         }
 
         if (($historico->valor_antigo_venda === null) || ($historico->valor_novo_venda === null)) {
@@ -891,7 +951,7 @@ class CategoriaResource extends Resource
         $delta = (float) $historico->valor_novo_venda - (float) $historico->valor_antigo_venda;
         $sinal = $delta >= 0 ? '+' : '-';
 
-        return 'Variação de venda: ' . $sinal . self::formatarMoeda(abs($delta));
+        return 'Variação de venda: '.$sinal.self::formatarMoeda(abs($delta));
     }
 
     private static function resumoUltimaExecucao(Categoria $record, string $acao): string
@@ -911,9 +971,9 @@ class CategoriaResource extends Resource
 
         if ($acao === 'definir_precos_exatos') {
             return "Última execução em {$dataHora}{$marcadorHoje} | Custo: "
-                . self::formatarMoeda($ultimoRegistro->valor_novo_custo)
-                . ' | Margem: ' . number_format((float) ($ultimoRegistro->valor_novo_percentual ?? 0), 2, ',', '.') . '%'
-                . ' | Venda: ' . self::formatarMoeda($ultimoRegistro->valor_novo_venda);
+                .self::formatarMoeda($ultimoRegistro->valor_novo_custo)
+                .' | Margem: '.number_format((float) ($ultimoRegistro->valor_novo_percentual ?? 0), 2, ',', '.').'%'
+                .' | Venda: '.self::formatarMoeda($ultimoRegistro->valor_novo_venda);
         }
 
         $deltaVenda = null;
@@ -924,14 +984,14 @@ class CategoriaResource extends Resource
 
         $textoDelta = $deltaVenda === null
             ? 'sem variação calculável'
-            : (($deltaVenda >= 0 ? '+' : '-') . self::formatarMoeda(abs($deltaVenda)));
+            : (($deltaVenda >= 0 ? '+' : '-').self::formatarMoeda(abs($deltaVenda)));
 
         return "Última execução em {$dataHora}{$marcadorHoje} | Variação de venda (amostra): {$textoDelta}";
     }
 
     private static function formatarMoeda(float|int|string|null $valor): string
     {
-        return 'R$ ' . number_format((float) ($valor ?? 0), 2, ',', '.');
+        return 'R$ '.number_format((float) ($valor ?? 0), 2, ',', '.');
     }
 
     private static function gerarListaProdutos(Categoria $record): string
@@ -950,7 +1010,7 @@ class CategoriaResource extends Resource
         foreach ($produtos as $produto) {
             $descricao = $produto->produto_descricao ?? 'Sem descrição';
             $custo = self::formatarMoeda($produto->produto_preco_custo);
-            $margem = number_format($produto->produto_valor_percentual_venda ?? 0, 2, ',', '.') . '%';
+            $margem = number_format($produto->produto_valor_percentual_venda ?? 0, 2, ',', '.').'%';
             $venda = self::formatarMoeda($produto->produto_preco_venda);
 
             $html .= '<tr class="border-b border-gray-200 hover:bg-gray-50">';
@@ -988,19 +1048,19 @@ class CategoriaResource extends Resource
             $data = $historico->created_at->format('d/m/Y H:i');
             $acao = $historico->acao === 'definir_precos_exatos' ? 'Definição Exata' : 'Ajuste em Massa';
             $produto = $historico->produto ? $historico->produto->produto_descricao : 'Produto removido';
-            
+
             $vendaAntes = self::formatarMoeda($historico->valor_antigo_venda);
             $vendaDepois = self::formatarMoeda($historico->valor_novo_venda);
-            
+
             $variacao = 0;
             if ($historico->valor_antigo_venda && $historico->valor_novo_venda) {
                 $variacao = $historico->valor_novo_venda - $historico->valor_antigo_venda;
             }
-            
+
             $sinalVariacao = $variacao >= 0 ? '+' : '-';
             $corVariacao = $variacao >= 0 ? 'text-green-600' : 'text-red-600';
-            $variacaoFormatada = $sinalVariacao . self::formatarMoeda(abs($variacao));
-            
+            $variacaoFormatada = $sinalVariacao.self::formatarMoeda(abs($variacao));
+
             $status = $historico->restaurado_em ? 'Desfeito' : 'Ativo';
             $corStatus = $historico->restaurado_em ? 'text-gray-500' : 'text-green-600';
 

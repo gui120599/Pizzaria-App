@@ -183,6 +183,24 @@ class ProdutosTable
                     ->searchable()
                     ->preload(),
 
+                SelectFilter::make('categoria_pai_id')
+                    ->label('Categoria Pai')
+                    ->options(fn () => Categoria::whereNull('categoria_pai_id')->orderBy('categoria_nome')->pluck('categoria_nome', 'id'))
+                    ->searchable()
+                    ->query(function (Builder $query, array $data): Builder {
+                        $paiId = $data['value'] ?? null;
+
+                        if (! $paiId) {
+                            return $query;
+                        }
+
+                        // Produto lançado direto na categoria-pai OU em alguma das filhas dela.
+                        return $query->where(
+                            fn (Builder $q) => $q->where('produto_categoria_id', $paiId)
+                                ->orWhereHas('categoria', fn (Builder $cq) => $cq->where('categoria_pai_id', $paiId))
+                        );
+                    }),
+
                 SelectFilter::make('produto_tipo')
                     ->label('Tipo')
                     ->options(
