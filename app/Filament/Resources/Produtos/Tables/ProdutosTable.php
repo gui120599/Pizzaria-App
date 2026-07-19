@@ -32,6 +32,7 @@ use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -283,13 +284,16 @@ class ProdutosTable
                     ->toggle(),
 
                 TrashedFilter::make(),
-            ])
-            // Painel de filtros organizado em seções (o layout Dropdown já é o
-            // padrão do Filament — aqui é só o agrupamento visual dentro dele).
-            ->filtersFormColumns(1)
+            ], layout: FiltersLayout::AboveContentCollapsible)
+            // Painel de filtros fora da tabela (acima dela, colapsável), em vez
+            // do dropdown — mesmo padrão usado no resource de Aluguéis do
+            // LocSilva2. Cada seção ocupa a linha inteira e vem recolhida.
             ->filtersFormSchema(fn (array $filters): array => [
                 Section::make('Classificação')
                     ->icon('heroicon-o-tag')
+                    ->collapsed()
+                    ->columnSpanFull()
+                    ->columns(3)
                     ->schema([
                         $filters['produto_categoria_id'],
                         $filters['categoria_pai_id'],
@@ -298,6 +302,9 @@ class ProdutosTable
 
                 Section::make('Preço e Promoção')
                     ->icon('heroicon-o-currency-dollar')
+                    ->collapsed()
+                    ->columnSpanFull()
+                    ->columns(2)
                     ->schema([
                         $filters['preco_venda'],
                         $filters['promocao_ativa'],
@@ -305,6 +312,8 @@ class ProdutosTable
 
                 Section::make('Cardápio')
                     ->icon('heroicon-o-book-open')
+                    ->collapsed()
+                    ->columnSpanFull()
                     ->columns(2)
                     ->schema([
                         $filters['cardapio'],
@@ -313,6 +322,9 @@ class ProdutosTable
 
                 Section::make('Estoque')
                     ->icon('heroicon-o-archive-box')
+                    ->collapsed()
+                    ->columnSpanFull()
+                    ->columns(3)
                     ->schema([
                         $filters['controla_estoque'],
                         $filters['produto_modo_controle_estoque'],
