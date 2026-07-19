@@ -19,6 +19,7 @@ use App\Filament\Resources\Produtos\Pages\ListProdutos;
 use App\Filament\Resources\Produtos\RelationManagers\FichaItensRelationManager;
 use App\Models\Categoria;
 use App\Models\Compra;
+use App\Models\FichaTecnicaItem;
 use App\Models\Prestador;
 use App\Models\Produto;
 use App\Models\User;
@@ -89,6 +90,57 @@ class EstoqueFilamentSmokeTest extends TestCase
             'mov_tipo' => 'ENTRADA',
             'mov_origem' => 'compra',
         ]);
+    }
+
+    public function test_acao_registrar_producao_gera_lote_com_validade_para_insumo_produzido(): void
+    {
+        $categoriaId = Categoria::create(['categoria_nome' => 'Teste Produção'])->id;
+
+        $farinha = Produto::create([
+            'produto_descricao' => 'Farinha',
+            'produto_categoria_id' => $categoriaId,
+            'produto_tipo' => ProdutoTipoEnum::INSUMO->value,
+            'produto_controla_estoque' => true,
+        ]);
+
+        $massa = Produto::create([
+            'produto_descricao' => 'Massa',
+            'produto_categoria_id' => $categoriaId,
+            'produto_tipo' => ProdutoTipoEnum::INSUMO_PRODUZIDO->value,
+            'produto_controla_estoque' => true,
+            'produto_controla_lote' => true,
+            'produto_ficha_rendimento' => 10,
+        ]);
+        FichaTecnicaItem::create([
+            'fti_produto_id' => $massa->id,
+            'fti_insumo_id' => $farinha->id,
+            'fti_quantidade' => 1,
+            'fti_percentual_perda' => 0,
+        ]);
+
+        app(\App\Services\EstoqueService::class)->registrarEntrada(
+            $farinha,
+            10,
+            5.00,
+            \App\Enums\MovimentacaoOrigemEnum::COMPRA,
+        );
+
+        Livewire::test(EditProduto::class, ['record' => $massa->getRouteKey()])
+            ->callAction('registrarProducao', data: [
+                'quantidade_produzida' => 10,
+                'lote_codigo' => 'M-UI-1',
+                'validade' => '2026-09-01',
+                'observacao' => 'Sova da manhã',
+            ])
+            ->assertHasNoActionErrors();
+
+        $massa->refresh();
+        $this->assertEqualsWithDelta(10.0, (float) $massa->produto_saldo_estoque, 0.001);
+
+        $lote = $massa->lotes()->where('lote_codigo', 'M-UI-1')->first();
+        $this->assertNotNull($lote, 'Lote não foi criado a partir da action da UI.');
+        $this->assertEqualsWithDelta(10.0, (float) $lote->lote_qtd_atual, 0.001);
+        $this->assertSame('2026-09-01', $lote->lote_validade->toDateString());
     }
 
     public function test_form_de_produto_em_abas_monta(): void
