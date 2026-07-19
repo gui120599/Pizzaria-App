@@ -16,11 +16,11 @@ class CardapioController extends Controller
     public function index()
     {
         $categorias = Categoria::whereHas('produtos', function ($query) {
-            $query->where('produto_cardapio', true);
+            $query->visivelCardapio();
         })
             ->with([
                 'produtos' => function ($query) {
-                    $query->where('produto_cardapio', true)
+                    $query->visivelCardapio()
                         ->with('categoria')
                         ->orderBy('produto_ordem')
                         ->orderBy('produto_descricao');
@@ -31,7 +31,7 @@ class CardapioController extends Controller
             ->orderBy('categoria_nome')
             ->get();
 
-        $top10Ids = Produto::where('produto_cardapio', true)
+        $top10Ids = Produto::visivelCardapio()
             ->where('produto_destaque_mais_vendidos', true)
             ->where('produto_qtd_vendas', '>', 0)
             ->orderByDesc('produto_qtd_vendas')
@@ -57,7 +57,7 @@ class CardapioController extends Controller
                 'saldo' => $promo->saldoDisponivel(),
                 'produtos' => $promo->promocaoProdutos
                     ->map(fn ($prp) => $prp->produto)
-                    ->filter(fn ($p) => $p && $p->produto_cardapio)
+                    ->filter(fn ($p) => $p && $p->visivelNoCardapio())
                     ->values(),
             ])
             ->filter(fn (array $promo) => $promo['produtos']->isNotEmpty())
@@ -65,13 +65,13 @@ class CardapioController extends Controller
 
         // A janela de datas do produto passa a valer: promoção vencida sai do ar
         // sozinha, sem depender de alguém zerar o preço promocional na mão.
-        $promocoes = Produto::where('produto_cardapio', true)
+        $promocoes = Produto::visivelCardapio()
             ->comPromocaoDeProdutoVigente()
             ->with('categoria')
             ->orderByDesc('produto_qtd_vendas')
             ->get();
 
-        $maisVendidos = Produto::where('produto_cardapio', true)
+        $maisVendidos = Produto::visivelCardapio()
             ->where('produto_qtd_vendas', '>', 0)
             ->where('produto_destaque_mais_vendidos', true)
             ->with('categoria')

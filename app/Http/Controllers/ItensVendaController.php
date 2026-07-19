@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\EstoqueInsuficienteException;
 use App\Models\AdicionaisItemPedido;
 use App\Models\AdicionaisItemVenda;
 use App\Models\ItensPedido;
@@ -11,6 +12,7 @@ use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
+use App\Services\EstoqueService;
 use App\Services\VendaService;
 use Illuminate\Http\Request;
 
@@ -480,6 +482,18 @@ class ItensVendaController extends Controller
             return response()->json(['error' => 'Venda não encontrada'], 404);
         }
 
+        $produtoParaChecagem = Produto::find($produto_id);
+        $aviso = null;
+
+        if ($produtoParaChecagem) {
+            try {
+                $avisos = app(EstoqueService::class)->validarDisponibilidade($produtoParaChecagem, 1.0);
+                $aviso = $avisos !== [] ? implode(' | ', $avisos) : null;
+            } catch (EstoqueInsuficienteException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+        }
+
         $itemVenda = ItensVenda::where('item_venda_produto_id', $produto_id)
             ->where('item_venda_venda_id', $venda_id)
             ->where('item_venda_valor_adicionais', '=', 0)
@@ -506,7 +520,7 @@ class ItensVendaController extends Controller
             $itemVenda->save();
             Produto::where('id', $produto_id)->increment('produto_qtd_vendas');
         } else {
-            $produto = Produto::find($produto_id);
+            $produto = $produtoParaChecagem;
 
             $precoVenda = (float) $produto->produto_preco_venda;
             $precoPromo = (float) ($produto->produto_preco_promocional ?? 0);
@@ -546,7 +560,7 @@ class ItensVendaController extends Controller
         // Atualizar valores da venda
         $this->vendaService->atualizarValoresdaVenda($request->input('venda_id'));
 
-        return response()->json(['success' => 'Adicionado']);
+        return response()->json(['success' => 'Adicionado', 'aviso' => $aviso]);
     }
 
     public function removerProduto(Request $request)

@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\EstoqueModoControleEnum;
 use App\Enums\MovimentacaoOrigemEnum;
+use App\Exceptions\EstoqueInsuficienteException;
 use App\Models\Categoria;
+use App\Models\FichaTecnicaItem;
 use App\Models\Produto;
 use App\Models\User;
 use App\Services\EstoqueService;
@@ -116,5 +119,69 @@ class EstoqueServiceTest extends TestCase
         // Contagem menor que o saldo -> saída de ajuste.
         $this->service->registrarAjuste($produto->refresh(), 8, ['user_id' => $this->userId]);
         $this->assertEqualsWithDelta(8.0, (float) $produto->refresh()->produto_saldo_estoque, 0.001);
+    }
+
+    public function test_modo_nao_controlar_nunca_bloqueia_nem_avisa(): void
+    {
+        // Default do produto é NAO_CONTROLAR: preserva o comportamento atual
+        // (saldo negativo permitido) até o produto ser configurado.
+        $produto = $this->produto();
+
+        $avisos = $this->service->validarDisponibilidade($produto, 100);
+        $this->assertSame([], $avisos);
+    }
+
+    public function test_modo_avisar_retorna_aviso_sem_bloquear(): void
+    {
+        $produto = $this->produto(['produto_modo_controle_estoque' => EstoqueModoControleEnum::AVISAR]);
+
+        $avisos = $this->service->validarDisponibilidade($produto, 5);
+
+        $this->assertCount(1, $avisos);
+        $this->assertStringContainsString('Insumo Teste', $avisos[0]);
+    }
+
+    public function test_modo_bloquear_lanca_excecao_sem_saldo_suficiente(): void
+    {
+        $produto = $this->produto(['produto_modo_controle_estoque' => EstoqueModoControleEnum::BLOQUEAR]);
+
+        $this->expectException(EstoqueInsuficienteException::class);
+        $this->service->validarDisponibilidade($produto, 5);
+    }
+
+    public function test_modo_bloquear_nao_lanca_excecao_com_saldo_suficiente(): void
+    {
+        $produto = $this->produto(['produto_modo_controle_estoque' => EstoqueModoControleEnum::BLOQUEAR]);
+        $this->service->registrarEntrada($produto, 10, 2.00, MovimentacaoOrigemEnum::COMPRA, ['user_id' => $this->userId]);
+
+        $avisos = $this->service->validarDisponibilidade($produto->refresh(), 5);
+        $this->assertSame([], $avisos);
+    }
+
+    public function test_checagem_de_disponibilidade_expande_ficha_tecnica(): void
+    {
+        $farinha = $this->produto([
+            'produto_descricao' => 'Farinha',
+            'produto_modo_controle_estoque' => EstoqueModoControleEnum::BLOQUEAR,
+        ]);
+
+        $pizza = Produto::create([
+            'produto_descricao' => 'Pizza',
+            'produto_categoria_id' => $this->categoriaId,
+            'produto_tipo' => \App\Enums\ProdutoTipoEnum::PRODUZIDO->value,
+            'produto_ficha_rendimento' => 1,
+        ]);
+
+        // 0,3 KG de farinha por pizza, sem perda.
+        FichaTecnicaItem::create([
+            'fti_produto_id' => $pizza->id,
+            'fti_insumo_id' => $farinha->id,
+            'fti_quantidade' => 0.3,
+            'fti_percentual_perda' => 0,
+        ]);
+
+        // Sem saldo de farinha: bloqueia mesmo o produto vendido sendo a pizza.
+        $this->expectException(EstoqueInsuficienteException::class);
+        $this->service->validarDisponibilidade($pizza, 1);
     }
 }

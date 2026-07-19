@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\EstoqueInsuficienteException;
 use App\Http\Requests\StoreItensPedidoRequest;
 use App\Http\Requests\UpdateItensPedidoRequest;
 use App\Models\AdicionaisItemPedido;
 use App\Models\ItensPedido;
 use App\Models\Produto;
+use App\Services\EstoqueService;
 use App\Services\PromocaoRelampagoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +20,19 @@ class ItensPedidoController extends Controller
      */
     public function store(StoreItensPedidoRequest $request)
     {
+        $produto = Produto::find($request->input('item_pedido_produto_id'));
+        $quantidade = (float) $request->input('item_pedido_quantidade');
+        $aviso = null;
+
+        if ($produto) {
+            try {
+                $avisos = app(EstoqueService::class)->validarDisponibilidade($produto, $quantidade);
+                $aviso = $avisos !== [] ? implode(' | ', $avisos) : null;
+            } catch (EstoqueInsuficienteException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+        }
+
         $itemPedido = new ItensPedido([
             'item_pedido_produto_id' => $request->input('item_pedido_produto_id'),
             'item_pedido_pedido_id' => $request->input('item_pedido_pedido_id'),
@@ -25,14 +40,14 @@ class ItensPedidoController extends Controller
         ]);
 
         // Regra de negócio centralizada no model (valor líquido; sem adicionais na criação)
-        $itemPedido->setRelation('produto', Produto::find($request->input('item_pedido_produto_id')));
+        $itemPedido->setRelation('produto', $produto);
         $itemPedido->recalcularValores(0.0);
 
         $itemPedido->save();
 
         Produto::where('id', $request->input('item_pedido_produto_id'))->increment('produto_qtd_vendas');
 
-        return response()->json(['message' => 'Item de pedido criado com sucesso'], 200);
+        return response()->json(['message' => 'Item de pedido criado com sucesso', 'aviso' => $aviso], 200);
     }
 
     /**

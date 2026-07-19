@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Produtos\Schemas;
 
+use App\Enums\EstoqueModoControleEnum;
 use App\Enums\ProdutoTipoEnum;
 use App\Enums\UnidadeProdutoEnum;
 use App\Filament\Resources\Categorias\CategoriaResource;
@@ -32,11 +33,11 @@ class ProdutoForm
                 ->tabs([
                     self::abaIdentificacao(),
                     self::abaCardapio()
-                        ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
+                        ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
                     self::abaPrecificacao(),
                     self::abaEstoque(),
                     self::abaPromocao()
-                        ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
+                        ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno'])),
                     self::abaFiscal(),
                 ]),
         ]);
@@ -65,15 +66,15 @@ class ProdutoForm
 
                 Select::make('produto_categoria_id')
                     ->label('Categoria')
-                    ->options(fn() => Categoria::orderBy('categoria_nome')->pluck('categoria_nome', 'id')->toArray())
+                    ->options(fn () => Categoria::orderBy('categoria_nome')->pluck('categoria_nome', 'id')->toArray())
                     ->searchable()
                     ->preload()
                     ->required()
                     ->native(false)
                     ->columnSpan(3)
-                    ->createOptionForm(fn(Schema $schema) => CategoriaResource::form($schema))
+                    ->createOptionForm(fn (Schema $schema) => CategoriaResource::form($schema))
                     ->createOptionAction(
-                        fn(Action $action) => $action
+                        fn (Action $action) => $action
                             ->modalHeading('Cadastrar nova categoria')
                             ->modalWidth('2xl')
                     )
@@ -83,7 +84,7 @@ class ProdutoForm
 
                 Select::make('produto_tipo')
                     ->label('Tipo do Produto')
-                    ->options(collect(ProdutoTipoEnum::cases())->mapWithKeys(fn($t) => [$t->value => $t->label()])->toArray())
+                    ->options(collect(ProdutoTipoEnum::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->toArray())
                     ->required()
                     ->native(false)
                     ->live()
@@ -92,7 +93,7 @@ class ProdutoForm
 
                 TextInput::make('produto_codimentacao')
                     ->label('Condimentação')
-                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
                     ->placeholder('Opcional')
                     ->columnSpanFull()
                     ->helperText('Descrição da ficha técnica para mostrar no cardápio.'),
@@ -156,8 +157,8 @@ class ProdutoForm
                             ->label('Preposição')
                             ->placeholder('DE, DO, DA, COM')
                             ->maxLength(20)
-                            ->visible(fn(Get $get): bool => (bool) $get('produto_exibe_categoria'))
-                            ->dehydrateStateUsing(fn(?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
+                            ->visible(fn (Get $get): bool => (bool) $get('produto_exibe_categoria'))
+                            ->dehydrateStateUsing(fn (?string $state): ?string => $state ? mb_strtoupper(trim($state)) : null)
                             ->columnSpan(1)
                             ->helperText('Vazio usa a padrão da categoria'),
                     ]),
@@ -168,7 +169,7 @@ class ProdutoForm
                     ->schema([
                         Select::make('produto_unidade_comercial')
                             ->label('Unidade de venda')
-                            ->options(collect(UnidadeProdutoEnum::cases())->mapWithKeys(fn($t) => [$t->value => $t->label()])->toArray())
+                            ->options(collect(UnidadeProdutoEnum::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->toArray())
                             ->searchable()
                             ->native(false)
                             ->columnSpan(1)
@@ -196,11 +197,11 @@ class ProdutoForm
         // O componente Money mantém o state ao vivo já mascarado em pt-BR (ex.: "0,80"),
         // só convertendo para número no dehydrate (submit). Um (float) direto nessa string
         // para no separador decimal e zera qualquer custo menor que R$ 1 (ex.: "0,80" -> 0.0).
-        $parseMoeda = fn($valor): float => ((int) str_replace([',', '.'], '', (string) $valor)) / 100;
+        $parseMoeda = fn ($valor): float => ((int) str_replace([',', '.'], '', (string) $valor)) / 100;
 
         // $set() não passa pelo formatStateUsing do Money, então quem escreve no campo
         // precisa formatar no mesmo padrão pt-BR que ele exibiria sozinho (ex.: "1,20").
-        $formatMoeda = fn(float $valor): string => number_format($valor, 2, ',', '.');
+        $formatMoeda = fn (float $valor): string => number_format($valor, 2, ',', '.');
 
         // Modo automático: custo + margem definem o preço de venda.
         $recalcularVenda = function ($state, Set $set, Get $get) use ($parseMoeda, $formatMoeda): void {
@@ -230,7 +231,7 @@ class ProdutoForm
                     ->label('Definir preço de venda manualmente')
                     ->helperText('Desligado: você define a margem e o sistema calcula o preço de venda. Ligado: você define o preço de venda e o sistema calcula a margem.')
                     ->default(false)
-                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
                     ->live()
                     ->inline(false)
                     ->columnSpanFull()
@@ -253,29 +254,29 @@ class ProdutoForm
                 TextInput::make('produto_valor_percentual_venda')
                     ->label('Margem de Lucro (%)')
                     ->numeric()
-                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
                     ->step(0.01)
                     ->suffix('%')
                     ->required()
                     ->live(true)
-                    ->disabled(fn(Get $get): bool => (bool) $get('produto_venda_manual'))
+                    ->disabled(fn (Get $get): bool => (bool) $get('produto_venda_manual'))
                     ->dehydrated()
                     ->columnSpan(1)
                     ->afterStateUpdated($recalcularVenda),
 
                 Money::make('produto_preco_venda')
                     ->label('Preço de Venda')
-                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
                     ->required()
                     ->live(true)
-                    ->disabled(fn(Get $get): bool => ! $get('produto_venda_manual'))
+                    ->disabled(fn (Get $get): bool => ! $get('produto_venda_manual'))
                     ->dehydrated()
                     ->columnSpan(1)
                     ->afterStateUpdated($recalcularMargem)
-                    ->helperText(fn(Get $get): string => $get('produto_venda_manual') ? 'Margem calculada automaticamente' : 'Calculado: custo + margem'),
+                    ->helperText(fn (Get $get): string => $get('produto_venda_manual') ? 'Margem calculada automaticamente' : 'Calculado: custo + margem'),
 
                 Fieldset::make('Comissão')
-                    ->visible(fn(Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
+                    ->visible(fn (Get $get): bool => ! in_array($get('produto_tipo'), ['insumo', 'consumo_interno']))
                     ->columns(2)
                     ->columnSpanFull()
                     ->schema([
@@ -301,7 +302,7 @@ class ProdutoForm
                 // é CompraItem — e ->relationship('planoDespesa') seria resolvido nesse modelo errado.
                 Select::make('produto_plano_despesa_id')
                     ->label('Plano de despesa')
-                    ->options(fn(): array => PlanoDespesa::orderBy('nome')->pluck('nome', 'id')->toArray())
+                    ->options(fn (): array => PlanoDespesa::orderBy('nome')->pluck('nome', 'id')->toArray())
                     ->searchable()
                     ->native(false)
                     // Só produtos que entram numa compra têm custo a classificar. Produto
@@ -312,48 +313,79 @@ class ProdutoForm
             ]);
     }
 
-    /** Controle de estoque, lote/validade e ficha técnica. */
+    /** Controle de estoque, lote/validade e ficha técnica — agrupados por modalidade. */
     private static function abaEstoque(): Tab
     {
         return Tab::make('Estoque')
             ->icon('heroicon-o-archive-box')
-            ->columns(3)
+            ->columns(1)
             ->schema([
-                Toggle::make('produto_controla_estoque')
-                    ->label('Controla estoque')
-                    ->required()
-                    ->inline(false)
-                    ->columnSpan(1)
-                    ->helperText('Movimenta saldo e custo médio'),
+                Fieldset::make('Controle de Estoque')
+                    ->columns(3)
+                    ->schema([
+                        Toggle::make('produto_controla_estoque')
+                            ->label('Controla estoque')
+                            ->live()
+                            ->required()
+                            ->inline(false)
+                            ->columnSpan(1)
+                            ->helperText('Movimenta saldo e custo médio'),
 
-                Toggle::make('produto_controla_lote')
-                    ->label('Controla lote/validade')
-                    ->inline(false)
-                    ->columnSpan(1)
-                    ->helperText('Baixa FEFO (vence primeiro, sai primeiro)'),
+                        Select::make('produto_modo_controle_estoque')
+                            ->label('Modo de controle')
+                            ->options(collect(EstoqueModoControleEnum::cases())->mapWithKeys(fn ($m) => [$m->value => $m->label()])->toArray())
+                            ->default(EstoqueModoControleEnum::NAO_CONTROLAR->value)
+                            ->native(false)
+                            ->required()
+                            ->columnSpan(1)
+                            ->visible(fn (Get $get): bool => (bool) $get('produto_controla_estoque'))
+                            ->helperText('O que fazer ao vender sem saldo suficiente'),
 
-                Toggle::make('produto_perecivel')
-                    ->label('Perecível')
-                    ->inline(false)
-                    ->columnSpan(1)
-                    ->helperText('Insumo com vencimento'),
+                        Toggle::make('produto_lista_estoque_zerado')
+                            ->label('Listar no cardápio zerado')
+                            ->default(true)
+                            ->inline(false)
+                            ->columnSpan(1)
+                            ->visible(fn (Get $get): bool => (bool) $get('produto_controla_estoque'))
+                            ->helperText('Desligado: some do cardápio quando o saldo chegar a zero'),
+                    ]),
 
-                Select::make('produto_unidade_estoque')
-                    ->label('Unidade de estoque')
-                    ->options(collect(UnidadeProdutoEnum::cases())->mapWithKeys(fn($t) => [$t->value => $t->label()])->toArray())
-                    ->searchable()
-                    ->native(false)
-                    ->columnSpan(1)
-                    ->helperText('g, ml, un... (base do custo)'),
+                Fieldset::make('Lote e Validade (FEFO)')
+                    ->columns(2)
+                    ->schema([
+                        Toggle::make('produto_controla_lote')
+                            ->label('Controla lote/validade')
+                            ->inline(false)
+                            ->columnSpan(1)
+                            ->helperText('Baixa FEFO (vence primeiro, sai primeiro)'),
 
-                TextInput::make('produto_ficha_rendimento')
-                    ->label('Rendimento da ficha técnica')
-                    ->numeric()
-                    ->step(0.001)
-                    ->minValue(0.001)
-                    ->default(1)
-                    ->columnSpan(2)
-                    ->helperText('Quanto a receita produz (ex.: 1 un, ou 5000 ml de molho por batelada)'),
+                        Toggle::make('produto_perecivel')
+                            ->label('Perecível')
+                            ->inline(false)
+                            ->columnSpan(1)
+                            ->helperText('Insumo com vencimento'),
+                    ]),
+
+                Fieldset::make('Unidade e Ficha Técnica')
+                    ->columns(2)
+                    ->schema([
+                        Select::make('produto_unidade_estoque')
+                            ->label('Unidade de estoque')
+                            ->options(collect(UnidadeProdutoEnum::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->toArray())
+                            ->searchable()
+                            ->native(false)
+                            ->columnSpan(1)
+                            ->helperText('g, ml, un... (base do custo)'),
+
+                        TextInput::make('produto_ficha_rendimento')
+                            ->label('Rendimento da ficha técnica')
+                            ->numeric()
+                            ->step(0.001)
+                            ->minValue(0.001)
+                            ->default(1)
+                            ->columnSpan(1)
+                            ->helperText('Quanto a receita produz (ex.: 1 un, ou 5000 ml de molho por batelada)'),
+                    ]),
             ]);
     }
 
@@ -385,7 +417,7 @@ class ProdutoForm
     /** Códigos e tributação fiscal. */
     private static function abaFiscal(): Tab
     {
-        $obrigatorioVenda = fn(Get $get): bool => in_array($get('produto_tipo'), ['produzido', 'revenda'], true);
+        $obrigatorioVenda = fn (Get $get): bool => in_array($get('produto_tipo'), ['produzido', 'revenda'], true);
 
         return Tab::make('Fiscal')
             ->icon('heroicon-o-document-text')

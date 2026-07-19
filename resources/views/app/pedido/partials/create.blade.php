@@ -525,6 +525,9 @@
                 success: function(response) {
                     // Lidar com a resposta
                     if (response) {
+                        if (response.aviso) {
+                            alert(response.aviso);
+                        }
                         ListarItenPedido();
                         ValorTotalItensPedido();
 
@@ -535,8 +538,9 @@
                     }
 
                 },
-                error: function() {
+                error: function(xhr) {
                     alert(
+                        (xhr.responseJSON && xhr.responseJSON.message) ||
                         'Erro ao adicionar produto ao pedido. Por favor, tente novamente .'
                     );
                 }
@@ -568,6 +572,9 @@
                     // Lidar com a resposta
                     if (response) {
                         console.log(response);
+                        if (response.aviso) {
+                            alert(response.aviso);
+                        }
                         ListarItenPedido();
                         ValorTotalItensPedido();
 
@@ -578,8 +585,9 @@
                     }
 
                 },
-                error: function() {
+                error: function(xhr) {
                     alert(
+                        (xhr.responseJSON && xhr.responseJSON.message) ||
                         'Erro ao adicionar produto ao pedido. Por favor, tente novamente .'
                     );
                 }

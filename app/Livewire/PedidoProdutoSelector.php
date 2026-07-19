@@ -3,12 +3,14 @@
 namespace App\Livewire;
 
 use App\Enums\ProdutoTipoEnum;
+use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\AdicionaisItemPedido;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\Produto;
 use App\Models\PromocaoRelampago;
+use App\Services\EstoqueService;
 use App\Services\PrecificadorService;
 use App\Services\PromocaoRelampagoService;
 use Illuminate\Support\Facades\DB;
@@ -78,6 +80,12 @@ class PedidoProdutoSelector extends Component
     // Erro de promoção relâmpago (saldo esgotado/expirou entre a seleção e a
     // confirmação, ou limite por pedido excedido). Exibido como banner.
     public ?string $erroPromocao = null;
+
+    // Estoque insuficiente: erro bloqueia a criação do item (modo BLOQUEAR),
+    // aviso apenas informa e deixa o item ser criado (modo AVISAR).
+    public ?string $erroEstoque = null;
+
+    public ?string $avisoEstoque = null;
 
     public function mount(?int $pedidoId = null, array $itensIniciais = []): void
     {
@@ -186,6 +194,9 @@ class PedidoProdutoSelector extends Component
             'preco_base' => $preco->valorUnitario,
             'desconto_unit' => $preco->descontoUnitario,
             'promocao_id' => $preco->promocaoId,
+            'controla_estoque' => (bool) $produto->produto_controla_estoque,
+            'saldo_estoque' => (float) $produto->produto_saldo_estoque,
+            'unidade_estoque' => $produto->produto_unidade_estoque,
         ];
 
         $this->quantidade = 1;
@@ -248,6 +259,9 @@ class PedidoProdutoSelector extends Component
                 'preco' => $p->precoFracaoCardapio(),
                 'precoOriginal' => (float) $p->produto_preco_venda,
                 'temRelampago' => app(PrecificadorService::class)->promocoesVigentesDoProduto($p->id)->isNotEmpty(),
+                'controlaEstoque' => (bool) $p->produto_controla_estoque,
+                'saldoEstoque' => (float) $p->produto_saldo_estoque,
+                'unidadeEstoque' => $p->produto_unidade_estoque,
             ])
             ->toArray();
 
@@ -299,6 +313,8 @@ class PedidoProdutoSelector extends Component
         }
 
         $this->erroPromocao = null;
+        $this->erroEstoque = null;
+        $this->avisoEstoque = null;
 
         // Refaz o rateio com a mesma fonte da verdade do checkout público
         // (PrecificadorService::ratearCombo) em vez de recalcular na mão aqui:
@@ -340,6 +356,31 @@ class PedidoProdutoSelector extends Component
             ]];
         } else {
             $rateio = $precificador->ratearCombo($produtosOrdenados, qtd: 1);
+        }
+
+        if ($this->pedidoId) {
+            $estoque = app(EstoqueService::class);
+            $avisos = [];
+
+            try {
+                foreach ($rateio as $linha) {
+                    $produtoLinha = $produtosPorId->get($linha['produto_id']);
+
+                    if (! $produtoLinha) {
+                        continue;
+                    }
+
+                    array_push($avisos, ...$estoque->validarDisponibilidade($produtoLinha, (float) $linha['quantidade']));
+                }
+            } catch (EstoqueInsuficienteException $e) {
+                $this->erroEstoque = $e->getMessage();
+
+                return;
+            }
+
+            if ($avisos !== []) {
+                $this->avisoEstoque = implode(' | ', $avisos);
+            }
         }
 
         $promocaoId = $rateio[0]['promocao_id'] ?? null;
@@ -477,12 +518,31 @@ class PedidoProdutoSelector extends Component
         }
 
         $this->erroPromocao = null;
+        $this->erroEstoque = null;
+        $this->avisoEstoque = null;
 
         $precoBase = $this->produtoSelecionado['preco_base'];
         $descontoUnit = $this->produtoSelecionado['desconto_unit'];
         $promocaoId = $this->produtoSelecionado['promocao_id'] ?? null;
 
         $promocoes = app(PromocaoRelampagoService::class);
+
+        if ($this->pedidoId) {
+            try {
+                $avisos = app(EstoqueService::class)->validarDisponibilidade(
+                    Produto::findOrFail($this->produtoSelecionadoId),
+                    $this->quantidade,
+                );
+
+                if ($avisos !== []) {
+                    $this->avisoEstoque = implode(' | ', $avisos);
+                }
+            } catch (EstoqueInsuficienteException $e) {
+                $this->erroEstoque = $e->getMessage();
+
+                return;
+            }
+        }
 
         if ($promocaoId && $this->pedidoId) {
             $promocao = PromocaoRelampago::find($promocaoId);
@@ -586,6 +646,13 @@ class PedidoProdutoSelector extends Component
 
         $this->fecharModal();
         $this->notificarPai();
+    }
+
+    /** Dispensa o toast de erro/aviso de estoque exibido dentro dos modais. */
+    public function fecharToastEstoque(): void
+    {
+        $this->erroEstoque = null;
+        $this->avisoEstoque = null;
     }
 
     public function fecharModal(): void

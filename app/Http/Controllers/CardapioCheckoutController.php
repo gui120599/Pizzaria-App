@@ -10,6 +10,7 @@ use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
 use App\Models\Produto;
+use App\Services\EstoqueService;
 use App\Services\PrecificadorService;
 use App\Services\PromocaoRelampagoService;
 use Illuminate\Http\Request;
@@ -204,6 +205,27 @@ class CardapioCheckoutController extends Controller
                 'item_pedido_observacao' => $observacao,
                 'item_pedido_status' => 'INSERIDO',
             ];
+        }
+
+        // Disponibilidade de estoque: soma por produto (um mesmo produto pode
+        // aparecer em mais de uma linha, ex.: combo de sabores) e bloqueia o
+        // checkout se algum item em modo BLOQUEAR não tiver saldo suficiente.
+        $bloqueiosEstoque = [];
+        $estoque = app(EstoqueService::class);
+
+        foreach (collect($linhas)->groupBy('item_pedido_produto_id') as $produtoId => $doGrupo) {
+            $produtoLinha = $produtos->get($produtoId);
+            if (! $produtoLinha) {
+                continue;
+            }
+
+            $qtdTotal = (float) collect($doGrupo)->sum('item_pedido_quantidade');
+            $resultado = $estoque->checarDisponibilidade($produtoLinha, $qtdTotal);
+            array_push($bloqueiosEstoque, ...$resultado['bloqueios']);
+        }
+
+        if ($bloqueiosEstoque !== []) {
+            return response()->json(['message' => 'Item sem estoque suficiente: '.implode(' | ', $bloqueiosEstoque)], 422);
         }
 
         // Limite por pedido: somado por promoção, antes de gravar qualquer coisa.

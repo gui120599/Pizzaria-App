@@ -59,7 +59,7 @@ class VendaObserver
             }
 
             $dados = [
-                'pedido_venda_id'            => $venda->id,
+                'pedido_venda_id' => $venda->id,
                 'pedido_datahora_finalizado' => Carbon::now(),
             ];
 
@@ -129,7 +129,7 @@ class VendaObserver
             $service = app(EstoqueService::class);
 
             foreach ($itens as $item) {
-                $produto    = $item->produto;
+                $produto = $item->produto;
                 $quantidade = (float) $item->item_venda_quantidade;
 
                 if (! $produto) {
@@ -138,32 +138,17 @@ class VendaObserver
 
                 $opts = [
                     'referencia' => $venda,
-                    'motivo'     => "Baixa venda direta #{$venda->id}",
+                    'motivo' => "Baixa venda direta #{$venda->id}",
                 ];
 
-                if ($produto->fichaItens->isNotEmpty()) {
-                    $rendimento = (float) ($produto->produto_ficha_rendimento ?: 1);
+                foreach ($service->itensConsumo($produto, $quantidade) as $consumo) {
+                    $insumo = $consumo['produto'];
 
-                    foreach ($produto->fichaItens as $fichaItem) {
-                        $insumo = $fichaItem->insumo;
-
-                        if (! $insumo || ! $insumo->produto_controla_estoque) {
-                            continue;
-                        }
-
-                        $qtdInsumo = round(
-                            $quantidade * (float) $fichaItem->fti_quantidade * $fichaItem->fatorPerda() / $rendimento,
-                            3,
-                        );
-
-                        $service->registrarSaida($insumo, $qtdInsumo, MovimentacaoOrigemEnum::VENDA, $opts);
+                    if (! $insumo->produto_controla_estoque) {
+                        continue;
                     }
 
-                    continue;
-                }
-
-                if ($produto->produto_controla_estoque) {
-                    $service->registrarSaida($produto, $quantidade, MovimentacaoOrigemEnum::VENDA, $opts);
+                    $service->registrarSaida($insumo, $consumo['quantidade'], MovimentacaoOrigemEnum::VENDA, $opts);
                 }
             }
         });

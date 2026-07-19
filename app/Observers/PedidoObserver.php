@@ -22,10 +22,10 @@ class PedidoObserver
     {
         if ($pedido->isDirty('pedido_sessao_mesa_id')) {
             MovimentacaoPedido::create([
-                'mov_pedido_pedido_id'               => $pedido->id,
+                'mov_pedido_pedido_id' => $pedido->id,
                 'mov_pedido_sessao_mesa_id_anterior' => $pedido->getOriginal('pedido_sessao_mesa_id'),
-                'mov_pedido_sessao_mesa_id_atual'    => $pedido->pedido_sessao_mesa_id,
-                'mov_pedido_user_id'                 => Auth::id(),
+                'mov_pedido_sessao_mesa_id_atual' => $pedido->pedido_sessao_mesa_id,
+                'mov_pedido_user_id' => Auth::id(),
             ]);
         }
 
@@ -33,7 +33,7 @@ class PedidoObserver
             return;
         }
 
-        $novoStatus     = $pedido->pedido_status;
+        $novoStatus = $pedido->pedido_status;
         $statusAnterior = $pedido->getOriginal('pedido_status');
 
         // Baixa de estoque: pedido entrou em preparo (momento real de consumo dos insumos)
@@ -87,7 +87,7 @@ class PedidoObserver
         EstoqueService $service,
         string $motivo,
     ): void {
-        $produto    = $item->produto;
+        $produto = $item->produto;
         $quantidade = (float) $item->item_pedido_quantidade;
 
         if (! $produto) {
@@ -96,29 +96,14 @@ class PedidoObserver
 
         $opts = ['referencia' => $pedido, 'motivo' => $motivo];
 
-        if ($produto->fichaItens->isNotEmpty()) {
-            $rendimento = (float) ($produto->produto_ficha_rendimento ?: 1);
+        foreach ($service->itensConsumo($produto, $quantidade) as $consumo) {
+            $insumo = $consumo['produto'];
 
-            foreach ($produto->fichaItens as $fichaItem) {
-                $insumo = $fichaItem->insumo;
-
-                if (! $insumo || ! $insumo->produto_controla_estoque) {
-                    continue;
-                }
-
-                $qtdInsumo = round(
-                    $quantidade * (float) $fichaItem->fti_quantidade * $fichaItem->fatorPerda() / $rendimento,
-                    3,
-                );
-
-                $service->registrarSaida($insumo, $qtdInsumo, MovimentacaoOrigemEnum::VENDA, $opts);
+            if (! $insumo->produto_controla_estoque) {
+                continue;
             }
 
-            return;
-        }
-
-        if ($produto->produto_controla_estoque) {
-            $service->registrarSaida($produto, $quantidade, MovimentacaoOrigemEnum::VENDA, $opts);
+            $service->registrarSaida($insumo, $consumo['quantidade'], MovimentacaoOrigemEnum::VENDA, $opts);
         }
     }
 
@@ -128,7 +113,7 @@ class PedidoObserver
         EstoqueService $service,
         string $motivo,
     ): void {
-        $produto    = $item->produto;
+        $produto = $item->produto;
         $quantidade = (float) $item->item_pedido_quantidade;
 
         if (! $produto) {
@@ -137,38 +122,17 @@ class PedidoObserver
 
         $opts = ['referencia' => $pedido, 'motivo' => $motivo];
 
-        if ($produto->fichaItens->isNotEmpty()) {
-            $rendimento = (float) ($produto->produto_ficha_rendimento ?: 1);
+        foreach ($service->itensConsumo($produto, $quantidade) as $consumo) {
+            $insumo = $consumo['produto'];
 
-            foreach ($produto->fichaItens as $fichaItem) {
-                $insumo = $fichaItem->insumo;
-
-                if (! $insumo || ! $insumo->produto_controla_estoque) {
-                    continue;
-                }
-
-                $qtdInsumo = round(
-                    $quantidade * (float) $fichaItem->fti_quantidade * $fichaItem->fatorPerda() / $rendimento,
-                    3,
-                );
-
-                $service->registrarEntrada(
-                    $insumo,
-                    $qtdInsumo,
-                    (float) $insumo->produto_custo_medio,
-                    MovimentacaoOrigemEnum::AJUSTE,
-                    $opts,
-                );
+            if (! $insumo->produto_controla_estoque) {
+                continue;
             }
 
-            return;
-        }
-
-        if ($produto->produto_controla_estoque) {
             $service->registrarEntrada(
-                $produto,
-                $quantidade,
-                (float) $produto->produto_custo_medio,
+                $insumo,
+                $consumo['quantidade'],
+                (float) $insumo->produto_custo_medio,
                 MovimentacaoOrigemEnum::AJUSTE,
                 $opts,
             );

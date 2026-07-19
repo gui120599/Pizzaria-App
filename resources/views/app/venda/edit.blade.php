@@ -1073,8 +1073,14 @@
                 $.ajax({
                     type: "POST", url: "{{ route('item_venda.add_produto') }}",
                     data: { '_token': '{{ csrf_token() }}', produto_id, venda_id }, dataType: "JSON",
-                    success: function () { ListaItensVenda(venda_id); },
-                    error: function () { showAvisoVenda('Erro ao adicionar produto!'); $("#carregando").addClass('hidden'); }
+                    success: function (response) {
+                        if (response && response.aviso) { showAvisoVenda(response.aviso, 'warning'); }
+                        ListaItensVenda(venda_id);
+                    },
+                    error: function (xhr) {
+                        showAvisoVenda((xhr.responseJSON && xhr.responseJSON.message) || 'Erro ao adicionar produto!');
+                        $("#carregando").addClass('hidden');
+                    }
                 });
             }
 

@@ -35,6 +35,8 @@ class Produto extends Model
         'produto_codimentacao',
         'produto_tipo',
         'produto_controla_estoque',
+        'produto_modo_controle_estoque',
+        'produto_lista_estoque_zerado',
         'produto_cardapio',
         'produto_codigo_NCM',
         'produto_codigo_CEST',
@@ -72,6 +74,8 @@ class Produto extends Model
         'produto_controla_lote' => 'boolean',
         'produto_perecivel' => 'boolean',
         'produto_venda_manual' => 'boolean',
+        'produto_lista_estoque_zerado' => 'boolean',
+        'produto_modo_controle_estoque' => \App\Enums\EstoqueModoControleEnum::class,
         'produto_custo_medio' => 'decimal:4',
         'produto_saldo_estoque' => 'decimal:3',
         'produto_ficha_rendimento' => 'decimal:3',
@@ -167,6 +171,34 @@ class Produto extends Model
                 ->orWhere('produto_data_inicio_promocao', '<=', $hoje))
             ->where(fn (Builder $q) => $q->whereNull('produto_data_final_promocao')
                 ->orWhere('produto_data_final_promocao', '>=', $hoje));
+    }
+
+    /**
+     * Produtos visíveis no cardápio público: precisa estar marcado pra
+     * aparecer e, se controla estoque e o saldo zerou, só continua visível
+     * se produto_lista_estoque_zerado permitir (ex.: item que ainda aceita
+     * encomenda mesmo sem saldo no momento).
+     */
+    public function scopeVisivelCardapio(Builder $query): Builder
+    {
+        return $query->where('produto_cardapio', true)
+            ->where(fn (Builder $q) => $q->where('produto_controla_estoque', false)
+                ->orWhere('produto_saldo_estoque', '>', 0)
+                ->orWhere('produto_lista_estoque_zerado', true));
+    }
+
+    /** Mesma regra de scopeVisivelCardapio(), pra checar uma instância já carregada. */
+    public function visivelNoCardapio(): bool
+    {
+        if (! $this->produto_cardapio) {
+            return false;
+        }
+
+        if (! $this->produto_controla_estoque) {
+            return true;
+        }
+
+        return (float) $this->produto_saldo_estoque > 0 || (bool) $this->produto_lista_estoque_zerado;
     }
 
     /**

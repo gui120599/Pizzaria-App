@@ -11,6 +11,28 @@
         </div>
     @endif
 
+    {{-- Erro de estoque insuficiente (modo Bloquear) --}}
+    @if ($erroEstoque)
+        <div class="flex items-start gap-2 px-4 py-3 bg-red-50 border-b border-red-200 text-red-700 text-sm">
+            <i class='bx bx-error-circle text-base mt-0.5 shrink-0'></i>
+            <span class="flex-1">{{ $erroEstoque }}</span>
+            <button wire:click="$set('erroEstoque', null)" type="button" class="text-red-400 hover:text-red-600 shrink-0">
+                <i class='bx bx-x text-lg'></i>
+            </button>
+        </div>
+    @endif
+
+    {{-- Aviso de estoque insuficiente (modo Avisar) --}}
+    @if ($avisoEstoque)
+        <div class="flex items-start gap-2 px-4 py-3 bg-amber-50 border-b border-amber-200 text-amber-700 text-sm">
+            <i class='bx bx-error text-base mt-0.5 shrink-0'></i>
+            <span class="flex-1">{{ $avisoEstoque }}</span>
+            <button wire:click="$set('avisoEstoque', null)" type="button" class="text-amber-400 hover:text-amber-600 shrink-0">
+                <i class='bx bx-x text-lg'></i>
+            </button>
+        </div>
+    @endif
+
     {{-- ── Busca + categorias ─────────────────────────────────────────────── --}}
     <div class="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3">
 
@@ -111,6 +133,13 @@
                         @endif
                         @if ($produto->produto_codimentacao)
                             <span class="block text-[9px] text-gray-400 leading-tight mt-0.5">{{ $produto->produto_codimentacao }}</span>
+                        @endif
+                        @if ($produto->produto_controla_estoque)
+                            @php $saldo = (float) $produto->produto_saldo_estoque; @endphp
+                            <span class="inline-flex items-center gap-0.5 text-[9px] font-semibold mt-0.5 {{ $saldo > 0 ? 'text-gray-400' : 'text-red-500' }}">
+                                <i class='bx bxs-package'></i>
+                                {{ $saldo == floor($saldo) ? (int) $saldo : number_format($saldo, 2, ',', '.') }} {{ $produto->produto_unidade_estoque }} em estoque
+                            </span>
                         @endif
                     </div>
                 </div>
@@ -318,6 +347,21 @@
 
             <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 max-h-[90vh] overflow-y-auto">
 
+                {{-- Toast temporário: erro/aviso de estoque (fica por cima do modal, senão o
+                     garçom não vê sem fechar o próprio modal que está tentando confirmar) --}}
+                @if ($erroEstoque || $avisoEstoque)
+                    <div wire:key="toast-estoque-modal-{{ md5(($erroEstoque ?? '').($avisoEstoque ?? '')) }}"
+                         x-data
+                         x-init="setTimeout(() => $wire.fecharToastEstoque(), 5000)"
+                         class="absolute top-3 inset-x-3 z-20 flex items-start gap-2 px-3 py-2.5 rounded-xl border shadow-lg text-sm {{ $erroEstoque ? 'bg-red-50 border-red-200 text-red-700' : 'bg-amber-50 border-amber-200 text-amber-700' }}">
+                        <i class='bx {{ $erroEstoque ? "bx-error-circle" : "bx-error" }} text-base mt-0.5 shrink-0'></i>
+                        <span class="flex-1">{{ $erroEstoque ?? $avisoEstoque }}</span>
+                        <button type="button" wire:click="fecharToastEstoque" class="shrink-0 opacity-60 hover:opacity-100">
+                            <i class='bx bx-x text-lg'></i>
+                        </button>
+                    </div>
+                @endif
+
                 {{-- Header --}}
                 <div class="flex items-start justify-between gap-3 px-5 pt-5 pb-4 border-b border-gray-100">
                     <div>
@@ -337,6 +381,13 @@
                                 <span class="text-sm font-bold text-gray-700">R$ {{ number_format($produtoSelecionado['preco_base'], 2, ',', '.') }}</span>
                             @endif
                         </div>
+                        @if (!empty($produtoSelecionado['controla_estoque']))
+                            @php $saldoModal = (float) $produtoSelecionado['saldo_estoque']; @endphp
+                            <p class="inline-flex items-center gap-1 text-xs font-semibold mt-1 {{ $saldoModal > 0 ? 'text-gray-500' : 'text-red-500' }}">
+                                <i class='bx bxs-package'></i>
+                                Estoque: {{ $saldoModal == floor($saldoModal) ? (int) $saldoModal : number_format($saldoModal, 2, ',', '.') }} {{ $produtoSelecionado['unidade_estoque'] }}
+                            </p>
+                        @endif
                     </div>
                     <button wire:click="fecharModal" type="button" class="text-gray-400 hover:text-gray-600 shrink-0 mt-0.5 transition-colors">
                         <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
@@ -552,6 +603,20 @@
 
             <div class="relative w-full max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh] z-10">
 
+                {{-- Toast temporário: erro/aviso de estoque (mesmo motivo do modal de item único) --}}
+                @if ($erroEstoque || $avisoEstoque)
+                    <div wire:key="toast-estoque-sabores-{{ md5(($erroEstoque ?? '').($avisoEstoque ?? '')) }}"
+                         x-data
+                         x-init="setTimeout(() => $wire.fecharToastEstoque(), 5000)"
+                         class="absolute top-3 inset-x-3 z-20 flex items-start gap-2 px-3 py-2.5 rounded-xl border shadow-lg text-sm {{ $erroEstoque ? 'bg-red-50 border-red-200 text-red-700' : 'bg-amber-50 border-amber-200 text-amber-700' }}">
+                        <i class='bx {{ $erroEstoque ? "bx-error-circle" : "bx-error" }} text-base mt-0.5 shrink-0'></i>
+                        <span class="flex-1">{{ $erroEstoque ?? $avisoEstoque }}</span>
+                        <button type="button" wire:click="fecharToastEstoque" class="shrink-0 opacity-60 hover:opacity-100">
+                            <i class='bx bx-x text-lg'></i>
+                        </button>
+                    </div>
+                @endif
+
                 {{-- Header --}}
                 <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
                     <div>
@@ -659,6 +724,13 @@
                                         <span class="text-gray-700 text-sm font-bold">R$ {{ number_format($sabor['preco'], 2, ',', '.') }}</span>
                                     @endif
                                 </div>
+                                @if (!empty($sabor['controlaEstoque']))
+                                    @php $saldoSabor = (float) $sabor['saldoEstoque']; @endphp
+                                    <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold mt-0.5 {{ $saldoSabor > 0 ? 'text-gray-400' : 'text-red-500' }}">
+                                        <i class='bx bxs-package'></i>
+                                        {{ $saldoSabor == floor($saldoSabor) ? (int) $saldoSabor : number_format($saldoSabor, 2, ',', '.') }} {{ $sabor['unidadeEstoque'] }}
+                                    </span>
+                                @endif
                             </div>
                             <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors text-white text-xs font-bold
                                 {{ $selecionado ? 'bg-teal-500' : 'bg-gray-200' }}">

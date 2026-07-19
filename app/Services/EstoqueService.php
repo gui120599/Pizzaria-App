@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\EstoqueModoControleEnum;
 use App\Enums\MovimentacaoOrigemEnum;
 use App\Enums\MovimentacaoTipoEnum;
+use App\Exceptions\EstoqueInsuficienteException;
 use App\Models\EstoqueLote;
+use App\Models\FichaTecnicaItem;
 use App\Models\MovimentacaoProduto;
 use App\Models\Produto;
 use Illuminate\Database\Eloquent\Model;
@@ -181,6 +184,100 @@ class EstoqueService
         }
 
         return null;
+    }
+
+    /**
+     * Expande um produto na lista de itens efetivamente consumidos do
+     * estoque para a quantidade informada: o próprio produto (se não tem
+     * ficha técnica) ou os insumos da ficha, já multiplicados pelo fator de
+     * perda e divididos pelo rendimento. Única fonte dessa expansão — tanto
+     * a baixa real (PedidoObserver/VendaObserver) quanto a checagem de
+     * disponibilidade usam este método, para nunca divergirem entre si.
+     *
+     * @return Collection<int, array{produto: Produto, quantidade: float}>
+     */
+    public function itensConsumo(Produto $produto, float $quantidade): Collection
+    {
+        $fichaItens = $produto->relationLoaded('fichaItens')
+            ? $produto->fichaItens
+            : $produto->fichaItens()->with('insumo')->get();
+
+        if ($fichaItens->isEmpty()) {
+            return collect([['produto' => $produto, 'quantidade' => round($quantidade, 3)]]);
+        }
+
+        $rendimento = (float) ($produto->produto_ficha_rendimento ?: 1);
+
+        return $fichaItens
+            ->filter(fn (FichaTecnicaItem $item) => $item->insumo !== null)
+            ->map(fn (FichaTecnicaItem $item) => [
+                'produto' => $item->insumo,
+                'quantidade' => round($quantidade * (float) $item->fti_quantidade * $item->fatorPerda() / $rendimento, 3),
+            ])
+            ->values();
+    }
+
+    /**
+     * Verifica se há saldo suficiente para consumir a quantidade informada
+     * do produto (ou dos insumos da ficha técnica, se houver). Itens que não
+     * controlam estoque ou estão em modo NAO_CONTROLAR nunca entram no
+     * resultado.
+     *
+     * @return array{bloqueios: array<int, string>, avisos: array<int, string>}
+     */
+    public function checarDisponibilidade(Produto $produto, float $quantidade): array
+    {
+        $bloqueios = [];
+        $avisos = [];
+
+        foreach ($this->itensConsumo($produto, $quantidade) as $item) {
+            /** @var Produto $insumo */
+            $insumo = $item['produto'];
+            $modo = $insumo->produto_modo_controle_estoque ?? EstoqueModoControleEnum::NAO_CONTROLAR;
+
+            if (! $insumo->produto_controla_estoque || $modo === EstoqueModoControleEnum::NAO_CONTROLAR) {
+                continue;
+            }
+
+            $faltante = round($item['quantidade'] - (float) $insumo->produto_saldo_estoque, 3);
+            if ($faltante <= 0) {
+                continue;
+            }
+
+            $mensagem = sprintf(
+                '%s: saldo insuficiente (disponível %s, necessário %s %s)',
+                $insumo->produto_descricao,
+                number_format((float) $insumo->produto_saldo_estoque, 3, ',', '.'),
+                number_format($item['quantidade'], 3, ',', '.'),
+                $insumo->produto_unidade_estoque ?? '',
+            );
+
+            if ($modo === EstoqueModoControleEnum::BLOQUEAR) {
+                $bloqueios[] = $mensagem;
+            } else {
+                $avisos[] = $mensagem;
+            }
+        }
+
+        return ['bloqueios' => $bloqueios, 'avisos' => $avisos];
+    }
+
+    /**
+     * Lança EstoqueInsuficienteException se algum item (produto ou insumo da
+     * ficha) em modo BLOQUEAR não tiver saldo suficiente. Retorna os avisos
+     * não bloqueantes (modo AVISAR) para o chamador exibir.
+     *
+     * @return array<int, string> avisos
+     */
+    public function validarDisponibilidade(Produto $produto, float $quantidade): array
+    {
+        $resultado = $this->checarDisponibilidade($produto, $quantidade);
+
+        if ($resultado['bloqueios'] !== []) {
+            throw new EstoqueInsuficienteException(implode(' | ', $resultado['bloqueios']));
+        }
+
+        return $resultado['avisos'];
     }
 
     private function criarMovimentacao(
