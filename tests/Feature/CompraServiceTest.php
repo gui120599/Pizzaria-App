@@ -108,6 +108,30 @@ class CompraServiceTest extends TestCase
         $this->assertEquals(2, FornecedorProduto::where('fp_prestador_id', $forn->id)->count());
     }
 
+    public function test_confirmar_registra_hora_da_confirmacao_na_movimentacao(): void
+    {
+        $forn = $this->fornecedor();
+        $insumo = $this->insumo('Farinha');
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 1, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 5,
+        ]);
+
+        $antes = now();
+        $this->service->confirmar($compra->fresh('itens'));
+        $depois = now();
+
+        $movimentacao = $compra->movimentacoes()->first();
+        $this->assertNotNull($movimentacao->mov_data);
+        $this->assertTrue($movimentacao->mov_data->betweenIncluded($antes->copy()->subSecond(), $depois->copy()->addSecond()));
+    }
+
     public function test_nao_confirma_compra_ja_confirmada(): void
     {
         $forn = $this->fornecedor();

@@ -69,7 +69,9 @@ class CompraService
                         'lote_codigo' => $item->ci_lote_codigo,
                         'centro_custo_id' => $compra->compra_centro_custo_id,
                         'referencia' => $compra,
-                        'data' => $compra->compra_data_entrada,
+                        'data' => $compra->compra_data_entrada
+                            ? $compra->compra_data_entrada->copy()->setTimeFrom(now())
+                            : now(),
                         'user_id' => $compra->compra_user_id,
                     ],
                 );
