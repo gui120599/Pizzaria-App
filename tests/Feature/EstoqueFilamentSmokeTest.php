@@ -8,18 +8,18 @@ use App\Filament\Resources\Compras\Pages\CreateCompra;
 use App\Filament\Resources\Compras\Pages\EditCompra;
 use App\Filament\Resources\Compras\Pages\ListCompras;
 use App\Filament\Resources\Compras\RelationManagers\ItensRelationManager;
-use App\Models\Compra;
 use App\Filament\Resources\Fornecedores\Pages\CreateFornecedor;
 use App\Filament\Resources\Fornecedores\Pages\EditFornecedor;
 use App\Filament\Resources\Fornecedores\Pages\ListFornecedores;
 use App\Filament\Resources\Fornecedores\RelationManagers\FornecedorProdutosRelationManager;
 use App\Filament\Resources\MovimentacaoProdutos\Pages\ManageMovimentacaoProdutos;
-use App\Models\Prestador;
 use App\Filament\Resources\Produtos\Pages\CreateProduto;
 use App\Filament\Resources\Produtos\Pages\EditProduto;
 use App\Filament\Resources\Produtos\Pages\ListProdutos;
 use App\Filament\Resources\Produtos\RelationManagers\FichaItensRelationManager;
 use App\Models\Categoria;
+use App\Models\Compra;
+use App\Models\Prestador;
 use App\Models\Produto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,7 +63,9 @@ class EstoqueFilamentSmokeTest extends TestCase
             ->assertTableColumnExists('produto_saldo_estoque')
             ->assertTableColumnExists('produto_custo_medio')
             ->assertTableActionExists('movimentar_estoque')
-            ->assertTableActionExists('ajuste_estoque');
+            // Removidas: ajuste de inventário e ajuste de preço promocional por linha.
+            ->assertTableActionDoesNotExist('ajuste_estoque')
+            ->assertTableActionDoesNotExist('ajustar_preco_promocional');
     }
 
     public function test_acao_movimentar_registra_entrada_via_estoque_service(): void
