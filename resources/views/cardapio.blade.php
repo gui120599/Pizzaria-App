@@ -267,17 +267,33 @@
 
             {{-- Categorias --}}
             @foreach ($categorias as $categoria)
-                <div class="mb-4" id="categoria_{{ $categoria->id }}">
+                <div class="mb-4" id="categoria_{{ $categoria->id }}" x-data="{ catFilhaAtiva: 'todos' }">
                     {{-- Sticky: fica fixo no topo do scroll enquanto o usuário navega
                          pelos produtos desta categoria, pra não se perder onde está. --}}
                     <h2 class="sticky top-0 z-20 bg-black py-2 text-lg text-white font-bold">{{ $categoria->categoria_nome }}</h2>
+
+                    {{-- Filtro de subcategorias: mesmo padrão de pills da seção "Mais
+                         Vendidos", mas em scroll horizontal — a categoria pai pode ter
+                         várias filhas, que não cabem numa linha só. --}}
+                    @if ($categoria->filhas->count() > 1)
+                        <div class="flex gap-1 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1">
+                            <button type="button" @click="catFilhaAtiva = 'todos'"
+                                :class="catFilhaAtiva === 'todos' ? 'bg-orange-500 text-white border-orange-600' : 'bg-gray-700 text-gray-300 border-gray-600'"
+                                class="shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold border transition whitespace-nowrap">Todos</button>
+                            @foreach ($categoria->filhas as $filha)
+                                <button type="button" @click="catFilhaAtiva = '{{ $filha->id }}'"
+                                    :class="catFilhaAtiva === '{{ $filha->id }}' ? 'bg-orange-500 text-white border-orange-600' : 'bg-gray-700 text-gray-300 border-gray-600'"
+                                    class="shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold border transition whitespace-nowrap">{{ $filha->categoria_nome }}</button>
+                            @endforeach
+                        </div>
+                    @endif
 
                     @if ($categoria->produtos->isEmpty() && $categoria->filhas->isEmpty())
                         <p class="text-gray-400">Não há produtos disponíveis nesta categoria.</p>
                     @endif
 
                     @if ($categoria->produtos->isNotEmpty())
-                        <div class="grid grid-cols-1 gap-4 mb-3">
+                        <div class="grid grid-cols-1 gap-4 mb-3" x-show="catFilhaAtiva === 'todos'">
                             @foreach ($categoria->produtos as $produto)
                                 <x-cardapio.produto-card :produto="$produto" :categoria="$categoria" :top10-ids="$top10Ids" />
                             @endforeach
@@ -290,13 +306,15 @@
                          propósito — margem num elemento sticky cria a mesma fresta do
                          padding do container; o espaçamento vem do mb-3 do grid anterior. --}}
                     @foreach ($categoria->filhas as $filha)
-                        <div class="sticky top-11 z-10 bg-black mb-2 py-1 pl-2 border-l-4 border-orange-500/60" id="categoria_{{ $filha->id }}">
-                            <h3 class="text-base text-orange-300 font-bold uppercase tracking-wide">{{ $filha->categoria_nome }}</h3>
-                        </div>
-                        <div class="grid grid-cols-1 gap-4 mb-3">
-                            @foreach ($filha->produtos as $produto)
-                                <x-cardapio.produto-card :produto="$produto" :categoria="$filha" :top10-ids="$top10Ids" />
-                            @endforeach
+                        <div x-show="catFilhaAtiva === 'todos' || catFilhaAtiva === '{{ $filha->id }}'">
+                            <div class="sticky top-11 z-10 bg-black mb-2 py-1 pl-2 border-l-4 border-orange-500/60" id="categoria_{{ $filha->id }}">
+                                <h3 class="text-base text-orange-300 font-bold uppercase tracking-wide">{{ $filha->categoria_nome }}</h3>
+                            </div>
+                            <div class="grid grid-cols-1 gap-4 mb-3">
+                                @foreach ($filha->produtos as $produto)
+                                    <x-cardapio.produto-card :produto="$produto" :categoria="$filha" :top10-ids="$top10Ids" />
+                                @endforeach
+                            </div>
                         </div>
                     @endforeach
                 </div>
