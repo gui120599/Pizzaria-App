@@ -270,6 +270,38 @@ class Produto extends Model
     }
 
     /**
+     * Verifica se este produto depende (direta ou indiretamente) do produto
+     * informado, percorrendo a ficha técnica. Usado para barrar ciclo no
+     * cadastro (ex.: impedir que a massa some como insumo do molho se o
+     * molho já é, ele mesmo, insumo da massa).
+     *
+     * @param  array<int>  $visitados  ids já percorridos nesta checagem (proteção contra ciclo pré-existente)
+     */
+    public function dependeDe(int $produtoId, array $visitados = []): bool
+    {
+        if (in_array($this->id, $visitados, true)) {
+            return false;
+        }
+        $visitados[] = $this->id;
+
+        $itens = $this->relationLoaded('fichaItens')
+            ? $this->fichaItens
+            : $this->fichaItens()->with('insumo')->get();
+
+        foreach ($itens as $item) {
+            if ($item->fti_insumo_id === $produtoId) {
+                return true;
+            }
+
+            if ($item->insumo && $item->insumo->dependeDe($produtoId, $visitados)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Custo unitário do produto.
      *
      * Para produtos com ficha técnica, calcula o custo a partir dos insumos

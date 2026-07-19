@@ -93,4 +93,36 @@ class FichaTecnicaTest extends TestCase
         // Não deve estourar (recursão infinita); apenas retorna um número finito.
         $this->assertIsFloat($a->custoUnitario());
     }
+
+    public function test_depende_de_detecta_dependencia_direta_e_indireta(): void
+    {
+        $a = $this->produzido('A');
+        $b = $this->produzido('B');
+        $c = $this->produzido('C');
+
+        // A usa B, B usa C (sem ciclo ainda).
+        FichaTecnicaItem::create(['fti_produto_id' => $a->id, 'fti_insumo_id' => $b->id, 'fti_quantidade' => 1, 'fti_percentual_perda' => 0]);
+        FichaTecnicaItem::create(['fti_produto_id' => $b->id, 'fti_insumo_id' => $c->id, 'fti_quantidade' => 1, 'fti_percentual_perda' => 0]);
+
+        $this->assertTrue($a->dependeDe($b->id));
+        $this->assertTrue($a->dependeDe($c->id)); // indireta, via B
+        $this->assertFalse($c->dependeDe($a->id));
+        $this->assertFalse($b->dependeDe($a->id));
+
+        // Tentar colocar A como insumo de C fecharia o ciclo A -> B -> C -> A.
+        // A validação do formulário checa exatamente isto: o candidato a
+        // insumo (A) já depende do dono da ficha (C)?
+        $this->assertTrue($a->dependeDe($c->id));
+    }
+
+    public function test_depende_de_nao_trava_com_ciclo_ja_existente_na_base(): void
+    {
+        $a = $this->produzido('A');
+        $b = $this->produzido('B');
+        FichaTecnicaItem::create(['fti_produto_id' => $a->id, 'fti_insumo_id' => $b->id, 'fti_quantidade' => 1, 'fti_percentual_perda' => 0]);
+        FichaTecnicaItem::create(['fti_produto_id' => $b->id, 'fti_insumo_id' => $a->id, 'fti_quantidade' => 1, 'fti_percentual_perda' => 0]);
+
+        $this->assertTrue($a->dependeDe($b->id));
+        $this->assertIsBool($a->dependeDe(999999));
+    }
 }

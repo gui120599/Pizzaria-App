@@ -246,6 +246,13 @@ class EstoqueService
      * Só faz sentido para produtos que controlam saldo próprio: um insumo
      * "virtual" (produto_controla_estoque = false) nunca acumula estoque —
      * ele é sempre recalculado na hora do consumo, via itensConsumo.
+     *
+     * Valida a disponibilidade das matérias-primas antes de baixar — a
+     * garantia fica no serviço, não em quem chama (mesmo motivo de
+     * itensConsumo ser fonte única: produção acionada por outro caminho que
+     * não a tela de edição não pode pular o bloqueio).
+     *
+     * @throws \App\Exceptions\EstoqueInsuficienteException se alguma matéria-prima em modo BLOQUEAR não tiver saldo suficiente
      */
     public function registrarProducao(
         Produto $produto,
@@ -259,6 +266,8 @@ class EstoqueService
         if (! $produto->temFichaTecnica()) {
             throw new \InvalidArgumentException("{$produto->produto_descricao} não possui ficha técnica.");
         }
+
+        $this->validarDisponibilidade($produto, $quantidade);
 
         return DB::transaction(function () use ($produto, $quantidade, $opts) {
             $motivo = $opts['motivo'] ?? "Produção — {$produto->produto_descricao}";

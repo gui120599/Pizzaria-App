@@ -184,4 +184,141 @@ class EstoqueServiceTest extends TestCase
         $this->expectException(EstoqueInsuficienteException::class);
         $this->service->validarDisponibilidade($pizza, 1);
     }
+
+    /** Massa e pizza: farinha -> massa (insumo_produzido) -> pizza (produzido). */
+    private function montarCadeiaMassaEPizza(bool $massaControlaEstoque): array
+    {
+        $farinha = $this->produto(['produto_descricao' => 'Farinha']);
+
+        $massa = Produto::create([
+            'produto_descricao' => 'Massa',
+            'produto_categoria_id' => $this->categoriaId,
+            'produto_tipo' => \App\Enums\ProdutoTipoEnum::INSUMO_PRODUZIDO->value,
+            'produto_controla_estoque' => $massaControlaEstoque,
+            'produto_ficha_rendimento' => 10,
+        ]);
+        // 1 KG de farinha rende 10 unidades de massa.
+        FichaTecnicaItem::create([
+            'fti_produto_id' => $massa->id,
+            'fti_insumo_id' => $farinha->id,
+            'fti_quantidade' => 1,
+            'fti_percentual_perda' => 0,
+        ]);
+
+        $pizza = Produto::create([
+            'produto_descricao' => 'Pizza',
+            'produto_categoria_id' => $this->categoriaId,
+            'produto_tipo' => \App\Enums\ProdutoTipoEnum::PRODUZIDO->value,
+            'produto_ficha_rendimento' => 1,
+        ]);
+        // 0,3 unidade de massa por pizza.
+        FichaTecnicaItem::create([
+            'fti_produto_id' => $pizza->id,
+            'fti_insumo_id' => $massa->id,
+            'fti_quantidade' => 0.3,
+            'fti_percentual_perda' => 0,
+        ]);
+
+        return [$farinha, $massa, $pizza];
+    }
+
+    public function test_itens_consumo_para_no_insumo_produzido_com_saldo_proprio(): void
+    {
+        [$farinha, $massa, $pizza] = $this->montarCadeiaMassaEPizza(massaControlaEstoque: true);
+
+        $itens = $this->service->itensConsumo($pizza, 1);
+
+        // Lote já produzido: baixa direto da massa, sem re-explodir a ficha dela.
+        $this->assertCount(1, $itens);
+        $this->assertSame($massa->id, $itens->first()['produto']->id);
+        $this->assertEqualsWithDelta(0.3, $itens->first()['quantidade'], 0.0001);
+    }
+
+    public function test_itens_consumo_expande_insumo_produzido_virtual_ate_a_materia_prima(): void
+    {
+        [$farinha, $massa, $pizza] = $this->montarCadeiaMassaEPizza(massaControlaEstoque: false);
+
+        $itens = $this->service->itensConsumo($pizza, 1);
+
+        // Sem saldo próprio: continua explodindo até a farinha.
+        // 1 pizza -> 0,3 massa -> 0,3 * 1 / 10 (rendimento) = 0,03 KG de farinha.
+        $this->assertCount(1, $itens);
+        $this->assertSame($farinha->id, $itens->first()['produto']->id);
+        $this->assertEqualsWithDelta(0.03, $itens->first()['quantidade'], 0.0001);
+    }
+
+    public function test_itens_consumo_protege_contra_ciclo_entre_insumos_produzidos(): void
+    {
+        $a = Produto::create([
+            'produto_descricao' => 'A', 'produto_categoria_id' => $this->categoriaId,
+            'produto_tipo' => \App\Enums\ProdutoTipoEnum::INSUMO_PRODUZIDO->value,
+            'produto_controla_estoque' => false,
+        ]);
+        $b = Produto::create([
+            'produto_descricao' => 'B', 'produto_categoria_id' => $this->categoriaId,
+            'produto_tipo' => \App\Enums\ProdutoTipoEnum::INSUMO_PRODUZIDO->value,
+            'produto_controla_estoque' => false,
+        ]);
+        // Ciclo criado direto no banco (contornando a validação de cadastro).
+        FichaTecnicaItem::create(['fti_produto_id' => $a->id, 'fti_insumo_id' => $b->id, 'fti_quantidade' => 1, 'fti_percentual_perda' => 0]);
+        FichaTecnicaItem::create(['fti_produto_id' => $b->id, 'fti_insumo_id' => $a->id, 'fti_quantidade' => 1, 'fti_percentual_perda' => 0]);
+
+        $itens = $this->service->itensConsumo($a, 1);
+
+        $this->assertNotEmpty($itens);
+    }
+
+    public function test_registrar_producao_baixa_materia_prima_e_credita_saldo_com_lote(): void
+    {
+        [$farinha, $massa, $pizza] = $this->montarCadeiaMassaEPizza(massaControlaEstoque: true);
+        $massa->update(['produto_controla_lote' => true]);
+        $this->service->registrarEntrada($farinha, 10, 5.00, MovimentacaoOrigemEnum::COMPRA, ['user_id' => $this->userId]);
+
+        $mov = $this->service->registrarProducao($massa->refresh(), 10, [
+            'lote_codigo' => 'M-1',
+            'validade' => '2026-08-01',
+            'user_id' => $this->userId,
+        ]);
+
+        // 10 unidades de massa / rendimento 10 = 1 KG de farinha consumido.
+        $this->assertEqualsWithDelta(9.0, (float) $farinha->refresh()->produto_saldo_estoque, 0.001);
+
+        // Custo da massa: (1 KG * 5,00) / 10 = 0,50 por unidade.
+        $massa->refresh();
+        $this->assertEqualsWithDelta(10.0, (float) $massa->produto_saldo_estoque, 0.001);
+        $this->assertEqualsWithDelta(0.5, (float) $massa->produto_custo_medio, 0.0001);
+        $this->assertEqualsWithDelta(0.5, (float) $mov->mov_custo_unitario, 0.0001);
+        $this->assertSame(MovimentacaoOrigemEnum::PRODUCAO, $mov->mov_origem);
+
+        $lote = $massa->lotes()->where('lote_codigo', 'M-1')->first();
+        $this->assertNotNull($lote);
+        $this->assertEqualsWithDelta(10.0, (float) $lote->lote_qtd_atual, 0.001);
+        $this->assertSame('2026-08-01', $lote->lote_validade->toDateString());
+    }
+
+    public function test_registrar_producao_lanca_excecao_sem_saldo_de_materia_prima(): void
+    {
+        [$farinha, $massa, $pizza] = $this->montarCadeiaMassaEPizza(massaControlaEstoque: true);
+        $farinha->update(['produto_modo_controle_estoque' => EstoqueModoControleEnum::BLOQUEAR]);
+
+        // Sem entrada de farinha: saldo zero, modo BLOQUEAR.
+        $this->expectException(EstoqueInsuficienteException::class);
+        $this->service->registrarProducao($massa->refresh(), 10, ['user_id' => $this->userId]);
+    }
+
+    public function test_registrar_producao_lanca_excecao_se_produto_nao_controla_estoque(): void
+    {
+        [$farinha, $massa, $pizza] = $this->montarCadeiaMassaEPizza(massaControlaEstoque: false);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->service->registrarProducao($massa, 10, ['user_id' => $this->userId]);
+    }
+
+    public function test_registrar_producao_lanca_excecao_sem_ficha_tecnica(): void
+    {
+        $produto = $this->produto(['produto_descricao' => 'Sem Ficha']);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->service->registrarProducao($produto, 10, ['user_id' => $this->userId]);
+    }
 }

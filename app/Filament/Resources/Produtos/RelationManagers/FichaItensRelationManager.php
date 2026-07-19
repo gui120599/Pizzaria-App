@@ -37,30 +37,65 @@ class FichaItensRelationManager extends RelationManager
 
     protected static ?string $pluralModelLabel = 'itens';
 
+    /** Mesmo cartão rico (foto, categoria, saldo) usado no select de produto de Compras e Balanço. */
+    private static function renderOpcaoProduto(Produto $p): string
+    {
+        $saldoRaw = (float) $p->produto_saldo_estoque;
+
+        return view('filament.components.select-balanco-produto', [
+            'image' => $p->produto_foto ? asset('storage/'.$p->produto_foto) : null,
+            'name' => $p->nomeExibicao(),
+            'category' => $p->categoria?->categoria_nome ?? '',
+            'saldo' => number_format($saldoRaw, 3, ',', '.'),
+            'saldo_raw' => $saldoRaw,
+            'unidade' => $p->produto_unidade_estoque ?? '',
+        ])->render();
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema
             ->components([
                 Select::make('fti_insumo_id')
                     ->label('Insumo / Componente')
-                    ->options(function (): array {
+                    ->placeholder('Digite o nome do produto...')
+                    ->searchable()
+                    ->allowHtml()
+                    ->getSearchResultsUsing(function (string $search): array {
                         $produtoId = $this->getOwnerRecord()->getKey();
 
                         return Produto::query()
                             ->where('id', '!=', $produtoId) // não pode se referenciar
                             ->where('produto_tipo', '!=', ProdutoTipoEnum::PRODUZIDO->value) // vendido ao cliente, não é insumo de outra ficha
+                            ->where('produto_descricao', 'like', "%{$search}%")
+                            ->with('categoria')
                             ->orderBy('produto_descricao')
-                            ->pluck('produto_descricao', 'id')
+                            ->limit(30)
+                            ->get()
+                            ->mapWithKeys(fn (Produto $p) => [$p->id => self::renderOpcaoProduto($p)])
                             ->toArray();
                     })
-                    ->searchable()
+                    ->getOptionLabelUsing(fn ($value): ?string => ($p = Produto::with('categoria')->find($value))
+                        ? self::renderOpcaoProduto($p)
+                        : null)
+                    ->native(false)
                     ->required()
                     ->live()
                     ->afterStateUpdated(function ($state, $set): void {
                         $insumo = $state ? Produto::find($state) : null;
                         $set('fti_unidade', $insumo?->produto_unidade_estoque);
                     })
-                    ->helperText('Pode ser um insumo ou um semi-acabado (com ficha própria).'),
+                    ->helperText('Pode ser um insumo ou um semi-acabado (com ficha própria).')
+                    ->rules([
+                        fn (): \Closure => function (string $attribute, $value, \Closure $fail): void {
+                            $produtoId = $this->getOwnerRecord()->getKey();
+                            $insumo = $value ? Produto::find($value) : null;
+
+                            if ($insumo && $insumo->dependeDe($produtoId)) {
+                                $fail("{$insumo->produto_descricao} já depende (direta ou indiretamente) deste produto na ficha técnica — isso criaria um ciclo.");
+                            }
+                        },
+                    ]),
 
                 TextInput::make('fti_quantidade')
                     ->label('Quantidade')
