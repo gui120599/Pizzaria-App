@@ -179,6 +179,31 @@ class ProdutosTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Filter::make('produto_id_busca')
+                    ->label('Código')
+                    ->form([
+                        TextInput::make('produto_id_busca')
+                            ->label('Código (ID)')
+                            ->numeric()
+                            ->placeholder('Digite o código do produto'),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query->when(
+                        $data['produto_id_busca'] ?? null,
+                        fn (Builder $q, $id) => $q->where('id', $id),
+                    )),
+
+                Filter::make('produto_descricao_busca')
+                    ->label('Descrição')
+                    ->form([
+                        TextInput::make('produto_descricao_busca')
+                            ->label('Descrição')
+                            ->placeholder('Digite parte da descrição'),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query->when(
+                        $data['produto_descricao_busca'] ?? null,
+                        fn (Builder $q, $descricao) => $q->where('produto_descricao', 'like', "%{$descricao}%"),
+                    )),
+
                 SelectFilter::make('produto_categoria_id')
                     ->label('Categoria')
                     ->relationship('categoria', 'categoria_nome')
@@ -289,6 +314,16 @@ class ProdutosTable
             // do dropdown — mesmo padrão usado no resource de Aluguéis do
             // LocSilva2. Cada seção ocupa a linha inteira e vem recolhida.
             ->filtersFormSchema(fn (array $filters): array => [
+                Section::make('Busca')
+                    ->icon('heroicon-o-magnifying-glass')
+                    ->collapsed(false)
+                    ->columnSpanFull()
+                    ->columns(2)
+                    ->schema([
+                        $filters['produto_id_busca'],
+                        $filters['produto_descricao_busca'],
+                    ]),
+
                 Section::make('Classificação')
                     ->icon('heroicon-o-tag')
                     ->collapsed()
