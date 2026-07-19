@@ -10,6 +10,7 @@ use App\Models\Categoria;
 use App\Models\CentroCusto;
 use App\Models\PlanoDespesa;
 use App\Models\Produto;
+use App\Services\BalancoEstoqueService;
 use App\Services\EstoqueService;
 use Filament\Actions\Action as ActionsAction;
 use Filament\Actions\BulkAction;
@@ -19,6 +20,9 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -946,6 +950,94 @@ class ProdutosTable
                             Notification::make()
                                 ->title('Produtos atualizados')
                                 ->body("{$count} produto(s) atualizado(s) em ".count($update).' campo(s).')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('balanco_em_lote')
+                        ->label('Realizar Balanço')
+                        ->icon('heroicon-o-scale')
+                        ->color('warning')
+                        ->modalHeading('Balanço físico em lote')
+                        ->modalDescription('Informe a quantidade física contada de cada produto selecionado. Produtos que não controlam estoque ficam de fora.')
+                        ->modalWidth('4xl')
+                        ->schema(function ($records): array {
+                            $itens = collect($records)
+                                ->filter(fn (Produto $produto): bool => (bool) $produto->produto_controla_estoque)
+                                ->map(fn (Produto $produto): array => [
+                                    'produto_id' => $produto->id,
+                                    'produto_descricao' => $produto->produto_descricao,
+                                    'saldo_atual' => (float) $produto->produto_saldo_estoque,
+                                    'quantidade_contada' => (float) $produto->produto_saldo_estoque,
+                                ])
+                                ->values()
+                                ->toArray();
+
+                            if ($itens === []) {
+                                return [
+                                    TextInput::make('aviso_vazio')
+                                        ->hiddenLabel()
+                                        ->disabled()
+                                        ->dehydrated(false)
+                                        ->default('Nenhum produto selecionado controla estoque.'),
+                                ];
+                            }
+
+                            return [
+                                Repeater::make('itens')
+                                    ->hiddenLabel()
+                                    ->table([
+                                        TableColumn::make('Produto'),
+                                        TableColumn::make('Saldo no sistema'),
+                                        TableColumn::make('Quantidade contada'),
+                                    ])
+                                    ->schema([
+                                        Hidden::make('produto_id'),
+                                        TextInput::make('produto_descricao')
+                                            ->hiddenLabel()
+                                            ->disabled()
+                                            ->dehydrated(false),
+                                        TextInput::make('saldo_atual')
+                                            ->hiddenLabel()
+                                            ->numeric()
+                                            ->disabled()
+                                            ->dehydrated(false),
+                                        TextInput::make('quantidade_contada')
+                                            ->hiddenLabel()
+                                            ->numeric()
+                                            ->step(0.001)
+                                            ->minValue(0)
+                                            ->required(),
+                                    ])
+                                    ->default($itens)
+                                    ->addable(false)
+                                    ->deletable(false)
+                                    ->reorderable(false)
+                                    ->columnSpanFull(),
+                            ];
+                        })
+                        ->action(function (array $data, $records) {
+                            $service = app(BalancoEstoqueService::class);
+                            $records = collect($records);
+                            $ajustados = 0;
+                            $semDiferenca = 0;
+
+                            foreach ($data['itens'] ?? [] as $item) {
+                                /** @var Produto|null $produto */
+                                $produto = $records->firstWhere('id', (int) $item['produto_id']);
+
+                                if (! $produto) {
+                                    continue;
+                                }
+
+                                $balanco = $service->realizarBalanco($produto, (float) $item['quantidade_contada']);
+
+                                $balanco ? $ajustados++ : $semDiferenca++;
+                            }
+
+                            Notification::make()
+                                ->title('Balanço em lote concluído')
+                                ->body("{$ajustados} produto(s) ajustado(s), {$semDiferenca} sem diferença.")
                                 ->success()
                                 ->send();
                         })
