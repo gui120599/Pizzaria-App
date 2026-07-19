@@ -82,7 +82,11 @@
         </div>
 
         {{-- CONTENT --}}
-        <div class="h-[74%] overflow-y-auto p-2">
+        {{-- px-2 (sem padding-top): o offset do sticky (top-0) é calculado a
+             partir da borda do padding do container com scroll — com
+             padding-top, sobrava uma fresta acima do cabeçalho fixo onde o
+             conteúdo já rolado aparecia por trás. --}}
+        <div class="h-[74%] overflow-y-auto px-2 pb-2">
 
             {{-- Seção de Promoções Relâmpago (destaque, com contador de escassez) --}}
             @if ($promocoesRelampago->isNotEmpty())
@@ -273,7 +277,7 @@
                     @endif
 
                     @if ($categoria->produtos->isNotEmpty())
-                        <div class="grid grid-cols-1 gap-4">
+                        <div class="grid grid-cols-1 gap-4 mb-3">
                             @foreach ($categoria->produtos as $produto)
                                 <x-cardapio.produto-card :produto="$produto" :categoria="$categoria" :top10-ids="$top10Ids" />
                             @endforeach
@@ -282,12 +286,14 @@
 
                     {{-- Filhas: subseções da categoria pai, cada uma com seus próprios
                          produtos. O subtítulo também fica sticky, logo abaixo do nome
-                         da pai (que continua fixo por cima). --}}
+                         da pai (que continua fixo por cima). Sem margin-top aqui de
+                         propósito — margem num elemento sticky cria a mesma fresta do
+                         padding do container; o espaçamento vem do mb-3 do grid anterior. --}}
                     @foreach ($categoria->filhas as $filha)
-                        <div class="sticky top-11 z-10 bg-black mt-5 mb-2 py-1 pl-2 border-l-4 border-orange-500/60" id="categoria_{{ $filha->id }}">
+                        <div class="sticky top-11 z-10 bg-black mb-2 py-1 pl-2 border-l-4 border-orange-500/60" id="categoria_{{ $filha->id }}">
                             <h3 class="text-base text-orange-300 font-bold uppercase tracking-wide">{{ $filha->categoria_nome }}</h3>
                         </div>
-                        <div class="grid grid-cols-1 gap-4">
+                        <div class="grid grid-cols-1 gap-4 mb-3">
                             @foreach ($filha->produtos as $produto)
                                 <x-cardapio.produto-card :produto="$produto" :categoria="$filha" :top10-ids="$top10Ids" />
                             @endforeach
