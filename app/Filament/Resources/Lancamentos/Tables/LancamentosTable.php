@@ -112,8 +112,11 @@ class LancamentosTable
             ])
             ->recordActions([
                 self::acaoMarcarComoPago(),
-                EditAction::make(),
-                DeleteAction::make(),
+                self::acaoEstornarPagamento(),
+                EditAction::make()
+                    ->visible(fn (Lancamento $record): bool => $record->status !== StatusLancamento::Pago),
+                DeleteAction::make()
+                    ->visible(fn (Lancamento $record): bool => $record->status !== StatusLancamento::Pago),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -154,6 +157,32 @@ class LancamentosTable
 
                 Notification::make()
                     ->title('Baixa registrada com sucesso!')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Reverte a baixa (volta a Pendente). É o único jeito de corrigir um lançamento
+     * Pago, já que ele fica travado para edição/exclusão direta (ver
+     * LancamentoResource::canEdit/canDelete).
+     */
+    protected static function acaoEstornarPagamento(): Action
+    {
+        return Action::make('estornarPagamento')
+            ->label('Estornar pagamento')
+            ->icon(Heroicon::OutlinedArrowUturnLeft)
+            ->color('warning')
+            ->visible(fn (Lancamento $record): bool => $record->status === StatusLancamento::Pago)
+            ->requiresConfirmation()
+            ->modalHeading('Estornar pagamento')
+            ->modalDescription('O lançamento volta para Pendente e a data/forma de pagamento são apagadas.')
+            ->modalSubmitActionLabel('Confirmar estorno')
+            ->action(function (Lancamento $record): void {
+                $record->estornarPagamento();
+
+                Notification::make()
+                    ->title('Pagamento estornado com sucesso!')
                     ->success()
                     ->send();
             });

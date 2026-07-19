@@ -15,20 +15,33 @@ class LancamentoRequest extends FormRequest
         return true;
     }
 
-    public function rules(): array
+    /**
+     * @param  bool  $permitirRateioSemPlano  Título a pagar rateado entre várias contas
+     *                                        (gerado por compra, plano_despesa_id nulo no
+     *                                        cabeçalho de propósito — ver CompraService::gerarContaPagar
+     *                                        e PreparaLancamento). Nesse caso a exigência de um
+     *                                        único plano_despesa_id é relaxada para não forçar o
+     *                                        colapso do rateio numa única conta ao salvar.
+     */
+    public function rules(bool $permitirRateioSemPlano = false): array
     {
+        $planoDespesaId = [
+            'nullable',
+            'prohibited_unless:tipo,'.TipoLancamento::Pagar->value,
+            Rule::exists('planos_despesas', 'id'),
+        ];
+
+        if (! $permitirRateioSemPlano) {
+            $planoDespesaId[] = 'required_if:tipo,'.TipoLancamento::Pagar->value;
+        }
+
         return [
             'tipo' => ['required', Rule::enum(TipoLancamento::class)],
 
             // Regra de integridade tipo↔plano:
             // pagar  => exige plano de despesas e proíbe plano de receitas;
             // receber => exige plano de receitas e proíbe plano de despesas.
-            'plano_despesa_id' => [
-                'nullable',
-                'required_if:tipo,'.TipoLancamento::Pagar->value,
-                'prohibited_unless:tipo,'.TipoLancamento::Pagar->value,
-                Rule::exists('planos_despesas', 'id'),
-            ],
+            'plano_despesa_id' => $planoDespesaId,
             'plano_receita_id' => [
                 'nullable',
                 'required_if:tipo,'.TipoLancamento::Receber->value,
@@ -53,7 +66,9 @@ class LancamentoRequest extends FormRequest
             'numero_documento' => ['nullable', 'string', 'max:255'],
             'valor' => ['required', 'numeric', 'min:0'],
             'vencimento' => ['required', 'date'],
-            'data_pagamento' => ['nullable', 'date'],
+            // Status Pago sem data de pagamento deixaria relatórios por data de baixa
+            // (fluxo de caixa por período) inconsistentes com o total por status.
+            'data_pagamento' => ['nullable', 'date', 'required_if:status,'.StatusLancamento::Pago->value],
             'status' => ['required', Rule::enum(StatusLancamento::class)],
             'forma_pagamento' => ['nullable', Rule::enum(FormaPagamento::class)],
             'observacoes' => ['nullable', 'string'],
@@ -85,6 +100,7 @@ class LancamentoRequest extends FormRequest
             'vencimento.required' => 'Informe a data de vencimento.',
             'vencimento.date' => 'Data de vencimento inválida.',
             'data_pagamento.date' => 'Data de pagamento inválida.',
+            'data_pagamento.required_if' => 'Informe a data de pagamento/recebimento para um lançamento com status Pago.',
         ];
     }
 

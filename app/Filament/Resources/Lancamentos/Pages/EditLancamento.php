@@ -22,6 +22,6 @@ class EditLancamento extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        return $this->prepararDados($data);
+        return $this->prepararDados($data, $this->getRecord());
     }
 }

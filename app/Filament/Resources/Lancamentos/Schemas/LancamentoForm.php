@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Lancamentos\Schemas;
 use App\Enums\FormaPagamento;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
+use App\Models\Lancamento;
 use App\Models\Prestador;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -40,7 +41,12 @@ class LancamentoForm
                         ->searchable()
                         ->preload()
                         ->visible(fn (Get $get): bool => self::ehTipo($get, TipoLancamento::Pagar))
-                        ->required(fn (Get $get): bool => self::ehTipo($get, TipoLancamento::Pagar)),
+                        ->required(fn (Get $get, ?Lancamento $record): bool => self::ehTipo($get, TipoLancamento::Pagar) && ! self::temRateio($record))
+                        ->disabled(fn (?Lancamento $record): bool => self::temRateio($record))
+                        ->dehydrated(fn (?Lancamento $record): bool => ! self::temRateio($record))
+                        ->helperText(fn (?Lancamento $record): ?string => self::temRateio($record)
+                            ? 'Título rateado entre várias contas (gerado por compra). A classificação por conta não pode ser editada aqui.'
+                            : null),
                     Select::make('plano_receita_id')
                         ->label('Conta (Plano de Receitas)')
                         ->relationship('planoReceita', 'nome')
@@ -85,7 +91,12 @@ class LancamentoForm
                         ->numeric()
                         ->prefix('R$')
                         ->minValue(0)
-                        ->required(),
+                        ->required()
+                        ->disabled(fn (?Lancamento $record): bool => self::temRateio($record))
+                        ->dehydrated(fn (?Lancamento $record): bool => ! self::temRateio($record))
+                        ->helperText(fn (?Lancamento $record): ?string => self::temRateio($record)
+                            ? 'Valor do título rateado — ajuste pela compra de origem.'
+                            : null),
                     DatePicker::make('vencimento')
                         ->label('Vencimento')
                         ->native(false)
@@ -99,7 +110,8 @@ class LancamentoForm
                     DatePicker::make('data_pagamento')
                         ->label('Data do pagamento / recebimento')
                         ->native(false)
-                        ->displayFormat('d/m/Y'),
+                        ->displayFormat('d/m/Y')
+                        ->required(fn (Get $get): bool => self::ehStatus($get, StatusLancamento::Pago)),
                     Select::make('forma_pagamento')
                         ->label('Forma de pagamento')
                         ->options(FormaPagamento::class),
@@ -124,5 +136,30 @@ class LancamentoForm
         return $atual instanceof TipoLancamento
             ? $atual === $tipo
             : $atual === $tipo->value;
+    }
+
+    /** Mesmo cuidado de ehTipo(), mas para o campo "status". */
+    private static function ehStatus(Get $get, StatusLancamento $status): bool
+    {
+        $atual = $get('status');
+
+        return $atual instanceof StatusLancamento
+            ? $atual === $status
+            : $atual === $status->value;
+    }
+
+    /**
+     * Título a pagar rateado entre várias contas (gerado por compra: plano_despesa_id
+     * nulo no cabeçalho de propósito — ver CompraService::gerarContaPagar). A tela de
+     * edição só conhece um plano por vez, então esses títulos travam plano_despesa_id
+     * e valor para não colapsar o rateio numa única conta nem descolar do total rateado
+     * em lancamento_despesas.
+     */
+    private static function temRateio(?Lancamento $record): bool
+    {
+        return $record !== null
+            && $record->exists
+            && $record->tipo === TipoLancamento::Pagar
+            && $record->plano_despesa_id === null;
     }
 }

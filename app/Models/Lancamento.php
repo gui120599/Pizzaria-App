@@ -169,4 +169,18 @@ class Lancamento extends Model
 
         return $this->save();
     }
+
+    /**
+     * Reverte a baixa: volta para Pendente e limpa data/forma de pagamento.
+     * Único jeito de corrigir um lançamento Pago, já que ele fica travado para
+     * edição/exclusão direta (ver LancamentoResource::canEdit/canDelete).
+     */
+    public function estornarPagamento(): bool
+    {
+        $this->status = StatusLancamento::Pendente;
+        $this->data_pagamento = null;
+        $this->forma_pagamento = null;
+
+        return $this->save();
+    }
 }

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Lancamentos\Support;
 
 use App\Enums\TipoLancamento;
 use App\Http\Requests\LancamentoRequest;
+use App\Models\Lancamento;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -12,8 +13,11 @@ trait PreparaLancamento
     /**
      * Normaliza o par tipo↔plano e valida os dados usando o LancamentoRequest
      * (regras canônicas), antes de persistir na criação/edição.
+     *
+     * @param  Lancamento|null  $record  Registro em edição (null na criação), usado para
+     *                                   detectar título rateado entre várias contas.
      */
-    protected function prepararDados(array $data): array
+    protected function prepararDados(array $data, ?Lancamento $record = null): array
     {
         // Normaliza o tipo para o valor escalar (required_if/prohibited comparam com string).
         $tipo = $data['tipo'] ?? null;
@@ -35,9 +39,23 @@ trait PreparaLancamento
             $data['favorecido_id'] = null;
         }
 
+        // Título a pagar rateado entre várias contas (gerado por compra: plano_despesa_id
+        // nulo no cabeçalho de propósito, classificação vive em lancamento_despesas — ver
+        // CompraService::gerarContaPagar). A tela de edição só conhece um plano por vez,
+        // então protege o cabeçalho contra o colapso do rateio numa única conta e contra
+        // uma alteração de valor que descolaria da soma das linhas de rateio.
+        $temRateio = $record !== null
+            && $record->tipo === TipoLancamento::Pagar
+            && $record->plano_despesa_id === null;
+
+        if ($temRateio) {
+            $data['plano_despesa_id'] = null;
+            $data['valor'] = (string) $record->valor;
+        }
+
         // Validação canônica via Form Request.
         $request = new LancamentoRequest;
-        $validator = Validator::make($data, $request->rules(), $request->messages(), $request->attributes());
+        $validator = Validator::make($data, $request->rules($temRateio), $request->messages(), $request->attributes());
 
         if ($validator->fails()) {
             // Reindexa as chaves para o statePath do formulário Filament (data.*),
