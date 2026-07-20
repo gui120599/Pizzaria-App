@@ -10,7 +10,7 @@ enum EstoqueModoControleEnum: string
 
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             self::BLOQUEAR => 'Bloquear Venda Sem Estoque',
             self::AVISAR => 'Apenas Avisar',
             self::NAO_CONTROLAR => 'Não Controlar Estoque',

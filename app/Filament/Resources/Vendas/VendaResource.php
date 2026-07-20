@@ -46,9 +46,9 @@ class VendaResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => ListVendas::route('/'),
+            'index' => ListVendas::route('/'),
             'create' => CreateVenda::route('/create'),
-            'edit'   => EditVenda::route('/{record}/edit'),
+            'edit' => EditVenda::route('/{record}/edit'),
         ];
     }
 }

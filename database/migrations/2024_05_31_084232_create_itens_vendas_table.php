@@ -17,21 +17,21 @@ return new class extends Migration
             $table->unsignedBigInteger('item_venda_venda_id');
             $table->unsignedBigInteger('item_venda_produto_id');
             $table->double('item_venda_quantidade');
-            $table->decimal('item_venda_valor_unitario',10,2)->default('0.00');
-            $table->decimal('item_venda_valor_adicionais',10,2)->default('0.00');
-            $table->decimal('item_venda_desconto',10,2)->default('0.00');
-            $table->decimal('item_venda_valor',10,2)->default('0.00');
-            //Impostos
+            $table->decimal('item_venda_valor_unitario', 10, 2)->default('0.00');
+            $table->decimal('item_venda_valor_adicionais', 10, 2)->default('0.00');
+            $table->decimal('item_venda_desconto', 10, 2)->default('0.00');
+            $table->decimal('item_venda_valor', 10, 2)->default('0.00');
+            // Impostos
             $table->double('item_venda_quantidade_tributavel');
-            $table->decimal('item_venda_valor_unitario_tributavel',10,2)->default('0.00');
-            $table->decimal('item_venda_valor_base_calculo',10,2)->default('0.00');
-            $table->decimal('item_venda_valor_icms',10,2)->default('0.00');
-            $table->decimal('item_venda_valor_pis',10,2)->default('0.00');
-            $table->decimal('item_venda_valor_cofins',10,2)->default('0.00');
-            $table->decimal('item_venda_valor_total_tributos',10,2)->default('0.00');
-            //Observaçoes
+            $table->decimal('item_venda_valor_unitario_tributavel', 10, 2)->default('0.00');
+            $table->decimal('item_venda_valor_base_calculo', 10, 2)->default('0.00');
+            $table->decimal('item_venda_valor_icms', 10, 2)->default('0.00');
+            $table->decimal('item_venda_valor_pis', 10, 2)->default('0.00');
+            $table->decimal('item_venda_valor_cofins', 10, 2)->default('0.00');
+            $table->decimal('item_venda_valor_total_tributos', 10, 2)->default('0.00');
+            // Observaçoes
             $table->text('item_venda_observacao')->nullable();
-            $table->enum('item_venda_status',['INSERIDO','REMOVIDO'])->default('INSERIDO');
+            $table->enum('item_venda_status', ['INSERIDO', 'REMOVIDO'])->default('INSERIDO');
             $table->unsignedBigInteger('item_venda_usuario_removeu')->nullable();
             $table->timestamps();
 

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Caixa;
 use App\Http\Requests\StoreCaixaRequest;
 use App\Http\Requests\UpdateCaixaRequest;
+use App\Models\Caixa;
 
 class CaixaController extends Controller
 {
@@ -14,7 +14,8 @@ class CaixaController extends Controller
     public function index(Caixa $caixa)
     {
         $caixas = $caixa::all();
-        return view('app.caixa.index',['caixas' => $caixas]);
+
+        return view('app.caixa.index', ['caixas' => $caixas]);
     }
 
     /**
@@ -40,7 +41,7 @@ class CaixaController extends Controller
      */
     public function show(Caixa $caixa)
     {
-        return view('app.caixa.show',['caixa' => $caixa]);
+        return view('app.caixa.show', ['caixa' => $caixa]);
     }
 
     /**
@@ -48,7 +49,7 @@ class CaixaController extends Controller
      */
     public function edit(Caixa $caixa)
     {
-        return view('app.caixa.edit',['caixa' => $caixa]);
+        return view('app.caixa.edit', ['caixa' => $caixa]);
     }
 
     /**
@@ -68,7 +69,7 @@ class CaixaController extends Controller
     {
         $caixa = Caixa::find($id);
 
-        if (!$caixa) {
+        if (! $caixa) {
             return redirect('/Caixa')->with('error', 'Caixa não encontrado!');
         }
 
@@ -77,7 +78,7 @@ class CaixaController extends Controller
         return redirect('/Caixa')->with('success', 'Caixa Inativado com sucesso');
     }
 
-      /**
+    /**
      * Exibir formulário para Caixas Inativos.
      */
     public function inactive()
@@ -94,7 +95,7 @@ class CaixaController extends Controller
     {
         $caixa = Caixa::withTrashed()->find($id);
 
-        if (!$caixa) {
+        if (! $caixa) {
             return redirect('/Caixa')->with('error', 'Caixa não encontrado!');
         }
 

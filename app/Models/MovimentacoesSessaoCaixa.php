@@ -20,7 +20,7 @@ class MovimentacoesSessaoCaixa extends Model
         'mov_descricao',
         'mov_tipo',
         'mov_valor',
-        'mov_observacoes'
+        'mov_observacoes',
     ];
 
     // Relacionamento com a tabela `sessao_caixas`

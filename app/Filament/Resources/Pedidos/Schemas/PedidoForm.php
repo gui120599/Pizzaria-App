@@ -11,8 +11,8 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\ModalTableSelect;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
@@ -58,7 +58,7 @@ class PedidoForm
                                 ->schema([
                                     Select::make('pedido_opcaoentrega_id')
                                         ->label('Opção de entrega')
-                                        ->options(fn() => OpcoesEntregas::query()
+                                        ->options(fn () => OpcoesEntregas::query()
                                             ->orderBy('opcaoentrega_nome')
                                             ->pluck('opcaoentrega_nome', 'id')
                                             ->toArray())
@@ -67,12 +67,12 @@ class PedidoForm
 
                                     Select::make('pedido_venda_id')
                                         ->label('Venda vinculada')
-                                        ->options(fn() => Venda::query()
+                                        ->options(fn () => Venda::query()
                                             ->orderByDesc('id')
                                             ->limit(500)
                                             ->get()
-                                            ->mapWithKeys(fn(Venda $venda) => [
-                                                $venda->id => '#' . $venda->id . ' - R$ ' . number_format((float) ($venda->venda_valor_total ?? 0), 2, ',', '.'),
+                                            ->mapWithKeys(fn (Venda $venda) => [
+                                                $venda->id => '#'.$venda->id.' - R$ '.number_format((float) ($venda->venda_valor_total ?? 0), 2, ',', '.'),
                                             ])
                                             ->toArray())
                                         ->searchable()
@@ -93,7 +93,6 @@ class PedidoForm
                                 ->rows(3)
                                 ->columnSpanFull(),
                         ]),
-
 
                     Step::make('Valores')
                         ->description('Totais do pedido')
@@ -136,7 +135,7 @@ class PedidoForm
 
                             Placeholder::make('resumo_total')
                                 ->label('Resumo')
-                                ->content(fn($get): string => 'Total atual: R$ ' . number_format((float) ($get('pedido_valor_total') ?? 0), 2, ',', '.')),
+                                ->content(fn ($get): string => 'Total atual: R$ '.number_format((float) ($get('pedido_valor_total') ?? 0), 2, ',', '.')),
                         ]),
 
                     Step::make('Status e Cronologia')
@@ -190,5 +189,4 @@ class PedidoForm
                     ->startOnStep(1),
             ]);
     }
-
 }

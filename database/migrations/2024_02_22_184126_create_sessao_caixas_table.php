@@ -14,17 +14,17 @@ return new class extends Migration
         Schema::create('sessao_caixas', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('sessaocaixa_caixa_id');
-            $table->enum('sessaocaixa_status',['ABERTA','FECHADA'])->default('FECHADA');
+            $table->enum('sessaocaixa_status', ['ABERTA', 'FECHADA'])->default('FECHADA');
             $table->dateTime('sessaocaixa_data_hora_abertura');
             $table->dateTime('sessaocaixa_data_hora_fechamento')->nullable();
-            $table->decimal('sessaocaixa_saldo_inicial',10,2)->default('0.00');
-            $table->decimal('sessaocaixa_saldo_final',10,2)->default('0.00');
+            $table->decimal('sessaocaixa_saldo_inicial', 10, 2)->default('0.00');
+            $table->decimal('sessaocaixa_saldo_final', 10, 2)->default('0.00');
             $table->unsignedBigInteger('sessaocaixa_user_id');
             $table->text('sessaocaixa_observacoes')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
-            //Chaves estrangeiras
+            // Chaves estrangeiras
             $table->foreign('sessaocaixa_caixa_id')->references('id')->on('caixas');
             $table->foreign('sessaocaixa_user_id')->references('id')->on('users');
         });

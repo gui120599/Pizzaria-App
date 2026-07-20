@@ -36,19 +36,19 @@ class EditPedido extends EditRecord
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
 
-        $valorItens    = round($itens->sum('item_pedido_valor'), 2);
+        $valorItens = round($itens->sum('item_pedido_valor'), 2);
         $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
         $descontoPedido = max(0.0, (float) ($data['pedido_valor_desconto'] ?? 0));
 
-        $data['pedido_valor_itens']   = $valorItens;
+        $data['pedido_valor_itens'] = $valorItens;
         $data['pedido_valor_desconto'] = round($totalDesconto + $descontoPedido, 2);
-        $data['pedido_valor_total']   = round(max(0, $valorItens - $totalDesconto - $descontoPedido), 2);
+        $data['pedido_valor_total'] = round(max(0, $valorItens - $totalDesconto - $descontoPedido), 2);
 
         $updated = parent::handleRecordUpdate($record, $data);
 
         Notification::make()
             ->title('Pedido atualizado')
-            ->body('Total: R$ ' . number_format($data['pedido_valor_total'], 2, ',', '.'))
+            ->body('Total: R$ '.number_format($data['pedido_valor_total'], 2, ',', '.'))
             ->success()
             ->send();
 

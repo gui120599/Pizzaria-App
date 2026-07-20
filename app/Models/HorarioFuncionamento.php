@@ -22,8 +22,8 @@ class HorarioFuncionamento extends Model
 
     public static function estaAberto(): bool
     {
-        $now       = Carbon::now();
-        $dia       = $now->dayOfWeek;
+        $now = Carbon::now();
+        $dia = $now->dayOfWeek;
         $horaAtual = $now->format('H:i:s');
 
         return static::where('horario_dia_semana', $dia)
@@ -35,7 +35,7 @@ class HorarioFuncionamento extends Model
 
     public static function proximoHorario(): ?string
     {
-        $now  = Carbon::now();
+        $now = Carbon::now();
         $dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
         // Hoje ainda tem abertura futura?
@@ -46,23 +46,27 @@ class HorarioFuncionamento extends Model
             ->first();
 
         if ($hojeProximo) {
-            return 'hoje às ' . substr($hojeProximo->horario_abertura, 0, 5);
+            return 'hoje às '.substr($hojeProximo->horario_abertura, 0, 5);
         }
 
         // Próximos 7 dias
         for ($i = 1; $i <= 7; $i++) {
-            $dia     = ($now->dayOfWeek + $i) % 7;
+            $dia = ($now->dayOfWeek + $i) % 7;
             $proximo = static::where('horario_dia_semana', $dia)
                 ->where('horario_ativo', true)
                 ->orderBy('horario_abertura')
                 ->first();
 
             if ($proximo) {
-                $label = $i === 1 ? 'amanhã' : 'na ' . $dias[$dia] . '-feira';
-                if ($dia === 0) $label = $i === 1 ? 'amanhã' : 'no Domingo';
-                if ($dia === 6) $label = $i === 1 ? 'amanhã' : 'no Sábado';
+                $label = $i === 1 ? 'amanhã' : 'na '.$dias[$dia].'-feira';
+                if ($dia === 0) {
+                    $label = $i === 1 ? 'amanhã' : 'no Domingo';
+                }
+                if ($dia === 6) {
+                    $label = $i === 1 ? 'amanhã' : 'no Sábado';
+                }
 
-                return $label . ' às ' . substr($proximo->horario_abertura, 0, 5);
+                return $label.' às '.substr($proximo->horario_abertura, 0, 5);
             }
         }
 

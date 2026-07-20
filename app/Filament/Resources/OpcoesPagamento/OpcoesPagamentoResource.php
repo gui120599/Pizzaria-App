@@ -5,7 +5,6 @@ namespace App\Filament\Resources\OpcoesPagamento;
 use App\Filament\Resources\OpcoesPagamento\Pages\ManageOpcoesPagamento;
 use App\Models\OpcoesPagamento;
 use BackedEnum;
-use UnitEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -28,6 +27,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use UnitEnum;
 
 class OpcoesPagamentoResource extends Resource
 {
@@ -75,19 +75,19 @@ class OpcoesPagamentoResource extends Resource
                     Select::make('opcaopag_desc_nfe')
                         ->label('Código NF-e')
                         ->options([
-                            'cash'             => 'Dinheiro',
-                            'cheque'           => 'Cheque',
-                            'creditCard'       => 'Cartão de Crédito',
-                            'debitCard'        => 'Cartão de Débito',
-                            'storeCredict'     => 'Crédito em Loja',
-                            'foodVouchers'     => 'Vale Alimentação',
-                            'mealVouchers'     => 'Vale Refeição',
-                            'giftVouchers'     => 'Vale Presente',
-                            'fuelVouchers'     => 'Vale Combustível',
-                            'bankBill'         => 'Boleto Bancário',
-                            'withoutPayment'   => 'Sem Pagamento',
-                            'InstantPayment'   => 'PIX',
-                            'others'           => 'Outros',
+                            'cash' => 'Dinheiro',
+                            'cheque' => 'Cheque',
+                            'creditCard' => 'Cartão de Crédito',
+                            'debitCard' => 'Cartão de Débito',
+                            'storeCredict' => 'Crédito em Loja',
+                            'foodVouchers' => 'Vale Alimentação',
+                            'mealVouchers' => 'Vale Refeição',
+                            'giftVouchers' => 'Vale Presente',
+                            'fuelVouchers' => 'Vale Combustível',
+                            'bankBill' => 'Boleto Bancário',
+                            'withoutPayment' => 'Sem Pagamento',
+                            'InstantPayment' => 'PIX',
+                            'others' => 'Outros',
                         ])
                         ->nullable()
                         ->placeholder('Selecione o código NFe'),
@@ -154,10 +154,10 @@ class OpcoesPagamentoResource extends Resource
                 TextColumn::make('opcaopag_tipo_taxa')
                     ->label('Taxa')
                     ->badge()
-                    ->color(fn($state) => match($state) {
+                    ->color(fn ($state) => match ($state) {
                         'ACRESCENTAR' => 'warning',
-                        'DESCONTAR'   => 'success',
-                        default       => 'gray',
+                        'DESCONTAR' => 'success',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('opcaopag_valor_percentual_taxa')

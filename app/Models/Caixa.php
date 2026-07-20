@@ -22,7 +22,8 @@ class Caixa extends Model
         'deleted_at',
     ];
 
-    public function sessaoCaixa(){
-        return $this->hasMany(SessaoCaixa::class, 'sessaocaixa_caixa_id','id');
+    public function sessaoCaixa()
+    {
+        return $this->hasMany(SessaoCaixa::class, 'sessaocaixa_caixa_id', 'id');
     }
 }

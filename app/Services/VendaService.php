@@ -11,7 +11,7 @@ class VendaService
     public function atualizarValoresdaVenda($venda_id)
     {
         $venda = Venda::find($venda_id);
-        if (!$venda) {
+        if (! $venda) {
             return false; // Venda não encontrada
         }
 
@@ -51,7 +51,7 @@ class VendaService
             $venda_valor_total += $item->item_venda_valor;
         }
 
-        foreach($pagamentos as $pagamento){
+        foreach ($pagamentos as $pagamento) {
             $venda_valor_pago += $pagamento->pg_venda_valor_pagamento;
             $venda_valor_acrescimo += $pagamento->pg_venda_valor_acrescimo;
             $venda_valor_desconto += $pagamento->pg_venda_valor_desconto;
@@ -70,7 +70,6 @@ class VendaService
         $venda->venda_valor_acrescimo = $venda_valor_acrescimo;
         // Troco agora é a soma dos trocos registrados em cada pagamento
         $venda->venda_valor_troco = $venda_valor_troco;
-
 
         $venda->save();
 

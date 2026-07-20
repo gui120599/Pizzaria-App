@@ -17,30 +17,30 @@ return new class extends Migration
             $table->unsignedBigInteger('venda_sessao_caixa_id')->nullable();
             $table->unsignedBigInteger('venda_cliente_id')->nullable();
 
-            $table->decimal('venda_valor_base_calculo',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_icms',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_pis',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_cofins',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_frete',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_seguro',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_itens',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_acrescimo',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_desconto',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_total',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_pago',10,2)->nullable()->default('0.0');
-            $table->decimal('venda_valor_troco',10,2)->nullable()->default('0.0');
-            $table->enum('venda_status',['INICIADA','FINALIZADA','CANCELADA'])->default('INICIADA');
+            $table->decimal('venda_valor_base_calculo', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_icms', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_pis', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_cofins', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_frete', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_seguro', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_itens', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_acrescimo', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_desconto', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_total', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_pago', 10, 2)->nullable()->default('0.0');
+            $table->decimal('venda_valor_troco', 10, 2)->nullable()->default('0.0');
+            $table->enum('venda_status', ['INICIADA', 'FINALIZADA', 'CANCELADA'])->default('INICIADA');
             $table->string('venda_status_nfe')->nullable()->default(null);
             $table->dateTime('venda_datahora_iniciada')->nullable();
             $table->dateTime('venda_datahora_finalizada')->nullable();
             $table->dateTime('venda_datahora_cancelada')->nullable();
             $table->timestamps();
 
-            //Chaves Estrangeiras
+            // Chaves Estrangeiras
             $table->foreign('venda_sessao_caixa_id')->references('id')->on('sessao_caixas');
             $table->foreign('venda_cliente_id')->references('id')->on('clientes');
 
-            //Criando Indexes estrangeiros
+            // Criando Indexes estrangeiros
             $table->index('venda_sessao_caixa_id');
             $table->index('venda_cliente_id');
         });

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\OpcoesPagamento;
 use App\Http\Requests\StoreOpcoesPagamentoRequest;
 use App\Http\Requests\UpdateOpcoesPagamentoRequest;
+use App\Models\OpcoesPagamento;
 
 class OpcoesPagamentoController extends Controller
 {
@@ -17,7 +17,7 @@ class OpcoesPagamentoController extends Controller
         $tipos_taxa = [
             ['id' => 'N/A', 'opcaopag_tipo_taxa' => 'N/A'],
             ['id' => 'DESCONTAR', 'opcaopag_tipo_taxa' => 'DESCONTAR'],
-            ['id' => 'ACRESCENTAR', 'opcaopag_tipo_taxa' => 'ACRESCENTAR']
+            ['id' => 'ACRESCENTAR', 'opcaopag_tipo_taxa' => 'ACRESCENTAR'],
         ];
         $opcaopag_desc_nfe = [
             ['opcaopag_desc_nfe' => 'cash'],
@@ -32,9 +32,9 @@ class OpcoesPagamentoController extends Controller
             ['opcaopag_desc_nfe' => 'bankBill'],
             ['opcaopag_desc_nfe' => 'withoutPayment'],
             ['opcaopag_desc_nfe' => 'InstantPayment'],
-            ['opcaopag_desc_nfe' => 'others']
+            ['opcaopag_desc_nfe' => 'others'],
         ];
-        
+
         return view('app.opcoes_pagamento.index', ['opcoes_pagamento' => $opcoes_pagamento, 'tipos_taxas' => $tipos_taxa, 'opcaopag_desc_nfe' => $opcaopag_desc_nfe]);
     }
 
@@ -80,7 +80,7 @@ class OpcoesPagamentoController extends Controller
         $tipos_taxa = [
             ['id' => 'N/A', 'opcaopag_tipo_taxa' => 'N/A'],
             ['id' => 'DESCONTAR', 'opcaopag_tipo_taxa' => 'DESCONTAR'],
-            ['id' => 'ACRESCENTAR', 'opcaopag_tipo_taxa' => 'ACRESCENTAR']
+            ['id' => 'ACRESCENTAR', 'opcaopag_tipo_taxa' => 'ACRESCENTAR'],
         ];
         $opcaopag_desc_nfe = [
             ['opcaopag_desc_nfe' => 'cash'],
@@ -95,8 +95,9 @@ class OpcoesPagamentoController extends Controller
             ['opcaopag_desc_nfe' => 'bankBill'],
             ['opcaopag_desc_nfe' => 'withoutPayment'],
             ['opcaopag_desc_nfe' => 'InstantPayment'],
-            ['opcaopag_desc_nfe' => 'others']
+            ['opcaopag_desc_nfe' => 'others'],
         ];
+
         return view('app.opcoes_pagamento.edit', ['opcoes_pagamento' => $opcoes_pagamento, 'tipos_taxas' => $tipos_taxa, 'opcaopag_desc_nfe' => $opcaopag_desc_nfe]);
     }
 
@@ -114,7 +115,7 @@ class OpcoesPagamentoController extends Controller
 
         // Redireciona para a página da opcoes_pagamento recém-criada
         return redirect()->route('opcoes_pagamento')->with('success', 'Opção de Pagamento atualizada com sucesso!');
-        //dd($request);
+        // dd($request);
     }
 
     /**
@@ -124,10 +125,11 @@ class OpcoesPagamentoController extends Controller
     {
         $opcoes_pagamento = OpcoesPagamento::find($id);
 
-        if (!$opcoes_pagamento) {
+        if (! $opcoes_pagamento) {
             return redirect('/OpcoesPagamento')->with('error', 'OpcoesPagamento não encontrada!');
         }
         $opcoes_pagamento->delete();
+
         return redirect('/OpcoesPagamento')->with('success', 'OpcoesPagamento Inativada com sucesso');
     }
 
@@ -148,10 +150,11 @@ class OpcoesPagamentoController extends Controller
     {
         $opcoes_pagamento = OpcoesPagamento::withTrashed()->find($id);
 
-        if (!$opcoes_pagamento) {
+        if (! $opcoes_pagamento) {
             return redirect('/OpcoesPagamento')->with('error', 'OpcoesPagamento não encontrada!');
         }
         $opcoes_pagamento->restore();
+
         return redirect('/OpcoesPagamento')->with('success', 'OpcoesPagamento Ativada com sucesso');
     }
 }

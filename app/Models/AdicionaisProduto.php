@@ -14,7 +14,7 @@ class AdicionaisProduto extends Model
 
     protected $fillable = [
         'ap_adicional_id',
-        'ap_produto_id'
+        'ap_produto_id',
     ];
 
     protected $dates = [
@@ -23,10 +23,13 @@ class AdicionaisProduto extends Model
         'deleted_at',
     ];
 
-    public function adicional(){
-       return $this->belongsTo(Adicional::class,'ap_adicional_id');
+    public function adicional()
+    {
+        return $this->belongsTo(Adicional::class, 'ap_adicional_id');
     }
-    public function produto(){
-        return $this->belongsTo(Produto::class,'ap_produto_id');
+
+    public function produto()
+    {
+        return $this->belongsTo(Produto::class, 'ap_produto_id');
     }
 }

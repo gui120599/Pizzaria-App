@@ -43,7 +43,7 @@ class BalancoResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => ListBalancos::route('/'),
+            'index' => ListBalancos::route('/'),
             'create' => CreateBalanco::route('/create'),
         ];
     }

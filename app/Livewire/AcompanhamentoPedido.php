@@ -30,9 +30,9 @@ class AcompanhamentoPedido extends Component
                 ->with('produto.categoria'),
         ])->find($this->pedidoId);
 
-        $steps      = static::$steps;
-        $stepIndex  = null;
-        $cancelado  = false;
+        $steps = static::$steps;
+        $stepIndex = null;
+        $cancelado = false;
         $finalizado = false;
 
         if ($pedido) {
@@ -40,7 +40,7 @@ class AcompanhamentoPedido extends Component
                 $cancelado = true;
             } elseif ($pedido->pedido_status === 'FINALIZADO') {
                 $finalizado = true;
-                $stepIndex  = count($steps) - 1;
+                $stepIndex = count($steps) - 1;
             } else {
                 foreach ($steps as $i => $step) {
                     if ($step['status'] === $pedido->pedido_status) {
@@ -56,8 +56,8 @@ class AcompanhamentoPedido extends Component
                 ->orderBy('avaliacao_link_ordem')
                 ->get()
                 ->map(fn ($l) => [
-                    'nome'     => $l->avaliacao_link_nome,
-                    'url'      => $l->avaliacao_link_url,
+                    'nome' => $l->avaliacao_link_nome,
+                    'url' => $l->avaliacao_link_url,
                     'logo_url' => Storage::disk('public')->url($l->avaliacao_link_logo_url),
                 ])
                 ->all()

@@ -4,7 +4,6 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\ItensVenda;
-use App\Models\Produto;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -96,7 +95,7 @@ class TopProdutosVendidos extends BaseWidget
                         }
                         $pct = ($receita - $custo) / $receita * 100;
 
-                        return number_format($pct, 1, ',', '.') . '%';
+                        return number_format($pct, 1, ',', '.').'%';
                     })
                     ->badge()
                     ->color(function ($record): string {

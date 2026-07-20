@@ -14,7 +14,7 @@ class CartoesPagamento extends Model
 
     protected $fillable = [
         'cartao_bandeira',
-        'cartao_cnpj_credenciadora'
+        'cartao_cnpj_credenciadora',
     ];
 
     protected $dates = ['deleted_at'];
@@ -27,7 +27,7 @@ class CartoesPagamento extends Model
         'Elo' => 'Elo',
         'Alelo' => 'Alelo',
         'HiperCard' => 'HiperCard',
-        'Outros' => 'Other'
+        'Outros' => 'Other',
     ];
 
     public function getCartaoBandeiraAttribute($value)

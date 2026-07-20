@@ -38,12 +38,12 @@ class VendaForm
                                 ->schema([
                                     Select::make('venda_sessao_caixa_id')
                                         ->label('Sessão do Caixa')
-                                        ->options(fn() => SessaoCaixa::query()
+                                        ->options(fn () => SessaoCaixa::query()
                                             ->orderByDesc('id')
                                             ->limit(100)
                                             ->get()
-                                            ->mapWithKeys(fn(SessaoCaixa $s) => [
-                                                $s->id => '#' . $s->id . ' — ' . ($s->caixa->caixa_nome ?? ''),
+                                            ->mapWithKeys(fn (SessaoCaixa $s) => [
+                                                $s->id => '#'.$s->id.' — '.($s->caixa->caixa_nome ?? ''),
                                             ])
                                             ->toArray())
                                         ->searchable()
@@ -57,9 +57,9 @@ class VendaForm
                                     Select::make('venda_status')
                                         ->label('Status')
                                         ->options([
-                                            'INICIADA'   => 'Iniciada',
+                                            'INICIADA' => 'Iniciada',
                                             'FINALIZADA' => 'Finalizada',
-                                            'CANCELADA'  => 'Cancelada',
+                                            'CANCELADA' => 'Cancelada',
                                         ])
                                         ->default('INICIADA')
                                         ->required()
@@ -95,8 +95,9 @@ class VendaForm
                                         return 'Novo item';
                                     }
                                     $nome = Produto::query()->whereKey($produtoId)->value('produto_descricao');
-                                    $qtd  = number_format((float) ($state['item_venda_quantidade'] ?? 0), 2, ',', '.');
-                                    return ($nome ?? 'Produto') . ' x' . $qtd;
+                                    $qtd = number_format((float) ($state['item_venda_quantidade'] ?? 0), 2, ',', '.');
+
+                                    return ($nome ?? 'Produto').' x'.$qtd;
                                 })
                                 ->afterStateUpdated(function (?array $state, Set $set, Get $get): void {
                                     self::recalcularTotaisDeItens($state, $set, $get);
@@ -108,7 +109,7 @@ class VendaForm
                                 ->schema([
                                     Select::make('item_venda_produto_id')
                                         ->label('Produto')
-                                        ->options(fn() => Produto::query()
+                                        ->options(fn () => Produto::query()
                                             ->orderBy('produto_descricao')
                                             ->pluck('produto_descricao', 'id')
                                             ->toArray())
@@ -121,8 +122,8 @@ class VendaForm
                                         ->afterStateUpdated(function ($state, Set $set, Get $get): void {
                                             $produto = Produto::find($state);
                                             if ($produto) {
-                                                $promo   = (float) ($produto->produto_preco_promocional ?? 0);
-                                                $venda   = (float) $produto->produto_preco_venda;
+                                                $promo = (float) ($produto->produto_preco_promocional ?? 0);
+                                                $venda = (float) $produto->produto_preco_venda;
                                                 $efetivo = $promo > 0 ? $promo : $venda;
                                                 $set('item_venda_valor_unitario', round($efetivo, 2));
                                             }
@@ -213,12 +214,13 @@ class VendaForm
                                 ->reorderable(false)
                                 ->itemLabel(function (array $state): ?string {
                                     $opcaoId = $state['pg_venda_opcaopagamento_id'] ?? null;
-                                    $valor   = number_format((float) ($state['pg_venda_valor_pagamento'] ?? 0), 2, ',', '.');
+                                    $valor = number_format((float) ($state['pg_venda_valor_pagamento'] ?? 0), 2, ',', '.');
                                     if (! $opcaoId) {
                                         return 'Novo pagamento';
                                     }
                                     $nome = OpcoesPagamento::query()->whereKey($opcaoId)->value('opcaopag_nome');
-                                    return ($nome ?? 'Pagamento') . ' — R$ ' . $valor;
+
+                                    return ($nome ?? 'Pagamento').' — R$ '.$valor;
                                 })
                                 ->afterStateUpdated(function (?array $state, Set $set): void {
                                     self::recalcularTotaisDePagamentos($state, $set);
@@ -230,7 +232,7 @@ class VendaForm
                                 ->schema([
                                     Select::make('pg_venda_opcaopagamento_id')
                                         ->label('Forma de pagamento')
-                                        ->options(fn() => OpcoesPagamento::query()
+                                        ->options(fn () => OpcoesPagamento::query()
                                             ->orderBy('opcaopag_nome')
                                             ->pluck('opcaopag_nome', 'id')
                                             ->toArray())
@@ -298,11 +300,11 @@ class VendaForm
 
                             Placeholder::make('resumo_venda')
                                 ->label('Resumo')
-                                ->content(fn(Get $get): string => implode(' | ', [
-                                    'Itens: R$ ' . number_format((float) ($get('venda_valor_itens') ?? 0), 2, ',', '.'),
-                                    'Total: R$ ' . number_format((float) ($get('venda_valor_total') ?? 0), 2, ',', '.'),
-                                    'Pago: R$ '  . number_format((float) ($get('venda_valor_pago') ?? 0), 2, ',', '.'),
-                                    'Troco: R$ ' . number_format((float) ($get('venda_valor_troco') ?? 0), 2, ',', '.'),
+                                ->content(fn (Get $get): string => implode(' | ', [
+                                    'Itens: R$ '.number_format((float) ($get('venda_valor_itens') ?? 0), 2, ',', '.'),
+                                    'Total: R$ '.number_format((float) ($get('venda_valor_total') ?? 0), 2, ',', '.'),
+                                    'Pago: R$ '.number_format((float) ($get('venda_valor_pago') ?? 0), 2, ',', '.'),
+                                    'Troco: R$ '.number_format((float) ($get('venda_valor_troco') ?? 0), 2, ',', '.'),
                                 ])),
                         ]),
 
@@ -315,8 +317,8 @@ class VendaForm
     protected static function recalcularValorItem(Get $get, Set $set): void
     {
         $quantidade = (float) ($get('item_venda_quantidade') ?? 0);
-        $unitario   = (float) ($get('item_venda_valor_unitario') ?? 0);
-        $desconto   = (float) ($get('item_venda_desconto') ?? 0);
+        $unitario = (float) ($get('item_venda_valor_unitario') ?? 0);
+        $desconto = (float) ($get('item_venda_desconto') ?? 0);
         $adicionais = (float) ($get('item_venda_valor_adicionais') ?? 0);
 
         $valor = max(0, ($quantidade * $unitario) + $adicionais - $desconto);
@@ -325,16 +327,16 @@ class VendaForm
 
     protected static function recalcularTotaisDeItens(?array $itens, Set $set, Get $get): void
     {
-        $totalItens = collect($itens ?? [])->sum(fn($item) => (float) ($item['item_venda_valor'] ?? 0));
+        $totalItens = collect($itens ?? [])->sum(fn ($item) => (float) ($item['item_venda_valor'] ?? 0));
         $set('venda_valor_itens', round($totalItens, 2));
         self::recalcularTotal($get, $set);
     }
 
     protected static function recalcularTotaisDePagamentos(?array $pagamentos, Set $set): void
     {
-        $totalPago     = collect($pagamentos ?? [])->sum(fn($pg) => (float) ($pg['pg_venda_valor_pagamento'] ?? 0));
-        $totalAcrescimo = collect($pagamentos ?? [])->sum(fn($pg) => (float) ($pg['pg_venda_valor_acrescimo'] ?? 0));
-        $totalDesconto  = collect($pagamentos ?? [])->sum(fn($pg) => (float) ($pg['pg_venda_valor_desconto'] ?? 0));
+        $totalPago = collect($pagamentos ?? [])->sum(fn ($pg) => (float) ($pg['pg_venda_valor_pagamento'] ?? 0));
+        $totalAcrescimo = collect($pagamentos ?? [])->sum(fn ($pg) => (float) ($pg['pg_venda_valor_acrescimo'] ?? 0));
+        $totalDesconto = collect($pagamentos ?? [])->sum(fn ($pg) => (float) ($pg['pg_venda_valor_desconto'] ?? 0));
 
         $set('venda_valor_pago', round($totalPago, 2));
         $set('venda_valor_acrescimo', round($totalAcrescimo, 2));
@@ -343,11 +345,11 @@ class VendaForm
 
     protected static function recalcularTotal(Get $get, Set $set): void
     {
-        $itens      = (float) ($get('venda_valor_itens') ?? 0);
-        $frete      = (float) ($get('venda_valor_frete') ?? 0);
-        $acrescimo  = (float) ($get('venda_valor_acrescimo') ?? 0);
-        $desconto   = (float) ($get('venda_valor_desconto') ?? 0);
-        $pago       = (float) ($get('venda_valor_pago') ?? 0);
+        $itens = (float) ($get('venda_valor_itens') ?? 0);
+        $frete = (float) ($get('venda_valor_frete') ?? 0);
+        $acrescimo = (float) ($get('venda_valor_acrescimo') ?? 0);
+        $desconto = (float) ($get('venda_valor_desconto') ?? 0);
+        $pago = (float) ($get('venda_valor_pago') ?? 0);
 
         $total = round(max(0, $itens + $frete + $acrescimo - $desconto), 2);
         $troco = round(max(0, $pago - $total), 2);

@@ -14,10 +14,11 @@ class IBGEServices
         $reponse = Http::withHeaders([
             'Accept' => 'application/json',
         ])
-            ->get('https://viacep.com.br/ws/' . $search . '/json/');
+            ->get('https://viacep.com.br/ws/'.$search.'/json/');
         if ($reponse->failed()) {
             return [];
         }
+
         return $reponse->json() ?? [];
     }
 

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('empresa_razao_social');
             $table->string('empresa_nome_fantasia')->nullable();
             $table->string('empresa_cnpj')->nullable();
-            $table->enum('empresa_regime_tributario',['isento', 'microempreendedorIndividual', 'simplesNacional', 'lucroPresumido', 'lucroReal', 'none'])->default('none')->nullable();
+            $table->enum('empresa_regime_tributario', ['isento', 'microempreendedorIndividual', 'simplesNacional', 'lucroPresumido', 'lucroReal', 'none'])->default('none')->nullable();
             $table->string('empresa_endereco_uf_estado')->nullable();
             $table->string('empresa_endereco_cidade_id_ibge')->nullable();
             $table->string('empresa_endereco_rua')->nullable();
@@ -28,8 +28,8 @@ return new class extends Migration
             $table->string('empresa_api_nfeio_conta_id')->nullable();
             $table->string('empresa_api_nfeio_company_id')->nullable();
             $table->string('empresa_api_nfeio_apikey')->nullable();
-            $table->enum('empresa_api_nfeio_ambiente',['test','production'])->default('test');
-            $table->enum('empresa_status',['Active','Inactive'])->default('Active');
+            $table->enum('empresa_api_nfeio_ambiente', ['test', 'production'])->default('test');
+            $table->enum('empresa_status', ['Active', 'Inactive'])->default('Active');
             $table->timestamps();
             $table->softDeletes();
         });

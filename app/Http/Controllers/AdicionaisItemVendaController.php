@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AdicionaisItemVenda;
 use App\Http\Requests\StoreAdicionaisItemVendaRequest;
 use App\Http\Requests\UpdateAdicionaisItemVendaRequest;
+use App\Models\AdicionaisItemVenda;
 
 class AdicionaisItemVendaController extends Controller
 {

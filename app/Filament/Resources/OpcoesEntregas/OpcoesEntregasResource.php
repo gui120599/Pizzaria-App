@@ -5,7 +5,6 @@ namespace App\Filament\Resources\OpcoesEntregas;
 use App\Filament\Resources\OpcoesEntregas\Pages\ManageOpcoesEntregas;
 use App\Models\OpcoesEntregas;
 use BackedEnum;
-use UnitEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -23,6 +22,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use UnitEnum;
 
 class OpcoesEntregasResource extends Resource
 {

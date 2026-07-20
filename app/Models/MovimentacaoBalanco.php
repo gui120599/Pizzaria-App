@@ -32,9 +32,9 @@ class MovimentacaoBalanco extends Model
         return [
             'mbal_quantidade_sistema' => 'decimal:3',
             'mbal_quantidade_balanco' => 'decimal:3',
-            'mbal_quantidade_ajuste'  => 'decimal:3',
-            'mbal_tipo_movimentacao'  => MovimentacaoTipoEnum::class,
-            'mbal_data_balanco'       => 'datetime',
+            'mbal_quantidade_ajuste' => 'decimal:3',
+            'mbal_tipo_movimentacao' => MovimentacaoTipoEnum::class,
+            'mbal_data_balanco' => 'datetime',
         ];
     }
 

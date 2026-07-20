@@ -10,7 +10,7 @@ enum PedidoOrigemEnum: string
 
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             self::CARDAPIO => 'Cardápio Online',
             self::ATENDENTE => 'Atendente',
             self::MESA => 'Mesa',

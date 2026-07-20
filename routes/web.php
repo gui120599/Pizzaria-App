@@ -4,28 +4,27 @@ use App\Http\Controllers\AdicionaisItemPedidoController;
 use App\Http\Controllers\AdicionaisProdutoController;
 use App\Http\Controllers\AdicionalController;
 use App\Http\Controllers\CaixaController;
+use App\Http\Controllers\CardapioCheckoutController;
 use App\Http\Controllers\CardapioController;
 use App\Http\Controllers\CategoriaController;
-use App\Http\Controllers\ItensVendaController;
-use App\Http\Controllers\MovimentacoesSessaoCaixaController;
-use App\Http\Controllers\NotaFiscalController;
-use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\Dashboard;
+use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\ItensPedidoController;
+use App\Http\Controllers\ItensVendaController;
+use App\Http\Controllers\MesaController;
+use App\Http\Controllers\MovimentacoesSessaoCaixaController;
+use App\Http\Controllers\NotaFiscalController;
 use App\Http\Controllers\OpcoesEntregasController;
 use App\Http\Controllers\OpcoesPagamentoController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\MesaController;
 use App\Http\Controllers\PagamentosVendaController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\PedidoController;
+use App\Http\Controllers\ProdutoController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
 use App\Http\Controllers\VendaController;
-use App\Models\ItensVenda;
-use App\Http\Controllers\CardapioCheckoutController;
-use App\Http\Controllers\EmpresaController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -44,6 +43,7 @@ Route::get('/', function () {
     if (Auth::check()) {
         return redirect()->route('dashboard');
     }
+
     return redirect()->route('cardapio');
 });
 
@@ -58,7 +58,6 @@ Route::get('/sessaoMesaPDF/{id}/Imprimir', [PDFController::class, 'sessaoMesaPDF
 Route::get('/sessaoCaixaPDF/{id}/Imprimir', [PDFController::class, 'sessaoCaixaPDF'])->name('sessaoCaixa.imprimir');
 Route::get('/pedidosEntreguesFinalizadosCanceladosPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntreguesFinalizadosCanceladosPDF'])->name('pedidosEntreguesFinalizadosCanceladosPDF.imprimir');
 Route::get('/pedidosEntregasPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntregasPDF'])->name('pedidosEntregasPDF.imprimir');
-
 
 Route::get('/dashboard', [Dashboard::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
@@ -78,7 +77,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/Ativar-Categoria/{id}', [CategoriaController::class, 'active'])->name('categoria.active');
     Route::delete('/Categoria/{id}', [CategoriaController::class, 'destroy'])->name('categoria.destroy');
 
-
     Route::get('/Empresa', [EmpresaController::class, 'index'])->name('empresa');
     Route::get('/Empresas-Inativas', [EmpresaController::class, 'inactive'])->name('empresa.inactive');
     Route::post('/Empresa', [EmpresaController::class, 'store'])->name('empresa.store');
@@ -88,7 +86,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/Ativar-Empresa/{id}', [EmpresaController::class, 'active'])->name('empresa.active');
     Route::delete('/Empresa/{id}', [EmpresaController::class, 'destroy'])->name('empresa.destroy');
 
-
     Route::get('/Produto', [ProdutoController::class, 'index'])->name('produto');
     Route::get('/Produtos-Inativos', [ProdutoController::class, 'inactive'])->name('produto.inactive');
     Route::post('/Produto', [ProdutoController::class, 'store'])->name('produto.store');
@@ -97,8 +94,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/Ativar-Produto/{id}', [ProdutoController::class, 'active'])->name('produto.active');
     Route::delete('/Produto/{id}', [ProdutoController::class, 'destroy'])->name('produto.destroy');
     Route::post('/produto/adicional/toggle', [ProdutoController::class, 'toggleAdicional'])->name('produto_adicional');
-
-
 
     Route::get('/Cliente', [ClienteController::class, 'index'])->name('cliente');
     Route::get('/Clientes-Inativos', [ClienteController::class, 'inactive'])->name('cliente.inactive');
@@ -249,14 +244,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/Venda/relatorio-vendas-mensal', [VendaController::class, 'showVendasMensal'])->name('venda.relatorioMensal')->middleware('permission:Admin');
     Route::get('/Venda/vendasMensalPDF/Imprimir', [VendaController::class, 'listarVendasMensal'])->name('vendasMensal.imprimir')->middleware('permission:Admin');
 
-
-
     Route::get('/Saidas', [MovimentacoesSessaoCaixaController::class, 'index'])->name('mov_saida');
     Route::post('/Saidas', [MovimentacoesSessaoCaixaController::class, 'store'])->name('mov_saida.store');
     Route::get('/Saidas/{id}', [MovimentacoesSessaoCaixaController::class, 'edit'])->name('mov_saida.edit');
     Route::patch('/Saidas/{id}/Editar', [MovimentacoesSessaoCaixaController::class, 'update'])->name('mov_saida.update');
     Route::delete('/Saidas-cancelar/{id}', [MovimentacoesSessaoCaixaController::class, 'destroy'])->name('mov_saida.destroy');
-
 
     Route::post('/ItemVenda/AddSessaoMesa', [ItensVendaController::class, 'adicionarItensSessaoMesa'])->name('item_venda.add_item_sessaoMesa');
     Route::post('/ItemVenda/AddSessaoMesaPorCliente', [ItensVendaController::class, 'adicionarItensSessaoMesaPorCliente'])->name('item_venda.add_sessaomesa_por_cliente');
@@ -272,7 +264,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/PagamentoVenda', [PagamentosVendaController::class, 'store'])->name('pagamento_venda.store');
     Route::post('/RemoverPagamentoVenda', [PagamentosVendaController::class, 'destroy'])->name('pagamento_venda.destroy');
 
-
     Route::get('/ItemVenda', [ItensVendaController::class, 'index'])->name('item_venda.add_item_pedido2');
     Route::get('/ItemVenda2', [ItensVendaController::class, 'listarItensVenda'])->name('item_venda.listar');
 
@@ -286,4 +277,4 @@ Route::middleware('auth')->group(function () {
     })->name('render.toast');
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

@@ -4,13 +4,12 @@ namespace App\Filament\Resources\Balancos\Tables;
 
 use App\Enums\MovimentacaoTipoEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\DateFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Forms\Components\DatePicker;
 
 class BalancosTable
 {

@@ -58,7 +58,7 @@ class ClientesTable
     {
         return $table
             ->recordTitleAttribute('cliente_nome')
-            ->modifyQueryUsing(fn(Builder $query) => $query
+            ->modifyQueryUsing(fn (Builder $query) => $query
                 ->withCount('pedidos')
                 ->withMax('pedidos as ultimo_pedido_em', 'pedido_datahora_abertura')
             )
@@ -75,13 +75,13 @@ class ClientesTable
 
                 TextColumn::make('cliente_nome')
                     ->label('Cliente')
-                    ->description(fn(Cliente $record): string => self::tipoLabel($record->cliente_tipo))
+                    ->description(fn (Cliente $record): string => self::tipoLabel($record->cliente_tipo))
                     ->searchable(['cliente_nome', 'cliente_celular', 'cliente_email', 'cliente_cpf', 'cliente_cnpj'])
                     ->sortable(),
 
                 TextColumn::make('cliente_cpf')
                     ->label('Documento')
-                    ->state(fn(Cliente $record): string => self::documento($record))
+                    ->state(fn (Cliente $record): string => self::documento($record))
                     ->searchable(['cliente_cpf', 'cliente_cnpj']),
 
                 TextColumn::make('cliente_celular')
@@ -225,7 +225,7 @@ class ClientesTable
                             return $query;
                         }
 
-                        return $query->where('cliente_cidade', 'like', '%' . $cidade . '%');
+                        return $query->where('cliente_cidade', 'like', '%'.$cidade.'%');
                     }),
 
                 Filter::make('periodo_cadastro')
@@ -243,8 +243,8 @@ class ClientesTable
                         }
 
                         return $query
-                            ->when($dataInicio, fn(Builder $subQuery) => $subQuery->whereDate('created_at', '>=', $dataInicio))
-                            ->when($dataFim, fn(Builder $subQuery) => $subQuery->whereDate('created_at', '<=', $dataFim));
+                            ->when($dataInicio, fn (Builder $subQuery) => $subQuery->whereDate('created_at', '>=', $dataInicio))
+                            ->when($dataFim, fn (Builder $subQuery) => $subQuery->whereDate('created_at', '<=', $dataFim));
                     }),
 
                 TrashedFilter::make(),
@@ -254,16 +254,16 @@ class ClientesTable
                     ->label('WhatsApp')
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('success')
-                    ->visible(fn(Cliente $record): bool => filled($record->cliente_celular))
-                    ->url(fn(Cliente $record): string => self::whatsAppUrl((string) $record->cliente_celular))
+                    ->visible(fn (Cliente $record): bool => filled($record->cliente_celular))
+                    ->url(fn (Cliente $record): string => self::whatsAppUrl((string) $record->cliente_celular))
                     ->openUrlInNewTab(),
 
                 ActionsAction::make('enviar_email')
                     ->label('E-mail')
                     ->icon('heroicon-o-envelope')
                     ->color('info')
-                    ->visible(fn(Cliente $record): bool => filled($record->cliente_email))
-                    ->url(fn(Cliente $record): string => 'mailto:' . trim((string) $record->cliente_email))
+                    ->visible(fn (Cliente $record): bool => filled($record->cliente_email))
+                    ->url(fn (Cliente $record): string => 'mailto:'.trim((string) $record->cliente_email))
                     ->openUrlInNewTab(),
 
                 EditAction::make()
@@ -308,7 +308,7 @@ class ClientesTable
     private static function whatsAppUrl(string $celular): string
     {
         $digits = preg_replace('/\D+/', '', $celular) ?: '';
-        $phone = str_starts_with($digits, '55') ? $digits : ('55' . $digits);
+        $phone = str_starts_with($digits, '55') ? $digits : ('55'.$digits);
 
         return "https://wa.me/{$phone}";
     }

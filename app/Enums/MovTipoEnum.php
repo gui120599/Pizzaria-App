@@ -11,7 +11,7 @@ enum MovTipoEnum: string
 
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             self::ENTRADA => 'Entrada',
             self::SAIDA => 'Saída',
             self::AJUSTE => 'Ajuste',

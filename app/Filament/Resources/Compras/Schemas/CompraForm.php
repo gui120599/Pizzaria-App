@@ -97,11 +97,11 @@ class CompraForm
 
                         Placeholder::make('resumo_produtos')
                             ->label('Total dos produtos')
-                            ->content(fn (?Compra $record): string => 'R$ ' . number_format((float) ($record?->compra_valor_produtos ?? 0), 2, ',', '.')),
+                            ->content(fn (?Compra $record): string => 'R$ '.number_format((float) ($record?->compra_valor_produtos ?? 0), 2, ',', '.')),
 
                         Placeholder::make('resumo_total')
                             ->label('Total da nota')
-                            ->content(fn (?Compra $record): string => 'R$ ' . number_format((float) ($record?->compra_valor_total ?? 0), 2, ',', '.')),
+                            ->content(fn (?Compra $record): string => 'R$ '.number_format((float) ($record?->compra_valor_total ?? 0), 2, ',', '.')),
 
                         Placeholder::make('resumo_itens')
                             ->label('Itens lançados')

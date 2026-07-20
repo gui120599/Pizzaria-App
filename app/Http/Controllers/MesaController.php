@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Mesa;
 use App\Http\Requests\StoreMesaRequest;
 use App\Http\Requests\UpdateMesaRequest;
+use App\Models\Mesa;
 
 class MesaController extends Controller
 {
@@ -15,6 +14,7 @@ class MesaController extends Controller
     public function index()
     {
         $mesas = Mesa::all();
+
         return view('app.mesa.index', ['mesas' => $mesas]);
     }
 
@@ -97,10 +97,11 @@ class MesaController extends Controller
     {
         $mesa = Mesa::withTrashed()->find($id);
 
-        if (!$mesa) {
+        if (! $mesa) {
             return redirect('/Mesa')->with('error', 'Mesa não encontrada!');
         }
         $mesa->restore();
+
         return redirect('/Mesa')->with('success', 'Mesa Ativada com sucesso');
     }
 }

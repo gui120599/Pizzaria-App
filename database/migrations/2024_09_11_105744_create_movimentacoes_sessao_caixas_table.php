@@ -16,8 +16,8 @@ return new class extends Migration
             $table->unsignedBigInteger('mov_sessaocaixa_id')->nullable();
             $table->unsignedBigInteger('mov_venda_id')->nullable();
             $table->string('mov_descricao')->nullable();
-            $table->enum('mov_tipo',['ENTRADA','SAIDA'])->default('ENTRADA');
-            $table->decimal('mov_valor',10,2)->default('0.00');
+            $table->enum('mov_tipo', ['ENTRADA', 'SAIDA'])->default('ENTRADA');
+            $table->decimal('mov_valor', 10, 2)->default('0.00');
             $table->text('mov_observacoes')->nullable();
             $table->timestamps();
             $table->softDeletes();

@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('mesas', function (Blueprint $table) {
             $table->id();
             $table->string('mesa_nome');
-            $table->enum('mesa_status',['LIBERADA','OCUPADA','INATIVA'])->default('LIBERADA')->nullable();
+            $table->enum('mesa_status', ['LIBERADA', 'OCUPADA', 'INATIVA'])->default('LIBERADA')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

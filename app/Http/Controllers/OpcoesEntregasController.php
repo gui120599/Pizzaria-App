@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\OpcoesEntregas;
 use App\Http\Requests\StoreOpcoesEntregasRequest;
 use App\Http\Requests\UpdateOpcoesEntregasRequest;
+use App\Models\OpcoesEntregas;
 
 class OpcoesEntregasController extends Controller
 {
@@ -14,6 +14,7 @@ class OpcoesEntregasController extends Controller
     public function index()
     {
         $opcoes_entregas = OpcoesEntregas::all();
+
         return view('app.opcoes_entregas.index', ['opcoes_entregas' => $opcoes_entregas]);
     }
 
@@ -78,10 +79,11 @@ class OpcoesEntregasController extends Controller
     {
         $opcoes_entregas = OpcoesEntregas::find($id);
 
-        if (!$opcoes_entregas) {
+        if (! $opcoes_entregas) {
             return redirect('/OpcoesEntregas')->with('error', 'OpcoesEntregas não encontrada!');
         }
         $opcoes_entregas->delete();
+
         return redirect('/OpcoesEntregas')->with('success', 'OpcoesEntregas Inativada com sucesso');
     }
 
@@ -95,17 +97,18 @@ class OpcoesEntregasController extends Controller
         return view('app.opcoes_entregas.inactive', ['opcoes_entregas_inativadas' => $opcoes_entregas_inativas]);
     }
 
-     /**
+    /**
      * Active object.
      */
     public function active(OpcoesEntregas $opcoes_entregas, $id)
     {
         $opcoes_entregas = OpcoesEntregas::withTrashed()->find($id);
 
-        if (!$opcoes_entregas) {
+        if (! $opcoes_entregas) {
             return redirect('/OpcoesEntregas')->with('error', 'OpcoesEntregas não encontrada!');
         }
         $opcoes_entregas->restore();
+
         return redirect('/OpcoesEntregas')->with('success', 'OpcoesEntregas Ativada com sucesso');
     }
 }

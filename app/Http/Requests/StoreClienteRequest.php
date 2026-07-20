@@ -13,16 +13,17 @@ class StoreClienteRequest extends FormRequest
     {
         return true;
     }
+
     /**
      * Prepare the data for validation.
      */
     protected function prepareForValidation()
     {
         $this->merge([
-            'cliente_cpf' => $this->cliente_cpf ? str_replace([".", "-", " "], "", $this->cliente_cpf) : null,
-            'cliente_cnpj' => $this->cliente_cnpj ? str_replace([".", "-", "/", " "], "", $this->cliente_cnpj) : null,
-            'cliente_cep' => $this->cliente_cep ? str_replace("-", "", $this->cliente_cep) : null,
-            'cliente_celular' => $this->cliente_celular ? str_replace(["(", ")", "-", " "], "", $this->cliente_celular) : null,
+            'cliente_cpf' => $this->cliente_cpf ? str_replace(['.', '-', ' '], '', $this->cliente_cpf) : null,
+            'cliente_cnpj' => $this->cliente_cnpj ? str_replace(['.', '-', '/', ' '], '', $this->cliente_cnpj) : null,
+            'cliente_cep' => $this->cliente_cep ? str_replace('-', '', $this->cliente_cep) : null,
+            'cliente_celular' => $this->cliente_celular ? str_replace(['(', ')', '-', ' '], '', $this->cliente_celular) : null,
         ]);
     }
 
@@ -51,11 +52,13 @@ class StoreClienteRequest extends FormRequest
             'cliente_foto' => 'image|mimes:jpeg,png,jpg,gif|max:2048', // Exemplo de validação para imagem
         ];
     }
+
     // Método auxiliar para verificar se o tipo de pessoa é física
     private function tipoPessoaFisica(): bool
     {
         return $this->input('cliente_tipo') === 'Física';
     }
+
     // Método auxiliar para verificar se o tipo de pessoa é Juridica
     private function tipoPessoaJuridica(): bool
     {

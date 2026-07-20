@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Empresa;
 use App\Http\Requests\StoreEmpresaRequest;
 use App\Http\Requests\UpdateEmpresaRequest;
+use App\Models\Empresa;
 
 class EmpresaController extends Controller
 {
@@ -14,6 +14,7 @@ class EmpresaController extends Controller
     public function index()
     {
         $empresas = Empresa::all();
+
         return view('app.empresa.index', ['empresas' => $empresas]);
     }
 
@@ -33,7 +34,7 @@ class EmpresaController extends Controller
         $empresa = Empresa::create([
             'empresa_razao_social' => $request->input('empresa_razao_social'),
             'empresa_nome_fantasia' => $request->input('empresa_nome_fantasia') ? $request->input('empresa_nome_fantasia') : null,
-            'empresa_cnpj' => $request->input('empresa_cnpj') ? str_replace([".", "-", " ","/"], "", $request->input('empresa_cnpj')) : null,
+            'empresa_cnpj' => $request->input('empresa_cnpj') ? str_replace(['.', '-', ' ', '/'], '', $request->input('empresa_cnpj')) : null,
             'empresa_regime_tributario' => $request->input('empresa_regime_tributario'),
             'empresa_endereco_uf_estado' => $request->input('empresa_endereco_uf_estado'),
             'empresa_endereco_cidade_id_ibge' => $request->input('empresa_endereco_cidade_id_ibge'),
@@ -79,7 +80,7 @@ class EmpresaController extends Controller
         $empresa->update([
             'empresa_razao_social' => $request->input('empresa_razao_social'),
             'empresa_nome_fantasia' => $request->input('empresa_nome_fantasia'),
-            'empresa_cnpj' => $request->input('empresa_cnpj') ? str_replace([".", "-", " ","/"], "", $request->input('empresa_cnpj')) : null,
+            'empresa_cnpj' => $request->input('empresa_cnpj') ? str_replace(['.', '-', ' ', '/'], '', $request->input('empresa_cnpj')) : null,
             'empresa_regime_tributario' => $request->input('empresa_regime_tributario'),
             'empresa_endereco_uf_estado' => $request->input('empresa_endereco_uf_estado'),
             'empresa_endereco_cidade_id_ibge' => $request->input('empresa_endereco_cidade_id_ibge'),
@@ -106,11 +107,12 @@ class EmpresaController extends Controller
     {
         $empresa = Empresa::find($id);
 
-        if (!$empresa) {
+        if (! $empresa) {
             return redirect()->route('empresa')->with('error', 'Empresa não encontrada!');
         }
 
         $empresa->delete();
+
         return redirect()->route('empresa')->with('success', 'Empresa inativada com sucesso!');
     }
 
@@ -131,11 +133,12 @@ class EmpresaController extends Controller
     {
         $empresa = Empresa::withTrashed()->find($id);
 
-        if (!$empresa) {
+        if (! $empresa) {
             return redirect()->route('empresa')->with('error', 'Empresa não encontrada!');
         }
 
         $empresa->restore();
+
         return redirect()->route('empresa')->with('success', 'Empresa ativada com sucesso!');
     }
 }

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('adicional_nome')->nullable();
             $table->string('adicional_foto')->nullable();
-            $table->decimal('adicional_valor',10,2)->default('0.00')->nullable();
+            $table->decimal('adicional_valor', 10, 2)->default('0.00')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

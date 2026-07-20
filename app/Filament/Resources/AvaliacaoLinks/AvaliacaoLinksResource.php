@@ -5,7 +5,6 @@ namespace App\Filament\Resources\AvaliacaoLinks;
 use App\Filament\Resources\AvaliacaoLinks\Pages\ManageAvaliacaoLinks;
 use App\Models\AvaliacaoLink;
 use BackedEnum;
-use UnitEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -27,6 +26,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use UnitEnum;
 
 class AvaliacaoLinksResource extends Resource
 {

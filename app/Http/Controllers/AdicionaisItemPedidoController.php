@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AdicionaisItemPedido;
 use App\Http\Requests\StoreAdicionaisItemPedidoRequest;
 use App\Http\Requests\UpdateAdicionaisItemPedidoRequest;
+use App\Models\AdicionaisItemPedido;
 use App\Models\ItensPedido;
-use Request;
 
 class AdicionaisItemPedidoController extends Controller
 {
@@ -38,7 +37,7 @@ class AdicionaisItemPedidoController extends Controller
 
         // Busque o item do pedido
         $itemPedido = ItensPedido::find($request->input('item_pedidoId'));
-        if (!$itemPedido) {
+        if (! $itemPedido) {
             return response()->json(['message' => 'Item do pedido não encontrado.'], 404);
         }
 
@@ -68,21 +67,19 @@ class AdicionaisItemPedidoController extends Controller
                     ]);
                 }
 
-
                 $itemPedido->load('adicionaisItemPedido');
 
                 return response()->json(['message' => 'Adicional excluído ao Item com sucesso!', 'itemPedido' => $itemPedido], 200);
             }
 
-
             if ($itemPedido->item_pedido_quantidade == 0.5) {
-                    // Atualize o adicional existente
+                // Atualize o adicional existente
                 $adicionalItemPedido->update([
                     'aip_quantidade' => $quantidade,
                     'aip_valor_unitario' => $valor_unitario,
                     'aip_valor_total' => $valor_total * 2,
                 ]);
-                
+
                 // Recarregar o array com os valores atualizados
                 $adicionaisItemPedido = $itemPedido->adicionaisItemPedido()->get();
 
@@ -116,8 +113,6 @@ class AdicionaisItemPedidoController extends Controller
                 ]);
             }
 
-
-
             $itemPedido->load('adicionaisItemPedido');
 
             return response()->json(['message' => 'Adicional atualizado ao Item com sucesso!', 'itemPedido' => $itemPedido], 200);
@@ -136,7 +131,7 @@ class AdicionaisItemPedidoController extends Controller
                 $itemPedido->update([
                     'item_pedido_valor_adicionais' => $itemPedido->item_pedido_valor_adicionais + $valor_total * 2,
                     'item_pedido_valor_unitario' => $itemPedido->item_pedido_valor + $valor_total,
-                    'item_pedido_valor' => $itemPedido->item_pedido_valor + $valor_total ,
+                    'item_pedido_valor' => $itemPedido->item_pedido_valor + $valor_total,
                 ]);
             } else {
                 // Crie um novo adicional
@@ -155,14 +150,11 @@ class AdicionaisItemPedidoController extends Controller
                 ]);
             }
 
-
             $itemPedido->load('adicionaisItemPedido');
 
             return response()->json(['message' => 'Adicional adicionado ao Item com sucesso!', 'itemPedido' => $itemPedido], 200);
         }
     }
-
-
 
     /**
      * Display the specified resource.

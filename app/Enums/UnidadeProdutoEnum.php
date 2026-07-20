@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Enums;
 
 enum UnidadeProdutoEnum: string
@@ -35,7 +36,7 @@ enum UnidadeProdutoEnum: string
 
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
 
             self::UN => 'Unidade',
             self::CX => 'Caixa',

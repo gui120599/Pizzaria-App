@@ -12,7 +12,6 @@ use App\Models\SessaoMesa;
 use App\Models\Venda;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use PDF;
 
 class PDFController extends Controller
 {
@@ -24,6 +23,7 @@ class PDFController extends Controller
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
         $pedido = Pedido::with(['cliente', 'garcom', 'opcaoEntrega', 'sessaoMesa.mesa'])->find($pedido_id);
+
         return view('pedidoPDF', ['itens_inserido_pedido' => $itensInseridoPedido, 'pedido' => $pedido]);
     }
 
@@ -39,22 +39,22 @@ class PDFController extends Controller
             $query->where('pedido_sessao_mesa_id', $sessaoMesaId)
                 ->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO']);
         })
-        ->where('item_pedido_status', 'INSERIDO')
-        ->whereNull('item_pedido_venda_id')
-        ->with(['pedido.garcom', 'produto.categoria', 'adicionaisItemPedido.adicional', 'cliente'])
-        ->get();
+            ->where('item_pedido_status', 'INSERIDO')
+            ->whereNull('item_pedido_venda_id')
+            ->with(['pedido.garcom', 'produto.categoria', 'adicionaisItemPedido.adicional', 'cliente'])
+            ->get();
 
         // Desconto pelo conjunto de itens exibido (não pelo cabeçalho do pedido),
         // para ficar correto também em pagamentos parciais.
         $totalDesconto = round($itensInseridoPedido->sum('item_pedido_desconto'), 2);
 
         // Agrupa por cliente: usa item_pedido_cliente_id; null vai para chave 0
-        $itensPorCliente = $itensInseridoPedido->groupBy(fn($item) => $item->item_pedido_cliente_id ?? 0);
+        $itensPorCliente = $itensInseridoPedido->groupBy(fn ($item) => $item->item_pedido_cliente_id ?? 0);
 
         return view('sessaoMesaPDF', [
-            'sessao_mesa'       => $sessaoMesa,
+            'sessao_mesa' => $sessaoMesa,
             'itens_por_cliente' => $itensPorCliente,
-            'total_desconto'    => $totalDesconto,
+            'total_desconto' => $totalDesconto,
         ]);
     }
 
@@ -64,12 +64,12 @@ class PDFController extends Controller
         $sessaoCaixa = SessaoCaixa::with('caixa')->find($sessaoCaixaId);
 
         // Verificação se o objeto $sessaoCaixa foi encontrado
-        if (!$sessaoCaixa) {
+        if (! $sessaoCaixa) {
             return back()->withErrors('Sessão de caixa não encontrada.');
         }
 
         // Verificação se há um objeto Caixa relacionado
-        if (!$sessaoCaixa->caixa) {
+        if (! $sessaoCaixa->caixa) {
             return back()->withErrors('Caixa não encontrado para esta sessão.');
         }
 
@@ -81,7 +81,7 @@ class PDFController extends Controller
             ->get();
 
         $pagamentos = PagamentosVenda::whereHas('venda', function ($query) use ($sessaoCaixaId) {
-            $query->where('venda_sessao_caixa_id', $sessaoCaixaId)->where('venda_status','FINALIZADA');
+            $query->where('venda_sessao_caixa_id', $sessaoCaixaId)->where('venda_status', 'FINALIZADA');
         })->with('opcaoPagamento')->get();
 
         $opcoesPagamentos = OpcoesPagamento::whereHas('pagamentosVenda', function ($query) use ($sessaoCaixaId) {
@@ -90,15 +90,14 @@ class PDFController extends Controller
             });
         })->get();
 
-
         return view('sessaoCaixaPDF', [
             'sessao_caixa' => $sessaoCaixa,
             'vendas' => $vendas,
             'pagamentos' => $pagamentos,
             'opcoes_pagamentos' => $opcoesPagamentos,
-            'saidas' => $movSaidas
+            'saidas' => $movSaidas,
         ]);
-        //dd($movSaidas);
+        // dd($movSaidas);
     }
 
     public function pedidosEntreguesFinalizadosCanceladosPDF($datahora_abertura)
@@ -119,7 +118,7 @@ class PDFController extends Controller
         $pedidos = Pedido::whereBetween('pedido_datahora_abertura', [$DatahoraInicio, $DatahoraFinal])->get();
 
         return view('pedidosEntreguesFinalizadosCanceladosPDF', [
-            'pedidos' => $pedidos
+            'pedidos' => $pedidos,
         ]);
     }
 
@@ -141,8 +140,7 @@ class PDFController extends Controller
         $pedidos = Pedido::whereBetween('pedido_datahora_abertura', [$DatahoraInicio, $DatahoraFinal])->get();
 
         return view('pedidosEntregasPDF', [
-            'pedidos' => $pedidos
+            'pedidos' => $pedidos,
         ]);
     }
-
 }

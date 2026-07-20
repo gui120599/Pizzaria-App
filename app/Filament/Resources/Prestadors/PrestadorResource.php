@@ -8,7 +8,6 @@ use App\Filament\Resources\Prestadors\Pages\ManagePrestadors;
 use App\Models\Prestador;
 use App\Services\IBGEServices;
 use BackedEnum;
-use Dom\Document;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -19,8 +18,8 @@ use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -62,7 +61,7 @@ class PrestadorResource extends Resource
                         Select::make('tipo')
                             ->label('Tipo de Pessoa')
                             ->options(collect(PrestadorTipoEnum::cases())
-                                ->mapWithKeys(fn($case) => [
+                                ->mapWithKeys(fn ($case) => [
                                     $case->value => $case->label(),
                                 ])
                                 ->toArray())
@@ -74,7 +73,7 @@ class PrestadorResource extends Resource
                         Select::make('categoria')
                             ->label('Categoria')
                             ->options(collect(PrestadorCategoriaEnum::cases())
-                                ->mapWithKeys(fn($case) => [
+                                ->mapWithKeys(fn ($case) => [
                                     $case->value => $case->label(),
                                 ])
                                 ->toArray())
@@ -84,17 +83,17 @@ class PrestadorResource extends Resource
 
                         TextInput::make('razao_social')
                             ->label('Razão Social')
-                            ->visible(fn(Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value)
+                            ->visible(fn (Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value)
                             ->columnSpan(1),
 
                         TextInput::make('nome_fantasia')
                             ->label('Nome Fantasia')
-                            ->visible(fn(Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value)
+                            ->visible(fn (Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value)
                             ->columnSpan(1),
 
                         TextInput::make('nome')
                             ->label('Nome Completo')
-                            ->visible(fn(Get $get) => $get('tipo') === PrestadorTipoEnum::PF->value)
+                            ->visible(fn (Get $get) => $get('tipo') === PrestadorTipoEnum::PF->value)
                             ->columnSpan(2),
                     ]),
 
@@ -119,15 +118,15 @@ class PrestadorResource extends Resource
                     ->columns(2)
                     ->schema([
                         TextInput::make('cpf_cnpj')
-                            ->label(fn(Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value ? 'CNPJ' : 'CPF')
-                            ->mask(fn(Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value
+                            ->label(fn (Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value ? 'CNPJ' : 'CPF')
+                            ->mask(fn (Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value
                                 ? '99.999.999/9999-99'
                                 : '999.999.999-99')
                             ->columnSpan(1),
 
                         TextInput::make('inscricao_estadual')
                             ->label('Inscrição Estadual')
-                            ->visible(fn(Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value)
+                            ->visible(fn (Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value)
                             ->columnSpan(1),
                     ]),
 
@@ -214,6 +213,7 @@ class PrestadorResource extends Resource
                                 if (empty($uf)) {
                                     return [];
                                 }
+
                                 // Chama o novo método no seu serviço para buscar as cidades da UF
                                 return IBGEServices::cidadesPorUf($uf);
                             })

@@ -175,8 +175,8 @@ class Clientes
                     ->label('WhatsApp')
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('success')
-                    ->visible(fn(Cliente $record): bool => filled($record->cliente_celular))
-                    ->url(fn(Cliente $record): string => self::whatsAppUrl((string) $record->cliente_celular))
+                    ->visible(fn (Cliente $record): bool => filled($record->cliente_celular))
+                    ->url(fn (Cliente $record): string => self::whatsAppUrl((string) $record->cliente_celular))
                     ->openUrlInNewTab(),
             ]);
     }
@@ -184,7 +184,7 @@ class Clientes
     private static function whatsAppUrl(string $celular): string
     {
         $digits = preg_replace('/\D+/', '', $celular) ?: '';
-        $phone = str_starts_with($digits, '55') ? $digits : ('55' . $digits);
+        $phone = str_starts_with($digits, '55') ? $digits : ('55'.$digits);
 
         return "https://wa.me/{$phone}";
     }

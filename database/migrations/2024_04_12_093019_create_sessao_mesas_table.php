@@ -16,7 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('sessao_mesa_mesa_id');
             $table->unsignedBigInteger('sessao_mesa_cliente_id')->nullable();
             $table->unsignedBigInteger('sessao_mesa_usuario_id');
-            $table->enum('sessao_mesa_status',['ABERTA','FECHADA','FINALIZADA','CANCELADA'])->default('ABERTA');
+            $table->enum('sessao_mesa_status', ['ABERTA', 'FECHADA', 'FINALIZADA', 'CANCELADA'])->default('ABERTA');
             $table->text('sessao_mesa_motivo_cancelamento')->nullable();
             $table->timestamps();
 

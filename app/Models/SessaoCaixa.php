@@ -42,9 +42,9 @@ class SessaoCaixa extends Model
     {
         return $this->belongsTo(User::class, 'sessaocaixa_user_id');
     }
+
     public function vendas()
     {
         return $this->hasMany(Venda::class, 'venda_sessao_caixa_id');
     }
-
 }

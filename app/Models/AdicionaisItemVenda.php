@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class AdicionaisItemVenda extends Model
 {
     use HasFactory;
-    
+
     // Nome da tabela
     protected $table = 'adicionais_item_vendas';
 

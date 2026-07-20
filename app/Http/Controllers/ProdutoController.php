@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreProdutoRequest;
+use App\Http\Requests\UpdateProdutoRequest;
 use App\Models\AdicionaisProduto;
 use App\Models\Adicional;
 use App\Models\Categoria;
 use App\Models\Produto;
-use App\Http\Requests\StoreProdutoRequest;
-use App\Http\Requests\UpdateProdutoRequest;
-use Request;
 
 class ProdutoController extends Controller
 {
@@ -80,7 +79,6 @@ class ProdutoController extends Controller
             $produto->saveFoto($foto);
         }
 
-
         $produto->save();
 
         // Redireciona para a página do produto recém-criado
@@ -123,7 +121,6 @@ class ProdutoController extends Controller
             'produtoAdicionais' => $produtoAdicionais,
         ]);
     }
-
 
     /**
      * Update the specified resource in storage.
@@ -168,9 +165,8 @@ class ProdutoController extends Controller
 
         // Redireciona para a página do produto atualizado
         return redirect()->route('produto')->with('success', 'Produto atualizado com sucesso!');
-        //dd($produto);
+        // dd($produto);
     }
-
 
     /**
      * Remove the specified resource from storage.
@@ -179,7 +175,7 @@ class ProdutoController extends Controller
     {
         $produto = Produto::find($id);
 
-        if (!$produto) {
+        if (! $produto) {
             return redirect('/Produto')->with('error', 'Produto não encontrado!');
         }
 
@@ -205,7 +201,7 @@ class ProdutoController extends Controller
     {
         $produto = Produto::withTrashed()->find($id);
 
-        if (!$produto) {
+        if (! $produto) {
             return redirect('/Produto')->with('error', 'Produto não encontrado!');
         }
 
@@ -213,5 +209,4 @@ class ProdutoController extends Controller
 
         return redirect('/Produto')->with('success', 'Produto Ativado com sucesso!');
     }
-
 }

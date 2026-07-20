@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Adicional;
 use App\Http\Requests\StoreAdicionalRequest;
 use App\Http\Requests\UpdateAdicionalRequest;
+use App\Models\Adicional;
 
 class AdicionalController extends Controller
 {
@@ -14,6 +14,7 @@ class AdicionalController extends Controller
     public function index()
     {
         $adicionais = Adicional::all();
+
         return view('app.adicional.index', ['adicionais' => $adicionais]);
     }
 
@@ -42,8 +43,8 @@ class AdicionalController extends Controller
         }
 
         $adicional->save();
-        return redirect()->route('adicional')->with('success', 'Adicional salvo com sucesso!');
 
+        return redirect()->route('adicional')->with('success', 'Adicional salvo com sucesso!');
 
     }
 
@@ -83,15 +84,14 @@ class AdicionalController extends Controller
         return redirect()->route('adicional')->with('success', 'Adicional atualizado com sucesso!');
     }
 
-
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Adicional $adicional,$id)
+    public function destroy(Adicional $adicional, $id)
     {
         $adicional = Adicional::find($id);
 
-        if (!$adicional) {
+        if (! $adicional) {
             return redirect('/Adicional')->with('error', 'adicional não encontrado!');
         }
 
@@ -99,7 +99,6 @@ class AdicionalController extends Controller
 
         return redirect('/Adicional')->with('success', 'adicional Inativado com sucesso!');
     }
-
 
     /**
      * Show form Inactives.
@@ -111,7 +110,6 @@ class AdicionalController extends Controller
         return view('app.adicional.inactive', ['adicionais' => $adicionais_inativos]);
     }
 
-
     /**
      * Active object.
      */
@@ -119,7 +117,7 @@ class AdicionalController extends Controller
     {
         $adicional = Adicional::withTrashed()->find($id);
 
-        if (!$adicional) {
+        if (! $adicional) {
             return redirect('/Adicional')->with('error', 'Adicional não encontrado!');
         }
 

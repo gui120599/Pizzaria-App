@@ -56,6 +56,11 @@ class ItensRelationManager extends RelationManager
         return $owner instanceof Compra && $owner->isRascunho();
     }
 
+    private static function produtoControlaLote(Get $get): bool
+    {
+        return (bool) optional(Produto::find($get('ci_produto_id')))->produto_controla_lote;
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -137,11 +142,13 @@ class ItensRelationManager extends RelationManager
 
                 TextInput::make('ci_lote_codigo')
                     ->label('Lote')
-                    ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('ci_produto_id')))->produto_controla_lote),
+                    ->visible(fn (Get $get): bool => self::produtoControlaLote($get))
+                    ->required(fn (Get $get): bool => self::produtoControlaLote($get)),
 
                 DatePicker::make('ci_validade')
                     ->label('Validade')
-                    ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('ci_produto_id')))->produto_controla_lote),
+                    ->visible(fn (Get $get): bool => self::produtoControlaLote($get))
+                    ->required(fn (Get $get): bool => self::produtoControlaLote($get)),
 
                 TextInput::make('ci_codigo_fornecedor')->label('Código no fornecedor')->columnSpan(1),
                 MarcaSelect::make('ci_marca_id')

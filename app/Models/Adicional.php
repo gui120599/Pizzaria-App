@@ -31,11 +31,11 @@ class Adicional extends Model
 
     public function saveFoto($foto)
     {
-        $nomeArquivo = time() . '.' . $foto->getClientOriginalExtension();
+        $nomeArquivo = time().'.'.$foto->getClientOriginalExtension();
         $caminho = public_path('/img/fotos_adicionais');
 
         // Criar diretório, se não existir
-        if (!file_exists($caminho)) {
+        if (! file_exists($caminho)) {
             mkdir($caminho, 0777, true);
         }
 
@@ -43,5 +43,4 @@ class Adicional extends Model
         $this->adicional_foto = $nomeArquivo;
         $this->save();
     }
-
 }

@@ -112,8 +112,8 @@ class ClienteForm
                                     ->native(false)
                                     ->maxDate(now())
                                     ->prefixIcon('heroicon-o-calendar-days')
-                                    ->visible(fn($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
-                                    ->dehydrated(fn($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
+                                    ->visible(fn ($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
+                                    ->dehydrated(fn ($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
                                     ->columnSpan(2),
 
                                 TextInput::make('cliente_celular')
@@ -171,7 +171,7 @@ class ClienteForm
                             ->helperText('JPG/PNG até 5MB')
                             ->maxSize(5120)
                             ->getUploadedFileNameForStorageUsing(
-                                fn($file): string => Str::uuid() . '.' . $file->getClientOriginalExtension()
+                                fn ($file): string => Str::uuid().'.'.$file->getClientOriginalExtension()
                             )
                             ->columnSpanFull(),
                     ]),
@@ -187,23 +187,23 @@ class ClienteForm
                                     ->label('CPF')
                                     ->mask('999.999.999-99')
                                     ->placeholder('000.000.000-00')
-                                    ->visible(fn($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
-                                    ->dehydrated(fn($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
+                                    ->visible(fn ($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
+                                    ->dehydrated(fn ($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
                                     ->columnSpan(2),
 
                                 TextInput::make('cliente_rg')
                                     ->label('RG')
                                     ->placeholder('Ex: 12.345.678-9')
-                                    ->visible(fn($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
-                                    ->dehydrated(fn($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
+                                    ->visible(fn ($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
+                                    ->dehydrated(fn ($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
                                     ->columnSpan(2),
 
                                 TextInput::make('cliente_cnpj')
                                     ->label('CNPJ')
                                     ->mask('99.999.999/9999-99')
                                     ->placeholder('00.000.000/0000-00')
-                                    ->visible(fn($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PJ')
-                                    ->dehydrated(fn($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PJ')
+                                    ->visible(fn ($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PJ')
+                                    ->dehydrated(fn ($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PJ')
                                     ->columnSpan(2),
                             ]),
                     ]),

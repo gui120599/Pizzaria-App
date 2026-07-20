@@ -559,7 +559,7 @@ class VendaController extends Controller
             // Caso a nota autorize, ele atualiza o status
             $response_status = $this->atualizaStatusNFE($venda);
 
-            //return redirect()->route('venda')->with('success', 'NFC-E Enviada com sucesso! Verifique em NOTAS FISCAIS se a mesma foi gerada!');
+            // return redirect()->route('venda')->with('success', 'NFC-E Enviada com sucesso! Verifique em NOTAS FISCAIS se a mesma foi gerada!');
 
             return redirect()->route('sessao_caixa.vendas', ['sessao_caixa' => $venda->venda_sessao_caixa_id])->with('success', 'NFC-E Enviada com sucesso! Verifique em NOTAS FISCAIS se a mesma foi gerada!');
         } else {

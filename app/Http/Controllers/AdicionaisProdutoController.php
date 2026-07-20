@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AdicionaisProduto;
 use App\Http\Requests\StoreAdicionaisProdutoRequest;
 use App\Http\Requests\UpdateAdicionaisProdutoRequest;
+use App\Models\AdicionaisProduto;
 use Illuminate\Http\Request;
 
 class AdicionaisProdutoController extends Controller
@@ -17,7 +17,7 @@ class AdicionaisProdutoController extends Controller
         try {
             $isActive = filter_var($request->input('isActive'), FILTER_VALIDATE_BOOLEAN);
 
-            if (!$isActive) {
+            if (! $isActive) {
                 AdicionaisProduto::firstOrCreate([
                     'ap_adicional_id' => $request->input('adicionalId'),
                     'ap_produto_id' => $request->input('produtoId'),
@@ -44,9 +44,6 @@ class AdicionaisProdutoController extends Controller
             ], 500);
         }
     }
-
-
-
 
     /**
      * Display a listing of the resource.

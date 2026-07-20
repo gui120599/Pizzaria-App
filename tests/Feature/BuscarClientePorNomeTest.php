@@ -33,11 +33,11 @@ class BuscarClientePorNomeTest extends TestCase
     public function test_encontra_clientes_pelo_nome(): void
     {
         $this->cliente([
-            'cliente_nome'    => 'João da Silva',
+            'cliente_nome' => 'João da Silva',
             'cliente_celular' => '11999998888',
             'cliente_endereco' => 'Rua A',
             'cliente_numero_endereco' => '100',
-            'cliente_bairro'  => 'Centro',
+            'cliente_bairro' => 'Centro',
         ]);
         $this->cliente(['cliente_nome' => 'Maria Souza']);
 

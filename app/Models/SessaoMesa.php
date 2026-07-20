@@ -24,14 +24,14 @@ class SessaoMesa extends Model
     public function mesa()
     {
         return $this->belongsTo(Mesa::class, 'sessao_mesa_mesa_id')->withDefault([
-            'mesa_nome' => 'S/M'
+            'mesa_nome' => 'S/M',
         ]);
     }
 
     public function cliente()
     {
         return $this->belongsTo(Cliente::class, 'sessao_mesa_cliente_id')->withDefault([
-            'cliente_nome' => 'Não Informado'
+            'cliente_nome' => 'Não Informado',
         ]);
     }
 

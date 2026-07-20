@@ -5,7 +5,6 @@ namespace App\Filament\Resources\HorarioFuncionamento;
 use App\Filament\Resources\HorarioFuncionamento\Pages\ManageHorarioFuncionamento;
 use App\Models\HorarioFuncionamento;
 use BackedEnum;
-use UnitEnum;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -20,6 +19,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class HorarioFuncionamentoResource extends Resource
 {

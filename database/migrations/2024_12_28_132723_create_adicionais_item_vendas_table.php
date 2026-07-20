@@ -16,8 +16,8 @@ return new class extends Migration
             $table->unsignedBigInteger('aiv_adicional_id');
             $table->unsignedBigInteger('aiv_item_venda_id');
             $table->double('aiv_quantidade');
-            $table->decimal('aiv_valor_unitario',10,2)->default('0.00');
-            $table->decimal('aiv_valor_total',10,2)->default('0.00');
+            $table->decimal('aiv_valor_unitario', 10, 2)->default('0.00');
+            $table->decimal('aiv_valor_total', 10, 2)->default('0.00');
             $table->timestamps();
 
             $table->foreign('aiv_adicional_id')->references('id')->on('adicionais');

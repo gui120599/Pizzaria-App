@@ -24,18 +24,18 @@ class OpcoesPagamento extends Model
     ];
 
     protected $casts = [
-        'opcaopag_aparece_cardapio'      => 'boolean',
-        'opcaopag_tipo_taxa'             => 'string',
-        'opcaopag_desc_nfe'              => 'string',
+        'opcaopag_aparece_cardapio' => 'boolean',
+        'opcaopag_tipo_taxa' => 'string',
+        'opcaopag_desc_nfe' => 'string',
         'opcaopag_valor_percentual_taxa' => 'float',
-        'opcaopag_requer_bandeira'       => 'boolean',
-        'opcaopag_requer_autorizacao'    => 'boolean',
+        'opcaopag_requer_bandeira' => 'boolean',
+        'opcaopag_requer_autorizacao' => 'boolean',
     ];
 
     const TIPO_TAXA = [
         'N/A' => 'N/A',
         'DESCONTAR' => 'DESCONTAR',
-        'ACRESCENTAR' => 'ACRESCENTAR'
+        'ACRESCENTAR' => 'ACRESCENTAR',
     ];
 
     /*const DESC_NFE = [

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Empresa;
-use App\Models\NotaFiscal;
 use App\Http\Requests\StoreNotaFiscalRequest;
 use App\Http\Requests\UpdateNotaFiscalRequest;
+use App\Models\Empresa;
+use App\Models\NotaFiscal;
 use GuzzleHttp\Client;
 
 class NotaFiscalController extends Controller
@@ -17,7 +17,7 @@ class NotaFiscalController extends Controller
     {
 
         // Inicializa o cliente HTTP do Guzzle
-        $client = new Client();
+        $client = new Client;
 
         $empresa = Empresa::first();
         $companyId = $empresa->empresa_api_nfeio_company_id;
@@ -61,19 +61,16 @@ class NotaFiscalController extends Controller
             if ($response->getStatusCode() === 200) {
                 // Retorna o conteúdo do PDF (ou salva, dependendo da sua necessidade)
                 return view('app.nota_fiscal.index', ['data' => $data['consumerInvoices'], 'dataError' => $data2['consumerInvoices']]);
-                //dd($data);
+                // dd($data);
             }
-
-
 
             // Retorno em caso de falha
             return response()->json(['error' => 'Falha ao listar Notas Fiscais!'], $response->getStatusCode());
         } catch (\Exception $e) {
             // Tratamento de exceção caso algo dê errado
-            //return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $e->getMessage()], 500);
+            // return response()->json(['error' => 'Erro ao se comunicar com a API: ' . $e->getMessage()], 500);
             return view('app.nota_fiscal.index')->with('error', 'Erro ao se comunicar com Api');
         }
-
 
     }
 
@@ -101,12 +98,12 @@ class NotaFiscalController extends Controller
         try {
             // Busca a empresa e verifica se existe
             $empresa = Empresa::first();
-            if (!$empresa) {
+            if (! $empresa) {
                 return redirect()->route('app.nota_fiscal.index')->with('error', 'Empresa não cadastrada!');
             }
 
             // Inicializa o cliente HTTP do Guzzle
-            $client = new Client();
+            $client = new Client;
 
             // Recupera credenciais da empresa
             $companyId = $empresa->empresa_api_nfeio_company_id;
@@ -128,17 +125,16 @@ class NotaFiscalController extends Controller
 
             // Verifica se a resposta tem o campo "events"
             if ($response->getStatusCode() === 200 && isset($content['lastEvents']['events'])) {
-                return view('app.nota_fiscal.events', ['data' => $content['lastEvents']['events'],'venda_id' => $content['number']]);
+                return view('app.nota_fiscal.events', ['data' => $content['lastEvents']['events'], 'venda_id' => $content['number']]);
             }
 
             return redirect()->route('nota_fiscal')->with('error', 'Nenhum evento encontrado!');
         } catch (\GuzzleHttp\Exception\RequestException $e) {
-            return redirect()->route('nota_fiscal')->with('error', 'Erro ao se comunicar com a API: ' . $e->getMessage());
+            return redirect()->route('nota_fiscal')->with('error', 'Erro ao se comunicar com a API: '.$e->getMessage());
         } catch (\Exception $e) {
-            return redirect()->route('nota_fiscal')->with('error', 'Erro inesperado: ' . $e->getMessage());
+            return redirect()->route('nota_fiscal')->with('error', 'Erro inesperado: '.$e->getMessage());
         }
     }
-
 
     /**
      * Show the form for editing the specified resource.

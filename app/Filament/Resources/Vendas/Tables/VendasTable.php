@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Vendas\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -56,10 +55,10 @@ class VendasTable
                 TextColumn::make('venda_status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'FINALIZADA' => 'success',
-                        'CANCELADA'  => 'danger',
-                        default      => 'warning',
+                        'CANCELADA' => 'danger',
+                        default => 'warning',
                     }),
 
                 TextColumn::make('venda_datahora_iniciada')
@@ -84,9 +83,9 @@ class VendasTable
                 SelectFilter::make('venda_status')
                     ->label('Status')
                     ->options([
-                        'INICIADA'   => 'Iniciada',
+                        'INICIADA' => 'Iniciada',
                         'FINALIZADA' => 'Finalizada',
-                        'CANCELADA'  => 'Cancelada',
+                        'CANCELADA' => 'Cancelada',
                     ]),
             ])
             ->recordActions([

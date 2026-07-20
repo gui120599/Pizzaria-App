@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CartoesPagamento;
 use App\Http\Requests\StoreCartoesPagamentoRequest;
 use App\Http\Requests\UpdateCartoesPagamentoRequest;
+use App\Models\CartoesPagamento;
 
 class CartoesPagamentoController extends Controller
 {

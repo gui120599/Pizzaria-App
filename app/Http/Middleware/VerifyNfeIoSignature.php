@@ -26,16 +26,15 @@ class VerifyNfeIoSignature
 
         // Gerar a assinatura HMAC-SHA1 do payload
         $generatedSignature = hash_hmac('sha1', $payload, $secret);
-        
-    
-        Log::warning("📝 Payload recebido: " . $payload);
-        Log::warning("🔑 Assinatura esperada: " . $generatedSignature);
-        Log::warning("🔍 Assinatura recebida: " . $receivedSignature);
-    
+
+        Log::warning('📝 Payload recebido: '.$payload);
+        Log::warning('🔑 Assinatura esperada: '.$generatedSignature);
+        Log::warning('🔍 Assinatura recebida: '.$receivedSignature);
+
         // Verificar se a assinatura gerada corresponde à recebida
         if ($receivedSignature === $generatedSignature) {
             // A assinatura é válida, prossiga com o processamento
-            Log::info("Webhook recebido com sucesso!");
+            Log::info('Webhook recebido com sucesso!');
 
             // Processar a requisição (salvar dados, atualizar o status, etc.)
             // Exemplo: Processar a notificação e atualizar o banco de dados.
@@ -43,7 +42,7 @@ class VerifyNfeIoSignature
             return response()->json(['status' => 'sucesso'], 200);
         } else {
             // Assinatura inválida
-            Log::warning("Webhook com assinatura inválida", [
+            Log::warning('Webhook com assinatura inválida', [
                 'received_signature' => $receivedSignature,
                 'generated_signature' => $generatedSignature,
             ]);
@@ -53,15 +52,15 @@ class VerifyNfeIoSignature
     }
     /*public function handle(Request $request, Closure $next): Response
     {
-        $secret = env('NFE_IO_SECRET'); 
+        $secret = env('NFE_IO_SECRET');
         $signature = $request->header('X-NFEIO-SIGNATURE');
 
         if(!$signature || $signature !== hash_hmac('sha256', $request->getContent(), $secret)){
             Log::warning('Webhook com assinatura inválida', ['received_signature' => $signature]);
             return response()->json(['message' => 'Assinatura inválida'], 403);
         }
-        
+
         return $next($request);
     }*/
-    
+
 }

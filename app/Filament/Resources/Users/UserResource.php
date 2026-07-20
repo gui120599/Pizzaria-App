@@ -13,7 +13,6 @@ use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -71,17 +70,16 @@ class UserResource extends Resource
                             ->email()
                             ->required(),
                         TextInput::make('password')
-                            ->autocomplete("new-password")
-                            ->dehydrateStateUsing(fn(string $state): string => Hash::make($state))
-                            ->dehydrated(fn(?string $state): bool => filled($state))
-                            ->required(fn(string $operation): bool => $operation === 'create')
+                            ->autocomplete('new-password')
+                            ->dehydrateStateUsing(fn (string $state): string => Hash::make($state))
+                            ->dehydrated(fn (?string $state): bool => filled($state))
+                            ->required(fn (string $operation): bool => $operation === 'create')
                             ->revealable()
                             ->password(),
 
                     ]),
             ])->columns(1);
     }
-
 
     public static function table(Table $table): Table
     {

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Cliente;
 use App\Http\Requests\StoreClienteRequest;
 use App\Http\Requests\UpdateClienteRequest;
+use App\Models\Cliente;
 use Carbon\Carbon;
 
 class ClienteController extends Controller
@@ -15,6 +15,7 @@ class ClienteController extends Controller
     public function index(Cliente $cliente)
     {
         $clientes = $cliente::all();
+
         return view('app.cliente.index', ['clientes' => $clientes]);
     }
 
@@ -32,28 +33,27 @@ class ClienteController extends Controller
     public function store(StoreClienteRequest $request)
     {
         $clienteData = $request->all();
-    
+
         // Formatar a data de nascimento se estiver presente e for pessoa física
         if ($request->input('cliente_tipo') !== 'Jurídica' && isset($clienteData['cliente_data_nascimento'])) {
             $clienteData['cliente_data_nascimento'] = Carbon::createFromFormat('d/m/Y', $clienteData['cliente_data_nascimento']);
         }
-    
+
         // Criar novo cliente
         $cliente = new Cliente($clienteData);
-        //dd($cliente);
-    
+        // dd($cliente);
+
         // Salvar a foto se presente
         if ($request->hasFile('cliente_foto')) {
             $foto = $request->file('cliente_foto');
             $cliente->saveFoto($foto);
         }
-    
+
         // Salvar no banco
         $cliente->save();
-    
+
         return redirect()->route('cliente')->with('success', 'Cliente criado com sucesso!');
     }
-    
 
     /**
      * Display the specified resource.
@@ -68,7 +68,7 @@ class ClienteController extends Controller
      */
     public function edit(Cliente $cliente)
     {
-        return view('app.cliente.edit',["cliente" => $cliente]);
+        return view('app.cliente.edit', ['cliente' => $cliente]);
     }
 
     /**
@@ -79,13 +79,12 @@ class ClienteController extends Controller
 
         // Obter todos os dados do request
         $clienteData = $request->all();
-        //dd($request);
+        // dd($request);
 
         // Formatar a data de nascimento se presente e se não for Pessoa Jurídica
         if ($request->input('cliente_tipo') !== 'Jurídica' && isset($clienteData['cliente_data_nascimento'])) {
             $clienteData['cliente_data_nascimento'] = Carbon::createFromFormat('d/m/Y', $clienteData['cliente_data_nascimento'])->toDateString();
-        }
-        else{
+        } else {
             $clienteData['cliente_data_nascimento'] = null;
         }
 
@@ -105,7 +104,6 @@ class ClienteController extends Controller
 
     }
 
-
     /**
      * Remove the specified resource from storage.
      */
@@ -113,12 +111,12 @@ class ClienteController extends Controller
     {
         $cliente = Cliente::find($id);
 
-        if (!$cliente) {
-            return redirect('/Cliente')->with('error','Cliente não encontrado!');
+        if (! $cliente) {
+            return redirect('/Cliente')->with('error', 'Cliente não encontrado!');
         }
 
         $cliente->delete();
 
-        return redirect('/Cliente')->with('success','Cliente inativado!');
+        return redirect('/Cliente')->with('success', 'Cliente inativado!');
     }
 }

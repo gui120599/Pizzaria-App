@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Categoria;
 use App\Http\Requests\StoreCategoriaRequest;
 use App\Http\Requests\UpdateCategoriaRequest;
+use App\Models\Categoria;
 
 class CategoriaController extends Controller
 {
@@ -14,6 +14,7 @@ class CategoriaController extends Controller
     public function index()
     {
         $categorias = Categoria::all();
+
         return view('app.categoria.index', ['categorias' => $categorias]);
     }
 
@@ -80,10 +81,11 @@ class CategoriaController extends Controller
     {
         $categoria = Categoria::find($id);
 
-        if (!$categoria) {
+        if (! $categoria) {
             return redirect('/Categoria')->with('error', 'Categoria não encontrada!');
         }
         $categoria->delete();
+
         return redirect('/Categoria')->with('success', 'Categoria Inativada com sucesso');
     }
 
@@ -97,18 +99,18 @@ class CategoriaController extends Controller
         return view('app.categoria.inactive', ['categorias' => $categorias_inativas]);
     }
 
-     /**
+    /**
      * Active object.
      */
     public function active(Categoria $categoria, $id)
     {
         $categoria = Categoria::withTrashed()->find($id);
 
-        if (!$categoria) {
+        if (! $categoria) {
             return redirect('/Categoria')->with('error', 'Categoria não encontrada!');
         }
         $categoria->restore();
+
         return redirect('/Categoria')->with('success', 'Categoria Ativada com sucesso');
     }
-
 }

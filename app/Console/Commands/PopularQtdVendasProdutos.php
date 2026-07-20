@@ -47,6 +47,7 @@ class PopularQtdVendasProdutos extends Command
 
         if ($produtoIds->isEmpty()) {
             $this->warn('Nenhum item encontrado no período informado.');
+
             return self::SUCCESS;
         }
 

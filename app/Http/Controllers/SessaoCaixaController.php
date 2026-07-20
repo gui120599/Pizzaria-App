@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SessaoCaixa;
 use App\Http\Requests\StoreSessaoCaixaRequest;
 use App\Http\Requests\UpdateSessaoCaixaRequest;
 use App\Models\Caixa;
+use App\Models\SessaoCaixa;
 use App\Models\User;
 use Carbon\Carbon;
-use Request;
 
 class SessaoCaixaController extends Controller
 {
@@ -20,6 +19,7 @@ class SessaoCaixaController extends Controller
         $usuarios = User::all();
         $caixas = Caixa::all();
         $sessao_caixa = SessaoCaixa::orderByDesc('id')->paginate(6);
+
         return view('app.sessao_caixa.index', ['usuarios' => $usuarios, 'caixas' => $caixas, 'sessao_caixa' => $sessao_caixa]);
     }
 
@@ -54,7 +54,7 @@ class SessaoCaixaController extends Controller
             'sessaocaixa_saldo_final' => $request->input('sessaocaixa_saldo_inicial') ? str_replace(',', '.', $request->input('sessaocaixa_saldo_inicial')) : '0.00',
             'sessaocaixa_observacoes' => $request->input('sessaocaixa_observacoes'),
             'sessaocaixa_status' => 'ABERTA',
-            'sessaocaixa_data_hora_abertura' => Carbon::now()
+            'sessaocaixa_data_hora_abertura' => Carbon::now(),
         ]);
 
         return redirect()->route('sessao_caixa')->with('success', 'Sessão Aberta com sucesso!');
@@ -70,9 +70,9 @@ class SessaoCaixaController extends Controller
                 'sessaocaixa_status' => 'FECHADA',
                 'sessaocaixa_data_hora_fechamento' => Carbon::now(),
             ]);
+
             return redirect()->route('sessao_caixa')->with('success', 'Sessão Finalizada com sucesso!');
         }
-
 
         return redirect()->route('sessao_caixa')->with('error', 'Sessão Caixa não encontrada!');
     }
@@ -112,7 +112,7 @@ class SessaoCaixaController extends Controller
     public function listarVendasSessaoCaixa(SessaoCaixa $sessaoCaixa)
     {
         $sessaoCaixa = SessaoCaixa::findOrFail($sessaoCaixa->id);
-        $vendas         = $sessaoCaixa->vendas()->where('venda_status', 'FINALIZADA')->orderBy('id', 'desc')->get() ?? collect();
+        $vendas = $sessaoCaixa->vendas()->where('venda_status', 'FINALIZADA')->orderBy('id', 'desc')->get() ?? collect();
         $vendasIniciadas = $sessaoCaixa->vendas()->where('venda_status', 'INICIADA')->with('cliente')->orderBy('id', 'desc')->get() ?? collect();
 
         return view('app.sessao_caixa.vendas', compact('vendas', 'vendasIniciadas'));
