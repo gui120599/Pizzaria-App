@@ -21,19 +21,27 @@ class BalancoEstoqueService
      * ao EstoqueService (que atualiza o saldo e cria a MovimentacaoProduto com
      * origem BALANCO e referência morphic apontando para o balanço).
      *
+     * $loteCodigo/$marcaId/$validade só se aplicam quando a diferença é positiva
+     * (sobra encontrada vira uma entrada — e, se o produto controla lote, um
+     * lote novo com essa identidade). Numa diferença negativa (saída) esses
+     * dados são ignorados: a baixa consome os lotes existentes via FEFO.
+     *
      * Retorna null quando não há diferença (sem movimentação criada).
      */
     public function realizarBalanco(
         Produto $produto,
         float $quantidadeFisica,
         ?string $observacao = null,
+        ?string $loteCodigo = null,
+        ?int $marcaId = null,
+        ?string $validade = null,
     ): ?MovimentacaoBalanco {
         try {
-            $balanco = DB::transaction(function () use ($produto, $quantidadeFisica, $observacao) {
+            $balanco = DB::transaction(function () use ($produto, $quantidadeFisica, $observacao, $loteCodigo, $marcaId, $validade) {
                 $produto = Produto::lockForUpdate()->findOrFail($produto->id);
 
                 $saldoSistema = (float) $produto->produto_saldo_estoque;
-                $diferenca    = round($quantidadeFisica - $saldoSistema, 3);
+                $diferenca = round($quantidadeFisica - $saldoSistema, 3);
 
                 if ($diferenca === 0.0) {
                     return null;
@@ -44,20 +52,23 @@ class BalancoEstoqueService
                     : \App\Enums\MovimentacaoTipoEnum::SAIDA;
 
                 $balanco = MovimentacaoBalanco::create([
-                    'mbal_produto_id'         => $produto->id,
-                    'mbal_usuario_id'         => Auth::id(),
+                    'mbal_produto_id' => $produto->id,
+                    'mbal_usuario_id' => Auth::id(),
                     'mbal_quantidade_sistema' => round($saldoSistema, 3),
                     'mbal_quantidade_balanco' => round($quantidadeFisica, 3),
-                    'mbal_quantidade_ajuste'  => round(abs($diferenca), 3),
-                    'mbal_tipo_movimentacao'  => $tipo,
-                    'mbal_observacao'         => $observacao,
-                    'mbal_data_balanco'       => now(),
+                    'mbal_quantidade_ajuste' => round(abs($diferenca), 3),
+                    'mbal_tipo_movimentacao' => $tipo,
+                    'mbal_observacao' => $observacao,
+                    'mbal_data_balanco' => now(),
                 ]);
 
                 $this->estoqueService->registrarAjuste($produto, $quantidadeFisica, [
                     'referencia' => $balanco,
-                    'motivo'     => "Balanço físico — #{$balanco->id}",
-                    'origem'     => MovimentacaoOrigemEnum::BALANCO,
+                    'motivo' => "Balanço físico — #{$balanco->id}",
+                    'origem' => MovimentacaoOrigemEnum::BALANCO,
+                    'lote_codigo' => $loteCodigo,
+                    'marca_id' => $marcaId,
+                    'validade' => $validade,
                 ]);
 
                 return $balanco;
@@ -67,8 +78,8 @@ class BalancoEstoqueService
                 Log::info('Balanço físico realizado.', [
                     'produto_id' => $produto->id,
                     'balanco_id' => $balanco->id,
-                    'ajuste'     => (string) $balanco->mbal_quantidade_ajuste,
-                    'tipo'       => $balanco->mbal_tipo_movimentacao->value,
+                    'ajuste' => (string) $balanco->mbal_quantidade_ajuste,
+                    'tipo' => $balanco->mbal_tipo_movimentacao->value,
                 ]);
             }
 
@@ -76,7 +87,7 @@ class BalancoEstoqueService
         } catch (\Throwable $e) {
             Log::error('Falha ao realizar balanço físico.', [
                 'produto_id' => $produto->id,
-                'erro'       => $e->getMessage(),
+                'erro' => $e->getMessage(),
             ]);
 
             throw $e;

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Compras\RelationManagers;
 
+use App\Filament\Components\MarcaSelect;
 use App\Filament\Resources\Produtos\Schemas\ProdutoForm;
 use App\Models\Compra;
 use App\Models\FornecedorProduto;
@@ -14,7 +15,6 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Leandrocfe\FilamentPtbrFormFields\Money;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -23,6 +23,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class ItensRelationManager extends RelationManager
 {
@@ -39,12 +40,12 @@ class ItensRelationManager extends RelationManager
         $saldoRaw = (float) $p->produto_saldo_estoque;
 
         return view('filament.components.select-balanco-produto', [
-            'image'    => $p->produto_foto ? asset('storage/' . $p->produto_foto) : null,
-            'name'     => $p->nomeExibicao(),
+            'image' => $p->produto_foto ? asset('storage/'.$p->produto_foto) : null,
+            'name' => $p->nomeExibicao(),
             'category' => $p->categoria?->categoria_nome ?? '',
-            'saldo'    => number_format($saldoRaw, 3, ',', '.'),
+            'saldo' => number_format($saldoRaw, 3, ',', '.'),
             'saldo_raw' => $saldoRaw,
-            'unidade'  => $p->produto_unidade_estoque ?? '',
+            'unidade' => $p->produto_unidade_estoque ?? '',
         ])->render();
     }
 
@@ -65,23 +66,23 @@ class ItensRelationManager extends RelationManager
                     ->placeholder('Digite o nome do produto...')
                     ->searchable()
                     ->allowHtml()
-                    ->getSearchResultsUsing(fn(string $search): array => Produto::query()
+                    ->getSearchResultsUsing(fn (string $search): array => Produto::query()
                         ->where(function (Builder $q) use ($search): void {
                             $q->where('produto_descricao', 'like', "%{$search}%")
-                              ->orWhereHas('categoria', fn(Builder $c) => $c->where('categoria_nome', 'like', "%{$search}%"));
+                                ->orWhereHas('categoria', fn (Builder $c) => $c->where('categoria_nome', 'like', "%{$search}%"));
                         })
                         ->with('categoria')
                         ->orderBy('produto_descricao')
                         ->limit(30)
                         ->get()
-                        ->mapWithKeys(fn(Produto $p) => [$p->id => self::renderOpcaoProduto($p)])
+                        ->mapWithKeys(fn (Produto $p) => [$p->id => self::renderOpcaoProduto($p)])
                         ->toArray())
-                    ->getOptionLabelUsing(fn($value): ?string => ($p = Produto::with('categoria')->find($value))
+                    ->getOptionLabelUsing(fn ($value): ?string => ($p = Produto::with('categoria')->find($value))
                         ? self::renderOpcaoProduto($p)
                         : null)
-                    ->createOptionForm(fn(Schema $schema) => ProdutoForm::configure($schema))
+                    ->createOptionForm(fn (Schema $schema) => ProdutoForm::configure($schema))
                     ->createOptionAction(
-                        fn(Action $action) => $action
+                        fn (Action $action) => $action
                             ->modalHeading('Cadastrar novo produto')
                             ->slideOver()
                     )
@@ -123,7 +124,7 @@ class ItensRelationManager extends RelationManager
                     ->label('Custo por unidade de compra')
                     ->minValue(0)
                     ->required()
-                    ->formatStateUsing(fn($state) => number_format((float) ($state ?? 0), 2, ',', '.')),
+                    ->formatStateUsing(fn ($state) => number_format((float) ($state ?? 0), 2, ',', '.')),
 
                 TextInput::make('ci_unidade_compra')
                     ->label('Unidade de compra')
@@ -136,14 +137,17 @@ class ItensRelationManager extends RelationManager
 
                 TextInput::make('ci_lote_codigo')
                     ->label('Lote')
-                    ->visible(fn(Get $get): bool => (bool) optional(Produto::find($get('ci_produto_id')))->produto_controla_lote),
+                    ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('ci_produto_id')))->produto_controla_lote),
 
                 DatePicker::make('ci_validade')
                     ->label('Validade')
-                    ->visible(fn(Get $get): bool => (bool) optional(Produto::find($get('ci_produto_id')))->produto_controla_lote),
+                    ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('ci_produto_id')))->produto_controla_lote),
 
                 TextInput::make('ci_codigo_fornecedor')->label('Código no fornecedor')->columnSpan(1),
-                TextInput::make('ci_descricao_fornecedor')->label('Descrição na NF')->columnSpan(1),
+                MarcaSelect::make('ci_marca_id')
+                    ->columnSpan(1)
+                    ->helperText('Rastreabilidade da compra/lote — o insumo no estoque continua único.'),
+                TextInput::make('ci_descricao_fornecedor')->label('Descrição na NF')->columnSpanFull(),
             ]);
     }
 
@@ -151,7 +155,7 @@ class ItensRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('ci_descricao_fornecedor')
-            ->modifyQueryUsing(fn(Builder $query) => $query->with('insumo'))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['insumo', 'marca']))
             ->emptyStateHeading('Nenhum item ainda')
             ->emptyStateDescription('Clique em "Adicionar item" e busque o produto pelo nome.')
             ->emptyStateIcon('heroicon-o-magnifying-glass')
@@ -166,13 +170,19 @@ class ItensRelationManager extends RelationManager
                 TextColumn::make('insumo.produto_descricao')
                     ->label('Produto')
                     ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
-                    ->description(fn($record): ?string => $record->ci_codigo_fornecedor ? 'Cód. forn.: ' . $record->ci_codigo_fornecedor : null)
+                    ->description(fn ($record): ?string => $record->ci_codigo_fornecedor ? 'Cód. forn.: '.$record->ci_codigo_fornecedor : null)
                     ->searchable(),
+
+                TextColumn::make('marca.marca_nome')
+                    ->label('Marca')
+                    ->placeholder('—')
+                    ->searchable()
+                    ->toggleable(),
 
                 TextColumn::make('ci_quantidade_compra')
                     ->label('Qtd.')
                     ->numeric(decimalPlaces: 4)
-                    ->suffix(fn($record): string => ' ' . ($record->ci_unidade_compra ?? ''))
+                    ->suffix(fn ($record): string => ' '.($record->ci_unidade_compra ?? ''))
                     ->alignEnd(),
 
                 TextColumn::make('ci_custo_unitario_compra')
@@ -182,15 +192,15 @@ class ItensRelationManager extends RelationManager
 
                 TextColumn::make('total_item')
                     ->label('Total')
-                    ->state(fn($record): float => $record->valorProdutos())
+                    ->state(fn ($record): float => $record->valorProdutos())
                     ->money('BRL')
                     ->alignEnd()
                     ->weight(\Filament\Support\Enums\FontWeight::Bold),
 
                 TextColumn::make('estoque')
                     ->label('Entra no estoque')
-                    ->state(fn($record): string => number_format($record->quantidadeEstoque(), 3, ',', '.')
-                        . ' ' . (optional($record->insumo)->produto_unidade_estoque ?? ''))
+                    ->state(fn ($record): string => number_format($record->quantidadeEstoque(), 3, ',', '.')
+                        .' '.(optional($record->insumo)->produto_unidade_estoque ?? ''))
                     ->alignEnd()
                     ->color('gray'),
 
@@ -206,16 +216,16 @@ class ItensRelationManager extends RelationManager
                     ->icon('heroicon-o-plus')
                     ->modalHeading('Buscar e adicionar item')
                     ->modalWidth('xl')
-                    ->visible(fn(): bool => $this->rascunho())
-                    ->after(fn() => app(CompraService::class)->recalcularTotais($this->getOwnerRecord()->load('itens'))),
+                    ->visible(fn (): bool => $this->rascunho())
+                    ->after(fn () => app(CompraService::class)->recalcularTotais($this->getOwnerRecord()->load('itens'))),
             ])
             ->recordActions([
                 EditAction::make()
-                    ->visible(fn(): bool => $this->rascunho())
-                    ->after(fn() => app(CompraService::class)->recalcularTotais($this->getOwnerRecord()->load('itens'))),
+                    ->visible(fn (): bool => $this->rascunho())
+                    ->after(fn () => app(CompraService::class)->recalcularTotais($this->getOwnerRecord()->load('itens'))),
                 DeleteAction::make()
-                    ->visible(fn(): bool => $this->rascunho())
-                    ->after(fn() => app(CompraService::class)->recalcularTotais($this->getOwnerRecord()->load('itens'))),
+                    ->visible(fn (): bool => $this->rascunho())
+                    ->after(fn () => app(CompraService::class)->recalcularTotais($this->getOwnerRecord()->load('itens'))),
             ]);
     }
 }

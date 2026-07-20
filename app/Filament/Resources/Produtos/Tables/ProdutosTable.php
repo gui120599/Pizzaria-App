@@ -6,6 +6,7 @@ use App\Enums\EstoqueModoControleEnum;
 use App\Enums\MovimentacaoOrigemEnum;
 use App\Enums\ProdutoTipoEnum;
 use App\Enums\UnidadeProdutoEnum;
+use App\Filament\Components\MarcaSelect;
 use App\Models\Categoria;
 use App\Models\CentroCusto;
 use App\Models\PlanoDespesa;
@@ -438,6 +439,9 @@ class ProdutosTable
                             ->label('Lote')
                             ->visible(fn (Get $get, Produto $record): bool => $get('tipo') === 'entrada' && $record->produto_controla_lote),
 
+                        MarcaSelect::make('marca_id')
+                            ->visible(fn (Get $get, Produto $record): bool => $get('tipo') === 'entrada' && $record->produto_controla_lote),
+
                         DatePicker::make('validade')
                             ->label('Validade')
                             ->visible(fn (Get $get, Produto $record): bool => $get('tipo') === 'entrada' && $record->produto_controla_lote),
@@ -459,6 +463,7 @@ class ProdutosTable
                             'centro_custo_id' => $data['centro_custo_id'] ?? null,
                             'motivo' => $data['motivo'] ?? null,
                             'lote_codigo' => $data['lote_codigo'] ?? null,
+                            'marca_id' => $data['marca_id'] ?? null,
                             'validade' => $data['validade'] ?? null,
                         ];
 
@@ -969,6 +974,10 @@ class ProdutosTable
                                     'produto_descricao' => $produto->produto_descricao,
                                     'saldo_atual' => (float) $produto->produto_saldo_estoque,
                                     'quantidade_contada' => (float) $produto->produto_saldo_estoque,
+                                    'controla_lote' => (bool) $produto->produto_controla_lote,
+                                    'lote_codigo' => null,
+                                    'marca_id' => null,
+                                    'validade' => null,
                                 ])
                                 ->values()
                                 ->toArray();
@@ -990,9 +999,13 @@ class ProdutosTable
                                         TableColumn::make('Produto'),
                                         TableColumn::make('Saldo no sistema'),
                                         TableColumn::make('Quantidade contada'),
+                                        TableColumn::make('Lote (se houver sobra)'),
+                                        TableColumn::make('Marca'),
+                                        TableColumn::make('Validade'),
                                     ])
                                     ->schema([
                                         Hidden::make('produto_id'),
+                                        Hidden::make('controla_lote'),
                                         TextInput::make('produto_descricao')
                                             ->hiddenLabel()
                                             ->disabled()
@@ -1008,6 +1021,15 @@ class ProdutosTable
                                             ->step(0.001)
                                             ->minValue(0)
                                             ->required(),
+                                        TextInput::make('lote_codigo')
+                                            ->hiddenLabel()
+                                            ->visible(fn (Get $get): bool => (bool) $get('controla_lote')),
+                                        MarcaSelect::make('marca_id')
+                                            ->hiddenLabel()
+                                            ->visible(fn (Get $get): bool => (bool) $get('controla_lote')),
+                                        DatePicker::make('validade')
+                                            ->hiddenLabel()
+                                            ->visible(fn (Get $get): bool => (bool) $get('controla_lote')),
                                     ])
                                     ->default($itens)
                                     ->addable(false)
@@ -1030,7 +1052,13 @@ class ProdutosTable
                                     continue;
                                 }
 
-                                $balanco = $service->realizarBalanco($produto, (float) $item['quantidade_contada']);
+                                $balanco = $service->realizarBalanco(
+                                    produto: $produto,
+                                    quantidadeFisica: (float) $item['quantidade_contada'],
+                                    loteCodigo: $item['lote_codigo'] ?? null,
+                                    marcaId: ! empty($item['marca_id']) ? (int) $item['marca_id'] : null,
+                                    validade: $item['validade'] ?? null,
+                                );
 
                                 $balanco ? $ajustados++ : $semDiferenca++;
                             }

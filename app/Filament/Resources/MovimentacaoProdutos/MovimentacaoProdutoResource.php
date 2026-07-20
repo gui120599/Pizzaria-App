@@ -48,7 +48,7 @@ class MovimentacaoProdutoResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['produto', 'lote', 'centroCusto', 'user']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['produto', 'lote.marca', 'centroCusto', 'user']))
             ->defaultSort('mov_data', 'desc')
             ->columns([
                 TextColumn::make('mov_data')
@@ -100,6 +100,11 @@ class MovimentacaoProdutoResource extends Resource
                     ->label('Lote')
                     ->placeholder('—')
                     ->toggleable(),
+
+                TextColumn::make('lote.marca.marca_nome')
+                    ->label('Marca')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('centroCusto.centro_custo_nome')
                     ->label('Centro de Custo')

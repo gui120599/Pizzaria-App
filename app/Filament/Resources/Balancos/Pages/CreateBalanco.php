@@ -28,6 +28,9 @@ class CreateBalanco extends CreateRecord
             produto: $produto,
             quantidadeFisica: (float) $data['mbal_quantidade_balanco'],
             observacao: $data['mbal_observacao'] ?? null,
+            loteCodigo: $data['lote_codigo'] ?? null,
+            marcaId: $data['marca_id'] ?? null,
+            validade: $data['validade'] ?? null,
         );
 
         if ($balanco === null) {
@@ -47,7 +50,7 @@ class CreateBalanco extends CreateRecord
             return null;
         }
 
-        $tipo  = $record->mbal_tipo_movimentacao->label();
+        $tipo = $record->mbal_tipo_movimentacao->label();
         $ajuste = number_format((float) $record->mbal_quantidade_ajuste, 3, ',', '.');
 
         return Notification::make()

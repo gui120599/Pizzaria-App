@@ -12,6 +12,7 @@ use App\Models\Categoria;
 use App\Models\Compra;
 use App\Models\CompraItem;
 use App\Models\FornecedorProduto;
+use App\Models\Marca;
 use App\Models\PlanoDespesa;
 use App\Models\Prestador;
 use App\Models\Produto;
@@ -65,6 +66,7 @@ class CompraServiceTest extends TestCase
         $forn = $this->fornecedor();
         $queijo = $this->insumo('Queijo', ['produto_controla_lote' => true]);
         $oregano = $this->insumo('Orégano');
+        $marcaSadia = Marca::create(['marca_nome' => 'Sadia']);
 
         $compra = Compra::create([
             'compra_prestador_id' => $forn->id,
@@ -78,7 +80,7 @@ class CompraServiceTest extends TestCase
             'ci_compra_id' => $compra->id, 'ci_produto_id' => $queijo->id, 'ci_codigo_fornecedor' => 'Q-01',
             'ci_descricao_fornecedor' => 'QUEIJO', 'ci_quantidade_compra' => 2, 'ci_unidade_compra' => 'CX',
             'ci_fator_conversao' => 10, 'ci_custo_unitario_compra' => 100,
-            'ci_lote_codigo' => 'L1', 'ci_validade' => now()->addDays(30)->toDateString(),
+            'ci_lote_codigo' => 'L1', 'ci_marca_id' => $marcaSadia->id, 'ci_validade' => now()->addDays(30)->toDateString(),
         ]);
         // 5 KG, custo 4/KG => valor 20
         CompraItem::create([
@@ -101,8 +103,10 @@ class CompraServiceTest extends TestCase
         $this->assertEqualsWithDelta(242.0, (float) $compra->compra_valor_total, 0.01);
         $this->assertEquals(2, $compra->movimentacoes()->count());
 
-        // Lote do queijo vinculado ao item de compra.
-        $this->assertNotNull($queijo->lotes()->first()->lote_compra_item_id);
+        // Lote do queijo vinculado ao item de compra, com a marca da NF preservada.
+        $loteQueijo = $queijo->lotes()->first();
+        $this->assertNotNull($loteQueijo->lote_compra_item_id);
+        $this->assertSame('Sadia', $loteQueijo->marca->marca_nome);
 
         // De-para criado para ambos os itens.
         $this->assertEquals(2, FornecedorProduto::where('fp_prestador_id', $forn->id)->count());

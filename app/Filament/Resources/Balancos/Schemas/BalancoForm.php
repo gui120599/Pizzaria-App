@@ -2,12 +2,15 @@
 
 namespace App\Filament\Resources\Balancos\Schemas;
 
+use App\Filament\Components\MarcaSelect;
 use App\Models\Produto;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class BalancoForm
@@ -54,7 +57,7 @@ class BalancoForm
                             }
                             $unidade = $produto->produto_unidade_estoque ?? '';
 
-                            return number_format((float) $produto->produto_saldo_estoque, 3, ',', '.') . ($unidade ? " {$unidade}" : '');
+                            return number_format((float) $produto->produto_saldo_estoque, 3, ',', '.').($unidade ? " {$unidade}" : '');
                         }),
 
                     TextInput::make('mbal_quantidade_balanco')
@@ -72,6 +75,18 @@ class BalancoForm
                             return Produto::find($id)?->produto_unidade_estoque;
                         }),
 
+                    TextInput::make('lote_codigo')
+                        ->label('Lote')
+                        ->helperText('Se a contagem apurar sobra, essa sobra vira um lote novo com esses dados.')
+                        ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('mbal_produto_id')))->produto_controla_lote),
+
+                    MarcaSelect::make('marca_id')
+                        ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('mbal_produto_id')))->produto_controla_lote),
+
+                    DatePicker::make('validade')
+                        ->label('Validade')
+                        ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('mbal_produto_id')))->produto_controla_lote),
+
                     Textarea::make('mbal_observacao')
                         ->label('Observação')
                         ->placeholder('Motivo do ajuste, responsável pela contagem...')
@@ -87,12 +102,12 @@ class BalancoForm
         $saldoRaw = (float) $p->produto_saldo_estoque;
 
         return view('filament.components.select-balanco-produto', [
-            'image'    => $p->produto_foto ? asset('storage/' . $p->produto_foto) : null,
-            'name'     => $p->nomeExibicao(),
+            'image' => $p->produto_foto ? asset('storage/'.$p->produto_foto) : null,
+            'name' => $p->nomeExibicao(),
             'category' => $p->categoria?->categoria_nome ?? '',
-            'saldo'    => number_format($saldoRaw, 3, ',', '.'),
-            'saldo_raw'=> $saldoRaw,
-            'unidade'  => $p->produto_unidade_estoque ?? '',
+            'saldo' => number_format($saldoRaw, 3, ',', '.'),
+            'saldo_raw' => $saldoRaw,
+            'unidade' => $p->produto_unidade_estoque ?? '',
         ])->render();
     }
 }

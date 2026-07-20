@@ -19,6 +19,7 @@ class EstoqueLote extends Model
         'lote_produto_id',
         'lote_compra_item_id',
         'lote_codigo',
+        'lote_marca_id',
         'lote_validade',
         'lote_qtd_inicial',
         'lote_qtd_atual',
@@ -41,6 +42,11 @@ class EstoqueLote extends Model
     public function produto(): BelongsTo
     {
         return $this->belongsTo(Produto::class, 'lote_produto_id');
+    }
+
+    public function marca(): BelongsTo
+    {
+        return $this->belongsTo(Marca::class, 'lote_marca_id');
     }
 
     /** Lotes com saldo disponível para baixa. */

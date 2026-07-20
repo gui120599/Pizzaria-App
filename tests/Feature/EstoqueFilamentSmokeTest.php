@@ -12,14 +12,18 @@ use App\Filament\Resources\Fornecedores\Pages\CreateFornecedor;
 use App\Filament\Resources\Fornecedores\Pages\EditFornecedor;
 use App\Filament\Resources\Fornecedores\Pages\ListFornecedores;
 use App\Filament\Resources\Fornecedores\RelationManagers\FornecedorProdutosRelationManager;
+use App\Filament\Resources\Marcas\Pages\ManageMarcas;
 use App\Filament\Resources\MovimentacaoProdutos\Pages\ManageMovimentacaoProdutos;
 use App\Filament\Resources\Produtos\Pages\CreateProduto;
 use App\Filament\Resources\Produtos\Pages\EditProduto;
 use App\Filament\Resources\Produtos\Pages\ListProdutos;
 use App\Filament\Resources\Produtos\RelationManagers\FichaItensRelationManager;
+use App\Filament\Resources\Produtos\RelationManagers\LotesRelationManager;
 use App\Models\Categoria;
 use App\Models\Compra;
+use App\Models\EstoqueLote;
 use App\Models\FichaTecnicaItem;
+use App\Models\Marca;
 use App\Models\Prestador;
 use App\Models\Produto;
 use App\Models\User;
@@ -143,6 +147,79 @@ class EstoqueFilamentSmokeTest extends TestCase
         $this->assertSame('2026-09-01', $lote->lote_validade->toDateString());
     }
 
+    public function test_acao_movimentar_entrada_com_marca_cria_lote_com_marca(): void
+    {
+        $produto = $this->produto();
+        $produto->update(['produto_controla_lote' => true]);
+        $marca = Marca::create(['marca_nome' => 'Sadia']);
+
+        Livewire::test(ListProdutos::class)
+            ->callTableAction('movimentar_estoque', $produto, data: [
+                'tipo' => 'entrada',
+                'origem' => 'compra',
+                'quantidade' => 10,
+                'custo_unitario' => 2.50,
+                'lote_codigo' => 'L-MOV-1',
+                'marca_id' => $marca->id,
+                'validade' => '2026-09-01',
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $lote = $produto->lotes()->where('lote_codigo', 'L-MOV-1')->first();
+        $this->assertNotNull($lote);
+        $this->assertSame('Sadia', $lote->marca->marca_nome);
+        $this->assertSame('2026-09-01', $lote->lote_validade->toDateString());
+    }
+
+    public function test_acao_realizar_balanco_com_sobra_e_lote_cria_lote_com_marca(): void
+    {
+        $produto = $this->produto();
+        $produto->update(['produto_controla_lote' => true, 'produto_saldo_estoque' => 5]);
+        $marca = Marca::create(['marca_nome' => 'Perdigão']);
+
+        Livewire::test(EditProduto::class, ['record' => $produto->getRouteKey()])
+            ->callAction('realizarBalanco', data: [
+                'quantidade_fisica' => 12,
+                'lote_codigo' => 'L-BAL-UI',
+                'marca_id' => $marca->id,
+                'validade' => '2026-08-15',
+                'observacao' => 'Sobra na contagem',
+            ])
+            ->assertHasNoActionErrors();
+
+        $lote = $produto->lotes()->where('lote_codigo', 'L-BAL-UI')->first();
+        $this->assertNotNull($lote);
+        $this->assertSame('Perdigão', $lote->marca->marca_nome);
+        $this->assertSame('2026-08-15', $lote->lote_validade->toDateString());
+    }
+
+    public function test_bulk_balanco_em_lote_aplica_marca_e_lote_por_item(): void
+    {
+        $produto = $this->produto();
+        $produto->update(['produto_controla_lote' => true, 'produto_saldo_estoque' => 3]);
+        $marca = Marca::create(['marca_nome' => 'Tirolez']);
+
+        Livewire::test(ListProdutos::class)
+            ->callTableBulkAction('balanco_em_lote', [$produto], data: [
+                'itens' => [
+                    [
+                        'produto_id' => $produto->id,
+                        'quantidade_contada' => 9,
+                        'controla_lote' => true,
+                        'lote_codigo' => 'L-BULK-1',
+                        'marca_id' => $marca->id,
+                        'validade' => '2026-10-01',
+                    ],
+                ],
+            ])
+            ->assertHasNoTableBulkActionErrors();
+
+        $lote = $produto->lotes()->where('lote_codigo', 'L-BULK-1')->first();
+        $this->assertNotNull($lote);
+        $this->assertSame('Tirolez', $lote->marca->marca_nome);
+        $this->assertSame('2026-10-01', $lote->lote_validade->toDateString());
+    }
+
     public function test_form_de_produto_em_abas_monta(): void
     {
         Livewire::test(CreateProduto::class)->assertOk();
@@ -156,6 +233,59 @@ class EstoqueFilamentSmokeTest extends TestCase
             'ownerRecord' => $produto,
             'pageClass' => EditProduto::class,
         ])->assertOk();
+    }
+
+    public function test_relation_manager_de_lotes_mostra_marca_e_status_vencido_derivado(): void
+    {
+        $produto = $this->produto();
+        $produto->update(['produto_controla_lote' => true]);
+        $sadia = Marca::create(['marca_nome' => 'Sadia']);
+        $perdigao = Marca::create(['marca_nome' => 'Perdigão']);
+
+        $ativo = EstoqueLote::create([
+            'lote_produto_id' => $produto->id,
+            'lote_codigo' => 'L-ATIVO',
+            'lote_marca_id' => $sadia->id,
+            'lote_validade' => now()->addDays(10)->toDateString(),
+            'lote_qtd_inicial' => 5,
+            'lote_qtd_atual' => 5,
+            'lote_custo_unitario' => 2.5,
+            'lote_data_entrada' => now(),
+            'lote_status' => 'ativo',
+        ]);
+
+        $vencido = EstoqueLote::create([
+            'lote_produto_id' => $produto->id,
+            'lote_codigo' => 'L-VENCIDO',
+            'lote_marca_id' => $perdigao->id,
+            'lote_validade' => now()->subDays(3)->toDateString(),
+            'lote_qtd_inicial' => 3,
+            'lote_qtd_atual' => 3,
+            'lote_custo_unitario' => 2.5,
+            'lote_data_entrada' => now()->subDays(20),
+            'lote_status' => 'ativo',
+        ]);
+
+        Livewire::test(LotesRelationManager::class, [
+            'ownerRecord' => $produto,
+            'pageClass' => EditProduto::class,
+        ])
+            ->assertOk()
+            ->assertCanSeeTableRecords([$ativo, $vencido])
+            ->assertTableColumnStateSet('lote_status', 'ativo', $ativo)
+            ->assertTableColumnStateSet('lote_status', 'vencido', $vencido);
+    }
+
+    public function test_marca_resource_lista_e_cria_marca(): void
+    {
+        Livewire::test(ManageMarcas::class)
+            ->assertOk()
+            ->callAction('create', data: [
+                'marca_nome' => 'Sadia',
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertDatabaseHas('marcas', ['marca_nome' => 'Sadia']);
     }
 
     public function test_paginas_de_compras_montam(): void

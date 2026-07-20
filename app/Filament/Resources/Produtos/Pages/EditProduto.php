@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Produtos\Pages;
 
+use App\Filament\Components\MarcaSelect;
 use App\Filament\Resources\Produtos\ProdutoResource;
 use App\Models\Produto;
 use App\Services\BalancoEstoqueService;
@@ -121,7 +122,7 @@ class EditProduto extends EditRecord
                     $saldo = number_format((float) $produto->produto_saldo_estoque, 3, ',', '.');
                     $unidade = $produto->produto_unidade_estoque ?? '';
 
-                    return [
+                    $campos = [
                         Placeholder::make('saldo_atual')
                             ->label('Saldo atual no sistema')
                             ->content("{$saldo}".($unidade ? " {$unidade}" : '')),
@@ -133,13 +134,26 @@ class EditProduto extends EditRecord
                             ->step(0.001)
                             ->suffix($unidade ?: null)
                             ->required(),
-
-                        Textarea::make('observacao')
-                            ->label('Observação')
-                            ->placeholder('Motivo do ajuste, responsável pela contagem...')
-                            ->rows(2)
-                            ->maxLength(500),
                     ];
+
+                    if ($produto->produto_controla_lote) {
+                        $campos[] = TextInput::make('lote_codigo')
+                            ->label('Lote')
+                            ->helperText('Se a contagem apurar sobra, essa sobra vira um lote novo com esses dados.');
+
+                        $campos[] = MarcaSelect::make('marca_id');
+
+                        $campos[] = DatePicker::make('validade')
+                            ->label('Validade');
+                    }
+
+                    $campos[] = Textarea::make('observacao')
+                        ->label('Observação')
+                        ->placeholder('Motivo do ajuste, responsável pela contagem...')
+                        ->rows(2)
+                        ->maxLength(500);
+
+                    return $campos;
                 })
                 ->action(function (array $data): void {
                     /** @var Produto $produto */
@@ -150,6 +164,9 @@ class EditProduto extends EditRecord
                             produto: $produto,
                             quantidadeFisica: (float) $data['quantidade_fisica'],
                             observacao: $data['observacao'] ?? null,
+                            loteCodigo: $data['lote_codigo'] ?? null,
+                            marcaId: $data['marca_id'] ?? null,
+                            validade: $data['validade'] ?? null,
                         );
                     } catch (\Throwable $e) {
                         Notification::make()

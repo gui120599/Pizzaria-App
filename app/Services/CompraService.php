@@ -67,6 +67,7 @@ class CompraService
                     [
                         'validade' => $item->ci_validade,
                         'lote_codigo' => $item->ci_lote_codigo,
+                        'marca_id' => $item->ci_marca_id,
                         'centro_custo_id' => $compra->compra_centro_custo_id,
                         'referencia' => $compra,
                         'data' => $compra->compra_data_entrada

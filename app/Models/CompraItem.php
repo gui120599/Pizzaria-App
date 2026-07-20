@@ -19,6 +19,7 @@ class CompraItem extends Model
         'ci_produto_id',
         'ci_descricao_fornecedor',
         'ci_codigo_fornecedor',
+        'ci_marca_id',
         'ci_quantidade_compra',
         'ci_unidade_compra',
         'ci_fator_conversao',
@@ -47,6 +48,11 @@ class CompraItem extends Model
     public function insumo(): BelongsTo
     {
         return $this->belongsTo(Produto::class, 'ci_produto_id');
+    }
+
+    public function marca(): BelongsTo
+    {
+        return $this->belongsTo(Marca::class, 'ci_marca_id');
     }
 
     /** Quantidade convertida para a unidade de estoque. */

@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
  * produto controla lote, o físico é baixado em FEFO (vence primeiro, sai
  * primeiro) gerando uma movimentação por lote consumido.
  *
- * $opts aceito (todas opcionais): validade, lote_codigo, centro_custo_id,
+ * $opts aceito (todas opcionais): validade, lote_codigo, marca_id, centro_custo_id,
  * referencia (Model), motivo, data, venda_id, user_id.
  */
 class EstoqueService
@@ -56,6 +56,7 @@ class EstoqueService
                 $lote = EstoqueLote::create([
                     'lote_produto_id' => $produto->id,
                     'lote_codigo' => $opts['lote_codigo'] ?? null,
+                    'lote_marca_id' => $opts['marca_id'] ?? null,
                     'lote_validade' => $opts['validade'] ?? null,
                     'lote_qtd_inicial' => $quantidade,
                     'lote_qtd_atual' => $quantidade,
