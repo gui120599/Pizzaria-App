@@ -90,6 +90,26 @@ class ProdutosEdicaoEmLoteTest extends TestCase
         $this->assertSame($this->categoriaOrigem->id, $produto->produto_categoria_id);
     }
 
+    public function test_altera_controla_marca_em_lote(): void
+    {
+        $a = $this->produto('Papel Toalha');
+        $b = $this->produto('Guardanapo');
+
+        Livewire::test(ListProdutos::class)
+            ->callTableBulkAction('edicao_em_lote', [$a, $b], data: [
+                'alterar_controla_marca' => true,
+                'produto_controla_marca' => true,
+            ])
+            ->assertHasNoTableBulkActionErrors();
+
+        $a->refresh();
+        $b->refresh();
+        $this->assertTrue((bool) $a->produto_controla_marca);
+        $this->assertTrue((bool) $b->produto_controla_marca);
+        // Lote continua desligado — os dois toggles são independentes.
+        $this->assertFalse((bool) $a->produto_controla_lote);
+    }
+
     public function test_sem_nenhum_toggle_marcado_nao_altera_nada(): void
     {
         $produto = $this->produto('Calabresa');

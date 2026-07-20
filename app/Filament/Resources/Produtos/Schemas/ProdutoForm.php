@@ -356,14 +356,20 @@ class ProdutoForm
                             ->helperText('Desligado: some do cardápio quando o saldo chegar a zero'),
                     ]),
 
-                Fieldset::make('Lote e Validade (FEFO)')
-                    ->columns(2)
+                Fieldset::make('Lote, Marca e Validade')
+                    ->columns(3)
                     ->schema([
                         Toggle::make('produto_controla_lote')
                             ->label('Controla lote/validade')
                             ->inline(false)
                             ->columnSpan(1)
                             ->helperText('Baixa FEFO (vence primeiro, sai primeiro)'),
+
+                        Toggle::make('produto_controla_marca')
+                            ->label('Controla marca')
+                            ->inline(false)
+                            ->columnSpan(1)
+                            ->helperText('Rastreia a marca da compra sem exigir lote/validade (ex.: papel toalha)'),
 
                         Toggle::make('produto_perecivel')
                             ->label('Perecível')

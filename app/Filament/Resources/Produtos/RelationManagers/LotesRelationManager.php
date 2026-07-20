@@ -25,7 +25,7 @@ class LotesRelationManager extends RelationManager
 
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
-        return (bool) $ownerRecord->produto_controla_lote;
+        return $ownerRecord instanceof \App\Models\Produto && $ownerRecord->rastreiaLote();
     }
 
     /** Só leitura: lotes nascem de uma compra ou de "Registrar Produção", nunca daqui. */

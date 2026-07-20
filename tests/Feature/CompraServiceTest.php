@@ -112,6 +112,36 @@ class CompraServiceTest extends TestCase
         $this->assertEquals(2, FornecedorProduto::where('fp_prestador_id', $forn->id)->count());
     }
 
+    public function test_confirmar_rastreia_marca_sem_exigir_lote_ou_validade(): void
+    {
+        $forn = $this->fornecedor();
+        // Produto tipo "papel toalha": só controla marca, não lote/validade.
+        $papelToalha = $this->insumo('Papel Toalha', ['produto_controla_marca' => true]);
+        $marca = Marca::create(['marca_nome' => 'Scala']);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $papelToalha->id,
+            'ci_descricao_fornecedor' => 'PAPEL TOALHA', 'ci_quantidade_compra' => 10, 'ci_unidade_compra' => 'UN',
+            'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 3, 'ci_marca_id' => $marca->id,
+        ]);
+
+        $this->service->confirmar($compra->fresh('itens'));
+
+        $papelToalha->refresh();
+        $this->assertEqualsWithDelta(10.0, (float) $papelToalha->produto_saldo_estoque, 0.001);
+
+        $lote = $papelToalha->lotes()->first();
+        $this->assertNotNull($lote, 'Produto que só controla marca também deve gerar registro de lote (para rastrear a marca).');
+        $this->assertSame('Scala', $lote->marca->marca_nome);
+        $this->assertNull($lote->lote_codigo);
+        $this->assertNull($lote->lote_validade);
+    }
+
     public function test_confirmar_registra_hora_da_confirmacao_na_movimentacao(): void
     {
         $forn = $this->fornecedor();

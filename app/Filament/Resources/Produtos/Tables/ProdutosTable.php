@@ -301,6 +301,11 @@ class ProdutosTable
                     ->query(fn (Builder $query): Builder => $query->where('produto_controla_lote', true))
                     ->toggle(),
 
+                Filter::make('controla_marca')
+                    ->label('Controla Marca')
+                    ->query(fn (Builder $query): Builder => $query->where('produto_controla_marca', true))
+                    ->toggle(),
+
                 Filter::make('perecivel')
                     ->label('Perecível')
                     ->query(fn (Builder $query): Builder => $query->where('produto_perecivel', true))
@@ -369,6 +374,7 @@ class ProdutosTable
                         $filters['controla_estoque'],
                         $filters['produto_modo_controle_estoque'],
                         $filters['controla_lote'],
+                        $filters['controla_marca'],
                         $filters['perecivel'],
                         $filters['abaixo_minimo'],
                     ]),
@@ -440,7 +446,7 @@ class ProdutosTable
                             ->visible(fn (Get $get, Produto $record): bool => $get('tipo') === 'entrada' && $record->produto_controla_lote),
 
                         MarcaSelect::make('marca_id')
-                            ->visible(fn (Get $get, Produto $record): bool => $get('tipo') === 'entrada' && $record->produto_controla_lote),
+                            ->visible(fn (Get $get, Produto $record): bool => $get('tipo') === 'entrada' && $record->rastreiaLote()),
 
                         DatePicker::make('validade')
                             ->label('Validade')
@@ -719,6 +725,16 @@ class ProdutosTable
                                                 ->visible(fn (Get $get): bool => (bool) $get('alterar_controla_lote'))
                                                 ->columnSpan(2),
 
+                                            Toggle::make('alterar_controla_marca')
+                                                ->label('Alterar "controla marca"')
+                                                ->live()
+                                                ->inline(false)
+                                                ->columnSpan(1),
+                                            Toggle::make('produto_controla_marca')
+                                                ->label('Controla marca')
+                                                ->visible(fn (Get $get): bool => (bool) $get('alterar_controla_marca'))
+                                                ->columnSpan(2),
+
                                             Toggle::make('alterar_perecivel')
                                                 ->label('Alterar "perecível"')
                                                 ->live()
@@ -912,6 +928,7 @@ class ProdutosTable
                                 'alterar_modo_controle' => 'produto_modo_controle_estoque',
                                 'alterar_lista_zerado' => 'produto_lista_estoque_zerado',
                                 'alterar_controla_lote' => 'produto_controla_lote',
+                                'alterar_controla_marca' => 'produto_controla_marca',
                                 'alterar_perecivel' => 'produto_perecivel',
                                 'alterar_unidade_estoque' => 'produto_unidade_estoque',
                                 'alterar_cardapio' => 'produto_cardapio',
@@ -975,6 +992,7 @@ class ProdutosTable
                                     'saldo_atual' => (float) $produto->produto_saldo_estoque,
                                     'quantidade_contada' => (float) $produto->produto_saldo_estoque,
                                     'controla_lote' => (bool) $produto->produto_controla_lote,
+                                    'rastreia_lote' => $produto->rastreiaLote(),
                                     'lote_codigo' => null,
                                     'marca_id' => null,
                                     'validade' => null,
@@ -1006,6 +1024,7 @@ class ProdutosTable
                                     ->schema([
                                         Hidden::make('produto_id'),
                                         Hidden::make('controla_lote'),
+                                        Hidden::make('rastreia_lote'),
                                         TextInput::make('produto_descricao')
                                             ->hiddenLabel()
                                             ->disabled()
@@ -1026,7 +1045,7 @@ class ProdutosTable
                                             ->visible(fn (Get $get): bool => (bool) $get('controla_lote')),
                                         MarcaSelect::make('marca_id')
                                             ->hiddenLabel()
-                                            ->visible(fn (Get $get): bool => (bool) $get('controla_lote')),
+                                            ->visible(fn (Get $get): bool => (bool) $get('rastreia_lote')),
                                         DatePicker::make('validade')
                                             ->hiddenLabel()
                                             ->visible(fn (Get $get): bool => (bool) $get('controla_lote')),

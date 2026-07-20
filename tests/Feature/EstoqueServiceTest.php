@@ -107,6 +107,47 @@ class EstoqueServiceTest extends TestCase
         $this->assertEqualsWithDelta(4.0, (float) $produto->lotes()->where('lote_codigo', 'L-A')->value('lote_qtd_atual'), 0.001);
     }
 
+    public function test_entrada_sem_controlar_lote_mas_controlando_marca_cria_lote_sem_codigo_nem_validade(): void
+    {
+        $produto = $this->produto(['produto_controla_marca' => true]);
+        $marca = \App\Models\Marca::create(['marca_nome' => 'Scala']);
+
+        $this->service->registrarEntrada($produto, 10, 3.00, MovimentacaoOrigemEnum::COMPRA, [
+            'user_id' => $this->userId, 'marca_id' => $marca->id,
+        ]);
+        $produto->refresh();
+
+        $this->assertEqualsWithDelta(10.0, (float) $produto->produto_saldo_estoque, 0.001);
+        $lote = $produto->lotes()->first();
+        $this->assertNotNull($lote);
+        $this->assertSame('Scala', $lote->marca->marca_nome);
+        $this->assertNull($lote->lote_codigo);
+        $this->assertNull($lote->lote_validade);
+    }
+
+    public function test_saida_consome_lote_de_produto_que_so_controla_marca_em_fifo(): void
+    {
+        $produto = $this->produto(['produto_controla_marca' => true]);
+        $marcaA = \App\Models\Marca::create(['marca_nome' => 'Marca A']);
+        $marcaB = \App\Models\Marca::create(['marca_nome' => 'Marca B']);
+
+        $this->service->registrarEntrada($produto, 5, 2.00, MovimentacaoOrigemEnum::COMPRA, [
+            'user_id' => $this->userId, 'marca_id' => $marcaA->id,
+        ]);
+        $this->service->registrarEntrada($produto, 5, 2.00, MovimentacaoOrigemEnum::COMPRA, [
+            'user_id' => $this->userId, 'marca_id' => $marcaB->id,
+        ]);
+
+        // Sem validade, a ordem de consumo é a de entrada (FIFO): a marca A primeiro.
+        $movs = $this->service->registrarSaida($produto, 6, MovimentacaoOrigemEnum::VENDA, ['user_id' => $this->userId]);
+
+        $this->assertCount(2, $movs);
+        $this->assertSame('Marca A', $movs->first()->lote->marca->marca_nome);
+        $this->assertEqualsWithDelta(5.0, (float) $movs->first()->mov_quantidade, 0.001);
+        $this->assertSame('Marca B', $movs->last()->lote->marca->marca_nome);
+        $this->assertEqualsWithDelta(1.0, (float) $movs->last()->mov_quantidade, 0.001);
+    }
+
     public function test_ajuste_gera_entrada_ou_saida_conforme_diferenca(): void
     {
         $produto = $this->produto();

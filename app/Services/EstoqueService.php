@@ -20,8 +20,10 @@ use Illuminate\Support\Facades\DB;
  *
  * Valoração por Custo Médio Móvel Ponderado (WAC): toda entrada recalcula o
  * custo médio do produto; toda saída é valorada pelo médio vigente. Quando o
- * produto controla lote, o físico é baixado em FEFO (vence primeiro, sai
- * primeiro) gerando uma movimentação por lote consumido.
+ * produto rastreia lote (Produto::rastreiaLote() — controla lote/validade OU
+ * apenas marca), o físico é baixado em FEFO (vence primeiro, sai primeiro;
+ * sem validade cadastrada equivale a FIFO) gerando uma movimentação por lote
+ * consumido.
  *
  * $opts aceito (todas opcionais): validade, lote_codigo, marca_id, centro_custo_id,
  * referencia (Model), motivo, data, venda_id, user_id.
@@ -52,7 +54,7 @@ class EstoqueService
                 : $custoUnitario;
 
             $lote = null;
-            if ($produto->produto_controla_lote) {
+            if ($produto->rastreiaLote()) {
                 $lote = EstoqueLote::create([
                     'lote_produto_id' => $produto->id,
                     'lote_codigo' => $opts['lote_codigo'] ?? null,
@@ -105,7 +107,7 @@ class EstoqueService
             $restante = $quantidade;
             $movimentacoes = collect();
 
-            if ($produto->produto_controla_lote) {
+            if ($produto->rastreiaLote()) {
                 $lotes = EstoqueLote::where('lote_produto_id', $produto->id)
                     ->ativos()
                     ->fefo()

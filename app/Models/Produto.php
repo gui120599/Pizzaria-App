@@ -29,6 +29,7 @@ class Produto extends Model
         'produto_saldo_estoque',
         'produto_unidade_estoque',
         'produto_controla_lote',
+        'produto_controla_marca',
         'produto_perecivel',
         'produto_ficha_rendimento',
         'produto_ordem',
@@ -72,6 +73,7 @@ class Produto extends Model
     protected $casts = [
         'produto_exibe_categoria' => 'boolean',
         'produto_controla_lote' => 'boolean',
+        'produto_controla_marca' => 'boolean',
         'produto_perecivel' => 'boolean',
         'produto_venda_manual' => 'boolean',
         'produto_lista_estoque_zerado' => 'boolean',
@@ -244,6 +246,17 @@ class Produto extends Model
     public function lotes()
     {
         return $this->hasMany(EstoqueLote::class, 'lote_produto_id');
+    }
+
+    /**
+     * Produto gera/consome registro em estoque_lotes: seja para rastrear
+     * lote/validade (FEFO) ou apenas a marca (ex.: papel toalha, sem
+     * validade). Nesse segundo caso o lote nasce sem código/validade e a
+     * baixa vira FIFO (ordena por validade nula, depois id).
+     */
+    public function rastreiaLote(): bool
+    {
+        return (bool) $this->produto_controla_lote || (bool) $this->produto_controla_marca;
     }
 
     // De-para de fornecedores (código do fornecedor ↔ insumo, p/ NF e XML)

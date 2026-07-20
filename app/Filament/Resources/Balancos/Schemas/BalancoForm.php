@@ -81,7 +81,7 @@ class BalancoForm
                         ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('mbal_produto_id')))->produto_controla_lote),
 
                     MarcaSelect::make('marca_id')
-                        ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('mbal_produto_id')))->produto_controla_lote),
+                        ->visible(fn (Get $get): bool => (bool) optional(Produto::find($get('mbal_produto_id')))->rastreiaLote()),
 
                     DatePicker::make('validade')
                         ->label('Validade')

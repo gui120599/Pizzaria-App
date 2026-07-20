@@ -61,6 +61,11 @@ class ItensRelationManager extends RelationManager
         return (bool) optional(Produto::find($get('ci_produto_id')))->produto_controla_lote;
     }
 
+    private static function produtoRastreiaLote(Get $get): bool
+    {
+        return (bool) optional(Produto::find($get('ci_produto_id')))->rastreiaLote();
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -153,6 +158,7 @@ class ItensRelationManager extends RelationManager
                 TextInput::make('ci_codigo_fornecedor')->label('Código no fornecedor')->columnSpan(1),
                 MarcaSelect::make('ci_marca_id')
                     ->columnSpan(1)
+                    ->visible(fn (Get $get): bool => self::produtoRastreiaLote($get))
                     ->helperText('Rastreabilidade da compra/lote — o insumo no estoque continua único.'),
                 TextInput::make('ci_descricao_fornecedor')->label('Descrição na NF')->columnSpanFull(),
             ]);

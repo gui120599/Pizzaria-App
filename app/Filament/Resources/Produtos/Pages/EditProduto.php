@@ -141,10 +141,12 @@ class EditProduto extends EditRecord
                             ->label('Lote')
                             ->helperText('Se a contagem apurar sobra, essa sobra vira um lote novo com esses dados.');
 
-                        $campos[] = MarcaSelect::make('marca_id');
-
                         $campos[] = DatePicker::make('validade')
                             ->label('Validade');
+                    }
+
+                    if ($produto->rastreiaLote()) {
+                        $campos[] = MarcaSelect::make('marca_id');
                     }
 
                     $campos[] = Textarea::make('observacao')

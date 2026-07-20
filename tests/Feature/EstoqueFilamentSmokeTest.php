@@ -171,6 +171,37 @@ class EstoqueFilamentSmokeTest extends TestCase
         $this->assertSame('2026-09-01', $lote->lote_validade->toDateString());
     }
 
+    public function test_acao_movimentar_entrada_com_apenas_controla_marca_dispensa_lote_e_validade(): void
+    {
+        $produto = $this->produto();
+        $produto->update(['produto_controla_marca' => true]);
+        $marca = Marca::create(['marca_nome' => 'Scala']);
+
+        Livewire::test(ListProdutos::class)
+            ->callTableAction('movimentar_estoque', $produto, data: [
+                'tipo' => 'entrada',
+                'origem' => 'compra',
+                'quantidade' => 10,
+                'custo_unitario' => 3.00,
+                'marca_id' => $marca->id,
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $lote = $produto->lotes()->first();
+        $this->assertNotNull($lote);
+        $this->assertSame('Scala', $lote->marca->marca_nome);
+        $this->assertNull($lote->lote_codigo);
+        $this->assertNull($lote->lote_validade);
+    }
+
+    public function test_relation_manager_de_lotes_e_visivel_para_produto_que_so_controla_marca(): void
+    {
+        $produto = $this->produto();
+        $produto->update(['produto_controla_marca' => true]);
+
+        $this->assertTrue(LotesRelationManager::canViewForRecord($produto, EditProduto::class));
+    }
+
     public function test_acao_realizar_balanco_com_sobra_e_lote_cria_lote_com_marca(): void
     {
         $produto = $this->produto();
@@ -206,6 +237,7 @@ class EstoqueFilamentSmokeTest extends TestCase
                         'produto_id' => $produto->id,
                         'quantidade_contada' => 9,
                         'controla_lote' => true,
+                        'rastreia_lote' => true,
                         'lote_codigo' => 'L-BULK-1',
                         'marca_id' => $marca->id,
                         'validade' => '2026-10-01',
@@ -218,6 +250,34 @@ class EstoqueFilamentSmokeTest extends TestCase
         $this->assertNotNull($lote);
         $this->assertSame('Tirolez', $lote->marca->marca_nome);
         $this->assertSame('2026-10-01', $lote->lote_validade->toDateString());
+    }
+
+    public function test_bulk_balanco_em_lote_permite_marca_sem_lote_para_produto_que_so_controla_marca(): void
+    {
+        $produto = $this->produto();
+        $produto->update(['produto_controla_marca' => true, 'produto_saldo_estoque' => 3]);
+        $marca = Marca::create(['marca_nome' => 'Scala']);
+
+        Livewire::test(ListProdutos::class)
+            ->callTableBulkAction('balanco_em_lote', [$produto], data: [
+                'itens' => [
+                    [
+                        'produto_id' => $produto->id,
+                        'quantidade_contada' => 9,
+                        'controla_lote' => false,
+                        'rastreia_lote' => true,
+                        'lote_codigo' => null,
+                        'marca_id' => $marca->id,
+                        'validade' => null,
+                    ],
+                ],
+            ])
+            ->assertHasNoTableBulkActionErrors();
+
+        $lote = $produto->lotes()->first();
+        $this->assertNotNull($lote);
+        $this->assertSame('Scala', $lote->marca->marca_nome);
+        $this->assertNull($lote->lote_codigo);
     }
 
     public function test_form_de_produto_em_abas_monta(): void
