@@ -22,16 +22,31 @@ class Categoria extends Model
         'categoria_preposicao_padrao',
         'categoria_ordem',
         'categoria_cardapio',
+        'categoria_cardapio_garcom',
         'categoria_permite_sabores',
         'categoria_max_sabores',
     ];
 
     protected $casts = [
         'categoria_cardapio' => 'boolean',
+        'categoria_cardapio_garcom' => 'boolean',
         'categoria_permite_sabores' => 'boolean',
         'categoria_max_sabores' => 'integer',
         'categoria_ordem' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        // Garante auto-incremento da ordem em toda via de criação (Filament,
+        // tela legada, tinker...). Sem isso, categorias criadas sem informar
+        // a ordem caem todas no default 0 da coluna e disputam a mesma
+        // posição quando alguém reordena via drag-and-drop.
+        static::creating(function (Categoria $categoria) {
+            if ($categoria->categoria_ordem === null) {
+                $categoria->categoria_ordem = ((int) static::max('categoria_ordem')) + 1;
+            }
+        });
+    }
 
     public function produtos()
     {

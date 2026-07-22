@@ -139,6 +139,7 @@ class PedidoProdutoSelector extends Component
         $tiposVenda = [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value];
 
         return Categoria::with(['produtos' => fn ($q) => $q->whereIn('produto_tipo', $tiposVenda)->whereNotNull('produto_foto')])
+            ->where('categoria_cardapio_garcom', true)
             ->whereHas('produtos', fn ($q) => $q->whereIn('produto_tipo', $tiposVenda))
             ->orderBy('categoria_ordem')
             ->orderBy('categoria_nome')

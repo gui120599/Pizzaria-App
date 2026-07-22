@@ -92,15 +92,24 @@ class CategoriaResource extends Resource
                             ->label('Ordem de Exibição')
                             ->numeric()
                             ->integer()
-                            ->default(0)
+                            ->default(fn (string $operation) => $operation === 'create'
+                                ? (Categoria::max('categoria_ordem') ?? 0) + 1
+                                : null)
                             ->minValue(0)
-                            ->helperText('Menor número aparece primeiro. Categorias com mesma ordem ficam em ordem alfabética'),
+                            ->helperText('Preenchido automaticamente com a próxima posição livre. Menor número aparece primeiro; mesma ordem cai em ordem alfabética'),
 
                         Toggle::make('categoria_cardapio')
-                            ->label('Mostrar no Cardápio')
+                            ->label('Mostrar no Cardápio do Cliente')
                             ->required()
                             ->inline()
-                            ->helperText('Categorias visíveis aos clientes'),
+                            ->helperText('Categorias visíveis aos clientes no cardápio público'),
+
+                        Toggle::make('categoria_cardapio_garcom')
+                            ->label('Mostrar no Cardápio do Garçom/Atendente')
+                            ->required()
+                            ->inline()
+                            ->default(true)
+                            ->helperText('Categorias visíveis na tela de pedidos usada por garçom e atendente'),
 
                         Toggle::make('categoria_permite_sabores')
                             ->label('Permite Múltiplos Sabores')
@@ -194,7 +203,11 @@ class CategoriaResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: false),
 
                 ToggleColumn::make('categoria_cardapio')
-                    ->label('Cardápio')
+                    ->label('Cardápio Cliente')
+                    ->toggleable(isToggledHiddenByDefault: false),
+
+                ToggleColumn::make('categoria_cardapio_garcom')
+                    ->label('Cardápio Garçom/Atendente')
                     ->toggleable(isToggledHiddenByDefault: false),
 
                 TextColumn::make('ultimo_ajuste_preco')
@@ -243,9 +256,14 @@ class CategoriaResource extends Resource
             ])
             ->filters([
                 TernaryFilter::make('categoria_cardapio')
-                    ->label('No Cardápio')
+                    ->label('No Cardápio do Cliente')
                     ->trueLabel('Sim - Mostrar no cardápio')
                     ->falseLabel('Não - Oculto do cardápio'),
+
+                TernaryFilter::make('categoria_cardapio_garcom')
+                    ->label('No Cardápio do Garçom/Atendente')
+                    ->trueLabel('Sim - Mostrar para garçom/atendente')
+                    ->falseLabel('Não - Oculto do garçom/atendente'),
 
                 TernaryFilter::make('com_produtos')
                     ->label('Com Produtos')
