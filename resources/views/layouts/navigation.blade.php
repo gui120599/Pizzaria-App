@@ -40,6 +40,12 @@
         <i class='text-[13px] bx bx-receipt'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
     </x-nav-link>
+    @hasrole('Entregador')
+        <x-nav-link :href="route('entregador.painel')" :active="request()->routeIs('entregador.painel')">
+            <i class='text-[13px] bx bx-cycling'></i>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Entregador') }}</span>
+        </x-nav-link>
+    @endhasrole
     <x-nav-link :href="route('confirmacoes')" :active="request()->routeIs('confirmacoes')">
         <i class='text-[13px] bx bx-bell'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Confirmações') }}</span>

@@ -49,6 +49,10 @@
                 <p class="text-base text-center col-span-2 uppercase font-semibold max-w-72">
                     {{ $pedido->pedido_endereco_entrega ?? '—' }}
                 </p>
+                <div class="col-span-2 text-center mt-1">
+                    <x-qrcode :data="$pedido->linkScanEntrega()" :size="140" class="mx-auto" />
+                    <p class="text-[9px] font-bold mt-1">ESCANEIE PRA SAIR / CONFIRMAR ENTREGA</p>
+                </div>
             @else
 
                 <div class="col-span-1 flex flex-col text-left">

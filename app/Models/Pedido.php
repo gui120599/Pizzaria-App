@@ -6,6 +6,7 @@ use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\PedidoOrigemEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\URL;
 
 class Pedido extends Model
 {
@@ -118,5 +119,15 @@ class Pedido extends Model
     public function mov_pedido()
     {
         return $this->hasMany(MovimentacaoPedido::class, 'mov_pedido_pedido_id');
+    }
+
+    /**
+     * URL assinada (sem expiração) que o QR code do ticket/painel do
+     * entregador codifica — abrir o link já é a prova de posse do QR, sem
+     * precisar de token/coluna extra no banco.
+     */
+    public function linkScanEntrega(): string
+    {
+        return URL::signedRoute('entregador.scan', ['pedido' => $this->id]);
     }
 }

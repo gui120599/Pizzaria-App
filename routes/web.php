@@ -10,6 +10,7 @@ use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\EmpresaController;
+use App\Http\Controllers\EntregaScanController;
 use App\Http\Controllers\ItensPedidoController;
 use App\Http\Controllers\ItensVendaController;
 use App\Http\Controllers\MesaController;
@@ -61,8 +62,16 @@ Route::get('/pedidosEntregasPDF/{datahora_abertura}/Imprimir', [PDFController::c
 
 Route::get('/dashboard', [Dashboard::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
+// Scan de QR code do ticket: assinatura garante que só quem escaneou o QR
+// (impresso ou exibido no painel) acessa — 'signed' roda depois de 'auth'
+// pra reaproveitar o redirect->intended() do login se o entregador ainda
+// não estiver logado nesse celular.
+Route::get('/Entregador/Scan/{pedido}', [EntregaScanController::class, 'show'])->name('entregador.scan')->middleware(['auth', 'signed', 'role:Entregador']);
+Route::post('/Entregador/Scan/{pedido}', [EntregaScanController::class, 'confirmar'])->name('entregador.scan.confirmar')->middleware(['auth', 'role:Entregador']);
+
 Route::middleware('auth')->group(function () {
     Route::get('/confirmacoes', fn () => view('app.confirmacoes.index'))->name('confirmacoes');
+    Route::get('/Entregador', fn () => view('app.entregador.index'))->name('entregador.painel')->middleware('role:Entregador');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

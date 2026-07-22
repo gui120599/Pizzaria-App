@@ -14,6 +14,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -21,6 +22,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -78,6 +80,24 @@ class UserResource extends Resource
                             ->password(),
 
                     ]),
+                Section::make('Acesso')
+                    ->description('Papéis e permissões do usuário — controla o que ele pode acessar (ex: Entregador, Admin, Gerente, Atendente).')
+                    ->icon(Heroicon::OutlinedShieldCheck)
+                    ->columns(1)
+                    ->schema([
+                        Select::make('roles')
+                            ->relationship('roles', 'name')
+                            ->multiple()
+                            ->preload()
+                            ->searchable()
+                            ->label('Papéis'),
+                        Select::make('permissions')
+                            ->relationship('permissions', 'name')
+                            ->multiple()
+                            ->preload()
+                            ->searchable()
+                            ->label('Permissões'),
+                    ]),
             ])->columns(1);
     }
 
@@ -96,6 +116,10 @@ class UserResource extends Resource
                 TextColumn::make('email')
                     ->label('Email address')
                     ->searchable(),
+                TextColumn::make('roles.name')
+                    ->label('Papéis')
+                    ->badge()
+                    ->placeholder('—'),
                 TextColumn::make('email_verified_at')
                     ->dateTime()
                     ->sortable(),
@@ -113,6 +137,9 @@ class UserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('roles')
+                    ->label('Papel')
+                    ->relationship('roles', 'name'),
                 TrashedFilter::make(),
             ])
             ->recordActions([

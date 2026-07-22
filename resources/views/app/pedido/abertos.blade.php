@@ -1208,6 +1208,11 @@
                                         <span class="font-semibold">${pedido.pedido_endereco_entrega}</span>
                                     </div>`;
                                 }
+                                if (pedido.entregador && pedido.entregador.name !== 'S/E') {
+                                    pedidoHtml += `<div class="text-center text-sm text-teal-700 font-semibold">
+                                        <i class='bx bx-cycling'></i> ${pedido.entregador.name}
+                                    </div>`;
+                                }
                                 pedidoHtml += `
                                     <div id="Tabela">
                                         <table class="w-full">
