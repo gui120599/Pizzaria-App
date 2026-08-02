@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Compras\Support;
 
 use App\Exceptions\NfeXmlInvalidoException;
 use App\Filament\Resources\Compras\CompraResource;
-use App\Models\Compra;
 use App\Services\Nfe\NfeImportService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -29,7 +28,7 @@ class ImportarXmlAction
             ->label('Importar XML')
             ->icon('heroicon-o-arrow-up-tray')
             ->color('gray')
-            ->visible(fn (): bool => auth()->user()->can('create', Compra::class))
+            ->visible(fn (): bool => CompraResource::canCreate())
             ->modalHeading('Importar XML de NF-e')
             ->modalDescription('Envie o(s) XML da nota do fornecedor. Um rascunho de compra é criado para cada nota, para você revisar antes de confirmar.')
             ->modalSubmitActionLabel('Importar')
