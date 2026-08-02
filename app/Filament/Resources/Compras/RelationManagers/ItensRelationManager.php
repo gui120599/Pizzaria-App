@@ -99,18 +99,26 @@ class ItensRelationManager extends RelationManager
                     ->createOptionUsing(function (array $data): int {
                         return Produto::create($data)->getKey();
                     })
-                    ->required()
                     ->live()
                     ->columnSpanFull()
-                    ->afterStateUpdated(function ($state, Set $set): void {
+                    ->helperText('Deixe em branco para mapear depois — o item fica pendente até você indicar o produto.')
+                    ->afterStateUpdated(function ($state, Get $get, Set $set): void {
                         $produto = $state ? Produto::find($state) : null;
                         if (! $produto) {
                             return;
                         }
 
-                        $set('ci_descricao_fornecedor', $produto->produto_descricao);
-                        $set('ci_unidade_compra', $produto->produto_unidade_estoque);
-                        $set('ci_custo_unitario_compra', (float) $produto->produto_custo_medio);
+                        // Não sobrescreve dados que já vieram preenchidos (ex.: item
+                        // importado de XML, mapeando o produto só agora).
+                        if (blank($get('ci_descricao_fornecedor'))) {
+                            $set('ci_descricao_fornecedor', $produto->produto_descricao);
+                        }
+                        if (blank($get('ci_unidade_compra'))) {
+                            $set('ci_unidade_compra', $produto->produto_unidade_estoque);
+                        }
+                        if ((float) ($get('ci_custo_unitario_compra') ?? 0) <= 0) {
+                            $set('ci_custo_unitario_compra', (float) $produto->produto_custo_medio);
+                        }
 
                         // Prefill pelo de-para do fornecedor, se existir.
                         $owner = $this->getOwnerRecord();
@@ -119,8 +127,12 @@ class ItensRelationManager extends RelationManager
                                 ->where('fp_produto_id', $produto->id)
                                 ->first();
                             if ($dp) {
-                                $set('ci_codigo_fornecedor', $dp->fp_codigo_fornecedor);
-                                $set('ci_unidade_compra', $dp->fp_unidade_compra ?: $produto->produto_unidade_estoque);
+                                if (blank($get('ci_codigo_fornecedor'))) {
+                                    $set('ci_codigo_fornecedor', $dp->fp_codigo_fornecedor);
+                                }
+                                if (blank($get('ci_unidade_compra'))) {
+                                    $set('ci_unidade_compra', $dp->fp_unidade_compra ?: $produto->produto_unidade_estoque);
+                                }
                                 $set('ci_fator_conversao', (float) $dp->fp_fator_conversao ?: 1);
                             }
                         }
@@ -183,6 +195,8 @@ class ItensRelationManager extends RelationManager
                 TextColumn::make('insumo.produto_descricao')
                     ->label('Produto')
                     ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
+                    ->placeholder('⚠️ Não mapeado — clique em editar')
+                    ->color(fn ($record): ?string => $record->ci_produto_id ? null : 'danger')
                     ->description(fn ($record): ?string => $record->ci_codigo_fornecedor ? 'Cód. forn.: '.$record->ci_codigo_fornecedor : null)
                     ->searchable(),
 

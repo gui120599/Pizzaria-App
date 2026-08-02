@@ -23,6 +23,7 @@ class Compra extends Model
         'compra_numero',
         'compra_serie',
         'compra_chave_nfe',
+        'compra_xml_path',
         'compra_data_emissao',
         'compra_data_entrada',
         'compra_valor_produtos',

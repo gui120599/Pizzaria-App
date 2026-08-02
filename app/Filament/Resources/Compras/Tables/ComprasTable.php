@@ -59,7 +59,8 @@ class ComprasTable
                 TextColumn::make('compra_origem')
                     ->label('Origem')
                     ->badge()
-                    ->color('gray')
+                    ->formatStateUsing(fn (string $state): string => $state === 'xml' ? 'XML' : 'Manual')
+                    ->color(fn (string $state): string => $state === 'xml' ? 'info' : 'gray')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([

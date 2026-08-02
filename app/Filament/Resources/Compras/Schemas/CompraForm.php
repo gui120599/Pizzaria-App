@@ -33,6 +33,12 @@ class CompraForm
                     ->columnSpan(6)
                     ->disabled($bloqueado)
                     ->schema([
+                        Placeholder::make('origem_xml_info')
+                            ->label('Origem')
+                            ->columnSpanFull()
+                            ->visible(fn (?Compra $record): bool => $record?->compra_origem === 'xml')
+                            ->content(fn (?Compra $record): string => 'Importado via XML — Chave de acesso: '.($record?->compra_chave_nfe ?? '—')),
+
                         Select::make('compra_prestador_id')
                             ->label('Fornecedor')
                             ->placeholder('Selecione o fornecedor')
