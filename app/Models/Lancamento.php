@@ -20,6 +20,8 @@ class Lancamento extends Model
     protected $fillable = [
         'tipo',
         'compra_id',
+        'contrato_id',
+        'competencia',
         'plano_despesa_id',
         'plano_receita_id',
         'comportamento',
@@ -45,6 +47,7 @@ class Lancamento extends Model
             'valor' => 'decimal:2',
             'vencimento' => 'date',
             'data_pagamento' => 'date',
+            'competencia' => 'date',
         ];
     }
 
@@ -107,6 +110,12 @@ class Lancamento extends Model
     public function compra(): BelongsTo
     {
         return $this->belongsTo(Compra::class, 'compra_id');
+    }
+
+    /** Contrato que gerou este título automaticamente (ver ContratoService::gerarLancamentoMensal). */
+    public function contrato(): BelongsTo
+    {
+        return $this->belongsTo(Contrato::class, 'contrato_id');
     }
 
     /** Rateio do título entre planos de despesa (1 lançamento -> N despesas). */

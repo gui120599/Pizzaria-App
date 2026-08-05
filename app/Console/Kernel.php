@@ -17,6 +17,15 @@ class Kernel extends ConsoleKernel
         // Zera o saldo das promoções relâmpago recorrentes a cada nova
         // ocorrência (ver App\Console\Commands\ResetarPromocoesRecorrentes).
         $schedule->command('promocoes:resetar-recorrentes')->everyMinute();
+
+        // Gera o lançamento mensal de cada contrato ativo/vigente (ver
+        // App\Console\Commands\ContratosGerarLancamentosMensais e ContratoService).
+        // Roda diariamente (não só dia 1) para ser resiliente a falha pontual do
+        // schedule — a idempotência por competência garante que só gera 1x/mês.
+        $schedule->command('contratos:gerar-lancamentos')
+            ->dailyAt('02:00')
+            ->withoutOverlapping()
+            ->onOneServer();
     }
 
     /**
