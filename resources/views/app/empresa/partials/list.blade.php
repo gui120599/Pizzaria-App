@@ -26,12 +26,16 @@
                             <td>{{ $empresa->empresa_nome_fantasia }}</td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2">
-                                    <x-primary-button onclick="window.location.href = '{{ route('empresa.edit', ['empresa' => $empresa]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
-                                    <form action="{{ route('empresa.destroy', ['id' => $empresa]) }}" method="post">
-                                        @method('delete')
-                                        @csrf
-                                        <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-danger-button>
-                                    </form>
+                                    @can('update:empresa')
+                                        <x-primary-button onclick="window.location.href = '{{ route('empresa.edit', ['empresa' => $empresa]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
+                                    @endcan
+                                    @can('delete:empresa')
+                                        <form action="{{ route('empresa.destroy', ['id' => $empresa]) }}" method="post">
+                                            @method('delete')
+                                            @csrf
+                                            <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-danger-button>
+                                        </form>
+                                    @endcan
                                 </div>
                             </td>
                         </tr>

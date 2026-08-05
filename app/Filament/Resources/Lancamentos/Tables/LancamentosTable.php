@@ -148,7 +148,8 @@ class LancamentosTable
             ->label('Registrar pagamento')
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
-            ->visible(fn (Lancamento $record): bool => in_array($record->status, [StatusLancamento::Pendente, StatusLancamento::Parcial], true))
+            ->visible(fn (Lancamento $record): bool => in_array($record->status, [StatusLancamento::Pendente, StatusLancamento::Parcial], true)
+                && auth()->user()->can('markAsPaid', $record))
             ->modalHeading('Registrar pagamento')
             ->modalSubmitActionLabel('Confirmar')
             ->form([
@@ -208,7 +209,8 @@ class LancamentosTable
             ->label('Estornar pagamentos')
             ->icon(Heroicon::OutlinedArrowUturnLeft)
             ->color('warning')
-            ->visible(fn (Lancamento $record): bool => $record->status === StatusLancamento::Pago)
+            ->visible(fn (Lancamento $record): bool => $record->status === StatusLancamento::Pago
+                && auth()->user()->can('reversePayment', $record))
             ->requiresConfirmation()
             ->modalHeading('Estornar pagamentos')
             ->modalDescription('Todos os pagamentos deste título são apagados e ele volta para Pendente.')

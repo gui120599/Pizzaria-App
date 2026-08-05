@@ -81,7 +81,7 @@ class UserResource extends Resource
 
                     ]),
                 Section::make('Acesso')
-                    ->description('Papéis e permissões do usuário — controla o que ele pode acessar (ex: Entregador, Admin, Gerente, Atendente).')
+                    ->description('Papel do usuário — controla o que ele pode acessar (ex: Entregador, Admin, Gerente, Atendente). As permissões de cada papel são gerenciadas na tela de Papéis do painel.')
                     ->icon(Heroicon::OutlinedShieldCheck)
                     ->columns(1)
                     ->schema([
@@ -90,13 +90,11 @@ class UserResource extends Resource
                             ->multiple()
                             ->preload()
                             ->searchable()
-                            ->label('Papéis'),
-                        Select::make('permissions')
-                            ->relationship('permissions', 'name')
-                            ->multiple()
-                            ->preload()
-                            ->searchable()
-                            ->label('Permissões'),
+                            ->label('Papéis')
+                            // Ninguém edita os próprios papéis pelo painel — nem Admin, que
+                            // passa por qualquer Gate::check via super_admin e por isso não
+                            // é barrado pela UserPolicy (ver app/Policies/UserPolicy.php).
+                            ->disabled(fn (?User $record): bool => $record?->is(auth()->user()) ?? false),
                     ]),
             ])->columns(1);
     }
@@ -144,8 +142,13 @@ class UserResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
-                ForceDeleteAction::make(),
+                // Excluir/forçar exclusão da própria conta pelo painel fica fora mesmo pra
+                // Admin — o bypass via super_admin (Gate::before) não distingue "sua conta"
+                // de qualquer outra, então o guarda tem que ficar na UI.
+                DeleteAction::make()
+                    ->hidden(fn (User $record): bool => $record->is(auth()->user())),
+                ForceDeleteAction::make()
+                    ->hidden(fn (User $record): bool => $record->is(auth()->user())),
                 RestoreAction::make(),
             ])
             ->toolbarActions([
@@ -154,7 +157,10 @@ class UserResource extends Resource
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
                 ]),
-            ]);
+            ])
+            // Mesma proteção pras ações em massa: a própria conta nunca pode ser
+            // selecionada, então nenhum bulk action (delete, force delete, restore) alcança ela.
+            ->checkIfRecordIsSelectableUsing(fn (User $record): bool => ! $record->is(auth()->user()));
     }
 
     public static function getPages(): array

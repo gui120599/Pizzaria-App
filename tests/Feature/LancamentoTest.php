@@ -112,7 +112,7 @@ class LancamentoTest extends TestCase
      */
     public function test_acao_dar_baixa_do_filament_registra_pagamento_com_forma(): void
     {
-        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
 
         $plano = $this->planoDespesa(Comportamento::Fixo, 'Água');
         $lancamento = Lancamento::create([
@@ -138,7 +138,7 @@ class LancamentoTest extends TestCase
 
     public function test_acao_registrar_pagamento_aceita_valor_parcial(): void
     {
-        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
 
         $plano = $this->planoDespesa(Comportamento::Fixo, 'Fornecedor X');
         $lancamento = Lancamento::create([

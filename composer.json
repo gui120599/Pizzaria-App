@@ -7,6 +7,7 @@
     "require": {
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "^3.0",
+        "bezhansalleh/filament-shield": "^4.3",
         "chillerlan/php-qrcode": "^5.0",
         "filament/filament": "^4.0",
         "guzzlehttp/guzzle": "^7.2",
@@ -16,6 +17,7 @@
         "laravel/tinker": "^2.8",
         "leandrocfe/filament-ptbr-form-fields": "^4.0",
         "nfe/nfe": "^2.5",
+        "nfephp-org/sped-nfe": "^5.2",
         "spatie/laravel-permission": "^6.3"
     },
     "require-dev": {

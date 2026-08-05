@@ -30,10 +30,37 @@ class Empresa extends Model
         'empresa_api_nfeio_apikey',
         'empresa_api_nfeio_ambiente',
         'empresa_status',
+        'empresa_certificado_path',
+        'empresa_certificado_senha',
+        'empresa_certificado_titular_cnpj',
+        'empresa_certificado_titular_nome',
+        'empresa_certificado_validade',
+        'empresa_certificado_atualizado_em',
+        'empresa_sefaz_ambiente',
+        'empresa_sefaz_ultimo_nsu',
+        'empresa_sefaz_ultima_consulta_em',
+        'empresa_sefaz_auto_importacao_ativa',
     ];
 
     protected $casts = [
         'empresa_regime_tributario' => 'string',
         'empresa_status' => 'string',
+        'empresa_certificado_senha' => 'encrypted',
+        'empresa_certificado_validade' => 'date',
+        'empresa_certificado_atualizado_em' => 'datetime',
+        'empresa_sefaz_ultima_consulta_em' => 'datetime',
+        'empresa_sefaz_auto_importacao_ativa' => 'boolean',
     ];
+
+    /** Certificado A1 (.pfx) + senha já cadastrados, prontos pra autenticar na SEFAZ. */
+    public function certificadoConfigurado(): bool
+    {
+        return filled($this->empresa_certificado_path) && filled($this->empresa_certificado_senha);
+    }
+
+    public function certificadoVencido(): bool
+    {
+        return $this->empresa_certificado_validade !== null
+            && $this->empresa_certificado_validade->isPast();
+    }
 }

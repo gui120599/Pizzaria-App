@@ -7,30 +7,34 @@
                 </h2>
             </div>
             <div class="flex space-x-2">
-                <x-primary-link
-                    href="{{ route('sessaoMesa.pedidoMesa', ['mesa_id' => $sessao_mesa->sessao_mesa_mesa_id]) }}"><i
-                        class='bx bx-plus'></i>NOVO PEDIDO</x-primary-link>
+                @can('create:pedido')
+                    <x-primary-link
+                        href="{{ route('sessaoMesa.pedidoMesa', ['mesa_id' => $sessao_mesa->sessao_mesa_mesa_id]) }}"><i
+                            class='bx bx-plus'></i>NOVO PEDIDO</x-primary-link>
+                @endcan
                 @php
                     $openPedidosExistentes = request('page_PedidosExistentes') > 0;
                     $openRemoverPedidos = request('page_RemoverPedidos') > 0;
                 @endphp
 
-                <x-secondary-button x-data=""
-                    x-on:click.prevent="$dispatch('open-modal', 'seleciona-pedido')"><i class='bx bxs-plus-circle'></i>
-                    {{ __('Adicionar pedido existente') }}</x-secondary-button>
+                @can('update', $sessao_mesa)
+                    <x-secondary-button x-data=""
+                        x-on:click.prevent="$dispatch('open-modal', 'seleciona-pedido')"><i class='bx bxs-plus-circle'></i>
+                        {{ __('Adicionar pedido existente') }}</x-secondary-button>
 
-                <x-danger-button x-data=""
-                    x-on:click.prevent="$dispatch('open-modal', 'remover-pedido')"><i class='bx bx-minus-circle'></i>
-                    {{ __('Remover pedido da mesa') }}</x-danger-button>
+                    <x-danger-button x-data=""
+                        x-on:click.prevent="$dispatch('open-modal', 'remover-pedido')"><i class='bx bx-minus-circle'></i>
+                        {{ __('Remover pedido da mesa') }}</x-danger-button>
 
-                <x-secondary-button x-data=""
-                    x-on:click.prevent="$dispatch('open-modal', 'gerenciar-clientes')">
-                    <i class='bx bx-group'></i>
-                    Clientes
-                    @if(count($sessaoMesaClientes) > 0)
-                        <span class="ml-1 bg-teal-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{{ count($sessaoMesaClientes) }}</span>
-                    @endif
-                </x-secondary-button>
+                    <x-secondary-button x-data=""
+                        x-on:click.prevent="$dispatch('open-modal', 'gerenciar-clientes')">
+                        <i class='bx bx-group'></i>
+                        Clientes
+                        @if(count($sessaoMesaClientes) > 0)
+                            <span class="ml-1 bg-teal-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{{ count($sessaoMesaClientes) }}</span>
+                        @endif
+                    </x-secondary-button>
+                @endcan
 
                 {{-- Modal: Gerenciar Clientes da Sessão --}}
                 <x-modal name="gerenciar-clientes" :show="false" :maxWidth="'md'">
@@ -481,14 +485,18 @@
                 </h2>
             </div>
             <div class="flex space-x-2">
+                @can('update', $sessao_mesa)
                 <x-primary-link
                     href="{{ route('sessaoMesa.editAlterarMesa', ['sessaoMesa' => $sessao_mesa]) }}">alterar
                     mesa</x-primary-link>
+                @endcan
                 <x-secondary-button id="btn-imprimir">IMPRIMIR</x-secondary-button>
+                @can('update', $sessao_mesa)
                 <form action="{{ route('sessaoMesa.fechar', ['sessaoMesa' => $sessao_mesa]) }}" method="get">
                     @method('patch')
                     <x-primary-button>FECHAR MESA</x-primary-button>
                 </form>
+                @endcan
             </div>
         </div>
     </div>
@@ -605,16 +613,18 @@
                                                             {{ str_replace('.', ',', $item->pivot->item_pedido_valor) }}
                                                         </td>
                                                         <td>
-                                                            <form
-                                                                action="{{ route('removerItemPedidoMesa', ['item_pedido_id' => $item->pivot->id, 'pedido_id' => $pedido->id]) }}"
-                                                                method="GET"
-                                                                onsubmit="return confirm('Tem certeza que deseja remover este item?');">
-                                                                @csrf
-                                                                <button type="submit"
-                                                                    class="bg-white font-bold text-xl p-1 w-full"
-                                                                    title="Excluir Item"><i
-                                                                        class='text-red-500 bx bxs-x-circle'></i></button>
-                                                            </form>
+                                                            @can('update', $pedido)
+                                                                <form
+                                                                    action="{{ route('removerItemPedidoMesa', ['item_pedido_id' => $item->pivot->id, 'pedido_id' => $pedido->id]) }}"
+                                                                    method="GET"
+                                                                    onsubmit="return confirm('Tem certeza que deseja remover este item?');">
+                                                                    @csrf
+                                                                    <button type="submit"
+                                                                        class="bg-white font-bold text-xl p-1 w-full"
+                                                                        title="Excluir Item"><i
+                                                                            class='text-red-500 bx bxs-x-circle'></i></button>
+                                                                </form>
+                                                            @endcan
                                                         </td>
                                                     </tr>
                                                 @else
@@ -628,16 +638,18 @@
                                                             {{ str_replace('.', ',', $item->pivot->item_pedido_valor) }}
                                                         </td>
                                                         <td class="text-center p-1">
-                                                            <form
-                                                                action="{{ route('removerItemPedidoMesa', ['item_pedido_id' => $item->pivot->id, 'pedido_id' => $pedido->id]) }}"
-                                                                method="GET"
-                                                                onsubmit="return confirm('Tem certeza que deseja remover este item?');">
-                                                                @csrf
-                                                                <button type="submit"
-                                                                    class="bg-white font-bold text-xl p-1 w-full"
-                                                                    title="Excluir Item"><i
-                                                                        class='text-red-500 bx bxs-x-circle'></i></button>
-                                                            </form>
+                                                            @can('update', $pedido)
+                                                                <form
+                                                                    action="{{ route('removerItemPedidoMesa', ['item_pedido_id' => $item->pivot->id, 'pedido_id' => $pedido->id]) }}"
+                                                                    method="GET"
+                                                                    onsubmit="return confirm('Tem certeza que deseja remover este item?');">
+                                                                    @csrf
+                                                                    <button type="submit"
+                                                                        class="bg-white font-bold text-xl p-1 w-full"
+                                                                        title="Excluir Item"><i
+                                                                            class='text-red-500 bx bxs-x-circle'></i></button>
+                                                                </form>
+                                                            @endcan
                                                         </td>
                                                     </tr>
                                                 @endif
@@ -661,7 +673,7 @@
                                 <span class="font-bold">R$
                                     {{ str_replace('.', ',', $pedido->pedido_valor_total) }}</span>
                             </div>
-                            @if (!in_array($pedido->pedido_status, ['INICIADO', 'ENTREGUE', 'FINALIZADO', 'CANCELADO']))
+                            @if (!in_array($pedido->pedido_status, ['INICIADO', 'ENTREGUE', 'FINALIZADO', 'CANCELADO']) && auth()->user()->can('update', $pedido))
                                 <a href="{{ route('sessaoMesa.editarPedido', ['mesa_id' => $mesa->id, 'pedido' => $pedido->id]) }}"
                                    class="mt-1.5 flex items-center justify-center gap-1 w-full py-1.5 bg-teal-50 hover:bg-teal-100 border border-teal-300 text-teal-700 rounded-lg text-xs font-semibold transition-colors">
                                     <i class='bx bx-edit-alt'></i> Editar pedido

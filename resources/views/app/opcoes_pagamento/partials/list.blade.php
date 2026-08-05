@@ -30,12 +30,16 @@
                             <td>{{ $opcao_pagamento->opcaopag_desc_nfe }}</td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2">
-                                    <x-primary-button onclick="window.location.href = '{{ route('opcoes_pagamento.edit', ['opcoes_pagamento' => $opcao_pagamento]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
-                                    <form action="{{ route('opcoes_pagamento.destroy', ['id' => $opcao_pagamento]) }}" method="post">
-                                        @method('delete')
-                                        @csrf
-                                        <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-primary-button>
-                                    </form>
+                                    @can('update:opcoes_pagamento')
+                                        <x-primary-button onclick="window.location.href = '{{ route('opcoes_pagamento.edit', ['opcoes_pagamento' => $opcao_pagamento]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
+                                    @endcan
+                                    @can('delete:opcoes_pagamento')
+                                        <form action="{{ route('opcoes_pagamento.destroy', ['id' => $opcao_pagamento]) }}" method="post">
+                                            @method('delete')
+                                            @csrf
+                                            <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-danger-button>
+                                        </form>
+                                    @endcan
                                 </div>
                             </td>
                         </tr>

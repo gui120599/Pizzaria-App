@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\Venda;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Carbon\Carbon;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class FinanceiroStatsOverview extends BaseWidget
 {
+    use HasWidgetShield;
     use InteractsComPeriodo;
     use InteractsWithPageFilters;
 

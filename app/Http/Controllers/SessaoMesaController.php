@@ -111,6 +111,8 @@ class SessaoMesaController extends Controller
 
     public function adicionarClientesSessao(Request $request, SessaoMesa $sessaoMesa)
     {
+        $this->authorize('update', $sessaoMesa);
+
         $clientesIds = $request->input('clientes_ids', []);
         $clientesNomes = $request->input('clientes_nomes', []);
         $clientesTels = $request->input('clientes_tels', []);
@@ -153,6 +155,8 @@ class SessaoMesaController extends Controller
 
     public function removerClienteSessao(SessaoMesa $sessaoMesa, SessaoMesaCliente $sessaoMesaCliente)
     {
+        $this->authorize('update', $sessaoMesa);
+
         if ($sessaoMesaCliente->smc_sessao_mesa_id === $sessaoMesa->id) {
             $sessaoMesaCliente->delete();
         }
@@ -235,6 +239,8 @@ class SessaoMesaController extends Controller
 
     public function editarPedidoMesa(string|int $mesa_id, Pedido $pedido)
     {
+        $this->authorize('update', $pedido);
+
         $mesa = Mesa::find($mesa_id);
         $sessaoMesa = SessaoMesa::where('sessao_mesa_mesa_id', $mesa_id)->where('sessao_mesa_status', 'ABERTA')->first();
 
@@ -263,6 +269,8 @@ class SessaoMesaController extends Controller
 
     public function salvarEdicaoPedidoMesa(Request $request, string|int $mesa_id, Pedido $pedido)
     {
+        $this->authorize('update', $pedido);
+
         $statusNaoEditaveis = ['INICIADO', 'ENTREGUE', 'FINALIZADO', 'CANCELADO'];
         if (in_array($pedido->pedido_status, $statusNaoEditaveis)) {
             return redirect()->route('sessaoMesa.pedidosMesa', ['mesa_id' => $mesa_id])
@@ -371,6 +379,8 @@ class SessaoMesaController extends Controller
      */
     public function FecharSessaoMesa(SessaoMesa $sessaoMesa)
     {
+        $this->authorize('update', $sessaoMesa);
+
         $pedidos_sessao_mesa = Pedido::where('pedido_sessao_mesa_id', '=', $sessaoMesa->id)
             ->where('pedido_status', '<>', 'CANCELADO');
 
@@ -400,6 +410,8 @@ class SessaoMesaController extends Controller
      */
     public function ReabrirSessaoMesa(SessaoMesa $sessaoMesa)
     {
+        $this->authorize('update', $sessaoMesa);
+
         // Verifica se a mesa não possui uma nova sessão aberta
         $mesa = Mesa::find($sessaoMesa->sessao_mesa_mesa_id);
         if ($mesa) {
@@ -436,6 +448,8 @@ class SessaoMesaController extends Controller
 
         // Encontrar o pedido pelo ID ou lançar um erro 404 se não encontrado
         $pedido = Pedido::findOrFail($pedido_id);
+
+        $this->authorize('update', $pedido);
 
         // Obter o valor atual dos itens do pedido
         $pedidoValorItens = $pedido->pedido_valor_itens;
@@ -510,6 +524,8 @@ class SessaoMesaController extends Controller
      */
     public function updateAlterarMesaSessaMesa(SessaoMesa $sessaoMesa, Request $request)
     {
+        $this->authorize('update', $sessaoMesa);
+
         // Atualiza a mesa da sessão
         $sessaoMesa->update([
             'sessao_mesa_mesa_id' => $request->input('mesa_id_nova'),
@@ -547,6 +563,8 @@ class SessaoMesaController extends Controller
      */
     public function updateAdicionarPedidosExistentes(SessaoMesa $sessaoMesa, Request $request)
     {
+        $this->authorize('update', $sessaoMesa);
+
         foreach ($request->input('pedidoExistente') as $pedidoId) {
             $pedido = Pedido::find($pedidoId);
 
@@ -567,6 +585,8 @@ class SessaoMesaController extends Controller
      */
     public function updateRemoverPedidosSessaoMesa(SessaoMesa $sessaoMesa, Request $request)
     {
+        $this->authorize('update', $sessaoMesa);
+
         foreach ($request->input('pedidoExistente') as $pedidoId) {
             $pedido = Pedido::find($pedidoId);
 
@@ -603,7 +623,7 @@ class SessaoMesaController extends Controller
      */
     public function update(UpdateSessaoMesaRequest $request, SessaoMesa $sessaoMesa)
     {
-        //
+        $this->authorize('update', $sessaoMesa);
     }
 
     /**
@@ -611,6 +631,6 @@ class SessaoMesaController extends Controller
      */
     public function destroy(SessaoMesa $sessaoMesa)
     {
-        //
+        $this->authorize('delete', $sessaoMesa);
     }
 }

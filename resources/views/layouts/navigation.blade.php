@@ -36,26 +36,30 @@
         <i class="text-[13px] bx bx-basket"></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos') }}</span>
     </x-nav-link>
-    <x-nav-link :href="route('pedidos.abertos')" :active="request()->routeIs('pedidos.abertos')">
-        <i class='text-[13px] bx bx-receipt'></i>
-        <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
-    </x-nav-link>
+    @can('view_any:pedido')
+        <x-nav-link :href="route('pedidos.abertos')" :active="request()->routeIs('pedidos.abertos')">
+            <i class='text-[13px] bx bx-receipt'></i>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
+        </x-nav-link>
+    @endcan
     @hasrole('Entregador')
         <x-nav-link :href="route('entregador.painel')" :active="request()->routeIs('entregador.painel')">
             <i class='text-[13px] bx bx-cycling'></i>
             <span class="text-[12px] ml-4 text-gray-200">{{ __('Entregador') }}</span>
         </x-nav-link>
     @endhasrole
-    <x-nav-link :href="route('confirmacoes')" :active="request()->routeIs('confirmacoes')">
-        <i class='text-[13px] bx bx-bell'></i>
-        <span class="text-[12px] ml-4 text-gray-200">{{ __('Confirmações') }}</span>
-        @php $pendentes = \App\Models\Pedido::where('pedido_status','INICIADO')->where('pedido_origem', \App\Enums\PedidoOrigemEnum::CARDAPIO)->count(); @endphp
-        @if($pendentes > 0)
-            <span class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse">
-                {{ $pendentes }}
-            </span>
-        @endif
-    </x-nav-link>
+    @can('accept:pedido')
+        <x-nav-link :href="route('confirmacoes')" :active="request()->routeIs('confirmacoes')">
+            <i class='text-[13px] bx bx-bell'></i>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Confirmações') }}</span>
+            @php $pendentes = \App\Models\Pedido::where('pedido_status','INICIADO')->where('pedido_origem', \App\Enums\PedidoOrigemEnum::CARDAPIO)->count(); @endphp
+            @if($pendentes > 0)
+                <span class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse">
+                    {{ $pendentes }}
+                </span>
+            @endif
+        </x-nav-link>
+    @endcan
     <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!--Financeiro-->
@@ -74,12 +78,12 @@
             <i class='bx bx-dollar'></i>
             <span class="text-[12px] ml-2 text-gray-200">{{ __('Caixa') }}</span>
         </x-nav-link>
-        @can('Admin')
+        @hasanyrole(['Admin', 'Gerente', 'Caixa'])
         <x-nav-link :href="route('sessao_caixa')" :active="request()->routeIs('sessao_caixa')">
             <i class='bx bx-money'></i>
             <span class="text-[12px] ml-2 text-gray-200">{{ __('Sessões de Caixa') }}</span>
         </x-nav-link>
-        @endcan
+        @endhasanyrole
         <x-nav-link :href="route('nota_fiscal')" :active="request()->routeIs('nota_fiscal')">
             <i class='bx bx-note'></i>
             <span class="text-[12px] ml-2 text-gray-200">{{ __('Notas Fiscais') }}</span>
@@ -92,7 +96,7 @@
     <hr class="h-px my-2 border-0 bg-gray-100">
 
     <!--Relatórios-->
-    @can('Admin')
+    @can('view:relatorio_financeiro')
         <div class="mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
             onclick="dropdown('relatorio')">
             <i class='bx bxs-report'></i>
@@ -136,12 +140,12 @@
             <i class='text-[13px] bx bx-user'></i>
             <span class="text-[12px] ml-4 text-gray-200">{{ __('Clientes') }}</span>
         </x-nav-link>
-        @can('Admin')
+        @hasrole('Admin')
             <x-nav-link :href="route('categoria')" :active="request()->routeIs('categoria')">
                 <i class='text-[13px] bx bx-user-pin'></i>
                 <span class="text-[12px] ml-4 text-gray-200">{{ __('Usuários') }}</span>
             </x-nav-link>
-        @endcan
+        @endhasrole
         <x-nav-link :href="route('empresa')" :active="request()->routeIs('empres')">
             <i class='bx bx-building-house'></i>
             <span class="text-[12px] ml-4 text-gray-200">{{ __('Empresa') }}</span>

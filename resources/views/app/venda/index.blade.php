@@ -758,13 +758,15 @@
         <div class="pointer-events-auto flex items-center gap-2">
 
             {{-- Cancelar (somente após iniciar a venda) --}}
-            <div id="fab-cancelar" class="hidden">
-                <button type="button" onclick="cancelarVendaAtual()"
-                        class="py-2.5 px-4 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl font-semibold flex items-center gap-1.5 shadow-xl transition-colors">
-                    <i class='bx bx-x-circle text-lg'></i>
-                    <span class="text-xs uppercase tracking-wide hidden sm:inline">Cancelar</span>
-                </button>
-            </div>
+            @can('cancel:venda')
+                <div id="fab-cancelar" class="hidden">
+                    <button type="button" onclick="cancelarVendaAtual()"
+                            class="py-2.5 px-4 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl font-semibold flex items-center gap-1.5 shadow-xl transition-colors">
+                        <i class='bx bx-x-circle text-lg'></i>
+                        <span class="text-xs uppercase tracking-wide hidden sm:inline">Cancelar</span>
+                    </button>
+                </div>
+            @endcan
 
             {{-- Cliente · Pagamento · Finalizar --}}
             <button type="button" @click="showPagamento = false; showCliente = !showCliente"
@@ -790,6 +792,8 @@
   </div>{{-- /root x-data (showCliente / showPagamento) --}}
 
     <script>
+        const podeCancelarVenda = @json(auth()->user()->can('cancel:venda'));
+
         function selecionarCliente(cliente) {
             document.getElementById("venda_cliente_id").value       = cliente.id;
             document.getElementById("venda_cliente_nome").value     = cliente.cliente_nome ?? '';
@@ -1361,8 +1365,8 @@
                             <td class="py-1.5 text-right text-gray-800 font-semibold">R$ ${pagamento.pg_venda_valor_pagamento}</td>
                             <td class="py-1.5 text-right">${trocoCell}</td>
                             <td class="py-1.5 pl-2">
-                                <button type="button" class="remover_pg_venda w-6 h-6 flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-500 rounded-full transition-colors"
-                                        data-pg_venda_id="${pagamento.id}" title="Remover"><i class="bx bx-x text-sm"></i></button>
+                                ${podeCancelarVenda ? `<button type="button" class="remover_pg_venda w-6 h-6 flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-500 rounded-full transition-colors"
+                                        data-pg_venda_id="${pagamento.id}" title="Remover"><i class="bx bx-x text-sm"></i></button>` : ''}
                             </td>
                         </tr>
                     `);

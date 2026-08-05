@@ -27,8 +27,18 @@ class ConfirmacoesPedidos extends Component
 
     public string $editObsPagamento = '';
 
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->can('accept:pedido'), 403);
+    }
+
     public function confirmar(int $id): void
     {
+        // Checagem aqui (e não só na rota) porque chamadas Livewire subsequentes
+        // vão direto pro endpoint de update do componente, sem passar pelo
+        // middleware da rota /confirmacoes.
+        abort_unless(auth()->user()->can('accept:pedido'), 403);
+
         Pedido::where('id', $id)
             ->where('pedido_status', 'INICIADO')
             ->update(['pedido_status' => 'ABERTO']);
@@ -36,6 +46,8 @@ class ConfirmacoesPedidos extends Component
 
     public function cancelar(int $id): void
     {
+        abort_unless(auth()->user()->can('reject:pedido'), 403);
+
         $pedido = Pedido::where('id', $id)->where('pedido_status', 'INICIADO')->first();
         if (! $pedido) {
             return;
@@ -78,6 +90,8 @@ class ConfirmacoesPedidos extends Component
 
     public function salvarAlteracoes(): void
     {
+        abort_unless(auth()->user()->can('accept:pedido'), 403);
+
         if (! $this->pedidoEditandoId) {
             return;
         }

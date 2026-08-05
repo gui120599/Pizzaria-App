@@ -133,7 +133,7 @@ class LancamentoPagamentoTest extends TestCase
 
     public function test_repeater_de_pagamentos_no_form_registra_pagamento_parcial(): void
     {
-        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
         $lancamento = $this->lancamento(1000);
 
         Livewire::test(EditLancamento::class, ['record' => $lancamento->getKey()])
@@ -160,7 +160,7 @@ class LancamentoPagamentoTest extends TestCase
      */
     public function test_repeater_de_pagamentos_funciona_na_criacao_e_quita_o_titulo(): void
     {
-        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
 
         $plano = PlanoDespesa::create([
             'nome' => 'Fornecedor pago à vista',

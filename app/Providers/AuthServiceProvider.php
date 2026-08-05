@@ -2,13 +2,15 @@
 
 namespace App\Providers;
 
-// use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
 {
     /**
-     * The model to policy mappings for the application.
+     * Policies de App\Models\X são descobertas automaticamente (convenção
+     * App\Models\X -> App\Policies\XPolicy). RolePolicy (Spatie\Permission\Models\Role)
+     * já é registrada pelo próprio FilamentShieldServiceProvider (config
+     * filament-shield.register_role_policy), não precisa duplicar aqui.
      *
      * @var array<class-string, class-string>
      */

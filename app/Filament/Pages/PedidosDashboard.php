@@ -8,6 +8,7 @@ use App\Filament\Widgets\PedidosPorHoraChart;
 use App\Filament\Widgets\PedidosPorOrigemChart;
 use App\Filament\Widgets\PedidosStatsOverview;
 use BackedEnum;
+use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
@@ -19,6 +20,7 @@ use UnitEnum;
 class PedidosDashboard extends BaseDashboard
 {
     use HasFiltersForm;
+    use HasPageShield;
 
     protected static string $routePath = '/operacional';
 

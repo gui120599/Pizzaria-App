@@ -46,18 +46,22 @@
                                     <td class="px-2 py-1">{{ \Carbon\Carbon::parse($vi->venda_datahora_iniciada)->format('d/m/y H:i') }}</td>
                                     <td class="px-2 py-1">
                                         <div class="flex items-center justify-center gap-2">
-                                            <a href="{{ route('venda.edit', $vi->id) }}"
-                                               class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition">
-                                                <i class='bx bx-edit'></i> Continuar
-                                            </a>
-                                            <form method="POST" action="{{ route('venda.cancelar_web', $vi->id) }}"
-                                                  onsubmit="return confirm('Cancelar venda #{{ $vi->id }}? Os itens serão liberados para nova venda.')">
-                                                @csrf
-                                                <button type="submit"
-                                                    class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 rounded-lg transition">
-                                                    <i class='bx bx-x'></i> Cancelar
-                                                </button>
-                                            </form>
+                                            @can('operar:venda')
+                                                <a href="{{ route('venda.edit', $vi->id) }}"
+                                                   class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition">
+                                                    <i class='bx bx-edit'></i> Continuar
+                                                </a>
+                                            @endcan
+                                            @can('cancel:venda')
+                                                <form method="POST" action="{{ route('venda.cancelar_web', $vi->id) }}"
+                                                      onsubmit="return confirm('Cancelar venda #{{ $vi->id }}? Os itens serão liberados para nova venda.')">
+                                                    @csrf
+                                                    <button type="submit"
+                                                        class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 rounded-lg transition">
+                                                        <i class='bx bx-x'></i> Cancelar
+                                                    </button>
+                                                </form>
+                                            @endcan
                                         </div>
                                     </td>
                                 </tr>
@@ -110,9 +114,11 @@
                                             </td>
                                             @else
                                             <td>
-                                                <div class="flex items-center justify-center space-x-2 p-1">
-                                                    <x-primary-button onclick="window.location.href = '{{ route('venda.gerar_NFE', ['id' => $venda->id]) }}'" title="GERAR NFC-E"><i class='bx bx-note' ></i></x-primary-button>
-                                                </div>
+                                                @can('emitir:nfe')
+                                                    <div class="flex items-center justify-center space-x-2 p-1">
+                                                        <x-primary-button onclick="window.location.href = '{{ route('venda.gerar_NFE', ['id' => $venda->id]) }}'" title="GERAR NFC-E"><i class='bx bx-note' ></i></x-primary-button>
+                                                    </div>
+                                                @endcan
                                             </td>
                                             @endif
                                         </tr>

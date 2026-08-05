@@ -40,10 +40,12 @@
                             <td>
                                 @if ($sessao->sessao_mesa_status == 'FECHADA')
                                     <div class="flex">
+                                        @can('update', $sessao)
                                         <form action="{{ route('sessaoMesa.reabrir', ['sessaoMesa' => $sessao]) }}"
                                             method="get">
                                             <x-primary-button title="REABRIR SESSÃO"><i class='bx bx-chevrons-left'></i></x-primary-button>
                                         </form>
+                                        @endcan
                                         <x-secondary-button class="btn-imprimir"
                                             data-sessao_mesa_id="{{ $sessao->id }}" title="IMPRIMIR"><i class='bx bx-printer' ></i></x-secondary-button>
                                     </div>

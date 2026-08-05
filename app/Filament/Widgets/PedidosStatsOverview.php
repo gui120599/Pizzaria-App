@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\ItensPedido;
 use App\Models\Pedido;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class PedidosStatsOverview extends BaseWidget
 {
+    use HasWidgetShield;
     use InteractsComPeriodo;
     use InteractsWithPageFilters;
 

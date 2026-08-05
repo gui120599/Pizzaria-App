@@ -37,7 +37,7 @@
                                 <div class="flex items-center justify-center space-x-2">
                                     <x-primary-button onclick="window.location.href = '{{ route('sessao_caixa.vendas', ['sessao_caixa' => $sessao]) }}'" title="VENDAS"><i class='bx bx-money-withdraw'></i></x-primary-button>
                                     
-                                    @if ($sessao->sessaocaixa_status == 'ABERTA')
+                                    @if ($sessao->sessaocaixa_status == 'ABERTA' && auth()->user()->can('close', $sessao))
                                         <x-primary-button onclick="window.location.href = '{{ route('sessao_caixa.finalizar', ['sessao_caixa' => $sessao]) }}'" title="FINALIZAR"><i class='bx bx-check-double'></i></x-primary-button>
                                     @endif
                                     <x-secondary-button onclick="window.open('{{ route('sessaoCaixa.imprimir', ['id' => $sessao->id]) }}')" title="IMPRIMIR"><i class='bx bx-printer' ></i></x-secondary-button>

@@ -26,12 +26,16 @@
                             <td>{{ $mesa->mesa_status }}</td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2">
-                                    <x-primary-button onclick="window.location.href = '{{ route('mesa.edit', ['mesa' => $mesa]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
-                                    <form action="{{ route('mesa.destroy', ['mesa' => $mesa]) }}" method="post">
-                                        @method('delete')
-                                        @csrf
-                                        <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-primary-button>
-                                    </form>
+                                    @can('update:mesa')
+                                        <x-primary-button onclick="window.location.href = '{{ route('mesa.edit', ['mesa' => $mesa]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
+                                    @endcan
+                                    @can('delete:mesa')
+                                        <form action="{{ route('mesa.destroy', ['mesa' => $mesa]) }}" method="post">
+                                            @method('delete')
+                                            @csrf
+                                            <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-primary-button>
+                                        </form>
+                                    @endcan
                                 </div>
                             </td>
                         </tr>

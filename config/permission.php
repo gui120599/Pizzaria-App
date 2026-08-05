@@ -120,6 +120,14 @@ return [
      * (view the latest version of this package's migration file)
      */
 
+    // Adiado de propósito nesta reforma de autorização (single-tenant hoje, sem
+    // empresa_id em nenhuma tabela). Se o app virar multi-empresa: habilitar aqui,
+    // rodar a migration nativa do pacote que adiciona team_foreign_key em roles/
+    // model_has_roles/model_has_permissions, e chamar setPermissionsTeamId() num
+    // middleware por request. As Roles/Policies já escritas (app/Policies/*,
+    // database/seeders/RoleSeeder.php, PermissionSeeder.php) não precisam mudar —
+    // continuam válidas por tenant, já que nada nelas referencia Role/Permission
+    // por ID (sempre por nome via findByName/assignRole/hasRole).
     'teams' => false,
 
     /*

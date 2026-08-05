@@ -18,6 +18,15 @@ class Kernel extends ConsoleKernel
         // ocorrência (ver App\Console\Commands\ResetarPromocoesRecorrentes).
         $schedule->command('promocoes:resetar-recorrentes')->everyMinute();
 
+        // Busca novas NF-e na SEFAZ por NSU (ver App\Console\Commands\SefazImportarNovasNotas).
+        // Intervalo horário respeita a recomendação da SEFAZ de não martelar o
+        // distNSU; withoutOverlapping por ser a primeira chamada de rede lenta
+        // agendada no projeto (SOAP pode demorar/travar).
+        $schedule->command('sefaz:importar-novas-notas')
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // Gera o lançamento mensal de cada contrato ativo/vigente (ver
         // App\Console\Commands\ContratosGerarLancamentosMensais e ContratoService).
         // Roda diariamente (não só dia 1) para ser resiliente a falha pontual do

@@ -15,13 +15,15 @@
                             </div>
                         </div>
 
-                        <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
-                            data-section="cadastrar-produto-section">
-                            <div class="flex items-center">
-                                <i class='bx bx-plus me-2'></i>
-                                {{ __('Cadastrar Produto') }}
+                        @can('create:produto')
+                            <div class="nav-link cursor-pointer inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-light leading-5 text-gray-500 hover:border-white focus:outline-none focus:text-white focus:border-white transition duration-150 ease-in-out"
+                                data-section="cadastrar-produto-section">
+                                <div class="flex items-center">
+                                    <i class='bx bx-plus me-2'></i>
+                                    {{ __('Cadastrar Produto') }}
+                                </div>
                             </div>
-                        </div>
+                        @endcan
 
                     </div>
                 </div>
@@ -31,11 +33,13 @@
 
     <div class="py-2 h-full">
         <div class="w-full h-full mx-auto sm:px-6 lg:px-2">
-            <div class="p-2 h-full bg-white shadow sm:rounded-lg cadastrar-produto-section">
-                <div class="w-full h-full">
-                    @include('app.produto.partials.create')
+            @can('create:produto')
+                <div class="p-2 h-full bg-white shadow sm:rounded-lg cadastrar-produto-section">
+                    <div class="w-full h-full">
+                        @include('app.produto.partials.create')
+                    </div>
                 </div>
-            </div>
+            @endcan
 
             <div class="h-full p-2 bg-white shadow sm:rounded-lg estoque-section">
                 <div class="w-full h-full">

@@ -62,15 +62,17 @@
                                         x-on:click.prevent="$dispatch('open-modal', 'mov-pedido-{{ $pedido->id }}')"><i
                                             class='bx bx-transfer'></i></x-secondary-button>
 
-                                    <a href="{{ route('pedido.editar', $pedido->id) }}"
-                                       title="EDITAR PEDIDO COMPLETO"
-                                       class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-teal-50 hover:border-teal-400 hover:text-teal-700 focus:outline-none transition ease-in-out duration-150">
-                                        <i class='bx bxs-edit'></i>
-                                    </a>
+                                    @can('update:pedido')
+                                        <a href="{{ route('pedido.editar', $pedido->id) }}"
+                                           title="EDITAR PEDIDO COMPLETO"
+                                           class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-teal-50 hover:border-teal-400 hover:text-teal-700 focus:outline-none transition ease-in-out duration-150">
+                                            <i class='bx bxs-edit'></i>
+                                        </a>
 
-                                    <x-secondary-button title="ALTERAR ENTREGA" x-data=""
-                                        x-on:click.prevent="$dispatch('open-modal', 'alterar-pedido-{{ $pedido->id }}')"><i
-                                            class='bx bxs-edit-alt'></i></x-secondary-button>
+                                        <x-secondary-button title="ALTERAR ENTREGA" x-data=""
+                                            x-on:click.prevent="$dispatch('open-modal', 'alterar-pedido-{{ $pedido->id }}')"><i
+                                                class='bx bxs-edit-alt'></i></x-secondary-button>
+                                    @endcan
 
                                     @if ($isEntregaOuRetirada)
                                         <button type="button"
@@ -81,11 +83,13 @@
                                         </button>
                                     @endif
 
-                                    <x-danger-button type="button" title="CANCELAR"
-                                        x-data=""
-                                        x-on:click.prevent="$dispatch('open-modal', 'cancelar-pedido-{{ $pedido->id }}')">
-                                        <i class='bx bx-trash'></i>
-                                    </x-danger-button>
+                                    @can('cancel', $pedido)
+                                        <x-danger-button type="button" title="CANCELAR"
+                                            x-data=""
+                                            x-on:click.prevent="$dispatch('open-modal', 'cancelar-pedido-{{ $pedido->id }}')">
+                                            <i class='bx bx-trash'></i>
+                                        </x-danger-button>
+                                    @endcan
                                 </td>
                             @else
                                 <td class="text-center inline-flex gap-x-2">
@@ -110,12 +114,14 @@
                                         </button>
                                     @endif
 
-                                    <form action="{{ route('pedido.restaurar', ['id' => $pedido->id]) }}"
-                                        method="post">
-                                        @csrf
-                                        <x-primary-button title="RESTAURAR"><i
-                                                class='bx bx-check-circle'></i></x-primary-button>
-                                    </form>
+                                    @can('restaurar', $pedido)
+                                        <form action="{{ route('pedido.restaurar', ['id' => $pedido->id]) }}"
+                                            method="post">
+                                            @csrf
+                                            <x-primary-button title="RESTAURAR"><i
+                                                    class='bx bx-check-circle'></i></x-primary-button>
+                                        </form>
+                                    @endcan
                                 </td>
                             @endif
                         </tr>

@@ -44,12 +44,16 @@
                             </td>
                             <td>
                             <div class="flex items-center justify-center space-x-2">
-                                 <x-primary-button onclick="window.location.href = '{{ route('cliente.edit', ['cliente' => $cliente]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
+                                 @can('update', $cliente)
+                                     <x-primary-button onclick="window.location.href = '{{ route('cliente.edit', ['cliente' => $cliente]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
+                                 @endcan
+                                 @can('delete', $cliente)
                                     <form action="{{ route('cliente.destroy', ['id' => $cliente]) }}" method="post">
                                         @method('delete')
                                         @csrf
-                                        <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-primary-button>
-                                    </form> 
+                                        <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-danger-button>
+                                    </form>
+                                 @endcan
                             </div>
                         </td>
                         </tr>

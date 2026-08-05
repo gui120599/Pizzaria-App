@@ -9,6 +9,7 @@
         </p>
     </header>
 
+    @can('open', \App\Models\SessaoCaixa::class)
     <form action="{{ route('sessao_caixa.store') }}" method="post" class="mt-6 space-y-6" enctype="multipart/form-data" autocomplete="off">
         @csrf
         <div
@@ -93,4 +94,5 @@
             });
         });
     </script>
+    @endcan
 </section>

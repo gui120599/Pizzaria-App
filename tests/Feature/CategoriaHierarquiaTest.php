@@ -24,7 +24,7 @@ class CategoriaHierarquiaTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
     }
 
     public function test_ids_descendentes_percorre_varios_niveis(): void

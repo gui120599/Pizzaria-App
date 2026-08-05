@@ -83,13 +83,20 @@ class AcessoRapidoWidget extends Widget
                 'grupo' => $grupo,
                 'icon' => $config['icon'],
                 'itens' => collect($config['classes'])
+                    // Mesma checagem que a sidebar usa pra decidir o que aparece no menu:
+                    // Resources delegam pra canViewAny() (Policy), Pages com HasPageShield
+                    // delegam pra permission do Shield. Só mostra aqui o que o usuário
+                    // também conseguiria abrir clicando no link.
+                    ->filter(fn (string $class): bool => $class::canAccess())
                     ->map(fn (string $class): array => [
                         'label' => $class::getNavigationLabel(),
                         'icon' => $class::getNavigationIcon(),
                         'url' => $class::getUrl(),
                     ])
+                    ->values()
                     ->all(),
             ])
+            ->filter(fn (array $grupoData): bool => $grupoData['itens'] !== [])
             ->values()
             ->all();
     }

@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\ItensVenda;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -12,6 +13,7 @@ use Filament\Widgets\TableWidget as BaseWidget;
 
 class TopProdutosVendidos extends BaseWidget
 {
+    use HasWidgetShield;
     use InteractsComPeriodo;
     use InteractsWithPageFilters;
 

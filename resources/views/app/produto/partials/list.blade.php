@@ -140,15 +140,19 @@
                             <td>{{ $produto->produto_CSOSN }}</td>
                             <td>R$ {{ number_format($produto->produto_preco_venda, 2, ',', '.') }}</td>
                             <td class="inline-flex gap-x-2">
-                                <x-primary-link title="EDITAR" href="{{ route('produto.edit', ['produto' => $produto]) }}">
-                                    <i class='bx bxs-edit'></i>
-                                </x-primary-link>
+                                @can('update', $produto)
+                                    <x-primary-link title="EDITAR" href="{{ route('produto.edit', ['produto' => $produto]) }}">
+                                        <i class='bx bxs-edit'></i>
+                                    </x-primary-link>
+                                @endcan
 
-                                <form action="{{ route('produto.destroy', ['id' => $produto]) }}" method="post">
-                                    @method('delete')
-                                    @csrf
-                                    <x-danger-button title="EXCLUIR"><i class='bx bx-trash'></i></x-danger-button>
-                                </form>
+                                @can('delete', $produto)
+                                    <form action="{{ route('produto.destroy', ['id' => $produto]) }}" method="post">
+                                        @method('delete')
+                                        @csrf
+                                        <x-danger-button title="EXCLUIR"><i class='bx bx-trash'></i></x-danger-button>
+                                    </form>
+                                @endcan
                             </td>
                         </tr>
                     @endforeach

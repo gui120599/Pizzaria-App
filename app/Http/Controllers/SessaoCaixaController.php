@@ -36,6 +36,8 @@ class SessaoCaixaController extends Controller
      */
     public function store(StoreSessaoCaixaRequest $request)
     {
+        $this->authorize('open', SessaoCaixa::class);
+
         // Verifique se já existe uma sessão aberta com o mesmo usuário
         $existingSession = SessaoCaixa::where('sessaocaixa_user_id', $request->input('sessaocaixa_user_id'))
             ->where('sessaocaixa_status', 'ABERTA')
@@ -65,6 +67,8 @@ class SessaoCaixaController extends Controller
      */
     public function finalizar(SessaoCaixa $sessaoCaixa)
     {
+        $this->authorize('close', $sessaoCaixa);
+
         if ($sessaoCaixa) {
             $sessaoCaixa->update([
                 'sessaocaixa_status' => 'FECHADA',

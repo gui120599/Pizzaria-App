@@ -16,7 +16,7 @@ class LancamentoFormTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
     }
 
     /**

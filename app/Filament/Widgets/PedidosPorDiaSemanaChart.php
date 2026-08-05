@@ -4,11 +4,13 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\Pedido;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class PedidosPorDiaSemanaChart extends ChartWidget
 {
+    use HasWidgetShield;
     use InteractsComPeriodo;
     use InteractsWithPageFilters;
 

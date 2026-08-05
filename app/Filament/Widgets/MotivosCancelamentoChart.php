@@ -4,12 +4,14 @@ namespace App\Filament\Widgets;
 
 use App\Enums\MotivoCancelamentoEnum;
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Support\Facades\DB;
 
 class MotivosCancelamentoChart extends ChartWidget
 {
+    use HasWidgetShield;
     use InteractsComPeriodo;
     use InteractsWithPageFilters;
 

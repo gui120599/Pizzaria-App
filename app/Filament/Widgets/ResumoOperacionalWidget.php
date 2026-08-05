@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Pages\FinanceiroDashboard;
+use App\Filament\Resources\Produtos\ProdutoResource;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoCaixa;
@@ -24,52 +26,67 @@ class ResumoOperacionalWidget extends BaseWidget
         return 4;
     }
 
+    /**
+     * Cada card só aparece se o usuário também conseguisse ver o módulo que
+     * ele resume — mesma lógica de permissão do restante do painel, evitando
+     * expor números (principalmente financeiros) pra quem não tem acesso.
+     */
     protected function getStats(): array
     {
-        $faturamentoHoje = (float) Venda::query()
-            ->where('venda_status', 'FINALIZADA')
-            ->whereDate('venda_datahora_finalizada', now())
-            ->sum('venda_valor_total');
+        $stats = [];
 
-        $vendasHoje = Venda::query()
-            ->where('venda_status', 'FINALIZADA')
-            ->whereDate('venda_datahora_finalizada', now())
-            ->count();
+        if (FinanceiroDashboard::canAccess()) {
+            $faturamentoHoje = (float) Venda::query()
+                ->where('venda_status', 'FINALIZADA')
+                ->whereDate('venda_datahora_finalizada', now())
+                ->sum('venda_valor_total');
 
-        $pedidosAtivos = Pedido::query()
-            ->whereIn('pedido_status', ['ABERTO', 'PREPARANDO', 'PRONTO', 'EM TRANSPORTE', 'ENTREGUE'])
-            ->count();
+            $vendasHoje = Venda::query()
+                ->where('venda_status', 'FINALIZADA')
+                ->whereDate('venda_datahora_finalizada', now())
+                ->count();
 
-        $caixasAbertos = SessaoCaixa::query()->where('sessaocaixa_status', 'ABERTA');
-        $numCaixas = (clone $caixasAbertos)->count();
-        $saldoCaixas = (float) (clone $caixasAbertos)->sum('sessaocaixa_saldo_final');
-
-        $produtosSemEstoque = Produto::query()
-            ->where('produto_controla_estoque', true)
-            ->where('produto_saldo_estoque', '<=', 0)
-            ->count();
-
-        return [
-            Stat::make('Faturamento de hoje', $this->brl($faturamentoHoje))
+            $stats[] = Stat::make('Faturamento de hoje', $this->brl($faturamentoHoje))
                 ->description("{$vendasHoje} vendas finalizadas hoje")
                 ->descriptionIcon('heroicon-m-banknotes')
-                ->color('success'),
+                ->color('success');
+        }
 
-            Stat::make('Pedidos em andamento', (string) $pedidosAtivos)
+        if (auth()->user()?->can('view_any:pedido')) {
+            $pedidosAtivos = Pedido::query()
+                ->whereIn('pedido_status', ['ABERTO', 'PREPARANDO', 'PRONTO', 'EM TRANSPORTE', 'ENTREGUE'])
+                ->count();
+
+            $stats[] = Stat::make('Pedidos em andamento', (string) $pedidosAtivos)
                 ->description('Ainda não finalizados ou cancelados')
                 ->descriptionIcon('heroicon-m-clock')
-                ->color($pedidosAtivos > 0 ? 'info' : 'gray'),
+                ->color($pedidosAtivos > 0 ? 'info' : 'gray');
+        }
 
-            Stat::make('Caixa', $numCaixas > 0 ? "{$numCaixas} sessão(ões) aberta(s)" : 'Nenhum caixa aberto')
+        if (auth()->user()?->can('abrir:sessao_caixa') || auth()->user()?->can('fechar:sessao_caixa')) {
+            $caixasAbertos = SessaoCaixa::query()->where('sessaocaixa_status', 'ABERTA');
+            $numCaixas = (clone $caixasAbertos)->count();
+            $saldoCaixas = (float) (clone $caixasAbertos)->sum('sessaocaixa_saldo_final');
+
+            $stats[] = Stat::make('Caixa', $numCaixas > 0 ? "{$numCaixas} sessão(ões) aberta(s)" : 'Nenhum caixa aberto')
                 ->description($numCaixas > 0 ? 'Saldo somado: '.$this->brl($saldoCaixas) : 'Abra uma sessão para operar')
                 ->descriptionIcon('heroicon-m-calculator')
-                ->color($numCaixas > 0 ? 'success' : 'warning'),
+                ->color($numCaixas > 0 ? 'success' : 'warning');
+        }
 
-            Stat::make('Produtos sem estoque', (string) $produtosSemEstoque)
+        if (ProdutoResource::canAccess()) {
+            $produtosSemEstoque = Produto::query()
+                ->where('produto_controla_estoque', true)
+                ->where('produto_saldo_estoque', '<=', 0)
+                ->count();
+
+            $stats[] = Stat::make('Produtos sem estoque', (string) $produtosSemEstoque)
                 ->description($produtosSemEstoque > 0 ? 'Precisam de reposição' : 'Tudo certo')
                 ->descriptionIcon('heroicon-m-archive-box-x-mark')
-                ->color($produtosSemEstoque > 0 ? 'danger' : 'gray'),
-        ];
+                ->color($produtosSemEstoque > 0 ? 'danger' : 'gray');
+        }
+
+        return $stats;
     }
 
     private function brl(float $valor): string

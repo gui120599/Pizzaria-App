@@ -12,6 +12,7 @@ use App\Models\Categoria;
 use App\Models\OpcoesEntregas;
 use App\Models\Produto;
 use BackedEnum;
+use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -24,6 +25,7 @@ use UnitEnum;
 class FinanceiroDashboard extends BaseDashboard
 {
     use HasFiltersForm;
+    use HasPageShield;
 
     protected static string $routePath = '/financeiro';
 

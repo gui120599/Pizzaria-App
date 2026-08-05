@@ -22,7 +22,7 @@ class PlanoContasSmokeTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
     }
 
     public function test_paginas_de_plano_de_despesas_montam(): void

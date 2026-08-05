@@ -38,13 +38,17 @@
                             <td>R${{ number_format($adicional->adicional_valor, 2,',','.') }}</td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2">
-                                    <x-primary-link title="EDITAR" href="{{ route('adicional.edit', ['adicional' => $adicional]) }}"><i class='bx bx-edit text-sm'></i></x-primary-link>
-                                    
-                                    <form action="{{ route('adicional.destroy', ['id' => $adicional]) }}" method="post">
-                                        @method('delete')
-                                        @csrf
-                                        <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-primary-button>
-                                    </form>
+                                    @can('update:adicional')
+                                        <x-primary-link title="EDITAR" href="{{ route('adicional.edit', ['adicional' => $adicional]) }}"><i class='bx bx-edit text-sm'></i></x-primary-link>
+                                    @endcan
+
+                                    @can('delete:adicional')
+                                        <form action="{{ route('adicional.destroy', ['id' => $adicional]) }}" method="post">
+                                            @method('delete')
+                                            @csrf
+                                            <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-danger-button>
+                                        </form>
+                                    @endcan
                                 </div>
                             </td>
                         </tr>

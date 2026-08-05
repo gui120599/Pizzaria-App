@@ -110,6 +110,8 @@ class PedidoController extends Controller
      */
     public function iniciarPedido(Request $request)
     {
+        $this->authorize('create', Pedido::class);
+
         // Criar um novo pedido
         $pedido = new Pedido;
         $pedido->pedido_status = 'INICIADO'; // Definir o status do pedido como 'INICIADO'
@@ -124,6 +126,8 @@ class PedidoController extends Controller
      */
     public function create()
     {
+        $this->authorize('create', Pedido::class);
+
         $pedido = Pedido::create([
             'pedido_status' => 'INICIADO',
             'pedido_origem' => PedidoOrigemEnum::ATENDENTE,
@@ -163,6 +167,7 @@ class PedidoController extends Controller
     public function store(Request $request)
     {
         $pedido = Pedido::findOrFail($request->input('pedido_id'));
+        $this->authorize('update', $pedido);
         $clienteId = $this->resolverCliente($request);
 
         $itens = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
@@ -220,6 +225,8 @@ class PedidoController extends Controller
             'item_pedido_pedido_id',
         ])->findOrFail($id);
 
+        $this->authorize('update', $pedido);
+
         $clientes = Cliente::orderBy('cliente_nome')->get();
         $opcoes_entregas = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
         $opcoes_pagamento = OpcoesPagamento::orderBy('opcaopag_nome')->get();
@@ -230,6 +237,7 @@ class PedidoController extends Controller
     public function salvarEdicaoPedido(Request $request, int $id)
     {
         $pedido = Pedido::findOrFail($id);
+        $this->authorize('update', $pedido);
         $clienteId = $this->resolverCliente($request);
 
         $itens = ItensPedido::where('item_pedido_pedido_id', $id)
@@ -317,6 +325,8 @@ class PedidoController extends Controller
      */
     public function update(UpdatePedidoRequest $request, Pedido $pedido)
     {
+        $this->authorize('update', $pedido);
+
         $pedido->update([
             'pedido_opcaoentrega_id' => $request->input('pedido_opcaoentrega_id'),
             'pedido_endereco_entrega' => $request->input('pedido_endereco_entrega'),
@@ -406,6 +416,7 @@ class PedidoController extends Controller
 
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
+        $this->authorize('accept', $pedido);
         $pedido->update([
             'pedido_status' => 'PREPARANDO',
             'pedido_datahora_preparo' => Carbon::now(),
@@ -419,6 +430,7 @@ class PedidoController extends Controller
 
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
+        $this->authorize('reject', $pedido);
 
         DB::transaction(function () use ($pedido, $request) {
             // Devolve ao saldo qualquer promoção relâmpago consumida pelos
@@ -452,6 +464,8 @@ class PedidoController extends Controller
         if (! $pedido) {
             return redirect()->route('pedidos')->with('error', 'Pedido não encontrado!');
         }
+
+        $this->authorize('cancel', $pedido);
 
         if ($pedido->pedido_sessao_mesa_id != null) {
             $sessaoMesa = SessaoMesa::find($pedido->pedido_sessao_mesa_id);
@@ -502,6 +516,8 @@ class PedidoController extends Controller
         if (! $pedido) {
             return redirect()->route('pedidos')->with('error', 'Pedido não encontrado!');
         }
+
+        $this->authorize('restaurar', $pedido);
 
         if ($pedido->pedido_sessao_mesa_id != null) {
             $sessaoMesa = SessaoMesa::find($pedido->pedido_sessao_mesa_id);
@@ -558,6 +574,7 @@ class PedidoController extends Controller
 
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
+        $this->authorize('advance', $pedido);
         $pedido->update([
             'pedido_status' => 'PRONTO',
             'pedido_datahora_pronto' => Carbon::now(),
@@ -571,6 +588,10 @@ class PedidoController extends Controller
 
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
+        // 'advance' (não 'deliver'): este botão do Kanban também é usado pra
+        // pedidos de mesa/retirada sem entregador designado, não só delivery
+        // via QR — a ownership estrita fica só no fluxo EntregaService/QR.
+        $this->authorize('advance', $pedido);
         $pedido->update([
             'pedido_status' => 'EM TRANSPORTE',
             'pedido_datahora_transporte' => Carbon::now(),
@@ -584,6 +605,7 @@ class PedidoController extends Controller
 
         $pedido_id = $request->id;
         $pedido = Pedido::find($pedido_id);
+        $this->authorize('advance', $pedido);
         if ($pedido->pedido_datahora_finalizado) {
             $pedido->update([
                 'pedido_status' => 'FINALIZADO',
@@ -605,6 +627,7 @@ class PedidoController extends Controller
     public function SalvarPedido(UpdatePedidoRequest $request, Pedido $pedido, string|int $id)
     {
         $pedido = $pedido->find($id);
+        $this->authorize('update', $pedido);
         $pedido->update([
             'pedido_cliente_id' => $request->input('pedido_cliente_id'),
             'pedido_sessao_mesa_id' => $request->input('pedido_mesa_id'),
@@ -629,6 +652,7 @@ class PedidoController extends Controller
     public function SalvarPedidoMesa(UpdatePedidoRequest $request, Pedido $pedido, string|int $id)
     {
         $pedido = $pedido->find($id);
+        $this->authorize('update', $pedido);
         $pedido->update([
             'pedido_sessao_mesa_id' => $request->input('pedido_sessao_mesa_id'),
             'pedido_usuario_garcom_id' => $request->input('pedido_usuario_garcom_id'),
@@ -650,6 +674,6 @@ class PedidoController extends Controller
      */
     public function destroy(Pedido $pedido)
     {
-        //
+        $this->authorize('delete', $pedido);
     }
 }

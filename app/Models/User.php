@@ -4,7 +4,9 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
+use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -13,9 +15,21 @@ use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements HasAvatar
+class User extends Authenticatable implements FilamentUser, HasAvatar
 {
     use HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes;
+
+    /**
+     * Roles operacionais que dão acesso ao painel /admin. Cliente fica de fora
+     * de propósito: hoje é role vestigial do cadastro público no cardápio, não
+     * um perfil que deveria entrar no back office.
+     */
+    private const PANEL_ROLES = ['Admin', 'Gerente', 'Atendente', 'Caixa', 'Entregador'];
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->hasAnyRole(self::PANEL_ROLES);
+    }
 
     /**
      * The attributes that are mass assignable.

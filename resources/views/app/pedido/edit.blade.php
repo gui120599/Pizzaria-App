@@ -164,7 +164,7 @@
     </div>
 
     {{-- FAB: Cancelar Pedido (acima do FAB de salvar do PedidoProdutoSelector) --}}
-    @if(!in_array($pedido->pedido_status, ['CANCELADO', 'FINALIZADO']))
+    @if(!in_array($pedido->pedido_status, ['CANCELADO', 'FINALIZADO']) && auth()->user()->can('cancel', $pedido))
         <div class="fixed bottom-24 inset-x-0 px-4 z-[39] flex justify-center pointer-events-none">
             <button type="button" x-data
                     x-on:click="$dispatch('open-modal', 'cancelar-pedido-{{ $pedido->id }}')"

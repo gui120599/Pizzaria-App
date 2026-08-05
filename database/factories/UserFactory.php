@@ -41,4 +41,33 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    /**
+     * Estados nomeados por role, pra testes que precisam de um usuário com
+     * acesso real ao painel /admin (canAccessPanel() exige role operacional).
+     */
+    public function admin(): static
+    {
+        return $this->afterCreating(fn ($user) => $user->assignRole('Admin'));
+    }
+
+    public function gerente(): static
+    {
+        return $this->afterCreating(fn ($user) => $user->assignRole('Gerente'));
+    }
+
+    public function atendente(): static
+    {
+        return $this->afterCreating(fn ($user) => $user->assignRole('Atendente'));
+    }
+
+    public function caixa(): static
+    {
+        return $this->afterCreating(fn ($user) => $user->assignRole('Caixa'));
+    }
+
+    public function entregador(): static
+    {
+        return $this->afterCreating(fn ($user) => $user->assignRole('Entregador'));
+    }
 }

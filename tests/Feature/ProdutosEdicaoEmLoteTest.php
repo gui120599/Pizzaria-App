@@ -28,7 +28,7 @@ class ProdutosEdicaoEmLoteTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
 
         $this->categoriaOrigem = Categoria::create(['categoria_nome' => 'Origem']);
         $this->categoriaDestino = Categoria::create(['categoria_nome' => 'Destino']);

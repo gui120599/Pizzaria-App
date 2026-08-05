@@ -25,12 +25,16 @@
                             <td>{{ $caixa->caixa_nome }}</td>
                             <td>
                                 <div class="flex items-center justify-center space-x-2">
-                                    <x-primary-button onclick="window.location.href = '{{ route('caixa.edit', ['caixa' => $caixa]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
-                                    <form action="{{ route('caixa.destroy', ['id' => $caixa]) }}" method="post">
-                                        @method('delete')
-                                        @csrf
-                                        <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-primary-button>
-                                    </form>
+                                    @can('update:caixa')
+                                        <x-primary-button onclick="window.location.href = '{{ route('caixa.edit', ['caixa' => $caixa]) }}'" title="Editar"><i class='bx bx-edit text-sm'></i></x-primary-button>
+                                    @endcan
+                                    @can('delete:caixa')
+                                        <form action="{{ route('caixa.destroy', ['id' => $caixa]) }}" method="post">
+                                            @method('delete')
+                                            @csrf
+                                            <x-danger-button title="Excluir"><i class='bx bx-trash text-sm'></i></x-danger-button>
+                                        </form>
+                                    @endcan
                                 </div>
                             </td>
                         </tr>

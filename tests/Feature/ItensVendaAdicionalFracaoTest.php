@@ -36,7 +36,7 @@ class ItensVendaAdicionalFracaoTest extends TestCase
     {
         parent::setUp();
 
-        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
 
         $categoria = Categoria::create(['categoria_nome' => 'Pizzas']);
         $this->adicional = Adicional::create(['adicional_nome' => 'Bacon', 'adicional_valor' => 5.00]);

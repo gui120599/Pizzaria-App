@@ -32,7 +32,7 @@ class PromocaoRelampagoEstornoFluxosTest extends TestCase
         parent::setUp();
 
         $this->categoria = Categoria::create(['categoria_nome' => 'Pizzas']);
-        $this->actingAs(User::factory()->create(['name_first' => 'Admin']));
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
     }
 
     private function produto(float $preco = 55.00): Produto
