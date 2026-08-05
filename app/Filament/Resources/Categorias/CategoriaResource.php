@@ -72,10 +72,18 @@ class CategoriaResource extends Resource
 
                         Select::make('categoria_pai_id')
                             ->label('Categoria Pai')
-                            ->options(fn (?Categoria $record) => Categoria::query()
-                                ->when($record, fn ($q) => $q->whereNotIn('id', [$record->id, ...$record->idsDescendentes()]))
-                                ->orderBy('categoria_nome')
-                                ->pluck('categoria_nome', 'id'))
+                            // $record não é tipado como ?Categoria: este form() é reaproveitado como
+                            // createOptionForm em ProdutoForm, que por sua vez é reaproveitado como
+                            // createOptionForm no RelationManager de itens de compra — nesse aninhamento
+                            // o Filament injeta o record do formulário mais externo (ex.: CompraItem).
+                            ->options(function ($record) {
+                                $categoria = $record instanceof Categoria ? $record : null;
+
+                                return Categoria::query()
+                                    ->when($categoria, fn ($q) => $q->whereNotIn('id', [$categoria->id, ...$categoria->idsDescendentes()]))
+                                    ->orderBy('categoria_nome')
+                                    ->pluck('categoria_nome', 'id');
+                            })
                             ->searchable()
                             ->native(false)
                             ->placeholder('Nenhuma (categoria de topo)')
@@ -134,18 +142,18 @@ class CategoriaResource extends Resource
                     ->schema([
                         Placeholder::make('total_produtos')
                             ->label('Total de Produtos')
-                            ->content(fn (?Categoria $record) => $record?->produtos()->count() ?? 0),
+                            ->content(fn ($record) => $record instanceof Categoria ? $record->produtos()->count() : 0),
 
                         Placeholder::make('ultimo_ajuste_info')
                             ->label('Último Ajuste de Preço')
-                            ->content(fn (?Categoria $record) => $record
+                            ->content(fn ($record) => $record instanceof Categoria
                                 ? (self::resumoUltimoAjusteTabela($record) ?? 'Nenhum ajuste')
                                 : 'N/A'
                             ),
 
                         Placeholder::make('ajustes_total')
                             ->label('Total de Ajustes')
-                            ->content(fn (?Categoria $record) => $record?->historicosPrecos()->count() ?? 0),
+                            ->content(fn ($record) => $record instanceof Categoria ? $record->historicosPrecos()->count() : 0),
                     ]),
             ]);
     }
