@@ -12,6 +12,7 @@ use App\Models\CompraItem;
 use App\Models\FornecedorProduto;
 use App\Models\Lancamento;
 use App\Models\LancamentoDespesa;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -96,16 +97,26 @@ class CompraService
     }
 
     /**
-     * Gera um título a pagar (Lançamento) a partir de uma compra confirmada.
+     * Gera os títulos a pagar (Lançamentos) a partir de uma compra confirmada — um por
+     * parcela informada.
      *
-     * O valor total do título é rateado entre planos de despesa conforme a classificação
+     * O valor de cada parcela é rateado entre planos de despesa conforme a classificação
      * de cada produto (produto_plano_despesa_id): insumos e produtos de revenda podem cair
-     * em planos diferentes, então o título tem N linhas de despesa (soma = valor do título).
-     * Produtos sem plano vão para uma linha remanescente "sem classificação" (plano nulo).
+     * em planos diferentes, então cada título tem N linhas de despesa (soma = valor do
+     * título). Produtos sem plano vão para uma linha remanescente "sem classificação"
+     * (plano nulo). A proporção entre planos é a mesma em todas as parcelas.
      *
-     * @param  array{vencimento?: string|\DateTimeInterface|null, forma_pagamento?: FormaPagamento|string|null}  $dados
+     * O serviço não conhece o cadastro de PrazoPagamento nem percentuais — recebe
+     * vencimento/valor/forma já calculados por parcela; `prazo_pagamento_id` é só
+     * rastreabilidade de qual prazo (se algum) originou o lote.
+     *
+     * @param  array{
+     *     prazo_pagamento_id?: int|null,
+     *     parcelas: array<int, array{vencimento: string|\DateTimeInterface, valor: float|string, forma_pagamento?: FormaPagamento|string|null}>,
+     * }  $dados
+     * @return Collection<int, Lancamento>
      */
-    public function gerarContaPagar(Compra $compra, array $dados = []): Lancamento
+    public function gerarContaPagar(Compra $compra, array $dados = []): Collection
     {
         return DB::transaction(function () use ($compra, $dados) {
             $compra->loadMissing(['itens.insumo.planoDespesa', 'prestador']);
@@ -114,9 +125,14 @@ class CompraService
                 throw ValidationException::withMessages(['compra' => 'A compra precisa estar confirmada para gerar a conta a pagar.']);
             }
 
-            // Idempotência: uma compra gera no máximo uma conta a pagar.
-            if ($compra->contaPagar()->exists()) {
-                throw ValidationException::withMessages(['compra' => 'Esta compra já possui uma conta a pagar.']);
+            // Idempotência: uma compra gera seu lote de títulos uma única vez.
+            if ($compra->lancamentos()->exists()) {
+                throw ValidationException::withMessages(['compra' => 'Esta compra já possui conta(s) a pagar geradas.']);
+            }
+
+            $parcelas = array_values($dados['parcelas'] ?? []);
+            if ($parcelas === []) {
+                throw ValidationException::withMessages(['parcelas' => 'Informe ao menos uma parcela.']);
             }
 
             // Agrega o valor por plano de despesa. Chave '' = produtos sem plano.
@@ -135,38 +151,74 @@ class CompraService
 
             // Cabeçalho: se houver exatamente um plano (sem remanescente), usa-o no título
             // (o hook do model faz o snapshot do comportamento). Caso contrário, fica nulo
-            // e a classificação vive nas linhas de rateio.
+            // e a classificação vive nas linhas de rateio. É o mesmo para todas as parcelas.
             $planosClassificados = array_values(array_filter($porPlano, fn ($l) => $l['plano_despesa_id'] !== null));
             $planoUnico = (count($planosClassificados) === 1 && ! array_key_exists('', $porPlano))
                 ? $planosClassificados[0]['plano_despesa_id']
                 : null;
 
-            $formaPagamento = $dados['forma_pagamento'] ?? null;
-            if (is_string($formaPagamento)) {
-                $formaPagamento = FormaPagamento::tryFrom($formaPagamento);
+            $prazoPagamentoId = $dados['prazo_pagamento_id'] ?? null;
+            $total = count($parcelas);
+            $valorTotalCompra = (float) $compra->compra_valor_total;
+
+            $lancamentos = new Collection;
+
+            foreach ($parcelas as $indice => $parcela) {
+                $valorParcela = round((float) $parcela['valor'], 2);
+
+                $formaPagamento = $parcela['forma_pagamento'] ?? null;
+                if (is_string($formaPagamento)) {
+                    $formaPagamento = FormaPagamento::tryFrom($formaPagamento);
+                }
+
+                $lancamento = new Lancamento([
+                    'tipo' => TipoLancamento::Pagar,
+                    'compra_id' => $compra->id,
+                    'prazo_pagamento_id' => $prazoPagamentoId,
+                    'parcela_numero' => $indice + 1,
+                    'parcela_total' => $total,
+                    'plano_despesa_id' => $planoUnico,
+                    'favorecido_id' => $compra->compra_prestador_id,
+                    'descricao' => $this->descricaoContaPagar($compra, $indice + 1, $total),
+                    'numero_documento' => $compra->compra_numero ?: $compra->compra_chave_nfe,
+                    'valor' => $valorParcela,
+                    'vencimento' => $parcela['vencimento'],
+                    'status' => StatusLancamento::Pendente,
+                    'forma_pagamento' => $formaPagamento,
+                ]);
+                $lancamento->save();
+
+                // Rateio proporcional ao peso desta parcela no total da compra. A soma dos
+                // valores das parcelas não precisa fechar com compra_valor_total (parcelamento
+                // com juros embutido soma mais) — a reconciliação de centavos só acontece
+                // dentro da própria parcela, entre as linhas de plano de despesa.
+                $fator = $valorTotalCompra > 0 ? ($valorParcela / $valorTotalCompra) : 0.0;
+                $this->gravarRateio($lancamento, $this->escalarRateio($porPlano, $fator));
+
+                $lancamentos->push($lancamento->refresh());
             }
 
-            $lancamento = new Lancamento([
-                'tipo' => TipoLancamento::Pagar,
-                'compra_id' => $compra->id,
-                'plano_despesa_id' => $planoUnico,
-                'favorecido_id' => $compra->compra_prestador_id,
-                'descricao' => $this->descricaoContaPagar($compra),
-                'numero_documento' => $compra->compra_numero ?: $compra->compra_chave_nfe,
-                'valor' => $compra->compra_valor_total,
-                'vencimento' => $dados['vencimento']
-                    ?? $compra->compra_data_entrada
-                    ?? $compra->compra_data_emissao
-                    ?? now()->toDateString(),
-                'status' => StatusLancamento::Pendente,
-                'forma_pagamento' => $formaPagamento,
-            ]);
-            $lancamento->save();
-
-            $this->gravarRateio($lancamento, $porPlano);
-
-            return $lancamento->refresh();
+            return $lancamentos;
         });
+    }
+
+    /**
+     * Escala o rateio-por-plano da compra por um fator (valor_parcela/compra_valor_total),
+     * gerando as linhas de despesa proporcionais de uma parcela específica.
+     *
+     * @param  array<array-key, array{plano_despesa_id: ?int, comportamento: mixed, valor: float}>  $porPlano
+     * @return array<array-key, array{plano_despesa_id: ?int, comportamento: mixed, valor: float}>
+     */
+    private function escalarRateio(array $porPlano, float $fator): array
+    {
+        return array_map(
+            fn (array $linha) => [
+                'plano_despesa_id' => $linha['plano_despesa_id'],
+                'comportamento' => $linha['comportamento'],
+                'valor' => $linha['valor'] * $fator,
+            ],
+            $porPlano,
+        );
     }
 
     /**
@@ -204,13 +256,15 @@ class CompraService
         }
     }
 
-    /** Descrição legível do título a pagar gerado pela compra. */
-    private function descricaoContaPagar(Compra $compra): string
+    /** Descrição legível do título a pagar gerado pela compra (com sufixo de parcela quando houver mais de uma). */
+    private function descricaoContaPagar(Compra $compra, int $numeroParcela, int $totalParcelas): string
     {
         $numero = $compra->compra_numero ? "Compra Nº {$compra->compra_numero}" : "Compra #{$compra->id}";
         $fornecedor = $compra->prestador?->nome_exibicao;
 
-        return $fornecedor ? "{$numero} - {$fornecedor}" : $numero;
+        $descricao = $fornecedor ? "{$numero} - {$fornecedor}" : $numero;
+
+        return $totalParcelas > 1 ? "{$descricao} — Parcela {$numeroParcela}/{$totalParcelas}" : $descricao;
     }
 
     /** Grava/atualiza o de-para código do fornecedor ↔ insumo para futuras NFs/XML. */

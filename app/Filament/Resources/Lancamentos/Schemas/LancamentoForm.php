@@ -70,6 +70,12 @@ class LancamentoForm
             Section::make('Dados do lançamento')
                 ->columns(2)
                 ->schema([
+                    Placeholder::make('parcela_contexto')
+                        ->label('Parcela')
+                        ->content(fn (?Lancamento $record): string => "Parcela {$record?->parcela_numero}/{$record?->parcela_total}"
+                            .($record?->prazoPagamento ? " — Prazo \"{$record->prazoPagamento->prazo_pagamento_nome}\"" : ''))
+                        ->visible(fn (?Lancamento $record): bool => $record !== null && ($record->parcela_total ?? 0) > 1)
+                        ->columnSpanFull(),
                     TextInput::make('descricao')
                         ->label('Descrição')
                         ->required()

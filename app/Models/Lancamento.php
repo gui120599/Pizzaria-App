@@ -21,6 +21,9 @@ class Lancamento extends Model
         'tipo',
         'compra_id',
         'contrato_id',
+        'prazo_pagamento_id',
+        'parcela_numero',
+        'parcela_total',
         'competencia',
         'plano_despesa_id',
         'plano_receita_id',
@@ -48,6 +51,8 @@ class Lancamento extends Model
             'vencimento' => 'date',
             'data_pagamento' => 'date',
             'competencia' => 'date',
+            'parcela_numero' => 'integer',
+            'parcela_total' => 'integer',
         ];
     }
 
@@ -116,6 +121,12 @@ class Lancamento extends Model
     public function contrato(): BelongsTo
     {
         return $this->belongsTo(Contrato::class, 'contrato_id');
+    }
+
+    /** Prazo de pagamento aplicado na confirmação da compra que gerou este título. */
+    public function prazoPagamento(): BelongsTo
+    {
+        return $this->belongsTo(PrazoPagamento::class, 'prazo_pagamento_id');
     }
 
     /** Rateio do título entre planos de despesa (1 lançamento -> N despesas). */
@@ -194,6 +205,16 @@ class Lancamento extends Model
             get: fn () => $this->tipo === TipoLancamento::Pagar
                 ? $this->planoDespesa
                 : $this->planoReceita,
+        );
+    }
+
+    /** "Parcela N/T" quando o título faz parte de um lote de parcelas de uma compra. */
+    protected function parcelaLabel(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): ?string => ($this->parcela_total !== null && $this->parcela_total > 1)
+                ? "Parcela {$this->parcela_numero}/{$this->parcela_total}"
+                : null,
         );
     }
 

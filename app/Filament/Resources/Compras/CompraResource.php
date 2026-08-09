@@ -5,6 +5,8 @@ namespace App\Filament\Resources\Compras;
 use App\Filament\Resources\Compras\Pages\CreateCompra;
 use App\Filament\Resources\Compras\Pages\EditCompra;
 use App\Filament\Resources\Compras\Pages\ListCompras;
+use App\Filament\Resources\Compras\RelationManagers\ItensRelationManager;
+use App\Filament\Resources\Compras\RelationManagers\LancamentosRelationManager;
 use App\Filament\Resources\Compras\Schemas\CompraForm;
 use App\Filament\Resources\Compras\Tables\ComprasTable;
 use App\Models\Compra;
@@ -48,7 +50,8 @@ class CompraResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Resources\Compras\RelationManagers\ItensRelationManager::class,
+            ItensRelationManager::class,
+            LancamentosRelationManager::class,
         ];
     }
 

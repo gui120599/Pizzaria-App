@@ -21,6 +21,7 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -33,10 +34,21 @@ class LancamentosTable
         return $table
             // Eager loading dos planos e favorecidos para evitar N+1 nas colunas "Conta" e "Favorecido"
             ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with(['planoDespesa', 'planoReceita', 'favorecido', 'cliente'])
+                ->with(['planoDespesa', 'planoReceita', 'favorecido', 'cliente', 'compra.prestador'])
                 ->withCount('despesas')
                 ->withSum('pagamentos', 'valor'))
             ->defaultSort('vencimento', 'asc')
+            ->groups([
+                Group::make('compra_id')
+                    ->label('Compra')
+                    ->getTitleFromRecordUsing(fn (Lancamento $record): string => $record->compra
+                        ? trim(
+                            ($record->compra->compra_numero ? "Compra Nº {$record->compra->compra_numero}" : "Compra #{$record->compra_id}")
+                            .($record->compra->prestador?->nome_exibicao ? " — {$record->compra->prestador->nome_exibicao}" : '')
+                        )
+                        : 'Sem compra vinculada')
+                    ->collapsible(),
+            ])
             ->columns([
                 TextColumn::make('tipo')
                     ->label('Tipo')
@@ -46,6 +58,12 @@ class LancamentosTable
                     ->label('Descrição')
                     ->searchable()
                     ->wrap(),
+                TextColumn::make('parcelaLabel')
+                    ->label('Parcela')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('conta')
                     ->label('Conta')
                     // Título rateado em vários planos (gerado por compra) mostra "Rateio (N)".

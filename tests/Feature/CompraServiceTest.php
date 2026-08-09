@@ -241,12 +241,15 @@ class CompraServiceTest extends TestCase
 
         $this->service->confirmar($compra->fresh('itens'));
 
-        $lancamento = $this->service->gerarContaPagar($compra->refresh(), [
-            'vencimento' => '2026-08-07',
-            'forma_pagamento' => FormaPagamento::Pix,
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => '2026-08-07', 'valor' => 250.0, 'forma_pagamento' => FormaPagamento::Pix],
+            ],
         ]);
+        $lancamento = $lancamentos->first();
 
         // Cabeçalho do título.
+        $this->assertCount(1, $lancamentos);
         $this->assertSame(TipoLancamento::Pagar, $lancamento->tipo);
         $this->assertSame(StatusLancamento::Pendente, $lancamento->status);
         $this->assertSame($compra->id, $lancamento->compra_id);
@@ -255,6 +258,8 @@ class CompraServiceTest extends TestCase
         $this->assertEqualsWithDelta(250.0, (float) $lancamento->valor, 0.01);
         $this->assertSame('2026-08-07', $lancamento->vencimento->toDateString());
         $this->assertSame(FormaPagamento::Pix, $lancamento->forma_pagamento);
+        $this->assertSame(1, $lancamento->parcela_total);
+        $this->assertNull($lancamento->parcelaLabel); // 1 única parcela -> sem rótulo "N/T"
 
         // Rateio: 2 linhas somando o total, cada uma no plano do produto.
         $despesas = $lancamento->despesas()->get();
@@ -262,6 +267,95 @@ class CompraServiceTest extends TestCase
         $this->assertEqualsWithDelta(250.0, (float) $despesas->sum('valor'), 0.01);
         $this->assertEqualsWithDelta(200.0, (float) $despesas->firstWhere('plano_despesa_id', $cmv->id)->valor, 0.01);
         $this->assertEqualsWithDelta(50.0, (float) $despesas->firstWhere('plano_despesa_id', $bebidas->id)->valor, 0.01);
+    }
+
+    public function test_gerar_conta_pagar_com_multiplas_parcelas_cria_n_lancamentos_com_rateio_proporcional(): void
+    {
+        $forn = $this->fornecedor();
+        $cmv = $this->planoDespesa('CMV / Insumos', Comportamento::Variavel);
+        $bebidas = $this->planoDespesa('Bebidas para revenda', Comportamento::Variavel);
+
+        $queijo = $this->insumo('Queijo', ['produto_plano_despesa_id' => $cmv->id]);
+        $refri = $this->insumo('Refrigerante', [
+            'produto_tipo' => 'revenda',
+            'produto_plano_despesa_id' => $bebidas->id,
+        ]);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_numero' => '3003',
+            'compra_data_entrada' => '2026-07-08',
+            'compra_user_id' => $this->userId,
+        ]);
+        // Queijo: 2 * 100 = 200 (CMV)
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $queijo->id,
+            'ci_quantidade_compra' => 2, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 100,
+        ]);
+        // Refrigerante: 20 * 5 = 100 (Bebidas)
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $refri->id,
+            'ci_quantidade_compra' => 20, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 5,
+        ]);
+
+        $this->service->confirmar($compra->fresh('itens'));
+        // Total da compra: 300 (200 CMV + 100 Bebidas). 3 parcelas: 50/30/20%.
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => '2026-08-07', 'valor' => 150.0, 'forma_pagamento' => FormaPagamento::Boleto],
+                ['vencimento' => '2026-08-14', 'valor' => 90.0, 'forma_pagamento' => FormaPagamento::Boleto],
+                ['vencimento' => '2026-08-21', 'valor' => 60.0, 'forma_pagamento' => FormaPagamento::Pix],
+            ],
+        ]);
+
+        $this->assertCount(3, $lancamentos);
+
+        foreach ($lancamentos as $indice => $lancamento) {
+            $this->assertSame($indice + 1, $lancamento->parcela_numero);
+            $this->assertSame(3, $lancamento->parcela_total);
+            $this->assertSame($compra->id, $lancamento->compra_id);
+
+            // Rateio proporcional: 2/3 CMV, 1/3 Bebidas em cada parcela.
+            $despesas = $lancamento->despesas()->get();
+            $this->assertCount(2, $despesas);
+            $this->assertEqualsWithDelta((float) $lancamento->valor, (float) $despesas->sum('valor'), 0.01);
+            $cmvLinha = (float) $despesas->firstWhere('plano_despesa_id', $cmv->id)->valor;
+            $bebidasLinha = (float) $despesas->firstWhere('plano_despesa_id', $bebidas->id)->valor;
+            $this->assertEqualsWithDelta((float) $lancamento->valor * (2 / 3), $cmvLinha, 0.02);
+            $this->assertEqualsWithDelta((float) $lancamento->valor * (1 / 3), $bebidasLinha, 0.02);
+        }
+
+        $this->assertEqualsWithDelta(300.0, (float) $lancamentos->sum('valor'), 0.01);
+    }
+
+    public function test_gerar_conta_pagar_permite_soma_de_parcelas_diferente_do_valor_da_compra_juros_embutido(): void
+    {
+        $forn = $this->fornecedor();
+        $plano = $this->planoDespesa('CMV / Insumos');
+        $insumo = $this->insumo('Farinha', ['produto_plano_despesa_id' => $plano->id]);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 10, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 10,
+        ]);
+
+        $this->service->confirmar($compra->fresh('itens'));
+        // Compra = 100. 3 parcelas de 35 cada = 105 (5% de juros embutido).
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => now()->addDays(30)->toDateString(), 'valor' => 35.0],
+                ['vencimento' => now()->addDays(60)->toDateString(), 'valor' => 35.0],
+                ['vencimento' => now()->addDays(90)->toDateString(), 'valor' => 35.0],
+            ],
+        ]);
+
+        $this->assertCount(3, $lancamentos);
+        $this->assertEqualsWithDelta(105.0, (float) $lancamentos->sum('valor'), 0.01);
     }
 
     public function test_gerar_conta_pagar_e_idempotente(): void
@@ -282,13 +376,35 @@ class CompraServiceTest extends TestCase
 
         $this->service->confirmar($compra->fresh('itens'));
 
-        $lancamento = $this->service->gerarContaPagar($compra->refresh());
+        $dados = ['parcelas' => [['vencimento' => now()->toDateString(), 'valor' => 30.0]]];
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), $dados);
         // 1 plano -> cabeçalho recebe o plano e o snapshot do comportamento.
-        $this->assertSame($plano->id, $lancamento->plano_despesa_id);
-        $this->assertSame(Comportamento::Variavel, $lancamento->comportamento);
+        $this->assertSame($plano->id, $lancamentos->first()->plano_despesa_id);
+        $this->assertSame(Comportamento::Variavel, $lancamentos->first()->comportamento);
 
         $this->expectException(ValidationException::class);
-        $this->service->gerarContaPagar($compra->refresh());
+        $this->service->gerarContaPagar($compra->refresh(), $dados);
+    }
+
+    public function test_gerar_conta_pagar_falha_sem_parcelas(): void
+    {
+        $forn = $this->fornecedor();
+        $insumo = $this->insumo('Farinha');
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 1, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 5,
+        ]);
+
+        $this->service->confirmar($compra->fresh('itens'));
+
+        $this->expectException(ValidationException::class);
+        $this->service->gerarContaPagar($compra->refresh(), ['parcelas' => []]);
     }
 
     public function test_nao_gera_conta_pagar_de_compra_nao_confirmada(): void
@@ -299,6 +415,6 @@ class CompraServiceTest extends TestCase
         ]);
 
         $this->expectException(ValidationException::class);
-        $this->service->gerarContaPagar($compra);
+        $this->service->gerarContaPagar($compra, ['parcelas' => [['vencimento' => now()->toDateString(), 'valor' => 10.0]]]);
     }
 }

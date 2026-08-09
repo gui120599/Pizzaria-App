@@ -9,9 +9,11 @@ use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Filament\Resources\Lancamentos\Pages\ListLancamentos;
 use App\Http\Requests\LancamentoRequest;
+use App\Models\Compra;
 use App\Models\Lancamento;
 use App\Models\PlanoDespesa;
 use App\Models\PlanoReceita;
+use App\Models\Prestador;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -226,5 +228,45 @@ class LancamentoTest extends TestCase
             'descricao' => 'x', 'valor' => 10, 'vencimento' => '2026-07-10', 'status' => 'pendente',
         ], $rules, $messages);
         $this->assertFalse($valido->fails());
+    }
+
+    /** Agrupamento (opcional, via toggle "Groups" da tabela) clusteriza as parcelas de uma mesma compra. */
+    public function test_tabela_agrupa_lancamentos_por_compra(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+
+        $forn = Prestador::create([
+            'tipo' => 'pj', 'categoria' => 'fornecedor',
+            'razao_social' => 'Distribuidora Y', 'nome' => 'Distribuidora Y',
+        ]);
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_numero' => '9009',
+            'compra_data_entrada' => now()->toDateString(),
+        ]);
+        $plano = $this->planoDespesa(Comportamento::Variavel, 'CMV');
+
+        // 2 parcelas da mesma compra.
+        Lancamento::create([
+            'tipo' => TipoLancamento::Pagar, 'compra_id' => $compra->id, 'plano_despesa_id' => $plano->id,
+            'descricao' => 'Compra 9009 - Parcela 1/2', 'valor' => 50, 'vencimento' => '2026-08-07',
+            'parcela_numero' => 1, 'parcela_total' => 2,
+        ]);
+        Lancamento::create([
+            'tipo' => TipoLancamento::Pagar, 'compra_id' => $compra->id, 'plano_despesa_id' => $plano->id,
+            'descricao' => 'Compra 9009 - Parcela 2/2', 'valor' => 50, 'vencimento' => '2026-08-14',
+            'parcela_numero' => 2, 'parcela_total' => 2,
+        ]);
+        // Lançamento avulso, sem compra.
+        Lancamento::create([
+            'tipo' => TipoLancamento::Pagar, 'plano_despesa_id' => $plano->id,
+            'descricao' => 'Conta avulsa', 'valor' => 30, 'vencimento' => '2026-08-10',
+        ]);
+
+        Livewire::test(ListLancamentos::class)
+            ->set('tableGrouping', 'compra_id:asc')
+            ->assertOk()
+            ->assertSee('Compra Nº 9009 — Distribuidora Y')
+            ->assertSee('Sem compra vinculada');
     }
 }
