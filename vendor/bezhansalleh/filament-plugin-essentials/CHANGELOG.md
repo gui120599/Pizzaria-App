@@ -2,6 +2,10 @@
 
 All notable changes to `filament-plugin-essentials` will be documented in this file.
 
+## 1.2.1 - 2026-03-22
+
+**Full Changelog**: https://github.com/bezhanSalleh/filament-plugin-essentials/compare/1.2.0...1.2.1
+
 ## 1.2.0 - 2026-03-22
 
 ### What's Changed

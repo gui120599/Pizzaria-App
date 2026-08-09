@@ -98,6 +98,7 @@ The easiest and most intuitive way to add access management to your Filament pan
   - [Custom Permissions](#custom-permissions)
     - [Formatting](#formatting)
     - [Externally Managed Permissions](#externally-managed-permissions)
+  - [Retrieving the Permission Catalogue](#retrieving-the-permission-catalogue)
   - [Users (Assigning Roles to Users)](#users-assigning-roles-to-users)
   - [Shield Plugin \& Resource](#shield-plugin--resource)
     - [Navigation](#navigation)
@@ -508,6 +509,57 @@ If your custom permissions come from external sources like **Terraform**, **Keyc
 With this setting, custom permission keys are stored exactly as defined — no case conversion is applied. This does not affect resource, page, or widget permissions, which are always formatted.
 
 Alternatively, you can use the `buildPermissionKeyUsing` closure for more granular control — see [Customize permission key composition](#customize-permission-key-composition).
+
+## Retrieving the Permission Catalogue
+
+Shield can tell you every permission key it manages for a panel — without
+touching the database. `getEntitiesPermissions()` returns a flat, de-duplicated
+array of the keys for all four entity types, formatted per your
+[Permission Builder](#customize-permission-key-composition) settings:
+
+- resource permissions, respecting `policies.methods`, `merge`, and your
+  `resources.manage` / `exclude` configuration
+- page and widget permissions, respecting their `prefix` and `exclude` settings
+- [custom permissions](#custom-permissions)
+
+```php
+use BezhanSalleh\FilamentShield\Facades\FilamentShield;
+use Filament\Facades\Filament;
+
+Filament::setCurrentPanel('admin');
+
+FilamentShield::getEntitiesPermissions();
+// ['ViewAny:User', 'View:User', 'Create:User', ..., 'View:Settings', 'View:IncomeWidget', 'Impersonate:User']
+```
+
+The catalogue is resolved for the **current panel** — inside a panel request
+that's already set; in artisan commands, jobs, or tests, set it first as shown
+above. Results are memoized for the lifetime of the request.
+
+This method only *reads* — it never creates permission rows. Its typical job
+is powering your own synchronization, for example a deploy-time seeder that
+guarantees every permission exists:
+
+```php
+use BezhanSalleh\FilamentShield\Facades\FilamentShield;
+use Spatie\Permission\Models\Permission;
+
+foreach (FilamentShield::getEntitiesPermissions() as $key) {
+    Permission::firstOrCreate(['name' => $key, 'guard_name' => 'web']);
+}
+```
+
+or the reverse — auditing drift by diffing the catalogue against what's in
+your database or an [externally managed store](#externally-managed-permissions).
+
+When you need more than the keys — labels, or entity-to-permission grouping —
+use the granular getters instead: `FilamentShield::getResources()`,
+`getPages()`, `getWidgets()`, and `getCustomPermissions()` each return their
+entities keyed by class, with a `permissions` array of `key => label` pairs.
+
+> **Note:** prior to v4.3.1 this method returned page and widget *class names*
+> in place of their permission keys. If you rely on it, require at least that
+> version.
 
 ## Users (Assigning Roles to Users)
 Shield does not come with a way to assign roles to your users out of the box; however, you can easily assign roles to your users using Filament's `Forms` `Select` or `CheckboxList` component. Inside your users `Resource`'s form, add one of these components and configure them as needed:

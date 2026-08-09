@@ -3,6 +3,7 @@
 namespace Filament\Tables\Table\Concerns;
 
 use Closure;
+use Filament\Support\View\ComponentAttributeBag as FilamentComponentAttributeBag;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\View\ComponentAttributeBag;
 
@@ -28,6 +29,10 @@ trait HasRecordUrl
 
     public function recordUrl(string | Closure | null $url, bool | Closure | null $shouldOpenInNewTab = null): static
     {
+        // Security: If this URL is derived from user input, validate it
+        // to prevent XSS via `javascript:` protocol URLs rendered
+        // in `href` attributes.
+
         if ($shouldOpenInNewTab !== null) {
             $this->openRecordUrlInNewTab($shouldOpenInNewTab);
         }
@@ -82,6 +87,9 @@ trait HasRecordUrl
      */
     public function extraRecordLinkAttributes(array | Closure $attributes, bool $merge = false): static
     {
+        // Security: Attribute values are not escaped when rendered. Never
+        // pass unsanitized user input as attribute names or values.
+
         if ($merge) {
             $this->extraRecordLinkAttributes[] = $attributes;
         } else {
@@ -97,7 +105,7 @@ trait HasRecordUrl
      */
     public function getExtraRecordLinkAttributes(Model | array $record): array
     {
-        $temporaryAttributeBag = new ComponentAttributeBag;
+        $temporaryAttributeBag = new FilamentComponentAttributeBag;
 
         foreach ($this->extraRecordLinkAttributes as $extraAttributes) {
             $temporaryAttributeBag = $temporaryAttributeBag->merge(
@@ -123,6 +131,6 @@ trait HasRecordUrl
      */
     public function getExtraRecordLinkAttributeBag(Model | array $record): ComponentAttributeBag
     {
-        return new ComponentAttributeBag($this->getExtraRecordLinkAttributes($record));
+        return new FilamentComponentAttributeBag($this->getExtraRecordLinkAttributes($record));
     }
 }

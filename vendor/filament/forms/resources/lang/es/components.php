@@ -122,9 +122,53 @@ return [
 
     ],
 
+    'color_picker' => [
+
+        'panel_label' => 'Selector de color',
+
+    ],
+
+    'date_time_picker' => [
+
+        'month_select' => [
+            'label' => 'Mes',
+        ],
+
+        'year_input' => [
+            'label' => 'Año',
+        ],
+
+        'hour_input' => [
+            'label' => 'Hora',
+        ],
+
+        'minute_input' => [
+            'label' => 'Minuto',
+        ],
+
+        'second_input' => [
+            'label' => 'Segundo',
+        ],
+
+    ],
+
     'file_upload' => [
 
+        'actions' => [
+
+            'download' => [
+                'label' => 'Descargar',
+            ],
+
+            'open' => [
+                'label' => 'Abrir en nueva pestaña',
+            ],
+
+        ],
+
         'editor' => [
+
+            'label' => 'Editor de imágenes',
 
             'actions' => [
 
@@ -268,6 +312,18 @@ return [
 
         ],
 
+        'columns' => [
+
+            'actions' => [
+                'label' => 'Acciones',
+            ],
+
+            'reorder' => [
+                'label' => 'Reordenar',
+            ],
+
+        ],
+
         'fields' => [
 
             'key' => [
@@ -338,6 +394,18 @@ return [
     ],
 
     'repeater' => [
+
+        'columns' => [
+
+            'actions' => [
+                'label' => 'Acciones',
+            ],
+
+            'reorder' => [
+                'label' => 'Reordenar',
+            ],
+
+        ],
 
         'actions' => [
 
@@ -548,6 +616,35 @@ return [
 
                         'color' => [
                             'label' => 'Color',
+
+                            'options' => [
+                                'slate' => 'Gris pizarra',
+                                'gray' => 'Gris',
+                                'zinc' => 'Zinc',
+                                'neutral' => 'Gris neutral',
+                                'stone' => 'Piedra',
+                                'mauve' => 'Malva',
+                                'olive' => 'Oliva',
+                                'mist' => 'Neblina',
+                                'taupe' => 'Gris topo',
+                                'red' => 'Rojo',
+                                'orange' => 'Naranja',
+                                'amber' => 'Ámbar',
+                                'yellow' => 'Amarillo',
+                                'lime' => 'Lima',
+                                'green' => 'Verde',
+                                'emerald' => 'Verde esmeralda',
+                                'teal' => 'Verde azulado',
+                                'cyan' => 'Turquesa',
+                                'sky' => 'Cielo',
+                                'blue' => 'Azul',
+                                'indigo' => 'Índigo',
+                                'violet' => 'Violeta',
+                                'purple' => 'Púrpura',
+                                'fuchsia' => 'Fucsia',
+                                'pink' => 'Rosado',
+                                'rose' => 'Rosa',
+                            ],
                         ],
 
                         'custom_color' => [
@@ -575,6 +672,10 @@ return [
             'searching_message' => 'Buscando...',
         ],
 
+        'toolbar' => [
+            'label' => 'Barra de herramientas del editor',
+        ],
+
         'tools' => [
             'align_center' => 'Alinear al centro',
             'align_end' => 'Alinear al final',
@@ -590,8 +691,11 @@ return [
             'custom_blocks' => 'Bloques',
             'details' => 'Detalles',
             'h1' => 'Título',
-            'h2' => 'Encabezado',
-            'h3' => 'Subencabezado',
+            'h2' => 'Encabezado 2',
+            'h3' => 'Encabezado 3',
+            'h4' => 'Encabezado 4',
+            'h5' => 'Encabezado 5',
+            'h6' => 'Encabezado 6',
             'grid' => 'Cuadrícula',
             'grid_delete' => 'Eliminar cuadrícula',
             'highlight' => 'Resaltar',
@@ -601,6 +705,7 @@ return [
             'link' => 'Enlace',
             'merge_tags' => 'Etiquetas dinámicas',
             'ordered_list' => 'Lista numerada',
+            'paragraph' => 'Párrafo',
             'redo' => 'Rehacer',
             'small' => 'Texto pequeño',
             'strike' => 'Tachar',
@@ -709,6 +814,10 @@ return [
         ],
 
         'placeholder' => 'Nueva etiqueta',
+
+        'tag_added' => 'Agregado: :tag',
+
+        'tag_removed' => 'Eliminado: :tag',
 
     ],
 

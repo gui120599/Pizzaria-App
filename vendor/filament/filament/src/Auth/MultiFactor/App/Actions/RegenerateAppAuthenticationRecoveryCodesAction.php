@@ -22,6 +22,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Js;
+use SensitiveParameter;
 
 class RegenerateAppAuthenticationRecoveryCodesAction
 {
@@ -43,7 +44,7 @@ class RegenerateAppAuthenticationRecoveryCodesAction
                     ->validationAttribute(__('filament-panels::auth/multi-factor/app/actions/regenerate-recovery-codes.modal.form.code.validation_attribute'))
                     ->requiredWithout('password')
                     ->rule(function () use ($appAuthentication): Closure {
-                        return function (string $attribute, $value, Closure $fail) use ($appAuthentication): void {
+                        return function (string $attribute, #[SensitiveParameter] $value, Closure $fail) use ($appAuthentication): void {
                             $rateLimitingKey = 'filament-regenerate-recovery-codes:' . Filament::auth()->id();
 
                             if (RateLimiter::tooManyAttempts($rateLimitingKey, maxAttempts: 5)) {
@@ -54,7 +55,7 @@ class RegenerateAppAuthenticationRecoveryCodesAction
 
                             RateLimiter::hit($rateLimitingKey);
 
-                            if ($appAuthentication->verifyCode($value)) {
+                            if ($appAuthentication->verifyCode($value, shouldPreventCodeReuse: true)) {
                                 return;
                             }
 
@@ -124,7 +125,7 @@ class RegenerateAppAuthenticationRecoveryCodesAction
                                     ->label(__('filament-panels::auth/multi-factor/recovery-codes-modal-content.actions.download.label'))
                                     ->link()
                                     ->url('data:application/octet-stream,' . urlencode(implode(PHP_EOL, $arguments['recoveryCodes'])))
-                                    ->extraAttributes(['download' => true])
+                                    ->extraAttributes(['download' => 'recovery-codes.txt'])
                                     ->toHtml() .
                                 ' ' .
                                 __('filament-panels::auth/multi-factor/recovery-codes-modal-content.actions.2')

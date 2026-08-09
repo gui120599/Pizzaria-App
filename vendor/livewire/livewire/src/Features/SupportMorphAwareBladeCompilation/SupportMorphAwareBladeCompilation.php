@@ -3,7 +3,6 @@
 namespace Livewire\Features\SupportMorphAwareBladeCompilation;
 
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Blade;
 use Livewire\ComponentHook;
 use Livewire\Livewire;
 
@@ -33,6 +32,8 @@ class SupportMorphAwareBladeCompilation extends ComponentHook
 
     public static function registerPrecompilers()
     {
+        $compiler = app('blade.compiler');
+
         $directives = [
             '@if' => '@endif',
             '@unless' => '@endunless',
@@ -48,8 +49,8 @@ class SupportMorphAwareBladeCompilation extends ComponentHook
             '@for' => '@endfor',
         ];
 
-        Blade::precompiler(function ($entire) use ($directives) {
-            $conditions = \Livewire\invade(app('blade.compiler'))->conditions;
+        $compiler->precompiler(function ($entire) use ($compiler, $directives) {
+            $conditions = \Livewire\invade($compiler)->conditions;
 
             foreach (array_keys($conditions) as $conditionalDirective) {
                 $directives['@'.$conditionalDirective] = '@end'.$conditionalDirective;
@@ -180,7 +181,7 @@ class SupportMorphAwareBladeCompilation extends ComponentHook
         if (static::$shouldInjectLoopMarkers && static::isLoop($found)) {
             $prefix .= '<?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?>';
 
-            $suffix .= '<?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoop($loop->index); ?>';
+            $suffix .= '<?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?>';
         }
 
         if ($prefix === '' && $suffix === '') {
