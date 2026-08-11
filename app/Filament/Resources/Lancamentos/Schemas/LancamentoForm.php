@@ -7,6 +7,7 @@ use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Models\Lancamento;
 use App\Models\Prestador;
+use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -142,6 +143,24 @@ class LancamentoForm
                     Repeater::make('pagamentos')
                         ->relationship()
                         ->label('')
+                        // A soma de todos os pagamentos (existentes + novos) não pode
+                        // ultrapassar o valor do título. Regra no próprio campo porque
+                        // ->relationship() não expõe os itens em $data no
+                        // mutateFormDataBeforeSave (ver feedback_filament_repeater_relationship_validation).
+                        ->rule(function (Get $get): Closure {
+                            return function (string $attribute, $value, Closure $fail) use ($get): void {
+                                $totalPagamentos = collect($value)
+                                    ->sum(fn (array $item): float => self::normalizeMoney($item['valor'] ?? null));
+                                $valorTitulo = self::normalizeMoney($get('valor'));
+
+                                if (round($totalPagamentos, 2) > round($valorTitulo, 2) + 0.01) {
+                                    $fail(
+                                        'A soma dos pagamentos (R$ '.number_format($totalPagamentos, 2, ',', '.').
+                                        ') não pode ultrapassar o valor do título (R$ '.number_format($valorTitulo, 2, ',', '.').').'
+                                    );
+                                }
+                            };
+                        })
                         ->schema([
                             DatePicker::make('data_pagamento')
                                 ->label('Data')

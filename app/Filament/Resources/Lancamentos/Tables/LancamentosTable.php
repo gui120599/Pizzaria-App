@@ -7,13 +7,16 @@ use App\Enums\FormaPagamento;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Models\Lancamento;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Icons\Heroicon;
@@ -156,9 +159,11 @@ class LancamentosTable
     }
 
     /**
-     * Registra um pagamento pelo valor informado (default = valor restante, ou seja,
-     * quita o título de uma vez). Pra pagamentos parciais adicionais, ou pra ver o
-     * histórico completo, usa o repeater "Pagamentos" na tela de edição.
+     * Registra um ou mais pagamentos de uma vez (mesmo modelo de repeater usado na
+     * confirmação de compra com Prazo de Pagamento): por padrão vem 1 item pré-
+     * preenchido com o valor restante (quita o título de uma vez, fluxo mais comum),
+     * mas dá pra adicionar mais linhas pra lançar vários pagamentos numa única
+     * submissão, sem precisar abrir a tela de edição.
      */
     protected static function acaoMarcarComoPago(): Action
     {
@@ -169,49 +174,108 @@ class LancamentosTable
             ->visible(fn (Lancamento $record): bool => in_array($record->status, [StatusLancamento::Pendente, StatusLancamento::Parcial], true)
                 && auth()->user()->can('markAsPaid', $record))
             ->modalHeading('Registrar pagamento')
+            ->modalDescription('Pode registrar mais de um pagamento de uma vez (ex.: parcial + complemento).')
             ->modalSubmitActionLabel('Confirmar')
             ->form([
-                Money::make('valor')
-                    ->label('Valor pago')
-                    ->minValue(0.01)
+                Repeater::make('pagamentos')
+                    ->label('')
+                    ->schema([
+                        DatePicker::make('data_pagamento')
+                            ->label('Data')
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->default(now())
+                            ->required(),
+                        Money::make('valor')
+                            ->label('Valor')
+                            ->minValue(0.01)
+                            ->live(onBlur: true)
+                            ->required(),
+                        Select::make('forma_pagamento')
+                            ->label('Forma')
+                            ->options(FormaPagamento::class),
+                        TextInput::make('observacoes')
+                            ->label('Observações')
+                            ->maxLength(255),
+                    ])
+                    ->live()
+                    ->columns(4)
+                    ->addActionLabel('Adicionar pagamento')
+                    ->reorderable(false)
+                    ->defaultItems(1)
+                    ->minItems(1)
                     // default() só aplica no fill inicial do modal — diferente de
                     // fillForm() na Action, que reaplicaria (e resetaria o que o
                     // usuário digitou) a cada round-trip do Livewire. Precisa vir em
                     // string com 2 casas decimais (formato do cast decimal:2 do Eloquent):
                     // Money::sanitizeState() só sabe interpretar corretamente esse formato
                     // ou o BR ("150,00") — um float cru (150.0) vira 150 CENTAVOS (R$1,50).
-                    ->default(fn (Lancamento $record): string => number_format(
-                        $record->valorRestante > 0 ? $record->valorRestante : (float) $record->valor,
-                        2,
-                        '.',
-                        ''
-                    ))
-                    ->required(),
-                DatePicker::make('data_pagamento')
-                    ->label('Data do pagamento / recebimento')
-                    ->native(false)
-                    ->displayFormat('d/m/Y')
-                    ->default(now())
-                    ->required(),
-                Select::make('forma_pagamento')
-                    ->label('Forma de pagamento')
-                    ->options(FormaPagamento::class),
+                    ->default(fn (Lancamento $record): array => [[
+                        'data_pagamento' => now()->toDateString(),
+                        'valor' => number_format(
+                            $record->valorRestante > 0 ? $record->valorRestante : (float) $record->valor,
+                            2,
+                            '.',
+                            ''
+                        ),
+                    ]])
+                    ->itemLabel(fn (array $state): ?string => isset($state['valor'])
+                        ? 'R$ '.number_format(self::normalizeMoney($state['valor']), 2, ',', '.')
+                        : 'Novo pagamento')
+                    // A soma dos pagamentos lançados aqui não pode ultrapassar o que
+                    // ainda falta pagar/receber no título.
+                    ->rule(function (Lancamento $record): Closure {
+                        return function (string $attribute, $value, Closure $fail) use ($record): void {
+                            $totalPagamentos = collect($value)
+                                ->sum(fn (array $item): float => self::normalizeMoney($item['valor'] ?? null));
+                            $restante = $record->valorRestante > 0 ? $record->valorRestante : (float) $record->valor;
+
+                            if (round($totalPagamentos, 2) > round($restante, 2) + 0.01) {
+                                $fail(
+                                    'A soma dos pagamentos (R$ '.number_format($totalPagamentos, 2, ',', '.').
+                                    ') não pode ultrapassar o valor restante do título (R$ '.number_format($restante, 2, ',', '.').').'
+                                );
+                            }
+                        };
+                    })
+                    ->columnSpanFull(),
             ])
             ->action(function (Lancamento $record, array $data): void {
-                // Select::options(FormaPagamento::class) já entrega o state como
-                // instância do enum (Filament casta automaticamente) — nada de
-                // ::from() aqui, ou dá TypeError passando enum pra ::from().
-                $record->marcarComoPago(
-                    ! empty($data['data_pagamento']) ? Carbon::parse($data['data_pagamento']) : null,
-                    $data['forma_pagamento'] ?? null,
-                    (float) $data['valor'],
-                );
+                foreach ($data['pagamentos'] as $item) {
+                    // Select::options(FormaPagamento::class) já entrega o state como
+                    // instância do enum (Filament casta automaticamente) — nada de
+                    // ::from() aqui, ou dá TypeError passando enum pra ::from().
+                    $record->registrarPagamento(
+                        self::normalizeMoney($item['valor'] ?? null),
+                        ! empty($item['data_pagamento']) ? Carbon::parse($item['data_pagamento']) : null,
+                        $item['forma_pagamento'] ?? null,
+                        $item['observacoes'] ?? null,
+                    );
+                }
 
                 Notification::make()
                     ->title('Pagamento registrado com sucesso!')
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * Money::make() mantém o valor em estado bruto formatado (ex: "1.234,56") enquanto
+     * o form não é salvo. Pra somar/calcular em tempo real, precisa converter pro padrão
+     * decimal (ponto), igual o dehydrateCurrency() do próprio campo faz no submit.
+     */
+    private static function normalizeMoney(mixed $value): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        return (float) str_replace(['.', ','], ['', '.'], (string) $value);
     }
 
     /**

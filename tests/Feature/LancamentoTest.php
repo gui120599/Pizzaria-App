@@ -128,8 +128,9 @@ class LancamentoTest extends TestCase
 
         Livewire::test(ListLancamentos::class)
             ->callTableAction('marcarComoPago', $lancamento, data: [
-                'data_pagamento' => '2026-07-08',
-                'forma_pagamento' => FormaPagamento::Pix->value,
+                'pagamentos' => [
+                    ['valor' => '150,00', 'data_pagamento' => '2026-07-08', 'forma_pagamento' => FormaPagamento::Pix->value],
+                ],
             ])
             ->assertHasNoTableActionErrors();
 
@@ -154,11 +155,15 @@ class LancamentoTest extends TestCase
 
         Livewire::test(ListLancamentos::class)
             ->callTableAction('marcarComoPago', $lancamento, data: [
-                // Money::dehydrateStateUsing() espera o valor já em formato BR
-                // (vírgula decimal) — ver feedback_filament_ptbr_form_fields.
-                'valor' => '300,00',
-                'data_pagamento' => '2026-07-06',
-                'forma_pagamento' => FormaPagamento::Pix->value,
+                'pagamentos' => [
+                    [
+                        // Money::dehydrateStateUsing() espera o valor já em formato BR
+                        // (vírgula decimal) — ver feedback_filament_ptbr_form_fields.
+                        'valor' => '300,00',
+                        'data_pagamento' => '2026-07-06',
+                        'forma_pagamento' => FormaPagamento::Pix->value,
+                    ],
+                ],
             ])
             ->assertHasNoTableActionErrors();
 
@@ -167,6 +172,61 @@ class LancamentoTest extends TestCase
         $this->assertSame(300.0, $lancamento->valorPago);
         $this->assertSame(700.0, $lancamento->valorRestante);
         $this->assertCount(1, $lancamento->pagamentos);
+    }
+
+    public function test_acao_registrar_pagamento_aceita_mais_de_um_pagamento_de_uma_vez(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+
+        $plano = $this->planoDespesa(Comportamento::Fixo, 'Fornecedor Y');
+        $lancamento = Lancamento::create([
+            'tipo' => TipoLancamento::Pagar,
+            'plano_despesa_id' => $plano->id,
+            'descricao' => 'Título quitado em duas parcelas na mesma action',
+            'valor' => 1000,
+            'vencimento' => '2026-07-08',
+            'status' => StatusLancamento::Pendente,
+        ]);
+
+        Livewire::test(ListLancamentos::class)
+            ->callTableAction('marcarComoPago', $lancamento, data: [
+                'pagamentos' => [
+                    ['valor' => '400,00', 'data_pagamento' => '2026-07-06', 'forma_pagamento' => FormaPagamento::Pix->value],
+                    ['valor' => '600,00', 'data_pagamento' => '2026-07-08', 'forma_pagamento' => FormaPagamento::Boleto->value],
+                ],
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $lancamento->refresh();
+        $this->assertSame(StatusLancamento::Pago, $lancamento->status);
+        $this->assertCount(2, $lancamento->pagamentos);
+    }
+
+    public function test_acao_registrar_pagamento_rejeita_soma_maior_que_o_restante(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+
+        $plano = $this->planoDespesa(Comportamento::Fixo, 'Fornecedor Z');
+        $lancamento = Lancamento::create([
+            'tipo' => TipoLancamento::Pagar,
+            'plano_despesa_id' => $plano->id,
+            'descricao' => 'Título com tentativa de pagamento acima do total',
+            'valor' => 1000,
+            'vencimento' => '2026-07-08',
+            'status' => StatusLancamento::Pendente,
+        ]);
+
+        Livewire::test(ListLancamentos::class)
+            ->callTableAction('marcarComoPago', $lancamento, data: [
+                'pagamentos' => [
+                    ['valor' => '1500,00', 'data_pagamento' => '2026-07-06', 'forma_pagamento' => FormaPagamento::Pix->value],
+                ],
+            ])
+            ->assertHasTableActionErrors();
+
+        $lancamento->refresh();
+        $this->assertSame(StatusLancamento::Pendente, $lancamento->status);
+        $this->assertCount(0, $lancamento->pagamentos);
     }
 
     public function test_scope_vencidos_retorna_apenas_pendentes_com_vencimento_passado(): void

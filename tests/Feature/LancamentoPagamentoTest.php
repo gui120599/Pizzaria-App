@@ -158,6 +158,54 @@ class LancamentoPagamentoTest extends TestCase
      * pagamento já na criação do título (mesmo padrão do Repeater::relationship() usado
      * nos resources de Aluguéis/Sessão de Caixa do LocSilva2).
      */
+    /**
+     * Regressão: o repeater "pagamentos" (->relationship()) persiste os pagamentos
+     * ANTES de handleRecordUpdate(), disparando Lancamento::recalcularStatus() numa
+     * instância separada do model (carregada via $pagamento->lancamento). Sem o
+     * refresh() em EditLancamento::afterSave(), $this->getRecord() ficava com o
+     * status desatualizado em memória, Filament decidia NÃO redirecionar pra fora da
+     * tela de edição (achando que ainda podia editar) e a próxima interação
+     * (hydrate) abortava com 403 — mesmo o pagamento já tendo sido registrado
+     * corretamente no banco.
+     */
+    public function test_pagamento_total_via_repeater_na_edicao_redireciona_sem_403(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+        $lancamento = $this->lancamento(1000);
+
+        Livewire::test(EditLancamento::class, ['record' => $lancamento->getKey()])
+            ->fillForm([
+                'pagamentos' => [
+                    ['data_pagamento' => '2026-07-10', 'valor' => '1000,00', 'forma_pagamento' => 'pix'],
+                ],
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors()
+            ->assertRedirect(LancamentoResource::getUrl());
+
+        $lancamento->refresh();
+        $this->assertSame(StatusLancamento::Pago, $lancamento->status);
+    }
+
+    public function test_repeater_de_pagamentos_rejeita_soma_maior_que_o_valor_do_titulo(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+        $lancamento = $this->lancamento(1000);
+
+        Livewire::test(EditLancamento::class, ['record' => $lancamento->getKey()])
+            ->fillForm([
+                'pagamentos' => [
+                    ['data_pagamento' => '2026-07-10', 'valor' => '1500,00', 'forma_pagamento' => 'pix'],
+                ],
+            ])
+            ->call('save')
+            ->assertHasFormErrors(['pagamentos']);
+
+        $lancamento->refresh();
+        $this->assertSame(StatusLancamento::Pendente, $lancamento->status);
+        $this->assertSame(0, $lancamento->pagamentos()->count());
+    }
+
     public function test_repeater_de_pagamentos_funciona_na_criacao_e_quita_o_titulo(): void
     {
         $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
