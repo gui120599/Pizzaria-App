@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Exceptions\SefazDocumentoNaoLocalizadoException;
 use App\Exceptions\SefazIndisponivelException;
 use App\Services\Sefaz\Contracts\SefazClient;
 use App\Services\Sefaz\Dto\SefazDocumentoCompleto;
@@ -19,6 +20,9 @@ class FakeSefazClient implements SefazClient
 
     /** @var array<string, SefazDocumentoCompleto> */
     private array $liberarAposManifestar = [];
+
+    /** @var array<string, true> */
+    private array $naoLocalizadas = [];
 
     private ?SefazLoteDistribuicao $lote = null;
 
@@ -49,6 +53,14 @@ class FakeSefazClient implements SefazClient
         return $this;
     }
 
+    /** Simula cStat 137 (nenhum documento localizado) permanentemente pra essa chave. */
+    public function comNaoLocalizado(string $chave): static
+    {
+        $this->naoLocalizadas[$chave] = true;
+
+        return $this;
+    }
+
     public function comLote(SefazLoteDistribuicao $lote): static
     {
         $this->lote = $lote;
@@ -69,7 +81,17 @@ class FakeSefazClient implements SefazClient
             throw new SefazIndisponivelException('Indisponível (fake).');
         }
 
-        return $this->porChave[$chave] ?? throw new SefazIndisponivelException("Chave {$chave} não configurada no fake.");
+        if (isset($this->porChave[$chave])) {
+            return $this->porChave[$chave];
+        }
+
+        // Ainda não manifestada (ou manifestada sem nunca liberar, no caso de comNaoLocalizado):
+        // simula o cStat 137 real da SEFAZ em vez do "não configurada" genérico.
+        if (isset($this->liberarAposManifestar[$chave]) || isset($this->naoLocalizadas[$chave])) {
+            throw new SefazDocumentoNaoLocalizadoException("Nenhum documento localizado (fake) para {$chave}.");
+        }
+
+        throw new SefazIndisponivelException("Chave {$chave} não configurada no fake.");
     }
 
     public function consultarPorNsu(int $ultNsu): SefazLoteDistribuicao

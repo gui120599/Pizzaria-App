@@ -2,6 +2,7 @@
 
 namespace App\Services\Sefaz;
 
+use App\Exceptions\SefazDocumentoNaoLocalizadoException;
 use App\Exceptions\SefazIndisponivelException;
 use App\Services\Sefaz\Dto\SefazDocumentoCompleto;
 use App\Services\Sefaz\Dto\SefazLoteDistribuicao;
@@ -14,6 +15,13 @@ use SimpleXMLElement;
  * pelo atributo "schema" (resNFe_v1.xx.xsd, procNFe_v4.00.xsd,
  * resEvento_1.00.xsd...). Não toca em rede/SOAP — só parsing puro,
  * testável com fixtures estáticas.
+ *
+ * A resposta crua da lib (nfephp-org/sped-nfe) é o envelope SOAP completo
+ * (<soap:Envelope><soap:Body><nfeDistDFeInteresseResult><retDistDFeInt>...),
+ * não o <retDistDFeInt> isolado — por isso todo XPath aqui usa "//" (busca
+ * em qualquer profundidade) em vez de caminho relativo à raiz, o que também
+ * continua funcionando com fixtures de teste que usam <retDistDFeInt> como
+ * elemento raiz direto.
  */
 class SefazRespostaDecoder
 {
@@ -23,7 +31,7 @@ class SefazRespostaDecoder
         $xml = $this->carregar($xmlResposta);
 
         $itens = [];
-        foreach ($xml->xpath('loteDistDFeInt/docZip') ?: [] as $docZip) {
+        foreach ($xml->xpath('//retDistDFeInt/loteDistDFeInt/docZip') ?: [] as $docZip) {
             $resumo = $this->paraResumo(
                 $this->descompactar((string) $docZip),
                 (string) $docZip->attributes()->schema,
@@ -37,9 +45,9 @@ class SefazRespostaDecoder
 
         return new SefazLoteDistribuicao(
             itens: $itens,
-            ultNsuRetornado: (int) $xml->ultNSU,
-            maxNsu: (int) $xml->maxNSU,
-            cStat: trim((string) $xml->cStat),
+            ultNsuRetornado: (int) ($xml->xpath('//retDistDFeInt/ultNSU')[0] ?? 0),
+            maxNsu: (int) ($xml->xpath('//retDistDFeInt/maxNSU')[0] ?? 0),
+            cStat: trim((string) ($xml->xpath('//retDistDFeInt/cStat')[0] ?? '')),
         );
     }
 
@@ -47,15 +55,16 @@ class SefazRespostaDecoder
      * Resposta do modo consChNFe: no máximo um item — XML completo se já
      * manifestado/liberado, senão um resumo.
      *
-     * @throws SefazIndisponivelException se a SEFAZ não localizar nenhum documento pra chave
+     * @throws SefazDocumentoNaoLocalizadoException se a SEFAZ não localizar nenhum documento pra chave
+     *                                              (cStat 137 — comum quando a nota ainda não foi manifestada)
      */
     public function decodeConsultaChave(string $xmlResposta): SefazResumoDocumento|SefazDocumentoCompleto
     {
         $xml = $this->carregar($xmlResposta);
 
-        $docZips = $xml->xpath('loteDistDFeInt/docZip') ?: [];
+        $docZips = $xml->xpath('//retDistDFeInt/loteDistDFeInt/docZip') ?: [];
         if (empty($docZips)) {
-            throw new SefazIndisponivelException('Nenhum documento localizado na SEFAZ para a chave informada.');
+            throw new SefazDocumentoNaoLocalizadoException('Nenhum documento localizado na SEFAZ para a chave informada.');
         }
 
         $docZip = $docZips[0];

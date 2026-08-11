@@ -78,6 +78,29 @@ class SefazDistribuicaoServiceTest extends TestCase
         app(SefazDistribuicaoService::class)->buscarPorChave(self::CHAVE);
     }
 
+    public function test_buscar_por_chave_manifesta_quando_cstat_137_e_espera_liberar(): void
+    {
+        $fake = $this->fake()->comDocumentoAposManifestacao(self::CHAVE, $this->xmlExemplo());
+
+        $compra = app(SefazDistribuicaoService::class)->buscarPorChave(self::CHAVE);
+
+        $this->assertSame(self::CHAVE, $compra->compra_chave_nfe);
+        $this->assertSame([self::CHAVE], $fake->chavesManifestadas);
+    }
+
+    public function test_buscar_por_chave_com_cstat_137_permanente_lanca_excecao_apos_manifestar(): void
+    {
+        $fake = $this->fake()->comNaoLocalizado(self::CHAVE);
+
+        $this->expectException(SefazDocumentoAindaNaoDisponivelException::class);
+
+        try {
+            app(SefazDistribuicaoService::class)->buscarPorChave(self::CHAVE);
+        } finally {
+            $this->assertSame([self::CHAVE], $fake->chavesManifestadas);
+        }
+    }
+
     public function test_polling_importa_novo_e_pula_ja_existente_e_evento(): void
     {
         $chaveJaImportada = '35260114200166000166550010000000471123456780';

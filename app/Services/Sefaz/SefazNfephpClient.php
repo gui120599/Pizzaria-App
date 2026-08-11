@@ -116,6 +116,12 @@ class SefazNfephpClient implements SefazClient
      * Confere o cStat do evento de manifestação. Idempotente: cStat 573
      * (Duplicidade de Evento) significa que a ciência já tinha sido
      * registrada antes — não é erro.
+     *
+     * A resposta crua da lib é o envelope SOAP completo, então o retEvento
+     * fica vários níveis abaixo da raiz (dentro de retEnvEvento) — por isso
+     * o XPath usa "//" em vez de caminho relativo à raiz. Como fallback,
+     * confere também o cStat do lote (retEnvEvento), caso a SEFAZ rejeite
+     * o lote inteiro antes de processar o evento individual.
      */
     private function conferirManifestacao(string $resposta, string $chave): void
     {
@@ -124,8 +130,8 @@ class SefazNfephpClient implements SefazClient
         $xml = simplexml_load_string($semNamespace);
         libxml_clear_errors();
 
-        $cStat = trim((string) ($xml?->xpath('retEvento/infEvento/cStat')[0] ?? $xml?->cStat ?? ''));
-        $xMotivo = trim((string) ($xml?->xpath('retEvento/infEvento/xMotivo')[0] ?? $xml?->xMotivo ?? ''));
+        $cStat = trim((string) ($xml?->xpath('//retEvento/infEvento/cStat')[0] ?? $xml?->xpath('//retEnvEvento/cStat')[0] ?? ''));
+        $xMotivo = trim((string) ($xml?->xpath('//retEvento/infEvento/xMotivo')[0] ?? $xml?->xpath('//retEnvEvento/xMotivo')[0] ?? ''));
 
         $sucesso = in_array($cStat, ['135', '136', '155', '573'], true);
 

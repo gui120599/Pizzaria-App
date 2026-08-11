@@ -4,6 +4,7 @@ namespace App\Services\Sefaz;
 
 use App\Exceptions\NfeXmlInvalidoException;
 use App\Exceptions\SefazDocumentoAindaNaoDisponivelException;
+use App\Exceptions\SefazDocumentoNaoLocalizadoException;
 use App\Exceptions\SefazIndisponivelException;
 use App\Models\Compra;
 use App\Models\Empresa;
@@ -35,20 +36,22 @@ class SefazDistribuicaoService
      */
     public function buscarPorChave(string $chave, ?int $userId = null): Compra
     {
-        $resultado = $this->client->consultarPorChave($chave);
+        $resultado = $this->tentarConsultar($chave);
 
         if ($resultado instanceof SefazDocumentoCompleto) {
             return $this->importador->importar($resultado->xmlCompleto, $userId);
         }
 
-        // Só veio resumo: manifesta ciência e tenta de novo com retry curto
-        // (ação síncrona disparada por usuário — aceitável aguardar um pouco).
+        // Resumo sem XML completo, ou "nenhum documento localizado" (cStat
+        // 137 — típico de nota nunca manifestada por este CNPJ): manifesta
+        // ciência e tenta de novo com retry curto (ação síncrona disparada
+        // por usuário — aceitável aguardar um pouco).
         $this->client->manifestarCiencia($chave);
 
         foreach ($this->intervalosRetry() as $segundos) {
             sleep($segundos);
 
-            $resultado = $this->client->consultarPorChave($chave);
+            $resultado = $this->tentarConsultar($chave);
             if ($resultado instanceof SefazDocumentoCompleto) {
                 return $this->importador->importar($resultado->xmlCompleto, $userId);
             }
@@ -57,6 +60,16 @@ class SefazDistribuicaoService
         throw new SefazDocumentoAindaNaoDisponivelException(
             'Nota manifestada, mas a SEFAZ ainda não liberou o XML completo. Tente novamente em alguns minutos.',
         );
+    }
+
+    /** Trata "nenhum documento localizado" (cStat 137) como "ainda sem XML completo", não como erro fatal. */
+    private function tentarConsultar(string $chave): SefazResumoDocumento|SefazDocumentoCompleto|null
+    {
+        try {
+            return $this->client->consultarPorChave($chave);
+        } catch (SefazDocumentoNaoLocalizadoException) {
+            return null;
+        }
     }
 
     /** Polling agendado: reprocessa pendências, depois consulta novidades por NSU. */

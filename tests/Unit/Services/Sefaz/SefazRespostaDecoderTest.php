@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Services\Sefaz;
 
+use App\Exceptions\SefazDocumentoNaoLocalizadoException;
 use App\Exceptions\SefazIndisponivelException;
 use App\Services\Sefaz\Dto\SefazDocumentoCompleto;
 use App\Services\Sefaz\Dto\SefazResumoDocumento;
@@ -49,6 +50,14 @@ class SefazRespostaDecoderTest extends TestCase
           <nSeqEvento>1</nSeqEvento>
           <xEvento>Cancelamento</xEvento>
         </resEvento>
+        XML;
+    }
+
+    /** Envelope SOAP real (nfephp-org/sped-nfe devolve o corpo completo, não só o retDistDFeInt). */
+    private function envelopeSoap(string $retDistDFeInt): string
+    {
+        return <<<XML
+        <?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><nfeDistDFeInteresseResponse xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe"><nfeDistDFeInteresseResult>{$retDistDFeInt}</nfeDistDFeInteresseResult></nfeDistDFeInteresseResponse></soap:Body></soap:Envelope>
         XML;
     }
 
@@ -180,7 +189,64 @@ class SefazRespostaDecoderTest extends TestCase
         </retDistDFeInt>
         XML;
 
-        $this->expectException(SefazIndisponivelException::class);
-        (new SefazRespostaDecoder)->decodeConsultaChave($resposta);
+        try {
+            (new SefazRespostaDecoder)->decodeConsultaChave($resposta);
+            $this->fail('Esperava SefazDocumentoNaoLocalizadoException.');
+        } catch (SefazDocumentoNaoLocalizadoException $e) {
+            $this->assertInstanceOf(SefazIndisponivelException::class, $e);
+        }
+    }
+
+    /**
+     * Regressão: a resposta crua da lib nfephp-org/sped-nfe é o envelope SOAP
+     * completo, não o <retDistDFeInt> isolado — o retDistDFeInt fica vários
+     * níveis abaixo da raiz. Sem o XPath "//" isso silenciosamente "não acha
+     * nada" mesmo com documento presente.
+     */
+    public function test_decode_lote_funciona_dentro_do_envelope_soap_completo(): void
+    {
+        $retDistDFeInt = <<<XML
+        <retDistDFeInt versao="1.01" xmlns="http://www.portalfiscal.inf.br/nfe">
+          <tpAmb>1</tpAmb>
+          <verAplic>SP1.0</verAplic>
+          <cStat>138</cStat>
+          <xMotivo>Documento(s) localizado(s)</xMotivo>
+          <dhResp>2026-01-20T10:00:00-03:00</dhResp>
+          <ultNSU>000000000000010</ultNSU>
+          <maxNSU>000000000000020</maxNSU>
+          <loteDistDFeInt>
+            {$this->docZip($this->resNFe(self::CHAVE), 'resNFe_v1.01.xsd', 9)}
+          </loteDistDFeInt>
+        </retDistDFeInt>
+        XML;
+
+        $resultado = (new SefazRespostaDecoder)->decodeLote($this->envelopeSoap($retDistDFeInt));
+
+        $this->assertSame('138', $resultado->cStat);
+        $this->assertSame(10, $resultado->ultNsuRetornado);
+        $this->assertSame(20, $resultado->maxNsu);
+        $this->assertCount(1, $resultado->itens);
+        $this->assertSame(self::CHAVE, $resultado->itens[0]->chaveAcesso);
+    }
+
+    public function test_decode_consulta_chave_funciona_dentro_do_envelope_soap_completo(): void
+    {
+        $retDistDFeInt = <<<XML
+        <retDistDFeInt versao="1.01" xmlns="http://www.portalfiscal.inf.br/nfe">
+          <tpAmb>1</tpAmb>
+          <verAplic>SP1.0</verAplic>
+          <cStat>138</cStat>
+          <xMotivo>Documento localizado</xMotivo>
+          <dhResp>2026-01-20T10:00:00-03:00</dhResp>
+          <loteDistDFeInt>
+            {$this->docZip($this->procNFe(self::CHAVE), 'procNFe_v4.00.xsd', 10)}
+          </loteDistDFeInt>
+        </retDistDFeInt>
+        XML;
+
+        $resultado = (new SefazRespostaDecoder)->decodeConsultaChave($this->envelopeSoap($retDistDFeInt));
+
+        $this->assertInstanceOf(SefazDocumentoCompleto::class, $resultado);
+        $this->assertSame(self::CHAVE, $resultado->chaveAcesso);
     }
 }
