@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Produto;
 use App\Models\PromocaoRelampago;
 use App\Models\PromocaoRelampagoProduto;
+use App\Support\RateioCentavos;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -202,16 +203,16 @@ class PrecificadorService
                 : $this->resolver($produto, considerarRelampago: false);
 
             $valorUnitario[$idx] = $preco->valorUnitario;
-            $brutoUnitCents[$idx] = $this->fatiaCentavos($preco->valorUnitario, $numSabores, $idx);
+            $brutoUnitCents[$idx] = RateioCentavos::fatiaCentavos($preco->valorUnitario, $numSabores, $idx);
             $descontoUnitCents[$idx] = $promocao !== null
                 ? 0
-                : $this->fatiaCentavos($preco->descontoUnitario, $numSabores, $idx);
+                : RateioCentavos::fatiaCentavos($preco->descontoUnitario, $numSabores, $idx);
         }
 
         if ($promocao !== null) {
             $precoPizzaCents = (int) round($this->precoDoComboPromocional($promocao, $produtos) * 100);
             $descontoTotalCents = max(0, array_sum($brutoUnitCents) - $precoPizzaCents);
-            $descontoUnitCents = $this->ratearProporcional($descontoTotalCents, $brutoUnitCents);
+            $descontoUnitCents = RateioCentavos::ratearProporcional($descontoTotalCents, $brutoUnitCents);
         }
 
         // Quantidade: 1/N por sabor, em centésimos, somando exatamente $qtd.
@@ -254,54 +255,5 @@ class PrecificadorService
                 ->firstWhere('prp_produto_id', $produto->id)
                 ->prp_preco_promocional)
             ->max();
-    }
-
-    /** Fatia $valor em $n partes de centavos; o resto vai para as primeiras fatias. */
-    private function fatiaCentavos(float $valor, int $n, int $idx): int
-    {
-        $cents = (int) round($valor * 100);
-        $base = intdiv($cents, $n);
-        $resto = $cents % $n;
-
-        return $base + ($idx < $resto ? 1 : 0);
-    }
-
-    /**
-     * Distribui $totalCents proporcionalmente a $pesos, sem perder centavos:
-     * o resto do arredondamento vai para os maiores pesos.
-     *
-     * @param  array<int, int>  $pesos
-     * @return array<int, int>
-     */
-    private function ratearProporcional(int $totalCents, array $pesos): array
-    {
-        $somaPesos = array_sum($pesos);
-
-        if ($somaPesos <= 0 || $totalCents <= 0) {
-            return array_fill_keys(array_keys($pesos), 0);
-        }
-
-        $rateio = [];
-        $distribuido = 0;
-
-        foreach ($pesos as $idx => $peso) {
-            $rateio[$idx] = intdiv($totalCents * $peso, $somaPesos);
-            $distribuido += $rateio[$idx];
-        }
-
-        // Sobra de arredondamento: no máximo count($pesos) - 1 centavos.
-        $sobra = $totalCents - $distribuido;
-        $ordemPorPeso = array_keys($pesos);
-        usort($ordemPorPeso, fn (int $a, int $b) => $pesos[$b] <=> $pesos[$a]);
-
-        foreach ($ordemPorPeso as $idx) {
-            if ($sobra <= 0) {
-                break;
-            }
-            $rateio[$idx]++;
-            $sobra--;
-        }
-
-        return $rateio;
     }
 }
