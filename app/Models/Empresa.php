@@ -40,6 +40,8 @@ class Empresa extends Model
         'empresa_sefaz_ultimo_nsu',
         'empresa_sefaz_ultima_consulta_em',
         'empresa_sefaz_auto_importacao_ativa',
+        'empresa_sefaz_ultimo_nsu_revisao',
+        'empresa_sefaz_ultima_revisao_em',
     ];
 
     protected $casts = [
@@ -50,6 +52,7 @@ class Empresa extends Model
         'empresa_certificado_atualizado_em' => 'datetime',
         'empresa_sefaz_ultima_consulta_em' => 'datetime',
         'empresa_sefaz_auto_importacao_ativa' => 'boolean',
+        'empresa_sefaz_ultima_revisao_em' => 'datetime',
     ];
 
     /** Certificado A1 (.pfx) + senha já cadastrados, prontos pra autenticar na SEFAZ. */

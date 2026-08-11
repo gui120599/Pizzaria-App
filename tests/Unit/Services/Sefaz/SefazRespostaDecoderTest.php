@@ -103,8 +103,13 @@ class SefazRespostaDecoderTest extends TestCase
         $this->assertSame(self::CHAVE, $resultado->itens[0]->chaveAcesso);
         $this->assertFalse($resultado->itens[0]->isEvento);
         $this->assertSame('14200166000166', $resultado->itens[0]->cnpjEmitente);
+        $this->assertSame('Distribuidora Exemplo LTDA', $resultado->itens[0]->nomeEmitente);
+        $this->assertSame(95.0, $resultado->itens[0]->valor);
+        $this->assertTrue($resultado->itens[0]->dataEmissao?->isSameDay('2026-01-15'));
 
         $this->assertTrue($resultado->itens[1]->isEvento);
+        $this->assertNull($resultado->itens[1]->nomeEmitente);
+        $this->assertNull($resultado->itens[1]->valor);
     }
 
     public function test_decode_lote_vazio(): void

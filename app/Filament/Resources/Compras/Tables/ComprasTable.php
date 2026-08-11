@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Compras\Tables;
 
 use App\Enums\CompraStatusEnum;
 use App\Filament\Resources\Compras\Support\ConfirmarCompraAction;
+use App\Filament\Resources\Compras\Support\ImprimirDanfeAction;
 use App\Models\Compra;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -76,6 +77,7 @@ class ComprasTable
             ])
             ->recordActions([
                 ConfirmarCompraAction::make()->label('Confirmar'),
+                ImprimirDanfeAction::make(),
                 EditAction::make()
                     ->visible(fn (Compra $record): bool => $record->isRascunho()),
                 DeleteAction::make()

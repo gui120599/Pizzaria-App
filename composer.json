@@ -17,6 +17,7 @@
         "laravel/tinker": "^2.8",
         "leandrocfe/filament-ptbr-form-fields": "^4.0",
         "nfe/nfe": "^2.5",
+        "nfephp-org/sped-da": "^1.1",
         "nfephp-org/sped-nfe": "^5.2",
         "spatie/laravel-permission": "^6.3"
     },

@@ -7,6 +7,7 @@ use App\Exceptions\SefazIndisponivelException;
 use App\Services\Sefaz\Dto\SefazDocumentoCompleto;
 use App\Services\Sefaz\Dto\SefazLoteDistribuicao;
 use App\Services\Sefaz\Dto\SefazResumoDocumento;
+use Carbon\Carbon;
 use SimpleXMLElement;
 
 /**
@@ -85,13 +86,29 @@ class SefazRespostaDecoder
 
     private function paraResumo(string $conteudo, string $schema, int $nsu): ?SefazResumoDocumento
     {
-        if (str_starts_with($schema, 'resNFe') || str_starts_with($schema, 'resEvento')) {
+        if (str_starts_with($schema, 'resNFe')) {
+            $doc = $this->carregar($conteudo);
+            $vNF = $this->textoOuNull($doc->vNF);
+            $dhEmi = $this->textoOuNull($doc->dhEmi);
+
+            return new SefazResumoDocumento(
+                nsu: $nsu,
+                chaveAcesso: trim((string) $doc->chNFe),
+                isEvento: false,
+                cnpjEmitente: $this->textoOuNull($doc->CNPJ) ?? $this->textoOuNull($doc->CPF),
+                nomeEmitente: $this->textoOuNull($doc->xNome),
+                valor: $vNF !== null ? (float) $vNF : null,
+                dataEmissao: $dhEmi !== null ? Carbon::parse($dhEmi) : null,
+            );
+        }
+
+        if (str_starts_with($schema, 'resEvento')) {
             $doc = $this->carregar($conteudo);
 
             return new SefazResumoDocumento(
                 nsu: $nsu,
                 chaveAcesso: trim((string) $doc->chNFe),
-                isEvento: str_starts_with($schema, 'resEvento'),
+                isEvento: true,
                 cnpjEmitente: $this->textoOuNull($doc->CNPJ) ?? $this->textoOuNull($doc->CPF),
             );
         }

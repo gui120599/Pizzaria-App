@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Compras\Pages;
 
 use App\Filament\Resources\Compras\CompraResource;
 use App\Filament\Resources\Compras\Support\ConfirmarCompraAction;
+use App\Filament\Resources\Compras\Support\ImprimirDanfeAction;
 use App\Models\Compra;
 use App\Services\CompraService;
 use Filament\Actions\DeleteAction;
@@ -20,6 +21,7 @@ class EditCompra extends EditRecord
                 ->after(function (): void {
                     $this->redirect(static::getResource()::getUrl('index'));
                 }),
+            ImprimirDanfeAction::make(),
             DeleteAction::make()
                 ->visible(fn (): bool => $this->record instanceof Compra && $this->record->isRascunho()),
         ];
