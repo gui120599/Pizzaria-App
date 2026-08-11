@@ -623,6 +623,26 @@
                                 </div>
                             </div>
                             <div class="border-t border-gray-100 pt-3">
+                                <x-input-label value="Desconto total (%)" />
+                                <div id="descontoPercentualFormRow" class="flex items-center gap-2 mt-1">
+                                    <input type="number" id="venda_desconto_percentual_input" min="0.01" max="100" step="0.01"
+                                        class="w-20 rounded-lg border-gray-300 text-sm" placeholder="15">
+                                    <button type="button" id="btnAplicarDescontoPercentual"
+                                        class="flex-1 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed">
+                                        Aplicar desconto %
+                                    </button>
+                                </div>
+                                <div id="descontoPercentualAplicadoLabel" class="hidden flex items-center justify-between gap-2 mt-1">
+                                    <p class="text-xs text-teal-700 font-medium">
+                                        <i class='bx bx-check-circle'></i> Desconto de <span id="descontoPercentualValor"></span>% aplicado
+                                    </p>
+                                    <button type="button" id="btnDesfazerDescontoPercentual"
+                                        class="py-1 px-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition-colors shrink-0">
+                                        Desfazer
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="border-t border-gray-100 pt-3">
                                 <x-input-label for="venda_valor_total" value="Total" />
                                 <x-money-input id="venda_valor_total" name="venda_valor_total" readonly
                                     class="money mt-1 w-full text-xl font-bold text-teal-700" />
@@ -1234,16 +1254,19 @@
                             const item_id   = $(this).data('item_id');
                             item_desconto   = parseFloat($(this).val().replace(',', '.'));
                             item_desconto   = isNaN(item_desconto) ? 0 : parseFloat(item_desconto.toFixed(2));
-                            const valorUnit = parseFloat($(this).data('produto_preco_venda'));
-                            const qtd       = parseFloat($("#item_venda_quantidade_" + item_id).text());
-                            const novo      = (valorUnit * qtd) - item_desconto;
+                            const valorUnit  = parseFloat($(this).data('produto_preco_venda'));
+                            const qtd        = parseFloat($("#item_venda_quantidade_" + item_id).text());
+                            const adicionais = parseFloat($("#item_venda_adicionais_" + item_id).val()) || 0;
+                            const novo       = (valorUnit * qtd) + adicionais - item_desconto;
                             $("#item_venda_valor_" + item_id).val(novo.toFixed(2));
                             $.ajax({
                                 type: "POST", url: "{{ route('item_venda.update_desconto') }}",
                                 data: { item_id, venda_id, item_desconto, '_token': '{{ csrf_token() }}' },
                                 dataType: "json",
-                                success: function () {
-                                    $("#item_valor_view_" + item_id).html(novo.toFixed(2).replace('.', ','));
+                                success: function (response) {
+                                    const valorReal = parseFloat(response.item_venda_valor);
+                                    $("#item_venda_valor_" + item_id).val(valorReal.toFixed(2));
+                                    $("#item_valor_view_" + item_id).html(valorReal.toFixed(2).replace('.', ','));
                                     listarVenda(venda_id);
                                 },
                                 error: function () { showAvisoVenda('Erro ao atualizar desconto.'); }
@@ -1288,12 +1311,74 @@
                             $("#venda_valor_pago").val(v.venda_valor_pago);
                             $("#venda_valor_troco").val(v.venda_valor_troco);
                             atualizarRestantePagamento();
+                            atualizarEstadoDescontoPercentual(v.venda_desconto_percentual);
                         }
                         if (typeof onDone === 'function') onDone();
                     },
                     error: function () { showAvisoVenda('Erro ao carregar totais!'); }
                 });
             }
+
+            // Alterna entre o formulário de aplicar % e o label + botão de
+            // desfazer, de acordo com o que a venda já tem aplicado.
+            function atualizarEstadoDescontoPercentual(percentual) {
+                const aplicado = percentual !== null && percentual !== undefined;
+                $("#descontoPercentualFormRow").toggleClass('hidden', aplicado);
+                $("#descontoPercentualAplicadoLabel").toggleClass('hidden', !aplicado).toggleClass('flex', aplicado);
+                if (aplicado) {
+                    $("#descontoPercentualValor").text(parseFloat(percentual).toString().replace('.', ','));
+                } else {
+                    $("#venda_desconto_percentual_input").val('');
+                }
+            }
+
+            $("#btnAplicarDescontoPercentual").click(function () {
+                const venda_id = vendaId();
+                if (!venda_id) { showAvisoVenda('Inicie a venda antes de aplicar o desconto.'); return; }
+
+                const percentual = parseFloat(($("#venda_desconto_percentual_input").val() || '').replace(',', '.'));
+                if (!percentual || percentual <= 0 || percentual > 100) {
+                    showAvisoVenda('Informe um percentual de desconto válido (entre 0 e 100).');
+                    return;
+                }
+                if (!confirm(`Aplicar ${percentual}% de desconto em todos os itens desta venda?`)) return;
+
+                $(this).prop('disabled', true);
+                $.ajax({
+                    type: "POST", url: "{{ route('item_venda.aplicar_desconto_percentual') }}",
+                    data: { venda_id, desconto_percentual: percentual, '_token': '{{ csrf_token() }}' },
+                    dataType: "json",
+                    success: function () {
+                        showAvisoVenda('Desconto percentual aplicado!', 'success');
+                        ListaItensVenda(venda_id);
+                    },
+                    error: function (xhr) {
+                        $("#btnAplicarDescontoPercentual").prop('disabled', false);
+                        showAvisoVenda((xhr.responseJSON && xhr.responseJSON.error) || 'Erro ao aplicar desconto percentual.');
+                    }
+                });
+            });
+
+            $("#btnDesfazerDescontoPercentual").click(function () {
+                const venda_id = vendaId();
+                if (!venda_id) return;
+                if (!confirm('Desfazer o desconto percentual aplicado nesta venda? O desconto que os itens já tinham antes será mantido.')) return;
+
+                $(this).prop('disabled', true);
+                $.ajax({
+                    type: "POST", url: "{{ route('item_venda.desfazer_desconto_percentual') }}",
+                    data: { venda_id, '_token': '{{ csrf_token() }}' },
+                    dataType: "json",
+                    success: function () {
+                        showAvisoVenda('Desconto percentual desfeito!', 'success');
+                        ListaItensVenda(venda_id);
+                    },
+                    error: function (xhr) {
+                        $("#btnDesfazerDescontoPercentual").prop('disabled', false);
+                        showAvisoVenda((xhr.responseJSON && xhr.responseJSON.error) || 'Erro ao desfazer desconto percentual.');
+                    }
+                });
+            });
 
             function AtualizaValorFrete(valor, venda_id) {
                 if (!valor || !valor.trim()) valor = "0.00";

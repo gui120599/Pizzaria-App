@@ -295,6 +295,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/ItemVenda/AddProduto', [ItensVendaController::class, 'adicionarProduto'])->name('item_venda.add_produto')->middleware('permission:operar:venda');
     Route::post('/ItemVenda/RemoveProduto', [ItensVendaController::class, 'removerProduto'])->name('item_venda.remove_produto')->middleware('permission:operar:venda');
     Route::post('/ItemVenda/AtualziarDesconto', [ItensVendaController::class, 'atualizarDescontoItemVenda'])->name('item_venda.update_desconto')->middleware('permission:operar:venda');
+    Route::post('/ItemVenda/AplicarDescontoPercentual', [ItensVendaController::class, 'aplicarDescontoPercentualVenda'])->name('item_venda.aplicar_desconto_percentual')->middleware('permission:operar:venda');
+    Route::post('/ItemVenda/DesfazerDescontoPercentual', [ItensVendaController::class, 'desfazerDescontoPercentualVenda'])->name('item_venda.desfazer_desconto_percentual')->middleware('permission:operar:venda');
     Route::post('/ItemVenda/AtualizarQtdValor', [ItensVendaController::class, 'atualizarQtdValorItemVenda'])->name('item_venda.update_qtd_valor')->middleware('permission:operar:venda');
 
     Route::post('/PagamentoVenda', [PagamentosVendaController::class, 'store'])->name('pagamento_venda.store')->middleware('permission:operar:venda');

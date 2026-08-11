@@ -14,7 +14,10 @@ use App\Models\SessaoMesa;
 use App\Models\Venda;
 use App\Services\EstoqueService;
 use App\Services\VendaService;
+use App\Support\RateioCentavos;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 class ItensVendaController extends Controller
 {
@@ -28,7 +31,7 @@ class ItensVendaController extends Controller
     /**
      * Retorna os itens de múltiplas sessões de mesa, unificando produtos repetidos.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     /*public function adicionarItensSessaoMesa(Request $request)
     {
@@ -639,7 +642,7 @@ class ItensVendaController extends Controller
         // Recebe os IDs dos pedidos e o ID da venda do request
         $item_id = $request->input('item_id');
         $venda_id = $request->input('venda_id');
-        $item_venda_desconto = $request->input('item_desconto');
+        $item_venda_desconto = (float) $request->input('item_desconto');
 
         // Obter a venda
         $venda = Venda::find($venda_id);
@@ -653,26 +656,158 @@ class ItensVendaController extends Controller
             return response()->json(['error' => 'Item não encontrado'], 200);
         }
 
+        $this->aplicarDescontoNoItem($itemVenda, $item_venda_desconto);
+
+        // Atualizar valores da venda
+        $this->vendaService->atualizarValoresdaVenda($request->input('venda_id'));
+
+        return response()->json([
+            'success' => 'Valor de desconto atualizado!',
+            'item_venda_valor' => $itemVenda->item_venda_valor,
+        ]);
+    }
+
+    /**
+     * Aplica o novo valor de desconto (R$) a um item de venda, recalculando
+     * a base de cálculo, o valor líquido e os tributos proporcionalmente.
+     * Não persiste os totais da venda — quem chama deve rodar
+     * VendaService::atualizarValoresdaVenda() em seguida.
+     */
+    private function aplicarDescontoNoItem(ItensVenda $itemVenda, float $novoDesconto): void
+    {
         $precoBaseDesconto = ($itemVenda->produto->produto_preco_promocional > 0 && $itemVenda->produto->produto_preco_promocional > $itemVenda->produto->produto_preco_venda)
             ? (float) $itemVenda->produto->produto_preco_promocional
             : (float) $itemVenda->produto->produto_preco_venda;
 
-        // Atualizar os valores do item com o novo desconto (adicional entra
-        // cheio, pela própria quantidade — não escala com a do produto)
+        // Adicional entra cheio, pela própria quantidade — não escala com a
+        // quantidade do produto.
         $adicionaisDesconto = (float) $itemVenda->item_venda_valor_adicionais;
-        $itemVenda->item_venda_valor_base_calculo = (($precoBaseDesconto * $itemVenda->item_venda_quantidade) + $adicionaisDesconto - $item_venda_desconto);
-        $itemVenda->item_venda_desconto = $item_venda_desconto;
+        $itemVenda->item_venda_valor_base_calculo = (($precoBaseDesconto * $itemVenda->item_venda_quantidade) + $adicionaisDesconto - $novoDesconto);
+        $itemVenda->item_venda_desconto = $novoDesconto;
         $itemVenda->item_venda_valor = $itemVenda->item_venda_valor_base_calculo;
         $itemVenda->item_venda_valor_icms = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_icms) / 100;
         $itemVenda->item_venda_valor_pis = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_pis) / 100;
         $itemVenda->item_venda_valor_cofins = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_cofins) / 100;
 
         $itemVenda->save();
+    }
 
-        // Atualizar valores da venda
-        $this->vendaService->atualizarValoresdaVenda($request->input('venda_id'));
+    /**
+     * Aplica um desconto percentual sobre o valor bruto de todos os itens
+     * ativos da venda, distribuindo o total proporcionalmente entre eles
+     * (sem perder centavos) e somando ao desconto que cada item já tiver.
+     * Só pode ser aplicado uma vez por venda — para reaplicar é preciso
+     * primeiro remover manualmente o desconto já lançado nos itens.
+     */
+    public function aplicarDescontoPercentualVenda(Request $request)
+    {
+        $venda_id = $request->input('venda_id');
+        $percentual = (float) $request->input('desconto_percentual');
 
-        return response()->json(['success' => 'Valor de desconto atualizado!']);
+        if ($percentual <= 0 || $percentual > 100) {
+            return response()->json(['error' => 'Informe um percentual de desconto válido (entre 0 e 100).'], 422);
+        }
+
+        $venda = Venda::find($venda_id);
+        if (! $venda) {
+            return response()->json(['error' => 'Venda não encontrada'], 404);
+        }
+
+        if (! is_null($venda->venda_desconto_percentual)) {
+            return response()->json(['error' => 'Desconto percentual já aplicado nesta venda.'], 422);
+        }
+
+        return DB::transaction(function () use ($venda, $percentual) {
+            $itens = ItensVenda::with('produto')
+                ->where('item_venda_venda_id', $venda->id)
+                ->where('item_venda_status', 'INSERIDO')
+                ->lockForUpdate()
+                ->get();
+
+            if ($itens->isEmpty()) {
+                return response()->json(['error' => 'Não há itens lançados nesta venda.'], 422);
+            }
+
+            $pesosCents = [];
+            foreach ($itens as $item) {
+                $precoBase = ($item->produto->produto_preco_promocional > 0 && $item->produto->produto_preco_promocional > $item->produto->produto_preco_venda)
+                    ? (float) $item->produto->produto_preco_promocional
+                    : (float) $item->produto->produto_preco_venda;
+
+                $valorBruto = ($precoBase * $item->item_venda_quantidade) + (float) $item->item_venda_valor_adicionais;
+                $pesosCents[$item->id] = (int) round($valorBruto * 100);
+            }
+
+            $totalCents = array_sum($pesosCents);
+            if ($totalCents <= 0) {
+                return response()->json(['error' => 'Não é possível calcular o desconto para os itens desta venda.'], 422);
+            }
+
+            $descontoTotalCents = (int) round($totalCents * $percentual / 100);
+            $rateio = RateioCentavos::ratearProporcional($descontoTotalCents, $pesosCents);
+
+            foreach ($itens as $item) {
+                $descontoAdicional = ($rateio[$item->id] ?? 0) / 100;
+                $novoDesconto = (float) $item->item_venda_desconto + $descontoAdicional;
+                // Snapshot do quanto esta aplicação somou neste item — permite
+                // desfazer exatamente esse valor depois, sem afetar qualquer
+                // desconto que o item já tivesse (pedido, promoção, manual).
+                $item->item_venda_desconto_percentual_aplicado = $descontoAdicional;
+                $this->aplicarDescontoNoItem($item, $novoDesconto);
+            }
+
+            $venda->venda_desconto_percentual = $percentual;
+            $venda->save();
+
+            $this->vendaService->atualizarValoresdaVenda($venda->id);
+
+            return response()->json(['success' => 'Desconto percentual aplicado!']);
+        });
+    }
+
+    /**
+     * Desfaz a última aplicação de desconto percentual da venda: subtrai de
+     * cada item exatamente o valor que aquela aplicação somou (preservando
+     * qualquer desconto anterior, seja do pedido ou manual) e libera a trava
+     * para uma nova aplicação percentual.
+     */
+    public function desfazerDescontoPercentualVenda(Request $request)
+    {
+        $venda_id = $request->input('venda_id');
+
+        $venda = Venda::find($venda_id);
+        if (! $venda) {
+            return response()->json(['error' => 'Venda não encontrada'], 404);
+        }
+
+        if (is_null($venda->venda_desconto_percentual)) {
+            return response()->json(['error' => 'Não há desconto percentual aplicado nesta venda.'], 422);
+        }
+
+        return DB::transaction(function () use ($venda) {
+            $itens = ItensVenda::with('produto')
+                ->where('item_venda_venda_id', $venda->id)
+                ->where('item_venda_status', 'INSERIDO')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($itens as $item) {
+                if ((float) $item->item_venda_desconto_percentual_aplicado <= 0) {
+                    continue;
+                }
+
+                $novoDesconto = max(0, (float) $item->item_venda_desconto - (float) $item->item_venda_desconto_percentual_aplicado);
+                $item->item_venda_desconto_percentual_aplicado = 0;
+                $this->aplicarDescontoNoItem($item, $novoDesconto);
+            }
+
+            $venda->venda_desconto_percentual = null;
+            $venda->save();
+
+            $this->vendaService->atualizarValoresdaVenda($venda->id);
+
+            return response()->json(['success' => 'Desconto percentual desfeito!']);
+        });
     }
 
     /**
