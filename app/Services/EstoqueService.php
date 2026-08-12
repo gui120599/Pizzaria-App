@@ -62,7 +62,7 @@ class EstoqueService
                     'lote_validade' => $opts['validade'] ?? null,
                     'lote_qtd_inicial' => $quantidade,
                     'lote_qtd_atual' => $quantidade,
-                    'lote_custo_unitario' => round($custoUnitario, 4),
+                    'lote_custo_unitario' => round($custoUnitario, 8),
                     'lote_data_entrada' => $opts['data'] ?? now(),
                     'lote_status' => 'ativo',
                 ]);
@@ -70,7 +70,7 @@ class EstoqueService
 
             $produto->update([
                 'produto_saldo_estoque' => round($novoSaldo, 3),
-                'produto_custo_medio' => round($novoMedio, 4),
+                'produto_custo_medio' => round($novoMedio, 8),
             ]);
 
             return $this->criarMovimentacao(
@@ -294,7 +294,7 @@ class EstoqueService
             return $this->registrarEntrada(
                 $produto,
                 $quantidade,
-                round($produto->custoUnitario(), 4),
+                round($produto->custoUnitario(), 8),
                 MovimentacaoOrigemEnum::PRODUCAO,
                 $opts,
             );
@@ -382,7 +382,7 @@ class EstoqueService
         $movimentacao = new MovimentacaoProduto([
             'mov_produto_id' => $produto->id,
             'mov_quantidade' => round($quantidade, 3),
-            'mov_custo_unitario' => round($custoUnitario, 4),
+            'mov_custo_unitario' => round($custoUnitario, 8),
             'mov_custo_total' => round($quantidade * $custoUnitario, 2),
             'mov_tipo' => $tipo,
             'mov_origem' => $origem,

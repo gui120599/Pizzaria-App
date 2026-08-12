@@ -22,7 +22,7 @@ class ItensVendaObserver
         $produto = $item->produto;
 
         if ($produto) {
-            $item->item_venda_custo_unitario = round($produto->custoUnitario(), 4);
+            $item->item_venda_custo_unitario = round($produto->custoUnitario(), 8);
         }
     }
 }

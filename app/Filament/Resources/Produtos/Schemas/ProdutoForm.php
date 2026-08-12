@@ -200,32 +200,34 @@ class ProdutoForm
     /** Custos, margem e preço de venda. */
     private static function abaPrecificacao(): Tab
     {
-        // O componente Money mantém o state ao vivo já mascarado em pt-BR (ex.: "0,80"),
-        // só convertendo para número no dehydrate (submit). Um (float) direto nessa string
-        // para no separador decimal e zera qualquer custo menor que R$ 1 (ex.: "0,80" -> 0.0).
-        $parseMoeda = fn ($valor): float => ((int) str_replace([',', '.'], '', (string) $valor)) / 100;
+        // produto_preco_custo é um TextInput numérico puro (ponto ou vírgula = separador
+        // decimal, sem máscara). produto_preco_venda continua Money: o state ao vivo vem
+        // mascarado em pt-BR (ex.: "0,80"), só convertendo para número no dehydrate.
+        $parseCusto = fn ($valor): float => (float) str_replace(',', '.', (string) ($valor ?? 0));
+        $parseVendaMoney = fn ($valor): float => ((int) str_replace([',', '.'], '', (string) $valor)) / 100;
 
-        // $set() não passa pelo formatStateUsing do Money, então quem escreve no campo
-        // precisa formatar no mesmo padrão pt-BR que ele exibiria sozinho (ex.: "1,20").
+        // $set() não passa pelo formatStateUsing do Money, então quem escreve em
+        // produto_preco_venda precisa formatar no mesmo padrão pt-BR que ele exibiria
+        // sozinho (ex.: "1,20").
         $formatMoeda = fn (float $valor): string => number_format($valor, 2, ',', '.');
 
         // Modo automático: custo + margem definem o preço de venda.
-        $recalcularVenda = function ($state, Set $set, Get $get) use ($parseMoeda, $formatMoeda): void {
+        $recalcularVenda = function ($state, Set $set, Get $get) use ($parseCusto, $formatMoeda): void {
             if ($get('produto_venda_manual')) {
                 return;
             }
-            $custo = $parseMoeda($get('produto_preco_custo'));
+            $custo = $parseCusto($get('produto_preco_custo'));
             $margem = (float) $get('produto_valor_percentual_venda');
             $set('produto_preco_venda', $formatMoeda(round($custo * (1 + ($margem / 100)), 2)));
         };
 
         // Modo manual: custo + preço de venda digitado definem a margem.
-        $recalcularMargem = function ($state, Set $set, Get $get) use ($parseMoeda): void {
+        $recalcularMargem = function ($state, Set $set, Get $get) use ($parseCusto, $parseVendaMoney): void {
             if (! $get('produto_venda_manual')) {
                 return;
             }
-            $custo = $parseMoeda($get('produto_preco_custo'));
-            $venda = $parseMoeda($get('produto_preco_venda'));
+            $custo = $parseCusto($get('produto_preco_custo'));
+            $venda = $parseVendaMoney($get('produto_preco_venda'));
             $set('produto_valor_percentual_venda', $custo > 0 ? round((($venda / $custo) - 1) * 100, 2) : 0);
         };
 
@@ -247,11 +249,16 @@ class ProdutoForm
                         $state ? $recalcularMargem(null, $set, $get) : $recalcularVenda(null, $set, $get);
                     }),
 
-                Money::make('produto_preco_custo')
+                TextInput::make('produto_preco_custo')
                     ->label('Preço de Custo')
+                    ->numeric()
+                    ->step(0.00000001)
+                    ->minValue(0)
+                    ->prefix('R$')
                     ->required()
                     ->live(true)
                     ->columnSpan(1)
+                    ->helperText('Aceita até 8 casas decimais (ex.: 0,00950475).')
                     ->afterStateUpdated(function ($state, Set $set, Get $get) use ($recalcularVenda, $recalcularMargem): void {
                         $recalcularVenda($state, $set, $get);
                         $recalcularMargem($state, $set, $get);

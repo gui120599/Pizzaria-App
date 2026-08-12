@@ -13,6 +13,7 @@ use App\Models\PlanoDespesa;
 use App\Models\Produto;
 use App\Services\BalancoEstoqueService;
 use App\Services\EstoqueService;
+use App\Support\CustoUnitarioFormatter;
 use Filament\Actions\Action as ActionsAction;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -134,7 +135,7 @@ class ProdutosTable
 
                 TextColumn::make('produto_preco_custo')
                     ->label('Custo compra')
-                    ->money('BRL')
+                    ->formatStateUsing(fn ($state): string => CustoUnitarioFormatter::formatar((float) $state))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 

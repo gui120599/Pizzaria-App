@@ -48,6 +48,54 @@ class FichaTecnicaTest extends TestCase
         $this->assertEqualsWithDelta(5.0, $produto->custoUnitario(), 0.0001);
     }
 
+    public function test_custo_medio_zero_cai_para_preco_de_custo_manual(): void
+    {
+        // Insumo "por consumo" (ex.: água/gás), nunca teve entrada de estoque
+        // registrada — produto_custo_medio fica em 0 para sempre.
+        $agua = Produto::create([
+            'produto_descricao' => 'Água',
+            'produto_categoria_id' => $this->categoriaId,
+            'produto_tipo' => 'insumo',
+            'produto_custo_medio' => 0,
+            'produto_preco_custo' => 0.00950475,
+            'produto_unidade_estoque' => 'L',
+        ]);
+
+        $this->assertEqualsWithDelta(0.00950475, $agua->custoUnitario(), 0.000000001);
+    }
+
+    public function test_custo_medio_zero_e_preco_custo_nulo_retorna_zero(): void
+    {
+        $agua = Produto::create([
+            'produto_descricao' => 'Água',
+            'produto_categoria_id' => $this->categoriaId,
+            'produto_tipo' => 'insumo',
+            'produto_custo_medio' => 0,
+            'produto_preco_custo' => null,
+            'produto_unidade_estoque' => 'L',
+        ]);
+
+        $this->assertSame(0.0, $agua->custoUnitario());
+    }
+
+    public function test_ficha_tecnica_usa_preco_custo_manual_de_insumo_sem_entrada_de_estoque(): void
+    {
+        // Água a R$ 0,00950475/L, sem nenhuma compra registrada (custo médio 0).
+        $agua = Produto::create([
+            'produto_descricao' => 'Água',
+            'produto_categoria_id' => $this->categoriaId,
+            'produto_tipo' => 'insumo',
+            'produto_custo_medio' => 0,
+            'produto_preco_custo' => 0.00950475,
+            'produto_unidade_estoque' => 'L',
+        ]);
+
+        $pizza = $this->produzido('Pizza', rendimento: 1);
+        FichaTecnicaItem::create(['fti_produto_id' => $pizza->id, 'fti_insumo_id' => $agua->id, 'fti_quantidade' => 0.133, 'fti_percentual_perda' => 0]);
+
+        $this->assertEqualsWithDelta(0.00950475 * 0.133, $pizza->custoUnitario(), 0.000000001);
+    }
+
     public function test_custo_da_ficha_soma_insumos_com_perda_e_rendimento(): void
     {
         $farinha = $this->insumo('Farinha', 5.00);

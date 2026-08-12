@@ -38,7 +38,7 @@ class ItensVenda extends Model
         'item_venda_quantidade' => 'double',
         'item_venda_quantidade_tributavel' => 'double',
         'item_venda_valor_unitario' => 'decimal:2',
-        'item_venda_custo_unitario' => 'decimal:4',
+        'item_venda_custo_unitario' => 'decimal:8',
         'item_venda_valor_adicionais' => 'decimal:2',
         'item_venda_valor_unitario_tributavel' => 'decimal:2',
         'item_venda_desconto' => 'decimal:2',

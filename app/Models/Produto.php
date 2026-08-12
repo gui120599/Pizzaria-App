@@ -78,7 +78,8 @@ class Produto extends Model
         'produto_venda_manual' => 'boolean',
         'produto_lista_estoque_zerado' => 'boolean',
         'produto_modo_controle_estoque' => \App\Enums\EstoqueModoControleEnum::class,
-        'produto_custo_medio' => 'decimal:4',
+        'produto_preco_custo' => 'decimal:8',
+        'produto_custo_medio' => 'decimal:8',
         'produto_saldo_estoque' => 'decimal:3',
         'produto_ficha_rendimento' => 'decimal:3',
     ];
@@ -326,7 +327,7 @@ class Produto extends Model
     public function custoUnitario(array $visitados = []): float
     {
         if (in_array($this->id, $visitados, true)) {
-            return (float) $this->produto_custo_medio;
+            return $this->custoBase();
         }
         $visitados[] = $this->id;
 
@@ -335,13 +336,27 @@ class Produto extends Model
             : $this->fichaItens()->with('insumo')->get();
 
         if ($itens->isEmpty()) {
-            return (float) $this->produto_custo_medio;
+            return $this->custoBase();
         }
 
         $custoTotal = $itens->sum(fn (FichaTecnicaItem $item) => $item->custo($visitados));
         $rendimento = (float) $this->produto_ficha_rendimento ?: 1;
 
         return $custoTotal / $rendimento;
+    }
+
+    /**
+     * Custo médio (WAC); quando ainda não há entrada de estoque registrada
+     * (WAC = 0 — ex.: insumo "por consumo" como água/gás, pago por fatura,
+     * nunca passa por EstoqueService::registrarEntrada()), cai para o preço
+     * de custo cadastrado manualmente. Mesmo critério do backfill em
+     * 2026_06_22_120006_backfill_estoque_data.php, agora regra viva.
+     */
+    private function custoBase(): float
+    {
+        $medio = (float) $this->produto_custo_medio;
+
+        return $medio > 0 ? $medio : (float) ($this->produto_preco_custo ?? 0);
     }
 
     /** Custo total da ficha (para o rendimento configurado). */

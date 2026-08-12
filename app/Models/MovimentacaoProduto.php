@@ -40,7 +40,7 @@ class MovimentacaoProduto extends Model
             'mov_tipo' => MovimentacaoTipoEnum::class,
             'mov_origem' => MovimentacaoOrigemEnum::class,
             'mov_quantidade' => 'decimal:3',
-            'mov_custo_unitario' => 'decimal:4',
+            'mov_custo_unitario' => 'decimal:8',
             'mov_custo_total' => 'decimal:2',
             'mov_saldo_apos' => 'decimal:3',
             'mov_data' => 'datetime',

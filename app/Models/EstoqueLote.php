@@ -35,7 +35,7 @@ class EstoqueLote extends Model
             'lote_data_entrada' => 'datetime',
             'lote_qtd_inicial' => 'decimal:3',
             'lote_qtd_atual' => 'decimal:3',
-            'lote_custo_unitario' => 'decimal:4',
+            'lote_custo_unitario' => 'decimal:8',
         ];
     }
 
