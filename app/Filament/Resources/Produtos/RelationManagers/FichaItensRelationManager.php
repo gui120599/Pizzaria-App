@@ -15,10 +15,13 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 
 class FichaItensRelationManager extends RelationManager
 {
@@ -122,16 +125,82 @@ class FichaItensRelationManager extends RelationManager
             ]);
     }
 
+    /**
+     * Próximo lote a ser debitado deste insumo na baixa de estoque (FEFO —
+     * vence primeiro, sai primeiro), pra quem está no preparo saber qual
+     * lote físico pegar. Null quando o insumo não rastreia lote/marca.
+     */
+    private static function proximoLoteLabel(?Produto $insumo): ?string
+    {
+        if (! $insumo || ! $insumo->rastreiaLote()) {
+            return null;
+        }
+
+        $lote = $insumo->lotes()->ativos()->fefo()->with('marca')->first();
+
+        if (! $lote) {
+            return 'Sem lote ativo';
+        }
+
+        $identificacao = implode(' — ', array_filter([
+            $lote->lote_codigo,
+            $lote->marca?->marca_nome,
+        ])) ?: "Lote #{$lote->id}";
+
+        if ($lote->lote_validade) {
+            $identificacao .= ' (val. '.$lote->lote_validade->format('d/m/Y').')';
+        }
+
+        return $identificacao;
+    }
+
+    /** Descrição acima do nome do insumo: categoria + marcador de semi-acabado. */
+    private static function categoriaDescricao(?Produto $insumo): ?string
+    {
+        if (! $insumo) {
+            return null;
+        }
+
+        $partes = array_filter([
+            $insumo->categoria?->categoria_nome,
+            $insumo->temFichaTecnica() ? 'Semi-acabado' : null,
+        ]);
+
+        return $partes === [] ? null : implode(' · ', $partes);
+    }
+
+    /** Descrição abaixo do nome do insumo: marca/lote/validade a debitar. */
+    private static function loteDescricao(?Produto $insumo): string|Htmlable|null
+    {
+        $lote = self::proximoLoteLabel($insumo);
+
+        if (! $lote) {
+            return null;
+        }
+
+        return $lote === 'Sem lote ativo'
+            ? new HtmlString('<span class="text-danger-600 dark:text-danger-400">'.e($lote).'</span>')
+            : $lote;
+    }
+
     public function table(Table $table): Table
     {
         return $table
             ->recordTitleAttribute('insumo.produto_descricao')
-            ->modifyQueryUsing(fn (Builder $query) => $query->with('insumo'))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['insumo.categoria']))
             ->columns([
+                ImageColumn::make('insumo.produto_foto')
+                    ->label('')
+                    ->disk('public')
+                    ->circular()
+                    ->size(40)
+                    ->defaultImageUrl(asset('Sem Imagem.png')),
+
                 TextColumn::make('insumo.produto_descricao')
                     ->label('Insumo')
                     ->searchable()
-                    ->description(fn ($record): ?string => $record->insumo?->temFichaTecnica() ? 'Semi-acabado' : null),
+                    ->description(fn ($record): ?string => self::categoriaDescricao($record->insumo), position: 'above')
+                    ->description(fn ($record): string|Htmlable|null => self::loteDescricao($record->insumo), position: 'below'),
 
                 TextColumn::make('fti_quantidade')
                     ->label('Qtd.')
