@@ -112,7 +112,7 @@ class CompraService
      *
      * @param  array{
      *     prazo_pagamento_id?: int|null,
-     *     parcelas: array<int, array{vencimento: string|\DateTimeInterface, valor: float|string, forma_pagamento?: FormaPagamento|string|null}>,
+     *     parcelas: array<int, array{vencimento: string|\DateTimeInterface, valor: float|string, forma_pagamento?: FormaPagamento|string|null, ja_pago?: bool}>,
      * }  $dados
      * @return Collection<int, Lancamento>
      */
@@ -187,6 +187,20 @@ class CompraService
                     'forma_pagamento' => $formaPagamento,
                 ]);
                 $lancamento->save();
+
+                // "Já pago" na confirmação (ex.: compra à vista via PIX): registra o
+                // pagamento integral desta parcela imediatamente — dispara
+                // Lancamento::recalcularStatus() via evento saved do LancamentoPagamento,
+                // nascendo o título já com status Pago. A instância separada carregada
+                // internamente por esse evento ($pagamento->lancamento) é sincronizada de
+                // volta pelo refresh() já existente no fim deste loop.
+                if ((bool) ($parcela['ja_pago'] ?? false)) {
+                    $lancamento->registrarPagamento(
+                        valor: $valorParcela,
+                        data: $lancamento->vencimento,
+                        forma: $formaPagamento,
+                    );
+                }
 
                 // Rateio proporcional ao peso desta parcela no total da compra. A soma dos
                 // valores das parcelas não precisa fechar com compra_valor_total (parcelamento
