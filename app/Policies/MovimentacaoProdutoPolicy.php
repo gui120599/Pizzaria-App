@@ -71,4 +71,15 @@ class MovimentacaoProdutoPolicy
     {
         return $authUser->can('reorder:movimentacao_produto');
     }
+
+    /**
+     * Correção retroativa de estoque/custo médio: reescreve movimentações já
+     * gravadas (e, às vezes, o custo já congelado de vendas passadas), então
+     * usa a mesma gramática de permissão sensível do financeiro (ver
+     * LancamentoPolicy::reversePayment).
+     */
+    public function corrigir(AuthUser $authUser, ?MovimentacaoProduto $movimentacaoProduto = null): bool
+    {
+        return $authUser->can('corrigir:movimentacao_estoque');
+    }
 }
