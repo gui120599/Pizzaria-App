@@ -2,28 +2,39 @@
 
 namespace App\Filament\Resources\Compras\RelationManagers;
 
+use App\Enums\MovimentacaoOrigemEnum;
 use App\Filament\Components\MarcaSelect;
 use App\Filament\Resources\Produtos\Schemas\ProdutoForm;
+use App\Filament\Support\CorrecaoEstoquePreview;
 use App\Models\Compra;
+use App\Models\CompraItem;
 use App\Models\FornecedorProduto;
+use App\Models\MovimentacaoProduto;
 use App\Models\Produto;
 use App\Services\CompraService;
+use App\Services\CorrecaoEstoqueService;
 use App\Support\CustoUnitarioFormatter;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
+use Illuminate\Validation\ValidationException;
 
 class ItensRelationManager extends RelationManager
 {
@@ -197,7 +208,7 @@ class ItensRelationManager extends RelationManager
 
                 TextColumn::make('insumo.produto_descricao')
                     ->label('Produto')
-                    ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
+                    ->weight(FontWeight::SemiBold)
                     ->placeholder('⚠️ Não mapeado — clique em editar')
                     ->color(fn ($record): ?string => $record->ci_produto_id ? null : 'danger')
                     ->description(fn ($record): ?string => $record->ci_codigo_fornecedor ? 'Cód. forn.: '.$record->ci_codigo_fornecedor : null)
@@ -225,7 +236,7 @@ class ItensRelationManager extends RelationManager
                     ->state(fn ($record): float => $record->valorProdutos())
                     ->money('BRL')
                     ->alignEnd()
-                    ->weight(\Filament\Support\Enums\FontWeight::Bold),
+                    ->weight(FontWeight::Bold),
 
                 TextColumn::make('estoque')
                     ->label('Entra no estoque')
@@ -256,6 +267,138 @@ class ItensRelationManager extends RelationManager
                 DeleteAction::make()
                     ->visible(fn (): bool => $this->rascunho())
                     ->after(fn () => app(CompraService::class)->recalcularTotais($this->getOwnerRecord()->load('itens'))),
+                self::acaoCorrigirMovimentacao(),
             ]);
+    }
+
+    /**
+     * Corrige a quantidade/custo já lançados no estoque por este item, mesmo
+     * com a compra confirmada (única forma de arrumar um item não conferido
+     * na hora, ex.: fator de conversão CX→UN esquecido). Delega o recálculo
+     * em cadeia (custo médio, saídas/vendas posteriores) ao
+     * CorrecaoEstoqueService — ver ali o alcance exato da correção.
+     */
+    private static function acaoCorrigirMovimentacao(): Action
+    {
+        return Action::make('corrigirMovimentacao')
+            ->label('Corrigir quantidade/custo')
+            ->icon('heroicon-o-wrench-screwdriver')
+            ->color('warning')
+            ->visible(fn (CompraItem $record): bool => $record->ci_produto_id
+                && auth()->user()?->can('corrigir', MovimentacaoProduto::class)
+                && self::localizarMovimentacao($record) !== null)
+            ->modalHeading('Corrigir quantidade/custo desta entrada')
+            ->modalDescription('Use quando o item não foi conferido e a quantidade ou o custo lançados no estoque estavam errados. O sistema recalcula em cadeia o custo médio e tudo que saiu do estoque depois desta entrada.')
+            ->modalWidth('lg')
+            ->form(function (CompraItem $record): array {
+                $mov = self::localizarMovimentacao($record);
+                $unidade = $record->insumo?->produto_unidade_estoque ?? '';
+
+                return [
+                    Placeholder::make('atual')
+                        ->label('Registrado atualmente')
+                        ->content(sprintf(
+                            '%s %s a %s cada',
+                            number_format((float) $mov->mov_quantidade, 3, ',', '.'),
+                            $unidade,
+                            CustoUnitarioFormatter::formatar((float) $mov->mov_custo_unitario),
+                        )),
+
+                    TextInput::make('quantidade_correta')
+                        ->label('Quantidade correta (unidade de estoque)')
+                        ->numeric()->step(0.001)->minValue(0.001)->required()
+                        ->default((float) $mov->mov_quantidade)
+                        ->suffix($unidade ?: null)
+                        ->live(onBlur: true),
+
+                    TextInput::make('custo_correto')
+                        ->label('Custo unitário correto (unidade de estoque)')
+                        ->numeric()->step(0.00000001)->minValue(0)->required()
+                        ->default((float) $mov->mov_custo_unitario)
+                        ->prefix('R$')
+                        ->live(onBlur: true),
+
+                    Placeholder::make('previa')
+                        ->label('Prévia do impacto')
+                        ->content(function (Get $get) use ($mov, $record): HtmlString {
+                            $qtd = (float) ($get('quantidade_correta') ?? 0);
+                            $custo = (float) ($get('custo_correto') ?? 0);
+
+                            if ($qtd <= 0 || ! $record->insumo) {
+                                return new HtmlString('Informe uma quantidade válida.');
+                            }
+
+                            $resultado = app(CorrecaoEstoqueService::class)->simular($record->insumo, $mov, $qtd, $custo);
+
+                            return CorrecaoEstoquePreview::resumo($resultado);
+                        }),
+
+                    Textarea::make('motivo')
+                        ->label('Motivo da correção')
+                        ->required()
+                        ->rows(2)
+                        ->placeholder('Ex.: item não conferido — comprado 1 CX de 15un, lançado como 1un.'),
+                ];
+            })
+            ->action(function (array $data, CompraItem $record): void {
+                $mov = self::localizarMovimentacao($record);
+                if (! $mov) {
+                    Notification::make()->title('Movimentação de origem não encontrada')->danger()->send();
+
+                    return;
+                }
+
+                try {
+                    $correcao = app(CorrecaoEstoqueService::class)->aplicar(
+                        $mov,
+                        (float) $data['quantidade_correta'],
+                        (float) $data['custo_correto'],
+                        $data['motivo'],
+                    );
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->title('Não foi possível corrigir')
+                        ->body(collect($e->errors())->flatten()->implode(' '))
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Correção aplicada')
+                    ->body('Novo saldo do produto: '.number_format((float) $correcao->produto->produto_saldo_estoque, 3, ',', '.').' '.($record->insumo?->produto_unidade_estoque ?? '').'.')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Encontra a MovimentacaoProduto de origem COMPRA gerada por este item na
+     * confirmação (referência fica na Compra, não no item — CompraService
+     * associa `referencia: $compra`). Quando a mesma compra tem mais de um
+     * item do mesmo produto, tenta casar pela quantidade/custo ainda
+     * gravados (assumindo que nenhum dos dois já foi corrigido).
+     */
+    private static function localizarMovimentacao(CompraItem $record): ?MovimentacaoProduto
+    {
+        if (! $record->ci_produto_id) {
+            return null;
+        }
+
+        $candidatos = MovimentacaoProduto::where('mov_produto_id', $record->ci_produto_id)
+            ->where('mov_origem', MovimentacaoOrigemEnum::COMPRA)
+            ->where('mov_referencia_type', Compra::class)
+            ->where('mov_referencia_id', $record->ci_compra_id)
+            ->orderBy('id')
+            ->get();
+
+        if ($candidatos->count() <= 1) {
+            return $candidatos->first();
+        }
+
+        return $candidatos->first(fn (MovimentacaoProduto $m): bool => abs((float) $m->mov_quantidade - $record->quantidadeEstoque()) < 0.001
+            && abs((float) $m->mov_custo_unitario - $record->custoUnitarioEstoque()) < 0.00000005
+        ) ?? $candidatos->first();
     }
 }

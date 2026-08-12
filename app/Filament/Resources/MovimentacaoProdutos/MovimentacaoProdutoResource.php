@@ -5,9 +5,15 @@ namespace App\Filament\Resources\MovimentacaoProdutos;
 use App\Enums\MovimentacaoOrigemEnum;
 use App\Enums\MovimentacaoTipoEnum;
 use App\Filament\Resources\MovimentacaoProdutos\Pages\ManageMovimentacaoProdutos;
+use App\Filament\Support\CorrecaoEstoquePreview;
 use App\Models\MovimentacaoProduto;
+use App\Services\CorrecaoEstoqueService;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -16,6 +22,8 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
+use Illuminate\Validation\ValidationException;
 use UnitEnum;
 
 class MovimentacaoProdutoResource extends Resource
@@ -34,7 +42,12 @@ class MovimentacaoProdutoResource extends Resource
 
     protected static ?int $navigationSort = 30;
 
-    /** Livro-razão imutável: criação/edição só pelo EstoqueService. */
+    /**
+     * Livro-razão: criação/edição só pelo EstoqueService. A única exceção é a
+     * exclusão de movimentações soltas via CorrecaoEstoqueService::aplicarExclusao()
+     * (ver acaoExcluirMovimentacao() abaixo) — soft delete auditado, não uma
+     * exclusão livre.
+     */
     public static function canCreate(): bool
     {
         return false;
@@ -154,8 +167,67 @@ class MovimentacaoProdutoResource extends Resource
                             ->when($data['ate'] ?? null, fn (Builder $q, $d) => $q->whereDate('mov_data', '<=', $d));
                     }),
             ])
-            ->recordActions([])
+            ->recordActions([
+                self::acaoExcluirMovimentacao(),
+            ])
             ->toolbarActions([]);
+    }
+
+    /**
+     * Exclui uma movimentação "solta" — sem compra, balanço ou venda por
+     * trás (ex.: lançamento errado feito na ação "Movimentar" do Produto).
+     * Só aparece nesse caso: movimentação ligada a um documento tem que ser
+     * corrigida/ajustada por lá, não apagada daqui — ver
+     * CorrecaoEstoqueService::aplicarExclusao().
+     */
+    private static function acaoExcluirMovimentacao(): Action
+    {
+        return Action::make('excluirMovimentacao')
+            ->label('Excluir')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->visible(fn (MovimentacaoProduto $record): bool => $record->mov_referencia_id === null
+                && $record->mov_venda_id === null
+                && auth()->user()?->can('corrigir', MovimentacaoProduto::class))
+            ->modalHeading('Excluir movimentação')
+            ->modalDescription('Use quando esta movimentação nem deveria ter existido (ex.: lançamento manual duplicado ou com o produto errado). O sistema recalcula em cadeia o saldo, o custo médio e tudo que saiu do estoque depois dela — como se ela nunca tivesse acontecido.')
+            ->modalWidth('lg')
+            ->form(function (MovimentacaoProduto $record): array {
+                return [
+                    Placeholder::make('previa')
+                        ->label('Prévia do impacto')
+                        ->content(function () use ($record): HtmlString {
+                            $resultado = app(CorrecaoEstoqueService::class)->simularExclusao($record->produto, $record);
+
+                            return CorrecaoEstoquePreview::resumo($resultado);
+                        }),
+
+                    Textarea::make('motivo')
+                        ->label('Motivo da exclusão')
+                        ->required()
+                        ->rows(2)
+                        ->placeholder('Ex.: lançamento duplicado por engano na ação Movimentar.'),
+                ];
+            })
+            ->action(function (array $data, MovimentacaoProduto $record): void {
+                try {
+                    app(CorrecaoEstoqueService::class)->aplicarExclusao($record, $data['motivo']);
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->title('Não foi possível excluir')
+                        ->body(collect($e->errors())->flatten()->implode(' '))
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Movimentação excluída')
+                    ->body('O saldo e o custo médio do produto foram recalculados.')
+                    ->success()
+                    ->send();
+            });
     }
 
     public static function getPages(): array
