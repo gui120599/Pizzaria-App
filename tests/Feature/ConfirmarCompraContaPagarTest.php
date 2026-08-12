@@ -165,6 +165,74 @@ class ConfirmarCompraContaPagarTest extends TestCase
         }
     }
 
+    public function test_confirmar_com_parcela_ja_paga_gera_titulo_com_status_pago(): void
+    {
+        $compra = $this->compraComItem(); // total 100
+
+        Livewire::test(ListCompras::class)
+            ->callTableAction('confirmar', $compra, data: [
+                'gerar_conta_pagar' => true,
+                'data_base' => '2026-08-07',
+                'parcelas' => [
+                    ['vencimento' => '2026-08-07', 'valor' => '100.00', 'forma_pagamento' => FormaPagamento::Pix->value, 'ja_pago' => true],
+                ],
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $lancamento = $compra->refresh()->lancamentos()->first();
+        $this->assertSame(StatusLancamento::Pago, $lancamento->status);
+        $this->assertCount(1, $lancamento->pagamentos);
+        $this->assertEqualsWithDelta(100.0, (float) $lancamento->pagamentos->first()->valor, 0.01);
+        $this->assertSame(FormaPagamento::Pix, $lancamento->pagamentos->first()->forma_pagamento);
+        $this->assertSame('2026-08-07', $lancamento->pagamentos->first()->data_pagamento->toDateString());
+    }
+
+    /** Regressão: informar 'ja_pago' => false explicitamente mantém o comportamento de hoje. */
+    public function test_confirmar_com_parcela_nao_paga_mantem_comportamento_atual(): void
+    {
+        $compra = $this->compraComItem(); // total 100
+
+        Livewire::test(ListCompras::class)
+            ->callTableAction('confirmar', $compra, data: [
+                'gerar_conta_pagar' => true,
+                'data_base' => '2026-08-07',
+                'parcelas' => [
+                    ['vencimento' => '2026-08-07', 'valor' => '100.00', 'forma_pagamento' => null, 'ja_pago' => false],
+                ],
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $lancamento = $compra->refresh()->lancamentos()->first();
+        $this->assertSame(StatusLancamento::Pendente, $lancamento->status);
+        $this->assertCount(0, $lancamento->pagamentos);
+    }
+
+    public function test_confirmar_com_parcelas_mistas_pagas_e_pendentes(): void
+    {
+        // 4 * 25 = 100, dividido em 60 já pago (Pix) + 40 pendente.
+        $compra = $this->compraComItem();
+
+        Livewire::test(ListCompras::class)
+            ->callTableAction('confirmar', $compra, data: [
+                'gerar_conta_pagar' => true,
+                'data_base' => '2026-08-07',
+                'parcelas' => [
+                    ['vencimento' => '2026-08-07', 'valor' => '60.00', 'forma_pagamento' => FormaPagamento::Pix->value, 'ja_pago' => true],
+                    ['vencimento' => '2026-08-22', 'valor' => '40.00', 'forma_pagamento' => null, 'ja_pago' => false],
+                ],
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $compra->refresh();
+        $lancamentos = $compra->lancamentos()->orderBy('parcela_numero')->get();
+
+        $this->assertCount(2, $lancamentos);
+        $this->assertSame(StatusLancamento::Pago, $lancamentos[0]->status);
+        $this->assertCount(1, $lancamentos[0]->pagamentos);
+        $this->assertSame(StatusLancamento::Pendente, $lancamentos[1]->status);
+        $this->assertCount(0, $lancamentos[1]->pagamentos);
+    }
+
     public function test_confirmar_associa_prazo_de_pagamento_aos_lancamentos_gerados(): void
     {
         $compra = $this->compraComItem(custoUnitario: 30.0, quantidade: 4.0); // total 120

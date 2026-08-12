@@ -9,6 +9,7 @@ use App\Models\PrazoPagamento;
 use App\Models\PrazoPagamentoParcela;
 use App\Services\CompraService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -126,7 +127,7 @@ class ConfirmarCompraAction
                     ->key(fn (Get $get): string => 'parcelas-'.($get('prazo_pagamento_id') ?? 'manual'))
                     ->schema([
                         DatePicker::make('vencimento')
-                            ->label('Vencimento')
+                            ->label(fn (Get $get): string => $get('ja_pago') ? 'Data do pagamento' : 'Vencimento')
                             ->native(false)
                             ->displayFormat('d/m/Y')
                             ->required(),
@@ -137,13 +138,19 @@ class ConfirmarCompraAction
                         Select::make('forma_pagamento')
                             ->label('Forma de pagamento')
                             ->options(FormaPagamento::class),
+                        Checkbox::make('ja_pago')
+                            ->label('Já pago')
+                            ->helperText('O título nasce com o pagamento já registrado.')
+                            ->default(false)
+                            ->live(),
                     ])
-                    ->columns(3)
+                    ->columns(4)
                     ->default(fn (Compra $record): array => [
                         [
                             'vencimento' => ($record->compra_data_entrada ?? now())->toDateString(),
                             'valor' => number_format((float) $record->compra_valor_total, 2, '.', ''),
                             'forma_pagamento' => null,
+                            'ja_pago' => false,
                         ],
                     ])
                     ->addActionLabel('Adicionar parcela')
@@ -151,20 +158,26 @@ class ConfirmarCompraAction
                     ->minItems(1)
                     ->reorderable(false)
                     ->itemLabel(fn (array $state): ?string => 'R$ '.number_format(self::normalizeMoney($state['valor'] ?? null), 2, ',', '.')
-                        .(isset($state['vencimento']) && $state['vencimento'] ? ' — '.Carbon::parse($state['vencimento'])->format('d/m/Y') : ''))
+                        .(isset($state['vencimento']) && $state['vencimento'] ? ' — '.Carbon::parse($state['vencimento'])->format('d/m/Y') : '')
+                        .(($state['ja_pago'] ?? false) ? ' — Pago' : ''))
                     ->live()
                     ->visible(fn (Get $get): bool => (bool) $get('gerar_conta_pagar'))
                     ->columnSpanFull(),
                 Placeholder::make('resumo_parcelas')
                     ->label('Resumo')
                     ->content(function (Get $get, Compra $record): string {
-                        $soma = collect($get('parcelas') ?? [])
+                        $parcelas = collect($get('parcelas') ?? []);
+                        $soma = $parcelas->sum(fn (array $parcela): float => self::normalizeMoney($parcela['valor'] ?? null));
+                        $jaPago = $parcelas
+                            ->filter(fn (array $parcela): bool => (bool) ($parcela['ja_pago'] ?? false))
                             ->sum(fn (array $parcela): float => self::normalizeMoney($parcela['valor'] ?? null));
                         $total = (float) $record->compra_valor_total;
                         $percentual = $total > 0 ? round($soma / $total * 100, 2) : 0.0;
 
-                        return 'Soma das parcelas: R$ '.number_format($soma, 2, ',', '')
-                            .' ('.number_format($percentual, 2, ',', '').'% do valor da compra, R$ '.number_format($total, 2, ',', '').')';
+                        return 'Soma das parcelas: R$ '.number_format($soma, 2, ',', '.')
+                            .' ('.number_format($percentual, 2, ',', '.').'% do valor da compra, R$ '.number_format($total, 2, ',', '.').')'
+                            .' — Já pago: R$ '.number_format($jaPago, 2, ',', '.')
+                            .' · A pagar: R$ '.number_format($soma - $jaPago, 2, ',', '.');
                     })
                     ->visible(fn (Get $get): bool => (bool) $get('gerar_conta_pagar'))
                     ->columnSpanFull(),
@@ -182,6 +195,7 @@ class ConfirmarCompraAction
                                     'vencimento' => $parcela['vencimento'] ?? null,
                                     'valor' => $parcela['valor'] ?? 0,
                                     'forma_pagamento' => $parcela['forma_pagamento'] ?? null,
+                                    'ja_pago' => (bool) ($parcela['ja_pago'] ?? false),
                                 ])
                                 ->all();
 
@@ -264,6 +278,7 @@ class ConfirmarCompraAction
                 'vencimento' => $linha['vencimento'],
                 'valor' => number_format($linha['valor'], 2, '.', ''),
                 'forma_pagamento' => null,
+                'ja_pago' => false,
             ];
         }
 

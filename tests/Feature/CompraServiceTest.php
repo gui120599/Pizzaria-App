@@ -407,6 +407,142 @@ class CompraServiceTest extends TestCase
         $this->service->gerarContaPagar($compra->refresh(), ['parcelas' => []]);
     }
 
+    public function test_gerar_conta_pagar_com_parcela_ja_paga_nasce_com_status_pago(): void
+    {
+        $forn = $this->fornecedor();
+        $plano = $this->planoDespesa('CMV / Insumos');
+        $insumo = $this->insumo('Farinha', ['produto_plano_despesa_id' => $plano->id]);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 10, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 10,
+        ]);
+
+        $this->service->confirmar($compra->fresh('itens'));
+
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => '2026-08-07', 'valor' => 100.0, 'forma_pagamento' => FormaPagamento::Pix, 'ja_pago' => true],
+            ],
+        ]);
+        $lancamento = $lancamentos->first();
+
+        $this->assertSame(StatusLancamento::Pago, $lancamento->status);
+        $this->assertSame('2026-08-07', $lancamento->data_pagamento->toDateString());
+        $this->assertSame(FormaPagamento::Pix, $lancamento->forma_pagamento);
+        $this->assertCount(1, $lancamento->pagamentos);
+        $this->assertEqualsWithDelta(100.0, (float) $lancamento->pagamentos->first()->valor, 0.01);
+        $this->assertSame(FormaPagamento::Pix, $lancamento->pagamentos->first()->forma_pagamento);
+        $this->assertSame('2026-08-07', $lancamento->pagamentos->first()->data_pagamento->toDateString());
+        $this->assertSame(0.0, $lancamento->valorRestante);
+        $this->assertTrue($lancamento->estaQuitado);
+    }
+
+    public function test_gerar_conta_pagar_sem_ja_pago_mantem_comportamento_atual(): void
+    {
+        $forn = $this->fornecedor();
+        $plano = $this->planoDespesa('CMV / Insumos');
+        $insumo = $this->insumo('Farinha', ['produto_plano_despesa_id' => $plano->id]);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 10, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 10,
+        ]);
+
+        $this->service->confirmar($compra->fresh('itens'));
+
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => now()->addDays(30)->toDateString(), 'valor' => 100.0, 'ja_pago' => false],
+            ],
+        ]);
+        $lancamento = $lancamentos->first();
+
+        $this->assertSame(StatusLancamento::Pendente, $lancamento->status);
+        $this->assertNull($lancamento->data_pagamento);
+        $this->assertCount(0, $lancamento->pagamentos);
+    }
+
+    public function test_gerar_conta_pagar_com_parcelas_mistas_pagas_e_pendentes(): void
+    {
+        $forn = $this->fornecedor();
+        $plano = $this->planoDespesa('CMV / Insumos');
+        $insumo = $this->insumo('Farinha', ['produto_plano_despesa_id' => $plano->id]);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 100, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 10,
+        ]);
+
+        $this->service->confirmar($compra->fresh('itens'));
+        // Compra de 1000: 600 já pagos via Pix + 400 pendentes.
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => now()->toDateString(), 'valor' => 600.0, 'forma_pagamento' => FormaPagamento::Pix, 'ja_pago' => true],
+                ['vencimento' => now()->addDays(15)->toDateString(), 'valor' => 400.0, 'ja_pago' => false],
+            ],
+        ]);
+
+        $this->assertCount(2, $lancamentos);
+
+        $pago = $lancamentos->firstWhere('parcela_numero', 1);
+        $this->assertSame(2, $pago->parcela_total);
+        $this->assertSame(StatusLancamento::Pago, $pago->status);
+        $this->assertCount(1, $pago->pagamentos);
+        $this->assertEqualsWithDelta(600.0, (float) $pago->valor, 0.01);
+        // Rateio da parcela paga preservado normalmente.
+        $this->assertEqualsWithDelta(600.0, (float) $pago->despesas()->sum('valor'), 0.01);
+
+        $pendente = $lancamentos->firstWhere('parcela_numero', 2);
+        $this->assertSame(StatusLancamento::Pendente, $pendente->status);
+        $this->assertCount(0, $pendente->pagamentos);
+        $this->assertEqualsWithDelta(400.0, (float) $pendente->valor, 0.01);
+    }
+
+    public function test_gerar_conta_pagar_ja_pago_sem_forma_pagamento_nao_estoura(): void
+    {
+        $forn = $this->fornecedor();
+        $plano = $this->planoDespesa('CMV / Insumos');
+        $insumo = $this->insumo('Farinha', ['produto_plano_despesa_id' => $plano->id]);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 5, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 10,
+        ]);
+
+        $this->service->confirmar($compra->fresh('itens'));
+
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => now()->toDateString(), 'valor' => 50.0, 'ja_pago' => true],
+            ],
+        ]);
+        $lancamento = $lancamentos->first();
+
+        $this->assertSame(StatusLancamento::Pago, $lancamento->status);
+        $this->assertNull($lancamento->pagamentos->first()->forma_pagamento);
+    }
+
     public function test_nao_gera_conta_pagar_de_compra_nao_confirmada(): void
     {
         $compra = Compra::create([
