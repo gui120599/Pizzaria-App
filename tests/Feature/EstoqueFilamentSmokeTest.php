@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\MovimentacaoOrigemEnum;
 use App\Enums\ProdutoTipoEnum;
 use App\Filament\Resources\CentroCustos\Pages\ManageCentroCustos;
 use App\Filament\Resources\Compras\Pages\CreateCompra;
@@ -27,6 +28,7 @@ use App\Models\Marca;
 use App\Models\Prestador;
 use App\Models\Produto;
 use App\Models\User;
+use App\Services\EstoqueService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -122,11 +124,11 @@ class EstoqueFilamentSmokeTest extends TestCase
             'fti_percentual_perda' => 0,
         ]);
 
-        app(\App\Services\EstoqueService::class)->registrarEntrada(
+        app(EstoqueService::class)->registrarEntrada(
             $farinha,
             10,
             5.00,
-            \App\Enums\MovimentacaoOrigemEnum::COMPRA,
+            MovimentacaoOrigemEnum::COMPRA,
         );
 
         Livewire::test(EditProduto::class, ['record' => $massa->getRouteKey()])
@@ -293,6 +295,61 @@ class EstoqueFilamentSmokeTest extends TestCase
             'ownerRecord' => $produto,
             'pageClass' => EditProduto::class,
         ])->assertOk();
+    }
+
+    public function test_relation_manager_da_ficha_tecnica_mostra_categoria_e_lote_a_debitar(): void
+    {
+        $pizza = $this->produto();
+        $categoriaMussarela = Categoria::create(['categoria_nome' => 'Laticínios'])->id;
+
+        $mussarela = Produto::create([
+            'produto_descricao' => 'Muçarela',
+            'produto_categoria_id' => $categoriaMussarela,
+            'produto_tipo' => ProdutoTipoEnum::INSUMO->value,
+            'produto_controla_estoque' => true,
+            'produto_controla_lote' => true,
+        ]);
+        $lote = EstoqueLote::create([
+            'lote_produto_id' => $mussarela->id,
+            'lote_codigo' => 'L-001',
+            'lote_validade' => now()->addDays(5)->toDateString(),
+            'lote_qtd_inicial' => 10,
+            'lote_qtd_atual' => 10,
+            'lote_custo_unitario' => 3.00,
+            'lote_data_entrada' => now(),
+            'lote_status' => 'ativo',
+        ]);
+        $itemComLote = FichaTecnicaItem::create([
+            'fti_produto_id' => $pizza->id,
+            'fti_insumo_id' => $mussarela->id,
+            'fti_quantidade' => 0.2,
+            'fti_percentual_perda' => 0,
+        ]);
+
+        $farinha = Produto::create([
+            'produto_descricao' => 'Farinha',
+            'produto_categoria_id' => $categoriaMussarela,
+            'produto_tipo' => ProdutoTipoEnum::INSUMO->value,
+            'produto_controla_estoque' => true,
+        ]);
+        $itemSemLote = FichaTecnicaItem::create([
+            'fti_produto_id' => $pizza->id,
+            'fti_insumo_id' => $farinha->id,
+            'fti_quantidade' => 0.3,
+            'fti_percentual_perda' => 0,
+        ]);
+
+        $loteEsperado = "L-001 (val. {$lote->lote_validade->format('d/m/Y')})";
+
+        Livewire::test(FichaItensRelationManager::class, [
+            'ownerRecord' => $pizza,
+            'pageClass' => EditProduto::class,
+        ])
+            ->assertOk()
+            ->assertTableColumnHasDescription('insumo.produto_descricao', 'Laticínios', $itemComLote, position: 'above')
+            ->assertTableColumnHasDescription('insumo.produto_descricao', $loteEsperado, $itemComLote, position: 'below')
+            ->assertTableColumnHasDescription('insumo.produto_descricao', 'Laticínios', $itemSemLote, position: 'above')
+            ->assertTableColumnHasDescription('insumo.produto_descricao', null, $itemSemLote, position: 'below');
     }
 
     public function test_relation_manager_de_lotes_mostra_marca_e_status_vencido_derivado(): void
