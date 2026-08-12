@@ -478,13 +478,13 @@ class CategoriaResource extends Resource
                                         acao: 'ajustar_precos_venda',
                                         loteUuid: $loteUuid,
                                         usuarioId: $usuarioId,
-                                        novoCusto: round($novoCusto, 2),
+                                        novoCusto: round($novoCusto, 8),
                                         novoPercentual: round($novoMargem, 2),
                                         novoVenda: round($novoPrecoVenda, 2),
                                     );
 
                                     $produto->forceFill([
-                                        'produto_preco_custo' => round($novoCusto, 2),
+                                        'produto_preco_custo' => round($novoCusto, 8),
                                         'produto_valor_percentual_venda' => round($novoMargem, 2),
                                         'produto_preco_venda' => round($novoPrecoVenda, 2),
                                     ])->saveQuietly();
@@ -926,7 +926,7 @@ class CategoriaResource extends Resource
             'produto_id' => $produto->id,
             'usuario_id' => $usuarioId,
             'valor_antigo_custo' => $produto->produto_preco_custo !== null
-                ? round((float) $produto->produto_preco_custo, 2)
+                ? round((float) $produto->produto_preco_custo, 8)
                 : null,
             'valor_antigo_percentual' => $produto->produto_valor_percentual_venda !== null
                 ? round((float) $produto->produto_valor_percentual_venda, 2)
@@ -934,7 +934,7 @@ class CategoriaResource extends Resource
             'valor_antigo_venda' => $produto->produto_preco_venda !== null
                 ? round((float) $produto->produto_preco_venda, 2)
                 : null,
-            'valor_novo_custo' => round($novoCusto, 2),
+            'valor_novo_custo' => round($novoCusto, 8),
             'valor_novo_percentual' => round($novoPercentual, 2),
             'valor_novo_venda' => round($novoVenda, 2),
         ]);

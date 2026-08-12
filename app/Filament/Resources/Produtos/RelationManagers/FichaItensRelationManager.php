@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Produtos\RelationManagers;
 
 use App\Enums\ProdutoTipoEnum;
 use App\Models\Produto;
+use App\Support\CustoUnitarioFormatter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -147,13 +148,13 @@ class FichaItensRelationManager extends RelationManager
                 TextColumn::make('custo_insumo')
                     ->label('Custo Unit. Insumo')
                     ->state(fn ($record): float => $record->insumo ? $record->insumo->custoUnitario() : 0.0)
-                    ->money('BRL')
+                    ->formatStateUsing(fn ($state): string => CustoUnitarioFormatter::formatar((float) $state))
                     ->alignEnd(),
 
                 TextColumn::make('custo_item')
                     ->label('Custo no Prato')
                     ->state(fn ($record): float => $record->custo())
-                    ->money('BRL')
+                    ->formatStateUsing(fn ($state): string => CustoUnitarioFormatter::formatar((float) $state))
                     ->alignEnd()
                     ->weight('bold'),
             ])

@@ -26,4 +26,13 @@ class ProdutoPrecoHistorico extends Model
         'restaurado_em',
         'restaurado_por',
     ];
+
+    protected $casts = [
+        'valor_antigo_custo' => 'decimal:8',
+        'valor_antigo_percentual' => 'decimal:2',
+        'valor_antigo_venda' => 'decimal:2',
+        'valor_novo_custo' => 'decimal:8',
+        'valor_novo_percentual' => 'decimal:2',
+        'valor_novo_venda' => 'decimal:2',
+    ];
 }

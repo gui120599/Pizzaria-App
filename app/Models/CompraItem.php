@@ -35,7 +35,7 @@ class CompraItem extends Model
             'ci_validade' => 'date',
             'ci_quantidade_compra' => 'decimal:4',
             'ci_fator_conversao' => 'decimal:4',
-            'ci_custo_unitario_compra' => 'decimal:4',
+            'ci_custo_unitario_compra' => 'decimal:8',
             'ci_valor_rateio' => 'decimal:4',
         ];
     }

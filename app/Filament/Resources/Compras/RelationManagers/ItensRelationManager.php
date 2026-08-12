@@ -8,6 +8,7 @@ use App\Models\Compra;
 use App\Models\FornecedorProduto;
 use App\Models\Produto;
 use App\Services\CompraService;
+use App\Support\CustoUnitarioFormatter;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -23,7 +24,6 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class ItensRelationManager extends RelationManager
 {
@@ -142,11 +142,14 @@ class ItensRelationManager extends RelationManager
                     ->label('Quantidade comprada')
                     ->numeric()->step(0.0001)->minValue(0.0001)->required()->default(1),
 
-                Money::make('ci_custo_unitario_compra')
+                TextInput::make('ci_custo_unitario_compra')
                     ->label('Custo por unidade de compra')
+                    ->numeric()
+                    ->step(0.00000001)
                     ->minValue(0)
+                    ->prefix('R$')
                     ->required()
-                    ->formatStateUsing(fn ($state) => number_format((float) ($state ?? 0), 2, ',', '.')),
+                    ->helperText('Aceita até 8 casas decimais (ex.: 0,00950475).'),
 
                 TextInput::make('ci_unidade_compra')
                     ->label('Unidade de compra')
@@ -214,7 +217,7 @@ class ItensRelationManager extends RelationManager
 
                 TextColumn::make('ci_custo_unitario_compra')
                     ->label('Custo unit.')
-                    ->money('BRL')
+                    ->formatStateUsing(fn ($state): string => CustoUnitarioFormatter::formatar((float) $state))
                     ->alignEnd(),
 
                 TextColumn::make('total_item')
