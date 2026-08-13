@@ -49,8 +49,9 @@ class BackfillCustoMedioApos extends Command
                 return;
             }
 
+            // Ordena por id (ordem real de processamento), não por mov_data —
+            // ver CorrecaoEstoqueService::historico() para o porquê.
             $movimentacoes = MovimentacaoProduto::where('mov_produto_id', $produtoId)
-                ->orderBy('mov_data')
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
