@@ -117,6 +117,40 @@ class CorrecaoEstoqueServiceTest extends TestCase
         $this->assertEqualsWithDelta(8.0, (float) $posterior->mov_custo_medio_apos, 0.0001);
     }
 
+    /**
+     * EstoqueService sempre aplica o custo médio vigente NO MOMENTO REAL do
+     * processamento, independente da mov_data informada — uma entrada
+     * lançada com data retroativa (ação "Movimentar" com data customizada,
+     * import de XML de NF-e usando a data da nota) ainda usa o médio que
+     * estava ao vivo quando foi de fato gravada. O replay tem que seguir a
+     * mesma ordem real (id), não a ordem por mov_data, senão recalcula tudo
+     * errado a partir da segunda movimentação backdated em diante.
+     */
+    public function test_replay_segue_ordem_real_de_insercao_mesmo_com_mov_data_retroativa(): void
+    {
+        $produto = $this->produto();
+
+        // Ordem real: A (10@4) → saída de 5 (valorada a 4, medio vigente) → B (10@10, mas com mov_data ANTERIOR a A).
+        $this->estoque->registrarEntrada($produto, 10, 4, MovimentacaoOrigemEnum::COMPRA, ['user_id' => $this->userId]);
+        $saida = $this->estoque->registrarSaida($produto, 5, MovimentacaoOrigemEnum::VENDA, ['user_id' => $this->userId])->first();
+        $backdated = $this->estoque->registrarEntrada($produto, 10, 10, MovimentacaoOrigemEnum::COMPRA, [
+            'user_id' => $this->userId,
+            'data' => now()->subDays(5),
+        ]);
+
+        // Se a saída já saiu valorada a 4 (ordem real correta) antes da entrada backdated existir...
+        $this->assertEqualsWithDelta(4.0, (float) $saida->mov_custo_unitario, 0.0001);
+
+        // ...um replay/correção precisa preservar isso: reprocessar "B" (no-op, mesmos valores) não pode
+        // reordenar pela mov_data e recalcular a saída como se tivesse acontecido depois de B.
+        $this->correcao->aplicar($backdated, 10, 10, 'Correção de teste (no-op, só pra disparar o replay)');
+
+        $produto->refresh();
+        $saida->refresh();
+        $this->assertEqualsWithDelta(4.0, (float) $saida->mov_custo_unitario, 0.0001);
+        $this->assertEqualsWithDelta(8.0, (float) $produto->produto_custo_medio, 0.0001);
+    }
+
     public function test_venda_direta_depois_da_entrada_errada_tem_custo_corrigido(): void
     {
         $produto = $this->produto();

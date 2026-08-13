@@ -178,11 +178,22 @@ class CorrecaoEstoqueService
         });
     }
 
-    /** Histórico completo do produto em ordem cronológica (opcionalmente travado para escrita). */
+    /**
+     * Histórico completo do produto na ordem real em que as movimentações
+     * foram processadas (opcionalmente travado para escrita).
+     *
+     * Ordena por id, não por mov_data: EstoqueService::registrarEntrada/
+     * registrarSaida sempre aplica o produto_custo_medio vigente NO MOMENTO
+     * REAL do processamento, nunca reordena o passado pela data de negócio
+     * informada. Uma movimentação lançada com data retroativa (ação
+     * "Movimentar" com data customizada, importação de XML de NF-e usando a
+     * data da nota) ainda assim usou o médio que estava ao vivo quando foi
+     * de fato gravada — id (auto-increment, estritamente sequencial na
+     * inserção) reflete essa ordem real; mov_data não.
+     */
     private function historico(Produto $produto, bool $lock = false): Collection
     {
         $query = MovimentacaoProduto::where('mov_produto_id', $produto->id)
-            ->orderBy('mov_data')
             ->orderBy('id');
 
         return $lock ? $query->lockForUpdate()->get() : $query->get();
