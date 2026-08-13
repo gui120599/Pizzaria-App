@@ -71,8 +71,11 @@ class EstoqueFilamentSmokeTest extends TestCase
 
         Livewire::test(CustoMedioHistorico::class)
             ->assertOk()
+            ->assertSee('Produto')
+            ->assertSee('Custo médio na data')
             ->fillForm(['produto_id' => $produto->id, 'data' => now()->toDateString()])
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('R$ 4,0000');
     }
 
     public function test_lista_de_produtos_monta_com_colunas_e_acoes_de_estoque(): void

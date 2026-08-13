@@ -10,6 +10,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
@@ -65,15 +66,27 @@ class CustoMedioHistorico extends Page
             ->statePath('data');
     }
 
+    /**
+     * Sem view Blade própria: a página base só renderiza o que content()
+     * devolver (por padrão, vazio) — embute o form() aqui pra ele aparecer.
+     */
+    public function content(Schema $schema): Schema
+    {
+        return $schema->components([
+            EmbeddedSchema::make('form'),
+        ]);
+    }
+
     private function resultado(?int $produtoId, ?string $data): HtmlString
     {
         if (! $produtoId || ! $data) {
             return new HtmlString('Selecione o produto e a data.');
         }
 
+        // Filtra pela data de negócio (mov_data), mas desempata pela ordem
+        // real de processamento (id) — ver CorrecaoEstoqueService::historico().
         $custoMedio = MovimentacaoProduto::where('mov_produto_id', $produtoId)
             ->where('mov_data', '<=', Carbon::parse($data)->endOfDay())
-            ->orderByDesc('mov_data')
             ->orderByDesc('id')
             ->value('mov_custo_medio_apos');
 
