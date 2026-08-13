@@ -76,6 +76,47 @@ class CorrecaoEstoqueServiceTest extends TestCase
         $this->assertSame($this->userId, $correcao->ec_user_id);
     }
 
+    public function test_grava_custo_medio_apos_em_entradas_e_saidas(): void
+    {
+        $produto = $this->produto();
+
+        $entrada1 = $this->estoque->registrarEntrada($produto, 10, 4, MovimentacaoOrigemEnum::COMPRA, ['user_id' => $this->userId]);
+        $this->assertEqualsWithDelta(4.0, (float) $entrada1->mov_custo_medio_apos, 0.0001);
+
+        $entrada2 = $this->estoque->registrarEntrada($produto, 10, 6, MovimentacaoOrigemEnum::COMPRA, ['user_id' => $this->userId]);
+        $this->assertEqualsWithDelta(5.0, (float) $entrada2->mov_custo_medio_apos, 0.0001);
+
+        $saidas = $this->estoque->registrarSaida($produto, 5, MovimentacaoOrigemEnum::VENDA, ['user_id' => $this->userId]);
+        // Saída nunca muda o médio — grava o mesmo valor vigente no momento.
+        $this->assertEqualsWithDelta(5.0, (float) $saidas->first()->mov_custo_medio_apos, 0.0001);
+    }
+
+    /**
+     * Uma entrada posterior à corrigida não muda sua própria quantidade/custo
+     * (o preço pago naquela compra continua sendo aquele), mas o médio
+     * resultante dela sim — mov_custo_medio_apos precisa acompanhar isso
+     * mesmo quando a linha não é marcada como "mudou" pelos outros campos.
+     */
+    public function test_corrige_custo_medio_apos_em_entrada_posterior_nao_alterada(): void
+    {
+        $produto = $this->produto();
+
+        $errada = $this->estoque->registrarEntrada($produto, 1, 150, MovimentacaoOrigemEnum::COMPRA, ['user_id' => $this->userId]);
+        $posterior = $this->estoque->registrarEntrada($produto, 10, 5, MovimentacaoOrigemEnum::COMPRA, ['user_id' => $this->userId]);
+
+        // Antes da correção: médio contaminado pela entrada errada.
+        $this->assertEqualsWithDelta(200 / 11, (float) $posterior->mov_custo_medio_apos, 0.0001);
+
+        $this->correcao->aplicar($errada, 15, 10, 'Correção de teste');
+
+        $posterior->refresh();
+        // mov_quantidade/mov_custo_unitario da entrada posterior continuam os mesmos...
+        $this->assertEqualsWithDelta(10.0, (float) $posterior->mov_quantidade, 0.001);
+        $this->assertEqualsWithDelta(5.0, (float) $posterior->mov_custo_unitario, 0.0001);
+        // ...mas o médio resultante dela precisa refletir a correção em cadeia.
+        $this->assertEqualsWithDelta(8.0, (float) $posterior->mov_custo_medio_apos, 0.0001);
+    }
+
     public function test_venda_direta_depois_da_entrada_errada_tem_custo_corrigido(): void
     {
         $produto = $this->produto();

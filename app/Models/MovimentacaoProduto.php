@@ -24,6 +24,7 @@ class MovimentacaoProduto extends Model
         'mov_tipo',
         'mov_origem',
         'mov_saldo_apos',
+        'mov_custo_medio_apos',
         'mov_data',
         'mov_motivo',
         'mov_venda_id',
@@ -43,6 +44,7 @@ class MovimentacaoProduto extends Model
             'mov_custo_unitario' => 'decimal:8',
             'mov_custo_total' => 'decimal:2',
             'mov_saldo_apos' => 'decimal:3',
+            'mov_custo_medio_apos' => 'decimal:8',
             'mov_data' => 'datetime',
         ];
     }

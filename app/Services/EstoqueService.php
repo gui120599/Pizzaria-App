@@ -80,6 +80,7 @@ class EstoqueService
                 quantidade: $quantidade,
                 custoUnitario: $custoUnitario,
                 saldoApos: $novoSaldo,
+                custoMedioApos: $novoMedio,
                 lote: $lote,
                 opts: $opts,
             );
@@ -136,6 +137,7 @@ class EstoqueService
                         quantidade: $consumir,
                         custoUnitario: $custoMedio,
                         saldoApos: $saldoCorrente,
+                        custoMedioApos: $custoMedio,
                         lote: $lote,
                         opts: $opts,
                     ));
@@ -152,6 +154,7 @@ class EstoqueService
                     quantidade: $restante,
                     custoUnitario: $custoMedio,
                     saldoApos: $saldoCorrente,
+                    custoMedioApos: $custoMedio,
                     lote: null,
                     opts: $opts,
                 ));
@@ -255,7 +258,7 @@ class EstoqueService
      * itensConsumo ser fonte única: produção acionada por outro caminho que
      * não a tela de edição não pode pular o bloqueio).
      *
-     * @throws \App\Exceptions\EstoqueInsuficienteException se alguma matéria-prima em modo BLOQUEAR não tiver saldo suficiente
+     * @throws EstoqueInsuficienteException se alguma matéria-prima em modo BLOQUEAR não tiver saldo suficiente
      */
     public function registrarProducao(
         Produto $produto,
@@ -371,6 +374,7 @@ class EstoqueService
         float $quantidade,
         float $custoUnitario,
         float $saldoApos,
+        float $custoMedioApos,
         ?EstoqueLote $lote,
         array $opts,
     ): MovimentacaoProduto {
@@ -387,6 +391,7 @@ class EstoqueService
             'mov_tipo' => $tipo,
             'mov_origem' => $origem,
             'mov_saldo_apos' => round($saldoApos, 3),
+            'mov_custo_medio_apos' => round($custoMedioApos, 8),
             'mov_data' => $data ?? now(),
             'mov_motivo' => $opts['motivo'] ?? null,
             'mov_venda_id' => $opts['venda_id'] ?? null,

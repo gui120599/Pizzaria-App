@@ -201,6 +201,7 @@ class CorrecaoEstoqueService
                 'mov_custo_unitario' => round($linha['custo_unitario_novo'], 8),
                 'mov_custo_total' => round($linha['quantidade'] * $linha['custo_unitario_novo'], 2),
                 'mov_saldo_apos' => round($linha['saldo_apos_novo'], 3),
+                'mov_custo_medio_apos' => round($linha['custo_medio_apos_novo'], 8),
             ])->save();
         }
 
@@ -225,6 +226,7 @@ class CorrecaoEstoqueService
 
         $saldo = 0.0;
         $medio = 0.0;
+        $medioInicializado = false;
         $linhas = collect();
 
         foreach ($movimentacoes as $mov) {
@@ -240,8 +242,18 @@ class CorrecaoEstoqueService
                 $novoSaldo = $saldo + $qtd;
                 $medio = $novoSaldo > 0 ? (($saldo * $medio) + ($qtd * $custoAplicado)) / $novoSaldo : $custoAplicado;
                 $saldo = $novoSaldo;
+                $medioInicializado = true;
             } else {
                 $qtd = (float) $mov->mov_quantidade;
+                // Histórico começa direto numa saída, sem nenhuma entrada
+                // antes (ex.: produto cujo custo médio veio de outra fonte —
+                // preço de custo cadastrado — nunca de uma entrada real):
+                // usa o próprio custo gravado na saída como médio vigente
+                // naquele momento, em vez de zerar.
+                if (! $medioInicializado) {
+                    $medio = (float) $mov->mov_custo_unitario;
+                    $medioInicializado = true;
+                }
                 $custoAplicado = $medio;
                 $saldo -= $qtd;
             }
@@ -250,15 +262,22 @@ class CorrecaoEstoqueService
             $custoNovo = round($custoAplicado, 8);
             $qtdAntiga = round((float) $mov->mov_quantidade, 3);
             $qtdNova = round($qtd, 3);
+            $medioAposAntigo = round((float) ($mov->mov_custo_medio_apos ?? 0.0), 8);
+            $medioAposNovo = round($medio, 8);
 
             $linhas->push([
                 'movimentacao' => $mov,
                 'quantidade' => $qtdNova,
                 'custo_unitario_antigo' => $custoAntigo,
                 'custo_unitario_novo' => $custoNovo,
+                'custo_medio_apos_antigo' => $medioAposAntigo,
+                'custo_medio_apos_novo' => $medioAposNovo,
                 'saldo_apos_antigo' => (float) $mov->mov_saldo_apos,
                 'saldo_apos_novo' => round($saldo, 3),
-                'mudou' => $ehAlvo || $qtdAntiga !== $qtdNova || abs($custoAntigo - $custoNovo) >= 0.00000005,
+                'mudou' => $ehAlvo
+                    || $qtdAntiga !== $qtdNova
+                    || abs($custoAntigo - $custoNovo) >= 0.00000005
+                    || abs($medioAposAntigo - $medioAposNovo) >= 0.00000005,
             ]);
         }
 

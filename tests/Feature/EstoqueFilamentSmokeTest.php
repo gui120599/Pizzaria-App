@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\MovimentacaoOrigemEnum;
 use App\Enums\ProdutoTipoEnum;
+use App\Filament\Pages\CustoMedioHistorico;
 use App\Filament\Resources\CentroCustos\Pages\ManageCentroCustos;
 use App\Filament\Resources\Compras\Pages\CreateCompra;
 use App\Filament\Resources\Compras\Pages\EditCompra;
@@ -61,6 +62,17 @@ class EstoqueFilamentSmokeTest extends TestCase
     public function test_lista_de_centros_de_custo_monta_sem_erro(): void
     {
         Livewire::test(ManageCentroCustos::class)->assertOk();
+    }
+
+    public function test_pagina_de_custo_medio_historico_monta_e_consulta(): void
+    {
+        $produto = $this->produto();
+        app(EstoqueService::class)->registrarEntrada($produto, 10, 4, MovimentacaoOrigemEnum::COMPRA);
+
+        Livewire::test(CustoMedioHistorico::class)
+            ->assertOk()
+            ->fillForm(['produto_id' => $produto->id, 'data' => now()->toDateString()])
+            ->assertOk();
     }
 
     public function test_lista_de_produtos_monta_com_colunas_e_acoes_de_estoque(): void
