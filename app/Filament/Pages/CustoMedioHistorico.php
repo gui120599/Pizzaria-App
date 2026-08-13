@@ -46,6 +46,18 @@ class CustoMedioHistorico extends Page
 
     public ?string $resultado = null;
 
+    /**
+     * Sem isso, o schema do form nunca é associado ao estado vivo do
+     * componente Livewire: os campos aparecem na tela (renderizados a
+     * partir de form()), mas a interação no navegador não escreve em
+     * $this->data em lugar nenhum — só o consegue no próprio ->fillForm()
+     * dos testes, que grava direto via data_set() e mascara o problema.
+     */
+    public function mount(): void
+    {
+        $this->form->fill();
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema
