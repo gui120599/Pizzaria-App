@@ -6,12 +6,16 @@ use App\Models\MovimentacaoProduto;
 use App\Models\Produto;
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\EmbeddedSchema;
+use Filament\Schemas\Components\Form;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\HtmlString;
@@ -40,6 +44,8 @@ class CustoMedioHistorico extends Page
     /** @var array<string, mixed> */
     public ?array $data = [];
 
+    public ?string $resultado = null;
+
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -52,35 +58,50 @@ class CustoMedioHistorico extends Page
                         ->limit(50)
                         ->pluck('produto_descricao', 'id'))
                     ->getOptionLabelUsing(fn ($value) => Produto::find($value)?->produto_descricao)
-                    ->live(),
+                    ->required(),
 
                 DatePicker::make('data')
                     ->label('Data')
                     ->native(false)
-                    ->live(),
+                    ->required(),
 
                 Placeholder::make('resultado')
                     ->label('Custo médio na data')
-                    ->content(fn ($get): HtmlString => $this->resultado($get('produto_id'), $get('data'))),
+                    ->content(fn (): HtmlString => new HtmlString($this->resultado ?? 'Escolha o produto e a data, depois clique em Consultar.')),
             ])
             ->statePath('data');
     }
 
     /**
      * Sem view Blade própria: a página base só renderiza o que content()
-     * devolver (por padrão, vazio) — embute o form() aqui pra ele aparecer.
+     * devolver (por padrão, vazio) — embute o form() e o botão aqui.
      */
     public function content(Schema $schema): Schema
     {
         return $schema->components([
-            EmbeddedSchema::make('form'),
+            Form::make([EmbeddedSchema::make('form')])
+                ->id('form')
+                ->livewireSubmitHandler('consultar')
+                ->footer([
+                    Actions::make([
+                        Action::make('consultar')
+                            ->label('Consultar')
+                            ->submit('consultar'),
+                    ])->alignment(Alignment::Start),
+                ]),
         ]);
     }
 
-    private function resultado(?int $produtoId, ?string $data): HtmlString
+    public function consultar(): void
+    {
+        $state = $this->form->getState();
+        $this->resultado = $this->calcular($state['produto_id'] ?? null, $state['data'] ?? null);
+    }
+
+    private function calcular(?int $produtoId, ?string $data): string
     {
         if (! $produtoId || ! $data) {
-            return new HtmlString('Selecione o produto e a data.');
+            return 'Escolha o produto e a data.';
         }
 
         // Filtra pela data de negócio (mov_data), mas desempata pela ordem
@@ -91,9 +112,9 @@ class CustoMedioHistorico extends Page
             ->value('mov_custo_medio_apos');
 
         if ($custoMedio === null) {
-            return new HtmlString('Produto ainda não tinha movimentação até essa data.');
+            return 'Produto ainda não tinha movimentação até essa data.';
         }
 
-        return new HtmlString('R$ '.number_format((float) $custoMedio, 4, ',', '.'));
+        return 'R$ '.number_format((float) $custoMedio, 4, ',', '.');
     }
 }
