@@ -686,7 +686,61 @@ class VendaController extends Controller
                         ],*/
                     ];
                     break;
+                case 'PF':
+                    return [
+                        'stateTaxNumberIndicator' => 'NonTaxPayer', // 0 - Nenhum (None) 1 - Contribuinte ICMS - informar a IE do destinatário (TaxPayer) 2 - Contribuinte isento de Inscrição no cadastro de Contribuintes (Exempt) 9 - Não Contribuinte, que pode ou não possuir Inscrição Estadual no Cadastro de Contribuintes do ICMS (NonTaxPayer)
+                        'tradeName' => $cliente->cliente_nome ?? null, // Ajuste conforme necessário
+                        'taxRegime' => 'isento', // Ajuste conforme necessário
+                        'stateTaxNumber' => $cliente->cliente_inscricao_estadual ?? null, // Ajuste conforme necessário
+                        'id' => (string) $cliente->id ?? null,
+                        'name' => $cliente->cliente_nome ?? null,
+                        'federalTaxNumber' => (string) $cliente->cliente_cpf ?? null,
+                        'email' => $cliente->cliente_email ?? null,
+                        'type' => 2, // 0 - Indefinido (Undefined) 2 - Pessoa Física (NaturalPerson) 4 - Pessoa Jurídica (LegalEntity)
+                        /*"address" => [
+                            "phone" => $cliente->cliente_celular ?? null,
+                            "state" => $cliente->cliente_estado ?? null,
+                            "city" => [
+                                "code" => $cliente->cliente_municicodigo_municipio ?? null,
+                                "name" => $cliente->cliente_cidade ?? null,
+                            ],
+                            "district" => $cliente->clinete_bairro ?? null,
+                            "additionalInformation" => $cliente->cliente_endereco ?? null,
+                            "street" => $cliente->cliente_endereco ?? null,
+                            "number" => $cliente->cliente_numero ?? null,
+                            "postalCode" => $cliente->cliente_cep ?? null,
+                            "country" => "BR" // Ajuste conforme necessário
+                        ],*/
+                    ];
+                    break;
                 case 'Jurídica':
+                    return [
+                        'stateTaxNumberIndicator' => 'NonTaxPayer', // 0 - Nenhum (None) 1 - Contribuinte ICMS - informar a IE do destinatário (TaxPayer) 2 - Contribuinte isento de Inscrição no cadastro de Contribuintes (Exempt) 9 - Não Contribuinte, que pode ou não possuir Inscrição Estadual no Cadastro de Contribuintes do ICMS (NonTaxPayer)
+                        'tradeName' => $cliente->cliente_nome ?? null, // Ajuste conforme necessário
+                        'taxRegime' => 'isento', // Ajuste conforme necessário
+                        'stateTaxNumber' => $cliente->cliente_inscricao_estadual ?? null, // Ajuste conforme necessário
+                        'id' => (string) $cliente->id ?? null,
+                        'name' => $cliente->cliente_nome ?? null,
+                        'federalTaxNumber' => (string) $cliente->cliente_cnpj ?? null,
+                        'email' => $cliente->cliente_email ?? null,
+                        'type' => 4, // 0 - Indefinido (Undefined) 2 - Pessoa Física (NaturalPerson) 4 - Pessoa Jurídica (LegalEntity)
+                        /*"address" => [
+                            "phone" => $cliente->cliente_celular ?? null,
+                            "state" => $cliente->cliente_estado ?? null,
+                            "city" => [
+                                "code" => $cliente->cliente_municicodigo_municipio ?? null,
+                                "name" => $cliente->cliente_cidade ?? null,
+                            ],
+                            "district" => $cliente->clinete_bairro ?? null,
+                            "additionalInformation" => $cliente->cliente_endereco ?? null,
+                            "street" => $cliente->cliente_endereco ?? null,
+                            "number" => $cliente->cliente_numero ?? null,
+                            "postalCode" => $cliente->cliente_cep ?? null,
+                            "country" => "BR" // Ajuste conforme necessário
+                        ],*/
+                    ];
+                    break;
+                case 'PJ':
                     return [
                         'stateTaxNumberIndicator' => 'NonTaxPayer', // 0 - Nenhum (None) 1 - Contribuinte ICMS - informar a IE do destinatário (TaxPayer) 2 - Contribuinte isento de Inscrição no cadastro de Contribuintes (Exempt) 9 - Não Contribuinte, que pode ou não possuir Inscrição Estadual no Cadastro de Contribuintes do ICMS (NonTaxPayer)
                         'tradeName' => $cliente->cliente_nome ?? null, // Ajuste conforme necessário
