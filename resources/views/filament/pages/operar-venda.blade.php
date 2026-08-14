@@ -456,6 +456,21 @@
                 </div>
 
                 <div class="p-4 space-y-3">
+                    @php $sugestaoPagamento = $this->sugestaoPagamentoPedido; @endphp
+                    @if ($sugestaoPagamento)
+                        <div class="flex items-start gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs rounded-lg p-2">
+                            <x-filament::icon icon="heroicon-o-information-circle" class="h-4 w-4 shrink-0 mt-0.5" />
+                            <div class="space-y-0.5">
+                                @if ($sugestaoPagamento['descricao'])
+                                    <p>Forma de pagamento indicada no pedido: <span class="font-semibold">{{ $sugestaoPagamento['descricao'] }}</span></p>
+                                @endif
+                                @foreach ($sugestaoPagamento['observacoes'] as $observacao)
+                                    <p>Obs.: {{ $observacao }}</p>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
                     <div>
                         <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Forma de pagamento</label>
                         <div class="grid grid-cols-2 gap-2 mt-1">

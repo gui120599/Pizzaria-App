@@ -187,6 +187,27 @@ class OperarVenda extends Page
         $this->vendaId = $novaVenda->id;
     }
 
+    /**
+     * Reaproveita o cliente do pedido/mesa recém-lançado: só preenche
+     * venda_cliente_id se a venda ainda não tiver cliente (o primeiro
+     * pedido/mesa lançado "ganha" — lançamentos seguintes com cliente
+     * diferente não sobrescrevem nem avisam, o operador troca manualmente
+     * pelo modal de Cliente se precisar).
+     */
+    private function preencherClienteSeVazio(?int $clienteId): void
+    {
+        if ($clienteId === null) {
+            return;
+        }
+
+        $venda = Venda::find($this->vendaId);
+        if (! $venda || $venda->venda_cliente_id !== null) {
+            return;
+        }
+
+        $venda->update(['venda_cliente_id' => $clienteId]);
+    }
+
     #[On('carrinho-atualizado')]
     public function onCarrinhoAtualizado(): void
     {
@@ -577,6 +598,13 @@ class OperarVenda extends Page
     {
         $this->iniciarVendaSeNecessario();
 
+        // Coluna crua (não a relação cliente(), que tem withDefault e nunca
+        // retorna null de verdade) — só preenche se a venda ainda não tiver
+        // cliente (ver preencherClienteSeVazio()).
+        $this->preencherClienteSeVazio(
+            SessaoMesa::where('id', $sessaoMesaId)->value('sessao_mesa_cliente_id')
+        );
+
         $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)
             ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
             ->get();
@@ -613,6 +641,8 @@ class OperarVenda extends Page
     public function lancarItensDoClienteDaMesa(int $sessaoMesaId, $clienteId): void
     {
         $this->iniciarVendaSeNecessario();
+
+        $this->preencherClienteSeVazio($clienteId === 'sem_cliente' ? null : $clienteId);
 
         $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)
             ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
@@ -688,7 +718,11 @@ class OperarVenda extends Page
      */
     public function itensEstaoLancadosNestaVenda($itensPedido): bool
     {
-        if ($itensPedido->isEmpty()) {
+        // Sem venda ainda (vendaId null): "null === null" bateria pra
+        // QUALQUER pedido nunca lançado (item_pedido_venda_id também null),
+        // marcando o checkbox indevidamente — não existe venda pra estar
+        // "lançado nela" antes dela existir.
+        if ($this->vendaId === null || $itensPedido->isEmpty()) {
             return false;
         }
 
@@ -730,6 +764,10 @@ class OperarVenda extends Page
     public function lancarPedidoAvulso(int $pedidoId): void
     {
         $this->iniciarVendaSeNecessario();
+
+        $this->preencherClienteSeVazio(
+            Pedido::where('id', $pedidoId)->value('pedido_cliente_id')
+        );
 
         $itensPedido = ItensPedido::where('item_pedido_pedido_id', $pedidoId)
             ->where('item_pedido_status', 'INSERIDO')
@@ -1088,6 +1126,61 @@ class OperarVenda extends Page
         return max(0, round((float) $this->venda->venda_valor_total - (float) $this->venda->venda_valor_pago, 2));
     }
 
+    /** Pedidos cujos itens já estão lançados nesta venda (via item_pedido_venda_id). */
+    #[Computed]
+    public function pedidosLancadosNestaVenda()
+    {
+        if ($this->vendaId === null) {
+            return collect();
+        }
+
+        return Pedido::whereHas('item_pedido_pedido_id', function ($query) {
+            $query->where('item_pedido_venda_id', $this->vendaId);
+        })->get();
+    }
+
+    /**
+     * Sugestão (não vinculante) de forma de pagamento a partir do texto livre
+     * do(s) pedido(s) lançados — o Pedido não tem valor por forma de
+     * pagamento (só pedido_descricao_pagamento/pedido_observacao_pagamento em
+     * texto), então isso nunca cria um PagamentosVenda sozinho, só pré-marca
+     * a opção no modal quando o texto bate com exatamente uma OpcoesPagamento
+     * cadastrada, e mostra a observação como lembrete pro operador.
+     */
+    #[Computed]
+    public function sugestaoPagamentoPedido(): ?array
+    {
+        $descricoes = $this->pedidosLancadosNestaVenda
+            ->pluck('pedido_descricao_pagamento')
+            ->filter()
+            ->map(fn ($d) => trim($d))
+            ->filter()
+            ->unique();
+
+        $observacoes = $this->pedidosLancadosNestaVenda
+            ->pluck('pedido_observacao_pagamento')
+            ->filter()
+            ->map(fn ($o) => trim($o))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $opcaoSugerida = null;
+        if ($descricoes->count() === 1) {
+            $opcaoSugerida = OpcoesPagamento::whereRaw('LOWER(opcaopag_nome) = ?', [mb_strtolower($descricoes->first())])->first();
+        }
+
+        if ($opcaoSugerida === null && $observacoes->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'opcao_id' => $opcaoSugerida?->id,
+            'descricao' => $descricoes->count() === 1 ? $descricoes->first() : null,
+            'observacoes' => $observacoes,
+        ];
+    }
+
     public function abrirModalPagamento(): void
     {
         // Pré-preenche com o restante a pagar — mesmo comportamento do
@@ -1095,6 +1188,11 @@ class OperarVenda extends Page
         $this->valorPagamento = $this->valorRestante;
         $this->modalPagamentoAberta = true;
         $this->resetErrorBag('valorPagamento');
+
+        $sugestao = $this->sugestaoPagamentoPedido;
+        if ($sugestao && $sugestao['opcao_id'] && $this->opcaoPagamentoSelecionadaId === null) {
+            $this->opcaoPagamentoSelecionadaId = $sugestao['opcao_id'];
+        }
     }
 
     public function fecharModalPagamento(): void
