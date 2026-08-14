@@ -15,6 +15,7 @@ use App\Http\Controllers\ItensPedidoController;
 use App\Http\Controllers\ItensVendaController;
 use App\Http\Controllers\MesaController;
 use App\Http\Controllers\MovimentacoesSessaoCaixaController;
+use App\Http\Controllers\NfeVendaController;
 use App\Http\Controllers\NotaFiscalController;
 use App\Http\Controllers\OpcoesEntregasController;
 use App\Http\Controllers\OpcoesPagamentoController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
+use App\Http\Controllers\VendaCancelarVaziaController;
 use App\Http\Controllers\VendaController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -270,13 +272,17 @@ Route::middleware('auth')->group(function () {
     Route::post('/Venda/{id}/Edit', [VendaController::class, 'SalvarVenda'])->name('venda.salvar_venda')->middleware('permission:operar:venda');
     Route::post('/Venda//EditValorFrete', [VendaController::class, 'AtualizarValorFrete'])->name('venda.update_valor_frete')->middleware('permission:operar:venda');
     Route::get('AtualizarValoresdaVenda', [VendaController::class, 'AtualizarValoresdaVenda'])->middleware('permission:operar:venda');
-    Route::get('/Venda/{id}/Gerar-NFE', [VendaController::class, 'enviarNfe'])->name('venda.gerar_NFE')->middleware('permission:emitir:nfe');
-    Route::get('/Venda/{id}/Gerar-JSONNFE', [VendaController::class, 'jsonNFE'])->name('venda.gerar_JSONNFE')->middleware('permission:emitir:nfe');
-    Route::get('/Venda/{id_nfe}/Imprimir-NFE', [VendaController::class, 'imprimirNFE'])->name('venda.imprimir_NFE')->middleware('permission:emitir:nfe');
-    Route::get('/Venda/{venda}/Buscar-NFE', [VendaController::class, 'buscarNFE'])->name('venda.buscar_NFE')->middleware('permission:emitir:nfe');
-    Route::get('/Venda/remover/{vendaId}/{idNfe}', [VendaController::class, 'removerIdNfe'])->name('venda.removerIdNfe')->middleware('permission:emitir:nfe');
+    Route::get('/Venda/{id}/Gerar-NFE', [NfeVendaController::class, 'enviarNfe'])->name('venda.gerar_NFE')->middleware('permission:emitir:nfe');
+    Route::get('/Venda/{id}/Gerar-JSONNFE', [NfeVendaController::class, 'jsonNFE'])->name('venda.gerar_JSONNFE')->middleware('permission:emitir:nfe');
+    Route::get('/Venda/{id_nfe}/Imprimir-NFE', [NfeVendaController::class, 'imprimirNFE'])->name('venda.imprimir_NFE')->middleware('permission:emitir:nfe');
+    Route::get('/Venda/{venda}/Buscar-NFE', [NfeVendaController::class, 'buscarNFE'])->name('venda.buscar_NFE')->middleware('permission:emitir:nfe');
+    Route::get('/Venda/remover/{vendaId}/{idNfe}', [NfeVendaController::class, 'removerIdNfe'])->name('venda.removerIdNfe')->middleware('permission:emitir:nfe');
     Route::get('/Venda/relatorio-vendas-mensal', [VendaController::class, 'showVendasMensal'])->name('venda.relatorioMensal')->middleware('permission:view:relatorio_financeiro');
     Route::get('/Venda/vendasMensalPDF/Imprimir', [VendaController::class, 'listarVendasMensal'])->name('vendasMensal.imprimir')->middleware('permission:view:relatorio_financeiro');
+
+    // Beacon do PDV (OperarVenda): cancela a venda ao fechar a aba se ainda
+    // estiver vazia (sendBeacon não consegue disparar uma ação Livewire).
+    Route::post('/Venda/{venda}/cancelar-vazia', VendaCancelarVaziaController::class)->name('venda.cancelar_vazia')->middleware('permission:operar:venda');
 
     // Mesmo grupo de roles da SessaoCaixa (RoleMiddleware não passa pelo Gate,
     // precisa listar Admin explicitamente) — saída de caixa é operação financeira.

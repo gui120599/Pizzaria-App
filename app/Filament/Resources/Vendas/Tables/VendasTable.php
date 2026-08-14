@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Vendas\Tables;
 
+use App\Filament\Pages\OperarVenda;
+use App\Models\Venda;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -89,7 +91,11 @@ class VendasTable
                     ]),
             ])
             ->recordActions([
-                EditAction::make(),
+                Action::make('operar')
+                    ->label('Operar')
+                    ->icon('heroicon-o-shopping-cart')
+                    ->url(fn (Venda $record) => OperarVenda::getUrl(['venda' => $record]))
+                    ->visible(fn (Venda $record) => $record->venda_status === 'INICIADA'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
