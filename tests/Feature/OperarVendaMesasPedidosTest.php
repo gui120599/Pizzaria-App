@@ -305,6 +305,20 @@ class OperarVendaMesasPedidosTest extends TestCase
         $this->assertNotContains($pedidoEmOutraVenda->id, $ids);
     }
 
+    public function test_pedido_nunca_lancado_nao_aparece_marcado_quando_ainda_nao_ha_venda(): void
+    {
+        // "null === null" bateria pra qualquer pedido nunca lançado (ambos os
+        // lados ficam null sem venda ainda) — corrigido pra nunca marcar o
+        // checkbox antes de existir uma venda de fato.
+        $pedido = Pedido::create(['pedido_status' => 'EM TRANSPORTE']);
+        $this->itemPedido($pedido, 1);
+
+        $component = Livewire::test(OperarVenda::class)->assertSet('vendaId', null);
+
+        $lancado = $component->instance()->itensEstaoLancadosNestaVenda($pedido->item_pedido_pedido_id);
+        $this->assertFalse($lancado);
+    }
+
     public function test_busca_filtra_mesas_por_nome_da_mesa_ou_cliente(): void
     {
         $mesaAlvo = Mesa::create(['mesa_nome' => 'Mesa 12', 'mesa_status' => 'LIBERADA']);
@@ -339,5 +353,79 @@ class OperarVendaMesasPedidosTest extends TestCase
 
         $ids = $component->instance()->pedidosAvulsos->pluck('id')->all();
         $this->assertSame([$pedidoAlvo->id], $ids);
+    }
+
+    public function test_lancar_pedido_avulso_preenche_cliente_da_venda_quando_vazio(): void
+    {
+        $cliente = Cliente::create(['cliente_nome' => 'Cliente do Pedido', 'cliente_tipo' => 'Física']);
+        $pedido = Pedido::create(['pedido_status' => 'ABERTO', 'pedido_cliente_id' => $cliente->id]);
+        $this->itemPedido($pedido, 1);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('lancarPedidoAvulso', $pedido->id);
+
+        $this->assertSame($cliente->id, $this->venda->fresh()->venda_cliente_id);
+    }
+
+    public function test_lancar_pedido_avulso_nao_sobrescreve_cliente_ja_definido_na_venda(): void
+    {
+        $clienteOriginal = Cliente::create(['cliente_nome' => 'Cliente Original', 'cliente_tipo' => 'Física']);
+        $clienteDoPedido = Cliente::create(['cliente_nome' => 'Cliente do Pedido', 'cliente_tipo' => 'Física']);
+        $this->venda->update(['venda_cliente_id' => $clienteOriginal->id]);
+
+        $pedido = Pedido::create(['pedido_status' => 'ABERTO', 'pedido_cliente_id' => $clienteDoPedido->id]);
+        $this->itemPedido($pedido, 1);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('lancarPedidoAvulso', $pedido->id);
+
+        $this->assertSame($clienteOriginal->id, $this->venda->fresh()->venda_cliente_id);
+    }
+
+    public function test_lancar_pedido_avulso_sem_cliente_nao_altera_cliente_da_venda(): void
+    {
+        $pedido = Pedido::create(['pedido_status' => 'ABERTO']);
+        $this->itemPedido($pedido, 1);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('lancarPedidoAvulso', $pedido->id);
+
+        $this->assertNull($this->venda->fresh()->venda_cliente_id);
+    }
+
+    public function test_lancar_itens_da_mesa_preenche_cliente_da_venda_a_partir_da_sessao_mesa(): void
+    {
+        $cliente = Cliente::create(['cliente_nome' => 'Cliente da Mesa', 'cliente_tipo' => 'Física']);
+        $mesa = Mesa::create(['mesa_nome' => 'Mesa 5', 'mesa_status' => 'LIBERADA']);
+        $sessaoMesa = SessaoMesa::create([
+            'sessao_mesa_mesa_id' => $mesa->id,
+            'sessao_mesa_usuario_id' => auth()->id(),
+            'sessao_mesa_status' => 'ABERTA',
+            'sessao_mesa_cliente_id' => $cliente->id,
+        ]);
+        $pedido = Pedido::create(['pedido_sessao_mesa_id' => $sessaoMesa->id, 'pedido_status' => 'ENTREGUE']);
+        $this->itemPedido($pedido, 1);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('lancarItensDaMesa', $sessaoMesa->id);
+
+        $this->assertSame($cliente->id, $this->venda->fresh()->venda_cliente_id);
+    }
+
+    public function test_lancar_itens_da_mesa_sem_cliente_vinculado_nao_altera_cliente_da_venda(): void
+    {
+        $mesa = Mesa::create(['mesa_nome' => 'Mesa 6', 'mesa_status' => 'LIBERADA']);
+        $sessaoMesa = SessaoMesa::create([
+            'sessao_mesa_mesa_id' => $mesa->id,
+            'sessao_mesa_usuario_id' => auth()->id(),
+            'sessao_mesa_status' => 'ABERTA',
+        ]);
+        $pedido = Pedido::create(['pedido_sessao_mesa_id' => $sessaoMesa->id, 'pedido_status' => 'ENTREGUE']);
+        $this->itemPedido($pedido, 1);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('lancarItensDaMesa', $sessaoMesa->id);
+
+        $this->assertNull($this->venda->fresh()->venda_cliente_id);
     }
 }

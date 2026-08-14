@@ -6,9 +6,11 @@ use App\Enums\ProdutoTipoEnum;
 use App\Filament\Pages\OperarVenda;
 use App\Models\Caixa;
 use App\Models\Categoria;
+use App\Models\ItensPedido;
 use App\Models\ItensVenda;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
+use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoCaixa;
 use App\Models\User;
@@ -249,5 +251,73 @@ class OperarVendaPagamentoTest extends TestCase
         $this->assertCount(3, $pagamentos);
         $this->assertSame(20.00, round((float) $pagamentos->sum('pg_venda_valor_pagamento'), 2));
         $this->assertSame(20.00, (float) $this->venda->fresh()->venda_valor_pago);
+    }
+
+    /** Simula um pedido já lançado nesta venda (item_pedido_venda_id preenchido). */
+    private function pedidoLancadoNestaVenda(?string $descricaoPagamento = null, ?string $observacaoPagamento = null): Pedido
+    {
+        $pedido = Pedido::create([
+            'pedido_status' => 'ABERTO',
+            'pedido_descricao_pagamento' => $descricaoPagamento,
+            'pedido_observacao_pagamento' => $observacaoPagamento,
+        ]);
+
+        ItensPedido::create([
+            'item_pedido_pedido_id' => $pedido->id,
+            'item_pedido_produto_id' => $this->venda->itensVenda->first()->item_venda_produto_id,
+            'item_pedido_venda_id' => $this->venda->id,
+            'item_pedido_quantidade' => 1,
+            'item_pedido_valor_unitario' => 20.00,
+            'item_pedido_valor' => 20.00,
+            'item_pedido_desconto' => 0,
+            'item_pedido_valor_adicionais' => 0,
+            'item_pedido_status' => 'INSERIDO',
+        ]);
+
+        return $pedido;
+    }
+
+    public function test_abrir_modal_pagamento_pre_seleciona_opcao_quando_pedido_indica_forma_valida(): void
+    {
+        $dinheiro = OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0]);
+        $this->pedidoLancadoNestaVenda('Dinheiro');
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('abrirModalPagamento')
+            ->assertSet('opcaoPagamentoSelecionadaId', $dinheiro->id);
+    }
+
+    public function test_abrir_modal_pagamento_nao_pre_seleciona_quando_texto_nao_bate_com_nenhuma_opcao(): void
+    {
+        OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0]);
+        $this->pedidoLancadoNestaVenda('Pix instantâneo');
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('abrirModalPagamento')
+            ->assertSet('opcaoPagamentoSelecionadaId', null);
+    }
+
+    public function test_abrir_modal_pagamento_nao_pre_seleciona_quando_pedidos_indicam_formas_diferentes(): void
+    {
+        OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0]);
+        OpcoesPagamento::create(['opcaopag_nome' => 'Cartão', 'opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0]);
+        $this->pedidoLancadoNestaVenda('Dinheiro');
+        $this->pedidoLancadoNestaVenda('Cartão');
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('abrirModalPagamento')
+            ->assertSet('opcaoPagamentoSelecionadaId', null);
+    }
+
+    public function test_abrir_modal_pagamento_nao_sobrescreve_selecao_manual_ja_feita(): void
+    {
+        $dinheiro = OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0]);
+        $cartao = OpcoesPagamento::create(['opcaopag_nome' => 'Cartão', 'opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0]);
+        $this->pedidoLancadoNestaVenda('Dinheiro');
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('opcaoPagamentoSelecionadaId', $cartao->id)
+            ->call('abrirModalPagamento')
+            ->assertSet('opcaoPagamentoSelecionadaId', $cartao->id);
     }
 }
