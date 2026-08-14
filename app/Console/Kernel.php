@@ -35,6 +35,14 @@ class Kernel extends ConsoleKernel
             ->dailyAt('02:00')
             ->withoutOverlapping()
             ->onOneServer();
+
+        // Rede de segurança para vendas INICIADA vazias que o beforeunload/
+        // sendBeacon do PDV não conseguiu cancelar (ver OperarVenda e
+        // App\Console\Commands\CancelarVendasIniciadasVazias).
+        $schedule->command('vendas:cancelar-iniciadas-vazias')
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
     }
 
     /**
