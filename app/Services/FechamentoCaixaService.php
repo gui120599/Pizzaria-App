@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\StatusFechamentoCaixa;
 use App\Models\FechamentoCaixa;
+use App\Models\NotaMoeda;
 use App\Models\SessaoCaixa;
 use Illuminate\Support\Facades\DB;
 
@@ -67,6 +68,29 @@ class FechamentoCaixaService
             $totais[$categoria] += (float) $linha->total;
         }
 
+        // Saldo inicial da abertura (ver SessaoCaixaService::registrarMovimentoAbertura)
+        // entra no esperado por forma de pagamento — sem isso o troco inicial em
+        // dinheiro nunca batia com o esperado e a conferência sempre dava "sobra".
+        $movimentosAbertura = DB::table('movimentacoes_sessao_caixas')
+            ->where('mov_sessaocaixa_id', $sessao->id)
+            ->where('mov_tipo', 'ENTRADA')
+            ->whereNotNull('mov_forma_pagamento')
+            ->selectRaw('mov_forma_pagamento as forma, SUM(mov_valor) as total')
+            ->groupBy('forma')
+            ->get();
+
+        foreach ($movimentosAbertura as $linha) {
+            $categoria = match ($linha->forma) {
+                'dinheiro' => 'dinheiro',
+                'cartao_debito' => 'debito',
+                'cartao_credito' => 'credito',
+                'pix' => 'pix',
+                default => 'outros',
+            };
+
+            $totais[$categoria] += (float) $linha->total;
+        }
+
         return $totais;
     }
 
@@ -96,7 +120,31 @@ class FechamentoCaixaService
             'total_esperado_outros' => $esperado['outros'],
         ])->save();
 
+        $this->sincronizarCatalogoNotas($fechamento);
+
         return $fechamento;
+    }
+
+    /**
+     * Garante uma linha por NotaMoeda do catálogo em fechamento_caixa_notas.
+     * Cobre fechamentos criados antes do catálogo existir (o Repeater só
+     * pré-popula na criação do registro, não ao editar um já existente) e
+     * cédulas/moedas cadastradas depois do fechamento já estar em rascunho.
+     */
+    private function sincronizarCatalogoNotas(FechamentoCaixa $fechamento): void
+    {
+        $jaCadastradas = $fechamento->notas()->pluck('nota_moeda_id')->all();
+
+        foreach (NotaMoeda::ordenadas()->get() as $notaMoeda) {
+            if (in_array($notaMoeda->id, $jaCadastradas, true)) {
+                continue;
+            }
+
+            $fechamento->notas()->create([
+                'nota_moeda_id' => $notaMoeda->id,
+                'quantidade' => 0,
+            ]);
+        }
     }
 
     public function confirmar(FechamentoCaixa $fechamento): void

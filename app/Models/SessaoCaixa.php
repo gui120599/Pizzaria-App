@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SessaoCaixa extends Model
@@ -57,5 +58,17 @@ class SessaoCaixa extends Model
     public function fechamentoCaixa()
     {
         return $this->hasOne(FechamentoCaixa::class, 'sessao_caixa_id');
+    }
+
+    /** Contagem de cédulas/moedas feita na abertura — define sessaocaixa_saldo_inicial. */
+    public function notas(): HasMany
+    {
+        return $this->hasMany(SessaoCaixaNota::class, 'sessao_caixa_id');
+    }
+
+    /** Saldo já acumulado nas maquininhas usadas, registrado na abertura (não pertence a este turno). */
+    public function maquininhas(): HasMany
+    {
+        return $this->hasMany(SessaoCaixaMaquininha::class, 'sessao_caixa_id');
     }
 }

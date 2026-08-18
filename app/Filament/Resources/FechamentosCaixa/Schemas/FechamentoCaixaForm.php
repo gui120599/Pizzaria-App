@@ -6,6 +6,7 @@ use App\Enums\OperadoraMaquininha;
 use App\Models\FechamentoCaixa;
 use App\Models\NotaMoeda;
 use App\Models\SessaoCaixa;
+use App\Models\SessaoCaixaMaquininha;
 use Closure;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Icons\Heroicon;
@@ -36,6 +38,11 @@ class FechamentoCaixaForm
                         ->searchable()
                         ->native(false)
                         ->required()
+                        ->live()
+                        // Pré-preenche as maquininhas com o que foi registrado na abertura
+                        // (ver SessaoCaixaMaquininha) — o saldo_inicial (odômetro) já vem
+                        // certo, só falta o operador digitar débito/crédito/pix do turno.
+                        ->afterStateUpdated(fn(Set $set, mixed $state) => $set('maquininhas', self::maquininhasDaAbertura($state)))
                         ->disabled(fn(?FechamentoCaixa $record): bool => $record?->exists ?? false)
                         ->dehydrated(),
                 ]),
@@ -171,6 +178,25 @@ class FechamentoCaixaForm
                             : sprintf('%s R$ %s', $sinal, number_format(abs($valor), 2, ',', '.'));
                     }),
             ]);
+    }
+
+    /** Maquininhas usadas na abertura da sessão, com o saldo_inicial (odômetro) já preenchido. */
+    private static function maquininhasDaAbertura(mixed $sessaoCaixaId): array
+    {
+        if (! $sessaoCaixaId) {
+            return [];
+        }
+
+        return SessaoCaixaMaquininha::where('sessao_caixa_id', $sessaoCaixaId)
+            ->get()
+            ->map(fn(SessaoCaixaMaquininha $m): array => [
+                'maquininha_id' => $m->maquininha_id,
+                'valor_debito' => 0,
+                'valor_credito' => 0,
+                'valor_pix' => 0,
+                'saldo_inicial' => $m->saldo_inicial,
+            ])
+            ->toArray();
     }
 
     private static function valorNota(mixed $notaMoedaId): float

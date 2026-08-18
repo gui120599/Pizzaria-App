@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FormaPagamento;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -19,9 +20,17 @@ class MovimentacoesSessaoCaixa extends Model
         'mov_venda_id',
         'mov_descricao',
         'mov_tipo',
+        'mov_forma_pagamento',
         'mov_valor',
         'mov_observacoes',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'mov_forma_pagamento' => FormaPagamento::class,
+        ];
+    }
 
     // Relacionamento com a tabela `sessao_caixas`
     public function sessaoCaixa()
