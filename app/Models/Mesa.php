@@ -54,4 +54,9 @@ class Mesa extends Model
     {
         $this->attributes['mesa_status'] = in_array($value, $this->allowedStatus) ? $value : 'LIBERADA';
     }
+
+    public function sessoes()
+    {
+        return $this->hasMany(SessaoMesa::class, 'sessao_mesa_mesa_id');
+    }
 }
