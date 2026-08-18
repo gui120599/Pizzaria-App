@@ -36,4 +36,8 @@ return [
         'secret' => env('RECAPTCHA_SECRET_KEY', ''),
     ],
 
+    'nfeio' => [
+        'webhook_secret' => env('NFE_IO_SECRET'),
+    ],
+
 ];

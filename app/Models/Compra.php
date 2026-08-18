@@ -53,6 +53,11 @@ class Compra extends Model
         ];
     }
 
+    public function devolucoes(): HasMany
+    {
+        return $this->hasMany(CompraDevolucao::class, 'compra_id');
+    }
+
     public function prestador(): BelongsTo
     {
         return $this->belongsTo(Prestador::class, 'compra_prestador_id');

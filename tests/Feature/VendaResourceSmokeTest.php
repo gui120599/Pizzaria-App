@@ -34,4 +34,26 @@ class VendaResourceSmokeTest extends TestCase
         $component->assertTableActionVisible('operar', $iniciada);
         $component->assertTableActionHidden('operar', $finalizada);
     }
+
+    public function test_lista_mostra_acao_de_danfe_apenas_quando_ha_nfe_emitida(): void
+    {
+        $comNfe = Venda::create(['venda_status' => 'FINALIZADA', 'venda_id_nfe' => 'inv-123']);
+        $semNfe = Venda::create(['venda_status' => 'FINALIZADA']);
+
+        $component = Livewire::test(ListVendas::class);
+
+        $component->assertTableActionVisible('imprimirDanfe', $comNfe);
+        $component->assertTableActionHidden('imprimirDanfe', $semNfe);
+    }
+
+    public function test_lista_mostra_acao_de_cancelar_nfe_apenas_quando_status_e_issued(): void
+    {
+        $emitida = Venda::create(['venda_status' => 'FINALIZADA', 'venda_id_nfe' => 'inv-123', 'venda_status_nfe' => 'Issued']);
+        $naoEmitida = Venda::create(['venda_status' => 'FINALIZADA']);
+
+        $component = Livewire::test(ListVendas::class);
+
+        $component->assertTableActionVisible('cancelarNfe', $emitida);
+        $component->assertTableActionHidden('cancelarNfe', $naoEmitida);
+    }
 }

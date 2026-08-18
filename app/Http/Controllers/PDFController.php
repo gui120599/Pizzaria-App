@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ItensPedido;
+use App\Models\Lancamento;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
@@ -55,6 +56,94 @@ class PDFController extends Controller
             'sessao_mesa' => $sessaoMesa,
             'itens_por_cliente' => $itensPorCliente,
             'total_desconto' => $totalDesconto,
+        ]);
+    }
+
+    /**
+     * Comprovante de um título fiado (Lancamento tipo=Receber) em aberto, mostrando
+     * ao cliente o que ele está devendo: pedidos avulsos, sessões de mesa e produtos
+     * lançados direto (sem pedido/mesa) que compõem a venda que originou o título.
+     *
+     * Como App\Models\ItensVenda não guarda a origem depois que os itens são
+     * mesclados por produto (ver OperarVenda::adicionarItensPedidoNaVenda), os
+     * "produtos avulsos" são reconciliados por subtração: quantidade total do
+     * produto na venda menos a quantidade já contabilizada nos pedidos/mesas —
+     * correto porque a quantidade mesclada é sempre a soma de todas as origens.
+     */
+    public function vendaPendentePDF(Request $request)
+    {
+        $lancamento = Lancamento::with(['venda.cliente', 'venda.itensVenda.produto.categoria'])->findOrFail($request->id);
+        $venda = $lancamento->venda;
+
+        $pedidosAvulsos = Pedido::whereHas('item_pedido_pedido_id', function ($query) use ($venda) {
+            $query->where('item_pedido_venda_id', $venda->id);
+        })
+            ->whereNull('pedido_sessao_mesa_id')
+            ->with([
+                'cliente',
+                'item_pedido_pedido_id' => fn ($query) => $query->where('item_pedido_venda_id', $venda->id),
+                'item_pedido_pedido_id.produto.categoria',
+                'item_pedido_pedido_id.adicionaisItemPedido.adicional',
+            ])
+            ->get();
+
+        $sessoesMesa = SessaoMesa::whereHas('pedidos.item_pedido_pedido_id', function ($query) use ($venda) {
+            $query->where('item_pedido_venda_id', $venda->id);
+        })
+            ->with([
+                'mesa',
+                'pedidos' => function ($query) use ($venda) {
+                    $query->whereHas('item_pedido_pedido_id', fn ($q) => $q->where('item_pedido_venda_id', $venda->id))
+                        ->with([
+                            'item_pedido_pedido_id' => fn ($q) => $q->where('item_pedido_venda_id', $venda->id),
+                            'item_pedido_pedido_id.produto.categoria',
+                            'item_pedido_pedido_id.adicionaisItemPedido.adicional',
+                        ]);
+                },
+            ])
+            ->get();
+
+        $quantidadePorProdutoEmPedidos = [];
+        $somarPedido = function (Pedido $pedido) use (&$quantidadePorProdutoEmPedidos): void {
+            foreach ($pedido->item_pedido_pedido_id as $item) {
+                $quantidadePorProdutoEmPedidos[$item->item_pedido_produto_id] =
+                    ($quantidadePorProdutoEmPedidos[$item->item_pedido_produto_id] ?? 0.0) + (float) $item->item_pedido_quantidade;
+            }
+        };
+        foreach ($pedidosAvulsos as $pedido) {
+            $somarPedido($pedido);
+        }
+        foreach ($sessoesMesa as $sessaoMesa) {
+            foreach ($sessaoMesa->pedidos as $pedido) {
+                $somarPedido($pedido);
+            }
+        }
+
+        $produtosAvulsos = collect();
+        foreach ($venda->itensVenda->groupBy('item_venda_produto_id') as $produtoId => $itens) {
+            $quantidadeTotal = (float) $itens->sum('item_venda_quantidade');
+            $quantidadeEmPedidos = $quantidadePorProdutoEmPedidos[$produtoId] ?? 0.0;
+            $quantidadeAvulsa = round($quantidadeTotal - $quantidadeEmPedidos, 3);
+
+            if ($quantidadeAvulsa <= 0) {
+                continue;
+            }
+
+            $produtosAvulsos->push([
+                'produto' => $itens->first()->produto,
+                'quantidade' => $quantidadeAvulsa,
+                'valor' => $quantidadeTotal > 0
+                    ? round((float) $itens->sum('item_venda_valor') * ($quantidadeAvulsa / $quantidadeTotal), 2)
+                    : 0.0,
+            ]);
+        }
+
+        return view('vendaPendentePDF', [
+            'lancamento' => $lancamento,
+            'venda' => $venda,
+            'pedidos_avulsos' => $pedidosAvulsos,
+            'sessoes_mesa' => $sessoesMesa,
+            'produtos_avulsos' => $produtosAvulsos,
         ]);
     }
 

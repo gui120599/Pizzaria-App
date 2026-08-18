@@ -21,7 +21,7 @@ class PermissionSeeder extends Seeder
         'Gerente' => [
             'cancel:pedido', 'accept:pedido', 'reject:pedido', 'advance:pedido', 'deliver:pedido',
             'create:pedido', 'update:pedido', 'view:sessao_mesa',
-            'estornar:pagamento', 'approve:lancamento', 'confirm:compra',
+            'estornar:pagamento', 'approve:lancamento', 'confirm:compra', 'registrar:devolucao_compra',
             'corrigir:movimentacao_estoque',
             'abrir:sessao_caixa', 'fechar:sessao_caixa', 'view:relatorio_financeiro',
             'operar:venda', 'cancel:venda', 'emitir:nfe',

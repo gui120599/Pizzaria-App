@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\StatusLancamento;
+use App\Enums\TipoLancamento;
 use App\Exceptions\VendaNaoFinalizavelException;
 use App\Http\Requests\StoreClienteRequest;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
+use App\Models\Lancamento;
 use App\Models\Mesa;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\Pedido;
@@ -31,36 +34,66 @@ class FinalizacaoVendaService
      * @param  array{cpf?: ?string, cnpj?: ?string, telefone?: ?string, nome?: ?string, email?: ?string}|null  $clienteAdHoc
      * @param  array<int, int>  $idSessaoMesa
      * @param  array<int, int>  $idPedido
+     * @param  bool  $permitirSaldoAberto  Libera finalizar com pago < total (venda fiado/parcial); o saldo vira um Lancamento a receber.
+     * @param  ?Carbon  $fiadoVencimento  Vencimento do título gerado quando $permitirSaldoAberto e há saldo restante. Default: hoje + 7 dias.
      *
      * @throws VendaNaoFinalizavelException
      * @throws ValidationException
      */
-    public function finalizar(Venda $venda, ?array $clienteAdHoc = null, array $idSessaoMesa = [], array $idPedido = []): Venda
-    {
-        return DB::transaction(function () use ($venda, $clienteAdHoc, $idSessaoMesa, $idPedido) {
+    public function finalizar(
+        Venda $venda,
+        ?array $clienteAdHoc = null,
+        array $idSessaoMesa = [],
+        array $idPedido = [],
+        bool $permitirSaldoAberto = false,
+        ?Carbon $fiadoVencimento = null,
+    ): Venda {
+        return DB::transaction(function () use ($venda, $clienteAdHoc, $idSessaoMesa, $idPedido, $permitirSaldoAberto, $fiadoVencimento) {
             $sessaoCaixa = SessaoCaixa::findOrFail($venda->venda_sessao_caixa_id);
-
-            $this->validarPagamento($venda);
 
             if ($venda->venda_cliente_id === null && $clienteAdHoc) {
                 $venda->venda_cliente_id = $this->resolverClienteAdHoc($clienteAdHoc)->id;
+            }
+
+            $saldoRestante = max(0.0, round((float) $venda->venda_valor_total - (float) $venda->venda_valor_pago, 2));
+            $gerarFiado = $permitirSaldoAberto && $saldoRestante > self::TOLERANCIA_CENTAVOS;
+
+            $this->validarPagamento($venda, $permitirSaldoAberto);
+
+            if ($gerarFiado) {
+                $this->validarLimiteCredito($venda, $saldoRestante);
             }
 
             $venda->venda_status = 'FINALIZADA';
             $venda->venda_datahora_finalizada = Carbon::now();
             $venda->save();
 
+            if ($gerarFiado) {
+                Lancamento::create([
+                    'tipo' => TipoLancamento::Receber,
+                    'venda_id' => $venda->id,
+                    'cliente_id' => $venda->venda_cliente_id,
+                    'descricao' => "Venda #{$venda->id} - saldo fiado",
+                    'valor' => $saldoRestante,
+                    'vencimento' => $fiadoVencimento ?? Carbon::now()->addDays(7),
+                    'status' => StatusLancamento::Pendente,
+                ]);
+            }
+
+            // mov_valor usa o valor efetivamente PAGO (não o total): numa venda
+            // fiado/parcial, o saldo em aberto vira Lancamento a receber acima,
+            // não dinheiro que entrou de fato no caixa desta sessão.
             MovimentacoesSessaoCaixa::create([
                 'mov_sessaocaixa_id' => $sessaoCaixa->id,
                 'mov_venda_id' => $venda->id,
                 'mov_descricao' => 'VENDA: '.$venda->id,
                 'mov_tipo' => 'ENTRADA',
-                'mov_valor' => $venda->venda_valor_total,
+                'mov_valor' => $venda->venda_valor_pago,
             ]);
 
             $valorTotalVendas = Venda::where('venda_sessao_caixa_id', $sessaoCaixa->id)
                 ->where('venda_status', 'FINALIZADA')
-                ->sum('venda_valor_total');
+                ->sum('venda_valor_pago');
 
             $sessaoCaixa->update([
                 'sessaocaixa_saldo_final' => $sessaoCaixa->sessaocaixa_saldo_inicial + $valorTotalVendas,
@@ -88,7 +121,7 @@ class FinalizacaoVendaService
         return $venda->fresh();
     }
 
-    private function validarPagamento(Venda $venda): void
+    private function validarPagamento(Venda $venda, bool $permitirSaldoAberto = false): void
     {
         $total = round((float) $venda->venda_valor_total, 2);
         $pago = round((float) $venda->venda_valor_pago, 2);
@@ -98,12 +131,39 @@ class FinalizacaoVendaService
             return;
         }
 
-        if ($pago + self::TOLERANCIA_CENTAVOS < $total) {
+        if (! $permitirSaldoAberto && $pago + self::TOLERANCIA_CENTAVOS < $total) {
             throw new VendaNaoFinalizavelException('Valor pago insuficiente para finalizar a venda.');
         }
 
         if (($pago - $total) > self::TOLERANCIA_CENTAVOS && $troco <= self::TOLERANCIA_CENTAVOS) {
             throw new VendaNaoFinalizavelException('O valor recebido excede o total da venda, mas nenhum troco foi informado. Ajuste o valor recebido para o total ou informe o valor pago pelo cliente para gerar o troco.');
+        }
+    }
+
+    /**
+     * Só chamada quando há saldo restante e o caixa optou por vender fiado.
+     * Exige cliente vinculado (o título a receber precisa de um responsável)
+     * e limite de crédito configurado e suficiente para o saldo desta venda.
+     */
+    private function validarLimiteCredito(Venda $venda, float $saldoRestante): void
+    {
+        if ($venda->venda_cliente_id === null) {
+            throw new VendaNaoFinalizavelException('Venda fiado exige um cliente vinculado à venda.');
+        }
+
+        $cliente = Cliente::find($venda->venda_cliente_id);
+        $disponivel = $cliente?->limiteCreditoDisponivel();
+
+        if ($disponivel === null) {
+            throw new VendaNaoFinalizavelException('Cliente sem limite de crédito configurado — não é possível vender fiado para ele.');
+        }
+
+        if ($saldoRestante > $disponivel + self::TOLERANCIA_CENTAVOS) {
+            throw new VendaNaoFinalizavelException(sprintf(
+                'Saldo em aberto (R$ %s) excede o limite de crédito disponível do cliente (R$ %s).',
+                number_format($saldoRestante, 2, ',', '.'),
+                number_format($disponivel, 2, ',', '.'),
+            ));
         }
     }
 

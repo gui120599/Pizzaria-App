@@ -66,4 +66,10 @@ class Empresa extends Model
         return $this->empresa_certificado_validade !== null
             && $this->empresa_certificado_validade->isPast();
     }
+
+    /** Company id + api key da NFe.io já cadastrados, prontos pra emitir/consultar/cancelar NFC-e. */
+    public function nfeIoConfigurado(): bool
+    {
+        return filled($this->empresa_api_nfeio_company_id) && filled($this->empresa_api_nfeio_apikey);
+    }
 }

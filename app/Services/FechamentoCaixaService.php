@@ -15,7 +15,10 @@ class FechamentoCaixaService
      * opcoes_pagamentos.opcaopag_desc_nfe como ponte — evita ter que mapear
      * manualmente cada forma de pagamento cadastrada. Substitui o loop O(n×m)
      * hoje feito em Blade (ver resources/views/sessaoCaixaPDF.blade.php) por
-     * uma query agregada.
+     * uma query agregada. Soma também os recebimentos de títulos fiado feitos
+     * nesta sessão (ver Lancamento::registrarPagamento() $sessaoCaixaId) — a
+     * venda que originou o título pode ter sido finalizada em outra sessão/dia,
+     * então esse valor não aparece na query de pagamentos_vendas acima.
      *
      * @return array{dinheiro: float, debito: float, credito: float, pix: float, outros: float}
      */
@@ -38,6 +41,26 @@ class FechamentoCaixaService
                 'debitCard' => 'debito',
                 'creditCard' => 'credito',
                 'InstantPayment' => 'pix',
+                default => 'outros',
+            };
+
+            $totais[$categoria] += (float) $linha->total;
+        }
+
+        $recebimentosFiado = DB::table('lancamento_pagamentos')
+            ->join('lancamentos', 'lancamentos.id', '=', 'lancamento_pagamentos.lancamento_id')
+            ->where('lancamento_pagamentos.sessao_caixa_id', $sessao->id)
+            ->where('lancamentos.tipo', 'receber')
+            ->selectRaw('lancamento_pagamentos.forma_pagamento as forma, SUM(lancamento_pagamentos.valor) as total')
+            ->groupBy('forma')
+            ->get();
+
+        foreach ($recebimentosFiado as $linha) {
+            $categoria = match ($linha->forma) {
+                'dinheiro' => 'dinheiro',
+                'cartao_debito' => 'debito',
+                'cartao_credito' => 'credito',
+                'pix' => 'pix',
                 default => 'outros',
             };
 

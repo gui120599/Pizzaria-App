@@ -29,10 +29,12 @@ class Cliente extends Model
         'cliente_numero_endereco',
         'cliente_cep',
         'cliente_foto', // Novo campo adicionado
+        'cliente_limite_credito',
     ];
 
     protected $casts = [
         'cliente_data_nascimento' => 'date',
+        'cliente_limite_credito' => 'decimal:2',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -55,5 +57,31 @@ class Cliente extends Model
     public function vendas()
     {
         return $this->hasMany(Venda::class, 'venda_cliente_id');
+    }
+
+    public function lancamentosReceber()
+    {
+        return $this->hasMany(Lancamento::class, 'cliente_id');
+    }
+
+    /** Soma do saldo em aberto (Pendente/Parcial) dos títulos a receber deste cliente. */
+    public function saldoDevedor(): float
+    {
+        return (float) $this->lancamentosReceber()
+            ->receber()
+            ->pendentes()
+            ->withSum('pagamentos', 'valor')
+            ->get()
+            ->sum(fn (Lancamento $lancamento) => $lancamento->valor_restante);
+    }
+
+    /** Quanto ainda cabe em fiado dado o limite cadastrado. Null = sem crédito liberado (nenhum limite configurado). */
+    public function limiteCreditoDisponivel(): ?float
+    {
+        if ($this->cliente_limite_credito === null) {
+            return null;
+        }
+
+        return max(0.0, (float) $this->cliente_limite_credito - $this->saldoDevedor());
     }
 }

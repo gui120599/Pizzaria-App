@@ -23,7 +23,7 @@
         {{-- Coluna de fontes de itens: abas Pedidos / Mesas / Produtos --}}
         <div class="xl:col-span-3 space-y-4">
             <div class="flex items-center gap-2">
-                @foreach (['pedidos' => 'Pedidos', 'mesas' => 'Mesas', 'produtos' => 'Produtos'] as $aba => $label)
+                @foreach (['pedidos' => 'Pedidos', 'mesas' => 'Mesas', 'produtos' => 'Produtos', 'pendentes' => 'Pendentes'] as $aba => $label)
                     <button
                         x-on:click="$wire.set('abaAtiva', '{{ $aba }}').then(() => $nextTick(() => document.querySelector('[data-busca-input]')?.focus()))"
                         type="button"
@@ -34,11 +34,23 @@
                     </button>
                 @endforeach
 
+                @if ($abaAtiva !== $this->abaPadraoAtual())
+                    <button
+                        wire:click="definirAbaPadrao"
+                        type="button"
+                        title="Definir '{{ ucfirst($abaAtiva) }}' como aba padrão ao abrir esta página"
+                        class="ml-auto flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:underline shrink-0"
+                    >
+                        <x-filament::icon icon="heroicon-o-bookmark" class="h-3.5 w-3.5" />
+                        Definir como padrão
+                    </button>
+                @endif
+
                 @if (in_array($abaAtiva, ['mesas', 'pedidos']))
                     <button
                         wire:click="alternarPadraoCards"
                         type="button"
-                        class="ml-auto text-xs font-medium text-gray-500 dark:text-gray-400 hover:underline shrink-0"
+                        class="{{ $abaAtiva === $this->abaPadraoAtual() ? 'ml-auto' : '' }} text-xs font-medium text-gray-500 dark:text-gray-400 hover:underline shrink-0"
                     >
                         {{ $this->abrirCardsPorPadrao ? 'Ocultar itens por padrão' : 'Mostrar itens por padrão' }}
                     </button>
@@ -94,6 +106,12 @@
                                         <p class="text-xs text-gray-400 dark:text-gray-500">{{ $sessaoMesa->cliente->cliente_nome }} · {{ $qtdItensPendentes }} {{ Str::plural('item', $qtdItensPendentes) }} pendente(s)</p>
                                     </div>
                                 </button>
+                                <button type="button"
+                                    onclick="window.open('{{ route('sessaoMesa.imprimir', ['id' => $sessaoMesa->id]) }}', '_blank', 'width=600,height=400')"
+                                    title="Imprimir comanda"
+                                    class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 shrink-0">
+                                    <x-filament::icon icon="heroicon-o-printer" class="h-4 w-4" />
+                                </button>
                                 <label class="flex items-center gap-2 shrink-0 cursor-pointer select-none">
                                     <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Lançada</span>
                                     <input
@@ -148,6 +166,12 @@
                                         <p class="text-xs text-gray-400 dark:text-gray-500">{{ $pedido->cliente->cliente_nome }} · R$ {{ number_format((float) $pedido->pedido_valor_total, 2, ',', '.') }}</p>
                                     </div>
                                 </button>
+                                <button type="button"
+                                    onclick="window.open('{{ route('pedido.imprimir', ['id' => $pedido->id]) }}', '_blank', 'width=600,height=400')"
+                                    title="Imprimir pedido"
+                                    class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 shrink-0">
+                                    <x-filament::icon icon="heroicon-o-printer" class="h-4 w-4" />
+                                </button>
                                 <label class="flex items-center gap-2 shrink-0 cursor-pointer select-none">
                                     <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Lançado</span>
                                     <input
@@ -171,6 +195,49 @@
                         </div>
                     @empty
                         <div class="p-10 text-center text-sm text-gray-400 dark:text-gray-500">Nenhum pedido avulso pendente.</div>
+                    @endforelse
+                </div>
+            @elseif ($abaAtiva === 'pendentes')
+                <div class="relative">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
+                    <input
+                        wire:model.live.debounce.300ms="buscaPendentes"
+                        type="text"
+                        data-busca-input
+                        placeholder="Buscar por número da venda ou cliente..."
+                        class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-xl bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/10 divide-y divide-gray-100 dark:divide-white/10 overflow-y-auto" style="max-height: clamp(20rem, 65vh, 52rem)">
+                    @forelse ($this->pendentes as $lancamento)
+                        <div wire:key="pendente-{{ $lancamento->id }}" class="p-4 flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{{ $lancamento->cliente?->cliente_nome ?? '—' }}</p>
+                                <p class="text-xs text-gray-400 dark:text-gray-500">
+                                    Venda #{{ $lancamento->venda_id }} ·
+                                    Vencimento {{ $lancamento->vencimento?->format('d/m/Y') }}
+                                    @if ($lancamento->esta_vencido)
+                                        <span class="text-red-600 dark:text-red-400 font-semibold">· vencido</span>
+                                    @endif
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">R$ {{ number_format($lancamento->valor_restante, 2, ',', '.') }}</span>
+                                <button type="button"
+                                    onclick="window.open('{{ route('lancamento.imprimir_fiado', ['id' => $lancamento->id]) }}', '_blank', 'width=600,height=600')"
+                                    title="Imprimir comprovante"
+                                    class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+                                    <x-filament::icon icon="heroicon-o-printer" class="h-4 w-4" />
+                                </button>
+                                <button wire:click="abrirModalRecebimento({{ $lancamento->id }})" type="button" class="text-xs font-semibold text-primary-700 dark:text-primary-400 hover:underline">
+                                    Receber
+                                </button>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="p-10 text-center text-sm text-gray-400 dark:text-gray-500">Nenhuma venda fiado pendente de recebimento.</div>
                     @endforelse
                 </div>
             @endif
@@ -333,6 +400,38 @@
                 <div class="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-400 text-sm rounded-lg px-4 py-3">{{ $message }}</div>
             @enderror
 
+            @if ($this->nfeIoDisponivel)
+                <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+                    <input type="checkbox" wire:model="emitirNfeAoFinalizar" class="h-4 w-4 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-primary-600 focus:ring-primary-500" />
+                    Emitir NFC-e ao finalizar
+                </label>
+            @endif
+
+            @if ($this->venda?->venda_cliente_id)
+                <div class="space-y-2">
+                    <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+                        <input type="checkbox" wire:model.live="vendaFiado" class="h-4 w-4 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-primary-600 focus:ring-primary-500" />
+                        Vender fiado / a prazo (saldo em aberto vira título a receber)
+                    </label>
+
+                    @if ($vendaFiado)
+                        <div class="pl-6 space-y-1">
+                            <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Vencimento do saldo</label>
+                            <input wire:model="fiadoVencimento" type="date" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+
+                            @php $limiteDisponivel = $this->limiteCreditoDisponivel; @endphp
+                            <p class="text-xs {{ $limiteDisponivel === null ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500' }}">
+                                @if ($limiteDisponivel === null)
+                                    Cliente sem limite de crédito configurado — cadastre um limite antes de vender fiado.
+                                @else
+                                    Crédito disponível do cliente: R$ {{ number_format($limiteDisponivel, 2, ',', '.') }}
+                                @endif
+                            </p>
+                        </div>
+                    @endif
+                </div>
+            @endif
+
             <div class="flex gap-2">
                 <button wire:click="finalizarVenda" wire:loading.attr="disabled" type="button" class="flex-1 py-3 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50">
                     Finalizar venda
@@ -365,6 +464,59 @@
                     <button wire:click="confirmarCancelamento" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700">
                         Confirmar cancelamento
                     </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Modal Emissão de NFC-e --}}
+    @if ($modalNfeAberta)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-white/10">
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Emissão de NFC-e</h3>
+                </div>
+                <div class="p-4 space-y-3">
+                    @if ($nfeStatusModal === 'processando')
+                        <div wire:poll.3s="verificarStatusNfe" class="flex flex-col items-center gap-3 py-4 text-center">
+                            <svg class="animate-spin h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Emitindo NFC-e, aguarde...</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">A emissão é processada de forma assíncrona pela NFe.io — isso pode levar alguns segundos.</p>
+                        </div>
+                        <button wire:click="fecharModalNfe" type="button" class="w-full py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+                            Continuar mesmo assim
+                        </button>
+                    @elseif ($nfeStatusModal === 'erro')
+                        <div class="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-400 text-sm rounded-lg px-3 py-2">
+                            {{ $nfeErroModal }}
+                        </div>
+                        <div class="flex gap-2">
+                            <button wire:click="iniciarEmissaoNfe" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
+                                Tentar novamente
+                            </button>
+                            <button wire:click="fecharModalNfe" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+                                Continuar sem NFC-e
+                            </button>
+                        </div>
+                    @elseif ($nfeStatusModal === 'emitido')
+                        <div class="flex flex-col items-center gap-2 py-2 text-center">
+                            <x-filament::icon icon="heroicon-o-check-circle" class="h-8 w-8 text-emerald-500" />
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-200">NFC-e emitida com sucesso!</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button"
+                                onclick="window.open('{{ route('venda.imprimir_NFE', ['id_nfe' => $nfeInvoiceId]) }}', '_blank')"
+                                class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+                                Ver DANFE
+                            </button>
+                            <button wire:click="fecharModalNfe" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
+                                Concluir
+                            </button>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -602,6 +754,62 @@
                     @endif
                     <button wire:click="dividirConta($wire.dividirContaQtdPessoas, $wire.dividirContaOpcaoPagamentoId)" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
                         Confirmar divisão
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Modal Registrar recebimento (aba Pendentes) --}}
+    @if ($modalRecebimentoAberto)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" wire:click.self="fecharModalRecebimento">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-white/10 flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Registrar recebimento</h3>
+                    <button wire:click="fecharModalRecebimento" type="button" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+                        <x-filament::icon icon="heroicon-o-x-mark" class="h-5 w-5" />
+                    </button>
+                </div>
+                <div class="p-4 space-y-3">
+                    @if ($this->pagamentosDoLancamentoEmRecebimento->isNotEmpty())
+                        <div class="border border-gray-100 dark:border-white/10 rounded-lg divide-y divide-gray-100 dark:divide-white/10">
+                            <p class="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pagamentos já registrados</p>
+                            @foreach ($this->pagamentosDoLancamentoEmRecebimento as $pagamento)
+                                <div class="px-3 py-1.5 flex items-center justify-between text-xs">
+                                    <span class="text-gray-500 dark:text-gray-400">
+                                        {{ $pagamento->data_pagamento?->format('d/m/Y') }}
+                                        @if ($pagamento->forma_pagamento)
+                                            · {{ $pagamento->forma_pagamento->getLabel() }}
+                                        @endif
+                                    </span>
+                                    <span class="font-semibold text-gray-700 dark:text-gray-200">R$ {{ number_format((float) $pagamento->valor, 2, ',', '.') }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Valor recebido (R$)</label>
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            value="{{ number_format($valorRecebimento, 2, ',', '.') }}"
+                            x-on:input="$el.value = Currency.masking($el.value, {locales:'pt-BR'})"
+                            x-on:blur="$wire.set('valorRecebimento', Currency.unmaskedValue)"
+                            class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 text-right focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Forma de recebimento</label>
+                        <select wire:model="formaRecebimento" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            <option value="">Selecione...</option>
+                            @foreach (\App\Enums\FormaPagamento::cases() as $forma)
+                                @continue($forma === \App\Enums\FormaPagamento::Compensacao)
+                                <option value="{{ $forma->value }}">{{ $forma->getLabel() }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button wire:click="confirmarRecebimento" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
+                        Confirmar recebimento
                     </button>
                 </div>
             </div>

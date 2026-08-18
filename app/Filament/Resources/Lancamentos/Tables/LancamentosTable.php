@@ -18,6 +18,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -28,6 +29,7 @@ use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class LancamentosTable
@@ -146,6 +148,7 @@ class LancamentosTable
             ->recordActions([
                 self::acaoMarcarComoPago(),
                 self::acaoEstornarPagamento(),
+                self::acaoCompensar(),
                 EditAction::make()
                     ->visible(fn (Lancamento $record): bool => $record->status !== StatusLancamento::Pago),
                 DeleteAction::make()
@@ -305,5 +308,123 @@ class LancamentosTable
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * Compensa um título a pagar (tipo=Pagar) com títulos a receber em aberto do
+     * cliente vinculado ao mesmo Prestador (favorecido) — caso de um fornecedor
+     * de serviço que também consome no PDV e quer descontar os próprios pedidos
+     * do repasse. Registra um pagamento (forma=Compensacao) nos DOIS lançamentos
+     * ao mesmo tempo, reaproveitando 100% Lancamento::registrarPagamento() —
+     * nenhuma tabela nova, nenhuma aritmética própria.
+     */
+    protected static function acaoCompensar(): Action
+    {
+        return Action::make('compensar')
+            ->label('Compensar com pedidos do fornecedor')
+            ->icon(Heroicon::OutlinedArrowsRightLeft)
+            ->color('info')
+            ->visible(fn (Lancamento $record): bool => $record->tipo === TipoLancamento::Pagar
+                && in_array($record->status, [StatusLancamento::Pendente, StatusLancamento::Parcial], true)
+                && $record->favorecido?->cliente_id !== null
+                && auth()->user()->can('compensar', $record))
+            ->modalHeading('Compensar com pedidos do fornecedor')
+            ->modalDescription('Abate do valor restante deste título o valor de títulos a receber em aberto do cliente vinculado a este fornecedor.')
+            ->modalSubmitActionLabel('Confirmar compensação')
+            ->form(fn (Lancamento $record): array => [
+                Repeater::make('compensacoes')
+                    ->label('')
+                    ->schema([
+                        Select::make('lancamento_receber_id')
+                            ->label('Título a receber')
+                            ->options(fn (): array => self::opcoesRecebiveis($record))
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set) use ($record): void {
+                                $receber = Lancamento::find($state);
+                                if (! $receber) {
+                                    return;
+                                }
+
+                                $valor = min((float) $receber->valorRestante, (float) $record->valorRestante);
+                                $set('valor', number_format($valor, 2, '.', ''));
+                            })
+                            ->columnSpan(3),
+                        Money::make('valor')
+                            ->label('Valor')
+                            ->minValue(0.01)
+                            ->live(onBlur: true)
+                            ->required()
+                            ->columnSpan(1),
+                    ])
+                    ->columns(4)
+                    ->addActionLabel('Adicionar título')
+                    ->reorderable(false)
+                    ->defaultItems(1)
+                    ->minItems(1)
+                    // Mesma trava de acaoMarcarComoPago(): a soma compensada não pode
+                    // ultrapassar o que ainda falta pagar neste título.
+                    ->rule(function (Lancamento $record): Closure {
+                        return function (string $attribute, $value, Closure $fail) use ($record): void {
+                            $totalCompensado = collect($value)
+                                ->sum(fn (array $item): float => self::normalizeMoney($item['valor'] ?? null));
+                            $restante = $record->valorRestante > 0 ? $record->valorRestante : (float) $record->valor;
+
+                            if (round($totalCompensado, 2) > round($restante, 2) + 0.01) {
+                                $fail(
+                                    'A soma das compensações (R$ '.number_format($totalCompensado, 2, ',', '.').
+                                    ') não pode ultrapassar o valor restante deste título (R$ '.number_format($restante, 2, ',', '.').').'
+                                );
+                            }
+                        };
+                    })
+                    ->columnSpanFull(),
+            ])
+            ->action(function (Lancamento $record, array $data): void {
+                DB::transaction(function () use ($record, $data): void {
+                    foreach ($data['compensacoes'] as $item) {
+                        $receber = Lancamento::find($item['lancamento_receber_id'] ?? null);
+                        $valor = self::normalizeMoney($item['valor'] ?? null);
+
+                        if (! $receber || $valor <= 0) {
+                            continue;
+                        }
+
+                        $receber->registrarPagamento(
+                            $valor,
+                            forma: FormaPagamento::Compensacao,
+                            observacoes: "Compensado com Lançamento a pagar #{$record->id}",
+                        );
+                        $record->registrarPagamento(
+                            $valor,
+                            forma: FormaPagamento::Compensacao,
+                            observacoes: "Compensado com Lançamento a receber #{$receber->id} (Venda #{$receber->venda_id})",
+                        );
+                    }
+                });
+
+                Notification::make()
+                    ->title('Compensação registrada com sucesso!')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /** @return array<int, string> */
+    private static function opcoesRecebiveis(Lancamento $record): array
+    {
+        $clienteId = $record->favorecido?->cliente_id;
+        if (! $clienteId) {
+            return [];
+        }
+
+        return Lancamento::receber()
+            ->pendentes()
+            ->where('cliente_id', $clienteId)
+            ->get()
+            ->mapWithKeys(fn (Lancamento $l): array => [
+                $l->id => 'Venda #'.$l->venda_id.' — R$ '.number_format($l->valorRestante, 2, ',', '.').' (vence '.$l->vencimento->format('d/m/Y').')',
+            ])
+            ->all();
     }
 }

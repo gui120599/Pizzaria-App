@@ -2,14 +2,18 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\FormaPagamento;
 use App\Exceptions\EstoqueInsuficienteException;
+use App\Exceptions\NfeIoException;
 use App\Exceptions\VendaNaoFinalizavelException;
 use App\Models\AdicionaisItemPedido;
 use App\Models\AdicionaisItemVenda;
 use App\Models\CartoesPagamento;
 use App\Models\Cliente;
+use App\Models\Empresa;
 use App\Models\ItensPedido;
 use App\Models\ItensVenda;
+use App\Models\Lancamento;
 use App\Models\Mesa;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
@@ -20,9 +24,11 @@ use App\Models\SessaoMesa;
 use App\Models\Venda;
 use App\Services\EstoqueService;
 use App\Services\FinalizacaoVendaService;
+use App\Services\NfeIoService;
 use App\Services\VendaService;
 use App\Support\RateioCentavos;
 use BackedEnum;
+use Carbon\Carbon;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
@@ -61,12 +67,14 @@ class OperarVenda extends Page
     /** Null até o primeiro lançamento (criação lazy) ou venda INICIADA retomada via rota. */
     public ?int $vendaId = null;
 
-    /** @var 'pedidos'|'mesas'|'produtos' */
+    /** @var 'pedidos'|'mesas'|'produtos'|'pendentes' */
     public string $abaAtiva = 'produtos';
 
     public string $buscaMesa = '';
 
     public string $buscaPedido = '';
+
+    public string $buscaPendentes = '';
 
     /**
      * Padrão inicial de expandido/recolhido dos cards de mesa/pedido —
@@ -78,6 +86,9 @@ class OperarVenda extends Page
     public bool $abrirCardsPorPadrao = false;
 
     private const SESSION_KEY_CARDS_ABERTOS = 'operar_venda_cards_abertos';
+
+    /** Aba que carrega ao abrir a página — persistida em sessão, mesmo mecanismo de SESSION_KEY_CARDS_ABERTOS. */
+    private const SESSION_KEY_ABA_PADRAO = 'operar_venda_aba_padrao';
 
     // ── Aba Produtos (catálogo é só apresentação; a persistência mora aqui) ───
     /** Estoque insuficiente (modo BLOQUEAR) impede o lançamento do item. */
@@ -129,6 +140,32 @@ class OperarVenda extends Page
 
     public ?string $motivoCancelamento = null;
 
+    // ── Emissão de NFC-e (NFe.io) ────────────────────────────────────────────
+    public bool $emitirNfeAoFinalizar = false;
+
+    public bool $modalNfeAberta = false;
+
+    /** @var 'processando'|'erro'|'emitido'|null */
+    public ?string $nfeStatusModal = null;
+
+    public ?string $nfeErroModal = null;
+
+    public ?string $nfeInvoiceId = null;
+
+    // ── Venda fiado / a prazo ────────────────────────────────────────────────
+    public bool $vendaFiado = false;
+
+    public ?string $fiadoVencimento = null;
+
+    // ── Modal Registrar recebimento (aba Pendentes) ──────────────────────────
+    public bool $modalRecebimentoAberto = false;
+
+    public ?int $lancamentoRecebimentoId = null;
+
+    public float $valorRecebimento = 0;
+
+    public ?string $formaRecebimento = null;
+
     public static function canAccess(): bool
     {
         return Auth::user()?->can('operar:venda') ?? false;
@@ -137,6 +174,8 @@ class OperarVenda extends Page
     public function mount(?Venda $venda = null): void
     {
         $this->abrirCardsPorPadrao = (bool) session(self::SESSION_KEY_CARDS_ABERTOS, false);
+        $this->abaAtiva = session(self::SESSION_KEY_ABA_PADRAO, 'produtos');
+        $this->fiadoVencimento = now()->addDays(7)->toDateString();
 
         $user = Auth::user();
 
@@ -561,6 +600,17 @@ class OperarVenda extends Page
     {
         $this->abrirCardsPorPadrao = ! $this->abrirCardsPorPadrao;
         session([self::SESSION_KEY_CARDS_ABERTOS => $this->abrirCardsPorPadrao]);
+    }
+
+    /** Fixa a aba atualmente ativa como a que carrega da próxima vez que a página abrir. */
+    public function definirAbaPadrao(): void
+    {
+        session([self::SESSION_KEY_ABA_PADRAO => $this->abaAtiva]);
+    }
+
+    public function abaPadraoAtual(): string
+    {
+        return session(self::SESSION_KEY_ABA_PADRAO, 'produtos');
     }
 
     // ── Aba Mesas ────────────────────────────────────────────────────────────
@@ -1389,18 +1439,54 @@ class OperarVenda extends Page
 
     // ── Finalizar / cancelar venda ───────────────────────────────────────────
 
+    #[Computed]
+    public function nfeIoDisponivel(): bool
+    {
+        // Mesma permission já usada pelo botão "Gerar NFC-E" da tela legada
+        // (resources/views/app/sessao_caixa/vendas.blade.php) — cancel:venda
+        // e emitir:nfe ficam restritos a quem também fecha caixa.
+        return Auth::user()?->can('emitir:nfe') && Empresa::first()?->nfeIoConfigurado();
+    }
+
     /**
      * Finaliza a venda via FinalizacaoVendaService. Diferente do legado (que
      * recebia checkboxes id_sessao_mesa[]/id_pedido[] do form), deriva quais
      * mesas/pedidos finalizar a partir do que já está de fato vinculado à
      * venda (item_pedido_venda_id), já que o lançamento acontece no clique,
      * não no fim.
+     *
+     * Quando "emitir NFC-e ao finalizar" está marcado, o redirect pra
+     * próxima venda só acontece depois que o modal de emissão for fechado
+     * (ver fecharModalNfe()) — a finalização em si (status, estoque,
+     * pagamento) sempre acontece aqui embaixo de qualquer forma, porque o
+     * payload da NFC-e depende de venda_datahora_finalizada, que só existe
+     * depois que a venda já foi finalizada de verdade.
      */
     public function finalizarVenda(): void
     {
-        $venda = Venda::find($this->vendaId);
+        $venda = $this->executarFinalizacao();
         if (! $venda) {
             return;
+        }
+
+        if ($this->emitirNfeAoFinalizar && $this->nfeIoDisponivel) {
+            $this->iniciarEmissaoNfe($venda);
+
+            return;
+        }
+
+        // Redireciona pra própria página (não pra lista de vendas do blade
+        // legado): o caixa emenda direto pra próxima venda, sem sair do
+        // Filament. Nenhuma Venda nova é criada aqui — só no primeiro
+        // lançamento real da próxima operação (ver iniciarVendaSeNecessario()).
+        $this->redirect(static::getUrl());
+    }
+
+    private function executarFinalizacao(): ?Venda
+    {
+        $venda = Venda::find($this->vendaId);
+        if (! $venda) {
+            return null;
         }
 
         $pedidoIds = ItensPedido::where('item_pedido_venda_id', $this->vendaId)
@@ -1412,23 +1498,172 @@ class OperarVenda extends Page
         $idSessaoMesa = $pedidosVinculados->pluck('pedido_sessao_mesa_id')->filter()->unique()->values()->all();
         $idPedido = $pedidosVinculados->whereNull('pedido_sessao_mesa_id')->pluck('id')->all();
 
+        $fiadoVencimento = $this->vendaFiado && $this->fiadoVencimento
+            ? Carbon::parse($this->fiadoVencimento)
+            : null;
+
         try {
-            app(FinalizacaoVendaService::class)->finalizar($venda, null, $idSessaoMesa, $idPedido);
+            app(FinalizacaoVendaService::class)->finalizar(
+                $venda,
+                null,
+                $idSessaoMesa,
+                $idPedido,
+                $this->vendaFiado,
+                $fiadoVencimento,
+            );
         } catch (VendaNaoFinalizavelException $e) {
             $this->addError('finalizar', $e->getMessage());
 
-            return;
+            return null;
         } catch (ValidationException $e) {
             $this->setErrorBag($e->validator->getMessageBag());
+
+            return null;
+        }
+
+        return $venda;
+    }
+
+    /** Crédito ainda disponível do cliente vinculado à venda atual. Null = sem limite configurado (fiado bloqueado). */
+    #[Computed]
+    public function limiteCreditoDisponivel(): ?float
+    {
+        $clienteId = $this->venda?->venda_cliente_id;
+        if ($clienteId === null) {
+            return null;
+        }
+
+        return Cliente::find($clienteId)?->limiteCreditoDisponivel();
+    }
+
+    public function iniciarEmissaoNfe(?Venda $venda = null): void
+    {
+        $venda ??= Venda::find($this->vendaId);
+        if (! $venda) {
+            return;
+        }
+
+        $this->modalNfeAberta = true;
+        $this->nfeStatusModal = 'processando';
+        $this->nfeErroModal = null;
+
+        try {
+            app(NfeIoService::class)->emitir($venda);
+            $this->nfeInvoiceId = $venda->fresh()->venda_id_nfe;
+        } catch (NfeIoException $e) {
+            $this->nfeStatusModal = 'erro';
+            $this->nfeErroModal = $e->getMessage();
+        }
+    }
+
+    /** Chamado via wire:poll enquanto o modal estiver 'processando' — a emissão é assíncrona na NFe.io. */
+    public function verificarStatusNfe(): void
+    {
+        $venda = Venda::find($this->vendaId);
+        if (! $venda || blank($venda->venda_id_nfe)) {
+            return;
+        }
+
+        try {
+            $status = app(NfeIoService::class)->sincronizarStatusLocal($venda);
+        } catch (NfeIoException $e) {
+            $this->nfeStatusModal = 'erro';
+            $this->nfeErroModal = $e->getMessage();
 
             return;
         }
 
-        // Redireciona pra própria página (não pra lista de vendas do blade
-        // legado): o caixa emenda direto pra próxima venda, sem sair do
-        // Filament. Nenhuma Venda nova é criada aqui — só no primeiro
-        // lançamento real da próxima operação (ver iniciarVendaSeNecessario()).
+        if ($status === 'Issued') {
+            $this->nfeStatusModal = 'emitido';
+        } elseif (in_array($status, ['Error', 'Failed', 'Cancelled'], true)) {
+            $this->nfeStatusModal = 'erro';
+            $this->nfeErroModal = "A NFe.io retornou o status '{$status}' para esta nota.";
+        }
+        // qualquer outro status (ex. 'Processing'): mantém 'processando', o poll continua.
+    }
+
+    /** Único ponto que redireciona pra próxima venda quando o checkbox de NFC-e está marcado. */
+    public function fecharModalNfe(): void
+    {
+        $this->modalNfeAberta = false;
+        $this->nfeStatusModal = null;
+        $this->nfeErroModal = null;
+        $this->nfeInvoiceId = null;
+
         $this->redirect(static::getUrl());
+    }
+
+    // ── Aba Pendentes (vendas fiado/parcial em aberto) ──────────────────────
+
+    /** Títulos a receber (Pendente/Parcial) originados de vendas do PDV — atalho de cobrança no balcão. */
+    #[Computed]
+    public function pendentes()
+    {
+        return Lancamento::receber()
+            ->pendentes()
+            ->whereNotNull('venda_id')
+            ->when($this->buscaPendentes, function ($query) {
+                $termo = $this->buscaPendentes;
+                $query->where(function ($q) use ($termo) {
+                    $q->whereHas('cliente', fn ($q2) => $q2->where('cliente_nome', 'like', "%{$termo}%"))
+                        ->orWhere('venda_id', 'like', "%{$termo}%");
+                });
+            })
+            ->with(['venda', 'cliente'])
+            ->withSum('pagamentos', 'valor')
+            ->orderBy('vencimento')
+            ->get();
+    }
+
+    /** Pagamentos já registrados do título em recebimento no modal — histórico exibido ao caixa. */
+    #[Computed]
+    public function pagamentosDoLancamentoEmRecebimento()
+    {
+        if ($this->lancamentoRecebimentoId === null) {
+            return collect();
+        }
+
+        return Lancamento::find($this->lancamentoRecebimentoId)?->pagamentos ?? collect();
+    }
+
+    public function abrirModalRecebimento(int $lancamentoId): void
+    {
+        $lancamento = Lancamento::find($lancamentoId);
+        if (! $lancamento) {
+            return;
+        }
+
+        $this->lancamentoRecebimentoId = $lancamento->id;
+        $this->valorRecebimento = (float) $lancamento->valor_restante;
+        $this->formaRecebimento = null;
+        $this->modalRecebimentoAberto = true;
+    }
+
+    public function fecharModalRecebimento(): void
+    {
+        $this->modalRecebimentoAberto = false;
+        $this->lancamentoRecebimentoId = null;
+        $this->valorRecebimento = 0;
+        $this->formaRecebimento = null;
+    }
+
+    /** Registra um recebimento (parcial ou total) de um título fiado, reaproveitando Lancamento::registrarPagamento(). */
+    public function confirmarRecebimento(): void
+    {
+        $lancamento = Lancamento::find($this->lancamentoRecebimentoId);
+        if (! $lancamento || $this->valorRecebimento <= 0) {
+            return;
+        }
+
+        $forma = $this->formaRecebimento ? FormaPagamento::tryFrom($this->formaRecebimento) : null;
+        $lancamento->registrarPagamento(
+            valor: $this->valorRecebimento,
+            forma: $forma,
+            sessaoCaixaId: $this->sessaoCaixaId,
+        );
+
+        $this->fecharModalRecebimento();
+        unset($this->pendentes);
     }
 
     public function abrirModalCancelar(): void

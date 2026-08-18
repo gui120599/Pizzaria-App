@@ -31,6 +31,7 @@ class Lancamento extends Model
         'descricao',
         'favorecido_id',
         'cliente_id',
+        'venda_id',
         'numero_documento',
         'valor',
         'vencimento',
@@ -127,6 +128,12 @@ class Lancamento extends Model
     public function prazoPagamento(): BelongsTo
     {
         return $this->belongsTo(PrazoPagamento::class, 'prazo_pagamento_id');
+    }
+
+    /** Venda do PDV que originou este título a receber (venda fiado / saldo em aberto). */
+    public function venda(): BelongsTo
+    {
+        return $this->belongsTo(Venda::class, 'venda_id');
     }
 
     /** Rateio do título entre planos de despesa (1 lançamento -> N despesas). */
@@ -233,17 +240,26 @@ class Lancamento extends Model
      * status (Pendente/Parcial/Pago) via evento do LancamentoPagamento — ver
      * Lancamento::recalcularStatus().
      */
+    /**
+     * $sessaoCaixaId só é preenchido quando o pagamento é registrado a partir do PDV
+     * (aba Pendentes do OperarVenda) — é o que faz o valor entrar na conferência do
+     * Fechamento de Caixa da sessão aberta no momento (ver FechamentoCaixaService::
+     * calcularEsperado()). Pagamentos registrados pela tela de Contas a Pagar/Receber
+     * não passam esse valor e continuam de fora da conferência de caixa.
+     */
     public function registrarPagamento(
         float $valor,
         ?Carbon $data = null,
         ?FormaPagamento $forma = null,
         ?string $observacoes = null,
+        ?int $sessaoCaixaId = null,
     ): LancamentoPagamento {
         return $this->pagamentos()->create([
             'valor' => $valor,
             'data_pagamento' => $data ?? now(),
             'forma_pagamento' => $forma,
             'observacoes' => $observacoes,
+            'sessao_caixa_id' => $sessaoCaixaId,
         ]);
     }
 
