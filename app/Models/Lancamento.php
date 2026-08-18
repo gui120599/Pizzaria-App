@@ -246,6 +246,12 @@ class Lancamento extends Model
      * Fechamento de Caixa da sessão aberta no momento (ver FechamentoCaixaService::
      * calcularEsperado()). Pagamentos registrados pela tela de Contas a Pagar/Receber
      * não passam esse valor e continuam de fora da conferência de caixa.
+     *
+     * $cartaoId/$numeroAutorizacaoCartao são só pra conciliação interna com a
+     * operadora do cartão — sem efeito fiscal: se a venda que originou o título
+     * teve NFC-e emitida, o saldo em aberto já foi declarado como tPag=90/
+     * withoutPayment no momento da finalização (ver NfeIoService::montarPagamentos()),
+     * então o recebimento posterior nunca precisa (nem pode) alterar a nota.
      */
     public function registrarPagamento(
         float $valor,
@@ -253,6 +259,8 @@ class Lancamento extends Model
         ?FormaPagamento $forma = null,
         ?string $observacoes = null,
         ?int $sessaoCaixaId = null,
+        ?int $cartaoId = null,
+        ?string $numeroAutorizacaoCartao = null,
     ): LancamentoPagamento {
         return $this->pagamentos()->create([
             'valor' => $valor,
@@ -260,6 +268,8 @@ class Lancamento extends Model
             'forma_pagamento' => $forma,
             'observacoes' => $observacoes,
             'sessao_caixa_id' => $sessaoCaixaId,
+            'cartao_id' => $cartaoId,
+            'numero_autorizacao_cartao' => $numeroAutorizacaoCartao,
         ]);
     }
 

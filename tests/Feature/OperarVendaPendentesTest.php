@@ -7,6 +7,7 @@ use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Filament\Pages\OperarVenda;
 use App\Models\Caixa;
+use App\Models\CartoesPagamento;
 use App\Models\Cliente;
 use App\Models\Lancamento;
 use App\Models\LancamentoPagamento;
@@ -176,6 +177,42 @@ class OperarVendaPendentesTest extends TestCase
 
         $this->assertCount(1, $historico);
         $this->assertSame(30.0, (float) $historico->first()->valor);
+    }
+
+    public function test_recebimento_via_cartao_registra_bandeira_e_autorizacao(): void
+    {
+        $lancamento = $this->lancamentoFiado(60);
+        $cartao = CartoesPagamento::create(['cartao_bandeira' => 'Visa']);
+        $venda = Venda::create(['venda_status' => 'INICIADA', 'venda_sessao_caixa_id' => $this->sessaoCaixa->id]);
+
+        Livewire::test(OperarVenda::class, ['venda' => $venda])
+            ->call('abrirModalRecebimento', $lancamento->id)
+            ->set('formaRecebimento', FormaPagamento::CartaoCredito->value)
+            ->set('cartaoRecebimentoId', $cartao->id)
+            ->set('numeroAutorizacaoRecebimento', '123456')
+            ->call('confirmarRecebimento');
+
+        $pagamento = LancamentoPagamento::where('lancamento_id', $lancamento->id)->first();
+        $this->assertSame($cartao->id, $pagamento->cartao_id);
+        $this->assertSame('123456', $pagamento->numero_autorizacao_cartao);
+    }
+
+    public function test_recebimento_em_dinheiro_nao_grava_dados_de_cartao_mesmo_se_informados(): void
+    {
+        $lancamento = $this->lancamentoFiado(60);
+        $cartao = CartoesPagamento::create(['cartao_bandeira' => 'Visa']);
+        $venda = Venda::create(['venda_status' => 'INICIADA', 'venda_sessao_caixa_id' => $this->sessaoCaixa->id]);
+
+        Livewire::test(OperarVenda::class, ['venda' => $venda])
+            ->call('abrirModalRecebimento', $lancamento->id)
+            ->set('formaRecebimento', FormaPagamento::Dinheiro->value)
+            ->set('cartaoRecebimentoId', $cartao->id)
+            ->set('numeroAutorizacaoRecebimento', '123456')
+            ->call('confirmarRecebimento');
+
+        $pagamento = LancamentoPagamento::where('lancamento_id', $lancamento->id)->first();
+        $this->assertNull($pagamento->cartao_id);
+        $this->assertNull($pagamento->numero_autorizacao_cartao);
     }
 
     public function test_recebimento_pelo_pdv_entra_na_sessao_de_caixa_aberta(): void

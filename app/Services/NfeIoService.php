@@ -179,6 +179,14 @@ class NfeIoService
         ];
     }
 
+    /**
+     * Venda fiado/parcial (ver FinalizacaoVendaService::finalizar()) finaliza com
+     * venda_valor_pago < venda_valor_total — sem essa linha extra, o payload
+     * declararia menos pagamento do que o valor total da nota (ou nenhum, em
+     * fiado 100%), o que não reflete a operação real perante o fisco. 'withoutPayment'
+     * é o método da NFe.io para o código SEFAZ tPag=90 ("Sem pagamento"), usado
+     * justamente para venda a prazo sem quitação no ato.
+     */
     private function montarPagamentos(Venda $venda): array
     {
         $pagamentoDetalhe = [];
@@ -203,6 +211,14 @@ class NfeIoService
                     'amount' => $pagamento->pg_venda_valor_pago_pelo_cliente,
                 ];
             }
+        }
+
+        $saldoFiado = round((float) $venda->venda_valor_total - (float) $venda->venda_valor_pago, 2);
+        if ($saldoFiado > 0.01) {
+            $pagamentoDetalhe[] = [
+                'method' => 'withoutPayment',
+                'amount' => $saldoFiado,
+            ];
         }
 
         return [[
