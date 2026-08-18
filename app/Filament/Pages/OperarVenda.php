@@ -166,6 +166,11 @@ class OperarVenda extends Page
 
     public ?string $formaRecebimento = null;
 
+    /** Bandeira/autorização do cartão — só conciliação interna, sem efeito na NF (ver Lancamento::registrarPagamento()). */
+    public ?int $cartaoRecebimentoId = null;
+
+    public ?string $numeroAutorizacaoRecebimento = null;
+
     public static function canAccess(): bool
     {
         return Auth::user()?->can('operar:venda') ?? false;
@@ -1636,6 +1641,8 @@ class OperarVenda extends Page
         $this->lancamentoRecebimentoId = $lancamento->id;
         $this->valorRecebimento = (float) $lancamento->valor_restante;
         $this->formaRecebimento = null;
+        $this->cartaoRecebimentoId = null;
+        $this->numeroAutorizacaoRecebimento = null;
         $this->modalRecebimentoAberto = true;
     }
 
@@ -1645,6 +1652,8 @@ class OperarVenda extends Page
         $this->lancamentoRecebimentoId = null;
         $this->valorRecebimento = 0;
         $this->formaRecebimento = null;
+        $this->cartaoRecebimentoId = null;
+        $this->numeroAutorizacaoRecebimento = null;
     }
 
     /** Registra um recebimento (parcial ou total) de um título fiado, reaproveitando Lancamento::registrarPagamento(). */
@@ -1656,10 +1665,14 @@ class OperarVenda extends Page
         }
 
         $forma = $this->formaRecebimento ? FormaPagamento::tryFrom($this->formaRecebimento) : null;
+        $ehCartao = in_array($forma, [FormaPagamento::CartaoCredito, FormaPagamento::CartaoDebito], true);
+
         $lancamento->registrarPagamento(
             valor: $this->valorRecebimento,
             forma: $forma,
             sessaoCaixaId: $this->sessaoCaixaId,
+            cartaoId: $ehCartao ? $this->cartaoRecebimentoId : null,
+            numeroAutorizacaoCartao: $ehCartao ? $this->numeroAutorizacaoRecebimento : null,
         );
 
         $this->fecharModalRecebimento();

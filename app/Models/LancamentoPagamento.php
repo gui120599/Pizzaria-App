@@ -21,6 +21,8 @@ class LancamentoPagamento extends Model
         'valor',
         'data_pagamento',
         'forma_pagamento',
+        'cartao_id',
+        'numero_autorizacao_cartao',
         'observacoes',
     ];
 
@@ -47,5 +49,11 @@ class LancamentoPagamento extends Model
     public function sessaoCaixa(): BelongsTo
     {
         return $this->belongsTo(SessaoCaixa::class, 'sessao_caixa_id');
+    }
+
+    /** Bandeira do cartão, quando o pagamento foi recebido via débito/crédito — só pra conciliação interna. */
+    public function cartao(): BelongsTo
+    {
+        return $this->belongsTo(CartoesPagamento::class, 'cartao_id');
     }
 }

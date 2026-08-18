@@ -7,6 +7,8 @@ use App\Exceptions\NfeIoException;
 use App\Models\Categoria;
 use App\Models\Empresa;
 use App\Models\ItensVenda;
+use App\Models\OpcoesPagamento;
+use App\Models\PagamentosVenda;
 use App\Models\Produto;
 use App\Models\Venda;
 use App\Services\NfeIoService;
@@ -145,5 +147,56 @@ class NfeIoServiceTest extends TestCase
         $this->expectException(NfeIoException::class);
 
         app(NfeIoService::class)->consultarStatus('inv-123');
+    }
+
+    public function test_payload_de_venda_totalmente_fiado_declara_saldo_como_sem_pagamento(): void
+    {
+        // Venda do setUp: total 50, pago 0 (default), sem PagamentosVenda — 100% fiado.
+        $payload = app(NfeIoService::class)->payloadPreview($this->venda->fresh());
+
+        $detalhe = $payload['payment'][0]['paymentDetail'];
+
+        $this->assertCount(1, $detalhe);
+        $this->assertSame('withoutPayment', $detalhe[0]['method']);
+        $this->assertEqualsWithDelta(50.0, (float) $detalhe[0]['amount'], 0.01);
+    }
+
+    public function test_payload_de_venda_parcialmente_fiado_declara_pago_mais_saldo_sem_pagamento(): void
+    {
+        $opcaoPix = OpcoesPagamento::create(['opcaopag_nome' => 'Pix', 'opcaopag_desc_nfe' => 'InstantPayment']);
+        $this->venda->update(['venda_valor_total' => 100.00, 'venda_valor_pago' => 40.00]);
+        PagamentosVenda::create([
+            'pg_venda_venda_id' => $this->venda->id,
+            'pg_venda_opcaopagamento_id' => $opcaoPix->id,
+            'pg_venda_valor_pagamento' => 40.00,
+            'pg_venda_valor_pago_pelo_cliente' => 40.00,
+        ]);
+
+        $payload = app(NfeIoService::class)->payloadPreview($this->venda->fresh());
+        $detalhe = $payload['payment'][0]['paymentDetail'];
+
+        $this->assertCount(2, $detalhe);
+        $this->assertSame('InstantPayment', $detalhe[0]['method']);
+        $this->assertEqualsWithDelta(40.0, (float) $detalhe[0]['amount'], 0.01);
+        $this->assertSame('withoutPayment', $detalhe[1]['method']);
+        $this->assertEqualsWithDelta(60.0, (float) $detalhe[1]['amount'], 0.01);
+    }
+
+    public function test_payload_de_venda_totalmente_paga_nao_declara_sem_pagamento(): void
+    {
+        $opcaoDinheiro = OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_desc_nfe' => 'cash']);
+        $this->venda->update(['venda_valor_pago' => 50.00]);
+        PagamentosVenda::create([
+            'pg_venda_venda_id' => $this->venda->id,
+            'pg_venda_opcaopagamento_id' => $opcaoDinheiro->id,
+            'pg_venda_valor_pagamento' => 50.00,
+            'pg_venda_valor_pago_pelo_cliente' => 50.00,
+        ]);
+
+        $payload = app(NfeIoService::class)->payloadPreview($this->venda->fresh());
+        $detalhe = $payload['payment'][0]['paymentDetail'];
+
+        $this->assertCount(1, $detalhe);
+        $this->assertSame('cash', $detalhe[0]['method']);
     }
 }

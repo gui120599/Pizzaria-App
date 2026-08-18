@@ -781,6 +781,12 @@
                                         @if ($pagamento->forma_pagamento)
                                             · {{ $pagamento->forma_pagamento->getLabel() }}
                                         @endif
+                                        @if ($pagamento->cartao)
+                                            · {{ $pagamento->cartao->cartao_bandeira }}
+                                        @endif
+                                        @if ($pagamento->numero_autorizacao_cartao)
+                                            · Aut. {{ $pagamento->numero_autorizacao_cartao }}
+                                        @endif
                                     </span>
                                     <span class="font-semibold text-gray-700 dark:text-gray-200">R$ {{ number_format((float) $pagamento->valor, 2, ',', '.') }}</span>
                                 </div>
@@ -800,7 +806,7 @@
                     </div>
                     <div>
                         <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Forma de recebimento</label>
-                        <select wire:model="formaRecebimento" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <select wire:model.live="formaRecebimento" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="">Selecione...</option>
                             @foreach (\App\Enums\FormaPagamento::cases() as $forma)
                                 @continue($forma === \App\Enums\FormaPagamento::Compensacao)
@@ -808,6 +814,26 @@
                             @endforeach
                         </select>
                     </div>
+
+                    @if (in_array($formaRecebimento, [\App\Enums\FormaPagamento::CartaoCredito->value, \App\Enums\FormaPagamento::CartaoDebito->value], true))
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Bandeira (opcional)</label>
+                                <select wire:model="cartaoRecebimentoId" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <option value="">Selecione...</option>
+                                    @foreach ($this->cartoes as $cartao)
+                                        <option value="{{ $cartao->id }}">{{ $cartao->cartao_bandeira }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Nº autorização (opcional)</label>
+                                <input wire:model="numeroAutorizacaoRecebimento" type="text" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 dark:text-gray-500">Só pra conciliar com a operadora — a nota fiscal desta venda, se emitida, já foi declarada sem depender desse recebimento.</p>
+                    @endif
+
                     <button wire:click="confirmarRecebimento" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
                         Confirmar recebimento
                     </button>
