@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
             ResourcePermissionSeeder::class,
             PlanoDespesaSeeder::class,
             PlanoReceitaSeeder::class,
+            NotaMoedaSeeder::class,
         ]);
     }
 }

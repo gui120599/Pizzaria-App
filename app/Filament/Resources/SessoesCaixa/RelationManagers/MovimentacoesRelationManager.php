@@ -11,6 +11,8 @@ use Filament\Tables\Table;
  * Lista somente-leitura das sangrias (saídas) registradas nesta sessão — gestão
  * completa (registrar/editar/cancelar saída) continua no fluxo legado
  * (MovimentacoesSessaoCaixaController), fora do escopo desta migração.
+ * Filtra mov_tipo=SAIDA pra não misturar com o movimento ENTRADA de saldo
+ * inicial (ver SessaoCaixaService::registrarMovimentoAbertura).
  */
 class MovimentacoesRelationManager extends RelationManager
 {
@@ -30,6 +32,7 @@ class MovimentacoesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->where('mov_tipo', 'SAIDA'))
             ->defaultSort('id', 'desc')
             ->columns([
                 TextColumn::make('mov_descricao')

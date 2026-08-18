@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\FormaPagamento;
 use App\Http\Requests\StoreSessaoCaixaRequest;
 use App\Http\Requests\UpdateSessaoCaixaRequest;
 use App\Models\Caixa;
 use App\Models\SessaoCaixa;
 use App\Models\User;
+use App\Services\SessaoCaixaService;
 use Carbon\Carbon;
 
 class SessaoCaixaController extends Controller
@@ -48,15 +50,31 @@ class SessaoCaixaController extends Controller
             return redirect()->route('sessao_caixa')->with('error', 'Já existe uma sessão aberta para este usuário.');
         }
 
+        $sessaoCaixaService = app(SessaoCaixaService::class);
+
+        $motivoBloqueio = $sessaoCaixaService->motivoBloqueioAbertura((int) $request->input('sessaocaixa_caixa_id'));
+
+        if ($motivoBloqueio) {
+            return redirect()->route('sessao_caixa')->with('error', $motivoBloqueio);
+        }
+
+        $saldoInicial = $request->input('sessaocaixa_saldo_inicial') ? str_replace(',', '.', $request->input('sessaocaixa_saldo_inicial')) : '0.00';
+
         // Caso não exista, crie a nova sessão
         $sessao_caixa = SessaoCaixa::create([
             'sessaocaixa_caixa_id' => $request->input('sessaocaixa_caixa_id'),
             'sessaocaixa_user_id' => $request->input('sessaocaixa_user_id'),
-            'sessaocaixa_saldo_inicial' => $request->input('sessaocaixa_saldo_inicial') ? str_replace(',', '.', $request->input('sessaocaixa_saldo_inicial')) : '0.00',
-            'sessaocaixa_saldo_final' => $request->input('sessaocaixa_saldo_inicial') ? str_replace(',', '.', $request->input('sessaocaixa_saldo_inicial')) : '0.00',
+            'sessaocaixa_saldo_inicial' => $saldoInicial,
+            'sessaocaixa_saldo_final' => $saldoInicial,
             'sessaocaixa_observacoes' => $request->input('sessaocaixa_observacoes'),
             'sessaocaixa_status' => 'ABERTA',
             'sessaocaixa_data_hora_abertura' => Carbon::now(),
+        ]);
+
+        // Entra no "esperado" do fechamento (ver FechamentoCaixaService::calcularEsperado)
+        // pra bater com o dinheiro contado na conferência final.
+        $sessaoCaixaService->registrarMovimentoAbertura($sessao_caixa, [
+            FormaPagamento::Dinheiro->value => (float) $saldoInicial,
         ]);
 
         return redirect()->route('sessao_caixa')->with('success', 'Sessão Aberta com sucesso!');

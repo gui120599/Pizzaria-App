@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
+class ComposerStaticInitec0a76166647514be9422029f8d4aa18
 {
     public static $files = array (
         '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
@@ -531,8 +531,8 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         ),
         'Psr\\Http\\Message\\' => 
         array (
-            0 => __DIR__ . '/..' . '/psr/http-message/src',
-            1 => __DIR__ . '/..' . '/psr/http-factory/src',
+            0 => __DIR__ . '/..' . '/psr/http-factory/src',
+            1 => __DIR__ . '/..' . '/psr/http-message/src',
         ),
         'Psr\\Http\\Client\\' => 
         array (
@@ -580,9 +580,9 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         ),
         'Nette\\' => 
         array (
-            0 => __DIR__ . '/..' . '/nette/utils/src',
+            0 => __DIR__ . '/..' . '/nette/php-generator/src',
             1 => __DIR__ . '/..' . '/nette/schema/src',
-            2 => __DIR__ . '/..' . '/nette/php-generator/src',
+            2 => __DIR__ . '/..' . '/nette/utils/src',
         ),
         'NFePHP\\NFe\\' => 
         array (
@@ -626,9 +626,9 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         ),
         'League\\Uri\\' => 
         array (
-            0 => __DIR__ . '/..' . '/league/uri-interfaces',
-            1 => __DIR__ . '/..' . '/league/uri',
-            2 => __DIR__ . '/..' . '/league/uri-components',
+            0 => __DIR__ . '/..' . '/league/uri',
+            1 => __DIR__ . '/..' . '/league/uri-components',
+            2 => __DIR__ . '/..' . '/league/uri-interfaces',
         ),
         'League\\MimeTypeDetection\\' => 
         array (
@@ -892,6 +892,8 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'AnourValar\\EloquentSerialize\\Grammars\\QueryBuilderGrammar' => __DIR__ . '/..' . '/anourvalar/eloquent-serialize/src/Grammars/QueryBuilderGrammar.php',
         'AnourValar\\EloquentSerialize\\Package' => __DIR__ . '/..' . '/anourvalar/eloquent-serialize/src/Package.php',
         'AnourValar\\EloquentSerialize\\Service' => __DIR__ . '/..' . '/anourvalar/eloquent-serialize/src/Service.php',
+        'App\\Console\\Commands\\BackfillCustoMedioApos' => __DIR__ . '/../..' . '/app/Console/Commands/BackfillCustoMedioApos.php',
+        'App\\Console\\Commands\\CancelarVendasIniciadasVazias' => __DIR__ . '/../..' . '/app/Console/Commands/CancelarVendasIniciadasVazias.php',
         'App\\Console\\Commands\\ContratosGerarLancamentosMensais' => __DIR__ . '/../..' . '/app/Console/Commands/ContratosGerarLancamentosMensais.php',
         'App\\Console\\Commands\\MigrarTaxaEntregaAdicionais' => __DIR__ . '/../..' . '/app/Console/Commands/MigrarTaxaEntregaAdicionais.php',
         'App\\Console\\Commands\\PopularQtdVendasProdutos' => __DIR__ . '/../..' . '/app/Console/Commands/PopularQtdVendasProdutos.php',
@@ -921,23 +923,30 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Enums\\StatusContrato' => __DIR__ . '/../..' . '/app/Enums/StatusContrato.php',
         'App\\Enums\\StatusFechamentoCaixa' => __DIR__ . '/../..' . '/app/Enums/StatusFechamentoCaixa.php',
         'App\\Enums\\StatusLancamento' => __DIR__ . '/../..' . '/app/Enums/StatusLancamento.php',
+        'App\\Enums\\StatusMesa' => __DIR__ . '/../..' . '/app/Enums/StatusMesa.php',
+        'App\\Enums\\StatusSessaoCaixa' => __DIR__ . '/../..' . '/app/Enums/StatusSessaoCaixa.php',
+        'App\\Enums\\StatusSessaoMesa' => __DIR__ . '/../..' . '/app/Enums/StatusSessaoMesa.php',
         'App\\Enums\\TipoLancamento' => __DIR__ . '/../..' . '/app/Enums/TipoLancamento.php',
         'App\\Enums\\TipoNotaMoeda' => __DIR__ . '/../..' . '/app/Enums/TipoNotaMoeda.php',
         'App\\Enums\\UnidadeProdutoEnum' => __DIR__ . '/../..' . '/app/Enums/UnidadeProdutoEnum.php',
         'App\\Exceptions\\DanfeGeracaoException' => __DIR__ . '/../..' . '/app/Exceptions/DanfeGeracaoException.php',
         'App\\Exceptions\\EstoqueInsuficienteException' => __DIR__ . '/../..' . '/app/Exceptions/EstoqueInsuficienteException.php',
         'App\\Exceptions\\Handler' => __DIR__ . '/../..' . '/app/Exceptions/Handler.php',
+        'App\\Exceptions\\NfeIoException' => __DIR__ . '/../..' . '/app/Exceptions/NfeIoException.php',
         'App\\Exceptions\\NfeXmlInvalidoException' => __DIR__ . '/../..' . '/app/Exceptions/NfeXmlInvalidoException.php',
         'App\\Exceptions\\PromocaoIndisponivelException' => __DIR__ . '/../..' . '/app/Exceptions/PromocaoIndisponivelException.php',
         'App\\Exceptions\\SefazAutenticacaoException' => __DIR__ . '/../..' . '/app/Exceptions/SefazAutenticacaoException.php',
         'App\\Exceptions\\SefazDocumentoAindaNaoDisponivelException' => __DIR__ . '/../..' . '/app/Exceptions/SefazDocumentoAindaNaoDisponivelException.php',
         'App\\Exceptions\\SefazDocumentoNaoLocalizadoException' => __DIR__ . '/../..' . '/app/Exceptions/SefazDocumentoNaoLocalizadoException.php',
         'App\\Exceptions\\SefazIndisponivelException' => __DIR__ . '/../..' . '/app/Exceptions/SefazIndisponivelException.php',
+        'App\\Exceptions\\VendaNaoFinalizavelException' => __DIR__ . '/../..' . '/app/Exceptions/VendaNaoFinalizavelException.php',
         'App\\Filament\\Components\\MarcaSelect' => __DIR__ . '/../..' . '/app/Filament/Components/MarcaSelect.php',
         'App\\Filament\\Forms\\Components\\PedidoItensField' => __DIR__ . '/../..' . '/app/Filament/Forms/Components/PedidoItensField.php',
         'App\\Filament\\Pages\\ConfiguracaoSefaz' => __DIR__ . '/../..' . '/app/Filament/Pages/ConfiguracaoSefaz.php',
+        'App\\Filament\\Pages\\CustoMedioHistorico' => __DIR__ . '/../..' . '/app/Filament/Pages/CustoMedioHistorico.php',
         'App\\Filament\\Pages\\Dashboard' => __DIR__ . '/../..' . '/app/Filament/Pages/Dashboard.php',
         'App\\Filament\\Pages\\FinanceiroDashboard' => __DIR__ . '/../..' . '/app/Filament/Pages/FinanceiroDashboard.php',
+        'App\\Filament\\Pages\\OperarVenda' => __DIR__ . '/../..' . '/app/Filament/Pages/OperarVenda.php',
         'App\\Filament\\Pages\\PedidosDashboard' => __DIR__ . '/../..' . '/app/Filament/Pages/PedidosDashboard.php',
         'App\\Filament\\Resources\\AvaliacaoLinks\\AvaliacaoLinksResource' => __DIR__ . '/../..' . '/app/Filament/Resources/AvaliacaoLinks/AvaliacaoLinksResource.php',
         'App\\Filament\\Resources\\AvaliacaoLinks\\Pages\\ManageAvaliacaoLinks' => __DIR__ . '/../..' . '/app/Filament/Resources/AvaliacaoLinks/Pages/ManageAvaliacaoLinks.php',
@@ -961,6 +970,7 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Filament\\Resources\\Compras\\Pages\\CreateCompra' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Pages/CreateCompra.php',
         'App\\Filament\\Resources\\Compras\\Pages\\EditCompra' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Pages/EditCompra.php',
         'App\\Filament\\Resources\\Compras\\Pages\\ListCompras' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Pages/ListCompras.php',
+        'App\\Filament\\Resources\\Compras\\RelationManagers\\CompraDevolucoesRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/RelationManagers/CompraDevolucoesRelationManager.php',
         'App\\Filament\\Resources\\Compras\\RelationManagers\\ItensRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/RelationManagers/ItensRelationManager.php',
         'App\\Filament\\Resources\\Compras\\RelationManagers\\LancamentosRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/RelationManagers/LancamentosRelationManager.php',
         'App\\Filament\\Resources\\Compras\\Schemas\\CompraForm' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Schemas/CompraForm.php',
@@ -968,6 +978,7 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Filament\\Resources\\Compras\\Support\\ConfirmarCompraAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Support/ConfirmarCompraAction.php',
         'App\\Filament\\Resources\\Compras\\Support\\ImportarXmlAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Support/ImportarXmlAction.php',
         'App\\Filament\\Resources\\Compras\\Support\\ImprimirDanfeAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Support/ImprimirDanfeAction.php',
+        'App\\Filament\\Resources\\Compras\\Support\\RegistrarDevolucaoAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Support/RegistrarDevolucaoAction.php',
         'App\\Filament\\Resources\\Compras\\Tables\\ComprasTable' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Tables/ComprasTable.php',
         'App\\Filament\\Resources\\Contratos\\ContratoResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Contratos/ContratoResource.php',
         'App\\Filament\\Resources\\Contratos\\Pages\\CreateContrato' => __DIR__ . '/../..' . '/app/Filament/Resources/Contratos/Pages/CreateContrato.php',
@@ -1003,8 +1014,16 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Filament\\Resources\\Lancamentos\\Tables\\LancamentosTable' => __DIR__ . '/../..' . '/app/Filament/Resources/Lancamentos/Tables/LancamentosTable.php',
         'App\\Filament\\Resources\\Marcas\\MarcaResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Marcas/MarcaResource.php',
         'App\\Filament\\Resources\\Marcas\\Pages\\ManageMarcas' => __DIR__ . '/../..' . '/app/Filament/Resources/Marcas/Pages/ManageMarcas.php',
+        'App\\Filament\\Resources\\Mesas\\MesaResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Mesas/MesaResource.php',
+        'App\\Filament\\Resources\\Mesas\\Pages\\CreateMesa' => __DIR__ . '/../..' . '/app/Filament/Resources/Mesas/Pages/CreateMesa.php',
+        'App\\Filament\\Resources\\Mesas\\Pages\\EditMesa' => __DIR__ . '/../..' . '/app/Filament/Resources/Mesas/Pages/EditMesa.php',
+        'App\\Filament\\Resources\\Mesas\\Pages\\ListMesas' => __DIR__ . '/../..' . '/app/Filament/Resources/Mesas/Pages/ListMesas.php',
+        'App\\Filament\\Resources\\Mesas\\RelationManagers\\SessoesRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/Mesas/RelationManagers/SessoesRelationManager.php',
         'App\\Filament\\Resources\\MovimentacaoProdutos\\MovimentacaoProdutoResource' => __DIR__ . '/../..' . '/app/Filament/Resources/MovimentacaoProdutos/MovimentacaoProdutoResource.php',
         'App\\Filament\\Resources\\MovimentacaoProdutos\\Pages\\ManageMovimentacaoProdutos' => __DIR__ . '/../..' . '/app/Filament/Resources/MovimentacaoProdutos/Pages/ManageMovimentacaoProdutos.php',
+        'App\\Filament\\Resources\\NfeWebhooks\\NfeWebhookResource' => __DIR__ . '/../..' . '/app/Filament/Resources/NfeWebhooks/NfeWebhookResource.php',
+        'App\\Filament\\Resources\\NfeWebhooks\\Pages\\ManageNfeWebhooks' => __DIR__ . '/../..' . '/app/Filament/Resources/NfeWebhooks/Pages/ManageNfeWebhooks.php',
+        'App\\Filament\\Resources\\NfeWebhooks\\Tables\\NfeWebhooksTable' => __DIR__ . '/../..' . '/app/Filament/Resources/NfeWebhooks/Tables/NfeWebhooksTable.php',
         'App\\Filament\\Resources\\OpcoesEntregas\\OpcoesEntregasResource' => __DIR__ . '/../..' . '/app/Filament/Resources/OpcoesEntregas/OpcoesEntregasResource.php',
         'App\\Filament\\Resources\\OpcoesEntregas\\Pages\\ManageOpcoesEntregas' => __DIR__ . '/../..' . '/app/Filament/Resources/OpcoesEntregas/Pages/ManageOpcoesEntregas.php',
         'App\\Filament\\Resources\\OpcoesPagamento\\OpcoesPagamentoResource' => __DIR__ . '/../..' . '/app/Filament/Resources/OpcoesPagamento/OpcoesPagamentoResource.php',
@@ -1058,14 +1077,32 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Filament\\Resources\\SefazNotasRecebidas\\Pages\\ManageSefazNotasRecebidas' => __DIR__ . '/../..' . '/app/Filament/Resources/SefazNotasRecebidas/Pages/ManageSefazNotasRecebidas.php',
         'App\\Filament\\Resources\\SefazNotasRecebidas\\SefazNotaRecebidaResource' => __DIR__ . '/../..' . '/app/Filament/Resources/SefazNotasRecebidas/SefazNotaRecebidaResource.php',
         'App\\Filament\\Resources\\SefazNotasRecebidas\\Tables\\SefazNotasRecebidasTable' => __DIR__ . '/../..' . '/app/Filament/Resources/SefazNotasRecebidas/Tables/SefazNotasRecebidasTable.php',
+        'App\\Filament\\Resources\\SessoesCaixa\\Pages\\CreateSessaoCaixa' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesCaixa/Pages/CreateSessaoCaixa.php',
+        'App\\Filament\\Resources\\SessoesCaixa\\Pages\\EditSessaoCaixa' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesCaixa/Pages/EditSessaoCaixa.php',
+        'App\\Filament\\Resources\\SessoesCaixa\\Pages\\ListSessoesCaixa' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesCaixa/Pages/ListSessoesCaixa.php',
+        'App\\Filament\\Resources\\SessoesCaixa\\RelationManagers\\MovimentacoesRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesCaixa/RelationManagers/MovimentacoesRelationManager.php',
+        'App\\Filament\\Resources\\SessoesCaixa\\RelationManagers\\VendasRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesCaixa/RelationManagers/VendasRelationManager.php',
+        'App\\Filament\\Resources\\SessoesCaixa\\Schemas\\SessaoCaixaForm' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesCaixa/Schemas/SessaoCaixaForm.php',
+        'App\\Filament\\Resources\\SessoesCaixa\\SessaoCaixaResource' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesCaixa/SessaoCaixaResource.php',
+        'App\\Filament\\Resources\\SessoesCaixa\\Support\\FinalizarSessaoCaixaAction' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesCaixa/Support/FinalizarSessaoCaixaAction.php',
+        'App\\Filament\\Resources\\SessoesCaixa\\Tables\\SessoesCaixaTable' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesCaixa/Tables/SessoesCaixaTable.php',
+        'App\\Filament\\Resources\\SessoesMesa\\Pages\\CreateSessaoMesa' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/Pages/CreateSessaoMesa.php',
+        'App\\Filament\\Resources\\SessoesMesa\\Pages\\EditSessaoMesa' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/Pages/EditSessaoMesa.php',
+        'App\\Filament\\Resources\\SessoesMesa\\Pages\\ListSessoesMesa' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/Pages/ListSessoesMesa.php',
+        'App\\Filament\\Resources\\SessoesMesa\\RelationManagers\\ClientesRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/RelationManagers/ClientesRelationManager.php',
+        'App\\Filament\\Resources\\SessoesMesa\\RelationManagers\\PedidosRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/RelationManagers/PedidosRelationManager.php',
+        'App\\Filament\\Resources\\SessoesMesa\\Schemas\\SessaoMesaForm' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/Schemas/SessaoMesaForm.php',
+        'App\\Filament\\Resources\\SessoesMesa\\SessaoMesaResource' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/SessaoMesaResource.php',
+        'App\\Filament\\Resources\\SessoesMesa\\Support\\FecharSessaoMesaAction' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/Support/FecharSessaoMesaAction.php',
+        'App\\Filament\\Resources\\SessoesMesa\\Support\\ReabrirSessaoMesaAction' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/Support/ReabrirSessaoMesaAction.php',
+        'App\\Filament\\Resources\\SessoesMesa\\Support\\TrocarMesaAction' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/Support/TrocarMesaAction.php',
+        'App\\Filament\\Resources\\SessoesMesa\\Tables\\SessoesMesaTable' => __DIR__ . '/../..' . '/app/Filament/Resources/SessoesMesa/Tables/SessoesMesaTable.php',
         'App\\Filament\\Resources\\Users\\Pages\\ManageUsers' => __DIR__ . '/../..' . '/app/Filament/Resources/Users/Pages/ManageUsers.php',
         'App\\Filament\\Resources\\Users\\UserResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Users/UserResource.php',
-        'App\\Filament\\Resources\\Vendas\\Pages\\CreateVenda' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Pages/CreateVenda.php',
-        'App\\Filament\\Resources\\Vendas\\Pages\\EditVenda' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Pages/EditVenda.php',
         'App\\Filament\\Resources\\Vendas\\Pages\\ListVendas' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Pages/ListVendas.php',
-        'App\\Filament\\Resources\\Vendas\\Schemas\\VendaForm' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Schemas/VendaForm.php',
         'App\\Filament\\Resources\\Vendas\\Tables\\VendasTable' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Tables/VendasTable.php',
         'App\\Filament\\Resources\\Vendas\\VendaResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/VendaResource.php',
+        'App\\Filament\\Support\\CorrecaoEstoquePreview' => __DIR__ . '/../..' . '/app/Filament/Support/CorrecaoEstoquePreview.php',
         'App\\Filament\\Tables\\Clientes' => __DIR__ . '/../..' . '/app/Filament/Tables/Clientes.php',
         'App\\Filament\\Widgets\\AcessoRapidoWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/AcessoRapidoWidget.php',
         'App\\Filament\\Widgets\\Concerns\\InteractsComPeriodo' => __DIR__ . '/../..' . '/app/Filament/Widgets/Concerns/InteractsComPeriodo.php',
@@ -1109,6 +1146,8 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Http\\Controllers\\MesaController' => __DIR__ . '/../..' . '/app/Http/Controllers/MesaController.php',
         'App\\Http\\Controllers\\MovimentacaoPedidoController' => __DIR__ . '/../..' . '/app/Http/Controllers/MovimentacaoPedidoController.php',
         'App\\Http\\Controllers\\MovimentacoesSessaoCaixaController' => __DIR__ . '/../..' . '/app/Http/Controllers/MovimentacoesSessaoCaixaController.php',
+        'App\\Http\\Controllers\\NfeVendaController' => __DIR__ . '/../..' . '/app/Http/Controllers/NfeVendaController.php',
+        'App\\Http\\Controllers\\NfeWebhookController' => __DIR__ . '/../..' . '/app/Http/Controllers/NfeWebhookController.php',
         'App\\Http\\Controllers\\NotaFiscalController' => __DIR__ . '/../..' . '/app/Http/Controllers/NotaFiscalController.php',
         'App\\Http\\Controllers\\OpcoesEntregasController' => __DIR__ . '/../..' . '/app/Http/Controllers/OpcoesEntregasController.php',
         'App\\Http\\Controllers\\OpcoesPagamentoController' => __DIR__ . '/../..' . '/app/Http/Controllers/OpcoesPagamentoController.php',
@@ -1119,6 +1158,7 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Http\\Controllers\\ProfileController' => __DIR__ . '/../..' . '/app/Http/Controllers/ProfileController.php',
         'App\\Http\\Controllers\\SessaoCaixaController' => __DIR__ . '/../..' . '/app/Http/Controllers/SessaoCaixaController.php',
         'App\\Http\\Controllers\\SessaoMesaController' => __DIR__ . '/../..' . '/app/Http/Controllers/SessaoMesaController.php',
+        'App\\Http\\Controllers\\VendaCancelarVaziaController' => __DIR__ . '/../..' . '/app/Http/Controllers/VendaCancelarVaziaController.php',
         'App\\Http\\Controllers\\VendaController' => __DIR__ . '/../..' . '/app/Http/Controllers/VendaController.php',
         'App\\Http\\Kernel' => __DIR__ . '/../..' . '/app/Http/Kernel.php',
         'App\\Http\\Middleware\\Authenticate' => __DIR__ . '/../..' . '/app/Http/Middleware/Authenticate.php',
@@ -1184,6 +1224,7 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Livewire\\ConfirmacoesPedidos' => __DIR__ . '/../..' . '/app/Livewire/ConfirmacoesPedidos.php',
         'App\\Livewire\\PainelEntregador' => __DIR__ . '/../..' . '/app/Livewire/PainelEntregador.php',
         'App\\Livewire\\PedidoProdutoSelector' => __DIR__ . '/../..' . '/app/Livewire/PedidoProdutoSelector.php',
+        'App\\Livewire\\VendaProdutoSelector' => __DIR__ . '/../..' . '/app/Livewire/VendaProdutoSelector.php',
         'App\\Models\\AdicionaisItemPedido' => __DIR__ . '/../..' . '/app/Models/AdicionaisItemPedido.php',
         'App\\Models\\AdicionaisItemVenda' => __DIR__ . '/../..' . '/app/Models/AdicionaisItemVenda.php',
         'App\\Models\\AdicionaisProduto' => __DIR__ . '/../..' . '/app/Models/AdicionaisProduto.php',
@@ -1195,9 +1236,12 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Models\\CentroCusto' => __DIR__ . '/../..' . '/app/Models/CentroCusto.php',
         'App\\Models\\Cliente' => __DIR__ . '/../..' . '/app/Models/Cliente.php',
         'App\\Models\\Compra' => __DIR__ . '/../..' . '/app/Models/Compra.php',
+        'App\\Models\\CompraDevolucao' => __DIR__ . '/../..' . '/app/Models/CompraDevolucao.php',
+        'App\\Models\\CompraDevolucaoItem' => __DIR__ . '/../..' . '/app/Models/CompraDevolucaoItem.php',
         'App\\Models\\CompraItem' => __DIR__ . '/../..' . '/app/Models/CompraItem.php',
         'App\\Models\\Contrato' => __DIR__ . '/../..' . '/app/Models/Contrato.php',
         'App\\Models\\Empresa' => __DIR__ . '/../..' . '/app/Models/Empresa.php',
+        'App\\Models\\EstoqueCorrecao' => __DIR__ . '/../..' . '/app/Models/EstoqueCorrecao.php',
         'App\\Models\\EstoqueLote' => __DIR__ . '/../..' . '/app/Models/EstoqueLote.php',
         'App\\Models\\FechamentoCaixa' => __DIR__ . '/../..' . '/app/Models/FechamentoCaixa.php',
         'App\\Models\\FechamentoCaixaMaquininha' => __DIR__ . '/../..' . '/app/Models/FechamentoCaixaMaquininha.php',
@@ -1217,6 +1261,7 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Models\\MovimentacaoPedido' => __DIR__ . '/../..' . '/app/Models/MovimentacaoPedido.php',
         'App\\Models\\MovimentacaoProduto' => __DIR__ . '/../..' . '/app/Models/MovimentacaoProduto.php',
         'App\\Models\\MovimentacoesSessaoCaixa' => __DIR__ . '/../..' . '/app/Models/MovimentacoesSessaoCaixa.php',
+        'App\\Models\\NfeWebhook' => __DIR__ . '/../..' . '/app/Models/NfeWebhook.php',
         'App\\Models\\NotaFiscal' => __DIR__ . '/../..' . '/app/Models/NotaFiscal.php',
         'App\\Models\\NotaMoeda' => __DIR__ . '/../..' . '/app/Models/NotaMoeda.php',
         'App\\Models\\OpcoesEntregas' => __DIR__ . '/../..' . '/app/Models/OpcoesEntregas.php',
@@ -1228,6 +1273,7 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Models\\PrazoPagamento' => __DIR__ . '/../..' . '/app/Models/PrazoPagamento.php',
         'App\\Models\\PrazoPagamentoParcela' => __DIR__ . '/../..' . '/app/Models/PrazoPagamentoParcela.php',
         'App\\Models\\Prestador' => __DIR__ . '/../..' . '/app/Models/Prestador.php',
+        'App\\Models\\PrestadorCredito' => __DIR__ . '/../..' . '/app/Models/PrestadorCredito.php',
         'App\\Models\\Produto' => __DIR__ . '/../..' . '/app/Models/Produto.php',
         'App\\Models\\ProdutoPrecoHistorico' => __DIR__ . '/../..' . '/app/Models/ProdutoPrecoHistorico.php',
         'App\\Models\\PromocaoConsumo' => __DIR__ . '/../..' . '/app/Models/PromocaoConsumo.php',
@@ -1236,6 +1282,8 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Models\\SefazDocumentoPendente' => __DIR__ . '/../..' . '/app/Models/SefazDocumentoPendente.php',
         'App\\Models\\SefazNotaRecebida' => __DIR__ . '/../..' . '/app/Models/SefazNotaRecebida.php',
         'App\\Models\\SessaoCaixa' => __DIR__ . '/../..' . '/app/Models/SessaoCaixa.php',
+        'App\\Models\\SessaoCaixaMaquininha' => __DIR__ . '/../..' . '/app/Models/SessaoCaixaMaquininha.php',
+        'App\\Models\\SessaoCaixaNota' => __DIR__ . '/../..' . '/app/Models/SessaoCaixaNota.php',
         'App\\Models\\SessaoMesa' => __DIR__ . '/../..' . '/app/Models/SessaoMesa.php',
         'App\\Models\\SessaoMesaCliente' => __DIR__ . '/../..' . '/app/Models/SessaoMesaCliente.php',
         'App\\Models\\User' => __DIR__ . '/../..' . '/app/Models/User.php',
@@ -1253,6 +1301,7 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Policies\\HorarioFuncionamentoPolicy' => __DIR__ . '/../..' . '/app/Policies/HorarioFuncionamentoPolicy.php',
         'App\\Policies\\LancamentoPolicy' => __DIR__ . '/../..' . '/app/Policies/LancamentoPolicy.php',
         'App\\Policies\\MarcaPolicy' => __DIR__ . '/../..' . '/app/Policies/MarcaPolicy.php',
+        'App\\Policies\\MesaPolicy' => __DIR__ . '/../..' . '/app/Policies/MesaPolicy.php',
         'App\\Policies\\MovimentacaoBalancoPolicy' => __DIR__ . '/../..' . '/app/Policies/MovimentacaoBalancoPolicy.php',
         'App\\Policies\\MovimentacaoProdutoPolicy' => __DIR__ . '/../..' . '/app/Policies/MovimentacaoProdutoPolicy.php',
         'App\\Policies\\OpcoesEntregasPolicy' => __DIR__ . '/../..' . '/app/Policies/OpcoesEntregasPolicy.php',
@@ -1276,12 +1325,16 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Providers\\Filament\\AdminPanelProvider' => __DIR__ . '/../..' . '/app/Providers/Filament/AdminPanelProvider.php',
         'App\\Providers\\RouteServiceProvider' => __DIR__ . '/../..' . '/app/Providers/RouteServiceProvider.php',
         'App\\Services\\BalancoEstoqueService' => __DIR__ . '/../..' . '/app/Services/BalancoEstoqueService.php',
+        'App\\Services\\CompraDevolucaoService' => __DIR__ . '/../..' . '/app/Services/CompraDevolucaoService.php',
         'App\\Services\\CompraService' => __DIR__ . '/../..' . '/app/Services/CompraService.php',
         'App\\Services\\ContratoService' => __DIR__ . '/../..' . '/app/Services/ContratoService.php',
+        'App\\Services\\CorrecaoEstoqueService' => __DIR__ . '/../..' . '/app/Services/CorrecaoEstoqueService.php',
         'App\\Services\\EntregaService' => __DIR__ . '/../..' . '/app/Services/EntregaService.php',
         'App\\Services\\EstoqueService' => __DIR__ . '/../..' . '/app/Services/EstoqueService.php',
         'App\\Services\\FechamentoCaixaService' => __DIR__ . '/../..' . '/app/Services/FechamentoCaixaService.php',
+        'App\\Services\\FinalizacaoVendaService' => __DIR__ . '/../..' . '/app/Services/FinalizacaoVendaService.php',
         'App\\Services\\IBGEServices' => __DIR__ . '/../..' . '/app/Services/IBGEServices.php',
+        'App\\Services\\NfeIoService' => __DIR__ . '/../..' . '/app/Services/NfeIoService.php',
         'App\\Services\\Nfe\\DanfeService' => __DIR__ . '/../..' . '/app/Services/Nfe/DanfeService.php',
         'App\\Services\\Nfe\\Dto\\NfeEmitente' => __DIR__ . '/../..' . '/app/Services/Nfe/Dto/NfeEmitente.php',
         'App\\Services\\Nfe\\Dto\\NfeItem' => __DIR__ . '/../..' . '/app/Services/Nfe/Dto/NfeItem.php',
@@ -1302,7 +1355,11 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Services\\Sefaz\\SefazDistribuicaoService' => __DIR__ . '/../..' . '/app/Services/Sefaz/SefazDistribuicaoService.php',
         'App\\Services\\Sefaz\\SefazNfephpClient' => __DIR__ . '/../..' . '/app/Services/Sefaz/SefazNfephpClient.php',
         'App\\Services\\Sefaz\\SefazRespostaDecoder' => __DIR__ . '/../..' . '/app/Services/Sefaz/SefazRespostaDecoder.php',
+        'App\\Services\\SessaoCaixaService' => __DIR__ . '/../..' . '/app/Services/SessaoCaixaService.php',
+        'App\\Services\\SessaoMesaService' => __DIR__ . '/../..' . '/app/Services/SessaoMesaService.php',
         'App\\Services\\VendaService' => __DIR__ . '/../..' . '/app/Services/VendaService.php',
+        'App\\Support\\CustoUnitarioFormatter' => __DIR__ . '/../..' . '/app/Support/CustoUnitarioFormatter.php',
+        'App\\Support\\RateioCentavos' => __DIR__ . '/../..' . '/app/Support/RateioCentavos.php',
         'App\\View\\Components\\AppLayout' => __DIR__ . '/../..' . '/app/View/Components/AppLayout.php',
         'App\\View\\Components\\EntregadorLayout' => __DIR__ . '/../..' . '/app/View/Components/EntregadorLayout.php',
         'App\\View\\Components\\GuestLayout' => __DIR__ . '/../..' . '/app/View/Components/GuestLayout.php',
@@ -8911,10 +8968,10 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInita16b458e9ac1c17103670109517fa1cd::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInita16b458e9ac1c17103670109517fa1cd::$prefixDirsPsr4;
-            $loader->prefixesPsr0 = ComposerStaticInita16b458e9ac1c17103670109517fa1cd::$prefixesPsr0;
-            $loader->classMap = ComposerStaticInita16b458e9ac1c17103670109517fa1cd::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInitec0a76166647514be9422029f8d4aa18::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInitec0a76166647514be9422029f8d4aa18::$prefixDirsPsr4;
+            $loader->prefixesPsr0 = ComposerStaticInitec0a76166647514be9422029f8d4aa18::$prefixesPsr0;
+            $loader->classMap = ComposerStaticInitec0a76166647514be9422029f8d4aa18::$classMap;
 
         }, null, ClassLoader::class);
     }
