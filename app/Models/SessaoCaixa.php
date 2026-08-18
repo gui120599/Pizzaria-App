@@ -48,6 +48,11 @@ class SessaoCaixa extends Model
         return $this->hasMany(Venda::class, 'venda_sessao_caixa_id');
     }
 
+    public function movimentacoes()
+    {
+        return $this->hasMany(MovimentacoesSessaoCaixa::class, 'mov_sessaocaixa_id');
+    }
+
     /** Conferência do fechamento (Filament) — camada de auditoria, no máximo 1 por sessão. */
     public function fechamentoCaixa()
     {

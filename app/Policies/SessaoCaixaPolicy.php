@@ -15,6 +15,23 @@ class SessaoCaixaPolicy
 {
     use HandlesAuthorization;
 
+    public function viewAny(AuthUser $authUser): bool
+    {
+        return $authUser->can('view_any:sessao_caixa');
+    }
+
+    public function view(AuthUser $authUser, SessaoCaixa $sessaoCaixa): bool
+    {
+        return $authUser->can('view:sessao_caixa');
+    }
+
+    /** Abertura pelo Resource novo do Filament (CreateRecord::canCreate()). */
+    public function create(AuthUser $authUser): bool
+    {
+        return $authUser->can('create:sessao_caixa');
+    }
+
+    /** Abertura pelo fluxo legado (Blade) — mantido por compatibilidade. */
     public function open(AuthUser $authUser): bool
     {
         return $authUser->can('abrir:sessao_caixa');
