@@ -13,6 +13,7 @@ use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\SessaoMesaCliente;
 use App\Services\PromocaoRelampagoService;
+use App\Services\SessaoMesaService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\DB;
 
 class SessaoMesaController extends Controller
 {
+    public function __construct(private readonly SessaoMesaService $sessaoMesaService) {}
+
     /**
      * Display a listing of the resource.
      */
@@ -327,18 +330,13 @@ class SessaoMesaController extends Controller
      */
     public function AbrirSessaoMesa(StoreSessaoMesaRequest $request)
     {
-        $sessaoMesa = SessaoMesa::create($request->only([
-            'sessao_mesa_mesa_id',
-            'sessao_mesa_status',
-            'sessao_mesa_usuario_id',
-            'sessao_mesa_cliente_id',
-        ]));
-
         $mesa_id = $request->input('sessao_mesa_mesa_id');
-        $mesa = Mesa::findOrFail($mesa_id);
-        $mesa->mesa_status = 'OCUPADA';
-        $mesa->mesa_sessao_atual_id = $sessaoMesa->id;
-        $mesa->save();
+
+        $sessaoMesa = $this->sessaoMesaService->abrir(
+            mesaId: (int) $mesa_id,
+            usuarioId: (int) $request->input('sessao_mesa_usuario_id'),
+            clienteId: $request->input('sessao_mesa_cliente_id') ?: null,
+        );
 
         // Registrar clientes na sessão
         $clientesIds = $request->input('clientes_ids', []);
@@ -381,28 +379,12 @@ class SessaoMesaController extends Controller
     {
         $this->authorize('update', $sessaoMesa);
 
-        $pedidos_sessao_mesa = Pedido::where('pedido_sessao_mesa_id', '=', $sessaoMesa->id)
-            ->where('pedido_status', '<>', 'CANCELADO');
+        $mesaId = $sessaoMesa->sessao_mesa_mesa_id;
 
-        if ($pedidos_sessao_mesa->exists()) {
-            // Encontrou pedidos ativos: fecha a sessão
-            $sessaoMesa->update(['sessao_mesa_status' => 'FECHADA']);
-        } else {
-            // Não encontrou pedidos ativos: cancela a sessão
-            $sessaoMesa->update(['sessao_mesa_status' => 'CANCELADA']);
-        }
-
-        // Atualiza a mesa para 'LIBERADA' em ambos os casos.
-        // Só limpa a sessão atual da mesa se for esta sessão que a ocupa.
-        $mesa = Mesa::find($sessaoMesa->sessao_mesa_mesa_id);
-        $dadosMesa = ['mesa_status' => 'LIBERADA'];
-        if ((int) $mesa->mesa_sessao_atual_id === (int) $sessaoMesa->id) {
-            $dadosMesa['mesa_sessao_atual_id'] = null;
-        }
-        $mesa->update($dadosMesa);
+        $this->sessaoMesaService->fechar($sessaoMesa);
 
         // Redireciona para a rota da sessão da mesa
-        return redirect()->route('sessaoMesa', ['mesa_id' => $sessaoMesa->sessao_mesa_mesa_id]);
+        return redirect()->route('sessaoMesa', ['mesa_id' => $mesaId]);
     }
 
     /**
@@ -412,30 +394,13 @@ class SessaoMesaController extends Controller
     {
         $this->authorize('update', $sessaoMesa);
 
-        // Verifica se a mesa não possui uma nova sessão aberta
-        $mesa = Mesa::find($sessaoMesa->sessao_mesa_mesa_id);
-        if ($mesa) {
-            switch ($mesa->mesa_status) {
-                case 'OCUPADA':
-                    return redirect()->route('dashboard')->with('error', 'Sessão não pode ser reaberta, pois já existe uma nova sessão aberta para a '.$mesa->mesa_nome);
-                    break;
-
-                default:
-                    $sessaoMesa->update([
-                        'sessao_mesa_status' => 'ABERTA',
-                    ]);
-                    $mesa->update([
-                        'mesa_status' => 'OCUPADA',
-                        'mesa_sessao_atual_id' => $sessaoMesa->id,
-                    ]);
-
-                    return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $mesa->id]);
-                    break;
-            }
+        try {
+            $this->sessaoMesaService->reabrir($sessaoMesa);
+        } catch (\RuntimeException $e) {
+            return redirect()->route('dashboard')->with('error', $e->getMessage());
         }
 
-        return redirect()->route('dashboard')->with('error', 'Mesa não encontrada!');
-
+        return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $sessaoMesa->sessao_mesa_mesa_id]);
     }
 
     /**
@@ -526,36 +491,17 @@ class SessaoMesaController extends Controller
     {
         $this->authorize('update', $sessaoMesa);
 
-        // Atualiza a mesa da sessão
-        $sessaoMesa->update([
-            'sessao_mesa_mesa_id' => $request->input('mesa_id_nova'),
-        ]);
+        $mesaAntigaId = $request->input('mesa_id_antiga');
+        $mesaNovaId = $request->input('mesa_id_nova');
 
-        // Atualiza a mesa antiga para LIBERADA
-        $mesaAntiga = Mesa::find($request->input('mesa_id_antiga'));
-        if ($mesaAntiga) {
-            $dadosMesaAntiga = ['mesa_status' => 'LIBERADA'];
-            if ((int) $mesaAntiga->mesa_sessao_atual_id === (int) $sessaoMesa->id) {
-                $dadosMesaAntiga['mesa_sessao_atual_id'] = null;
-            }
-            $mesaAntiga->update($dadosMesaAntiga);
-        } else {
-            return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $request->input('mesa_id_antiga')])->with('error', 'Mesa antiga não encontrada!');
+        if (! Mesa::find($mesaAntigaId) || ! Mesa::find($mesaNovaId)) {
+            return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $mesaAntigaId])->with('error', 'Mesa antiga não encontrada!');
         }
 
-        // Atualiza a mesa nova para OCUPADA
-        $mesaNova = Mesa::find($request->input('mesa_id_nova'));
-        if ($mesaNova) {
-            $mesaNova->update([
-                'mesa_status' => 'OCUPADA',
-                'mesa_sessao_atual_id' => $sessaoMesa->id,
-            ]);
-        } else {
-            return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $request->input('mesa_id_antiga')])->with('error', 'Mesa antiga não encontrada!');
-        }
+        $this->sessaoMesaService->trocarMesa($sessaoMesa, (int) $mesaNovaId);
 
         // Redireciona para a nova mesa
-        return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $request->input('mesa_id_nova')])->with('success', 'Mesa alterada!');
+        return redirect()->route('sessaoMesa.pedidoMesa', ['mesa_id' => $mesaNovaId])->with('success', 'Mesa alterada!');
     }
 
     /**

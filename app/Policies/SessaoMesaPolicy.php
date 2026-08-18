@@ -15,6 +15,22 @@ class SessaoMesaPolicy
 {
     use HandlesAuthorization;
 
+    public function viewAny(AuthUser $authUser): bool
+    {
+        return $authUser->can('view_any:sessao_mesa');
+    }
+
+    public function view(AuthUser $authUser, SessaoMesa $sessaoMesa): bool
+    {
+        return $authUser->can('view:sessao_mesa');
+    }
+
+    /** Abertura pelo Resource novo do Filament (CreateRecord::canCreate()). */
+    public function create(AuthUser $authUser): bool
+    {
+        return $authUser->can('create:sessao_mesa');
+    }
+
     /**
      * Gerente mexe em qualquer sessão de mesa; Atendente/Garçom só na própria
      * (a que ele abriu), pra não interferir no atendimento de outro colega.

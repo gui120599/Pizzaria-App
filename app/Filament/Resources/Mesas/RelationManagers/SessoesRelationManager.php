@@ -3,6 +3,9 @@
 namespace App\Filament\Resources\Mesas\RelationManagers;
 
 use App\Enums\StatusSessaoMesa;
+use App\Filament\Resources\SessoesMesa\SessaoMesaResource;
+use App\Models\SessaoMesa;
+use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -49,7 +52,13 @@ class SessoesRelationManager extends RelationManager
             ])
             ->filters([])
             ->headerActions([])
-            ->recordActions([])
+            ->recordActions([
+                Action::make('abrir')
+                    ->label('Abrir')
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->url(fn (SessaoMesa $record): string => SessaoMesaResource::getUrl('edit', ['record' => $record]))
+                    ->openUrlInNewTab(),
+            ])
             ->toolbarActions([]);
     }
 }
