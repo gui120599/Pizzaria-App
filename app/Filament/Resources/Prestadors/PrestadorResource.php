@@ -95,6 +95,14 @@ class PrestadorResource extends Resource
                             ->label('Nome Completo')
                             ->visible(fn (Get $get) => $get('tipo') === PrestadorTipoEnum::PF->value)
                             ->columnSpan(2),
+
+                        Select::make('cliente_id')
+                            ->label('Cliente vinculado')
+                            ->relationship('cliente', 'cliente_nome')
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Se este fornecedor também for cliente (ex.: pede no balcão), vincule pra poder compensar os pedidos dele no repasse.')
+                            ->columnSpanFull(),
                     ]),
 
                 Section::make('Identificação')

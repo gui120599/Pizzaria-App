@@ -12,6 +12,7 @@ enum FormaPagamento: string implements HasLabel
     case CartaoDebito = 'cartao_debito';
     case Boleto = 'boleto';
     case Transferencia = 'transferencia';
+    case Compensacao = 'compensacao';
 
     public function getLabel(): string
     {
@@ -22,6 +23,7 @@ enum FormaPagamento: string implements HasLabel
             self::CartaoDebito => 'Cartão de Débito',
             self::Boleto => 'Boleto',
             self::Transferencia => 'Transferência',
+            self::Compensacao => 'Compensação',
         };
     }
 }

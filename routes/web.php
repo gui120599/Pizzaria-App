@@ -75,6 +75,7 @@ Route::get('/Pedido/{id}/Imprimir', [PDFController::class, 'pedidoPDF'])->name('
 Route::middleware('auth')->group(function () {
     Route::get('/sessaoMesaPDF/{id}/Imprimir', [PDFController::class, 'sessaoMesaPDF'])->name('sessaoMesa.imprimir')->middleware('permission:view:sessao_mesa');
     Route::get('/sessaoCaixaPDF/{id}/Imprimir', [PDFController::class, 'sessaoCaixaPDF'])->name('sessaoCaixa.imprimir');
+    Route::get('/LancamentoFiado/{id}/Imprimir', [PDFController::class, 'vendaPendentePDF'])->name('lancamento.imprimir_fiado');
     Route::get('/pedidosEntreguesFinalizadosCanceladosPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntreguesFinalizadosCanceladosPDF'])->name('pedidosEntreguesFinalizadosCanceladosPDF.imprimir');
     Route::get('/pedidosEntregasPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntregasPDF'])->name('pedidosEntregasPDF.imprimir');
 

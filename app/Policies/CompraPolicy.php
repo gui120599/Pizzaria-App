@@ -80,4 +80,13 @@ class CompraPolicy
     {
         return $authUser->can('confirm:compra');
     }
+
+    /**
+     * Registrar devolução de itens ao fornecedor gera crédito financeiro
+     * (PrestadorCredito) além de mexer no estoque — mesma sensibilidade de confirm().
+     */
+    public function registrarDevolucao(AuthUser $authUser, Compra $compra): bool
+    {
+        return $authUser->can('registrar:devolucao_compra');
+    }
 }

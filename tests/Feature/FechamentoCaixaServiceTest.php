@@ -2,9 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Enums\FormaPagamento;
 use App\Enums\StatusFechamentoCaixa;
+use App\Enums\StatusLancamento;
+use App\Enums\TipoLancamento;
 use App\Models\Caixa;
 use App\Models\FechamentoCaixa;
+use App\Models\Lancamento;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
 use App\Models\SessaoCaixa;
@@ -148,6 +152,56 @@ class FechamentoCaixaServiceTest extends TestCase
         $fechamento = $this->service->criarOuAtualizarRascunho($this->sessao, $fechamento->fresh());
 
         $this->assertEqualsWithDelta(100.0, (float) $fechamento->total_esperado_dinheiro, 0.01);
+    }
+
+    private function lancamentoReceber(): Lancamento
+    {
+        return Lancamento::create([
+            'tipo' => TipoLancamento::Receber,
+            'descricao' => 'Fiado',
+            'valor' => 1000,
+            'vencimento' => now()->addDays(7),
+            'status' => StatusLancamento::Pendente,
+        ]);
+    }
+
+    public function test_recebimento_de_fiado_registrado_nesta_sessao_entra_no_esperado(): void
+    {
+        $lancamento = $this->lancamentoReceber();
+        $lancamento->registrarPagamento(60, forma: FormaPagamento::Dinheiro, sessaoCaixaId: $this->sessao->id);
+        $lancamento->registrarPagamento(25, forma: FormaPagamento::Pix, sessaoCaixaId: $this->sessao->id);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(60.0, $esperado['dinheiro'], 0.01);
+        $this->assertEqualsWithDelta(25.0, $esperado['pix'], 0.01);
+    }
+
+    public function test_pagamento_de_lancamento_sem_sessao_de_caixa_nao_entra_no_esperado(): void
+    {
+        $lancamento = $this->lancamentoReceber();
+        // Registrado fora do PDV (ex.: tela de Contas a Receber) — sem sessão de caixa.
+        $lancamento->registrarPagamento(60, forma: FormaPagamento::Dinheiro);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(0.0, $esperado['dinheiro'], 0.01);
+    }
+
+    public function test_pagamento_de_titulo_a_pagar_nao_entra_no_esperado_mesmo_com_sessao(): void
+    {
+        $lancamento = Lancamento::create([
+            'tipo' => TipoLancamento::Pagar,
+            'descricao' => 'Fornecedor',
+            'valor' => 1000,
+            'vencimento' => now()->addDays(7),
+            'status' => StatusLancamento::Pendente,
+        ]);
+        $lancamento->registrarPagamento(60, forma: FormaPagamento::Dinheiro, sessaoCaixaId: $this->sessao->id);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(0.0, $esperado['dinheiro'], 0.01);
     }
 
     public function test_confirmar_e_reabrir_alteram_status(): void

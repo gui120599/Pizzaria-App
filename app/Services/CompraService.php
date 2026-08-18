@@ -12,6 +12,7 @@ use App\Models\CompraItem;
 use App\Models\FornecedorProduto;
 use App\Models\Lancamento;
 use App\Models\LancamentoDespesa;
+use App\Models\PrestadorCredito;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -161,10 +162,30 @@ class CompraService
             $total = count($parcelas);
             $valorTotalCompra = (float) $compra->compra_valor_total;
 
+            // Créditos disponíveis com este fornecedor (de devoluções de compras
+            // anteriores) — nunca abatem a própria compra que os originou, porque
+            // só existem depois que a devolução é registrada numa compra já
+            // confirmada, e este método só roda uma vez por compra.
+            $creditos = $compra->compra_prestador_id
+                ? PrestadorCredito::doPrestador($compra->compra_prestador_id)->naoAplicados()->orderBy('id')->get()
+                : new Collection;
+            $creditoIndice = 0;
+
             $lancamentos = new Collection;
 
             foreach ($parcelas as $indice => $parcela) {
                 $valorParcela = round((float) $parcela['valor'], 2);
+
+                // Abate créditos disponíveis (sem fracionar linha) enquanto couberem
+                // inteiros no valor restante desta parcela; o que não couber tenta na
+                // próxima parcela do mesmo lote.
+                $creditosAplicados = [];
+                while ($creditoIndice < $creditos->count() && (float) $creditos[$creditoIndice]->valor <= $valorParcela) {
+                    $credito = $creditos[$creditoIndice];
+                    $valorParcela = round($valorParcela - (float) $credito->valor, 2);
+                    $creditosAplicados[] = $credito;
+                    $creditoIndice++;
+                }
 
                 $formaPagamento = $parcela['forma_pagamento'] ?? null;
                 if (is_string($formaPagamento)) {
@@ -187,6 +208,10 @@ class CompraService
                     'forma_pagamento' => $formaPagamento,
                 ]);
                 $lancamento->save();
+
+                foreach ($creditosAplicados as $credito) {
+                    $credito->update(['aplicado_em_lancamento_id' => $lancamento->id]);
+                }
 
                 // "Já pago" na confirmação (ex.: compra à vista via PIX): registra o
                 // pagamento integral desta parcela imediatamente — dispara

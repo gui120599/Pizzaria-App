@@ -85,4 +85,14 @@ class LancamentoPolicy
     {
         return $authUser->can('estornar:pagamento');
     }
+
+    /**
+     * Compensar um título a pagar com pedidos de um fornecedor que também é cliente
+     * (ver LancamentosTable::acaoCompensar()) — registra pagamento em dois títulos
+     * de uma vez, mesma sensibilidade de markAsPaid.
+     */
+    public function compensar(AuthUser $authUser, Lancamento $lancamento): bool
+    {
+        return $authUser->can('approve:lancamento');
+    }
 }

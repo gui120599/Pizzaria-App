@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Compras;
 use App\Filament\Resources\Compras\Pages\CreateCompra;
 use App\Filament\Resources\Compras\Pages\EditCompra;
 use App\Filament\Resources\Compras\Pages\ListCompras;
+use App\Filament\Resources\Compras\RelationManagers\CompraDevolucoesRelationManager;
 use App\Filament\Resources\Compras\RelationManagers\ItensRelationManager;
 use App\Filament\Resources\Compras\RelationManagers\LancamentosRelationManager;
 use App\Filament\Resources\Compras\Schemas\CompraForm;
@@ -52,6 +53,7 @@ class CompraResource extends Resource
         return [
             ItensRelationManager::class,
             LancamentosRelationManager::class,
+            CompraDevolucoesRelationManager::class,
         ];
     }
 

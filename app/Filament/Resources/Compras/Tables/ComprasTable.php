@@ -5,7 +5,9 @@ namespace App\Filament\Resources\Compras\Tables;
 use App\Enums\CompraStatusEnum;
 use App\Filament\Resources\Compras\Support\ConfirmarCompraAction;
 use App\Filament\Resources\Compras\Support\ImprimirDanfeAction;
+use App\Filament\Resources\Compras\Support\RegistrarDevolucaoAction;
 use App\Models\Compra;
+use App\Models\PrestadorCredito;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -63,6 +65,16 @@ class ComprasTable
                     ->formatStateUsing(fn (string $state): string => $state === 'xml' ? 'XML' : 'Manual')
                     ->color(fn (string $state): string => $state === 'xml' ? 'info' : 'gray')
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('credito_fornecedor')
+                    ->label('Crédito c/ fornecedor')
+                    ->state(fn (Compra $record): float => $record->compra_prestador_id
+                        ? (float) PrestadorCredito::doPrestador($record->compra_prestador_id)->naoAplicados()->sum('valor')
+                        : 0.0)
+                    ->money('BRL')
+                    ->color(fn (float $state): string => $state > 0 ? 'success' : 'gray')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('compra_status')
@@ -77,6 +89,7 @@ class ComprasTable
             ])
             ->recordActions([
                 ConfirmarCompraAction::make()->label('Confirmar'),
+                RegistrarDevolucaoAction::make(),
                 ImprimirDanfeAction::make(),
                 EditAction::make()
                     ->visible(fn (Compra $record): bool => $record->isRascunho()),

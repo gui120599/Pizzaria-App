@@ -15,6 +15,7 @@ use App\Models\FornecedorProduto;
 use App\Models\Marca;
 use App\Models\PlanoDespesa;
 use App\Models\Prestador;
+use App\Models\PrestadorCredito;
 use App\Models\Produto;
 use App\Models\User;
 use App\Services\CompraService;
@@ -552,5 +553,139 @@ class CompraServiceTest extends TestCase
 
         $this->expectException(ValidationException::class);
         $this->service->gerarContaPagar($compra, ['parcelas' => [['vencimento' => now()->toDateString(), 'valor' => 10.0]]]);
+    }
+
+    // ── Crédito de devolução aplicado automaticamente na próxima conta a pagar ──
+
+    private function creditoDoFornecedor(Prestador $forn, float $valor): PrestadorCredito
+    {
+        return PrestadorCredito::create([
+            'prestador_id' => $forn->id,
+            'origem_tipo' => 'devolucao_compra',
+            'origem_id' => 1,
+            'valor' => $valor,
+        ]);
+    }
+
+    public function test_gerar_conta_pagar_abate_credito_disponivel_da_primeira_parcela(): void
+    {
+        $forn = $this->fornecedor();
+        $plano = $this->planoDespesa('CMV / Insumos');
+        $insumo = $this->insumo('Farinha', ['produto_plano_despesa_id' => $plano->id]);
+        $credito = $this->creditoDoFornecedor($forn, 30.0);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 10, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 10,
+        ]);
+        $this->service->confirmar($compra->fresh('itens'));
+
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => now()->addDays(30)->toDateString(), 'valor' => 100.0],
+            ],
+        ]);
+
+        $this->assertEqualsWithDelta(70.0, (float) $lancamentos->first()->valor, 0.01);
+        // Rateio reconciliado contra o valor JÁ abatido do crédito, não o bruto.
+        $this->assertEqualsWithDelta(70.0, (float) $lancamentos->first()->despesas()->sum('valor'), 0.01);
+
+        $this->assertSame($lancamentos->first()->id, $credito->fresh()->aplicado_em_lancamento_id);
+    }
+
+    public function test_gerar_conta_pagar_sem_credito_disponivel_mantem_comportamento_atual(): void
+    {
+        $forn = $this->fornecedor();
+        $plano = $this->planoDespesa('CMV / Insumos');
+        $insumo = $this->insumo('Farinha', ['produto_plano_despesa_id' => $plano->id]);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 10, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 10,
+        ]);
+        $this->service->confirmar($compra->fresh('itens'));
+
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => now()->addDays(30)->toDateString(), 'valor' => 100.0],
+            ],
+        ]);
+
+        $this->assertEqualsWithDelta(100.0, (float) $lancamentos->first()->valor, 0.01);
+    }
+
+    public function test_gerar_conta_pagar_com_credito_maior_que_a_primeira_parcela_continua_abatendo_a_segunda(): void
+    {
+        $forn = $this->fornecedor();
+        $plano = $this->planoDespesa('CMV / Insumos');
+        $insumo = $this->insumo('Farinha', ['produto_plano_despesa_id' => $plano->id]);
+        // Crédito de 60 não cabe inteiro na 1ª parcela (40) — passa pra 2ª (60).
+        $credito = $this->creditoDoFornecedor($forn, 60.0);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 10, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 10,
+        ]);
+        $this->service->confirmar($compra->fresh('itens'));
+
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => now()->addDays(30)->toDateString(), 'valor' => 40.0],
+                ['vencimento' => now()->addDays(60)->toDateString(), 'valor' => 60.0],
+            ],
+        ]);
+
+        // Não coube na 1ª (crédito 60 > parcela 40): permanece intacta.
+        $this->assertEqualsWithDelta(40.0, (float) $lancamentos->firstWhere('parcela_numero', 1)->valor, 0.01);
+        // Coube inteiro na 2ª (crédito 60 == parcela 60): zera.
+        $this->assertEqualsWithDelta(0.0, (float) $lancamentos->firstWhere('parcela_numero', 2)->valor, 0.01);
+
+        $this->assertSame($lancamentos->firstWhere('parcela_numero', 2)->id, $credito->fresh()->aplicado_em_lancamento_id);
+    }
+
+    public function test_gerar_conta_pagar_nao_abate_credito_de_outro_fornecedor(): void
+    {
+        $forn = $this->fornecedor();
+        $outroForn = Prestador::create([
+            'tipo' => 'pj', 'categoria' => 'fornecedor',
+            'razao_social' => 'Outro Fornecedor', 'nome' => 'Outro Fornecedor', 'cpf_cnpj' => '98765432000199',
+        ]);
+        $plano = $this->planoDespesa('CMV / Insumos');
+        $insumo = $this->insumo('Farinha', ['produto_plano_despesa_id' => $plano->id]);
+        $this->creditoDoFornecedor($outroForn, 50.0);
+
+        $compra = Compra::create([
+            'compra_prestador_id' => $forn->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 10, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 10,
+        ]);
+        $this->service->confirmar($compra->fresh('itens'));
+
+        $lancamentos = $this->service->gerarContaPagar($compra->refresh(), [
+            'parcelas' => [
+                ['vencimento' => now()->addDays(30)->toDateString(), 'valor' => 100.0],
+            ],
+        ]);
+
+        $this->assertEqualsWithDelta(100.0, (float) $lancamentos->first()->valor, 0.01);
     }
 }

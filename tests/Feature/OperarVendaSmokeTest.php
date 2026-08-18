@@ -105,6 +105,22 @@ class OperarVendaSmokeTest extends TestCase
             ->assertSet('abrirCardsPorPadrao', true);
     }
 
+    public function test_definir_aba_padrao_persiste_em_sessao(): void
+    {
+        $user = User::factory()->admin()->create(['name_first' => 'Admin']);
+        $this->actingAs($user);
+        $this->sessaoCaixaAberta($user);
+
+        Livewire::test(OperarVenda::class)
+            ->assertSet('abaAtiva', 'produtos')
+            ->set('abaAtiva', 'mesas')
+            ->call('definirAbaPadrao');
+
+        // Uma nova montagem da página (ex.: reload) deve abrir direto na aba fixada.
+        Livewire::test(OperarVenda::class)
+            ->assertSet('abaAtiva', 'mesas');
+    }
+
     public function test_monta_com_venda_existente_via_parametro_de_rota(): void
     {
         $user = User::factory()->admin()->create(['name_first' => 'Admin']);

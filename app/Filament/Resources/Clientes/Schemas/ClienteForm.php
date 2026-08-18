@@ -14,6 +14,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
+use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class ClienteForm
 {
@@ -206,6 +207,17 @@ class ClienteForm
                                     ->dehydrated(fn ($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PJ')
                                     ->columnSpan(2),
                             ]),
+                    ]),
+
+                Section::make('Crédito')
+                    ->description('Limite para vendas fiado/a prazo no PDV. Sem limite cadastrado, o PDV bloqueia venda fiado pra este cliente.')
+                    ->icon('heroicon-o-banknotes')
+                    ->columnSpanFull()
+                    ->schema([
+                        Money::make('cliente_limite_credito')
+                            ->label('Limite de crédito (fiado)')
+                            ->minValue(0)
+                            ->columnSpan(3),
                     ]),
 
                 Section::make('Endereço')

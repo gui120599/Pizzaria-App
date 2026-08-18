@@ -13,6 +13,7 @@ enum MovimentacaoOrigemEnum: string
     case TRANSFERENCIA = 'transferencia';
     case INVENTARIO = 'inventario';
     case BALANCO = 'balanco';
+    case DEVOLUCAO_COMPRA = 'devolucao_compra';
 
     public function label(): string
     {
@@ -26,6 +27,7 @@ enum MovimentacaoOrigemEnum: string
             self::TRANSFERENCIA => 'Transferência',
             self::INVENTARIO => 'Inventário',
             self::BALANCO => 'Balanço físico',
+            self::DEVOLUCAO_COMPRA => 'Devolução de compra',
         };
     }
 }

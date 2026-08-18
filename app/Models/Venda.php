@@ -90,4 +90,10 @@ class Venda extends Model
     {
         return $this->hasMany(MovimentacoesSessaoCaixa::class, 'mov_venda_id', 'id');
     }
+
+    /** Títulos a receber (fiado/saldo em aberto) originados desta venda. */
+    public function lancamentos()
+    {
+        return $this->hasMany(Lancamento::class, 'venda_id');
+    }
 }

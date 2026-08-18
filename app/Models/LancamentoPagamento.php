@@ -17,6 +17,7 @@ class LancamentoPagamento extends Model
 
     protected $fillable = [
         'lancamento_id',
+        'sessao_caixa_id',
         'valor',
         'data_pagamento',
         'forma_pagamento',
@@ -41,5 +42,10 @@ class LancamentoPagamento extends Model
     public function lancamento(): BelongsTo
     {
         return $this->belongsTo(Lancamento::class, 'lancamento_id');
+    }
+
+    public function sessaoCaixa(): BelongsTo
+    {
+        return $this->belongsTo(SessaoCaixa::class, 'sessao_caixa_id');
     }
 }
