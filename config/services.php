@@ -40,4 +40,13 @@ return [
         'webhook_secret' => env('NFE_IO_SECRET'),
     ],
 
+    'stone' => [
+        // API Connect Stone (roda sobre o Pagar.me v5 — api.pagar.me/core/v5)
+        'secret_key' => env('STONE_CONNECT_SECRET_KEY'),
+        'service_referer_name' => env('STONE_CONNECT_SERVICE_REFERER_NAME'),
+        // HTTP Basic Auth da URL de webhook configurada na Dashboard do Pagar.me
+        'webhook_user' => env('STONE_WEBHOOK_USER'),
+        'webhook_password' => env('STONE_WEBHOOK_PASSWORD'),
+    ],
+
 ];
