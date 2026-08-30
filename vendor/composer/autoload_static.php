@@ -1366,6 +1366,7 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Services\\VendaService' => __DIR__ . '/../..' . '/app/Services/VendaService.php',
         'App\\Support\\CustoUnitarioFormatter' => __DIR__ . '/../..' . '/app/Support/CustoUnitarioFormatter.php',
         'App\\Support\\RateioCentavos' => __DIR__ . '/../..' . '/app/Support/RateioCentavos.php',
+        'App\\Support\\TotaisPedido' => __DIR__ . '/../..' . '/app/Support/TotaisPedido.php',
         'App\\View\\Components\\AppLayout' => __DIR__ . '/../..' . '/app/View/Components/AppLayout.php',
         'App\\View\\Components\\EntregadorLayout' => __DIR__ . '/../..' . '/app/View/Components/EntregadorLayout.php',
         'App\\View\\Components\\GuestLayout' => __DIR__ . '/../..' . '/app/View/Components/GuestLayout.php',

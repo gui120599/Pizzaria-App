@@ -486,6 +486,7 @@ return array(
     'App\\Services\\VendaService' => $baseDir . '/app/Services/VendaService.php',
     'App\\Support\\CustoUnitarioFormatter' => $baseDir . '/app/Support/CustoUnitarioFormatter.php',
     'App\\Support\\RateioCentavos' => $baseDir . '/app/Support/RateioCentavos.php',
+    'App\\Support\\TotaisPedido' => $baseDir . '/app/Support/TotaisPedido.php',
     'App\\View\\Components\\AppLayout' => $baseDir . '/app/View/Components/AppLayout.php',
     'App\\View\\Components\\EntregadorLayout' => $baseDir . '/app/View/Components/EntregadorLayout.php',
     'App\\View\\Components\\GuestLayout' => $baseDir . '/app/View/Components/GuestLayout.php',
