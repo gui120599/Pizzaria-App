@@ -7,6 +7,7 @@ use App\Models\AdicionaisItemPedido;
 use App\Models\ItensPedido;
 use App\Models\Produto;
 use App\Services\EstoqueService;
+use App\Support\TotaisPedido;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
@@ -47,9 +48,6 @@ class CreatePedido extends CreateRecord
 
         $pedido = parent::handleRecordCreation($data);
 
-        $valorItens = 0;
-        $totalDesconto = 0;
-
         foreach ($itens as $item) {
             $itemModel = ItensPedido::create([
                 'item_pedido_pedido_id' => $pedido->id,
@@ -72,16 +70,19 @@ class CreatePedido extends CreateRecord
                     'aip_valor_total' => $adicional['valor'],
                 ]);
             }
-
-            $valorItens += (float) $item['valor'];
-            $totalDesconto += (float) ($item['desconto'] ?? 0);
         }
 
         if (count($itens) > 0) {
-            $descontoPedido = (float) ($pedido->pedido_valor_desconto ?? 0);
+            $linhas = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+                ->where('item_pedido_status', 'INSERIDO')
+                ->get();
+
+            $totais = TotaisPedido::paraItens($linhas, $pedido->opcaoEntrega, (float) ($pedido->pedido_valor_desconto ?? 0));
+
             $pedido->update([
-                'pedido_valor_itens' => round($valorItens, 2),
-                'pedido_valor_total' => round(max(0, $valorItens - $totalDesconto - $descontoPedido), 2),
+                'pedido_valor_itens' => $totais['itens'],
+                'pedido_valor_desconto' => $totais['desconto'],
+                'pedido_valor_total' => $totais['total'],
             ]);
         }
 

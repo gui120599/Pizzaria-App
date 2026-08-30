@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Pedidos\Pages;
 use App\Filament\Resources\Pedidos\PedidoResource;
 use App\Filament\Resources\Pedidos\Schemas\PedidoEditForm;
 use App\Models\ItensPedido;
+use App\Support\TotaisPedido;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -36,13 +37,11 @@ class EditPedido extends EditRecord
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
 
-        $valorItens = round($itens->sum('item_pedido_valor'), 2);
-        $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
-        $descontoPedido = max(0.0, (float) ($data['pedido_valor_desconto'] ?? 0));
+        $totais = TotaisPedido::paraItens($itens, $record->opcaoEntrega, (float) ($data['pedido_valor_desconto'] ?? 0));
 
-        $data['pedido_valor_itens'] = $valorItens;
-        $data['pedido_valor_desconto'] = round($totalDesconto + $descontoPedido, 2);
-        $data['pedido_valor_total'] = round(max(0, $valorItens - $totalDesconto - $descontoPedido), 2);
+        $data['pedido_valor_itens'] = $totais['itens'];
+        $data['pedido_valor_desconto'] = $totais['desconto'];
+        $data['pedido_valor_total'] = $totais['total'];
 
         $updated = parent::handleRecordUpdate($record, $data);
 

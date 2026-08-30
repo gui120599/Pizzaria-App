@@ -8,6 +8,7 @@ use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Services\PromocaoRelampagoService;
+use App\Support\TotaisPedido;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -105,41 +106,22 @@ class ConfirmacoesPedidos extends Component
                 ->where('item_pedido_status', 'INSERIDO')
                 ->get();
 
-            $valorItens = round($itens->sum('item_pedido_valor'), 2);
-            $totalDesconto = round($itens->sum('item_pedido_desconto'), 2);
-            $valorFrete = $this->calcularFrete($this->editOpcaoEntregaId, $valorItens - $totalDesconto);
+            $opcao = $this->editOpcaoEntregaId ? OpcoesEntregas::find($this->editOpcaoEntregaId) : null;
+            $totais = TotaisPedido::paraItens($itens, $opcao);
 
             $pedido->update([
                 'pedido_opcaoentrega_id' => $this->editOpcaoEntregaId ?: null,
                 'pedido_endereco_entrega' => $this->editEndereco ?: null,
                 'pedido_descricao_pagamento' => $this->editPagamentoNome ?: null,
                 'pedido_observacao_pagamento' => $this->editObsPagamento ?: null,
-                'pedido_valor_itens' => $valorItens,
-                'pedido_valor_desconto' => $totalDesconto,
-                'pedido_valor_frete' => $valorFrete,
-                'pedido_valor_total' => round(max(0, $valorItens - $totalDesconto + $valorFrete), 2),
+                'pedido_valor_itens' => $totais['itens'],
+                'pedido_valor_desconto' => $totais['desconto'],
+                'pedido_valor_frete' => $totais['frete'],
+                'pedido_valor_total' => $totais['total'],
             ]);
         }
 
         $this->fecharEdicao();
-    }
-
-    private function calcularFrete(?string $opcaoEntregaId, float $totalLiquido): float
-    {
-        if (! $opcaoEntregaId) {
-            return 0.0;
-        }
-
-        $opcao = OpcoesEntregas::find($opcaoEntregaId);
-        if (! $opcao || $opcao->opcaoentrega_valor_frete <= 0) {
-            return 0.0;
-        }
-
-        if ($opcao->opcaoentrega_min_valor_frete > 0 && $totalLiquido >= $opcao->opcaoentrega_min_valor_frete) {
-            return 0.0;
-        }
-
-        return (float) $opcao->opcaoentrega_valor_frete;
     }
 
     public function render()

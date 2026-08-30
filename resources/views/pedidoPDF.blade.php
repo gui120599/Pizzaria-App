@@ -152,15 +152,25 @@
                 <label>Forma de Pagamento</label><br>
             </div>
             <div id="dados-valores" class="text-right font-bold">
+                @php
+                    $somaLiquidoItens = $itens_inserido_pedido->sum('item_pedido_valor');
+                    // "Valor Produtos" = bruto (antes do desconto). item_pedido_valor já é líquido.
+                    $valorProdutos = $pedido->pedido_valor_itens > 0
+                        ? $pedido->pedido_valor_itens
+                        : $somaLiquidoItens + ($pedido->pedido_valor_desconto ?? 0);
+                    $valorTotal = $pedido->pedido_valor_total > 0
+                        ? $pedido->pedido_valor_total
+                        : $somaLiquidoItens + ($pedido->pedido_valor_frete ?? 0);
+                @endphp
                 <label>{{ $itens_inserido_pedido->sum('item_pedido_quantidade') }}</label><br>
-                <label>R$ {{ number_format($itens_inserido_pedido->sum('item_pedido_valor'), 2, ',', '.') }}</label><br>
+                <label>R$ {{ number_format($valorProdutos, 2, ',', '.') }}</label><br>
                 @if ($pedido->pedido_valor_desconto > 0)
                     <label>R$ {{ number_format($pedido->pedido_valor_desconto, 2, ',', '.') }}</label><br>
                 @endif
                 @if (isset($pedido->pedido_valor_frete) && $pedido->pedido_valor_frete > 0)
                     <label>R$ {{ number_format($pedido->pedido_valor_frete, 2, ',', '.') }}</label><br>
                 @endif
-                <label>R$ {{ number_format($itens_inserido_pedido->sum('item_pedido_valor') + ($pedido->pedido_valor_frete ?? 0), 2, ',', '.') }}</label><br>
+                <label>R$ {{ number_format($valorTotal, 2, ',', '.') }}</label><br>
                 <label>{{ $pedido->pedido_descricao_pagamento ?? '—' }}</label><br>
             </div>
         </div>
