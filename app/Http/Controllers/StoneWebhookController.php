@@ -4,31 +4,37 @@ namespace App\Http\Controllers;
 
 use App\Models\StoneWebhook;
 use App\Models\Venda;
+use App\Services\Stone\StoneRecebimentoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Recebe os webhooks do Connect Stone / Pagar.me v5
  * (POST /api/webhook/stone-connect). Eventos principais: `charge.paid` quando
  * o cliente paga o pedido na maquininha e `charge.refunded` no estorno.
  *
- * Por ora só persiste cada evento em stone_webhooks (ver Filament Resource de
- * inspeção) e tenta resolver a Venda vinculada pelo `metadata.venda_id` que o
- * PDV envia ao criar o pedido. O lançamento do pagamento na venda e o
- * fechamento do pedido (PATCH /core/v5/orders/{id}/closed) ficam para a etapa
- * do fluxo completo de recebimento.
+ * Sempre persiste o payload bruto em stone_webhooks primeiro (auditoria — ver
+ * Filament Resource de inspeção) e só depois processa. A correlação com a
+ * venda/pagamento é feita pelo StonePedido (stp_order_id), não pelo
+ * `metadata.venda_id` (que a Stone às vezes sobrescreve).
+ *
+ * Falha no processamento é engolida e a resposta continua 200 de propósito:
+ * um payload problemático não deve gerar retry infinito da Stone; a
+ * recuperação fica no comando `stone:conciliar-pedidos`.
  */
 class StoneWebhookController extends Controller
 {
-    public function handle(Request $request): JsonResponse
+    public function handle(Request $request, StoneRecebimentoService $recebimento): JsonResponse
     {
         $data = $request->all();
         $charge = $data['data'] ?? [];
         $order = $charge['order'] ?? [];
 
-        $venda = $this->resolverVenda($order);
+        $pedido = $recebimento->resolverPedido($order);
+        $venda = $pedido ? $pedido->venda : $this->resolverVendaLegado($order);
 
-        StoneWebhook::create([
+        $webhook = StoneWebhook::create([
             'stw_evento' => $data['type'] ?? null,
             'stw_hook_id' => $data['id'] ?? null,
             'stw_charge_id' => $charge['id'] ?? null,
@@ -36,6 +42,7 @@ class StoneWebhookController extends Controller
             'stw_order_id' => $order['id'] ?? null,
             'stw_order_code' => $order['code'] ?? null,
             'stw_venda_id' => $venda?->id,
+            'stw_stone_pedido_id' => $pedido?->id,
             'stw_payload' => $data,
             'stw_autenticado' => $request->attributes->get('stone_webhook_autenticado'),
             'stw_processado_em' => now(),
@@ -45,10 +52,21 @@ class StoneWebhookController extends Controller
             return response()->json(['message' => 'Credenciais inválidas'], 401);
         }
 
+        try {
+            $recebimento->processarWebhook($webhook);
+        } catch (\Throwable $e) {
+            Log::channel('stone')->error('Falha ao processar webhook Stone', [
+                'hook_id' => $data['id'] ?? null,
+                'evento' => $data['type'] ?? null,
+                'erro' => $e->getMessage(),
+            ]);
+        }
+
         return response()->json(['message' => 'Evento recebido']);
     }
 
-    private function resolverVenda(array $order): ?Venda
+    /** Fallback da Fase 1 — só usado quando não há StonePedido correlacionado. */
+    private function resolverVendaLegado(array $order): ?Venda
     {
         $vendaId = $order['metadata']['venda_id'] ?? null;
 

@@ -5,6 +5,8 @@ namespace App\Filament\Resources\OpcoesPagamento;
 use App\Filament\Resources\OpcoesPagamento\Pages\ManageOpcoesPagamento;
 use App\Models\OpcoesPagamento;
 use BackedEnum;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -18,6 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section as SchemaSection;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -122,6 +125,17 @@ class OpcoesPagamentoResource extends Resource
                         ->default(false)
                         ->inline()
                         ->helperText('Quando ativado, o operador deve informar o número de autorização ao registrar este pagamento na venda'),
+
+                    Toggle::make('opcaopag_stone_integrada')
+                        ->label('Recebe via maquininha Stone (Connect)')
+                        ->default(false)
+                        ->inline()
+                        ->helperText('O PDV envia a cobrança automaticamente para uma maquininha Stone e lança o pagamento pelo webhook. Exige Código NF-e = Cartão de Crédito ou Débito.')
+                        ->rule(fn (Get $get) => function (string $attribute, $value, \Closure $fail) use ($get) {
+                            if ($value && ! in_array($get('opcaopag_desc_nfe'), ['creditCard', 'debitCard'], true)) {
+                                $fail('Formas integradas à Stone precisam de Código NF-e "Cartão de Crédito" ou "Cartão de Débito".');
+                            }
+                        }),
                 ]),
         ]);
     }
@@ -186,8 +200,8 @@ class OpcoesPagamentoResource extends Resource
                 RestoreAction::make(),
             ])
             ->toolbarActions([
-                \Filament\Actions\CreateAction::make(),
-                \Filament\Actions\BulkActionGroup::make([
+                CreateAction::make(),
+                BulkActionGroup::make([
                     DeleteBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),

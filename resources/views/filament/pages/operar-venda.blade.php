@@ -522,6 +522,62 @@
         </div>
     @endif
 
+    {{-- Modal Cobrança na maquininha Stone --}}
+    @if ($modalStoneAberta)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-white/10">
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Cobrança na maquininha</h3>
+                </div>
+                <div class="p-4 space-y-3">
+                    @if ($stoneStatusModal === 'aguardando')
+                        <div wire:poll.3s="verificarStatusStone" class="flex flex-col items-center gap-3 py-4 text-center">
+                            <svg class="animate-spin h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Aguardando o pagamento na maquininha…</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">O pedido está na lista do POS. Selecione-o e passe o cartão.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button wire:click="cancelarCobrancaStone" wire:loading.attr="disabled" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-50">
+                                Cancelar cobrança
+                            </button>
+                            <button wire:click="fecharModalStone" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+                                Fechar
+                            </button>
+                        </div>
+                    @elseif ($stoneStatusModal === 'pago')
+                        <div class="flex flex-col items-center gap-2 py-2 text-center">
+                            <x-filament::icon icon="heroicon-o-check-circle" class="h-8 w-8 text-emerald-500" />
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-200">Pagamento confirmado!</p>
+                        </div>
+                        <button wire:click="fecharModalStone" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
+                            Concluir
+                        </button>
+                    @elseif ($stoneStatusModal === 'erro')
+                        <div class="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-400 text-sm rounded-lg px-3 py-2">
+                            {{ $stoneErroModal }}
+                        </div>
+                        <div class="flex gap-2">
+                            <button wire:click="fecharModalStone" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+                                Fechar
+                            </button>
+                        </div>
+                    @elseif ($stoneStatusModal === 'cancelado')
+                        <div class="flex flex-col items-center gap-2 py-2 text-center">
+                            <x-filament::icon icon="heroicon-o-x-circle" class="h-8 w-8 text-gray-400" />
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Cobrança cancelada.</p>
+                        </div>
+                        <button wire:click="fecharModalStone" type="button" class="w-full py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+                            Fechar
+                        </button>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Modal Cliente --}}
     @if ($modalClienteAberta)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" wire:click.self="fecharModalCliente">
@@ -597,6 +653,7 @@
         @php
             $opcaoSelecionada = $this->opcoesPagamento->firstWhere('id', $opcaoPagamentoSelecionadaId);
             $emEdicaoPagamento = (bool) $pagamentoEmEdicaoId;
+            $ehStone = (bool) $opcaoSelecionada?->ehIntegracaoStone();
         @endphp
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" wire:click.self="fecharModalPagamento">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto">
@@ -638,7 +695,22 @@
                         </div>
                     </div>
 
-                    @if ($opcaoSelecionada?->opcaopag_requer_bandeira)
+                    @if ($opcaoSelecionada?->ehIntegracaoStone())
+                        <div>
+                            <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Maquininha Stone</label>
+                            <select wire:model="stoneMaquininhaId" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                <option value="">Selecione...</option>
+                                @foreach ($this->maquininhasStone as $id => $nome)
+                                    <option value="{{ $id }}">{{ $nome }}</option>
+                                @endforeach
+                            </select>
+                            @if ($this->maquininhasStone->isEmpty())
+                                <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Nenhuma maquininha Stone com número de série cadastrada.</p>
+                            @endif
+                        </div>
+                    @endif
+
+                    @if ($opcaoSelecionada?->opcaopag_requer_bandeira && ! $opcaoSelecionada?->ehIntegracaoStone())
                         <div>
                             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Cartão / bandeira</label>
                             <select wire:model="cartaoId" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
@@ -650,7 +722,7 @@
                         </div>
                     @endif
 
-                    @if ($opcaoSelecionada?->opcaopag_requer_autorizacao)
+                    @if ($opcaoSelecionada?->opcaopag_requer_autorizacao && ! $ehStone)
                         <div>
                             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Número de autorização</label>
                             <input
@@ -671,8 +743,8 @@
                             get troco() { return Math.max(0, this.parseValor(this.pagoCliente) - this.parseValor(this.recebido)); },
                         }"
                     >
-                        <div>
-                            <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Valor recebido (R$)</label>
+                        <div @class(['col-span-2' => $ehStone])>
+                            <label class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $ehStone ? 'Valor a cobrar (R$)' : 'Valor recebido (R$)' }}</label>
                             <input
                                 type="text"
                                 inputmode="decimal"
@@ -682,21 +754,25 @@
                                 class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 text-right focus:outline-none focus:ring-2 focus:ring-primary-500"
                             />
                         </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Pago pelo cliente (R$)</label>
-                            <input
-                                type="text"
-                                inputmode="decimal"
-                                x-bind:value="pagoCliente"
-                                x-on:input="$el.value = Currency.masking($el.value, {locales:'pt-BR'}); pagoCliente = $el.value"
-                                x-on:blur="$wire.set('valorPagoPeloCliente', parseValor(pagoCliente))"
-                                x-on:keydown.enter.prevent="$wire.set('valorPagoPeloCliente', parseValor(pagoCliente)).then(() => $wire.registrarPagamento())"
-                                class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 text-right focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            />
-                        </div>
+                        @unless ($ehStone)
+                            <div>
+                                <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Pago pelo cliente (R$)</label>
+                                <input
+                                    type="text"
+                                    inputmode="decimal"
+                                    x-bind:value="pagoCliente"
+                                    x-on:input="$el.value = Currency.masking($el.value, {locales:'pt-BR'}); pagoCliente = $el.value"
+                                    x-on:blur="$wire.set('valorPagoPeloCliente', parseValor(pagoCliente))"
+                                    x-on:keydown.enter.prevent="$wire.set('valorPagoPeloCliente', parseValor(pagoCliente)).then(() => $wire.registrarPagamento())"
+                                    class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 text-right focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                />
+                            </div>
+                        @endunless
                         <div class="col-span-2 flex items-center justify-between text-xs px-1">
                             <span class="text-gray-500 dark:text-gray-400">Restante: <strong class="text-gray-700 dark:text-gray-200">R$ {{ number_format($this->valorRestante, 2, ',', '.') }}</strong></span>
-                            <span class="text-gray-500 dark:text-gray-400">Troco: <strong class="text-green-600 dark:text-green-400" x-text="'R$ ' + troco.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})"></strong></span>
+                            @unless ($ehStone)
+                                <span class="text-gray-500 dark:text-gray-400">Troco: <strong class="text-green-600 dark:text-green-400" x-text="'R$ ' + troco.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})"></strong></span>
+                            @endunless
                         </div>
                     </div>
 
@@ -712,8 +788,8 @@
                         </p>
                     @endif
 
-                    <button wire:click="registrarPagamento" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
-                        {{ $emEdicaoPagamento ? 'Salvar alterações' : 'Confirmar pagamento' }}
+                    <button wire:click="registrarPagamento" wire:loading.attr="disabled" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50">
+                        {{ $ehStone ? 'Enviar cobrança para a maquininha' : ($emEdicaoPagamento ? 'Salvar alterações' : 'Confirmar pagamento') }}
                     </button>
                 </div>
             </div>

@@ -17,6 +17,8 @@ class StoneWebhook extends Model
         'stw_order_id',
         'stw_order_code',
         'stw_venda_id',
+        'stw_stone_pedido_id',
+        'stw_pagamento_venda_id',
         'stw_payload',
         'stw_autenticado',
         'stw_processado_em',
@@ -34,5 +36,15 @@ class StoneWebhook extends Model
     public function venda(): BelongsTo
     {
         return $this->belongsTo(Venda::class, 'stw_venda_id');
+    }
+
+    public function stonePedido(): BelongsTo
+    {
+        return $this->belongsTo(StonePedido::class, 'stw_stone_pedido_id');
+    }
+
+    public function pagamentoVenda(): BelongsTo
+    {
+        return $this->belongsTo(PagamentosVenda::class, 'stw_pagamento_venda_id');
     }
 }

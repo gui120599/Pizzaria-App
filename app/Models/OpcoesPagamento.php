@@ -21,6 +21,7 @@ class OpcoesPagamento extends Model
         'opcaopag_valor_percentual_taxa',
         'opcaopag_requer_bandeira',
         'opcaopag_requer_autorizacao',
+        'opcaopag_stone_integrada',
     ];
 
     protected $casts = [
@@ -30,6 +31,7 @@ class OpcoesPagamento extends Model
         'opcaopag_valor_percentual_taxa' => 'float',
         'opcaopag_requer_bandeira' => 'boolean',
         'opcaopag_requer_autorizacao' => 'boolean',
+        'opcaopag_stone_integrada' => 'boolean',
     ];
 
     const TIPO_TAXA = [
@@ -68,6 +70,22 @@ class OpcoesPagamento extends Model
     public function pagamentosVenda()
     {
         return $this->hasMany(PagamentosVenda::class, 'pg_venda_opcaopagamento_id', 'id');
+    }
+
+    /** Forma de pagamento que dispara o fluxo integrado de maquininha Stone no PDV. */
+    public function ehIntegracaoStone(): bool
+    {
+        return (bool) $this->opcaopag_stone_integrada;
+    }
+
+    /** Tipo de transação Stone derivado do código NF-e: 'credit' | 'debit' | null. */
+    public function tipoStone(): ?string
+    {
+        return match ($this->opcaopag_desc_nfe) {
+            'creditCard' => 'credit',
+            'debitCard' => 'debit',
+            default => null,
+        };
     }
 
     protected $dates = [
