@@ -15,6 +15,7 @@ class Maquininha extends Model
     protected $fillable = [
         'nome',
         'operadora',
+        'numero_serie',
         'identificador_externo',
     ];
 

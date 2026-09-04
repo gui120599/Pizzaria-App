@@ -95,6 +95,19 @@ class FechamentoCaixaServiceTest extends TestCase
         $this->assertEqualsWithDelta(15.0, $esperado['outros'], 0.01);
     }
 
+    public function test_pagamento_stone_integrado_entra_na_categoria_credito(): void
+    {
+        $creditoStone = $this->opcao('creditCard');
+
+        $venda = $this->venda();
+        $pagamento = $this->pagamento($venda, $creditoStone, 80.0);
+        $pagamento->update(['pg_venda_tipo_integracao' => 'integrated']);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(80.0, $esperado['credito'], 0.01);
+    }
+
     public function test_ignora_vendas_iniciadas_e_canceladas(): void
     {
         $dinheiro = $this->opcao('cash');

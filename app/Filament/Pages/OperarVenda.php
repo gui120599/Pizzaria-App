@@ -3,8 +3,11 @@
 namespace App\Filament\Pages;
 
 use App\Enums\FormaPagamento;
+use App\Enums\OperadoraMaquininha;
+use App\Enums\StonePedidoStatus;
 use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\NfeIoException;
+use App\Exceptions\StoneConnectException;
 use App\Exceptions\VendaNaoFinalizavelException;
 use App\Models\AdicionaisItemPedido;
 use App\Models\AdicionaisItemVenda;
@@ -14,6 +17,7 @@ use App\Models\Empresa;
 use App\Models\ItensPedido;
 use App\Models\ItensVenda;
 use App\Models\Lancamento;
+use App\Models\Maquininha;
 use App\Models\Mesa;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
@@ -21,10 +25,12 @@ use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoCaixa;
 use App\Models\SessaoMesa;
+use App\Models\StonePedido;
 use App\Models\Venda;
 use App\Services\EstoqueService;
 use App\Services\FinalizacaoVendaService;
 use App\Services\NfeIoService;
+use App\Services\Stone\StoneRecebimentoService;
 use App\Services\VendaService;
 use App\Support\RateioCentavos;
 use BackedEnum;
@@ -127,6 +133,19 @@ class OperarVenda extends Page
 
     /** Setado quando o modal está editando um pagamento já lançado (em vez de criar um novo). */
     public ?int $pagamentoEmEdicaoId = null;
+
+    // ── Modal Cobrança na maquininha Stone ───────────────────────────────────
+    public bool $modalStoneAberta = false;
+
+    /** @var 'aguardando'|'pago'|'erro'|'cancelado'|null */
+    public ?string $stoneStatusModal = null;
+
+    public ?string $stoneErroModal = null;
+
+    public ?int $stonePedidoId = null;
+
+    /** Maquininha escolhida no modal de pagamento para formas integradas à Stone. */
+    public ?int $stoneMaquininhaId = null;
 
     // ── Modal Dividir Conta ──────────────────────────────────────────────────
     public bool $modalDividirContaAberta = false;
@@ -1155,6 +1174,16 @@ class OperarVenda extends Page
         return CartoesPagamento::all();
     }
 
+    /** Maquininhas Stone com número de série — opções do modal de cobrança integrada. */
+    #[Computed]
+    public function maquininhasStone()
+    {
+        return Maquininha::where('operadora', OperadoraMaquininha::Stone->value)
+            ->whereNotNull('numero_serie')
+            ->orderBy('nome')
+            ->pluck('nome', 'id');
+    }
+
     #[Computed]
     public function pagamentosLancados()
     {
@@ -1259,6 +1288,127 @@ class OperarVenda extends Page
         $this->valorPagamento = 0;
         $this->valorPagoPeloCliente = 0;
         $this->pagamentoEmEdicaoId = null;
+        $this->stoneMaquininhaId = null;
+    }
+
+    // ── Cobrança na maquininha Stone ─────────────────────────────────────────
+
+    /**
+     * Manda a cobrança da venda para uma maquininha Stone (modelo Listado) e
+     * abre o modal de acompanhamento. O PagamentosVenda só é criado quando o
+     * webhook charge.paid chega (ver StoneRecebimentoService).
+     */
+    public function iniciarCobrancaStone(OpcoesPagamento $opcao, Venda $venda): void
+    {
+        $this->resetErrorBag('valorPagamento');
+
+        $valor = round((float) $this->valorPagamento, 2);
+
+        if ($valor <= 0 || $valor > $this->valorRestante + 0.005) {
+            $this->addError('valorPagamento', 'Informe um valor entre R$ 0,01 e o restante da venda.');
+
+            return;
+        }
+
+        $maquininha = $this->stoneMaquininhaId ? Maquininha::find($this->stoneMaquininhaId) : null;
+        if (! $maquininha) {
+            $this->addError('valorPagamento', 'Selecione a maquininha que vai receber a cobrança.');
+
+            return;
+        }
+
+        try {
+            $pedido = app(StoneRecebimentoService::class)->iniciarCobranca($venda, $opcao, $maquininha, $valor);
+        } catch (StoneConnectException $e) {
+            $this->stonePedidoId = null;
+            $this->stoneStatusModal = 'erro';
+            $this->stoneErroModal = $e->getMessage();
+            $this->modalStoneAberta = true;
+            $this->fecharModalPagamento();
+
+            return;
+        }
+
+        $this->stonePedidoId = $pedido->id;
+        $this->stoneStatusModal = 'aguardando';
+        $this->stoneErroModal = null;
+        $this->modalStoneAberta = true;
+        $this->fecharModalPagamento();
+    }
+
+    /** Chamado via wire:poll enquanto o modal está 'aguardando'. */
+    public function verificarStatusStone(): void
+    {
+        $pedido = $this->stonePedidoId ? StonePedido::find($this->stonePedidoId) : null;
+        if (! $pedido) {
+            return;
+        }
+
+        if ($pedido->stp_status === StonePedidoStatus::Pago) {
+            $this->stoneStatusModal = 'pago';
+            $this->recarregarPagamentos();
+
+            return;
+        }
+
+        if ($pedido->stp_status === StonePedidoStatus::Falha) {
+            $this->definirErroStone('Não foi possível enviar a cobrança para a maquininha.');
+
+            return;
+        }
+
+        if (in_array($pedido->stp_status, [StonePedidoStatus::Cancelado, StonePedidoStatus::Estornado], true)) {
+            $this->stoneStatusModal = 'cancelado';
+
+            return;
+        }
+
+        if ($pedido->stp_status === StonePedidoStatus::PagoParcial) {
+            // Listado permite mais de um cartão — segue aguardando o restante.
+            $this->recarregarPagamentos();
+        }
+    }
+
+    public function cancelarCobrancaStone(): void
+    {
+        $pedido = $this->stonePedidoId ? StonePedido::find($this->stonePedidoId) : null;
+        if (! $pedido) {
+            return;
+        }
+
+        try {
+            app(StoneRecebimentoService::class)->cancelarCobranca($pedido);
+            $this->stoneStatusModal = 'cancelado';
+        } catch (StoneConnectException $e) {
+            $this->definirErroStone($e->getMessage());
+        }
+    }
+
+    public function fecharModalStone(): void
+    {
+        $pago = $this->stoneStatusModal === 'pago';
+
+        $this->modalStoneAberta = false;
+        $this->stoneStatusModal = null;
+        $this->stoneErroModal = null;
+        $this->stonePedidoId = null;
+
+        $this->recarregarPagamentos();
+
+        if ($pago) {
+            $this->redirect(static::getUrl());
+        }
+    }
+
+    private function definirErroStone(string $mensagem): void
+    {
+        $this->stoneStatusModal = 'erro';
+        $this->stoneErroModal = $mensagem;
+    }
+
+    private function recarregarPagamentos(): void
+    {
+        unset($this->pagamentosLancados, $this->venda);
     }
 
     /**
@@ -1305,6 +1455,14 @@ class OperarVenda extends Page
 
         $venda = Venda::find($this->vendaId);
         if (! $venda) {
+            return;
+        }
+
+        // Forma integrada à maquininha Stone: em vez de gravar o pagamento
+        // aqui, manda a cobrança para o POS e espera o webhook charge.paid.
+        if ($opcaoPagamento->ehIntegracaoStone()) {
+            $this->iniciarCobrancaStone($opcaoPagamento, $venda);
+
             return;
         }
 
@@ -1491,6 +1649,16 @@ class OperarVenda extends Page
     {
         $venda = Venda::find($this->vendaId);
         if (! $venda) {
+            return null;
+        }
+
+        $temCobrancaStonePendente = StonePedido::where('stp_venda_id', $this->vendaId)
+            ->whereIn('stp_status', [StonePedidoStatus::Aguardando, StonePedidoStatus::PagoParcial])
+            ->exists();
+
+        if ($temCobrancaStonePendente) {
+            $this->addError('finalizar', 'Há uma cobrança na maquininha aguardando pagamento. Conclua ou cancele antes de finalizar a venda.');
+
             return null;
         }
 

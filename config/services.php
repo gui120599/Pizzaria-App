@@ -42,6 +42,7 @@ return [
 
     'stone' => [
         // API Connect Stone (roda sobre o Pagar.me v5 — api.pagar.me/core/v5)
+        'base_url' => env('STONE_CONNECT_BASE_URL', 'https://api.pagar.me/core/v5'),
         'secret_key' => env('STONE_CONNECT_SECRET_KEY'),
         'service_referer_name' => env('STONE_CONNECT_SERVICE_REFERER_NAME'),
         // HTTP Basic Auth da URL de webhook configurada na Dashboard do Pagar.me

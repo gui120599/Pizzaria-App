@@ -43,6 +43,14 @@ class Kernel extends ConsoleKernel
             ->hourly()
             ->withoutOverlapping()
             ->onOneServer();
+
+        // Rede de segurança do recebimento em maquininha Stone: fecha pedidos
+        // pagos que não fecharam no handler do webhook e recupera charge.paid
+        // perdidos (ver App\Console\Commands\StoneConciliarPedidos).
+        $schedule->command('stone:conciliar-pedidos')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
     }
 
     /**
