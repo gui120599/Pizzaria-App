@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\FormaPagamento;
 use App\Enums\StatusFechamentoCaixa;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\SessaoCaixa;
@@ -61,5 +62,24 @@ class SessaoCaixaService
                 'mov_valor' => $valor,
             ]);
         }
+    }
+
+    /**
+     * Fecha o ciclo da abertura depois que o Repeater 'notas' já persistiu as
+     * linhas relacionadas: soma o dinheiro contado, grava saldo_inicial/final
+     * e registra o movimento (só dinheiro — débito/crédito/Pix da abertura
+     * ficam como carryover por maquininha, abatido no fechamento, não
+     * somado ao esperado, ver FechamentoCaixa::totalPorCategoria).
+     */
+    public function finalizarAbertura(SessaoCaixa $sessao): void
+    {
+        $totalDinheiro = round((float) $sessao->notas()->sum('valor_total'), 2);
+
+        $sessao->update([
+            'sessaocaixa_saldo_inicial' => $totalDinheiro,
+            'sessaocaixa_saldo_final' => $totalDinheiro,
+        ]);
+
+        $this->registrarMovimentoAbertura($sessao, [FormaPagamento::Dinheiro->value => $totalDinheiro]);
     }
 }

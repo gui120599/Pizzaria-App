@@ -20,14 +20,14 @@
         <i class='text-[13px] bx bxs-dashboard'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
     </x-nav-link>
-    <x-nav-link :href="route('venda')" :active="request()->routeIs('venda') || request()->routeIs('venda.edit')">
+    <!--<x-nav-link :href="route('venda')" :active="request()->routeIs('venda') || request()->routeIs('venda.edit')">
         <i class='text-[13px] bx bx-money-withdraw'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Venda') }}</span>
     </x-nav-link>
     <x-nav-link :href="route('mov_saida')" :active="request()->routeIs('mov_saida')">
         <i class='text-[13px] bx bx-money-withdraw'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Saída') }}</span>
-    </x-nav-link>
+    </x-nav-link>-->
     <x-nav-link :href="route('pedido.create')" :active="request()->routeIs('pedido.create')">
         <i class="text-[13px] bx bx-message-square-add"></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Realizar Pedido') }}</span>
@@ -42,12 +42,12 @@
             <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
         </x-nav-link>
     @endcan
-    @hasrole('Entregador')
+    <!--@hasrole('Entregador')
         <x-nav-link :href="route('entregador.painel')" :active="request()->routeIs('entregador.painel')">
             <i class='text-[13px] bx bx-cycling'></i>
             <span class="text-[12px] ml-4 text-gray-200">{{ __('Entregador') }}</span>
         </x-nav-link>
-    @endhasrole
+    @endhasrole-->
     @can('accept:pedido')
         <x-nav-link :href="route('confirmacoes')" :active="request()->routeIs('confirmacoes')">
             <i class='text-[13px] bx bx-bell'></i>
@@ -62,7 +62,7 @@
     @endcan
     <hr class="h-px my-2 border-0 bg-gray-100">
 
-    <!--Financeiro-->
+    <!--Financeiro
     <div class="mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
         onclick="dropdown('finan')">
         <i class='bx bx-money-withdraw'></i>
@@ -93,9 +93,9 @@
             <span class="text-[12px] ml-2 text-gray-200">{{ __('Opções de Pagamentos') }}</span>
         </x-nav-link>
     </div>
-    <hr class="h-px my-2 border-0 bg-gray-100">
+    <hr class="h-px my-2 border-0 bg-gray-100">-->
 
-    <!--Relatórios-->
+    <!--Relatórios
     @can('view:relatorio_financeiro')
         <div class="mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
             onclick="dropdown('relatorio')">
@@ -118,9 +118,9 @@
             </x-nav-link>
         </div>
         <hr class="h-px my-2 border-0 bg-gray-100">
-    @endcan
+    @endcan-->
 
-    <!--Configurações Gerais-->
+    <!--Configurações Gerais
     <div class="mt-3 flex items-center rounded-md px-4 duration-300 cursor-pointer hover:bg-teal-700 text-white"
         onclick="dropdown('config')">
         <i class='bx bxs-cog'></i>
@@ -167,7 +167,7 @@
             <span class="text-[12px] ml-4 text-gray-200">{{ __('Mesas') }}</span>
         </x-nav-link>
     </div>
-    <hr class="h-px my-2 border-0 bg-gray-100">
+    <hr class="h-px my-2 border-0 bg-gray-100">-->
 
     <!-- Profile -->
     <div class="flex items-center">

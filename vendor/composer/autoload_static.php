@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
+class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
 {
     public static $files = array (
         '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
@@ -266,6 +266,8 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
             'Intervention\\Gif\\' => 17,
             'Illuminate\\Support\\' => 19,
             'Illuminate\\' => 11,
+            'Icetalker\\FilamentTableRepeater\\Database\\Factories\\' => 51,
+            'Icetalker\\FilamentTableRepeater\\' => 32,
         ),
         'G' => 
         array (
@@ -701,6 +703,14 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         array (
             0 => __DIR__ . '/..' . '/laravel/framework/src/Illuminate',
         ),
+        'Icetalker\\FilamentTableRepeater\\Database\\Factories\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/icetalker/filament-table-repeater/database/factories',
+        ),
+        'Icetalker\\FilamentTableRepeater\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/icetalker/filament-table-repeater/src',
+        ),
         'GuzzleHttp\\UriTemplate\\' => 
         array (
             0 => __DIR__ . '/..' . '/guzzlehttp/uri-template/src',
@@ -1015,6 +1025,12 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Filament\\Resources\\Lancamentos\\Schemas\\LancamentoForm' => __DIR__ . '/../..' . '/app/Filament/Resources/Lancamentos/Schemas/LancamentoForm.php',
         'App\\Filament\\Resources\\Lancamentos\\Support\\PreparaLancamento' => __DIR__ . '/../..' . '/app/Filament/Resources/Lancamentos/Support/PreparaLancamento.php',
         'App\\Filament\\Resources\\Lancamentos\\Tables\\LancamentosTable' => __DIR__ . '/../..' . '/app/Filament/Resources/Lancamentos/Tables/LancamentosTable.php',
+        'App\\Filament\\Resources\\Maquininhas\\MaquininhaResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Maquininhas/MaquininhaResource.php',
+        'App\\Filament\\Resources\\Maquininhas\\Pages\\CreateMaquininha' => __DIR__ . '/../..' . '/app/Filament/Resources/Maquininhas/Pages/CreateMaquininha.php',
+        'App\\Filament\\Resources\\Maquininhas\\Pages\\EditMaquininha' => __DIR__ . '/../..' . '/app/Filament/Resources/Maquininhas/Pages/EditMaquininha.php',
+        'App\\Filament\\Resources\\Maquininhas\\Pages\\ListMaquininhas' => __DIR__ . '/../..' . '/app/Filament/Resources/Maquininhas/Pages/ListMaquininhas.php',
+        'App\\Filament\\Resources\\Maquininhas\\Schemas\\MaquininhaForm' => __DIR__ . '/../..' . '/app/Filament/Resources/Maquininhas/Schemas/MaquininhaForm.php',
+        'App\\Filament\\Resources\\Maquininhas\\Tables\\MaquininhasTable' => __DIR__ . '/../..' . '/app/Filament/Resources/Maquininhas/Tables/MaquininhasTable.php',
         'App\\Filament\\Resources\\Marcas\\MarcaResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Marcas/MarcaResource.php',
         'App\\Filament\\Resources\\Marcas\\Pages\\ManageMarcas' => __DIR__ . '/../..' . '/app/Filament/Resources/Marcas/Pages/ManageMarcas.php',
         'App\\Filament\\Resources\\Mesas\\MesaResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Mesas/MesaResource.php',
@@ -1111,7 +1127,9 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Filament\\Resources\\Vendas\\Pages\\ListVendas' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Pages/ListVendas.php',
         'App\\Filament\\Resources\\Vendas\\Tables\\VendasTable' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Tables/VendasTable.php',
         'App\\Filament\\Resources\\Vendas\\VendaResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/VendaResource.php',
+        'App\\Filament\\Support\\ContagemNotasSchema' => __DIR__ . '/../..' . '/app/Filament/Support/ContagemNotasSchema.php',
         'App\\Filament\\Support\\CorrecaoEstoquePreview' => __DIR__ . '/../..' . '/app/Filament/Support/CorrecaoEstoquePreview.php',
+        'App\\Filament\\Support\\MaquininhaQuickCreateForm' => __DIR__ . '/../..' . '/app/Filament/Support/MaquininhaQuickCreateForm.php',
         'App\\Filament\\Tables\\Clientes' => __DIR__ . '/../..' . '/app/Filament/Tables/Clientes.php',
         'App\\Filament\\Widgets\\AcessoRapidoWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/AcessoRapidoWidget.php',
         'App\\Filament\\Widgets\\Concerns\\InteractsComPeriodo' => __DIR__ . '/../..' . '/app/Filament/Widgets/Concerns/InteractsComPeriodo.php',
@@ -1313,6 +1331,7 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'App\\Policies\\FechamentoCaixaPolicy' => __DIR__ . '/../..' . '/app/Policies/FechamentoCaixaPolicy.php',
         'App\\Policies\\HorarioFuncionamentoPolicy' => __DIR__ . '/../..' . '/app/Policies/HorarioFuncionamentoPolicy.php',
         'App\\Policies\\LancamentoPolicy' => __DIR__ . '/../..' . '/app/Policies/LancamentoPolicy.php',
+        'App\\Policies\\MaquininhaPolicy' => __DIR__ . '/../..' . '/app/Policies/MaquininhaPolicy.php',
         'App\\Policies\\MarcaPolicy' => __DIR__ . '/../..' . '/app/Policies/MarcaPolicy.php',
         'App\\Policies\\MesaPolicy' => __DIR__ . '/../..' . '/app/Policies/MesaPolicy.php',
         'App\\Policies\\MovimentacaoBalancoPolicy' => __DIR__ . '/../..' . '/app/Policies/MovimentacaoBalancoPolicy.php',
@@ -3254,6 +3273,9 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
         'Highlight\\RegExMatch' => __DIR__ . '/..' . '/scrivo/highlight.php/Highlight/RegExMatch.php',
         'Highlight\\RegExUtils' => __DIR__ . '/..' . '/scrivo/highlight.php/Highlight/RegExUtils.php',
         'Highlight\\Terminators' => __DIR__ . '/..' . '/scrivo/highlight.php/Highlight/Terminators.php',
+        'Icetalker\\FilamentTableRepeater\\Facades\\FilamentTableRepeater' => __DIR__ . '/..' . '/icetalker/filament-table-repeater/src/Facades/FilamentTableRepeater.php',
+        'Icetalker\\FilamentTableRepeater\\FilamentTableRepeaterServiceProvider' => __DIR__ . '/..' . '/icetalker/filament-table-repeater/src/FilamentTableRepeaterServiceProvider.php',
+        'Icetalker\\FilamentTableRepeater\\Forms\\Components\\TableRepeater' => __DIR__ . '/..' . '/icetalker/filament-table-repeater/src/Forms/Components/TableRepeater.php',
         'Illuminate\\Auth\\Access\\AuthorizationException' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Auth/Access/AuthorizationException.php',
         'Illuminate\\Auth\\Access\\Events\\GateEvaluated' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Auth/Access/Events/GateEvaluated.php',
         'Illuminate\\Auth\\Access\\Gate' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Auth/Access/Gate.php',
@@ -8984,10 +9006,10 @@ class ComposerStaticInita16b458e9ac1c17103670109517fa1cd
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInita16b458e9ac1c17103670109517fa1cd::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInita16b458e9ac1c17103670109517fa1cd::$prefixDirsPsr4;
-            $loader->prefixesPsr0 = ComposerStaticInita16b458e9ac1c17103670109517fa1cd::$prefixesPsr0;
-            $loader->classMap = ComposerStaticInita16b458e9ac1c17103670109517fa1cd::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$prefixDirsPsr4;
+            $loader->prefixesPsr0 = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$prefixesPsr0;
+            $loader->classMap = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$classMap;
 
         }, null, ClassLoader::class);
     }
