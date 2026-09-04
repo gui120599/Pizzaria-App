@@ -5,10 +5,18 @@
 # producao NÃO é um merge de prod-new — é uma árvore reconstruída a cada
 # promoção: código de app/database igual ao de prod-new, mas SEM tests/ e SEM
 # node_modules/ (não usados em runtime, ver DEPLOY.md), com vendor/ regerado
-# via `composer install --no-dev` (o host não tem Composer), e com
-# public/build/ recompilado via `npm run build` (o host não tem npm). Por
-# isso os hashes de commit de prod-new e producao nunca batem mesmo quando o
+# via `composer install --no-dev` (o host não tem Composer). Por isso os
+# hashes de commit de prod-new e producao nunca batem mesmo quando o
 # conteúdo de app/ é idêntico — é esperado, não é bug.
+#
+# public/build/ NÃO é recompilado aqui — vem pronto do checkout de prod-new
+# (a branch já versiona os assets buildados, ver feedback_build_antes_commit:
+# `npm run build` deve rodar ANTES do commit em prod-new, não na promoção).
+# Rodar `npm run build` aqui quebraria hoje mesmo sem nenhuma mudança de
+# front-end: o package.json do projeto tem `tailwindcss: ^3.1.0` só que
+# `@tailwindcss/vite: ^4.3.1` (o motor v4) exige a v4 do pacote `tailwindcss`
+# — inconsistência pré-existente, fora do escopo deste script, reportar
+# separadamente se for mexer em CSS/JS.
 #
 # DEPLOY.md e o .gitignore desta branch são preservados como estão em
 # producao (não existem/diferem em prod-new de propósito).
@@ -55,11 +63,6 @@ echo "==> Regenerando vendor/ sem dependências de dev"
 rm -rf vendor
 composer install --no-dev --optimize-autoloader --no-interaction
 
-echo "==> Recompilando assets (public/build/)"
-npm ci --silent
-npm run build --silent
-rm -rf node_modules
-
 git add -A
 
 if git diff --cached --quiet; then
@@ -70,8 +73,9 @@ fi
 git commit -m "Promove prod-new (${PROD_NEW_SHA:0:8}) para produção
 
 Regenerado via scripts/promote-producao.sh: código de app/database de
-prod-new, vendor/ sem dev, public/build/ recompilado, sem tests/ nem
-node_modules/. DEPLOY.md e .gitignore desta branch preservados."
+prod-new, vendor/ sem dev, sem tests/ nem node_modules/. DEPLOY.md e
+.gitignore desta branch preservados. public/build/ vem como está em
+prod-new (já buildado antes do commit lá, ver feedback_build_antes_commit)."
 
 echo "==> Enviando para origin/producao"
 git push origin producao

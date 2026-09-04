@@ -104,6 +104,41 @@ class FechamentoCaixaFormTest extends TestCase
     }
 
     /**
+     * Modo "Valor total": o operador digita o valor total que já sabe que tem
+     * daquela cédula, sem contar uma a uma — o form calcula a quantidade
+     * implícita ao vivo (ContagemNotasSchema::sincroniza), e o hook saving()
+     * do model corrige o valor_total final pro múltiplo exato da cédula,
+     * mesmo que o valor digitado não seja (247 → 5 notas de R$50 → 250).
+     */
+    public function test_modo_valor_total_calcula_quantidade_e_corrige_valor_final(): void
+    {
+        $sessao = $this->sessaoFechada();
+        $notaCinquenta = NotaMoeda::create(['descricao' => 'R$ 50,00', 'valor' => 50, 'tipo' => 'cedula', 'ordem_exibicao' => 1]);
+
+        $fechamento = FechamentoCaixa::create([
+            'sessao_caixa_id' => $sessao->id,
+            'user_id' => auth()->id(),
+            'status' => StatusFechamentoCaixa::Rascunho,
+        ]);
+
+        $component = Livewire::test(EditFechamentoCaixa::class, ['record' => $fechamento->getKey()]);
+
+        $component
+            ->set('data.notas.0.nota_moeda_id', $notaCinquenta->id)
+            ->set('data.notas.0.modo', 'valor_total')
+            ->set('data.notas.0.valor_total', '247,00')
+            ->assertSet('data.notas.0.quantidade', 5)
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $fechamento->refresh();
+        $nota = $fechamento->notas()->where('nota_moeda_id', $notaCinquenta->id)->firstOrFail();
+
+        $this->assertSame(5, $nota->quantidade);
+        $this->assertEqualsWithDelta(250.0, (float) $nota->valor_total, 0.01);
+    }
+
+    /**
      * Confirmado bloqueia edição/exclusão direta (mesmo padrão de
      * LancamentoResource::canEdit/canDelete quando status=Pago) — a página de
      * edição fica inacessível (403), não só com campos desabilitados.

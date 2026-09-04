@@ -15,7 +15,6 @@ class FechamentoCaixaMaquininha extends Model
         'valor_debito',
         'valor_credito',
         'valor_pix',
-        'saldo_inicial',
     ];
 
     protected function casts(): array
@@ -24,7 +23,6 @@ class FechamentoCaixaMaquininha extends Model
             'valor_debito' => 'decimal:2',
             'valor_credito' => 'decimal:2',
             'valor_pix' => 'decimal:2',
-            'saldo_inicial' => 'decimal:2',
         ];
     }
 

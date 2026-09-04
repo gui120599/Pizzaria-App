@@ -19,13 +19,11 @@ class FechamentosCaixaTable
     public static function configure(Table $table): Table
     {
         return $table
+            // totalDebito/Credito/Pix (FechamentoCaixa) precisam das coleções carregadas
+            // (o carryover é abatido por maquininha, não dá pra somar direto via SQL).
             ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with(['sessaoCaixa.caixa', 'user'])
-                ->withSum('notas', 'valor_total')
-                ->withSum('maquininhas', 'valor_debito')
-                ->withSum('maquininhas', 'valor_credito')
-                ->withSum('maquininhas', 'valor_pix')
-                ->withSum('maquininhas', 'saldo_inicial'))
+                ->with(['sessaoCaixa.caixa', 'sessaoCaixa.maquininhas', 'maquininhas', 'user'])
+                ->withSum('notas', 'valor_total'))
             ->defaultSort('id', 'desc')
             ->columns([
                 TextColumn::make('sessaoCaixa.caixa.caixa_nome')

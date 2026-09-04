@@ -72,44 +72,46 @@ class FechamentoCaixa extends Model
     protected function totalDebito(): Attribute
     {
         return Attribute::make(
-            get: fn (): float => (float) ($this->maquininhas_sum_valor_debito ?? $this->maquininhas()->sum('valor_debito')),
+            get: fn (): float => $this->totalPorCategoria('valor_debito'),
         );
     }
 
     protected function totalCredito(): Attribute
     {
         return Attribute::make(
-            get: fn (): float => (float) ($this->maquininhas_sum_valor_credito ?? $this->maquininhas()->sum('valor_credito')),
+            get: fn (): float => $this->totalPorCategoria('valor_credito'),
         );
     }
 
     protected function totalPix(): Attribute
     {
         return Attribute::make(
-            get: fn (): float => (float) ($this->maquininhas_sum_valor_pix ?? $this->maquininhas()->sum('valor_pix')),
+            get: fn (): float => $this->totalPorCategoria('valor_pix'),
         );
     }
 
-    /** Valor acumulado (tipo odômetro) que as maquininhas ainda não zeraram. */
-    protected function totalSaldoInicialMaquininhas(): Attribute
+    /**
+     * Bruto lido na maquininha (leitura cumulativa desde sempre) menos o
+     * carryover da MESMA maquininha registrado na abertura (SessaoCaixaMaquininha),
+     * por categoria — não só do total geral como antes. Corrige um bug latente:
+     * antes só o total geral subtraía o saldo inicial, então "Débito"/"Crédito"/
+     * "Pix" sozinhos podiam mostrar sobra falsa mesmo com o total batendo certo.
+     */
+    private function totalPorCategoria(string $coluna): float
     {
-        return Attribute::make(
-            get: fn (): float => (float) ($this->maquininhas_sum_saldo_inicial ?? $this->maquininhas()->sum('saldo_inicial')),
+        $carryoverPorMaquininha = $this->sessaoCaixa->maquininhas->keyBy('maquininha_id');
+
+        return (float) $this->maquininhas->sum(
+            fn (FechamentoCaixaMaquininha $m): float => (float) $m->{$coluna}
+                - (float) ($carryoverPorMaquininha->get($m->maquininha_id)?->{$coluna} ?? 0),
         );
     }
 
-    protected function totalMaquininhasBruto(): Attribute
-    {
-        return Attribute::make(
-            get: fn (): float => $this->totalDebito + $this->totalCredito + $this->totalPix,
-        );
-    }
-
-    /** Bruto das maquininhas menos o saldo inicial (odômetro) — só entra no total geral. */
+    /** Já líquido — a subtração do carryover acontece por categoria em totalPorCategoria(). */
     protected function totalMaquininhasLiquido(): Attribute
     {
         return Attribute::make(
-            get: fn (): float => $this->totalMaquininhasBruto - $this->totalSaldoInicialMaquininhas,
+            get: fn (): float => $this->totalDebito + $this->totalCredito + $this->totalPix,
         );
     }
 

@@ -12,13 +12,17 @@ class SessaoCaixaMaquininha extends Model
     protected $fillable = [
         'sessao_caixa_id',
         'maquininha_id',
-        'saldo_inicial',
+        'valor_debito',
+        'valor_credito',
+        'valor_pix',
     ];
 
     protected function casts(): array
     {
         return [
-            'saldo_inicial' => 'decimal:2',
+            'valor_debito' => 'decimal:2',
+            'valor_credito' => 'decimal:2',
+            'valor_pix' => 'decimal:2',
         ];
     }
 
