@@ -20,11 +20,17 @@
         <i class='text-[13px] bx bxs-dashboard'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Dashboard') }}</span>
     </x-nav-link>
-    <!--<x-nav-link :href="route('venda')" :active="request()->routeIs('venda') || request()->routeIs('venda.edit')">
+    <x-nav-link :href="route('venda')" :active="request()->routeIs('venda') || request()->routeIs('venda.edit')">
         <i class='text-[13px] bx bx-money-withdraw'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Venda') }}</span>
     </x-nav-link>
-    <x-nav-link :href="route('mov_saida')" :active="request()->routeIs('mov_saida')">
+    @hasanyrole(['Admin', 'Gerente', 'Caixa'])
+        <x-nav-link :href="route('sessao_caixa')" :active="request()->routeIs('sessao_caixa')">
+            <i class='text-[13px] bx bx-money'></i>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Sessões de Caixa') }}</span>
+        </x-nav-link>
+    @endhasanyrole
+    <!--<x-nav-link :href="route('mov_saida')" :active="request()->routeIs('mov_saida')">
         <i class='text-[13px] bx bx-money-withdraw'></i>
         <span class="text-[12px] ml-4 text-gray-200">{{ __('Saída') }}</span>
     </x-nav-link>-->
