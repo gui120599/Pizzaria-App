@@ -69,7 +69,12 @@ class SessaoCaixaForm
                 ->schema([
                     ContagemNotasSchema::make(disabled: fn (?SessaoCaixa $record): bool => $record?->exists ?? false),
                 ])
-                ->disabled(fn (?SessaoCaixa $record): bool => $record?->exists ?? false),
+                ->disabled(fn (?SessaoCaixa $record): bool => $record?->exists ?? false)
+                // Sem isso, o Filament reavalia o ->disabled() acima DEPOIS que o registro já
+                // foi criado (saveRelationships() roda após handleRecordCreation()), então
+                // $record->exists já é true nesse ponto e a Section "trava" antes mesmo de
+                // salvar as linhas do Repeater 'notas' — saldo_inicial ficava sempre 0.
+                ->saveRelationshipsWhenDisabled(),
 
             Section::make('Maquininhas')
                 ->columnSpanFull()
@@ -98,7 +103,10 @@ class SessaoCaixaForm
                         ->defaultItems(0)
                         ->columnSpanFull(),
                 ])
-                ->disabled(fn (?SessaoCaixa $record): bool => $record?->exists ?? false),
+                ->disabled(fn (?SessaoCaixa $record): bool => $record?->exists ?? false)
+                // Mesmo motivo do Repeater 'notas' acima — sem isso o carryover das
+                // maquininhas informado na abertura nunca era persistido.
+                ->saveRelationshipsWhenDisabled(),
 
             Section::make('Observações')
                 ->columnSpanFull()
