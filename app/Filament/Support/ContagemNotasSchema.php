@@ -71,18 +71,30 @@ final class ContagemNotasSchema
                     ->default(0)
                     ->live(onBlur: true)
                     ->required()
+                    // Sem isto, o campo "Valor total" ao lado (sempre visível, ver nota
+                    // da classe) ficava travado em R$ 0,00 sempre que o operador contava
+                    // pela Quantidade (o modo padrão) — só o Subtotal (somente leitura)
+                    // refletia o valor real. A sincronização inversa (Valor total ->
+                    // Quantidade) já existia no campo Money abaixo.
+                    ->afterStateUpdated(function (Set $set, Get $get, mixed $state): void {
+                        self::sincronizarValorTotal($set, $get, (int) ($state ?? 0));
+                    })
                     ->suffixAction(
                         Action::make('incrementarQuantidade')
                             ->icon('heroicon-m-plus')
                             ->action(function (Set $set, Get $get): void {
-                                $set('quantidade', (int) $get('quantidade') + 1);
+                                $quantidade = (int) $get('quantidade') + 1;
+                                $set('quantidade', $quantidade);
+                                self::sincronizarValorTotal($set, $get, $quantidade);
                             }),
                     )
                     ->prefixAction(
                         Action::make('decrementarQuantidade')
                             ->icon('heroicon-m-minus')
                             ->action(function (Set $set, Get $get): void {
-                                $set('quantidade', max(0, (int) $get('quantidade') - 1));
+                                $quantidade = max(0, (int) $get('quantidade') - 1);
+                                $set('quantidade', $quantidade);
+                                self::sincronizarValorTotal($set, $get, $quantidade);
                             }),
                     ),
 
@@ -118,6 +130,12 @@ final class ContagemNotasSchema
             ->deletable(false)
             ->reorderable(false)
             ->disabled($disabled)
+            // ->disabled() amarra isSaved() ao inverso da própria condição (proteção
+            // padrão do Filament: campo desabilitado não deve ser salvo). Aqui a
+            // condição vira true assim que o registro é criado — no meio do próprio
+            // fluxo de criação (saveRelationships() roda depois de handleRecordCreation())
+            // — e sem isto as linhas da contagem nunca eram persistidas.
+            ->saveRelationshipsWhenDisabled()
             ->columnSpanFull()
             // Segunda camada de garantia (além do afterStateUpdated client-side) de que
             // quantidade reflete o valor total digitado no modo "Valor total" — roda no
@@ -146,6 +164,14 @@ final class ContagemNotasSchema
         unset($data['modo'], $data['valor_total']);
 
         return $data;
+    }
+
+    /** Mantém o campo "Valor total" (Money, mascarado) mostrando o mesmo valor do Subtotal ao editar a Quantidade. */
+    private static function sincronizarValorTotal(Set $set, Get $get, int $quantidade): void
+    {
+        $valorNota = self::valorNota($get('nota_moeda_id'));
+
+        $set('valor_total', number_format($valorNota * $quantidade, 2, ',', '.'));
     }
 
     private static function valorNota(mixed $notaMoedaId): float

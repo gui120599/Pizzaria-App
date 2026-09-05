@@ -139,6 +139,30 @@ class FechamentoCaixaFormTest extends TestCase
     }
 
     /**
+     * Regressão: o campo "Valor total" (Money, sempre visível ao lado da
+     * Quantidade — ver nota em ContagemNotasSchema) ficava travado em
+     * "0,00" quando o operador contava pela Quantidade (o modo padrão),
+     * mesmo com o Subtotal calculando certo. sincronizarValorTotal() espelha
+     * a mesma sincronização que já existia no sentido Valor total -> Quantidade.
+     */
+    public function test_editar_quantidade_sincroniza_o_campo_valor_total(): void
+    {
+        $sessao = $this->sessaoFechada();
+        $notaCem = NotaMoeda::create(['descricao' => 'R$ 100,00', 'valor' => 100, 'tipo' => 'cedula', 'ordem_exibicao' => 1]);
+
+        $fechamento = FechamentoCaixa::create([
+            'sessao_caixa_id' => $sessao->id,
+            'user_id' => auth()->id(),
+            'status' => StatusFechamentoCaixa::Rascunho,
+        ]);
+
+        Livewire::test(EditFechamentoCaixa::class, ['record' => $fechamento->getKey()])
+            ->set('data.notas.0.nota_moeda_id', $notaCem->id)
+            ->set('data.notas.0.quantidade', 3)
+            ->assertSet('data.notas.0.valor_total', '300,00');
+    }
+
+    /**
      * Confirmado bloqueia edição/exclusão direta (mesmo padrão de
      * LancamentoResource::canEdit/canDelete quando status=Pago) — a página de
      * edição fica inacessível (403), não só com campos desabilitados.

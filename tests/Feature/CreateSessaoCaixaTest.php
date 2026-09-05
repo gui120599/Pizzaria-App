@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\SessoesCaixa\Pages\CreateSessaoCaixa;
 use App\Models\Caixa;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\NotaMoeda;
@@ -10,14 +11,14 @@ use App\Models\SessaoCaixaNota;
 use App\Models\User;
 use App\Services\SessaoCaixaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
  * Testa SessaoCaixaService::finalizarAbertura() diretamente (mesma lógica que
  * CreateSessaoCaixa::afterCreate() roda depois que o Repeater 'notas' já
- * persistiu as linhas) — evita depender do Livewire para simular a digitação
- * no repeater de notas, que não tem um jeito confiável de testar via
- * fillForm/set em página de criação com valores padrão pré-carregados.
+ * persistiu as linhas), além de um teste end-to-end via Livewire cobrindo o
+ * Repeater em si (ver test_create_via_livewire_persiste_notas_e_saldo_inicial).
  */
 class CreateSessaoCaixaTest extends TestCase
 {
@@ -85,5 +86,40 @@ class CreateSessaoCaixaTest extends TestCase
         app(SessaoCaixaService::class)->finalizarAbertura($sessao);
 
         $this->assertSame(0, MovimentacoesSessaoCaixa::where('mov_sessaocaixa_id', $sessao->id)->count());
+    }
+
+    /**
+     * Regressão: o Repeater 'notas' (ContagemNotasSchema) e o Repeater
+     * 'maquininhas' ficam com ->disabled() amarrado ao mesmo record
+     * (SessaoCaixaForm) — o Filament liga isSaved() ao inverso dessa mesma
+     * condição, que vira true assim que o registro é criado, no meio do
+     * próprio saveRelationships() (que roda depois de handleRecordCreation()).
+     * Sem ->saveRelationshipsWhenDisabled() nos dois Repeaters/Sections, as
+     * linhas nunca eram persistidas e sessaocaixa_saldo_inicial ficava
+     * sempre 0 — ver ContagemNotasSchema::make() e SessaoCaixaForm.
+     */
+    public function test_create_via_livewire_persiste_notas_e_saldo_inicial(): void
+    {
+        $caixa = Caixa::create(['caixa_nome' => 'Caixa 1']);
+        $user = User::factory()->create(['name_first' => 'Operador']);
+        $user->assignRole('Admin');
+        $notaCem = NotaMoeda::create(['descricao' => 'R$ 100,00', 'valor' => 100, 'tipo' => 'cedula', 'ordem_exibicao' => 1]);
+
+        $this->actingAs($user);
+
+        $component = Livewire::test(CreateSessaoCaixa::class)
+            ->set('data.sessaocaixa_caixa_id', $caixa->id);
+
+        $notaKey = collect($component->get('data')['notas'])
+            ->search(fn (array $row): bool => $row['nota_moeda_id'] === $notaCem->id);
+
+        $component->set("data.notas.$notaKey.quantidade", 2)
+            ->call('create')
+            ->assertHasNoErrors();
+
+        $sessao = SessaoCaixa::latest('id')->first();
+
+        $this->assertSame(1, $sessao->notas()->count());
+        $this->assertEqualsWithDelta(200.0, (float) $sessao->sessaocaixa_saldo_inicial, 0.01);
     }
 }
