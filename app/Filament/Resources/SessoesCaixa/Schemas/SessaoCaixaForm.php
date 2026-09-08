@@ -5,14 +5,17 @@ namespace App\Filament\Resources\SessoesCaixa\Schemas;
 use App\Enums\StatusSessaoCaixa;
 use App\Filament\Support\ContagemNotasSchema;
 use App\Filament\Support\MaquininhaQuickCreateForm;
+use App\Models\NotaMoeda;
 use App\Models\SessaoCaixa;
 use App\Services\SessaoCaixaService;
 use Closure;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Leandrocfe\FilamentPtbrFormFields\Money;
 
@@ -48,11 +51,16 @@ class SessaoCaixaForm
                         ->dehydrated()
                         ->rule(self::semSessaoAbertaRule()),
 
-                    Money::make('sessaocaixa_saldo_inicial')
+                    // TextEntry (não Money) de propósito: um Money precisaria de alguém
+                    // chamando ->default()/->state() de novo a cada mudança nas notas pra
+                    // se atualizar, e campos desabilitados não reagem a isso — ficava
+                    // sempre travado em R$ 0,00 mesmo com cédulas contadas abaixo. Um
+                    // TextEntry reavalia o Get a cada render, igual o Subtotal de cada
+                    // linha da Contagem de dinheiro.
+                    TextEntry::make('sessaocaixa_saldo_inicial_preview')
                         ->label('Saldo inicial (dinheiro)')
                         ->helperText('Calculado a partir da contagem de cédulas/moedas abaixo.')
-                        ->disabled()
-                        ->dehydrated(false),
+                        ->state(fn (Get $get): string => 'R$ '.number_format(self::totalNotas($get('notas')), 2, ',', '.')),
 
                     Text::make(fn (SessaoCaixa $record): string => sprintf(
                         'Status: %s — Saldo final: R$ %s',
@@ -116,6 +124,14 @@ class SessaoCaixaForm
                         ->columnSpanFull(),
                 ]),
         ]);
+    }
+
+    /** Soma quantidade × valor da cédula pra cada linha de 'notas' — mesmo cálculo de SessaoCaixaService::finalizarAbertura(), só que ao vivo, no form. */
+    private static function totalNotas(?array $notas): float
+    {
+        return collect($notas ?? [])->sum(
+            fn (array $nota): float => (int) ($nota['quantidade'] ?? 0) * (float) (NotaMoeda::find($nota['nota_moeda_id'] ?? null)?->valor ?? 0),
+        );
     }
 
     /** Bloqueia abrir sessão pra um Caixa cujo último fechamento ainda não foi confirmado — ver SessaoCaixaService. */
