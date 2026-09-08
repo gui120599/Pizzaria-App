@@ -79,23 +79,38 @@ final class ContagemNotasSchema
                     ->afterStateUpdated(function (Set $set, Get $get, mixed $state): void {
                         self::sincronizarValorTotal($set, $get, (int) ($state ?? 0));
                     })
+                    // +/- via alpineClickHandler (JS puro, sem wire:click/mountAction) —
+                    // de propósito: o Action::action() normal, dentro do TableRepeater,
+                    // reusa o mesmo componente Action entre as linhas e o "schemaComponent"
+                    // (qual linha o clique deveria afetar) ficava desatualizado a cada
+                    // clique — o 2º clique numa cédula já acertava a linha ACIMA dela, e
+                    // assim sucessivamente. $wire.set() aqui usa o wire:model.blur do
+                    // próprio input (lido do DOM na hora do clique, sempre correto) e cai
+                    // no mesmo fluxo normal de "digitar e sair do campo" — o
+                    // afterStateUpdated acima já sincroniza o Valor total sozinho.
                     ->suffixAction(
                         Action::make('incrementarQuantidade')
                             ->icon('heroicon-m-plus')
-                            ->action(function (Set $set, Get $get): void {
-                                $quantidade = (int) $get('quantidade') + 1;
-                                $set('quantidade', $quantidade);
-                                self::sincronizarValorTotal($set, $get, $quantidade);
-                            }),
+                            ->alpineClickHandler(<<<'JS'
+                                (() => {
+                                    const input = $el.closest('.fi-input-wrp').querySelector('input[wire\\:model\\.blur]');
+                                    const novo = Math.max(0, (parseInt(input.value || '0', 10) || 0) + 1);
+                                    input.value = novo;
+                                    $wire.set(input.getAttribute('wire:model.blur'), novo);
+                                })()
+                            JS),
                     )
                     ->prefixAction(
                         Action::make('decrementarQuantidade')
                             ->icon('heroicon-m-minus')
-                            ->action(function (Set $set, Get $get): void {
-                                $quantidade = max(0, (int) $get('quantidade') - 1);
-                                $set('quantidade', $quantidade);
-                                self::sincronizarValorTotal($set, $get, $quantidade);
-                            }),
+                            ->alpineClickHandler(<<<'JS'
+                                (() => {
+                                    const input = $el.closest('.fi-input-wrp').querySelector('input[wire\\:model\\.blur]');
+                                    const novo = Math.max(0, (parseInt(input.value || '0', 10) || 0) - 1);
+                                    input.value = novo;
+                                    $wire.set(input.getAttribute('wire:model.blur'), novo);
+                                })()
+                            JS),
                     ),
 
                 Money::make('valor_total')

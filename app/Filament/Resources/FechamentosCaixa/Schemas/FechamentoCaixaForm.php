@@ -51,7 +51,7 @@ class FechamentoCaixaForm
                 ]),
 
             Section::make('Contagem de dinheiro')
-                ->columnSpan(2)
+                ->columnSpanFull()
                 ->collapsed()
                 ->description('Todas as cédulas/moedas do catálogo já vêm listadas — escolha, em cada linha, se prefere informar a quantidade contada ou o valor total.')
                 ->schema([
@@ -59,7 +59,7 @@ class FechamentoCaixaForm
                 ]),
 
             Section::make('Maquininhas')
-                ->columnSpan(3)
+                ->columnSpanFull()
                 ->collapsed()
                 ->description('Valores dos relatórios de fim de expediente de cada maquininha usada no turno — o carryover da abertura é abatido automaticamente, por categoria.')
                 ->schema([
@@ -106,8 +106,7 @@ class FechamentoCaixaForm
                         ->label('Observações')
                         ->columnSpanFull(),
                 ]),
-        ])
-            ->columns(5);
+        ]);
     }
 
     /** Card de conferência de uma forma de pagamento (ou total geral): apurado, esperado e diferença. */
