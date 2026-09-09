@@ -28,6 +28,11 @@ class StonePedidosTable
                     ->label('Status')
                     ->badge(),
 
+                TextColumn::make('stp_modo')
+                    ->label('Modo')
+                    ->badge()
+                    ->toggleable(),
+
                 TextColumn::make('stp_venda_id')
                     ->label('Venda')
                     ->formatStateUsing(fn (?int $state): string => $state ? "#{$state}" : '—'),

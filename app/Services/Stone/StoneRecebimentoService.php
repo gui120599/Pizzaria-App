@@ -3,8 +3,10 @@
 namespace App\Services\Stone;
 
 use App\Enums\OperadoraMaquininha;
+use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
+use App\Models\ItensPedido;
 use App\Models\Maquininha;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\OpcoesPagamento;
@@ -18,7 +20,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Orquestra o fluxo de recebimento em maquininha Stone:
- *  - iniciarCobranca(): PDV cria o pedido na Stone (modelo Listado)
+ *  - iniciarCobranca(): PDV cria o pedido na Stone (modelo Direto ou Listado)
  *  - processarWebhook(): charge.paid lança o PagamentosVenda e fecha o pedido;
  *    charge.refunded reverte o pagamento
  *  - cancelarCobranca(): cancela um pedido ainda não pago
@@ -44,10 +46,27 @@ class StoneRecebimentoService
     /**
      * Cria o pedido na Stone a partir do PDV. Devolve o StonePedido já com
      * stp_order_id preenchido (status Aguardando), ou lança StoneConnectException.
+     *
+     * Modo Direto (padrão, balcão): a forma de pagamento é obrigatória e define
+     * o tipo da transação (crédito/débito/PIX). Modo Listado (botão "Lançar
+     * pedido total", recebimento na entrega): forma opcional — o tipo é
+     * escolhido na maquininha e resolvido depois pelo webhook.
      */
-    public function iniciarCobranca(Venda $venda, OpcoesPagamento $opcao, Maquininha $maquininha, float $valor): StonePedido
-    {
-        if (! $opcao->ehIntegracaoStone()) {
+    public function iniciarCobranca(
+        Venda $venda,
+        ?OpcoesPagamento $opcao,
+        Maquininha $maquininha,
+        float $valor,
+        StonePedidoModo $modo = StonePedidoModo::Direto,
+    ): StonePedido {
+        if ($modo === StonePedidoModo::Direto) {
+            if (! $opcao || ! $opcao->ehIntegracaoStone()) {
+                throw new StoneConnectException('Esta forma de pagamento não está integrada à maquininha Stone.');
+            }
+            if (blank($opcao->tipoStone())) {
+                throw new StoneConnectException('A forma de pagamento não tem um tipo Stone (crédito, débito ou PIX).');
+            }
+        } elseif ($opcao && ! $opcao->ehIntegracaoStone()) {
             throw new StoneConnectException('Esta forma de pagamento não está integrada à maquininha Stone.');
         }
 
@@ -59,17 +78,31 @@ class StoneRecebimentoService
             throw new StoneConnectException('Informe um valor maior que zero para enviar à maquininha.');
         }
 
+        // Pedido Direto exige a conta credenciada para o modelo Direto. Com a
+        // flag desligada, cai para Listado sem quebrar (só degrada a UX no POS).
+        $modoEfetivo = ($modo === StonePedidoModo::Direto && config('services.stone.pedido_direto'))
+            ? StonePedidoModo::Direto
+            : StonePedidoModo::Listado;
+
+        if ($modo === StonePedidoModo::Direto && $modoEfetivo === StonePedidoModo::Listado) {
+            Log::channel('stone')->info('STONE_CONNECT_PEDIDO_DIRETO desligado — pedido criado como Listado', [
+                'venda_id' => $venda->id,
+            ]);
+        }
+
         $pedido = StonePedido::create([
             'stp_venda_id' => $venda->id,
+            'stp_pedido_id' => $this->pedidoVinculadoAVenda($venda),
             'stp_maquininha_id' => $maquininha->id,
-            'stp_opcaopagamento_id' => $opcao->id,
+            'stp_opcaopagamento_id' => $opcao?->id,
             'stp_valor_solicitado' => round($valor, 2),
             'stp_valor_pago' => 0,
             'stp_status' => StonePedidoStatus::Aguardando,
+            'stp_modo' => $modoEfetivo,
         ]);
 
         try {
-            $resposta = $this->connect->criarPedidoListado($pedido);
+            $resposta = $this->connect->criarPedido($pedido);
         } catch (StoneConnectException $e) {
             $pedido->update(['stp_status' => StonePedidoStatus::Falha]);
             throw $e;
@@ -81,6 +114,14 @@ class StoneRecebimentoService
         ]);
 
         return $pedido->fresh();
+    }
+
+    /** Id do Pedido de origem cujos itens já estão lançados nesta venda (informativo). */
+    private function pedidoVinculadoAVenda(Venda $venda): ?int
+    {
+        return ItensPedido::where('item_pedido_venda_id', $venda->id)
+            ->whereNotNull('item_pedido_pedido_id')
+            ->value('item_pedido_pedido_id');
     }
 
     /** Cancela um pedido que ainda não recebeu pagamento. */
@@ -114,8 +155,14 @@ class StoneRecebimentoService
 
         $pedido = $this->resolverPedido($charge['order'] ?? []);
         if (! $pedido) {
-            // charge avulsa (criada direto na maquininha, sem pedido do PDV) —
-            // só fica registrada no log de webhooks (Fase 1).
+            // charge avulsa (criada direto na maquininha, sem pedido do PDV) ou
+            // order_id não persistido no StonePedido — não deixa passar em silêncio.
+            Log::channel('stone')->warning('charge.paid sem StonePedido correspondente (charge avulsa ou order_id não persistido)', [
+                'order_id' => $charge['order']['id'] ?? null,
+                'order_code' => $charge['order']['code'] ?? null,
+                'charge_id' => $charge['id'] ?? null,
+            ]);
+
             return;
         }
 
@@ -134,6 +181,14 @@ class StoneRecebimentoService
         $valor = round((float) ($charge['paid_amount'] ?? $charge['amount'] ?? 0) / 100, 2);
         $meta = $charge['metadata'] ?? [];
 
+        // Pedido Stone sem venda (recebimento na entrega) — fluxo ainda não
+        // integrado: registra o valor no hub e loga, sem criar pagamento.
+        if (blank($pedido->stp_venda_id)) {
+            $this->registrarChargeSemVenda($pedido, $charge, $valor);
+
+            return;
+        }
+
         $fechar = DB::transaction(function () use ($webhook, $pedido, $charge, $meta, $valor) {
             $pedido = StonePedido::whereKey($pedido->id)->lockForUpdate()->first();
             $venda = Venda::find($pedido->stp_venda_id);
@@ -143,10 +198,11 @@ class StoneRecebimentoService
             }
 
             $bandeiraId = $this->resolverBandeira($meta['scheme_name'] ?? null);
+            $opcaoId = $pedido->stp_opcaopagamento_id ?? $this->resolverOpcaoStone($charge);
 
             $pagamento = PagamentosVenda::create([
                 'pg_venda_venda_id' => $venda->id,
-                'pg_venda_opcaopagamento_id' => $pedido->stp_opcaopagamento_id,
+                'pg_venda_opcaopagamento_id' => $opcaoId,
                 'pg_venda_cartao_id' => $bandeiraId,
                 'pg_venda_numero_autorizacao_cartao' => $meta['authorization_code'] ?? $charge['code'] ?? null,
                 'pg_venda_tipo_integracao' => 'integrated',
@@ -201,10 +257,34 @@ class StoneRecebimentoService
 
         $pedido = $this->resolverPedido($charge['order'] ?? []);
         if (! $pedido) {
+            Log::channel('stone')->warning('charge.refunded sem StonePedido correspondente', [
+                'order_id' => $charge['order']['id'] ?? null,
+                'order_code' => $charge['order']['code'] ?? null,
+                'charge_id' => $charge['id'] ?? null,
+            ]);
+
             return;
         }
 
         $webhook->forceFill(['stw_stone_pedido_id' => $pedido->id])->save();
+
+        $valorSemVenda = round((float) ($charge['canceled_amount'] ?? $charge['amount'] ?? 0) / 100, 2);
+        if (blank($pedido->stp_venda_id)) {
+            $pago = max(0, round((float) $pedido->stp_valor_pago - $valorSemVenda, 2));
+            $pedido->update([
+                'stp_valor_pago' => $pago,
+                'stp_status' => $pago <= 0.005 ? StonePedidoStatus::Estornado : StonePedidoStatus::PagoParcial,
+            ]);
+
+            Log::channel('stone')->warning('charge.refunded de StonePedido sem venda — recebimento na entrega ainda não integrado', [
+                'stone_pedido_id' => $pedido->id,
+                'pedido_id' => $pedido->stp_pedido_id,
+                'charge_id' => $webhook->stw_charge_id,
+                'valor' => $valorSemVenda,
+            ]);
+
+            return;
+        }
 
         $original = StoneWebhook::where('stw_charge_id', $charge['id'] ?? '__none__')
             ->whereNotNull('stw_pagamento_venda_id')
@@ -255,6 +335,90 @@ class StoneRecebimentoService
                 'pagamento_removido' => $pagamentoId,
             ]);
         });
+    }
+
+    /**
+     * charge.paid de um StonePedido sem venda (recebimento na entrega). O fluxo
+     * de lançamento ainda não existe — só registra o valor no hub e fecha o
+     * pedido na Stone para não estourar o limite de pedidos abertos.
+     */
+    private function registrarChargeSemVenda(StonePedido $pedido, array $charge, float $valor): void
+    {
+        $chargeId = $charge['id'] ?? null;
+
+        $fechar = DB::transaction(function () use ($pedido, $charge, $chargeId, $valor) {
+            $pedido = StonePedido::whereKey($pedido->id)->lockForUpdate()->first();
+
+            if ($valor <= 0 || (filled($chargeId) && $pedido->stp_charge_id === $chargeId)) {
+                return false;
+            }
+
+            $pago = round((float) $pedido->stp_valor_pago + $valor, 2);
+            $completo = $pago + 0.005 >= (float) $pedido->stp_valor_solicitado;
+
+            $pedido->update([
+                'stp_valor_pago' => $pago,
+                'stp_charge_id' => $chargeId ?? $pedido->stp_charge_id,
+                'stp_charge_code' => $charge['code'] ?? $pedido->stp_charge_code,
+                'stp_status' => $completo ? StonePedidoStatus::Pago : StonePedidoStatus::PagoParcial,
+            ]);
+
+            Log::channel('stone')->warning('charge.paid de StonePedido sem venda — recebimento na entrega ainda não integrado (valor só registrado no hub)', [
+                'stone_pedido_id' => $pedido->id,
+                'pedido_id' => $pedido->stp_pedido_id,
+                'charge_id' => $chargeId,
+                'valor' => $valor,
+            ]);
+
+            return $completo && filled($pedido->stp_order_id) && $pedido->stp_fechado_em === null;
+        });
+
+        if ($fechar) {
+            $this->fecharPedidoNaStone($pedido->fresh());
+        }
+    }
+
+    /**
+     * Infere a OpcoesPagamento integrada à Stone a partir do tipo da transação
+     * do charge — usado no Pedido Listado, onde o operador só escolhe o tipo
+     * (crédito/débito/PIX) na própria maquininha.
+     */
+    private function resolverOpcaoStone(array $charge): ?int
+    {
+        $tx = $charge['last_transaction'] ?? [];
+        $tipo = strtolower((string) (
+            $tx['transaction_type']
+            ?? ($tx['card']['type'] ?? null)
+            ?? $charge['payment_method']
+            ?? ''
+        ));
+
+        $descNfe = match (true) {
+            str_contains($tipo, 'debit') => 'debitCard',
+            str_contains($tipo, 'credit') => 'creditCard',
+            str_contains($tipo, 'pix') => 'InstantPayment',
+            default => null,
+        };
+
+        if ($descNfe === null) {
+            Log::channel('stone')->warning('Não foi possível inferir a forma de pagamento Stone do charge', [
+                'charge_id' => $charge['id'] ?? null, 'tipo' => $tipo,
+            ]);
+
+            return null;
+        }
+
+        $opcaoId = OpcoesPagamento::where('opcaopag_stone_integrada', true)
+            ->where('opcaopag_desc_nfe', $descNfe)
+            ->value('id');
+
+        if ($opcaoId === null) {
+            Log::channel('stone')->warning('charge Stone sem OpcoesPagamento integrada correspondente', [
+                'charge_id' => $charge['id'] ?? null, 'desc_nfe' => $descNfe,
+            ]);
+        }
+
+        return $opcaoId ? (int) $opcaoId : null;
     }
 
     /**

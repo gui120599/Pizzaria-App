@@ -153,8 +153,12 @@ class StoneConciliarPedidos extends Command
                 'amount' => $charge['amount'] ?? null,
                 'paid_amount' => $charge['paid_amount'] ?? $charge['amount'] ?? null,
                 'status' => 'paid',
+                'payment_method' => $charge['payment_method'] ?? null,
                 'order' => ['id' => $order['id'] ?? null, 'code' => $order['code'] ?? null],
                 'metadata' => $charge['last_transaction']['metadata'] ?? $charge['metadata'] ?? [],
+                // Necessário para o StoneRecebimentoService inferir a forma de
+                // pagamento nos pedidos Listado (sem stp_opcaopagamento_id).
+                'last_transaction' => $charge['last_transaction'] ?? [],
             ],
         ];
     }

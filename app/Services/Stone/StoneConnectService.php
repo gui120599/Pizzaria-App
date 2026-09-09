@@ -2,6 +2,7 @@
 
 namespace App\Services\Stone;
 
+use App\Enums\StonePedidoModo;
 use App\Exceptions\StoneConnectException;
 use App\Models\StonePedido;
 use Illuminate\Http\Client\PendingRequest;
@@ -51,24 +52,31 @@ class StoneConnectService
     }
 
     /**
-     * Cria um pedido no modelo Listado (sem payment_setup): o pedido entra na
-     * lista do POS informado por devices_serial_number e o operador seleciona
-     * para pagar. Cada transação vira uma charge e dispara webhook charge.paid.
+     * Cria um pedido na Stone (POST /orders, sempre com closed:false para o
+     * pedido ir ao POS). O modo do StonePedido decide o modelo:
+     *  - Direto: leva poi_payment_settings.payment_setup (tipo + parcelas) — a
+     *    maquininha pula direto para a tela de pagamento daquele tipo.
+     *  - Listado: sem payment_setup — o pedido entra na lista do POS e o
+     *    operador/entregador seleciona e escolhe o tipo na maquininha.
+     * Cada transação vira uma charge e dispara webhook charge.paid.
      *
      * @return array{id: string, code: string, status: string}
      */
-    public function criarPedidoListado(StonePedido $pedido): array
+    public function criarPedido(StonePedido $pedido): array
     {
         ['base_url' => $base] = $this->config();
 
-        $pedido->loadMissing(['venda.cliente', 'maquininha']);
-        $venda = $pedido->venda;
-        $cliente = $venda?->cliente;
+        $pedido->loadMissing(['venda.cliente', 'pedido.cliente', 'maquininha', 'opcaoPagamento']);
+        $cliente = $pedido->venda?->cliente ?? $pedido->pedido?->cliente;
 
         $nome = Str::limit(trim((string) ($cliente->cliente_nome ?? 'Consumidor')), 64, '');
         $email = filled($cliente->cliente_email ?? null)
             ? Str::limit($cliente->cliente_email, 64, '')
             : 'consumidor@exemplo.com';
+
+        $rotulo = filled($pedido->stp_venda_id)
+            ? "Venda #{$pedido->stp_venda_id}"
+            : "Pedido #{$pedido->stp_pedido_id}";
 
         $body = [
             'customer' => [
@@ -77,24 +85,37 @@ class StoneConnectService
             ],
             'items' => [[
                 'amount' => (int) round((float) $pedido->stp_valor_solicitado * 100),
-                'description' => "Venda #{$pedido->stp_venda_id}",
+                'description' => $rotulo,
                 'quantity' => 1,
             ]],
             'closed' => false,
             'poi_payment_settings' => [
                 'visible' => true,
                 'print_order_receipt' => false,
-                'display_name' => "Venda #{$pedido->stp_venda_id}",
+                'display_name' => $rotulo,
                 'devices_serial_number' => array_values(array_filter([$pedido->maquininha?->numero_serie])),
             ],
         ];
 
+        if ($pedido->stp_modo === StonePedidoModo::Direto) {
+            $tipo = $pedido->opcaoPagamento?->tipoStone();
+            if (blank($tipo)) {
+                throw new StoneConnectException('Forma de pagamento sem tipo Stone (crédito/débito/PIX) para o Pedido Direto.');
+            }
+
+            $body['poi_payment_settings']['payment_setup'] = [
+                'type' => $tipo,
+                'installments' => 1,
+                'installment_type' => 'merchant',
+            ];
+        }
+
         $response = $this->client()
-            ->withHeaders(['Idempotency-Key' => "venda-{$pedido->stp_venda_id}-pedido-{$pedido->id}"])
+            ->withHeaders(['Idempotency-Key' => "stone-pedido-{$pedido->id}"])
             ->post("{$base}/orders", $body);
 
         if ($response->failed()) {
-            $this->logErro('criarPedidoListado', $response->status(), $response->json(), ['stone_pedido_id' => $pedido->id]);
+            $this->logErro('criarPedido', $response->status(), $response->json(), ['stone_pedido_id' => $pedido->id]);
             throw new StoneConnectException(
                 'Falha ao criar o pedido na Stone: '.($response->json('message') ?? $response->body()),
                 $response->json()

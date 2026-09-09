@@ -937,6 +937,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Enums\\StatusMesa' => __DIR__ . '/../..' . '/app/Enums/StatusMesa.php',
         'App\\Enums\\StatusSessaoCaixa' => __DIR__ . '/../..' . '/app/Enums/StatusSessaoCaixa.php',
         'App\\Enums\\StatusSessaoMesa' => __DIR__ . '/../..' . '/app/Enums/StatusSessaoMesa.php',
+        'App\\Enums\\StonePedidoModo' => __DIR__ . '/../..' . '/app/Enums/StonePedidoModo.php',
         'App\\Enums\\StonePedidoStatus' => __DIR__ . '/../..' . '/app/Enums/StonePedidoStatus.php',
         'App\\Enums\\TipoLancamento' => __DIR__ . '/../..' . '/app/Enums/TipoLancamento.php',
         'App\\Enums\\TipoNotaMoeda' => __DIR__ . '/../..' . '/app/Enums/TipoNotaMoeda.php',

@@ -47,6 +47,7 @@ return array(
     'App\\Enums\\StatusMesa' => $baseDir . '/app/Enums/StatusMesa.php',
     'App\\Enums\\StatusSessaoCaixa' => $baseDir . '/app/Enums/StatusSessaoCaixa.php',
     'App\\Enums\\StatusSessaoMesa' => $baseDir . '/app/Enums/StatusSessaoMesa.php',
+    'App\\Enums\\StonePedidoModo' => $baseDir . '/app/Enums/StonePedidoModo.php',
     'App\\Enums\\StonePedidoStatus' => $baseDir . '/app/Enums/StonePedidoStatus.php',
     'App\\Enums\\TipoLancamento' => $baseDir . '/app/Enums/TipoLancamento.php',
     'App\\Enums\\TipoNotaMoeda' => $baseDir . '/app/Enums/TipoNotaMoeda.php',
