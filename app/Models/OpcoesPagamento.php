@@ -78,12 +78,13 @@ class OpcoesPagamento extends Model
         return (bool) $this->opcaopag_stone_integrada;
     }
 
-    /** Tipo de transação Stone derivado do código NF-e: 'credit' | 'debit' | null. */
+    /** Tipo de transação Stone derivado do código NF-e: 'credit' | 'debit' | 'pix' | null. */
     public function tipoStone(): ?string
     {
         return match ($this->opcaopag_desc_nfe) {
             'creditCard' => 'credit',
             'debitCard' => 'debit',
+            'InstantPayment' => 'pix',
             default => null,
         };
     }

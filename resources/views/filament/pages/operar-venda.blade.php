@@ -537,7 +537,7 @@
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                             </svg>
                             <p class="text-sm text-gray-600 dark:text-gray-300">Aguardando o pagamento na maquininha…</p>
-                            <p class="text-xs text-gray-400 dark:text-gray-500">O pedido está na lista do POS. Selecione-o e passe o cartão.</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">O pedido está na lista do POS. Selecione-o e finalize o pagamento (cartão ou PIX).</p>
                         </div>
                         <div class="flex gap-2">
                             <button wire:click="cancelarCobrancaStone" wire:loading.attr="disabled" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-50">
