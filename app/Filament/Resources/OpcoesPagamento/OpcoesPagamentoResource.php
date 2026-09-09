@@ -130,10 +130,10 @@ class OpcoesPagamentoResource extends Resource
                         ->label('Recebe via maquininha Stone (Connect)')
                         ->default(false)
                         ->inline()
-                        ->helperText('O PDV envia a cobrança automaticamente para uma maquininha Stone e lança o pagamento pelo webhook. Exige Código NF-e = Cartão de Crédito ou Débito.')
+                        ->helperText('O PDV envia a cobrança automaticamente para uma maquininha Stone e lança o pagamento pelo webhook. Exige Código NF-e = Cartão de Crédito, Cartão de Débito ou PIX.')
                         ->rule(fn (Get $get) => function (string $attribute, $value, \Closure $fail) use ($get) {
-                            if ($value && ! in_array($get('opcaopag_desc_nfe'), ['creditCard', 'debitCard'], true)) {
-                                $fail('Formas integradas à Stone precisam de Código NF-e "Cartão de Crédito" ou "Cartão de Débito".');
+                            if ($value && ! in_array($get('opcaopag_desc_nfe'), ['creditCard', 'debitCard', 'InstantPayment'], true)) {
+                                $fail('Formas integradas à Stone precisam de Código NF-e "Cartão de Crédito", "Cartão de Débito" ou "PIX".');
                             }
                         }),
                 ]),

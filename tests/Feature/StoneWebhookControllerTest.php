@@ -117,11 +117,11 @@ class StoneWebhookControllerTest extends TestCase
         ]);
     }
 
-    private function criarPedido(Venda $venda, float $valor = 20.00, string $orderId = self::ORDER_ID): StonePedido
+    private function criarPedido(Venda $venda, float $valor = 20.00, string $orderId = self::ORDER_ID, string $descNfe = 'creditCard'): StonePedido
     {
         $opcao = OpcoesPagamento::create([
-            'opcaopag_nome' => 'Crédito Stone',
-            'opcaopag_desc_nfe' => 'creditCard',
+            'opcaopag_nome' => 'Stone '.$descNfe,
+            'opcaopag_desc_nfe' => $descNfe,
             'opcaopag_tipo_taxa' => 'N/A',
             'opcaopag_valor_percentual_taxa' => 0,
             'opcaopag_stone_integrada' => true,
@@ -232,6 +232,27 @@ class StoneWebhookControllerTest extends TestCase
 
         $this->assertSame(1, PagamentosVenda::count());
         $this->assertSame(20.00, (float) $venda->fresh()->venda_valor_pago);
+    }
+
+    public function test_charge_paid_de_pix_lanca_pagamento_na_opcao_instantpayment(): void
+    {
+        $this->fakeStoneOk();
+        $venda = $this->criarVenda();
+        $pedido = $this->criarPedido($venda, 20.00, self::ORDER_ID, 'InstantPayment');
+
+        $this->postJson('/api/webhook/stone-connect', $this->payloadChargePaid([
+            'data' => [
+                'payment_method' => 'pix',
+                'metadata' => ['scheme_name' => null, 'authorization_code' => null],
+            ],
+        ]))->assertOk();
+
+        $pagamento = PagamentosVenda::sole();
+        $this->assertSame($pedido->stp_opcaopagamento_id, $pagamento->pg_venda_opcaopagamento_id);
+        $this->assertSame('integrated', $pagamento->pg_venda_tipo_integracao);
+        $this->assertNull($pagamento->pg_venda_cartao_id);
+        $this->assertSame(20.00, (float) $venda->fresh()->venda_valor_pago);
+        $this->assertSame('pago', $pedido->fresh()->stp_status->value);
     }
 
     public function test_charge_paid_parcial_mantem_pedido_aberto(): void
