@@ -49,6 +49,14 @@ class StoneWebhookController extends Controller
         ]);
 
         if ($request->attributes->get('stone_webhook_autenticado') === false) {
+            Log::channel('stone')->warning('Webhook Stone recusado por Basic Auth inválido — evento NÃO processado (recuperação via stone:conciliar-pedidos)', [
+                'hook_id' => $data['id'] ?? null,
+                'evento' => $data['type'] ?? null,
+                'charge_id' => $charge['id'] ?? null,
+                'order_id' => $order['id'] ?? null,
+                'stone_pedido_id' => $pedido?->id,
+            ]);
+
             return response()->json(['message' => 'Credenciais inválidas'], 401);
         }
 

@@ -38,6 +38,7 @@ class OperarVendaStonePagamentoTest extends TestCase
             'services.stone.secret_key' => 'sk_test_abc',
             'services.stone.service_referer_name' => 'ref-123',
             'services.stone.base_url' => 'https://api.pagar.me/core/v5',
+            'services.stone.pedido_direto' => true,
         ]);
         Http::preventStrayRequests();
 
@@ -114,7 +115,58 @@ class OperarVendaStonePagamentoTest extends TestCase
         $pedido = StonePedido::sole();
         $this->assertSame('or_xyz', $pedido->stp_order_id);
         $this->assertSame('aguardando', $pedido->stp_status->value);
+        $this->assertSame('direto', $pedido->stp_modo->value);
+        $this->assertSame($this->opcao->id, $pedido->stp_opcaopagamento_id);
         $this->assertSame(0, PagamentosVenda::count());
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/orders')
+            && $request->method() === 'POST'
+            && ($request->data()['poi_payment_settings']['payment_setup']['type'] ?? null) === 'credit');
+    }
+
+    public function test_lancar_pedido_total_cria_pedido_listado_sem_opcao(): void
+    {
+        $this->fakeStoneOk();
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('stoneTotalMaquininhaId', $this->maquininha->id)
+            ->call('lancarPedidoTotalStone')
+            ->assertSet('modalStoneAberta', true)
+            ->assertSet('stoneStatusModal', 'aguardando')
+            ->assertSet('modalStoneTotalAberta', false);
+
+        $pedido = StonePedido::sole();
+        $this->assertSame('listado', $pedido->stp_modo->value);
+        $this->assertNull($pedido->stp_opcaopagamento_id);
+        $this->assertSame(20.00, (float) $pedido->stp_valor_solicitado);
+        $this->assertSame(0, PagamentosVenda::count());
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/orders')
+            && $request->method() === 'POST'
+            && ! array_key_exists('payment_setup', $request->data()['poi_payment_settings']));
+    }
+
+    public function test_lancar_pedido_total_sem_maquininha_mostra_erro(): void
+    {
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('lancarPedidoTotalStone')
+            ->assertHasErrors('stoneTotal')
+            ->assertSet('modalStoneAberta', false);
+
+        $this->assertSame(0, StonePedido::count());
+    }
+
+    public function test_finalizar_venda_bloqueada_com_pedido_listado_pendente(): void
+    {
+        $this->fakeStoneOk();
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('stoneTotalMaquininhaId', $this->maquininha->id)
+            ->call('lancarPedidoTotalStone')
+            ->call('finalizarVenda')
+            ->assertHasErrors('finalizar');
+
+        $this->assertSame('INICIADA', $this->venda->fresh()->venda_status);
     }
 
     public function test_sem_maquininha_selecionada_mostra_erro(): void

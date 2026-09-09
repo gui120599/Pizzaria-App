@@ -45,6 +45,10 @@ return [
         'base_url' => env('STONE_CONNECT_BASE_URL', 'https://api.pagar.me/core/v5'),
         'secret_key' => env('STONE_CONNECT_SECRET_KEY'),
         'service_referer_name' => env('STONE_CONNECT_SERVICE_REFERER_NAME'),
+        // Pedido Direto (payment_setup no POST /orders) exige a conta credenciada
+        // para o modelo Direto no Stone Partner Hub. Se ainda não estiver, deixar
+        // false: o PDV cai para o modelo Listado sem precisar de deploy.
+        'pedido_direto' => env('STONE_CONNECT_PEDIDO_DIRETO', true),
         // HTTP Basic Auth da URL de webhook configurada na Dashboard do Pagar.me
         'webhook_user' => env('STONE_WEBHOOK_USER'),
         'webhook_password' => env('STONE_WEBHOOK_PASSWORD'),

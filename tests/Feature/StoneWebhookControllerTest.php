@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\StonePedidoModo;
 use App\Models\Caixa;
 use App\Models\Maquininha;
 use App\Models\MovimentacoesSessaoCaixa;
@@ -32,9 +33,20 @@ class StoneWebhookControllerTest extends TestCase
             'services.stone.secret_key' => 'sk_test_abc',
             'services.stone.service_referer_name' => 'ref-123',
             'services.stone.base_url' => 'https://api.pagar.me/core/v5',
+            'services.stone.pedido_direto' => true,
+            // Canal stone num arquivo isolado para poder inspecionar o que foi logado.
+            'logging.channels.stone' => ['driver' => 'single', 'path' => storage_path('logs/stone-test.log'), 'level' => 'debug'],
         ]);
+        @unlink(storage_path('logs/stone-test.log'));
         // PATCH .../closed nunca deve sair para a rede nos testes.
         Http::preventStrayRequests();
+    }
+
+    private function logStone(): string
+    {
+        $path = storage_path('logs/stone-test.log');
+
+        return file_exists($path) ? file_get_contents($path) : '';
     }
 
     private function fakeStoneOk(): void
@@ -117,25 +129,35 @@ class StoneWebhookControllerTest extends TestCase
         ]);
     }
 
-    private function criarPedido(Venda $venda, float $valor = 20.00, string $orderId = self::ORDER_ID, string $descNfe = 'creditCard'): StonePedido
-    {
-        $opcao = OpcoesPagamento::create([
-            'opcaopag_nome' => 'Stone '.$descNfe,
-            'opcaopag_desc_nfe' => $descNfe,
-            'opcaopag_tipo_taxa' => 'N/A',
-            'opcaopag_valor_percentual_taxa' => 0,
-            'opcaopag_stone_integrada' => true,
-        ]);
+    private function criarPedido(
+        Venda $venda,
+        float $valor = 20.00,
+        string $orderId = self::ORDER_ID,
+        string $descNfe = 'creditCard',
+        StonePedidoModo $modo = StonePedidoModo::Direto,
+        bool $comOpcao = true,
+    ): StonePedido {
+        $opcaoId = null;
+        if ($comOpcao) {
+            $opcaoId = OpcoesPagamento::create([
+                'opcaopag_nome' => 'Stone '.$descNfe,
+                'opcaopag_desc_nfe' => $descNfe,
+                'opcaopag_tipo_taxa' => 'N/A',
+                'opcaopag_valor_percentual_taxa' => 0,
+                'opcaopag_stone_integrada' => true,
+            ])->id;
+        }
         $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '6N021234']);
 
         return StonePedido::create([
             'stp_venda_id' => $venda->id,
             'stp_maquininha_id' => $maquininha->id,
-            'stp_opcaopagamento_id' => $opcao->id,
+            'stp_opcaopagamento_id' => $opcaoId,
             'stp_order_id' => $orderId,
             'stp_order_code' => 'D3MGIQI835',
             'stp_valor_solicitado' => $valor,
             'stp_status' => 'aguardando',
+            'stp_modo' => $modo->value,
         ]);
     }
 
@@ -152,7 +174,7 @@ class StoneWebhookControllerTest extends TestCase
         $this->assertNull($webhook->stw_autenticado);
     }
 
-    public function test_webhook_com_credenciais_invalidas_retorna_401_mas_persiste(): void
+    public function test_webhook_com_credenciais_invalidas_retorna_401_mas_persiste_e_loga(): void
     {
         config(['services.stone.webhook_user' => 'stone', 'services.stone.webhook_password' => 'segredo']);
 
@@ -162,6 +184,7 @@ class StoneWebhookControllerTest extends TestCase
 
         $response->assertUnauthorized();
         $this->assertFalse(StoneWebhook::sole()->stw_autenticado);
+        $this->assertStringContainsString('recusado por Basic Auth inválido', $this->logStone());
     }
 
     public function test_webhook_com_credenciais_validas_persiste_autenticado(): void
@@ -176,13 +199,14 @@ class StoneWebhookControllerTest extends TestCase
         $this->assertTrue(StoneWebhook::sole()->stw_autenticado);
     }
 
-    public function test_charge_paid_sem_stone_pedido_apenas_registra_o_evento(): void
+    public function test_charge_paid_sem_stone_pedido_registra_o_evento_e_loga(): void
     {
         $response = $this->postJson('/api/webhook/stone-connect', $this->payloadChargePaid());
 
         $response->assertOk();
         $this->assertSame(0, PagamentosVenda::count());
         $this->assertNull(StoneWebhook::sole()->stw_stone_pedido_id);
+        $this->assertStringContainsString('sem StonePedido correspondente', $this->logStone());
     }
 
     // ── Fase 2 (charge.paid) ───────────────────────────────────────────────
@@ -210,6 +234,8 @@ class StoneWebhookControllerTest extends TestCase
         $pedido->refresh();
         $this->assertSame('pago', $pedido->stp_status->value);
         $this->assertNotNull($pedido->stp_fechado_em);
+        $this->assertSame('ch_NRPl6mouLuZ123FR4', $pedido->stp_charge_id);
+        $this->assertSame('38332544765625', $pedido->stp_charge_code);
         $this->assertSame(20.00, (float) $venda->fresh()->venda_valor_pago);
 
         $webhook = StoneWebhook::sole();
@@ -219,6 +245,30 @@ class StoneWebhookControllerTest extends TestCase
         Http::assertSent(fn ($request) => $request->method() === 'PATCH'
             && str_contains($request->url(), '/orders/'.self::ORDER_ID.'/closed')
             && $request->data() === ['status' => 'paid']);
+    }
+
+    public function test_charge_paid_listado_resolve_a_forma_pelo_tipo_da_transacao(): void
+    {
+        $this->fakeStoneOk();
+        $venda = $this->criarVenda();
+        $this->criarPedido($venda, 20.00, self::ORDER_ID, 'creditCard', StonePedidoModo::Listado, comOpcao: false);
+
+        $debito = OpcoesPagamento::create([
+            'opcaopag_nome' => 'Débito Stone',
+            'opcaopag_desc_nfe' => 'debitCard',
+            'opcaopag_tipo_taxa' => 'N/A',
+            'opcaopag_valor_percentual_taxa' => 0,
+            'opcaopag_stone_integrada' => true,
+        ]);
+
+        $this->postJson('/api/webhook/stone-connect', $this->payloadChargePaid([
+            'data' => [
+                'payment_method' => 'cash',
+                'last_transaction' => ['transaction_type' => 'debit_card', 'card' => ['type' => 'debit']],
+            ],
+        ]))->assertOk();
+
+        $this->assertSame($debito->id, PagamentosVenda::sole()->pg_venda_opcaopagamento_id);
     }
 
     public function test_charge_paid_duplicado_nao_duplica_pagamento(): void
@@ -300,6 +350,31 @@ class StoneWebhookControllerTest extends TestCase
 
         $pagamento = PagamentosVenda::sole();
         $this->assertSame($vendaCerta->id, $pagamento->pg_venda_venda_id);
+    }
+
+    public function test_charge_paid_de_pedido_sem_venda_so_registra_no_hub(): void
+    {
+        $this->fakeStoneOk();
+        StonePedido::create([
+            'stp_venda_id' => null,
+            'stp_order_id' => self::ORDER_ID,
+            'stp_order_code' => 'D3MGIQI835',
+            'stp_valor_solicitado' => 20.00,
+            'stp_status' => 'aguardando',
+            'stp_modo' => 'listado',
+        ]);
+
+        $this->postJson('/api/webhook/stone-connect', $this->payloadChargePaid())->assertOk();
+
+        $pedido = StonePedido::sole();
+        $this->assertSame('pago', $pedido->stp_status->value);
+        $this->assertSame(20.00, (float) $pedido->stp_valor_pago);
+        $this->assertSame('ch_NRPl6mouLuZ123FR4', $pedido->stp_charge_id);
+        $this->assertSame(0, PagamentosVenda::count());
+        $this->assertStringContainsString('sem venda', $this->logStone());
+
+        Http::assertSent(fn ($request) => $request->method() === 'PATCH'
+            && str_contains($request->url(), '/closed'));
     }
 
     // ── Fase 2 (charge.refunded) ──────────────────────────────────────────

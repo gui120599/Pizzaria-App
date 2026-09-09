@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
 use App\Models\StonePedido;
 use App\Models\Venda;
@@ -67,13 +68,20 @@ class StoneConciliarPedidosCommandTest extends TestCase
     public function test_recupera_charge_paid_perdido_de_pedido_antigo(): void
     {
         $pedido = $this->pedido(['created_at' => now()->subMinutes(30)]);
+        $opcao = OpcoesPagamento::create([
+            'opcaopag_nome' => 'Crédito Stone',
+            'opcaopag_desc_nfe' => 'creditCard',
+            'opcaopag_tipo_taxa' => 'N/A',
+            'opcaopag_valor_percentual_taxa' => 0,
+            'opcaopag_stone_integrada' => true,
+        ]);
 
         Http::fake([
             'api.pagar.me/core/v5/orders/or_test' => Http::response([
                 'id' => 'or_test', 'code' => 'CODE1', 'status' => 'pending',
                 'charges' => [[
                     'id' => 'ch_lost', 'code' => 'NSU9', 'amount' => 2000, 'paid_amount' => 2000, 'status' => 'paid',
-                    'last_transaction' => ['metadata' => ['authorization_code' => 'Z9']],
+                    'last_transaction' => ['transaction_type' => 'credit_card', 'metadata' => ['authorization_code' => 'Z9']],
                 ]],
             ], 200),
             'api.pagar.me/*/closed' => Http::response([], 200),
@@ -83,7 +91,8 @@ class StoneConciliarPedidosCommandTest extends TestCase
 
         $pedido->refresh();
         $this->assertSame('pago', $pedido->stp_status->value);
-        $this->assertSame(1, PagamentosVenda::where('pg_venda_venda_id', $pedido->stp_venda_id)->count());
+        $pagamento = PagamentosVenda::where('pg_venda_venda_id', $pedido->stp_venda_id)->sole();
+        $this->assertSame($opcao->id, $pagamento->pg_venda_opcaopagamento_id);
     }
 
     public function test_pedido_antigo_cancelado_na_stone_vira_cancelado(): void

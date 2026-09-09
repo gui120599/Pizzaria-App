@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,13 +20,17 @@ class StonePedido extends Model
 
     protected $fillable = [
         'stp_venda_id',
+        'stp_pedido_id',
         'stp_maquininha_id',
         'stp_opcaopagamento_id',
         'stp_order_id',
         'stp_order_code',
+        'stp_charge_id',
+        'stp_charge_code',
         'stp_valor_solicitado',
         'stp_valor_pago',
         'stp_status',
+        'stp_modo',
         'stp_fechado_em',
     ];
 
@@ -35,6 +40,7 @@ class StonePedido extends Model
             'stp_valor_solicitado' => 'decimal:2',
             'stp_valor_pago' => 'decimal:2',
             'stp_status' => StonePedidoStatus::class,
+            'stp_modo' => StonePedidoModo::class,
             'stp_fechado_em' => 'datetime',
         ];
     }
@@ -42,6 +48,11 @@ class StonePedido extends Model
     public function venda(): BelongsTo
     {
         return $this->belongsTo(Venda::class, 'stp_venda_id');
+    }
+
+    public function pedido(): BelongsTo
+    {
+        return $this->belongsTo(Pedido::class, 'stp_pedido_id');
     }
 
     public function maquininha(): BelongsTo
