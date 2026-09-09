@@ -121,6 +121,12 @@ class Pedido extends Model
         return $this->hasMany(MovimentacaoPedido::class, 'mov_pedido_pedido_id');
     }
 
+    /** Forma de pagamento combinada com o cliente no atendimento — dado informativo, não uma cobrança real (ver PagamentosPedido). */
+    public function pagamentosCombinados()
+    {
+        return $this->hasMany(PagamentosPedido::class, 'pg_pedido_pedido_id')->orderBy('pg_pedido_ordem');
+    }
+
     /**
      * URL assinada (sem expiração) que o QR code do ticket/painel do
      * entregador codifica — abrir o link já é a prova de posse do QR, sem

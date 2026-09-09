@@ -5,6 +5,8 @@ namespace App\Filament\Resources\OpcoesEntregas;
 use App\Filament\Resources\OpcoesEntregas\Pages\ManageOpcoesEntregas;
 use App\Models\OpcoesEntregas;
 use BackedEnum;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -13,10 +15,12 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section as SchemaSection;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -49,6 +53,10 @@ class OpcoesEntregasResource extends Resource
                         ->required()
                         ->maxLength(100)
                         ->placeholder('Ex: Entrega, Retirada, Comer no Local'),
+
+                    Toggle::make('opcaoentrega_requer_endereco')
+                        ->label('Exige endereço de entrega')
+                        ->helperText('Ative para opções como "Entrega" — o atendimento vai exigir rua e bairro preenchidos antes de salvar o pedido.'),
                 ]),
 
             SchemaSection::make('Taxa de Entrega')
@@ -99,6 +107,10 @@ class OpcoesEntregasResource extends Resource
                     ->money('BRL')
                     ->placeholder('—'),
 
+                IconColumn::make('opcaoentrega_requer_endereco')
+                    ->label('Exige endereço')
+                    ->boolean(),
+
                 TextColumn::make('created_at')
                     ->label('Criado em')
                     ->dateTime('d/m/Y H:i')
@@ -115,8 +127,8 @@ class OpcoesEntregasResource extends Resource
                 RestoreAction::make(),
             ])
             ->toolbarActions([
-                \Filament\Actions\CreateAction::make(),
-                \Filament\Actions\BulkActionGroup::make([
+                CreateAction::make(),
+                BulkActionGroup::make([
                     DeleteBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
