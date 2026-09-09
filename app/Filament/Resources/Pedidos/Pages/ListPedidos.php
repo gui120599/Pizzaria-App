@@ -2,8 +2,9 @@
 
 namespace App\Filament\Resources\Pedidos\Pages;
 
+use App\Filament\Pages\AtenderPedido;
 use App\Filament\Resources\Pedidos\PedidoResource;
-use Filament\Actions\CreateAction;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 
 class ListPedidos extends ListRecords
@@ -13,7 +14,10 @@ class ListPedidos extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+            Action::make('novo_pedido')
+                ->label('Novo pedido')
+                ->icon('heroicon-o-plus')
+                ->url(AtenderPedido::getUrl()),
         ];
     }
 }

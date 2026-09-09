@@ -4,11 +4,12 @@
 @source '../../../../resources/views/filament/**/*';
 
 /*
- * Componentes Livewire embutidos dentro do painel (ex.: PedidoProdutoSelector
- * via PedidoItensField, VendaProdutoSelector via OperarVenda) não moram em
- * app/Filament nem resources/views/filament, então precisam entrar aqui
- * explicitamente — sem isso, classes usadas só neles (ex.: grid-cols-3,
- * aspect-square) nunca são geradas no CSS compilado do admin.
+ * Componentes Livewire embutidos dentro do painel (ex.: PedidoProdutoSelector,
+ * ClientePicker, EntregaPagamentoPicker via AtenderPedido; VendaProdutoSelector
+ * via OperarVenda) não moram em app/Filament nem resources/views/filament,
+ * então precisam entrar aqui explicitamente — sem isso, classes usadas só
+ * neles (ex.: grid-cols-3, aspect-square) nunca são geradas no CSS compilado
+ * do admin.
  */
 @source '../../../../app/Livewire/**/*';
 @source '../../../../resources/views/livewire/**/*';

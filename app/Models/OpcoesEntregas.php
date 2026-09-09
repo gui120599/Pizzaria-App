@@ -16,5 +16,10 @@ class OpcoesEntregas extends Model
         'opcaoentrega_nome',
         'opcaoentrega_valor_frete',
         'opcaoentrega_min_valor_frete',
+        'opcaoentrega_requer_endereco',
+    ];
+
+    protected $casts = [
+        'opcaoentrega_requer_endereco' => 'boolean',
     ];
 }

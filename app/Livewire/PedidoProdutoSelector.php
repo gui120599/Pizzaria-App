@@ -15,6 +15,7 @@ use App\Services\PrecificadorService;
 use App\Services\PromocaoRelampagoService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class PedidoProdutoSelector extends Component
@@ -56,6 +57,18 @@ class PedidoProdutoSelector extends Component
     public array $editAdicionaisSelecionados = [];
 
     public string $saveButtonLabel = 'Salvar Pedido';
+
+    /**
+     * Contexto Filament (AtenderPedido): a página é quem mostra o carrinho —
+     * numa section própria acima do Cliente, espelhando o AttendOrder do
+     * razelfood — então aqui dentro o FAB (Salvar/Itens) e o drawer somem
+     * por completo (ver #[On] pedido-incrementar-item/decrementar-item/
+     * remover-item/abrir-edicao-item, que repassam os cliques daquela
+     * section pra cá). As telas Blade legadas (pedido/create, pedido/edit,
+     * sessao_mesa/*, confirmacoes-pedidos) continuam com o drawer, porque
+     * dependem do FAB pra submeter o <form id="pedido-form"> delas.
+     */
+    public bool $carrinhoTopo = false;
 
     // Clientes da sessão de mesa (apenas quando vindo da view pedido_mesa)
     public array $sessaoMesaClientes = [];
@@ -726,6 +739,37 @@ class PedidoProdutoSelector extends Component
         unset($item);
 
         $this->notificarPai();
+    }
+
+    /**
+     * A section de Carrinho fixa no topo da página AtenderPedido (fora deste
+     * componente, ver $carrinhoTopo) reaproveita os nomes de método
+     * incrementarQtd/decrementarQtd/removerItem/abrirEditModal via o mesmo
+     * partial de linha — mas ela roda no componente Page, então esses
+     * cliques chegam aqui como eventos repassados em vez de chamada direta.
+     */
+    #[On('pedido-incrementar-item')]
+    public function onIncrementarItemExterno(string $itemId): void
+    {
+        $this->incrementarQtd($itemId);
+    }
+
+    #[On('pedido-decrementar-item')]
+    public function onDecrementarItemExterno(string $itemId): void
+    {
+        $this->decrementarQtd($itemId);
+    }
+
+    #[On('pedido-remover-item')]
+    public function onRemoverItemExterno(string $itemId): void
+    {
+        $this->removerItem($itemId);
+    }
+
+    #[On('pedido-abrir-edicao-item')]
+    public function onAbrirEdicaoItemExterno(string $itemId): void
+    {
+        $this->abrirEditModal($itemId);
     }
 
     public function removerItem(string $itemId): void
