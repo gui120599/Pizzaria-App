@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
+class ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab
 {
     public static $files = array (
         '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
@@ -186,10 +186,12 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
             'Symfony\\Component\\Console\\' => 26,
             'Symfony\\Component\\Clock\\' => 24,
             'Svg\\' => 4,
+            'Spatie\\TemporaryDirectory\\' => 26,
             'Spatie\\ShikiPhp\\' => 16,
             'Spatie\\Permission\\' => 18,
             'Spatie\\LaravelPackageTools\\' => 27,
             'Spatie\\Invade\\' => 14,
+            'Spatie\\Browsershot\\' => 19,
             'Sabberworm\\CSS\\' => 15,
         ),
         'R' => 
@@ -483,6 +485,10 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         array (
             0 => __DIR__ . '/..' . '/dompdf/php-svg-lib/src/Svg',
         ),
+        'Spatie\\TemporaryDirectory\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/spatie/temporary-directory/src',
+        ),
         'Spatie\\ShikiPhp\\' => 
         array (
             0 => __DIR__ . '/..' . '/spatie/shiki-php/src',
@@ -498,6 +504,10 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'Spatie\\Invade\\' => 
         array (
             0 => __DIR__ . '/..' . '/spatie/invade/src',
+        ),
+        'Spatie\\Browsershot\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/spatie/browsershot/src',
         ),
         'Sabberworm\\CSS\\' => 
         array (
@@ -963,6 +973,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Filament\\Pages\\FinanceiroDashboard' => __DIR__ . '/../..' . '/app/Filament/Pages/FinanceiroDashboard.php',
         'App\\Filament\\Pages\\OperarVenda' => __DIR__ . '/../..' . '/app/Filament/Pages/OperarVenda.php',
         'App\\Filament\\Pages\\PedidosDashboard' => __DIR__ . '/../..' . '/app/Filament/Pages/PedidosDashboard.php',
+        'App\\Filament\\Pages\\RelatorioContasPagarReceber' => __DIR__ . '/../..' . '/app/Filament/Pages/RelatorioContasPagarReceber.php',
         'App\\Filament\\Resources\\AvaliacaoLinks\\AvaliacaoLinksResource' => __DIR__ . '/../..' . '/app/Filament/Resources/AvaliacaoLinks/AvaliacaoLinksResource.php',
         'App\\Filament\\Resources\\AvaliacaoLinks\\Pages\\ManageAvaliacaoLinks' => __DIR__ . '/../..' . '/app/Filament/Resources/AvaliacaoLinks/Pages/ManageAvaliacaoLinks.php',
         'App\\Filament\\Resources\\Balancos\\BalancoResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Balancos/BalancoResource.php',
@@ -1141,7 +1152,12 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Filament\\Support\\MaquininhaQuickCreateForm' => __DIR__ . '/../..' . '/app/Filament/Support/MaquininhaQuickCreateForm.php',
         'App\\Filament\\Tables\\Clientes' => __DIR__ . '/../..' . '/app/Filament/Tables/Clientes.php',
         'App\\Filament\\Widgets\\AcessoRapidoWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/AcessoRapidoWidget.php',
+        'App\\Filament\\Widgets\\Concerns\\InteractsComFiltrosContasPagarReceber' => __DIR__ . '/../..' . '/app/Filament/Widgets/Concerns/InteractsComFiltrosContasPagarReceber.php',
         'App\\Filament\\Widgets\\Concerns\\InteractsComPeriodo' => __DIR__ . '/../..' . '/app/Filament/Widgets/Concerns/InteractsComPeriodo.php',
+        'App\\Filament\\Widgets\\ContasPagarReceberAgingWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/ContasPagarReceberAgingWidget.php',
+        'App\\Filament\\Widgets\\ContasPagarReceberDetalhamentoWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/ContasPagarReceberDetalhamentoWidget.php',
+        'App\\Filament\\Widgets\\ContasPagarReceberStatsOverview' => __DIR__ . '/../..' . '/app/Filament/Widgets/ContasPagarReceberStatsOverview.php',
+        'App\\Filament\\Widgets\\ContasPagarReceberTopFavorecidosWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/ContasPagarReceberTopFavorecidosWidget.php',
         'App\\Filament\\Widgets\\FaturamentoPorDiaChart' => __DIR__ . '/../..' . '/app/Filament/Widgets/FaturamentoPorDiaChart.php',
         'App\\Filament\\Widgets\\FaturamentoPorTipoEntregaChart' => __DIR__ . '/../..' . '/app/Filament/Widgets/FaturamentoPorTipoEntregaChart.php',
         'App\\Filament\\Widgets\\FinanceiroStatsOverview' => __DIR__ . '/../..' . '/app/Filament/Widgets/FinanceiroStatsOverview.php',
@@ -1192,6 +1208,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Http\\Controllers\\PedidoController' => __DIR__ . '/../..' . '/app/Http/Controllers/PedidoController.php',
         'App\\Http\\Controllers\\ProdutoController' => __DIR__ . '/../..' . '/app/Http/Controllers/ProdutoController.php',
         'App\\Http\\Controllers\\ProfileController' => __DIR__ . '/../..' . '/app/Http/Controllers/ProfileController.php',
+        'App\\Http\\Controllers\\RelatorioContasPagarReceberController' => __DIR__ . '/../..' . '/app/Http/Controllers/RelatorioContasPagarReceberController.php',
         'App\\Http\\Controllers\\SessaoCaixaController' => __DIR__ . '/../..' . '/app/Http/Controllers/SessaoCaixaController.php',
         'App\\Http\\Controllers\\SessaoMesaController' => __DIR__ . '/../..' . '/app/Http/Controllers/SessaoMesaController.php',
         'App\\Http\\Controllers\\StoneWebhookController' => __DIR__ . '/../..' . '/app/Http/Controllers/StoneWebhookController.php',
@@ -1391,6 +1408,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Services\\PrecificadorService' => __DIR__ . '/../..' . '/app/Services/PrecificadorService.php',
         'App\\Services\\PrecoResolvido' => __DIR__ . '/../..' . '/app/Services/PrecoResolvido.php',
         'App\\Services\\PromocaoRelampagoService' => __DIR__ . '/../..' . '/app/Services/PromocaoRelampagoService.php',
+        'App\\Services\\RelatorioContasPagarReceberService' => __DIR__ . '/../..' . '/app/Services/RelatorioContasPagarReceberService.php',
         'App\\Services\\Sefaz\\Contracts\\SefazClient' => __DIR__ . '/../..' . '/app/Services/Sefaz/Contracts/SefazClient.php',
         'App\\Services\\Sefaz\\Dto\\CertificadoMetadados' => __DIR__ . '/../..' . '/app/Services/Sefaz/Dto/CertificadoMetadados.php',
         'App\\Services\\Sefaz\\Dto\\SefazDocumentoCompleto' => __DIR__ . '/../..' . '/app/Services/Sefaz/Dto/SefazDocumentoCompleto.php',
@@ -7728,6 +7746,17 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'Safe\\Exceptions\\YazException' => __DIR__ . '/..' . '/thecodingmachine/safe/generated/Exceptions/YazException.php',
         'Safe\\Exceptions\\ZipException' => __DIR__ . '/..' . '/thecodingmachine/safe/generated/Exceptions/ZipException.php',
         'Safe\\Exceptions\\ZlibException' => __DIR__ . '/..' . '/thecodingmachine/safe/generated/Exceptions/ZlibException.php',
+        'Spatie\\Browsershot\\Browsershot' => __DIR__ . '/..' . '/spatie/browsershot/src/Browsershot.php',
+        'Spatie\\Browsershot\\ChromiumResult' => __DIR__ . '/..' . '/spatie/browsershot/src/ChromiumResult.php',
+        'Spatie\\Browsershot\\Enums\\Polling' => __DIR__ . '/..' . '/spatie/browsershot/src/Enums/Polling.php',
+        'Spatie\\Browsershot\\Exceptions\\CouldNotTakeBrowsershot' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/CouldNotTakeBrowsershot.php',
+        'Spatie\\Browsershot\\Exceptions\\ElementNotFound' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/ElementNotFound.php',
+        'Spatie\\Browsershot\\Exceptions\\FileDoesNotExistException' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/FileDoesNotExistException.php',
+        'Spatie\\Browsershot\\Exceptions\\FileUrlNotAllowed' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/FileUrlNotAllowed.php',
+        'Spatie\\Browsershot\\Exceptions\\HtmlIsNotAllowedToContainFile' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/HtmlIsNotAllowedToContainFile.php',
+        'Spatie\\Browsershot\\Exceptions\\RemoteConnectionException' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/RemoteConnectionException.php',
+        'Spatie\\Browsershot\\Exceptions\\UnsuccessfulResponse' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/UnsuccessfulResponse.php',
+        'Spatie\\Browsershot\\ImageManipulations' => __DIR__ . '/..' . '/spatie/browsershot/src/ImageManipulations.php',
         'Spatie\\Invade\\Invader' => __DIR__ . '/..' . '/spatie/invade/src/Invader.php',
         'Spatie\\Invade\\StaticInvader' => __DIR__ . '/..' . '/spatie/invade/src/StaticInvader.php',
         'Spatie\\LaravelPackageTools\\Commands\\Concerns\\AskToRunMigrations' => __DIR__ . '/..' . '/spatie/laravel-package-tools/src/Commands/Concerns/AskToRunMigrations.php',
@@ -7801,6 +7830,9 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'Spatie\\Permission\\Traits\\RefreshesPermissionCache' => __DIR__ . '/..' . '/spatie/laravel-permission/src/Traits/RefreshesPermissionCache.php',
         'Spatie\\Permission\\WildcardPermission' => __DIR__ . '/..' . '/spatie/laravel-permission/src/WildcardPermission.php',
         'Spatie\\ShikiPhp\\Shiki' => __DIR__ . '/..' . '/spatie/shiki-php/src/Shiki.php',
+        'Spatie\\TemporaryDirectory\\Exceptions\\InvalidDirectoryName' => __DIR__ . '/..' . '/spatie/temporary-directory/src/Exceptions/InvalidDirectoryName.php',
+        'Spatie\\TemporaryDirectory\\Exceptions\\PathAlreadyExists' => __DIR__ . '/..' . '/spatie/temporary-directory/src/Exceptions/PathAlreadyExists.php',
+        'Spatie\\TemporaryDirectory\\TemporaryDirectory' => __DIR__ . '/..' . '/spatie/temporary-directory/src/TemporaryDirectory.php',
         'Stringable' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
         'Svg\\CssLength' => __DIR__ . '/..' . '/dompdf/php-svg-lib/src/Svg/CssLength.php',
         'Svg\\DefaultStyle' => __DIR__ . '/..' . '/dompdf/php-svg-lib/src/Svg/DefaultStyle.php',
@@ -9021,10 +9053,10 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$prefixDirsPsr4;
-            $loader->prefixesPsr0 = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$prefixesPsr0;
-            $loader->classMap = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab::$prefixDirsPsr4;
+            $loader->prefixesPsr0 = ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab::$prefixesPsr0;
+            $loader->classMap = ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab::$classMap;
 
         }, null, ClassLoader::class);
     }
