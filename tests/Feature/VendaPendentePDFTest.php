@@ -86,7 +86,8 @@ class VendaPendentePDFTest extends TestCase
         $this->get(route('lancamento.imprimir_fiado', ['id' => $lancamento->id]))
             ->assertOk()
             ->assertSee('João')
-            ->assertSee('Pedido #'.$pedido->id)
+            // Data do pedido antes do código ("Pedido #X").
+            ->assertSeeInOrder([$pedido->created_at->format('d/m/Y'), 'Pedido #'.$pedido->id])
             ->assertSee('Pizza Grande')
             ->assertSee('Produtos lançados direto')
             ->assertSee('Refrigerante')

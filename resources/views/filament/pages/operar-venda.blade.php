@@ -217,11 +217,17 @@
                                 <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{{ $lancamento->cliente?->cliente_nome ?? '—' }}</p>
                                 <p class="text-xs text-gray-400 dark:text-gray-500">
                                     Venda #{{ $lancamento->venda_id }} ·
+                                    Criada em {{ $lancamento->venda?->created_at?->format('d/m/Y H:i') }} ·
                                     Vencimento {{ $lancamento->vencimento?->format('d/m/Y') }}
                                     @if ($lancamento->esta_vencido)
                                         <span class="text-red-600 dark:text-red-400 font-semibold">· vencido</span>
                                     @endif
                                 </p>
+                                @if ($lancamento->venda?->pedidos->isNotEmpty())
+                                    <p class="text-xs text-gray-400 dark:text-gray-500">
+                                        Pedido{{ $lancamento->venda->pedidos->count() > 1 ? 's' : '' }} #{{ $lancamento->venda->pedidos->pluck('id')->implode(', #') }}
+                                    </p>
+                                @endif
                             </div>
                             <div class="flex items-center gap-3 shrink-0">
                                 <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">R$ {{ number_format($lancamento->valor_restante, 2, ',', '.') }}</span>

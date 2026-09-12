@@ -11,6 +11,7 @@ use App\Models\CartoesPagamento;
 use App\Models\Cliente;
 use App\Models\Lancamento;
 use App\Models\LancamentoPagamento;
+use App\Models\Pedido;
 use App\Models\SessaoCaixa;
 use App\Models\User;
 use App\Models\Venda;
@@ -92,6 +93,19 @@ class OperarVendaPendentesTest extends TestCase
 
         $this->assertCount(1, $pendentes);
         $this->assertSame($lancamentoDaVenda->id, $pendentes->first()->id);
+    }
+
+    /** Aba Pendentes mostra os pedidos vinculados à venda e a data em que ela foi criada — ajuda a identificar do que se trata a pendência. */
+    public function test_lista_mostra_codigos_dos_pedidos_e_data_de_criacao_da_venda(): void
+    {
+        $this->lancamentoFiado();
+        $pedido = Pedido::create(['pedido_status' => 'FINALIZADO', 'pedido_venda_id' => $this->venda->id]);
+        $venda = Venda::create(['venda_status' => 'INICIADA', 'venda_sessao_caixa_id' => $this->sessaoCaixa->id]);
+
+        Livewire::test(OperarVenda::class, ['venda' => $venda])
+            ->set('abaAtiva', 'pendentes')
+            ->assertSee('Pedido #'.$pedido->id)
+            ->assertSee($this->venda->created_at->format('d/m/Y'));
     }
 
     public function test_registrar_recebimento_quita_o_titulo_e_reflete_na_lista(): void
