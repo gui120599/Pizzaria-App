@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab
+class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
 {
     public static $files = array (
         '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
@@ -186,12 +186,10 @@ class ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab
             'Symfony\\Component\\Console\\' => 26,
             'Symfony\\Component\\Clock\\' => 24,
             'Svg\\' => 4,
-            'Spatie\\TemporaryDirectory\\' => 26,
             'Spatie\\ShikiPhp\\' => 16,
             'Spatie\\Permission\\' => 18,
             'Spatie\\LaravelPackageTools\\' => 27,
             'Spatie\\Invade\\' => 14,
-            'Spatie\\Browsershot\\' => 19,
             'Sabberworm\\CSS\\' => 15,
         ),
         'R' => 
@@ -485,10 +483,6 @@ class ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab
         array (
             0 => __DIR__ . '/..' . '/dompdf/php-svg-lib/src/Svg',
         ),
-        'Spatie\\TemporaryDirectory\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/spatie/temporary-directory/src',
-        ),
         'Spatie\\ShikiPhp\\' => 
         array (
             0 => __DIR__ . '/..' . '/spatie/shiki-php/src',
@@ -504,10 +498,6 @@ class ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab
         'Spatie\\Invade\\' => 
         array (
             0 => __DIR__ . '/..' . '/spatie/invade/src',
-        ),
-        'Spatie\\Browsershot\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/spatie/browsershot/src',
         ),
         'Sabberworm\\CSS\\' => 
         array (
@@ -7746,17 +7736,6 @@ class ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab
         'Safe\\Exceptions\\YazException' => __DIR__ . '/..' . '/thecodingmachine/safe/generated/Exceptions/YazException.php',
         'Safe\\Exceptions\\ZipException' => __DIR__ . '/..' . '/thecodingmachine/safe/generated/Exceptions/ZipException.php',
         'Safe\\Exceptions\\ZlibException' => __DIR__ . '/..' . '/thecodingmachine/safe/generated/Exceptions/ZlibException.php',
-        'Spatie\\Browsershot\\Browsershot' => __DIR__ . '/..' . '/spatie/browsershot/src/Browsershot.php',
-        'Spatie\\Browsershot\\ChromiumResult' => __DIR__ . '/..' . '/spatie/browsershot/src/ChromiumResult.php',
-        'Spatie\\Browsershot\\Enums\\Polling' => __DIR__ . '/..' . '/spatie/browsershot/src/Enums/Polling.php',
-        'Spatie\\Browsershot\\Exceptions\\CouldNotTakeBrowsershot' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/CouldNotTakeBrowsershot.php',
-        'Spatie\\Browsershot\\Exceptions\\ElementNotFound' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/ElementNotFound.php',
-        'Spatie\\Browsershot\\Exceptions\\FileDoesNotExistException' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/FileDoesNotExistException.php',
-        'Spatie\\Browsershot\\Exceptions\\FileUrlNotAllowed' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/FileUrlNotAllowed.php',
-        'Spatie\\Browsershot\\Exceptions\\HtmlIsNotAllowedToContainFile' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/HtmlIsNotAllowedToContainFile.php',
-        'Spatie\\Browsershot\\Exceptions\\RemoteConnectionException' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/RemoteConnectionException.php',
-        'Spatie\\Browsershot\\Exceptions\\UnsuccessfulResponse' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/UnsuccessfulResponse.php',
-        'Spatie\\Browsershot\\ImageManipulations' => __DIR__ . '/..' . '/spatie/browsershot/src/ImageManipulations.php',
         'Spatie\\Invade\\Invader' => __DIR__ . '/..' . '/spatie/invade/src/Invader.php',
         'Spatie\\Invade\\StaticInvader' => __DIR__ . '/..' . '/spatie/invade/src/StaticInvader.php',
         'Spatie\\LaravelPackageTools\\Commands\\Concerns\\AskToRunMigrations' => __DIR__ . '/..' . '/spatie/laravel-package-tools/src/Commands/Concerns/AskToRunMigrations.php',
@@ -7830,9 +7809,6 @@ class ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab
         'Spatie\\Permission\\Traits\\RefreshesPermissionCache' => __DIR__ . '/..' . '/spatie/laravel-permission/src/Traits/RefreshesPermissionCache.php',
         'Spatie\\Permission\\WildcardPermission' => __DIR__ . '/..' . '/spatie/laravel-permission/src/WildcardPermission.php',
         'Spatie\\ShikiPhp\\Shiki' => __DIR__ . '/..' . '/spatie/shiki-php/src/Shiki.php',
-        'Spatie\\TemporaryDirectory\\Exceptions\\InvalidDirectoryName' => __DIR__ . '/..' . '/spatie/temporary-directory/src/Exceptions/InvalidDirectoryName.php',
-        'Spatie\\TemporaryDirectory\\Exceptions\\PathAlreadyExists' => __DIR__ . '/..' . '/spatie/temporary-directory/src/Exceptions/PathAlreadyExists.php',
-        'Spatie\\TemporaryDirectory\\TemporaryDirectory' => __DIR__ . '/..' . '/spatie/temporary-directory/src/TemporaryDirectory.php',
         'Stringable' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
         'Svg\\CssLength' => __DIR__ . '/..' . '/dompdf/php-svg-lib/src/Svg/CssLength.php',
         'Svg\\DefaultStyle' => __DIR__ . '/..' . '/dompdf/php-svg-lib/src/Svg/DefaultStyle.php',
@@ -9053,10 +9029,10 @@ class ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab::$prefixDirsPsr4;
-            $loader->prefixesPsr0 = ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab::$prefixesPsr0;
-            $loader->classMap = ComposerStaticInitf4c33d82ee311680a6669b3d2cea9bab::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$prefixDirsPsr4;
+            $loader->prefixesPsr0 = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$prefixesPsr0;
+            $loader->classMap = ComposerStaticInitfccadfecc210f6baf2c8998013be6b73::$classMap;
 
         }, null, ClassLoader::class);
     }

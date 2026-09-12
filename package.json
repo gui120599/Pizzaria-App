@@ -21,7 +21,6 @@
     },
     "dependencies": {
         "bootstrap-select": "^1.13.18",
-        "boxicons": "^2.1.4",
-        "puppeteer": "^25.10.0"
+        "boxicons": "^2.1.4"
     }
 }

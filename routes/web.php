@@ -80,7 +80,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/pedidosEntreguesFinalizadosCanceladosPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntreguesFinalizadosCanceladosPDF'])->name('pedidosEntreguesFinalizadosCanceladosPDF.imprimir');
     Route::get('/pedidosEntregasPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntregasPDF'])->name('pedidosEntregasPDF.imprimir');
     Route::get('/relatorios/contas-pagar-receber/imprimir', [RelatorioContasPagarReceberController::class, 'imprimir'])->name('relatorios.contas_pagar_receber.imprimir')->middleware('permission:view:relatorio_financeiro');
-    Route::get('/relatorios/contas-pagar-receber/pdf', [RelatorioContasPagarReceberController::class, 'pdf'])->name('relatorios.contas_pagar_receber.pdf')->middleware('permission:view:relatorio_financeiro');
 
     // accept:pedido: mesma permission de quem confirma/rejeita pedido do cardápio
     // (Gerente/Atendente hoje) — bloqueia Entregador e também Caixa, que nunca

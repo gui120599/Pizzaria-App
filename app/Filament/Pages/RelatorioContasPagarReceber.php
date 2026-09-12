@@ -207,17 +207,11 @@ class RelatorioContasPagarReceber extends BaseDashboard
                     $this->filters = null;
                     $this->getFiltersForm()->fill();
                 }),
-            Action::make('visualizar')
-                ->label('Visualizar')
-                ->icon(Heroicon::OutlinedEye)
-                ->color('gray')
-                ->url(fn (): string => route('relatorios.contas_pagar_receber.imprimir', ['filters' => $this->filters ?? []]))
-                ->openUrlInNewTab(),
-            Action::make('gerarPdf')
-                ->label('Gerar PDF (A4)')
-                ->icon(Heroicon::OutlinedDocumentArrowDown)
+            Action::make('imprimir')
+                ->label('Imprimir')
+                ->icon(Heroicon::OutlinedPrinter)
                 ->color('primary')
-                ->url(fn (): string => route('relatorios.contas_pagar_receber.pdf', ['filters' => $this->filters ?? []]))
+                ->url(fn (): string => route('relatorios.contas_pagar_receber.imprimir', ['filters' => $this->filters ?? []]))
                 ->openUrlInNewTab(),
         ];
     }
