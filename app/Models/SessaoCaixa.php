@@ -71,4 +71,15 @@ class SessaoCaixa extends Model
     {
         return $this->hasMany(SessaoCaixaMaquininha::class, 'sessao_caixa_id');
     }
+
+    /**
+     * Títulos a receber importados desta sessão (ver
+     * App\Services\ImportacaoCaixaReceberService::importar) — 1 por opção de
+     * pagamento com receita na sessão. Vazio até o fechamento ser confirmado
+     * (ou importado manualmente).
+     */
+    public function lancamentos(): HasMany
+    {
+        return $this->hasMany(Lancamento::class, 'sessao_caixa_id');
+    }
 }

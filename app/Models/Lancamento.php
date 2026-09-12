@@ -32,6 +32,7 @@ class Lancamento extends Model
         'favorecido_id',
         'cliente_id',
         'venda_id',
+        'sessao_caixa_id',
         'numero_documento',
         'valor',
         'vencimento',
@@ -134,6 +135,16 @@ class Lancamento extends Model
     public function venda(): BelongsTo
     {
         return $this->belongsTo(Venda::class, 'venda_id');
+    }
+
+    /**
+     * Sessão de caixa que originou este título a receber, quando importado
+     * automaticamente na confirmação do fechamento (ver
+     * App\Services\ImportacaoCaixaReceberService::importar).
+     */
+    public function sessaoCaixa(): BelongsTo
+    {
+        return $this->belongsTo(SessaoCaixa::class, 'sessao_caixa_id');
     }
 
     /** Rateio do título entre planos de despesa (1 lançamento -> N despesas). */
@@ -321,6 +332,14 @@ class Lancamento extends Model
         $this->data_pagamento = $ultimo?->data_pagamento;
         $this->forma_pagamento = $ultimo?->forma_pagamento;
 
-        return $this->save();
+        // saveQuietly() (não save()): o listener `saved` desta classe (acima)
+        // dispara recalcularStatus() de novo quando `valor` muda — e o synchronize
+        // de $this->original só acontece DEPOIS do evento `saved` retornar
+        // (Model::finishSave()), então um save() comum aqui reentra vendo
+        // `valor` ainda "sujo" e recursa infinitamente até estourar a pilha
+        // (segfault, sem Error catável) sempre que o valor do título muda com
+        // pagamento(s) já registrado(s). Este save é só a persistência derivada
+        // do recálculo — não precisa dos eventos do próprio Lancamento.
+        return $this->saveQuietly();
     }
 }

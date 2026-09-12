@@ -71,4 +71,20 @@ class FechamentoCaixaPolicy
     {
         return $authUser->can('reorder:fechamento_caixa');
     }
+
+    /**
+     * Importar a sessão de caixa deste fechamento para o Contas a Receber.
+     * Métodos customizados (não gerados pelo Shield) — rodar
+     * `shield:generate` de novo pra este Resource exige `--ignore-existing-policies`,
+     * senão eles são apagados.
+     */
+    public function importarReceber(AuthUser $authUser, FechamentoCaixa $fechamentoCaixa): bool
+    {
+        return $authUser->can('importar_caixa:lancamento');
+    }
+
+    public function estornarImportacaoReceber(AuthUser $authUser, FechamentoCaixa $fechamentoCaixa): bool
+    {
+        return $authUser->can('importar_caixa:lancamento');
+    }
 }

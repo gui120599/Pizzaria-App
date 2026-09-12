@@ -23,7 +23,8 @@ class PermissionSeeder extends Seeder
             'create:pedido', 'update:pedido', 'view:sessao_mesa',
             'estornar:pagamento', 'approve:lancamento', 'confirm:compra', 'registrar:devolucao_compra',
             'corrigir:movimentacao_estoque',
-            'abrir:sessao_caixa', 'fechar:sessao_caixa', 'view:relatorio_financeiro',
+            'abrir:sessao_caixa', 'fechar:sessao_caixa', 'sangrar:sessao_caixa', 'view:relatorio_financeiro',
+            'importar_caixa:lancamento',
             'operar:venda', 'cancel:venda', 'emitir:nfe',
             // Cadastros/config (bloco amarelo): Produto/Categoria/OpcoesEntregas/
             // OpcoesPagamento usam os nomes gerados pelo Shield (já existem na
@@ -57,7 +58,7 @@ class PermissionSeeder extends Seeder
             'create:cliente', 'update:cliente',
         ],
         'Caixa' => [
-            'abrir:sessao_caixa', 'fechar:sessao_caixa', 'view:sessao_mesa',
+            'abrir:sessao_caixa', 'fechar:sessao_caixa', 'sangrar:sessao_caixa', 'view:sessao_mesa',
             'operar:venda', 'cancel:venda', 'emitir:nfe',
         ],
         'Entregador' => [

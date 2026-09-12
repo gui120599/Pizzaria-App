@@ -95,6 +95,14 @@ class OpcoesPagamentoResource extends Resource
                         ->nullable()
                         ->placeholder('Selecione o código NFe'),
 
+                    Select::make('plano_receita_id')
+                        ->label('Plano de receita')
+                        ->relationship('planoReceita', 'nome')
+                        ->searchable()
+                        ->preload()
+                        ->nullable()
+                        ->helperText('Conta do plano de receita que classifica as vendas recebidas nesta forma de pagamento, usada na importação da sessão de caixa para o Contas a Receber. Sem escolha, cai em "Outras Receitas".'),
+
                     Select::make('opcaopag_tipo_taxa')
                         ->label('Tipo de Taxa')
                         ->options(OpcoesPagamento::TIPO_TAXA)

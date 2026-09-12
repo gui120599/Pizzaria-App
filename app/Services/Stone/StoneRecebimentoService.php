@@ -14,6 +14,7 @@ use App\Models\PagamentosVenda;
 use App\Models\StonePedido;
 use App\Models\StoneWebhook;
 use App\Models\Venda;
+use App\Services\MovimentacaoCaixaService;
 use App\Services\VendaService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -41,6 +42,7 @@ class StoneRecebimentoService
     public function __construct(
         private readonly StoneConnectService $connect,
         private readonly VendaService $vendas,
+        private readonly MovimentacaoCaixaService $movimentacaoCaixa,
     ) {}
 
     /**
@@ -423,7 +425,8 @@ class StoneRecebimentoService
 
     /**
      * Lança um movimento compensatório de saída no caixa e recomputa o saldo
-     * final da sessão — mesma fórmula usada em FinalizacaoVendaService::finalizar.
+     * final da sessão via MovimentacaoCaixaService::recalcularSaldoFinal (fonte
+     * única do recompute — ver a classe pra detalhes da fórmula).
      */
     private function reverterEfeitosNoCaixa(Venda $venda, float $valor): void
     {
@@ -441,13 +444,7 @@ class StoneRecebimentoService
 
         $sessao = $venda->sessaoCaixa()->first();
         if ($sessao) {
-            $totalVendas = Venda::where('venda_sessao_caixa_id', $sessao->id)
-                ->where('venda_status', 'FINALIZADA')
-                ->sum('venda_valor_pago');
-
-            $sessao->update([
-                'sessaocaixa_saldo_final' => (float) $sessao->sessaocaixa_saldo_inicial + (float) $totalVendas,
-            ]);
+            $this->movimentacaoCaixa->recalcularSaldoFinal($sessao);
         }
     }
 
