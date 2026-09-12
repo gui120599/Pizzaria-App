@@ -24,6 +24,7 @@ use App\Http\Controllers\PDFController;
 use App\Http\Controllers\PedidoController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RelatorioContasPagarReceberController;
 use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
 use App\Http\Controllers\VendaCancelarVaziaController;
@@ -78,6 +79,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/LancamentoFiado/{id}/Imprimir', [PDFController::class, 'vendaPendentePDF'])->name('lancamento.imprimir_fiado');
     Route::get('/pedidosEntreguesFinalizadosCanceladosPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntreguesFinalizadosCanceladosPDF'])->name('pedidosEntreguesFinalizadosCanceladosPDF.imprimir');
     Route::get('/pedidosEntregasPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntregasPDF'])->name('pedidosEntregasPDF.imprimir');
+    Route::get('/relatorios/contas-pagar-receber/imprimir', [RelatorioContasPagarReceberController::class, 'imprimir'])->name('relatorios.contas_pagar_receber.imprimir')->middleware('permission:view:relatorio_financeiro');
+    Route::get('/relatorios/contas-pagar-receber/pdf', [RelatorioContasPagarReceberController::class, 'pdf'])->name('relatorios.contas_pagar_receber.pdf')->middleware('permission:view:relatorio_financeiro');
 
     // accept:pedido: mesma permission de quem confirma/rejeita pedido do cardápio
     // (Gerente/Atendente hoje) — bloqueia Entregador e também Caixa, que nunca
