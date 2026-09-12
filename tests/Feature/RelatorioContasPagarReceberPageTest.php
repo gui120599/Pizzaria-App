@@ -45,13 +45,12 @@ class RelatorioContasPagarReceberPageTest extends TestCase
             ->assertOk();
     }
 
-    public function test_rotas_de_impressao_e_pdf_estao_registradas(): void
+    public function test_rota_de_impressao_esta_registrada(): void
     {
         $this->assertTrue(Route::has('relatorios.contas_pagar_receber.imprimir'));
-        $this->assertTrue(Route::has('relatorios.contas_pagar_receber.pdf'));
     }
 
-    public function test_view_de_impressao_renderiza_sem_erro(): void
+    public function test_view_de_impressao_renderiza_e_dispara_impressao_automatica(): void
     {
         Lancamento::create([
             'tipo' => 'pagar',
@@ -65,21 +64,6 @@ class RelatorioContasPagarReceberPageTest extends TestCase
         $response->assertOk();
         $response->assertSee('Relatório de Contas a Pagar e a Receber');
         $response->assertSee('Conta de luz');
-    }
-
-    public function test_pdf_e_gerado_via_browsershot(): void
-    {
-        Lancamento::create([
-            'tipo' => 'pagar',
-            'descricao' => 'Conta de luz',
-            'valor' => 250,
-            'vencimento' => now()->subDays(2),
-        ]);
-
-        $response = $this->get(route('relatorios.contas_pagar_receber.pdf'));
-
-        $response->assertOk();
-        $response->assertHeader('Content-Type', 'application/pdf');
-        $this->assertStringStartsWith('%PDF', $response->getContent());
+        $response->assertSee('window.print()', false);
     }
 }

@@ -199,7 +199,6 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
             'Symfony\\Component\\Console\\' => 26,
             'Symfony\\Component\\Clock\\' => 24,
             'Svg\\' => 4,
-            'Spatie\\TemporaryDirectory\\' => 26,
             'Spatie\\ShikiPhp\\' => 16,
             'Spatie\\Permission\\' => 18,
             'Spatie\\LaravelPackageTools\\' => 27,
@@ -208,7 +207,6 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
             'Spatie\\Ignition\\' => 16,
             'Spatie\\FlareClient\\' => 19,
             'Spatie\\ErrorSolutions\\' => 22,
-            'Spatie\\Browsershot\\' => 19,
             'Spatie\\Backtrace\\' => 17,
             'Sabberworm\\CSS\\' => 15,
         ),
@@ -522,10 +520,6 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         array (
             0 => __DIR__ . '/..' . '/dompdf/php-svg-lib/src/Svg',
         ),
-        'Spatie\\TemporaryDirectory\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/spatie/temporary-directory/src',
-        ),
         'Spatie\\ShikiPhp\\' =>
         array (
             0 => __DIR__ . '/..' . '/spatie/shiki-php/src',
@@ -559,10 +553,6 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         'Spatie\\ErrorSolutions\\' =>
         array (
             0 => __DIR__ . '/..' . '/spatie/error-solutions/src',
-        ),
-        'Spatie\\Browsershot\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/spatie/browsershot/src',
         ),
         'Spatie\\Backtrace\\' =>
         array (
@@ -1063,6 +1053,7 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         'App\\Filament\\Pages\\FinanceiroDashboard' => __DIR__ . '/../..' . '/app/Filament/Pages/FinanceiroDashboard.php',
         'App\\Filament\\Pages\\OperarVenda' => __DIR__ . '/../..' . '/app/Filament/Pages/OperarVenda.php',
         'App\\Filament\\Pages\\PedidosDashboard' => __DIR__ . '/../..' . '/app/Filament/Pages/PedidosDashboard.php',
+        'App\\Filament\\Pages\\RelatorioContasPagarReceber' => __DIR__ . '/../..' . '/app/Filament/Pages/RelatorioContasPagarReceber.php',
         'App\\Filament\\Resources\\AvaliacaoLinks\\AvaliacaoLinksResource' => __DIR__ . '/../..' . '/app/Filament/Resources/AvaliacaoLinks/AvaliacaoLinksResource.php',
         'App\\Filament\\Resources\\AvaliacaoLinks\\Pages\\ManageAvaliacaoLinks' => __DIR__ . '/../..' . '/app/Filament/Resources/AvaliacaoLinks/Pages/ManageAvaliacaoLinks.php',
         'App\\Filament\\Resources\\Balancos\\BalancoResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Balancos/BalancoResource.php',
@@ -1241,7 +1232,12 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         'App\\Filament\\Support\\MaquininhaQuickCreateForm' => __DIR__ . '/../..' . '/app/Filament/Support/MaquininhaQuickCreateForm.php',
         'App\\Filament\\Tables\\Clientes' => __DIR__ . '/../..' . '/app/Filament/Tables/Clientes.php',
         'App\\Filament\\Widgets\\AcessoRapidoWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/AcessoRapidoWidget.php',
+        'App\\Filament\\Widgets\\Concerns\\InteractsComFiltrosContasPagarReceber' => __DIR__ . '/../..' . '/app/Filament/Widgets/Concerns/InteractsComFiltrosContasPagarReceber.php',
         'App\\Filament\\Widgets\\Concerns\\InteractsComPeriodo' => __DIR__ . '/../..' . '/app/Filament/Widgets/Concerns/InteractsComPeriodo.php',
+        'App\\Filament\\Widgets\\ContasPagarReceberAgingWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/ContasPagarReceberAgingWidget.php',
+        'App\\Filament\\Widgets\\ContasPagarReceberDetalhamentoWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/ContasPagarReceberDetalhamentoWidget.php',
+        'App\\Filament\\Widgets\\ContasPagarReceberStatsOverview' => __DIR__ . '/../..' . '/app/Filament/Widgets/ContasPagarReceberStatsOverview.php',
+        'App\\Filament\\Widgets\\ContasPagarReceberTopFavorecidosWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/ContasPagarReceberTopFavorecidosWidget.php',
         'App\\Filament\\Widgets\\FaturamentoPorDiaChart' => __DIR__ . '/../..' . '/app/Filament/Widgets/FaturamentoPorDiaChart.php',
         'App\\Filament\\Widgets\\FaturamentoPorTipoEntregaChart' => __DIR__ . '/../..' . '/app/Filament/Widgets/FaturamentoPorTipoEntregaChart.php',
         'App\\Filament\\Widgets\\FinanceiroStatsOverview' => __DIR__ . '/../..' . '/app/Filament/Widgets/FinanceiroStatsOverview.php',
@@ -1292,6 +1288,7 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         'App\\Http\\Controllers\\PedidoController' => __DIR__ . '/../..' . '/app/Http/Controllers/PedidoController.php',
         'App\\Http\\Controllers\\ProdutoController' => __DIR__ . '/../..' . '/app/Http/Controllers/ProdutoController.php',
         'App\\Http\\Controllers\\ProfileController' => __DIR__ . '/../..' . '/app/Http/Controllers/ProfileController.php',
+        'App\\Http\\Controllers\\RelatorioContasPagarReceberController' => __DIR__ . '/../..' . '/app/Http/Controllers/RelatorioContasPagarReceberController.php',
         'App\\Http\\Controllers\\SessaoCaixaController' => __DIR__ . '/../..' . '/app/Http/Controllers/SessaoCaixaController.php',
         'App\\Http\\Controllers\\SessaoMesaController' => __DIR__ . '/../..' . '/app/Http/Controllers/SessaoMesaController.php',
         'App\\Http\\Controllers\\StoneWebhookController' => __DIR__ . '/../..' . '/app/Http/Controllers/StoneWebhookController.php',
@@ -1491,6 +1488,7 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         'App\\Services\\PrecificadorService' => __DIR__ . '/../..' . '/app/Services/PrecificadorService.php',
         'App\\Services\\PrecoResolvido' => __DIR__ . '/../..' . '/app/Services/PrecoResolvido.php',
         'App\\Services\\PromocaoRelampagoService' => __DIR__ . '/../..' . '/app/Services/PromocaoRelampagoService.php',
+        'App\\Services\\RelatorioContasPagarReceberService' => __DIR__ . '/../..' . '/app/Services/RelatorioContasPagarReceberService.php',
         'App\\Services\\Sefaz\\Contracts\\SefazClient' => __DIR__ . '/../..' . '/app/Services/Sefaz/Contracts/SefazClient.php',
         'App\\Services\\Sefaz\\Dto\\CertificadoMetadados' => __DIR__ . '/../..' . '/app/Services/Sefaz/Dto/CertificadoMetadados.php',
         'App\\Services\\Sefaz\\Dto\\SefazDocumentoCompleto' => __DIR__ . '/../..' . '/app/Services/Sefaz/Dto/SefazDocumentoCompleto.php',
@@ -9805,17 +9803,6 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         'Spatie\\Backtrace\\CodeSnippets\\NullSnippetProvider' => __DIR__ . '/..' . '/spatie/backtrace/src/CodeSnippets/NullSnippetProvider.php',
         'Spatie\\Backtrace\\CodeSnippets\\SnippetProvider' => __DIR__ . '/..' . '/spatie/backtrace/src/CodeSnippets/SnippetProvider.php',
         'Spatie\\Backtrace\\Frame' => __DIR__ . '/..' . '/spatie/backtrace/src/Frame.php',
-        'Spatie\\Browsershot\\Browsershot' => __DIR__ . '/..' . '/spatie/browsershot/src/Browsershot.php',
-        'Spatie\\Browsershot\\ChromiumResult' => __DIR__ . '/..' . '/spatie/browsershot/src/ChromiumResult.php',
-        'Spatie\\Browsershot\\Enums\\Polling' => __DIR__ . '/..' . '/spatie/browsershot/src/Enums/Polling.php',
-        'Spatie\\Browsershot\\Exceptions\\CouldNotTakeBrowsershot' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/CouldNotTakeBrowsershot.php',
-        'Spatie\\Browsershot\\Exceptions\\ElementNotFound' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/ElementNotFound.php',
-        'Spatie\\Browsershot\\Exceptions\\FileDoesNotExistException' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/FileDoesNotExistException.php',
-        'Spatie\\Browsershot\\Exceptions\\FileUrlNotAllowed' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/FileUrlNotAllowed.php',
-        'Spatie\\Browsershot\\Exceptions\\HtmlIsNotAllowedToContainFile' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/HtmlIsNotAllowedToContainFile.php',
-        'Spatie\\Browsershot\\Exceptions\\RemoteConnectionException' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/RemoteConnectionException.php',
-        'Spatie\\Browsershot\\Exceptions\\UnsuccessfulResponse' => __DIR__ . '/..' . '/spatie/browsershot/src/Exceptions/UnsuccessfulResponse.php',
-        'Spatie\\Browsershot\\ImageManipulations' => __DIR__ . '/..' . '/spatie/browsershot/src/ImageManipulations.php',
         'Spatie\\ErrorSolutions\\Contracts\\BaseSolution' => __DIR__ . '/..' . '/spatie/error-solutions/src/Contracts/BaseSolution.php',
         'Spatie\\ErrorSolutions\\Contracts\\HasSolutionsForThrowable' => __DIR__ . '/..' . '/spatie/error-solutions/src/Contracts/HasSolutionsForThrowable.php',
         'Spatie\\ErrorSolutions\\Contracts\\ProvidesSolution' => __DIR__ . '/..' . '/spatie/error-solutions/src/Contracts/ProvidesSolution.php',
@@ -10104,9 +10091,6 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         'Spatie\\Permission\\Traits\\RefreshesPermissionCache' => __DIR__ . '/..' . '/spatie/laravel-permission/src/Traits/RefreshesPermissionCache.php',
         'Spatie\\Permission\\WildcardPermission' => __DIR__ . '/..' . '/spatie/laravel-permission/src/WildcardPermission.php',
         'Spatie\\ShikiPhp\\Shiki' => __DIR__ . '/..' . '/spatie/shiki-php/src/Shiki.php',
-        'Spatie\\TemporaryDirectory\\Exceptions\\InvalidDirectoryName' => __DIR__ . '/..' . '/spatie/temporary-directory/src/Exceptions/InvalidDirectoryName.php',
-        'Spatie\\TemporaryDirectory\\Exceptions\\PathAlreadyExists' => __DIR__ . '/..' . '/spatie/temporary-directory/src/Exceptions/PathAlreadyExists.php',
-        'Spatie\\TemporaryDirectory\\TemporaryDirectory' => __DIR__ . '/..' . '/spatie/temporary-directory/src/TemporaryDirectory.php',
         'Stringable' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
         'Svg\\CssLength' => __DIR__ . '/..' . '/dompdf/php-svg-lib/src/Svg/CssLength.php',
         'Svg\\DefaultStyle' => __DIR__ . '/..' . '/dompdf/php-svg-lib/src/Svg/DefaultStyle.php',
@@ -11305,6 +11289,8 @@ class ComposerStaticInitec0a76166647514be9422029f8d4aa18
         'Tests\\Feature\\PromocaoRelampagoTest' => __DIR__ . '/../..' . '/tests/Feature/PromocaoRelampagoTest.php',
         'Tests\\Feature\\RegistrarDevolucaoCompraTest' => __DIR__ . '/../..' . '/tests/Feature/RegistrarDevolucaoCompraTest.php',
         'Tests\\Feature\\RegistrarSaidaCaixaActionTest' => __DIR__ . '/../..' . '/tests/Feature/RegistrarSaidaCaixaActionTest.php',
+        'Tests\\Feature\\RelatorioContasPagarReceberPageTest' => __DIR__ . '/../..' . '/tests/Feature/RelatorioContasPagarReceberPageTest.php',
+        'Tests\\Feature\\RelatorioContasPagarReceberServiceTest' => __DIR__ . '/../..' . '/tests/Feature/RelatorioContasPagarReceberServiceTest.php',
         'Tests\\Feature\\SefazDistribuicaoServiceTest' => __DIR__ . '/../..' . '/tests/Feature/SefazDistribuicaoServiceTest.php',
         'Tests\\Feature\\SefazImportarNovasNotasCommandTest' => __DIR__ . '/../..' . '/tests/Feature/SefazImportarNovasNotasCommandTest.php',
         'Tests\\Feature\\SefazNotasRecebidasFilamentSmokeTest' => __DIR__ . '/../..' . '/tests/Feature/SefazNotasRecebidasFilamentSmokeTest.php',
