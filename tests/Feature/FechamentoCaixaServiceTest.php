@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\FormaPagamento;
+use App\Enums\MotivoSaidaCaixa;
 use App\Enums\StatusFechamentoCaixa;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Models\Caixa;
 use App\Models\FechamentoCaixa;
 use App\Models\Lancamento;
+use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
 use App\Models\SessaoCaixa;
@@ -215,6 +217,107 @@ class FechamentoCaixaServiceTest extends TestCase
         $esperado = $this->service->calcularEsperado($this->sessao);
 
         $this->assertEqualsWithDelta(0.0, $esperado['dinheiro'], 0.01);
+    }
+
+    public function test_sangria_reduz_esperado_na_forma_correta(): void
+    {
+        $dinheiro = $this->opcao('cash');
+        $venda = $this->venda();
+        $this->pagamento($venda, $dinheiro, 100.0);
+
+        // A sessão deste teste já está FECHADA (setUp) — registra o movimento
+        // manual direto, sem passar por MovimentacaoCaixaService::registrarSaida()
+        // (que exige sessão ABERTA; isso é coberto em MovimentacaoCaixaServiceTest).
+        MovimentacoesSessaoCaixa::create([
+            'mov_sessaocaixa_id' => $this->sessao->id,
+            'mov_descricao' => 'Sangria de teste',
+            'mov_tipo' => 'SAIDA',
+            'mov_forma_pagamento' => FormaPagamento::Dinheiro,
+            'mov_motivo' => MotivoSaidaCaixa::Sangria,
+            'mov_valor' => 30.0,
+        ]);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(70.0, $esperado['dinheiro'], 0.01);
+    }
+
+    /** Saída legada (sem mov_motivo, registrada antes da coluna existir) não é descontada — não muda retroativamente conferências já confirmadas. */
+    public function test_saida_legada_sem_motivo_nao_afeta_esperado(): void
+    {
+        $dinheiro = $this->opcao('cash');
+        $venda = $this->venda();
+        $this->pagamento($venda, $dinheiro, 100.0);
+
+        MovimentacoesSessaoCaixa::create([
+            'mov_sessaocaixa_id' => $this->sessao->id,
+            'mov_descricao' => 'Saída antiga (fluxo Blade legado)',
+            'mov_tipo' => 'SAIDA',
+            'mov_valor' => 40.0,
+        ]);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(100.0, $esperado['dinheiro'], 0.01);
+    }
+
+    /** SAIDA compensatória da Stone (mov_venda_id preenchido, sem mov_motivo) não é descontada de novo — o efeito já vem da queda de venda_valor_pago. */
+    public function test_saida_da_stone_nao_e_descontada_do_esperado(): void
+    {
+        $credito = $this->opcao('creditCard');
+        $venda = $this->venda();
+        $this->pagamento($venda, $credito, 80.0);
+
+        MovimentacoesSessaoCaixa::create([
+            'mov_sessaocaixa_id' => $this->sessao->id,
+            'mov_venda_id' => $venda->id,
+            'mov_descricao' => 'ESTORNO STONE: venda '.$venda->id,
+            'mov_tipo' => 'SAIDA',
+            'mov_valor' => 80.0,
+        ]);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(80.0, $esperado['credito'], 0.01);
+    }
+
+    public function test_calcula_receita_vendas_por_opcao_de_pagamento(): void
+    {
+        $dinheiro = $this->opcao('cash');
+        $pix = $this->opcao('InstantPayment');
+        $venda = $this->venda();
+        $this->pagamento($venda, $dinheiro, 70.0);
+        $this->pagamento($venda, $pix, 30.0);
+
+        $linhas = $this->service->calcularReceitaVendas($this->sessao)->keyBy('opcaopagamento_id');
+
+        $this->assertEqualsWithDelta(70.0, (float) $linhas[$dinheiro->id]->total, 0.01);
+        $this->assertEqualsWithDelta(30.0, (float) $linhas[$pix->id]->total, 0.01);
+    }
+
+    /** Fonte da importação pro Contas a Receber: sem troco de abertura, sem recebimento de fiado. */
+    public function test_receita_vendas_nao_inclui_saldo_inicial_nem_fiado(): void
+    {
+        $dinheiro = $this->opcao('cash');
+        $venda = $this->venda();
+        $this->pagamento($venda, $dinheiro, 100.0);
+
+        // Saldo inicial de abertura (mov_motivo nulo).
+        MovimentacoesSessaoCaixa::create([
+            'mov_sessaocaixa_id' => $this->sessao->id,
+            'mov_descricao' => 'Saldo inicial de abertura',
+            'mov_tipo' => 'ENTRADA',
+            'mov_forma_pagamento' => FormaPagamento::Dinheiro,
+            'mov_valor' => 200.0,
+        ]);
+
+        // Recebimento de fiado nesta sessão (já é pagamento de um Lancamento próprio).
+        $fiado = $this->lancamentoReceber();
+        $fiado->registrarPagamento(60, forma: FormaPagamento::Dinheiro, sessaoCaixaId: $this->sessao->id);
+
+        $totalReceita = $this->service->calcularReceitaVendas($this->sessao)->sum('total');
+
+        $this->assertEqualsWithDelta(100.0, $totalReceita, 0.01);
     }
 
     public function test_confirmar_e_reabrir_alteram_status(): void

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SessoesCaixa\RelationManagers;
 
+use App\Enums\MotivoSaidaCaixa;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -10,10 +11,11 @@ use Filament\Tables\Table;
 
 /**
  * Lista somente-leitura de todos os movimentos da sessão — entradas (saldo
- * inicial de abertura, ver SessaoCaixaService::registrarMovimentoAbertura) e
- * saídas (sangrias). Gestão completa de sangria (registrar/editar/cancelar)
- * continua no fluxo legado (MovimentacoesSessaoCaixaController), fora do
- * escopo deste relation manager.
+ * inicial de abertura, ver SessaoCaixaService::registrarMovimentoAbertura, e
+ * suprimentos) e saídas (vendas, estorno Stone, sangrias). Registrar sangria/
+ * suprimento é feito pelas actions da SessoesCaixaTable/EditSessaoCaixa (ver
+ * RegistrarSaidaCaixaAction/RegistrarSuprimentoCaixaAction) — este relation
+ * manager continua só leitura/auditoria.
  */
 class MovimentacoesRelationManager extends RelationManager
 {
@@ -43,6 +45,10 @@ class MovimentacoesRelationManager extends RelationManager
                     ->label('Forma de pagamento')
                     ->badge()
                     ->placeholder('—'),
+                TextColumn::make('mov_motivo')
+                    ->label('Motivo')
+                    ->badge()
+                    ->placeholder('—'),
                 TextColumn::make('mov_descricao')
                     ->label('Descrição'),
                 TextColumn::make('mov_valor')
@@ -51,6 +57,10 @@ class MovimentacoesRelationManager extends RelationManager
                 TextColumn::make('venda.id')
                     ->label('Venda vinculada')
                     ->placeholder('—'),
+                TextColumn::make('user.name')
+                    ->label('Registrado por')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('mov_observacoes')
                     ->label('Observações')
                     ->limit(40)
@@ -66,6 +76,9 @@ class MovimentacoesRelationManager extends RelationManager
                         'ENTRADA' => 'Entrada',
                         'SAIDA' => 'Saída',
                     ]),
+                SelectFilter::make('mov_motivo')
+                    ->label('Motivo')
+                    ->options(MotivoSaidaCaixa::class),
             ])
             ->headerActions([])
             ->recordActions([])

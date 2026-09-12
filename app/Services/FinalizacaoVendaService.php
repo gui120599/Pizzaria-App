@@ -30,6 +30,8 @@ class FinalizacaoVendaService
 {
     private const TOLERANCIA_CENTAVOS = 0.005;
 
+    public function __construct(private readonly MovimentacaoCaixaService $movimentacaoCaixa) {}
+
     /**
      * @param  array{cpf?: ?string, cnpj?: ?string, telefone?: ?string, nome?: ?string, email?: ?string}|null  $clienteAdHoc
      * @param  array<int, int>  $idSessaoMesa
@@ -91,13 +93,7 @@ class FinalizacaoVendaService
                 'mov_valor' => $venda->venda_valor_pago,
             ]);
 
-            $valorTotalVendas = Venda::where('venda_sessao_caixa_id', $sessaoCaixa->id)
-                ->where('venda_status', 'FINALIZADA')
-                ->sum('venda_valor_pago');
-
-            $sessaoCaixa->update([
-                'sessaocaixa_saldo_final' => $sessaoCaixa->sessaocaixa_saldo_inicial + $valorTotalVendas,
-            ]);
+            $this->movimentacaoCaixa->recalcularSaldoFinal($sessaoCaixa);
 
             $this->finalizarSessoesEMesas($idSessaoMesa, $venda->id);
             $this->finalizarPedidosIndividuais($idPedido, $venda->id);

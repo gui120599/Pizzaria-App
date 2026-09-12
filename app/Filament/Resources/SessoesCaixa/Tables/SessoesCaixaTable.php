@@ -4,6 +4,8 @@ namespace App\Filament\Resources\SessoesCaixa\Tables;
 
 use App\Enums\StatusSessaoCaixa;
 use App\Filament\Resources\SessoesCaixa\Support\FinalizarSessaoCaixaAction;
+use App\Filament\Resources\SessoesCaixa\Support\RegistrarSaidaCaixaAction;
+use App\Filament\Resources\SessoesCaixa\Support\RegistrarSuprimentoCaixaAction;
 use App\Models\SessaoCaixa;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -57,6 +59,8 @@ class SessoesCaixaTable
                     ->relationship('caixa', 'caixa_nome'),
             ])
             ->recordActions([
+                RegistrarSaidaCaixaAction::make(),
+                RegistrarSuprimentoCaixaAction::make(),
                 FinalizarSessaoCaixaAction::make(),
                 Action::make('imprimir')
                     ->label('Imprimir')

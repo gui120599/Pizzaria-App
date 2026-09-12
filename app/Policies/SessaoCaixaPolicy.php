@@ -52,6 +52,17 @@ class SessaoCaixaPolicy
     }
 
     /**
+     * Registrar sangria/suprimento na sessão. Diferente de close(): qualquer
+     * operador com a permissão pode registrar, não só quem abriu a sessão —
+     * o fluxo legado (MovimentacoesSessaoCaixaController) já era
+     * role:Admin|Gerente|Caixa sem checar dono.
+     */
+    public function sangrar(AuthUser $authUser, SessaoCaixa $sessaoCaixa): bool
+    {
+        return $authUser->can('sangrar:sessao_caixa');
+    }
+
+    /**
      * Excluir uma sessão de caixa quebra a trilha de auditoria financeira —
      * fica restrito ao bypass de Admin, ninguém mais.
      */

@@ -18,6 +18,7 @@ class OpcoesPagamento extends Model
         'opcaopag_descricao',
         'opcaopag_tipo_taxa',
         'opcaopag_desc_nfe',
+        'plano_receita_id',
         'opcaopag_valor_percentual_taxa',
         'opcaopag_requer_bandeira',
         'opcaopag_requer_autorizacao',
@@ -70,6 +71,16 @@ class OpcoesPagamento extends Model
     public function pagamentosVenda()
     {
         return $this->hasMany(PagamentosVenda::class, 'pg_venda_opcaopagamento_id', 'id');
+    }
+
+    /**
+     * Conta do plano de receita que classifica o dinheiro recebido nesta opção
+     * de pagamento — usada por App\Services\ImportacaoCaixaReceberService pra
+     * decidir em qual conta cai o lançamento gerado da sessão de caixa.
+     */
+    public function planoReceita()
+    {
+        return $this->belongsTo(PlanoReceita::class, 'plano_receita_id');
     }
 
     /** Forma de pagamento que dispara o fluxo integrado de maquininha Stone no PDV. */
