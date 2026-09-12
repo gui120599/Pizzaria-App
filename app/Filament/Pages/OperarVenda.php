@@ -1859,7 +1859,7 @@ class OperarVenda extends Page
                         ->orWhere('venda_id', 'like', "%{$termo}%");
                 });
             })
-            ->with(['venda', 'cliente'])
+            ->with(['venda.pedidos', 'cliente'])
             ->withSum('pagamentos', 'valor')
             ->orderBy('vencimento')
             ->get();

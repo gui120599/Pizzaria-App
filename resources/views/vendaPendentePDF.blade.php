@@ -44,7 +44,7 @@
         @if ($pedidos_avulsos->isNotEmpty())
             <p class="text-xs font-bold uppercase mt-1">Pedidos</p>
             @foreach ($pedidos_avulsos as $pedido)
-                <p class="text-xs font-semibold mt-1">Pedido #{{ $pedido->id }}</p>
+                <p class="text-xs font-semibold mt-1">{{ $pedido->created_at?->format('d/m/Y H:i') }} — Pedido #{{ $pedido->id }}</p>
                 <table class="w-full">
                     <tbody>
                         @foreach ($pedido->item_pedido_pedido_id as $item)
