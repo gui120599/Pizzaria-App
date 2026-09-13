@@ -12,6 +12,7 @@ use App\Models\OpcoesPagamento;
 use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\Produto;
+use App\Services\ClienteResolverService;
 use App\Services\EstoqueService;
 use App\Support\TotaisPedido;
 use BackedEnum;
@@ -385,18 +386,8 @@ class AtenderPedido extends Page
 
     private function resolverCliente(): ?int
     {
-        $celular = preg_replace('/\D/', '', (string) ($this->clienteData['celular'] ?? '')) ?? '';
         $nome = trim((string) ($this->clienteData['nome'] ?? ''));
         $clienteIdSelecionado = $this->clienteData['clienteId'] ?? null;
-
-        $dadosEndereco = array_filter([
-            'cliente_endereco' => $this->clienteData['enderecoRua'] ?? null,
-            'cliente_numero_endereco' => $this->clienteData['enderecoNumero'] ?? null,
-            'cliente_bairro' => $this->clienteData['enderecoBairro'] ?? null,
-            'cliente_cidade' => $this->clienteData['enderecoCidade'] ?? null,
-            'cliente_uf_estado' => $this->clienteData['enderecoUf'] ?? null,
-            'cliente_cep' => $this->clienteData['enderecoCep'] ?? null,
-        ], fn ($v) => filled($v));
 
         // Cliente já identificado (por id, seja via busca manual ou já vinculado ao
         // pedido em edição): só atualiza o nome, nunca mexe no endereço do cadastro
@@ -416,21 +407,18 @@ class AtenderPedido extends Page
             return null;
         }
 
-        $clienteExistente = $celular !== '' ? Cliente::where('cliente_celular', 'like', "%{$celular}%")->first() : null;
+        $cliente = app(ClienteResolverService::class)->resolverOuCriar([
+            'nome' => $nome,
+            'celular' => $this->clienteData['celular'] ?? null,
+            'endereco' => $this->clienteData['enderecoRua'] ?? null,
+            'numero_endereco' => $this->clienteData['enderecoNumero'] ?? null,
+            'bairro' => $this->clienteData['enderecoBairro'] ?? null,
+            'cidade' => $this->clienteData['enderecoCidade'] ?? null,
+            'uf_estado' => $this->clienteData['enderecoUf'] ?? null,
+            'cep' => $this->clienteData['enderecoCep'] ?? null,
+        ]);
 
-        if ($clienteExistente) {
-            $clienteExistente->update(array_merge(['cliente_nome' => $nome], $dadosEndereco));
-
-            return $clienteExistente->id;
-        }
-
-        $novoCliente = Cliente::create(array_merge([
-            'cliente_nome' => $nome,
-            'cliente_celular' => $celular !== '' ? $celular : null,
-            'cliente_tipo' => 'Física',
-        ], $dadosEndereco));
-
-        return $novoCliente->id;
+        return $cliente->id;
     }
 
     private function montarEnderecoSnapshot(): ?string

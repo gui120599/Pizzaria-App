@@ -14,14 +14,19 @@ use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoMesa;
+use App\Services\ClienteResolverService;
 use App\Services\PromocaoRelampagoService;
 use Carbon\Carbon;
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class PedidoController extends Controller
 {
+    public function __construct(private readonly ClienteResolverService $clienteResolver) {}
+
     /**
      * Display a listing of the resource.
      */
@@ -82,7 +87,7 @@ class PedidoController extends Controller
     /**
      * Lista todos os pedidos
      *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
+     * @return Factory|View
      */
     public function list(Request $request)
     {
@@ -292,30 +297,15 @@ class PedidoController extends Controller
         }
 
         $nome = trim($request->input('cliente_nome_novo', ''));
-        $telefone = preg_replace('/\D/', '', $request->input('cliente_celular_novo', ''));
-        $endereco = trim($request->input('pedido_endereco_entrega', ''));
-
         if (! $nome) {
             return null;
         }
 
-        $cliente = $telefone
-            ? Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first()
-            : null;
-
-        if ($cliente) {
-            $cliente->update(['cliente_nome' => $nome]);
-            if ($endereco !== '') {
-                $cliente->update(['cliente_endereco' => $endereco]);
-            }
-        } else {
-            $cliente = Cliente::create([
-                'cliente_nome' => $nome,
-                'cliente_celular' => $telefone ?: null,
-                'cliente_endereco' => $endereco !== '' ? $endereco : null,
-                'cliente_tipo' => 'Física',
-            ]);
-        }
+        $cliente = $this->clienteResolver->resolverOuCriar([
+            'nome' => $nome,
+            'celular' => $request->input('cliente_celular_novo'),
+            'endereco' => $request->input('pedido_endereco_entrega'),
+        ]);
 
         return $cliente->id;
     }
