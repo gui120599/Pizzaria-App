@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Clientes;
 use App\Filament\Resources\Clientes\Pages\CreateCliente;
 use App\Filament\Resources\Clientes\Pages\EditCliente;
 use App\Filament\Resources\Clientes\Pages\ListClientes;
+use App\Filament\Resources\Clientes\RelationManagers\PedidosRelationManager;
 use App\Filament\Resources\Clientes\RelationManagers\VendasRelationManager;
 use App\Filament\Resources\Clientes\Schemas\ClienteForm;
 use App\Filament\Resources\Clientes\Tables\ClientesTable;
@@ -46,6 +47,7 @@ class ClienteResource extends Resource
     {
         return [
             VendasRelationManager::class,
+            PedidosRelationManager::class,
         ];
     }
 

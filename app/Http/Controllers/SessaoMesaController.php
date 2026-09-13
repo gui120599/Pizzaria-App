@@ -12,6 +12,7 @@ use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\SessaoMesaCliente;
+use App\Services\ClienteResolverService;
 use App\Services\PromocaoRelampagoService;
 use App\Services\SessaoMesaService;
 use Carbon\Carbon;
@@ -21,7 +22,10 @@ use Illuminate\Support\Facades\DB;
 
 class SessaoMesaController extends Controller
 {
-    public function __construct(private readonly SessaoMesaService $sessaoMesaService) {}
+    public function __construct(
+        private readonly SessaoMesaService $sessaoMesaService,
+        private readonly ClienteResolverService $clienteResolver,
+    ) {}
 
     /**
      * Display a listing of the resource.
@@ -131,17 +135,10 @@ class SessaoMesaController extends Controller
                     ]);
                 }
             } elseif (! empty($clientesNomes[$i])) {
-                $telefone = preg_replace('/\D/', '', $clientesTels[$i] ?? '');
-                $cliente = $telefone
-                    ? Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first()
-                    : null;
-                if (! $cliente) {
-                    $cliente = Cliente::create([
-                        'cliente_nome' => $clientesNomes[$i],
-                        'cliente_celular' => $telefone ?: null,
-                        'cliente_tipo' => 'Física',
-                    ]);
-                }
+                $cliente = $this->clienteResolver->resolverOuCriar([
+                    'nome' => $clientesNomes[$i],
+                    'celular' => $clientesTels[$i] ?? null,
+                ]);
                 if (! in_array($cliente->id, $existentes)) {
                     SessaoMesaCliente::create([
                         'smc_sessao_mesa_id' => $sessaoMesa->id,
@@ -305,22 +302,14 @@ class SessaoMesaController extends Controller
             return (int) $clienteId;
         }
         $nome = trim($request->input('cliente_nome_novo', ''));
-        $telefone = preg_replace('/\D/', '', $request->input('cliente_celular_novo', ''));
         if (! $nome) {
             return null;
         }
-        $cliente = $telefone
-            ? Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first()
-            : null;
-        if ($cliente) {
-            $cliente->update(['cliente_nome' => $nome]);
-        } else {
-            $cliente = Cliente::create([
-                'cliente_nome' => $nome,
-                'cliente_celular' => $telefone ?: null,
-                'cliente_tipo' => 'Física',
-            ]);
-        }
+
+        $cliente = $this->clienteResolver->resolverOuCriar([
+            'nome' => $nome,
+            'celular' => $request->input('cliente_celular_novo'),
+        ]);
 
         return $cliente->id;
     }
@@ -350,17 +339,10 @@ class SessaoMesaController extends Controller
                     'smc_cliente_id' => $clienteId,
                 ]);
             } elseif (! empty($clientesNomes[$i])) {
-                $telefone = preg_replace('/\D/', '', $clientesTels[$i] ?? '');
-                $cliente = $telefone
-                    ? Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first()
-                    : null;
-                if (! $cliente) {
-                    $cliente = Cliente::create([
-                        'cliente_nome' => $clientesNomes[$i],
-                        'cliente_celular' => $telefone ?: null,
-                        'cliente_tipo' => 'Física',
-                    ]);
-                }
+                $cliente = $this->clienteResolver->resolverOuCriar([
+                    'nome' => $clientesNomes[$i],
+                    'celular' => $clientesTels[$i] ?? null,
+                ]);
                 SessaoMesaCliente::create([
                     'smc_sessao_mesa_id' => $sessaoMesa->id,
                     'smc_cliente_id' => $cliente->id,

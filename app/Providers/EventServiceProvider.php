@@ -2,6 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\Cliente;
+use App\Models\ItensVenda;
+use App\Models\Pedido;
+use App\Models\Venda;
+use App\Observers\ClienteObserver;
+use App\Observers\ItensVendaObserver;
+use App\Observers\PedidoObserver;
+use App\Observers\VendaObserver;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -40,8 +48,9 @@ class EventServiceProvider extends ServiceProvider
      * Observadores de inserção ou alteração de objetos
      */
     protected $observers = [
-        \App\Models\Pedido::class => [\App\Observers\PedidoObserver::class],
-        \App\Models\Venda::class => [\App\Observers\VendaObserver::class],
-        \App\Models\ItensVenda::class => [\App\Observers\ItensVendaObserver::class],
+        Pedido::class => [PedidoObserver::class],
+        Venda::class => [VendaObserver::class],
+        ItensVenda::class => [ItensVendaObserver::class],
+        Cliente::class => [ClienteObserver::class],
     ];
 }

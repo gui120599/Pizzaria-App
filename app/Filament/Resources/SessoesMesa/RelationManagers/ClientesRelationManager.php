@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\SessoesMesa\RelationManagers;
 
-use App\Models\Cliente;
+use App\Services\ClienteResolverService;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
@@ -44,11 +44,11 @@ class ClientesRelationManager extends RelationManager
                         ->label('Celular')
                         ->tel(),
                 ])
-                ->createOptionUsing(fn (array $data): int => Cliente::create([
-                    'cliente_nome' => $data['cliente_nome'],
-                    'cliente_celular' => $data['cliente_celular'] ?: null,
-                    'cliente_tipo' => 'Física',
-                ])->id)
+                ->createOptionUsing(fn (array $data): int => app(ClienteResolverService::class)
+                    ->resolverOuCriar([
+                        'nome' => $data['cliente_nome'],
+                        'celular' => $data['cliente_celular'] ?? null,
+                    ])->id)
                 ->required(),
         ]);
     }

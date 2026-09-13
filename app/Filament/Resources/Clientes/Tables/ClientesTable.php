@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Clientes\Tables;
 
+use App\Filament\Resources\Clientes\Tables\Actions\UnificarClientesBulkAction;
 use App\Models\Cliente;
 use Filament\Actions\Action as ActionsAction;
 use Filament\Actions\BulkActionGroup;
@@ -275,6 +276,7 @@ class ClientesTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    UnificarClientesBulkAction::make(),
                     DeleteBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),

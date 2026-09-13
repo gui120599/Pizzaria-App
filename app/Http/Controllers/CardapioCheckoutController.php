@@ -10,6 +10,7 @@ use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
 use App\Models\Produto;
+use App\Services\ClienteResolverService;
 use App\Services\EstoqueService;
 use App\Services\PrecificadorService;
 use App\Services\PromocaoRelampagoService;
@@ -77,6 +78,7 @@ class CardapioCheckoutController extends Controller
         Request $request,
         PrecificadorService $precificador,
         PromocaoRelampagoService $promocoes,
+        ClienteResolverService $clienteResolver,
     ) {
         if (! HorarioFuncionamento::estaAberto()) {
             $proximo = HorarioFuncionamento::proximoHorario();
@@ -118,22 +120,11 @@ class CardapioCheckoutController extends Controller
         }
 
         // Busca ou cria o cliente
-        $telefone = preg_replace('/\D/', '', $request->telefone);
-        $cliente = Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first();
-
-        if ($cliente) {
-            $cliente->update(['cliente_nome' => $request->nome]);
-            if ($request->filled('endereco')) {
-                $cliente->update(['cliente_endereco' => $request->endereco]);
-            }
-        } else {
-            $cliente = Cliente::create([
-                'cliente_nome' => $request->nome,
-                'cliente_celular' => $telefone,
-                'cliente_endereco' => $request->endereco ?? null,
-                'cliente_tipo' => 'Física',
-            ]);
-        }
+        $cliente = $clienteResolver->resolverOuCriar([
+            'nome' => $request->nome,
+            'celular' => $request->telefone,
+            'endereco' => $request->endereco,
+        ]);
 
         // Monta descrição do pagamento
         $descricaoPagamento = $request->pagamento_nome;
