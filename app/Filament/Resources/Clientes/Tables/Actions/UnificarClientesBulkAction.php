@@ -25,7 +25,6 @@ class UnificarClientesBulkAction
             ->icon('heroicon-o-arrows-pointing-in')
             ->color('warning')
             ->visible(fn (): bool => auth()->user()?->hasRole('Admin') ?? false)
-            ->disabled(fn (Collection $records): bool => $records->count() < 2)
             ->modalHeading('Unificar clientes duplicados')
             ->modalDescription(
                 'Escolha qual cadastro deve permanecer. Os demais terão pedidos, '.
