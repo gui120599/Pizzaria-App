@@ -28,6 +28,25 @@ class PDFController extends Controller
         return view('pedidoPDF', ['itens_inserido_pedido' => $itensInseridoPedido, 'pedido' => $pedido]);
     }
 
+    /**
+     * Comprovante de uma Venda finalizada (recibo simples, no mesmo estilo de
+     * pedidoPDF) — diferente de vendaPendentePDF, que é o comprovante de
+     * débito em aberto (fiado) indexado por Lancamento, não por Venda.
+     */
+    public function vendaPDF(Request $request)
+    {
+        $venda = Venda::with([
+            'cliente',
+            'sessaoCaixa.user',
+            'itensVenda' => fn ($query) => $query->where('item_venda_status', 'INSERIDO'),
+            'itensVenda.produto.categoria',
+            'itensVenda.adicionaisItemVenda.adicional',
+            'pagamentos.opcaoPagamento',
+        ])->findOrFail($request->id);
+
+        return view('vendaPDF', ['venda' => $venda]);
+    }
+
     public function sessaoMesaPDF(Request $request)
     {
         $sessaoMesaId = $request->id;

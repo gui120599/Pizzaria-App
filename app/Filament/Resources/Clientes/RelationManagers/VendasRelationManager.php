@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Clientes\RelationManagers;
 
+use App\Models\Venda;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -86,6 +88,20 @@ class VendasRelationManager extends RelationManager
                     ->query(fn (Builder $query, array $data): Builder => $query
                         ->when($data['inicio'] ?? null, fn (Builder $q, $d) => $q->whereDate('venda_datahora_finalizada', '>=', $d))
                         ->when($data['fim'] ?? null, fn (Builder $q, $d) => $q->whereDate('venda_datahora_finalizada', '<=', $d))),
+            ])
+            ->recordActions([
+                Action::make('imprimir')
+                    ->label('Imprimir')
+                    ->icon('heroicon-o-printer')
+                    ->url(fn (Venda $record): string => route('venda.imprimir', ['id' => $record->id]))
+                    ->openUrlInNewTab(),
+
+                Action::make('imprimirDanfe')
+                    ->label('DANFE')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn (Venda $record): string => route('venda.imprimir_NFE', ['id_nfe' => $record->venda_id_nfe]))
+                    ->openUrlInNewTab()
+                    ->visible(fn (Venda $record): bool => filled($record->venda_id_nfe)),
             ]);
     }
 }

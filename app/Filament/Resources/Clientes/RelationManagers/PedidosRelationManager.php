@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\Clientes\RelationManagers;
 
 use App\Enums\PedidoOrigemEnum;
+use App\Models\Pedido;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -90,6 +92,13 @@ class PedidosRelationManager extends RelationManager
                     ->query(fn (Builder $query, array $data): Builder => $query
                         ->when($data['inicio'] ?? null, fn (Builder $q, $d) => $q->whereDate('pedido_datahora_abertura', '>=', $d))
                         ->when($data['fim'] ?? null, fn (Builder $q, $d) => $q->whereDate('pedido_datahora_abertura', '<=', $d))),
+            ])
+            ->recordActions([
+                Action::make('imprimir')
+                    ->label('Imprimir')
+                    ->icon('heroicon-o-printer')
+                    ->url(fn (Pedido $record): string => route('pedido.imprimir', ['id' => $record->id]))
+                    ->openUrlInNewTab(),
             ]);
     }
 }
