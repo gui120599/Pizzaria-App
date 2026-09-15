@@ -334,6 +334,35 @@ class PromocaoAdicionalTest extends TestCase
         $this->assertSame(57.45, round(array_sum(array_column($rateio, 'valor')), 2));
     }
 
+    public function test_fracionado_desligado_produto_gatilho_continua_disponivel_como_sabor_no_preco_normal(): void
+    {
+        // Categoria permite sabores; a promoção adicional não marca fracionado.
+        // O produto continua selecionável como meia a meia/três sabores — só a
+        // FRAÇÃO não recebe o override, volta ao preço normal cadastrado.
+        $this->categoria->update(['categoria_permite_sabores' => true, 'categoria_max_sabores' => 2]);
+        $promocao = $this->promocao(['promoad_aplica_fracionado' => false]);
+        $this->regraComOferta($promocao, ['par_preco_gatilho_override' => 39.90]);
+
+        $pizza = $this->pizza->fresh('categoria');
+
+        $this->assertTrue($pizza->permiteSaboresCardapio());
+        $this->assertTrue($pizza->promoAdicionalSoInteiraCardapio());
+        $this->assertSame(39.90, $pizza->precoResolvido()->precoFinal());
+        $this->assertSame(59.90, $pizza->precoFracaoCardapio());
+    }
+
+    public function test_fracionado_ligado_produto_gatilho_usa_override_tambem_na_fracao(): void
+    {
+        $this->categoria->update(['categoria_permite_sabores' => true, 'categoria_max_sabores' => 2]);
+        $promocao = $this->promocao(['promoad_aplica_fracionado' => true]);
+        $this->regraComOferta($promocao, ['par_preco_gatilho_override' => 39.90]);
+
+        $pizza = $this->pizza->fresh('categoria');
+
+        $this->assertFalse($pizza->promoAdicionalSoInteiraCardapio());
+        $this->assertSame(39.90, $pizza->precoFracaoCardapio());
+    }
+
     // ── Consumo / estorno ─────────────────────────────────────────────────────
 
     public function test_aceite_grava_as_duas_linhas_com_vinculo_correto_e_consome_saldo(): void
