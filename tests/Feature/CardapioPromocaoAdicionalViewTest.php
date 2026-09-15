@@ -155,6 +155,29 @@ class CardapioPromocaoAdicionalViewTest extends TestCase
         $this->assertSame('Dia do Cliente', $campanhas->first()['nome']);
     }
 
+    public function test_secao_informativa_lista_os_produtos_gatilho_com_suas_ofertas(): void
+    {
+        $this->regra();
+
+        $response = $this->get(route('cardapio'))->assertOk();
+        $produtos = $response->viewData('campanhasAdicionaisAtivas')->first()['produtos'];
+
+        $this->assertCount(1, $produtos);
+        $this->assertSame($this->pizza->id, $produtos->first()['produto']->id);
+        $this->assertCount(1, $produtos->first()['ofertas']);
+        $this->assertSame('Pizzas: Pizza Brotinho', $produtos->first()['ofertas']->first()['nomeExibicao']);
+    }
+
+    public function test_secao_informativa_nao_lista_gatilho_sem_produto_visivel_no_cardapio(): void
+    {
+        $this->regra();
+        $this->pizza->update(['produto_cardapio' => false]);
+
+        $response = $this->get(route('cardapio'))->assertOk();
+
+        $this->assertTrue($response->viewData('campanhasAdicionaisAtivas')->isEmpty());
+    }
+
     public function test_opcoes_pagamento_permitidas_aparecem_no_payload(): void
     {
         $promocao = $this->regra();

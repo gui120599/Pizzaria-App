@@ -8,7 +8,6 @@ use App\Models\HorarioFuncionamento;
 use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\Produto;
-use App\Models\PromocaoAdicional;
 use App\Models\PromocaoAdicionalRegra;
 use App\Models\PromocaoRelampago;
 use Illuminate\Support\Facades\Storage;
@@ -88,11 +87,13 @@ class CardapioController extends Controller
         // do gatilho já vem resolvido (respeita o override, se houver) — o
         // checkout ainda revalida tudo no servidor, isto é só para exibição.
         // Uma regra pode ter N ofertas (o cliente escolhe 1 no modal).
-        $promocoesAdicionais = PromocaoAdicionalRegra::query()
+        $regrasAdicionaisAtivas = PromocaoAdicionalRegra::query()
             ->whereHas('promocao', fn ($q) => $q->where('promoad_ativa', true))
-            ->with(['promocao.opcoesPagamento', 'ofertas.produtoOferta.categoria'])
+            ->with(['promocao.opcoesPagamento', 'ofertas.produtoOferta.categoria', 'produtoGatilho.categoria'])
             ->get()
-            ->filter(fn (PromocaoAdicionalRegra $regra) => $regra->promocao->vigente())
+            ->filter(fn (PromocaoAdicionalRegra $regra) => $regra->promocao->vigente());
+
+        $promocoesAdicionais = $regrasAdicionaisAtivas
             ->mapWithKeys(fn (PromocaoAdicionalRegra $regra) => [
                 $regra->par_produto_gatilho_id => [
                     'regraId' => $regra->id,
@@ -112,18 +113,28 @@ class CardapioController extends Controller
             ])
             ->filter(fn (array $regra) => $regra['ofertas']->isNotEmpty());
 
-        // Campanhas com ao menos 1 oferta disponível agora — só pra seção
-        // informativa (nome + descrição) no topo do cardápio.
-        $campanhasAdicionaisAtivas = PromocaoAdicional::query()
-            ->where('promoad_ativa', true)
-            ->with('regras')
-            ->get()
-            ->filter(fn (PromocaoAdicional $c) => $c->vigente())
-            ->filter(fn (PromocaoAdicional $c) => $c->regras->pluck('id')->intersect($promocoesAdicionais->pluck('regraId'))->isNotEmpty())
-            ->map(fn (PromocaoAdicional $c) => [
-                'nome' => $c->promoad_nome,
-                'descricao' => $c->promoad_descricao,
-            ])
+        // Campanhas com ao menos 1 oferta disponível agora — seção informativa
+        // (nome + descrição) com os produtos-gatilho que disparam a promoção,
+        // nos mesmos moldes da seção de Relâmpago.
+        $campanhasAdicionaisAtivas = $regrasAdicionaisAtivas
+            ->filter(fn (PromocaoAdicionalRegra $regra) => $promocoesAdicionais->has($regra->par_produto_gatilho_id)
+                && $regra->produtoGatilho?->visivelNoCardapio())
+            ->groupBy('par_promocao_id')
+            ->map(function ($regras) use ($promocoesAdicionais) {
+                $promocao = $regras->first()->promocao;
+
+                return [
+                    'nome' => $promocao->promoad_nome,
+                    'descricao' => $promocao->promoad_descricao,
+                    'produtos' => $regras
+                        ->map(fn (PromocaoAdicionalRegra $regra) => [
+                            'produto' => $regra->produtoGatilho,
+                            'ofertas' => $promocoesAdicionais[$regra->par_produto_gatilho_id]['ofertas'],
+                        ])
+                        ->unique(fn (array $item) => $item['produto']->id)
+                        ->values(),
+                ];
+            })
             ->values();
 
         // A janela de datas do produto passa a valer: promoção vencida sai do ar
