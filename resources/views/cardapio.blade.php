@@ -99,19 +99,24 @@
 
             {{-- Seção informativa da promoção adicional ("leve outro produto por +R$X") --}}
             @if ($campanhasAdicionaisAtivas->isNotEmpty())
-                <div class="mb-6" id="secao_promocao_adicional">
-                    @foreach ($campanhasAdicionaisAtivas as $campanha)
-                        <div class="rounded-xl bg-gradient-to-r from-pink-600 to-fuchsia-500 px-3 py-2.5 flex items-center gap-2 {{ ! $loop->last ? 'mb-2' : '' }}">
+                @foreach ($campanhasAdicionaisAtivas as $campanha)
+                    <div class="mb-6" id="{{ $loop->first ? 'secao_promocao_adicional' : 'secao_promocao_adicional_' . $loop->index }}">
+                        <div class="rounded-t-xl bg-gradient-to-r from-pink-600 to-fuchsia-500 px-3 py-2 flex items-center gap-2">
                             <i class='bx bxs-gift text-white text-2xl shrink-0'></i>
                             <div class="min-w-0">
-                                <h2 class="text-white font-extrabold uppercase text-sm leading-tight truncate">{{ $campanha['nome'] }}</h2>
+                                <h2 class="text-white font-extrabold uppercase text-base leading-tight truncate">{{ $campanha['nome'] }}</h2>
                                 @if ($campanha['descricao'])
-                                    <p class="text-white/85 text-[11px] leading-tight">{{ $campanha['descricao'] }}</p>
+                                    <p class="text-white/85 text-[11px] leading-tight truncate">{{ $campanha['descricao'] }}</p>
                                 @endif
                             </div>
                         </div>
-                    @endforeach
-                </div>
+                        <div class="border border-t-0 border-pink-500/40 rounded-b-xl bg-pink-500/5 p-2 grid grid-cols-1 gap-3">
+                            @foreach ($campanha['produtos'] as $item)
+                                <x-cardapio.promo-adicional-card :produto="$item['produto']" :ofertas="$item['ofertas']" />
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
             @endif
 
             {{-- Seção de Promoções Relâmpago (destaque, com contador de escassez) --}}
