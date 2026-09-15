@@ -13,6 +13,7 @@ use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\SessaoMesaCliente;
 use App\Services\ClienteResolverService;
+use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use App\Services\SessaoMesaService;
 use Carbon\Carbon;
@@ -414,11 +415,32 @@ class SessaoMesaController extends Controller
         $pedidoValorItens = $pedidoValorItens - $itemPedidoValor;
         $pedidoValorTotal = $pedidoValorTotal - $itemPedidoValor;
 
-        DB::transaction(function () use ($pedido, $pedidoValorItens, $pedidoValorTotal, $itemPedido) {
+        DB::transaction(function () use ($pedido, &$pedidoValorItens, &$pedidoValorTotal, $itemPedido) {
             // Devolve ao saldo a promoção relâmpago consumida por este item,
             // se houver, antes de marcá-lo como removido.
             if ($itemPedido->item_pedido_promocao_id) {
                 app(PromocaoRelampagoService::class)->estornarItem($itemPedido);
+            }
+
+            // Item-gatilho com oferta(s) de promoção adicional vinculada(s):
+            // estorna o saldo, marca a(s) linha(s) da oferta como removida(s) e
+            // desconta o valor delas também do total do pedido.
+            if (! $itemPedido->item_pedido_origem_id) {
+                $idsOferta = app(PromocaoAdicionalService::class)->estornarItensDoGatilho($itemPedido);
+
+                if ($idsOferta !== []) {
+                    $valorOfertas = (float) ItensPedido::whereIn('id', $idsOferta)->sum('item_pedido_valor');
+                    $pedidoValorItens -= $valorOfertas;
+                    $pedidoValorTotal -= $valorOfertas;
+
+                    ItensPedido::whereIn('id', $idsOferta)->update([
+                        'item_pedido_status' => 'REMOVIDO',
+                        'item_pedido_usuario_removeu' => Auth::user()->id,
+                    ]);
+                }
+            } elseif ($itemPedido->item_pedido_promocao_adicional_regra_id) {
+                // O próprio item sendo removido é a linha de oferta.
+                app(PromocaoAdicionalService::class)->estornarItemOferta($itemPedido);
             }
 
             // Atualizar o valor total dos itens e o valor total do pedido

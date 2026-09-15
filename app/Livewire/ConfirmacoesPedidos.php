@@ -7,6 +7,7 @@ use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
+use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use App\Support\TotaisPedido;
 use Illuminate\Support\Facades\DB;
@@ -55,9 +56,10 @@ class ConfirmacoesPedidos extends Component
         }
 
         DB::transaction(function () use ($pedido) {
-            // Devolve ao saldo qualquer promoção relâmpago consumida pelos
-            // itens deste pedido (checkout público) antes de cancelá-lo.
+            // Devolve ao saldo qualquer promoção relâmpago/adicional consumida
+            // pelos itens deste pedido (checkout público) antes de cancelá-lo.
             app(PromocaoRelampagoService::class)->estornarPedido($pedido);
+            app(PromocaoAdicionalService::class)->estornarPedido($pedido);
 
             $pedido->update([
                 'pedido_status' => 'CANCELADO',

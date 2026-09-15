@@ -10,9 +10,12 @@ use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
 use App\Models\Produto;
+use App\Models\PromocaoAdicionalOferta;
+use App\Models\PromocaoAdicionalRegra;
 use App\Services\ClienteResolverService;
 use App\Services\EstoqueService;
 use App\Services\PrecificadorService;
+use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,6 +81,7 @@ class CardapioCheckoutController extends Controller
         Request $request,
         PrecificadorService $precificador,
         PromocaoRelampagoService $promocoes,
+        PromocaoAdicionalService $promocoesAdicionais,
         ClienteResolverService $clienteResolver,
     ) {
         if (! HorarioFuncionamento::estaAberto()) {
@@ -97,6 +101,7 @@ class CardapioCheckoutController extends Controller
             'telefone' => 'required|string|min:8',
             'opcao_entrega_id' => 'required|integer|exists:opcoes_entregas,id',
             'pagamento_nome' => 'required|string|max:100',
+            'opcao_pagamento_id' => 'nullable|integer|exists:opcoes_pagamentos,id',
             'troco_para' => 'nullable|numeric|min:0',
             'itens' => 'required|array|min:1',
             'itens.*.id' => 'required|integer|exists:produtos,id',
@@ -104,7 +109,15 @@ class CardapioCheckoutController extends Controller
             'itens.*.observacao' => 'nullable|string|max:500',
             'itens.*.sabores' => 'nullable|array|min:2|max:3',
             'itens.*.sabores.*.id' => 'required|integer|exists:produtos,id',
+            // Só sinaliza QUAL produto o cliente escolheu entre as opções de
+            // oferta do gatilho — o servidor decide se essa oferta existe, está
+            // vigente, tem saldo e é permitida pela forma de pagamento (ver
+            // PrecificadorService::regraAdicionalDoProduto()); nunca aceita
+            // valor ou id de regra/oferta vindo do cliente.
+            'itens.*.oferta_produto_id' => 'nullable|integer|exists:produtos,id',
         ]);
+
+        $opcaoPagamentoId = $request->integer('opcao_pagamento_id') ?: null;
 
         // Valida reCAPTCHA apenas se as chaves estiverem configuradas
         $secret = config('services.recaptcha.secret');
@@ -163,10 +176,11 @@ class CardapioCheckoutController extends Controller
                     ->map(fn (array $sabor) => $produtos->get($sabor['id']))
                     ->all();
 
-                foreach ($precificador->ratearCombo($saboresProdutos, $qty) as $rateio) {
+                foreach ($precificador->ratearCombo($saboresProdutos, $qty, $opcaoPagamentoId) as $rateio) {
                     $linhas[] = [
                         'item_pedido_produto_id' => $rateio['produto_id'],
                         'item_pedido_promocao_id' => $rateio['promocao_id'],
+                        'item_pedido_promocao_adicional_regra_id' => $rateio['promocao_adicional_regra_id'],
                         'item_pedido_quantidade' => $rateio['quantidade'],
                         'item_pedido_valor_unitario' => $rateio['valor_unitario'],
                         'item_pedido_valor' => $rateio['valor'],
@@ -181,12 +195,31 @@ class CardapioCheckoutController extends Controller
                 continue;
             }
 
-            $preco = $precificador->resolver($produtos->get($item['id']));
+            $preco = $precificador->resolver($produtos->get($item['id']), opcaoPagamentoId: $opcaoPagamentoId);
             $linha = ItensPedido::calcularLinha($qty, $preco->valorUnitario, $preco->descontoUnitario);
+
+            // Oferta da promoção adicional: só existe se o cliente escolheu um
+            // produto E o servidor confirma, agora, que ele é uma das opções
+            // vigentes com saldo (e forma de pagamento permitida) para ESTE
+            // gatilho — nunca confia em id/valor vindo do request. Fora de
+            // escopo para combo de sabores (branch acima).
+            $regraGatilho = null;
+            $ofertaEscolhida = null;
+
+            if (! empty($item['oferta_produto_id'])) {
+                $regraGatilho = $precificador->regraAdicionalDoProduto((int) $item['id'], $opcaoPagamentoId);
+                $ofertaEscolhida = $regraGatilho?->ofertasDisponiveis()
+                    ->first(fn (PromocaoAdicionalOferta $o) => (int) $o->pao_produto_oferta_id === (int) $item['oferta_produto_id']);
+
+                if (! $ofertaEscolhida) {
+                    $regraGatilho = null;
+                }
+            }
 
             $linhas[] = [
                 'item_pedido_produto_id' => $item['id'],
                 'item_pedido_promocao_id' => $preco->promocaoId,
+                'item_pedido_promocao_adicional_regra_id' => $preco->promocaoAdicionalRegraId,
                 'item_pedido_quantidade' => $qty,
                 'item_pedido_valor_unitario' => $linha['valor_unitario'],
                 'item_pedido_valor' => $linha['valor'],
@@ -195,6 +228,8 @@ class CardapioCheckoutController extends Controller
                 'item_pedido_valor_adicionais' => 0,
                 'item_pedido_observacao' => $observacao,
                 'item_pedido_status' => 'INSERIDO',
+                '_oferta_regra' => $regraGatilho,
+                '_oferta_escolhida' => $ofertaEscolhida,
             ];
         }
 
@@ -233,9 +268,26 @@ class CardapioCheckoutController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        // Totais derivados das próprias linhas (total == soma exata dos itens)
+        // Limite por pedido da promoção adicional: soma quantas vezes cada
+        // regra (gatilho) foi pedida no carrinho, antes de gravar qualquer
+        // coisa — não importa qual das N ofertas foi escolhida em cada linha.
+        $regrasAdicionaisSolicitadas = collect($linhas)->pluck('_oferta_regra')->filter();
+        $ofertasAdicionaisSolicitadas = collect($linhas)->pluck('_oferta_escolhida')->filter();
+
+        try {
+            foreach ($regrasAdicionaisSolicitadas->groupBy('id') as $doGrupo) {
+                $promocoesAdicionais->validarLimitePorPedido($doGrupo->first(), $doGrupo->count());
+            }
+        } catch (PromocaoIndisponivelException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        // Totais derivados das próprias linhas (total == soma exata dos itens),
+        // incluindo o valor das ofertas aceitas (sem desconto — é acréscimo).
         $somaLiquido = round(array_sum(array_column($linhas, 'item_pedido_valor')), 2);
         $totalDesconto = round(array_sum(array_column($linhas, 'item_pedido_desconto')), 2);
+        $valorOfertasAdicionais = round((float) $ofertasAdicionaisSolicitadas->sum('pao_valor_adicional'), 2);
+        $somaLiquido = round($somaLiquido + $valorOfertasAdicionais, 2);
         $totalBruto = round($somaLiquido + $totalDesconto, 2);
 
         // Calcula taxa de entrega
@@ -251,7 +303,7 @@ class CardapioCheckoutController extends Controller
         // última pizza da promoção acabar aqui, nada é gravado.
         try {
             $pedido = DB::transaction(function () use (
-                $linhas, $promocoes, $request, $cliente, $descricaoPagamento,
+                $linhas, $promocoes, $promocoesAdicionais, $request, $cliente, $descricaoPagamento,
                 $observacaoPagamento, $totalBruto, $totalDesconto, $valorFrete, $somaLiquido
             ) {
                 $pedido = Pedido::create([
@@ -270,8 +322,33 @@ class CardapioCheckoutController extends Controller
                 ]);
 
                 foreach ($linhas as $linha) {
+                    /** @var ?PromocaoAdicionalRegra $ofertaRegra */
+                    $ofertaRegra = $linha['_oferta_regra'] ?? null;
+                    /** @var ?PromocaoAdicionalOferta $ofertaEscolhida */
+                    $ofertaEscolhida = $linha['_oferta_escolhida'] ?? null;
+                    unset($linha['_oferta_regra'], $linha['_oferta_escolhida']);
+
                     $linha['item_pedido_pedido_id'] = $pedido->id;
-                    $promocoes->consumir(ItensPedido::create($linha));
+                    $itemModel = ItensPedido::create($linha);
+                    $promocoes->consumir($itemModel);
+
+                    if ($ofertaRegra && $ofertaEscolhida) {
+                        $itemOferta = ItensPedido::create([
+                            'item_pedido_pedido_id' => $pedido->id,
+                            'item_pedido_produto_id' => $ofertaEscolhida->pao_produto_oferta_id,
+                            'item_pedido_promocao_adicional_regra_id' => $ofertaRegra->id,
+                            'item_pedido_promocao_adicional_oferta_id' => $ofertaEscolhida->id,
+                            'item_pedido_origem_id' => $itemModel->id,
+                            'item_pedido_quantidade' => 1,
+                            'item_pedido_valor_unitario' => $ofertaEscolhida->pao_valor_adicional,
+                            'item_pedido_valor' => $ofertaEscolhida->pao_valor_adicional,
+                            'item_pedido_desconto' => 0,
+                            'item_pedido_valor_adicionais' => 0,
+                            'item_pedido_status' => 'INSERIDO',
+                        ]);
+
+                        $promocoesAdicionais->consumir($itemOferta);
+                    }
                 }
 
                 return $pedido;

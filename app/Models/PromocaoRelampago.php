@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\PromocaoStatusEnum;
+use App\Concerns\TemVigenciaRecorrente;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,6 +15,7 @@ class PromocaoRelampago extends Model
 {
     use HasFactory;
     use SoftDeletes;
+    use TemVigenciaRecorrente;
 
     protected $table = 'promocoes_relampago';
 
@@ -128,146 +129,56 @@ class PromocaoRelampago extends Model
         return $saldo !== null && $saldo <= 0;
     }
 
-    public function vigente(?CarbonInterface $momento = null): bool
+    // ── Implementação dos acessores de TemVigenciaRecorrente ────────────────
+
+    protected function vigAtiva(): bool
     {
-        $momento ??= now();
-
-        if (! $this->promocao_ativa) {
-            return false;
-        }
-
-        if ($this->promocao_recorrente) {
-            return $this->vigenteRecorrente($momento);
-        }
-
-        return $this->promocao_inicio <= $momento && $this->promocao_fim >= $momento;
+        return (bool) $this->promocao_ativa;
     }
 
-    public function status(?CarbonInterface $momento = null): PromocaoStatusEnum
+    protected function vigRecorrente(): bool
     {
-        $momento ??= now();
-
-        if (! $this->promocao_ativa) {
-            return PromocaoStatusEnum::Inativa;
-        }
-
-        if ($this->promocao_recorrente) {
-            return $this->statusRecorrente($momento);
-        }
-
-        return match (true) {
-            $this->promocao_fim < $momento => PromocaoStatusEnum::Encerrada,
-            $this->promocao_inicio > $momento => PromocaoStatusEnum::Agendada,
-            $this->esgotada() => PromocaoStatusEnum::Esgotada,
-            default => PromocaoStatusEnum::Ativa,
-        };
+        return (bool) $this->promocao_recorrente;
     }
 
-    /**
-     * Ocorrência atual: dentro do intervalo de datas da recorrência, no dia da
-     * semana certo e (se houver janela) dentro do horário. Sem hora_inicio/fim
-     * configurados, vale o dia inteiro nos dias marcados.
-     *
-     * Janela que atravessa a meia-noite (ex.: 22:00–02:00) tem um cuidado: às
-     * 01:30 de quarta a ocorrência ainda é a de TERÇA (que começou ontem) — o
-     * dia da semana é checado contra ontem, não contra hoje, nesse trecho.
-     */
-    private function vigenteRecorrente(CarbonInterface $momento): bool
+    protected function vigInicio(): ?CarbonInterface
     {
-        if (! $this->dentroDoIntervaloDeDatas($momento)) {
-            return false;
-        }
-
-        if (! $this->promocao_hora_inicio || ! $this->promocao_hora_fim) {
-            return $this->diaDaSemanaBate($momento);
-        }
-
-        $hora = $momento->format('H:i:s');
-        $inicio = $this->promocao_hora_inicio->format('H:i:s');
-        $fim = $this->promocao_hora_fim->format('H:i:s');
-
-        if ($inicio <= $fim) {
-            return $this->diaDaSemanaBate($momento) && $hora >= $inicio && $hora <= $fim;
-        }
-
-        // Atravessa meia-noite: madrugada (hora <= fim) é ocorrência de ontem;
-        // noite (hora >= início) é a ocorrência de hoje.
-        if ($hora <= $fim) {
-            return $this->diaDaSemanaBate($momento->copy()->subDay());
-        }
-
-        return $hora >= $inicio && $this->diaDaSemanaBate($momento);
+        return $this->promocao_inicio;
     }
 
-    private function statusRecorrente(CarbonInterface $momento): PromocaoStatusEnum
+    protected function vigFim(): ?CarbonInterface
     {
-        if ($this->promocao_inicio && $momento->lt($this->promocao_inicio)) {
-            return PromocaoStatusEnum::Agendada;
-        }
-
-        if ($this->promocao_data_final_recorrencia && $momento->toDateString() > $this->promocao_data_final_recorrencia->toDateString()) {
-            return PromocaoStatusEnum::Encerrada;
-        }
-
-        if (! $this->vigenteRecorrente($momento)) {
-            return PromocaoStatusEnum::AguardandoJanela;
-        }
-
-        if ($this->esgotada()) {
-            return PromocaoStatusEnum::Esgotada;
-        }
-
-        return PromocaoStatusEnum::Ativa;
+        return $this->promocao_fim;
     }
 
-    /** Início/fim da recorrência (datas), sem considerar dia da semana ou hora. */
-    private function dentroDoIntervaloDeDatas(CarbonInterface $momento): bool
+    protected function vigDiasSemana(): array
     {
-        if ($this->promocao_inicio && $momento->lt($this->promocao_inicio)) {
-            return false;
-        }
-
-        if ($this->promocao_data_final_recorrencia && $momento->toDateString() > $this->promocao_data_final_recorrencia->toDateString()) {
-            return false;
-        }
-
-        return true;
+        return $this->promocao_dias_semana ?? [];
     }
 
-    /** Vazio = todos os dias. */
-    private function diaDaSemanaBate(CarbonInterface $momento): bool
+    protected function vigHoraInicio(): ?CarbonInterface
     {
-        $dias = $this->promocao_dias_semana ?? [];
-
-        return empty($dias) || in_array($momento->dayOfWeek, $dias, false);
+        return $this->promocao_hora_inicio;
     }
 
-    /**
-     * A recorrência acabou de abrir uma nova ocorrência e ainda não resetou o
-     * contador hoje? Comparação por dia (não por horário exato) para tolerar
-     * atraso do scheduler: assim que rodar depois do horário de início, reseta.
-     */
-    public function deveResetarAgora(?CarbonInterface $momento = null): bool
+    protected function vigHoraFim(): ?CarbonInterface
     {
-        $momento ??= now();
+        return $this->promocao_hora_fim;
+    }
 
-        if (! $this->promocao_ativa || ! $this->promocao_recorrente) {
-            return false;
-        }
+    protected function vigDataFinalRecorrencia(): ?CarbonInterface
+    {
+        return $this->promocao_data_final_recorrencia;
+    }
 
-        if ($this->promocao_ultimo_reset_em?->isSameDay($momento)) {
-            return false;
-        }
+    protected function vigUltimoResetEm(): ?CarbonInterface
+    {
+        return $this->promocao_ultimo_reset_em;
+    }
 
-        if (! $this->dentroDoIntervaloDeDatas($momento) || ! $this->diaDaSemanaBate($momento)) {
-            return false;
-        }
-
-        if ($this->promocao_hora_inicio && $momento->format('H:i:s') < $this->promocao_hora_inicio->format('H:i:s')) {
-            return false;
-        }
-
-        return true;
+    protected function vigEsgotada(): bool
+    {
+        return $this->esgotada();
     }
 
     /**
