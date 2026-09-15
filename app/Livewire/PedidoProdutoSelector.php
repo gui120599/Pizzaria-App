@@ -9,9 +9,12 @@ use App\Models\AdicionaisItemPedido;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\Produto;
+use App\Models\PromocaoAdicionalOferta;
+use App\Models\PromocaoAdicionalRegra;
 use App\Models\PromocaoRelampago;
 use App\Services\EstoqueService;
 use App\Services\PrecificadorService;
+use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -94,6 +97,16 @@ class PedidoProdutoSelector extends Component
     // confirmação, ou limite por pedido excedido). Exibido como banner.
     public ?string $erroPromocao = null;
 
+    // Opções de oferta de promoção adicional ("leve outro produto por +R$X")
+    // disponíveis para o produto selecionado no momento — modal simples
+    // (confirmarItem) ou pizza inteira escolhida no modal de sabores
+    // (confirmarSabores). Lista vazia quando não há regra vigente para o
+    // produto. Nunca some sozinha ao pedido: só entra se
+    // $ofertaEscolhidaId apontar pra uma das opções ao confirmar.
+    public array $ofertasDisponiveis = [];
+
+    public ?int $ofertaEscolhidaId = null;
+
     // Estoque insuficiente: erro bloqueia a criação do item (modo BLOQUEAR),
     // aviso apenas informa e deixa o item ser criado (modo AVISAR).
     public ?string $erroEstoque = null;
@@ -137,6 +150,8 @@ class PedidoProdutoSelector extends Component
                 'adicionais_valor' => (float) $item->item_pedido_valor_adicionais,
                 'observacao' => $item->item_pedido_observacao ?? '',
                 'promocao_id' => $item->item_pedido_promocao_id,
+                'promocao_adicional_regra_id' => $item->item_pedido_promocao_adicional_regra_id,
+                'item_origem_id' => $item->item_pedido_origem_id,
                 'adicionais' => $item->adicionaisItemPedido->map(fn ($aip) => [
                     'id' => $aip->aip_adicional_id,
                     'nome' => $aip->adicional?->adicional_nome ?? '—',
@@ -182,6 +197,8 @@ class PedidoProdutoSelector extends Component
         }
 
         $this->erroPromocao = null;
+        $this->ofertasDisponiveis = [];
+        $this->ofertaEscolhidaId = null;
 
         // Categoria com seleção de sabores
         if ($produto->categoria?->categoria_permite_sabores) {
@@ -190,13 +207,14 @@ class PedidoProdutoSelector extends Component
             return;
         }
 
-        // Mesma resolução de preço do cardápio, incluindo promoção relâmpago
-        // vigente com saldo — o balcão debita o contador ao confirmar (ver
-        // confirmarItem()), igual ao checkout público. Sem pedido gravado ainda
-        // não há onde registrar o consumo, então a promoção fica de fora.
+        // Mesma resolução de preço do cardápio, incluindo promoção relâmpago e
+        // promoção adicional (preço de gatilho) vigentes com saldo — o balcão
+        // debita os contadores ao confirmar (ver confirmarItem()), igual ao
+        // checkout público. Sem pedido gravado ainda não há onde registrar o
+        // consumo, então as duas promoções ficam de fora.
         $preco = $this->pedidoId
             ? app(PrecificadorService::class)->resolver($produto)
-            : app(PrecificadorService::class)->resolver($produto, considerarRelampago: false);
+            : app(PrecificadorService::class)->resolver($produto, considerarRelampago: false, considerarPromoAdicional: false);
 
         $this->produtoSelecionadoId = $produtoId;
         $this->produtoSelecionado = [
@@ -208,10 +226,15 @@ class PedidoProdutoSelector extends Component
             'preco_base' => $preco->valorUnitario,
             'desconto_unit' => $preco->descontoUnitario,
             'promocao_id' => $preco->promocaoId,
+            'promocao_adicional_regra_id' => $preco->promocaoAdicionalRegraId,
             'controla_estoque' => (bool) $produto->produto_controla_estoque,
             'saldo_estoque' => (float) $produto->produto_saldo_estoque,
             'unidade_estoque' => $produto->produto_unidade_estoque,
         ];
+
+        if ($this->pedidoId) {
+            $this->ofertasDisponiveis = $this->montarOfertasDisponiveis($produtoId);
+        }
 
         $this->quantidade = 1;
         $this->observacao = '';
@@ -226,6 +249,150 @@ class PedidoProdutoSelector extends Component
             ->toArray();
 
         $this->modalAberta = true;
+    }
+
+    /**
+     * Monta a lista de opções de oferta de promoção adicional para um
+     * produto-gatilho, se houver regra vigente com saldo — o cliente/atendente
+     * escolhe 1 dentre elas. Lista vazia quando não há regra vigente. Nunca
+     * adiciona nada ao pedido sozinha — só popula o que o modal precisa para
+     * perguntar.
+     *
+     * @return array<int, array{regra_id: int, oferta_id: int, produto_id: int, nome: string, categoria_nome: string, foto: ?string, valor_adicional: float}>
+     */
+    protected function montarOfertasDisponiveis(int $produtoGatilhoId): array
+    {
+        $regra = app(PrecificadorService::class)->regraAdicionalDoProduto($produtoGatilhoId);
+
+        if (! $regra) {
+            return [];
+        }
+
+        return $regra->ofertasDisponiveis()
+            ->map(fn (PromocaoAdicionalOferta $oferta) => [
+                'regra_id' => $regra->id,
+                'oferta_id' => $oferta->id,
+                'produto_id' => $oferta->pao_produto_oferta_id,
+                'nome' => $oferta->produtoOferta?->produto_descricao ?? '—',
+                'categoria_nome' => $oferta->produtoOferta?->categoria?->categoria_nome ?? '',
+                'foto' => $oferta->produtoOferta?->getImagemUrl(),
+                'valor_adicional' => (float) $oferta->pao_valor_adicional,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Marca/desmarca qual das opções de oferta disponíveis foi escolhida
+     * (clicar de novo na mesma desmarca — nenhuma oferta selecionada).
+     */
+    public function selecionarOferta(int $ofertaId): void
+    {
+        $this->ofertaEscolhidaId = $this->ofertaEscolhidaId === $ofertaId ? null : $ofertaId;
+    }
+
+    /**
+     * Valida se a oferta escolhida pelo usuário ainda pode ser aceita (limite
+     * por pedido). Não lança exceção: se inválida, seta $erroPromocao e
+     * devolve null — quem chama decide se ainda assim confirma o gatilho.
+     */
+    protected function validarOfertaParaConfirmar(): ?array
+    {
+        if (! $this->pedidoId || ! $this->ofertaEscolhidaId || $this->ofertasDisponiveis === []) {
+            return null;
+        }
+
+        $oferta = collect($this->ofertasDisponiveis)->firstWhere('oferta_id', $this->ofertaEscolhidaId);
+        if (! $oferta) {
+            return null;
+        }
+
+        $regra = PromocaoAdicionalRegra::find($oferta['regra_id']);
+        if (! $regra) {
+            return null;
+        }
+
+        $promocoes = app(PromocaoAdicionalService::class);
+
+        try {
+            $promocoes->validarLimitePorPedido(
+                $regra,
+                $promocoes->aceitesNoPedido($regra, $this->pedidoId) + 1,
+            );
+        } catch (PromocaoIndisponivelException $e) {
+            $this->erroPromocao = $e->getMessage();
+
+            return null;
+        }
+
+        return $oferta;
+    }
+
+    /**
+     * Cria a linha da oferta aceita, consome o saldo da regra e devolve o
+     * array pronto para $this->itens. Roda na própria transação de quem
+     * chama (independente da transação do item-gatilho, que já foi
+     * commitada antes) — se falhar aqui, o gatilho permanece no pedido.
+     * Lança PromocaoIndisponivelException se o limite por pedido ou o saldo
+     * da regra foram excedidos entre a seleção e a confirmação.
+     *
+     * @return array<string, mixed>
+     */
+    protected function criarItemOferta(
+        array $oferta,
+        int $itemGatilhoId,
+        ?int $clienteId,
+        ?string $clienteNome,
+        string $categoriaNome
+    ): array {
+        $regra = PromocaoAdicionalRegra::findOrFail($oferta['regra_id']);
+        $ofertaModel = PromocaoAdicionalOferta::findOrFail($oferta['oferta_id']);
+        $promocoes = app(PromocaoAdicionalService::class);
+
+        $promocoes->validarLimitePorPedido(
+            $regra,
+            $promocoes->aceitesNoPedido($regra, $this->pedidoId) + 1,
+        );
+
+        $itemModel = ItensPedido::create([
+            'item_pedido_pedido_id' => $this->pedidoId,
+            'item_pedido_produto_id' => $oferta['produto_id'],
+            'item_pedido_promocao_adicional_regra_id' => $regra->id,
+            'item_pedido_promocao_adicional_oferta_id' => $ofertaModel->id,
+            'item_pedido_origem_id' => $itemGatilhoId,
+            'item_pedido_cliente_id' => $clienteId,
+            'item_pedido_quantidade' => 1,
+            'item_pedido_valor_unitario' => $oferta['valor_adicional'],
+            'item_pedido_valor' => $oferta['valor_adicional'],
+            'item_pedido_desconto' => 0,
+            'item_pedido_desconto_unitario' => 0,
+            'item_pedido_valor_adicionais' => 0,
+            'item_pedido_observacao' => null,
+            'item_pedido_status' => 'INSERIDO',
+        ]);
+
+        $promocoes->consumir($itemModel);
+
+        return [
+            'id' => $itemModel->id,
+            'produto_id' => $oferta['produto_id'],
+            'produto_nome' => $oferta['nome'],
+            'categoria_nome' => $categoriaNome,
+            'produto_foto' => $oferta['foto'],
+            'cliente_id' => $clienteId,
+            'cliente_nome' => $clienteNome,
+            'quantidade' => 1.0,
+            'valor_unitario' => $oferta['valor_adicional'],
+            'desconto_unit' => 0,
+            'valor' => $oferta['valor_adicional'],
+            'desconto' => 0,
+            'adicionais_valor' => 0,
+            'adicionais' => [],
+            'observacao' => '',
+            'promocao_id' => null,
+            'promocao_adicional_regra_id' => $regra->id,
+            'item_origem_id' => $itemGatilhoId,
+        ];
     }
 
     // ── Quantidade modal simples ─────────────────────────────────────────────
@@ -287,6 +454,7 @@ class PedidoProdutoSelector extends Component
         $this->saboresProdutos = $produtos;
         $this->saboresSelecionados = $presel ? [$presel] : [];
         $this->saboresModalAberta = true;
+        $this->atualizarOfertaSaborUnico();
 
         if ($presel) {
             $this->js("setTimeout(() => document.getElementById('sabor-item-{$produtoId}')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 320)");
@@ -297,6 +465,7 @@ class PedidoProdutoSelector extends Component
     {
         $this->saboresModo = $modo;
         $this->saboresSelecionados = [];
+        $this->atualizarOfertaSaborUnico();
     }
 
     public function toggleSabor(int $produtoId): void
@@ -317,6 +486,26 @@ class PedidoProdutoSelector extends Component
         } elseif (count($this->saboresSelecionados) < $this->saboresModo) {
             $this->saboresSelecionados[] = $produto;
         }
+
+        $this->atualizarOfertaSaborUnico();
+    }
+
+    /**
+     * A oferta de promoção adicional só faz sentido para pizza inteira (um
+     * único sabor) — meia a meia/terços têm sua própria regra de rateio e
+     * ficam fora do escopo desta promoção. Recalculada a cada mudança de modo
+     * ou seleção de sabor.
+     */
+    protected function atualizarOfertaSaborUnico(): void
+    {
+        $this->ofertasDisponiveis = [];
+        $this->ofertaEscolhidaId = null;
+
+        if (! $this->pedidoId || $this->saboresModo !== 1 || count($this->saboresSelecionados) !== 1) {
+            return;
+        }
+
+        $this->ofertasDisponiveis = $this->montarOfertasDisponiveis($this->saboresSelecionados[0]['id']);
     }
 
     public function confirmarSabores(): void
@@ -367,8 +556,12 @@ class PedidoProdutoSelector extends Component
                 'desconto_unitario' => $preco->descontoUnitario,
                 'valor' => $linhaUnica['valor'],
                 'promocao_id' => $preco->promocaoId,
+                'promocao_adicional_regra_id' => $preco->promocaoAdicionalRegraId,
             ]];
         } else {
+            // Meia a meia/terços ficam fora do escopo da promoção adicional —
+            // cada sabor usa o preço cheio (sem override) para o rateio, igual
+            // ao tratamento que já existia para o preço promocional do produto.
             $rateio = $precificador->ratearCombo($produtosOrdenados, qtd: 1);
         }
 
@@ -419,16 +612,24 @@ class PedidoProdutoSelector extends Component
             ? (collect($this->sessaoMesaClientes)->firstWhere('id', $this->clienteSelecionadoId)['nome'] ?? null)
             : null;
 
+        // ofertasDisponiveis só é preenchido para pizza inteira (1 sabor) — ver
+        // atualizarOfertaSaborUnico(). Validado ANTES de criar o gatilho: se o
+        // limite estourou, a promoção fica de fora, mas a pizza ainda é
+        // adicionada normalmente.
+        $ofertaParaConfirmar = $this->validarOfertaParaConfirmar();
+
         $novosItens = [];
+        $idGatilhoParaOferta = null;
 
         try {
             if ($this->pedidoId) {
-                DB::transaction(function () use ($rateio, $produtosPorId, $clienteNome, $promocoes, &$novosItens) {
+                DB::transaction(function () use ($rateio, $produtosPorId, $clienteNome, $promocoes, &$novosItens, &$idGatilhoParaOferta) {
                     foreach ($rateio as $linha) {
                         $itemModel = ItensPedido::create([
                             'item_pedido_pedido_id' => $this->pedidoId,
                             'item_pedido_produto_id' => $linha['produto_id'],
                             'item_pedido_promocao_id' => $linha['promocao_id'],
+                            'item_pedido_promocao_adicional_regra_id' => $linha['promocao_adicional_regra_id'] ?? null,
                             'item_pedido_cliente_id' => $this->clienteSelecionadoId ?: null,
                             'item_pedido_quantidade' => $linha['quantidade'],
                             'item_pedido_valor_unitario' => $linha['valor_unitario'],
@@ -463,7 +664,13 @@ class PedidoProdutoSelector extends Component
                             'adicionais' => [],
                             'observacao' => '',
                             'promocao_id' => $linha['promocao_id'],
+                            'promocao_adicional_regra_id' => $linha['promocao_adicional_regra_id'] ?? null,
+                            'item_origem_id' => null,
                         ];
+
+                        // Só há 1 linha no rateio quando é pizza inteira — mesmo
+                        // caso em que ofertaParaConfirmar pode estar preenchido.
+                        $idGatilhoParaOferta = $itemModel->id;
                     }
                 });
             } else {
@@ -498,6 +705,22 @@ class PedidoProdutoSelector extends Component
             return;
         }
 
+        // Transação separada da do(s) sabor(es): se a oferta falhar aqui, a
+        // pizza já foi persistida e continua no pedido — só a oferta some.
+        if ($ofertaParaConfirmar && $idGatilhoParaOferta) {
+            try {
+                $novosItens[] = DB::transaction(fn () => $this->criarItemOferta(
+                    $ofertaParaConfirmar,
+                    $idGatilhoParaOferta,
+                    $this->clienteSelecionadoId ?: null,
+                    $clienteNome,
+                    $this->saboresCategoriaNome,
+                ));
+            } catch (PromocaoIndisponivelException $e) {
+                $this->erroPromocao = $e->getMessage();
+            }
+        }
+
         array_push($this->itens, ...$novosItens);
 
         $this->fecharSaboresModal();
@@ -510,6 +733,8 @@ class PedidoProdutoSelector extends Component
         $this->saboresSelecionados = [];
         $this->saboresProdutos = [];
         $this->clienteSelecionadoId = null;
+        $this->ofertasDisponiveis = [];
+        $this->ofertaEscolhidaId = null;
     }
 
     // ── Adicionais ───────────────────────────────────────────────────────────
@@ -538,8 +763,15 @@ class PedidoProdutoSelector extends Component
         $precoBase = $this->produtoSelecionado['preco_base'];
         $descontoUnit = $this->produtoSelecionado['desconto_unit'];
         $promocaoId = $this->produtoSelecionado['promocao_id'] ?? null;
+        $promocaoAdicionalRegraIdGatilho = $this->produtoSelecionado['promocao_adicional_regra_id'] ?? null;
 
         $promocoes = app(PromocaoRelampagoService::class);
+
+        // Valida o limite da oferta ANTES de criar o gatilho: se estourou,
+        // a promoção fica de fora (com aviso), mas o produto principal ainda
+        // é adicionado normalmente — não faz sentido barrar a pizza inteira
+        // só porque a brotinho não pode mais ser oferecida neste pedido.
+        $ofertaParaConfirmar = $this->validarOfertaParaConfirmar();
 
         if ($this->pedidoId) {
             try {
@@ -591,16 +823,19 @@ class PedidoProdutoSelector extends Component
             ? (collect($this->sessaoMesaClientes)->firstWhere('id', $this->clienteSelecionadoId)['nome'] ?? null)
             : null;
 
+        $itemOfertaArray = null;
+
         if ($this->pedidoId) {
             try {
                 $itemModel = DB::transaction(function () use (
-                    $promocaoId, $precoBase, $descontoUnit, $valorItem, $descontoTotal,
+                    $promocaoId, $promocaoAdicionalRegraIdGatilho, $precoBase, $descontoUnit, $valorItem, $descontoTotal,
                     $adicionaisValor, $adicionaisList, $promocoes
                 ) {
                     $itemModel = ItensPedido::create([
                         'item_pedido_pedido_id' => $this->pedidoId,
                         'item_pedido_produto_id' => $this->produtoSelecionadoId,
                         'item_pedido_promocao_id' => $promocaoId,
+                        'item_pedido_promocao_adicional_regra_id' => $promocaoAdicionalRegraIdGatilho,
                         'item_pedido_cliente_id' => $this->clienteSelecionadoId ?: null,
                         'item_pedido_quantidade' => $this->quantidade,
                         'item_pedido_valor_unitario' => $precoBase,
@@ -635,6 +870,24 @@ class PedidoProdutoSelector extends Component
             }
 
             $itemId = $itemModel->id;
+
+            // Transação separada e independente da do gatilho: se a oferta
+            // falhar aqui (saldo esgotou entre a seleção e a confirmação), o
+            // produto principal já foi persistido e continua no pedido — só a
+            // oferta some, com aviso.
+            if ($ofertaParaConfirmar) {
+                try {
+                    $itemOfertaArray = DB::transaction(fn () => $this->criarItemOferta(
+                        $ofertaParaConfirmar,
+                        $itemModel->id,
+                        $this->clienteSelecionadoId ?: null,
+                        $clienteNome,
+                        $this->produtoSelecionado['categoria_nome'] ?? '',
+                    ));
+                } catch (PromocaoIndisponivelException $e) {
+                    $this->erroPromocao = $e->getMessage();
+                }
+            }
         } else {
             $itemId = uniqid('tmp_');
         }
@@ -656,7 +909,13 @@ class PedidoProdutoSelector extends Component
             'adicionais' => $adicionaisList,
             'observacao' => $this->observacao,
             'promocao_id' => $promocaoId,
+            'promocao_adicional_regra_id' => $promocaoAdicionalRegraIdGatilho,
+            'item_origem_id' => null,
         ];
+
+        if ($itemOfertaArray) {
+            $this->itens[] = $itemOfertaArray;
+        }
 
         $this->fecharModal();
         $this->notificarPai();
@@ -677,6 +936,8 @@ class PedidoProdutoSelector extends Component
         $this->adicionaisDisponiveis = [];
         $this->adicionaisSelecionados = [];
         $this->clienteSelecionadoId = null;
+        $this->ofertasDisponiveis = [];
+        $this->ofertaEscolhidaId = null;
     }
 
     // ── Quantidade itens na lista ────────────────────────────────────────────
@@ -699,11 +960,12 @@ class PedidoProdutoSelector extends Component
             }
 
             // Item promocional tem preço E quantidade congelados: o ledger da
-            // promoção (promocao_consumos) grava um único evento imutável por
-            // item_pedido_id, então não dá para debitar/estornar parcialmente
-            // por aqui. Para mudar a quantidade, remova o item e adicione de
-            // novo (ver removerItem()).
-            if (! empty($item['promocao_id'])) {
+            // promoção (promocao_consumos / promocao_adicional_consumos) grava
+            // um único evento imutável por item_pedido_id, então não dá para
+            // debitar/estornar parcialmente por aqui. Para mudar a quantidade,
+            // remova o item e adicione de novo (ver removerItem()). A linha da
+            // oferta (item_origem_id setado) também é sempre quantidade 1.
+            if (! empty($item['promocao_id']) || ! empty($item['promocao_adicional_regra_id']) || ! empty($item['item_origem_id'])) {
                 return;
             }
 
@@ -774,20 +1036,40 @@ class PedidoProdutoSelector extends Component
 
     public function removerItem(string $itemId): void
     {
+        // ids das linhas de oferta removidas em cascata (item-gatilho removido
+        // leva a(s) linha(s) de oferta vinculada(s) junto — não faz sentido
+        // manter a brotinho promocional sem a pizza que a habilitou).
+        $idsOfertaRemovidos = [];
+
         if ($this->pedidoId && is_numeric($itemId)) {
-            DB::transaction(function () use ($itemId) {
+            DB::transaction(function () use ($itemId, &$idsOfertaRemovidos) {
                 $item = ItensPedido::find($itemId);
-                if ($item) {
-                    if ($item->item_pedido_promocao_id) {
-                        app(PromocaoRelampagoService::class)->estornarItem($item);
-                    }
-                    $item->delete();
+                if (! $item) {
+                    return;
                 }
+
+                if ($item->item_pedido_promocao_id) {
+                    app(PromocaoRelampagoService::class)->estornarItem($item);
+                }
+
+                // Este item é um gatilho com oferta(s) vinculada(s)?
+                if (! $item->item_pedido_origem_id) {
+                    $idsOfertaRemovidos = app(PromocaoAdicionalService::class)->estornarItensDoGatilho($item);
+                    ItensPedido::whereIn('id', $idsOfertaRemovidos)->delete();
+                } elseif ($item->item_pedido_promocao_adicional_regra_id) {
+                    // Este item é a própria linha de oferta sendo removida
+                    // isoladamente (o gatilho continua no pedido).
+                    app(PromocaoAdicionalService::class)->estornarItemOferta($item);
+                }
+
+                $item->delete();
             });
         }
 
+        $idsRemovidos = array_merge([$itemId], array_map('strval', $idsOfertaRemovidos));
+
         $this->itens = array_values(
-            array_filter($this->itens, fn ($i) => (string) $i['id'] !== (string) $itemId)
+            array_filter($this->itens, fn ($i) => ! in_array((string) $i['id'], $idsRemovidos, true))
         );
 
         $this->notificarPai();

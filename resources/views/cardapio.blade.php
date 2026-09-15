@@ -57,6 +57,15 @@
                         <span class="text-[9px] text-red-400 font-semibold uppercase tracking-wide leading-tight text-center line-clamp-2 w-full">Relâmpago</span>
                     </button>
                 @endif
+                @if ($campanhasAdicionaisAtivas->isNotEmpty())
+                    <button class="flex flex-col items-center gap-1 shrink-0 w-16 focus:outline-none group"
+                        onclick="scrollToElement('secao_promocao_adicional')">
+                        <div class="w-14 h-14 rounded-xl overflow-hidden border-2 border-pink-500 group-hover:border-pink-400 transition-colors duration-150 shadow-sm bg-pink-500/20 flex items-center justify-center">
+                            <i class='bx bxs-gift text-pink-400 text-3xl'></i>
+                        </div>
+                        <span class="text-[9px] text-pink-400 font-semibold uppercase tracking-wide leading-tight text-center line-clamp-2 w-full">Oferta especial</span>
+                    </button>
+                @endif
                 @if ($promocoes->isNotEmpty())
                     <button class="flex flex-col items-center gap-1 shrink-0 w-16 focus:outline-none group"
                         onclick="scrollToElement('secao_promocoes')">
@@ -87,6 +96,23 @@
              padding-top, sobrava uma fresta acima do cabeçalho fixo onde o
              conteúdo já rolado aparecia por trás. --}}
         <div class="h-[74%] overflow-y-auto px-2 pb-2">
+
+            {{-- Seção informativa da promoção adicional ("leve outro produto por +R$X") --}}
+            @if ($campanhasAdicionaisAtivas->isNotEmpty())
+                <div class="mb-6" id="secao_promocao_adicional">
+                    @foreach ($campanhasAdicionaisAtivas as $campanha)
+                        <div class="rounded-xl bg-gradient-to-r from-pink-600 to-fuchsia-500 px-3 py-2.5 flex items-center gap-2 {{ ! $loop->last ? 'mb-2' : '' }}">
+                            <i class='bx bxs-gift text-white text-2xl shrink-0'></i>
+                            <div class="min-w-0">
+                                <h2 class="text-white font-extrabold uppercase text-sm leading-tight truncate">{{ $campanha['nome'] }}</h2>
+                                @if ($campanha['descricao'])
+                                    <p class="text-white/85 text-[11px] leading-tight">{{ $campanha['descricao'] }}</p>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
 
             {{-- Seção de Promoções Relâmpago (destaque, com contador de escassez) --}}
             @if ($promocoesRelampago->isNotEmpty())
@@ -467,6 +493,15 @@
                                        placeholder="Observação (ex: sem cebola, bem passado...)"
                                        maxlength="120"
                                        class="mt-1.5 w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-300 text-xs placeholder-gray-600 focus:outline-none focus:border-green-600 transition">
+                                {{-- Oferta aceita (promoção adicional): sub-linha ligada ao item, não é uma linha separada do carrinho --}}
+                                <div x-show="item.oferta" style="display:none" class="mt-1.5 flex items-center gap-2 bg-pink-500/10 border border-pink-500/30 rounded-lg px-2.5 py-1.5">
+                                    <i class='bx bxs-gift text-pink-400 text-sm shrink-0'></i>
+                                    <span class="flex-1 text-pink-300 text-xs" x-text="'+ ' + item.oferta?.nomeExibicao"></span>
+                                    <span class="text-pink-300 text-xs font-bold" x-text="'+R$ ' + (item.oferta?.valorAdicional ?? 0).toFixed(2).replace('.', ',')"></span>
+                                    <button @click="$store.cart.removerOferta(item.cartKey)" class="text-pink-400/60 hover:text-pink-300 transition shrink-0">
+                                        <i class='bx bx-x text-sm'></i>
+                                    </button>
+                                </div>
                             </div>
                         </template>
                     </div>
@@ -624,7 +659,7 @@
                             <div class="grid grid-cols-2 gap-2">
                                 @foreach ($opcoesPagamento as $pag)
                                     <button type="button"
-                                            @click="$store.cart.form.pagamentoId = {{ $pag['id'] }}; $store.cart.form.pagamentoNome = @js($pag['nome']); $store.cart.form.isDinheiro = {{ $pag['dinheiro'] ? 'true' : 'false' }}; $store.cart.form.trocoPara = ''; $store.cart.form.isDinheiro && $nextTick(() => $store.cart.trocoModal.open = true)"
+                                            @click="$store.cart.form.pagamentoId = {{ $pag['id'] }}; $store.cart.form.pagamentoNome = @js($pag['nome']); $store.cart.form.isDinheiro = {{ $pag['dinheiro'] ? 'true' : 'false' }}; $store.cart.form.trocoPara = ''; $store.cart.form.isDinheiro && $nextTick(() => $store.cart.trocoModal.open = true); $store.cart.revalidarOfertasContraPagamento()"
                                             :class="$store.cart.form.pagamentoId === {{ $pag['id'] }} ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-gray-600 bg-gray-800 text-gray-300'"
                                             class="border rounded-lg px-2 py-2.5 text-xs font-semibold text-center transition-colors flex flex-col items-center gap-1">
                                         @if($pag['dinheiro'])
@@ -651,6 +686,13 @@
                                 @endif
                             @endforeach
                             <p x-show="$store.cart.erros.pagamento" x-text="$store.cart.erros.pagamento" class="text-red-400 text-xs mt-1" style="display:none"></p>
+                            <template x-if="$store.cart.avisoPagamentoRemovido.length > 0">
+                                <p class="text-pink-300 text-[11px] mt-1.5 leading-snug bg-pink-500/10 border border-pink-500/20 rounded px-2 py-1.5">
+                                    <i class='bx bx-error-circle mr-0.5'></i>
+                                    Como a forma de pagamento escolhida não vale para a oferta especial, os seguintes produtos voltaram ao preço normal e as ofertas foram removidas:
+                                    <span x-text="$store.cart.avisoPagamentoRemovido.join(', ')" class="font-semibold"></span>.
+                                </p>
+                            </template>
                         </div>
 
                         {{-- Troco (só se pagamento for Dinheiro) --}}
@@ -930,6 +972,39 @@
     </div>
 
     {{-- ══════════════════════════════════════════════════ --}}
+    {{-- Modal: oferta da promoção "leve outro produto"     --}}
+    {{-- ══════════════════════════════════════════════════ --}}
+    <div x-show="$store.cart.ofertaModal.open" x-cloak
+         class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center"
+         style="display:none">
+        <div class="absolute inset-0 bg-black/70" @click="$store.cart.confirmarOferta(false)"></div>
+        <div x-show="$store.cart.ofertaModal.open"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+             class="relative w-full max-w-sm bg-gray-900 border border-pink-500/30 rounded-t-2xl sm:rounded-2xl p-5 z-10">
+            <div class="flex items-center gap-2 mb-3">
+                <i class='bx bxs-gift text-3xl text-pink-500'></i>
+                <h3 class="text-white font-bold text-lg">Oferta especial!</h3>
+            </div>
+            <p class="text-gray-300 text-xs mb-2">Escolha 1 opção para levar por um valor a mais:</p>
+            <div class="space-y-2 mb-4 max-h-64 overflow-y-auto">
+                <template x-for="opcao in $store.cart.ofertaModal.ofertas" :key="opcao.ofertaId">
+                    <button type="button" @click="$store.cart.confirmarOferta(true, opcao.ofertaId)"
+                            class="w-full flex items-center gap-3 bg-black/30 hover:bg-black/50 border border-pink-500/20 rounded-xl p-2.5 text-left transition-colors">
+                        <img x-show="opcao.foto" :src="opcao.foto"
+                             class="w-12 h-12 object-cover rounded-lg shrink-0 bg-gray-700" style="display:none">
+                        <span class="flex-1 text-white text-sm font-medium leading-snug" x-text="opcao.nomeExibicao"></span>
+                        <span class="text-pink-400 font-bold text-sm shrink-0" x-text="'+R$ ' + opcao.valorAdicional.toFixed(2).replace('.', ',')"></span>
+                    </button>
+                </template>
+            </div>
+            <button @click="$store.cart.confirmarOferta(false)"
+                    class="w-full py-2.5 rounded-xl border border-gray-600 text-gray-300 text-sm font-semibold hover:bg-gray-800 transition-colors">
+                Não, obrigado
+            </button>
+        </div>
+    </div>
+
+    {{-- ══════════════════════════════════════════════════ --}}
     {{-- Botão flutuante de avaliações (speed dial)        --}}
     {{-- ══════════════════════════════════════════════════ --}}
     <template x-if="_avaliacaoLinks.length > 0">
@@ -987,6 +1062,8 @@
         const _proximoHorario       = @js($proximoHorario);
         const _horarios             = @js($horarios);
         const _avaliacaoLinks       = @js($avaliacaoLinks);
+        // Promoção "leve outro produto por +R$X", indexada pelo produto gatilho.
+        const _promocoesAdicionais  = @js($promocoesAdicionais);
 
         document.addEventListener('alpine:init', () => {
             Alpine.store('cart', {
@@ -1003,6 +1080,17 @@
                     open: false, categoriaId: null, categoriaNome: '', maxSabores: 2,
                     modo: 1, produtos: [], selecionados: [],
                 },
+
+                // ── Modal de oferta (promoção "leve outro produto por +R$X") ──
+                // pending guarda o item já pronto pra entrar no carrinho; só é
+                // empurrado pra items[] depois que o cliente escolhe uma opção
+                // (ou recusa) — nada é adicionado sozinho.
+                ofertaModal: { open: false, pending: null, ofertas: [] },
+
+                // Nomes dos produtos cuja oferta foi removida automaticamente
+                // por causa da forma de pagamento escolhida (ver
+                // revalidarOfertasContraPagamento) — exibido como aviso.
+                avisoPagamentoRemovido: [],
 
                 // ── Modal de troco ──
                 trocoModal: { open: false },
@@ -1064,8 +1152,69 @@
                     }
                     const key = String(id);
                     const idx = this.items.findIndex(i => i.cartKey === key);
-                    idx >= 0 ? this.items[idx].qty++ : this.items.push({ cartKey: key, id, nome, preco, precoOriginal: precoOriginal ?? preco, qty: 1, foto, obs: '' });
+                    if (idx >= 0) {
+                        this.items[idx].qty++;
+                        this.save();
+                        return;
+                    }
+                    this.adicionarOuOferecer({ cartKey: key, id, nome, preco, precoOriginal: precoOriginal ?? preco, qty: 1, foto, obs: '' });
+                },
+                /**
+                 * Produto novo no carrinho (nunca um incremento de quantidade):
+                 * se ele dispara uma promoção "leve outro produto por +R$X"
+                 * vigente, pergunta antes de adicionar. Sem oferta, adiciona
+                 * direto — igual ao comportamento de sempre.
+                 */
+                adicionarOuOferecer(itemData) {
+                    const promo = _promocoesAdicionais[itemData.id];
+                    if (promo && promo.ofertas.length > 0) {
+                        this.ofertaModal = { open: true, pending: itemData, ofertas: promo.ofertas };
+                        return;
+                    }
+                    this.items.push(itemData);
                     this.save();
+                },
+                /** Escolha de uma opção (ou recusa) no modal — só aqui o item realmente entra no carrinho. */
+                confirmarOferta(aceitar, ofertaId = null) {
+                    const itemData = this.ofertaModal.pending;
+                    const opcao    = aceitar ? this.ofertaModal.ofertas.find(o => o.ofertaId === ofertaId) : null;
+                    this.ofertaModal = { open: false, pending: null, ofertas: [] };
+                    if (!itemData) return;
+                    if (opcao) {
+                        itemData.oferta = {
+                            ofertaId:       opcao.ofertaId,
+                            produtoId:      opcao.produtoId,
+                            nome:           opcao.nome,
+                            nomeExibicao:   opcao.nomeExibicao,
+                            valorAdicional: opcao.valorAdicional,
+                            foto:           opcao.foto,
+                        };
+                    }
+                    this.items.push(itemData);
+                    this.save();
+                },
+                /**
+                 * Chamado ao escolher forma de pagamento: remove a oferta (e
+                 * volta o item ao preço normal) de qualquer item do carrinho
+                 * cuja campanha não aceita a forma escolhida. O servidor
+                 * também revalida isso de forma independente no checkout —
+                 * isto é só pra avisar o cliente antes de finalizar.
+                 */
+                revalidarOfertasContraPagamento() {
+                    const pagamentoId = this.form.pagamentoId;
+                    const removidos = [];
+                    this.items.forEach(item => {
+                        if (!item.oferta) return;
+                        const promo = _promocoesAdicionais[item.id];
+                        const permitidas = promo?.opcoesPagamentoPermitidas ?? [];
+                        if (permitidas.length > 0 && !permitidas.includes(pagamentoId)) {
+                            removidos.push(item.nome);
+                            item.preco = item.precoOriginal ?? item.preco;
+                            item.oferta = null;
+                        }
+                    });
+                    this.avisoPagamentoRemovido = removidos;
+                    if (removidos.length > 0) this.save();
                 },
                 increment(cartKey) {
                     const item = this.items.find(i => i.cartKey === String(cartKey));
@@ -1079,11 +1228,16 @@
                     this.save();
                 },
                 remove(cartKey) { this.items = this.items.filter(i => i.cartKey !== String(cartKey)); this.save(); },
+                /** Cliente mudou de ideia depois de aceitar a oferta — some só a oferta, o produto fica. */
+                removerOferta(cartKey) {
+                    const item = this.items.find(i => i.cartKey === String(cartKey));
+                    if (item) { item.oferta = null; this.save(); }
+                },
                 qty(id) { return this.items.filter(i => i.id === id).reduce((s, i) => s + i.qty, 0); },
-                get total()        { return this.items.reduce((s, i) => s + i.preco * i.qty, 0); },
-                get totalOriginal() { return this.items.reduce((s, i) => s + (i.precoOriginal ?? i.preco) * i.qty, 0); },
+                get total()        { return this.items.reduce((s, i) => s + i.preco * i.qty + (i.oferta ? i.oferta.valorAdicional : 0), 0); },
+                get totalOriginal() { return this.items.reduce((s, i) => s + (i.precoOriginal ?? i.preco) * i.qty + (i.oferta ? i.oferta.valorAdicional : 0), 0); },
                 get totalDesconto() { return Math.max(0, this.totalOriginal - this.total); },
-                get count() { return this.items.reduce((s, i) => s + i.qty, 0); },
+                get count() { return this.items.reduce((s, i) => s + i.qty + (i.oferta ? 1 : 0), 0); },
                 get valorFrete() {
                     if (!this.form.opcaoEntregaId) return 0;
                     const opcao = _opcoesEntregas.find(o => o.id === this.form.opcaoEntregaId);
@@ -1093,7 +1247,7 @@
                 },
                 get totalComFrete() { return this.total + this.valorFrete; },
                 save()  { localStorage.setItem('cardapio_cart', JSON.stringify(this.items)); },
-                clear() { this.items = []; localStorage.removeItem('cardapio_cart'); },
+                clear() { this.items = []; this.avisoPagamentoRemovido = []; localStorage.removeItem('cardapio_cart'); },
 
                 // ── Sabores (meia a meia / terços) ──
                 abrirSabores(categoriaId, categoriaNome, maxSabores, produtoId = null) {
@@ -1175,9 +1329,21 @@
                     const idx = this.items.findIndex(i => i.cartKey === cartKey);
                     const sabores = sel.length > 1 ? sel.map(s => ({ id: s.id, nome: s.nome, preco: s.preco, precoOriginal: s.precoOriginal ?? s.preco })) : null;
                     const foto = sel[0]?.foto ?? '';
-                    idx >= 0 ? this.items[idx].qty++ : this.items.push({ cartKey, id: sel[0].id, nome, preco, precoOriginal, qty: 1, foto, sabores, obs: '' });
-                    this.save();
                     this.saboresModal.open = false;
+                    if (idx >= 0) {
+                        this.items[idx].qty++;
+                        this.save();
+                        return;
+                    }
+                    const itemData = { cartKey, id: sel[0].id, nome, preco, precoOriginal, qty: 1, foto, sabores, obs: '' };
+                    // Só pizza inteira (1 sabor) participa da promoção adicional —
+                    // meia a meia/terços ficam fora do escopo (mesma regra do servidor).
+                    if (sel.length === 1) {
+                        this.adicionarOuOferecer(itemData);
+                    } else {
+                        this.items.push(itemData);
+                        this.save();
+                    }
                 },
 
                 // ── Máscara monetária para troco ──
@@ -1277,6 +1443,7 @@
                                 opcao_entrega_id: this.form.opcaoEntregaId,
                                 endereco:         this.form.endereco.trim() || null,
                                 pagamento_nome:   this.form.pagamentoNome,
+                                opcao_pagamento_id: this.form.pagamentoId,
                                 troco_para:       this.form.isDinheiro && this.form.trocoPara
                                     ? parseFloat(this.form.trocoPara.replace(/\./g, '').replace(',', '.')) || null
                                     : null,
@@ -1288,6 +1455,11 @@
                                     preco_original: i.precoOriginal ?? i.preco,
                                     observacao:     i.obs?.trim() || null,
                                     sabores:        i.sabores ?? null,
+                                    // O servidor NUNCA usa o valor/regra daqui — só qual
+                                    // produto foi escolhido. Ele revalida do zero (regra
+                                    // vigente, saldo, forma de pagamento) via
+                                    // PrecificadorService::regraAdicionalDoProduto().
+                                    oferta_produto_id: i.oferta?.produtoId ?? null,
                                 })),
                             }),
                         });
@@ -1307,6 +1479,10 @@
                             const precoExib = (i.precoOriginal ?? i.preco);
                             const sub = (precoExib * i.qty).toFixed(2).replace('.', ',');
                             msg += `• ${i.qty}x ${i.nome} — R$${sub}\n`;
+                            if (i.oferta) {
+                                const subOferta = i.oferta.valorAdicional.toFixed(2).replace('.', ',');
+                                msg += `  🎉 Promoção: ${i.oferta.nomeExibicao} — R$${subOferta}\n`;
+                            }
                         });
                         if (data.total_desconto > 0)
                             msg += `\nDesconto: -R$${data.total_desconto.toFixed(2).replace('.', ',')}`;

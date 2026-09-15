@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Pedido;
+use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -36,11 +37,13 @@ class ZerarPedidosIniciados extends Command
 
         DB::transaction(function () use ($pedidos) {
             $promocoes = app(PromocaoRelampagoService::class);
+            $promocoesAdicionais = app(PromocaoAdicionalService::class);
 
             foreach ($pedidos as $pedido) {
-                // Devolve ao saldo qualquer promoção relâmpago consumida pelos
-                // itens deste pedido antes de cancelá-lo.
+                // Devolve ao saldo qualquer promoção relâmpago/adicional
+                // consumida pelos itens deste pedido antes de cancelá-lo.
                 $promocoes->estornarPedido($pedido);
+                $promocoesAdicionais->estornarPedido($pedido);
 
                 $pedido->update([
                     'pedido_status' => 'CANCELADO',

@@ -9,7 +9,9 @@ use App\Models\AdicionaisItemPedido;
 use App\Models\ItensPedido;
 use App\Models\Produto;
 use App\Services\EstoqueService;
+use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -78,7 +80,7 @@ class ItensPedidoController extends Controller
     /**
      * Summary of calcularValorTotalPedido
      *
-     * @return mixed|\Illuminate\Http\JsonResponse
+     * @return mixed|JsonResponse
      */
     public function calcularValorTotalPedido(Request $request)
     {
@@ -233,6 +235,21 @@ class ItensPedidoController extends Controller
             // se houver, antes de marcá-lo como removido.
             if ($itemPedido->item_pedido_promocao_id) {
                 app(PromocaoRelampagoService::class)->estornarItem($itemPedido);
+            }
+
+            // Item-gatilho com oferta(s) de promoção adicional vinculada(s):
+            // estorna o saldo e marca a(s) linha(s) da oferta como removida(s)
+            // também — não faz sentido manter a brotinho promocional sem a
+            // pizza que a habilitou.
+            if (! $itemPedido->item_pedido_origem_id) {
+                $idsOferta = app(PromocaoAdicionalService::class)->estornarItensDoGatilho($itemPedido);
+
+                if ($idsOferta !== []) {
+                    ItensPedido::whereIn('id', $idsOferta)->update(['item_pedido_status' => 'REMOVIDO']);
+                }
+            } elseif ($itemPedido->item_pedido_promocao_adicional_regra_id) {
+                // O próprio item sendo removido é a linha de oferta.
+                app(PromocaoAdicionalService::class)->estornarItemOferta($itemPedido);
             }
 
             // Atualizar os campos do item de pedido

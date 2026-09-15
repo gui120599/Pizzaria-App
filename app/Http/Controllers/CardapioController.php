@@ -8,6 +8,8 @@ use App\Models\HorarioFuncionamento;
 use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\Produto;
+use App\Models\PromocaoAdicional;
+use App\Models\PromocaoAdicionalRegra;
 use App\Models\PromocaoRelampago;
 use Illuminate\Support\Facades\Storage;
 
@@ -79,6 +81,49 @@ class CardapioController extends Controller
                     ->values(),
             ])
             ->filter(fn (array $promo) => $promo['produtos']->isNotEmpty())
+            ->values();
+
+        // Promoção "leve outro produto por +R$X": payload indexado pelo produto
+        // gatilho, para o carrinho perguntar a oferta no momento certo. O preço
+        // do gatilho já vem resolvido (respeita o override, se houver) — o
+        // checkout ainda revalida tudo no servidor, isto é só para exibição.
+        // Uma regra pode ter N ofertas (o cliente escolhe 1 no modal).
+        $promocoesAdicionais = PromocaoAdicionalRegra::query()
+            ->whereHas('promocao', fn ($q) => $q->where('promoad_ativa', true))
+            ->with(['promocao.opcoesPagamento', 'ofertas.produtoOferta.categoria'])
+            ->get()
+            ->filter(fn (PromocaoAdicionalRegra $regra) => $regra->promocao->vigente())
+            ->mapWithKeys(fn (PromocaoAdicionalRegra $regra) => [
+                $regra->par_produto_gatilho_id => [
+                    'regraId' => $regra->id,
+                    'ofertas' => $regra->ofertas
+                        ->filter(fn ($oferta) => ! $oferta->esgotada() && $oferta->produtoOferta?->visivelNoCardapio())
+                        ->map(fn ($oferta) => [
+                            'ofertaId' => $oferta->id,
+                            'produtoId' => $oferta->pao_produto_oferta_id,
+                            'nome' => $oferta->produtoOferta->produto_descricao,
+                            'nomeExibicao' => trim(($oferta->produtoOferta->categoria?->categoria_nome ?? '').': '.$oferta->produtoOferta->produto_descricao, ': '),
+                            'foto' => $oferta->produtoOferta->getImagemUrl(),
+                            'valorAdicional' => (float) $oferta->pao_valor_adicional,
+                        ])->values(),
+                    // [] = sem restrição, todas as formas de pagamento valem.
+                    'opcoesPagamentoPermitidas' => $regra->promocao->opcoesPagamento->pluck('id')->all(),
+                ],
+            ])
+            ->filter(fn (array $regra) => $regra['ofertas']->isNotEmpty());
+
+        // Campanhas com ao menos 1 oferta disponível agora — só pra seção
+        // informativa (nome + descrição) no topo do cardápio.
+        $campanhasAdicionaisAtivas = PromocaoAdicional::query()
+            ->where('promoad_ativa', true)
+            ->with('regras')
+            ->get()
+            ->filter(fn (PromocaoAdicional $c) => $c->vigente())
+            ->filter(fn (PromocaoAdicional $c) => $c->regras->pluck('id')->intersect($promocoesAdicionais->pluck('regraId'))->isNotEmpty())
+            ->map(fn (PromocaoAdicional $c) => [
+                'nome' => $c->promoad_nome,
+                'descricao' => $c->promoad_descricao,
+            ])
             ->values();
 
         // A janela de datas do produto passa a valer: promoção vencida sai do ar
@@ -166,6 +211,6 @@ class CardapioController extends Controller
             ])
             ->toArray();
 
-        return view('cardapio', compact('categorias', 'promocoesRelampago', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks'));
+        return view('cardapio', compact('categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks'));
     }
 }

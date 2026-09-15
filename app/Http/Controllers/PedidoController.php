@@ -15,6 +15,7 @@ use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoMesa;
 use App\Services\ClienteResolverService;
+use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\Factory;
@@ -423,9 +424,10 @@ class PedidoController extends Controller
         $this->authorize('reject', $pedido);
 
         DB::transaction(function () use ($pedido, $request) {
-            // Devolve ao saldo qualquer promoção relâmpago consumida pelos
-            // itens deste pedido antes de marcá-lo como cancelado.
+            // Devolve ao saldo qualquer promoção relâmpago/adicional consumida
+            // pelos itens deste pedido antes de marcá-lo como cancelado.
             app(PromocaoRelampagoService::class)->estornarPedido($pedido);
+            app(PromocaoAdicionalService::class)->estornarPedido($pedido);
 
             $pedido->update([
                 'pedido_status' => 'CANCELADO',
@@ -480,9 +482,10 @@ class PedidoController extends Controller
         }
 
         DB::transaction(function () use ($pedido, $request) {
-            // Devolve ao saldo qualquer promoção relâmpago consumida pelos
-            // itens deste pedido antes de marcá-lo como cancelado.
+            // Devolve ao saldo qualquer promoção relâmpago/adicional consumida
+            // pelos itens deste pedido antes de marcá-lo como cancelado.
             app(PromocaoRelampagoService::class)->estornarPedido($pedido);
+            app(PromocaoAdicionalService::class)->estornarPedido($pedido);
 
             $pedido->update([
                 'pedido_status' => 'CANCELADO',

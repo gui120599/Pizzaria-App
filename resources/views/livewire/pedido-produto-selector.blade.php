@@ -371,6 +371,25 @@
                         </div>
                     @endif
 
+                    {{-- Oferta de promoção adicional ("leve outro produto por +R$X") --}}
+                    @if (count($ofertasDisponiveis) > 0)
+                        <div class="space-y-1.5">
+                            <p class="text-xs font-semibold text-pink-600 dark:text-pink-400 flex items-center gap-1">
+                                <i class='bx bxs-gift'></i> Oferta especial — escolha 1 (opcional)
+                            </p>
+                            @foreach ($ofertasDisponiveis as $opcao)
+                                <button type="button" wire:click="selecionarOferta({{ $opcao['oferta_id'] }})"
+                                    class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 text-left transition-colors
+                                    {{ $ofertaEscolhidaId === $opcao['oferta_id'] ? 'border-pink-400 dark:border-pink-500/50 bg-pink-50 dark:bg-pink-500/10' : 'border-dashed border-pink-300 dark:border-pink-500/30 bg-white dark:bg-gray-900' }}">
+                                    <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate min-w-0">
+                                        Leve também {{ $opcao['categoria_nome'] ? $opcao['categoria_nome'].': ' : '' }}{{ $opcao['nome'] }}
+                                    </p>
+                                    <span class="text-sm font-bold text-pink-600 dark:text-pink-400 shrink-0">+ R$ {{ number_format($opcao['valor_adicional'], 2, ',', '.') }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+
                     {{-- Observação --}}
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observação</label>
@@ -384,7 +403,9 @@
                     @php
                         $adicionaisTotal = collect($adicionaisDisponiveis)->filter(fn($a) => in_array($a['id'], $adicionaisSelecionados))->sum('valor');
                         $precoEfetivo    = $produtoSelecionado['preco_base'] - $produtoSelecionado['desconto_unit'];
-                        $totalPreview    = round(($precoEfetivo * $quantidade) + $adicionaisTotal, 2);
+                        $ofertaEscolhida = collect($ofertasDisponiveis)->firstWhere('oferta_id', $ofertaEscolhidaId);
+                        $ofertaTotal     = $ofertaEscolhida['valor_adicional'] ?? 0;
+                        $totalPreview    = round(($precoEfetivo * $quantidade) + $adicionaisTotal + $ofertaTotal, 2);
                     @endphp
                     <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 rounded-xl px-4 py-3">
                         <span class="text-sm text-gray-500 dark:text-gray-400">Total do item</span>
@@ -659,6 +680,26 @@
                             {{ implode(' / ', array_column($saboresSelecionados, 'nome')) }}
                         </p>
                     @endif
+
+                    {{-- Oferta de promoção adicional (só pizza inteira) --}}
+                    @if (count($ofertasDisponiveis) > 0)
+                        <div class="space-y-1.5">
+                            <p class="text-xs font-semibold text-pink-600 dark:text-pink-400 flex items-center gap-1">
+                                <i class='bx bxs-gift'></i> Oferta especial — escolha 1 (opcional)
+                            </p>
+                            @foreach ($ofertasDisponiveis as $opcao)
+                                <button type="button" wire:click="selecionarOferta({{ $opcao['oferta_id'] }})"
+                                    class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 text-left transition-colors
+                                    {{ $ofertaEscolhidaId === $opcao['oferta_id'] ? 'border-pink-400 dark:border-pink-500/50 bg-pink-50 dark:bg-pink-500/10' : 'border-dashed border-pink-300 dark:border-pink-500/30 bg-white dark:bg-gray-900' }}">
+                                    <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate min-w-0">
+                                        Leve também {{ $opcao['categoria_nome'] ? $opcao['categoria_nome'].': ' : '' }}{{ $opcao['nome'] }}
+                                    </p>
+                                    <span class="text-sm font-bold text-pink-600 dark:text-pink-400 shrink-0">+ R$ {{ number_format($opcao['valor_adicional'], 2, ',', '.') }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+
                     <div class="flex gap-3">
                         <button wire:click="fecharSaboresModal" type="button"
                             class="flex-1 py-2.5 border border-gray-300 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">

@@ -37,6 +37,15 @@
                     <i class='bx bxs-bolt text-[9px]'></i> RELÂMPAGO
                 </span>
             @endif
+            @if (!empty($item['item_origem_id']))
+                <span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-pink-600 rounded px-1.5 py-0.5">
+                    <i class='bx bxs-gift text-[9px]'></i> OFERTA
+                </span>
+            @elseif (!empty($item['promocao_adicional_regra_id']))
+                <span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-pink-600 rounded px-1.5 py-0.5">
+                    <i class='bx bxs-gift text-[9px]'></i> PROMO
+                </span>
+            @endif
         </div>
         <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ $itemNome }}</p>
         @if (!empty($item['adicionais']))
@@ -48,11 +57,11 @@
     </div>
 
     {{-- Quantidade --}}
-    @if (!empty($item['promocao_id']))
+    @if (!empty($item['promocao_id']) || !empty($item['promocao_adicional_regra_id']) || !empty($item['item_origem_id']))
         {{-- Item promocional: preço e quantidade congelados no momento da
              venda (o débito da promoção não pode ser ajustado parcialmente).
              Para mudar a quantidade, remova e adicione de novo. --}}
-        <div class="flex items-center gap-1 shrink-0 px-2" title="Quantidade fixa: item da promoção relâmpago">
+        <div class="flex items-center gap-1 shrink-0 px-2" title="Quantidade fixa: item de promoção">
             <i class='bx bxs-lock-alt text-gray-300 dark:text-gray-600 text-sm'></i>
             <span class="w-8 text-center text-sm font-semibold text-gray-700 dark:text-gray-300 tabular-nums">
                 {{ $item['quantidade'] == floor($item['quantidade']) ? (int)$item['quantidade'] : number_format($item['quantidade'], 2, ',', '') }}

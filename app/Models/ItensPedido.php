@@ -13,6 +13,9 @@ class ItensPedido extends Model
     protected $fillable = [
         'item_pedido_produto_id',
         'item_pedido_promocao_id',
+        'item_pedido_promocao_adicional_regra_id',
+        'item_pedido_promocao_adicional_oferta_id',
+        'item_pedido_origem_id',
         'item_pedido_pedido_id',
         'item_pedido_cliente_id',
         'item_pedido_venda_id',
@@ -42,6 +45,30 @@ class ItensPedido extends Model
         return $this->belongsTo(PromocaoRelampago::class, 'item_pedido_promocao_id');
     }
 
+    /** Regra de promoção adicional que originou este item (linha da oferta). */
+    public function promocaoAdicionalRegra()
+    {
+        return $this->belongsTo(PromocaoAdicionalRegra::class, 'item_pedido_promocao_adicional_regra_id');
+    }
+
+    /** Opção de produto ofertado escolhida, quando este item é a linha da oferta. */
+    public function promocaoAdicionalOferta()
+    {
+        return $this->belongsTo(PromocaoAdicionalOferta::class, 'item_pedido_promocao_adicional_oferta_id');
+    }
+
+    /** Item-gatilho que originou este item, quando este é a oferta (ex.: brotinho → pizza). */
+    public function itemOrigem()
+    {
+        return $this->belongsTo(ItensPedido::class, 'item_pedido_origem_id');
+    }
+
+    /** Itens de oferta gerados a partir deste item ser o gatilho. */
+    public function itensOferta()
+    {
+        return $this->hasMany(ItensPedido::class, 'item_pedido_origem_id');
+    }
+
     public function usuarioRemoveu()
     {
         return $this->belongsTo(User::class, 'item_pedido_usuario_removeu');
@@ -59,7 +86,7 @@ class ItensPedido extends Model
 
     public function venda()
     {
-        return $this->belongsTo(\App\Models\Venda::class, 'item_pedido_venda_id');
+        return $this->belongsTo(Venda::class, 'item_pedido_venda_id');
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -86,7 +113,7 @@ class ItensPedido extends Model
      */
     public static function precoUnitario(Produto $produto): array
     {
-        $preco = app(PrecificadorService::class)->resolver($produto, considerarRelampago: false);
+        $preco = app(PrecificadorService::class)->resolver($produto, considerarRelampago: false, considerarPromoAdicional: false);
 
         return [
             'valor_unitario' => $preco->valorUnitario,
@@ -134,9 +161,11 @@ class ItensPedido extends Model
         $quantidade = (float) $this->item_pedido_quantidade;
         $adicionais = $valorAdicionais ?? (float) $this->adicionaisItemPedido()->sum('aip_valor_total');
 
-        if ($this->item_pedido_promocao_id) {
+        if ($this->item_pedido_promocao_id || $this->item_pedido_promocao_adicional_regra_id) {
             // Preço congelado no momento da venda. Reprecificar aqui faria o item
             // perder a promoção quando ela expirasse, ou herdar uma promoção nova.
+            // Cobre tanto o gatilho com preço override quanto a linha da oferta
+            // (cujo valor nunca vem de PrecificadorService, só de par_valor_adicional).
             $valorUnitario = (float) $this->item_pedido_valor_unitario;
             $descontoUnitario = (float) ($this->item_pedido_desconto_unitario ?? 0);
         } else {
