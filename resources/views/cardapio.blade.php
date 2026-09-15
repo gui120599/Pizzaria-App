@@ -698,6 +698,13 @@
                                     <span x-text="$store.cart.avisoPagamentoRemovido.join(', ')" class="font-semibold"></span>.
                                 </p>
                             </template>
+                            <template x-if="$store.cart.avisoPagamentoRestaurado.length > 0">
+                                <p class="text-green-300 text-[11px] mt-1.5 leading-snug bg-green-500/10 border border-green-500/20 rounded px-2 py-1.5">
+                                    <i class='bx bx-check-circle mr-0.5'></i>
+                                    Forma de pagamento válida pra promoção — a oferta especial voltou pro pedido:
+                                    <span x-text="$store.cart.avisoPagamentoRestaurado.join(', ')" class="font-semibold"></span>.
+                                </p>
+                            </template>
                         </div>
 
                         {{-- Troco (só se pagamento for Dinheiro) --}}
@@ -1096,6 +1103,9 @@
                 // por causa da forma de pagamento escolhida (ver
                 // revalidarOfertasContraPagamento) — exibido como aviso.
                 avisoPagamentoRemovido: [],
+                // Nomes dos produtos cuja oferta acabou de ser restaurada por
+                // voltar pra uma forma de pagamento válida — exibido como aviso.
+                avisoPagamentoRestaurado: [],
 
                 // ── Modal de troco ──
                 trocoModal: { open: false },
@@ -1201,25 +1211,39 @@
                 /**
                  * Chamado ao escolher forma de pagamento: remove a oferta (e
                  * volta o item ao preço normal) de qualquer item do carrinho
-                 * cuja campanha não aceita a forma escolhida. O servidor
-                 * também revalida isso de forma independente no checkout —
-                 * isto é só pra avisar o cliente antes de finalizar.
+                 * cuja campanha não aceita a forma escolhida — guardando o
+                 * que foi removido em item._promoBackup. Ao voltar pra uma
+                 * forma válida, restaura o preço/oferta de onde ficaram. O
+                 * servidor também revalida isso de forma independente no
+                 * checkout — isto é só pra manter a UI coerente antes de
+                 * finalizar.
                  */
                 revalidarOfertasContraPagamento() {
                     const pagamentoId = this.form.pagamentoId;
                     const removidos = [];
+                    const restaurados = [];
                     this.items.forEach(item => {
-                        if (!item.oferta) return;
                         const promo = _promocoesAdicionais[item.id];
-                        const permitidas = promo?.opcoesPagamentoPermitidas ?? [];
-                        if (permitidas.length > 0 && !permitidas.includes(pagamentoId)) {
+                        if (!promo) return;
+                        const permitidas = promo.opcoesPagamentoPermitidas ?? [];
+                        const permitido = permitidas.length === 0 || permitidas.includes(pagamentoId);
+                        if (!permitido) {
+                            if (!item._promoBackup) {
+                                item._promoBackup = { oferta: item.oferta, preco: item.preco };
+                                item.oferta = null;
+                                item.preco = item.precoOriginal ?? item.preco;
+                            }
                             removidos.push(item.nome);
-                            item.preco = item.precoOriginal ?? item.preco;
-                            item.oferta = null;
+                        } else if (item._promoBackup) {
+                            item.oferta = item._promoBackup.oferta;
+                            item.preco = item._promoBackup.preco;
+                            delete item._promoBackup;
+                            restaurados.push(item.nome);
                         }
                     });
                     this.avisoPagamentoRemovido = removidos;
-                    if (removidos.length > 0) this.save();
+                    this.avisoPagamentoRestaurado = restaurados;
+                    if (removidos.length > 0 || restaurados.length > 0) this.save();
                 },
                 increment(cartKey) {
                     const item = this.items.find(i => i.cartKey === String(cartKey));
@@ -1252,7 +1276,7 @@
                 },
                 get totalComFrete() { return this.total + this.valorFrete; },
                 save()  { localStorage.setItem('cardapio_cart', JSON.stringify(this.items)); },
-                clear() { this.items = []; this.avisoPagamentoRemovido = []; localStorage.removeItem('cardapio_cart'); },
+                clear() { this.items = []; this.avisoPagamentoRemovido = []; this.avisoPagamentoRestaurado = []; localStorage.removeItem('cardapio_cart'); },
 
                 // ── Sabores (meia a meia / terços) ──
                 abrirSabores(categoriaId, categoriaNome, maxSabores, produtoId = null) {
