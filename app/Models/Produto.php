@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EstoqueModoControleEnum;
 use App\Services\PrecificadorService;
 use App\Services\PrecoResolvido;
 use Illuminate\Database\Eloquent\Builder;
@@ -77,7 +78,7 @@ class Produto extends Model
         'produto_perecivel' => 'boolean',
         'produto_venda_manual' => 'boolean',
         'produto_lista_estoque_zerado' => 'boolean',
-        'produto_modo_controle_estoque' => \App\Enums\EstoqueModoControleEnum::class,
+        'produto_modo_controle_estoque' => EstoqueModoControleEnum::class,
         'produto_preco_custo' => 'decimal:8',
         'produto_custo_medio' => 'decimal:8',
         'produto_saldo_estoque' => 'decimal:3',
@@ -147,15 +148,38 @@ class Produto extends Model
     }
 
     /**
+     * A promoção adicional vigente deste produto (como gatilho, com override
+     * de preço) vale só para a pizza inteira? Verdadeiro quando há regra
+     * vigente com override e a campanha não marca promoad_aplica_fracionado —
+     * nesse caso a fração (meia/terço) sai pelo preço normal, sem o override.
+     */
+    public function promoAdicionalSoInteiraCardapio(): bool
+    {
+        $regra = app(PrecificadorService::class)->regraAdicionalDoProduto($this->id);
+
+        return $regra !== null
+            && $regra->par_preco_gatilho_override !== null
+            && ! $regra->promocao->promoad_aplica_fracionado;
+    }
+
+    /**
      * Preço de uma unidade deste produto quando escolhido como fração de uma
-     * pizza multi-sabor. Numa promoção "só inteira" a fração volta ao preço
-     * normal (relâmpago não se aplica); nos demais casos segue o preço resolvido
-     * da unidade inteira. Espelha o que o servidor cobra em ratearCombo().
+     * pizza multi-sabor. Numa promoção "só inteira" (relâmpago ou adicional)
+     * a fração volta ao preço normal; nos demais casos segue o preço
+     * resolvido da unidade inteira. Espelha o que o servidor cobra em
+     * ratearCombo().
      */
     public function precoFracaoCardapio(): float
     {
-        if ($this->relampagoSoInteiraCardapio()) {
-            return app(PrecificadorService::class)->resolver($this, considerarRelampago: false)->precoFinal();
+        $excluirRelampago = $this->relampagoSoInteiraCardapio();
+        $excluirPromoAdicional = $this->promoAdicionalSoInteiraCardapio();
+
+        if ($excluirRelampago || $excluirPromoAdicional) {
+            return app(PrecificadorService::class)->resolver(
+                $this,
+                considerarRelampago: ! $excluirRelampago,
+                considerarPromoAdicional: ! $excluirPromoAdicional,
+            )->precoFinal();
         }
 
         return $this->precoResolvido()->precoFinal();
