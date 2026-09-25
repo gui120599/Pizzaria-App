@@ -33,6 +33,16 @@ class ImportarXmlCompraTest extends TestCase
         return file_get_contents(base_path('tests/Fixtures/nfe-compra-exemplo.xml'));
     }
 
+    /** Mesma NF-e de exemplo, mas com outra chave/número — simula uma segunda importação do mesmo fornecedor/produto. */
+    private function xmlExemploOutraNota(): string
+    {
+        return str_replace(
+            ['35260114200166000166550010000000461123456789', '<nNF>46</nNF>'],
+            ['35260114200166000166550010000000471123456789', '<nNF>47</nNF>'],
+            $this->xmlExemplo(),
+        );
+    }
+
     private function categoria(): Categoria
     {
         return Categoria::create(['categoria_nome' => 'Insumos']);
@@ -146,6 +156,73 @@ class ImportarXmlCompraTest extends TestCase
         $item1 = $compra->itens()->orderBy('id')->first();
         $this->assertSame($produtoDePara->id, $item1->ci_produto_id);
         $this->assertNotSame($produtoPorEan->id, $item1->ci_produto_id);
+    }
+
+    public function test_importa_com_fator_de_conversao_ja_aprendido_no_depara_do_fornecedor(): void
+    {
+        $categoria = $this->categoria();
+
+        $produto = $this->produto([
+            'produto_descricao' => 'Açúcar refinado (fardo)',
+            'produto_categoria_id' => $categoria->id,
+            'produto_unidade_estoque' => 'UN',
+        ]);
+
+        $prestador = Prestador::create([
+            'tipo' => 'pj',
+            'categoria' => 'fornecedor',
+            'razao_social' => 'Distribuidora Exemplo LTDA',
+            'cpf_cnpj' => self::CNPJ_EMITENTE,
+        ]);
+
+        FornecedorProduto::create([
+            'fp_prestador_id' => $prestador->id,
+            'fp_produto_id' => $produto->id,
+            'fp_codigo_fornecedor' => '001',
+            'fp_fator_conversao' => 6,
+        ]);
+
+        $compra = app(NfeImportService::class)->importar($this->xmlExemplo());
+
+        $item1 = $compra->itens()->orderBy('id')->first();
+        $this->assertEqualsWithDelta(6.0, (float) $item1->ci_fator_conversao, 0.0001);
+    }
+
+    public function test_fator_aprendido_no_depara_nao_e_perdido_em_nova_importacao_do_mesmo_fornecedor_produto(): void
+    {
+        $categoria = $this->categoria();
+
+        $produtoAcucar = $this->produto([
+            'produto_descricao' => 'Açúcar refinado',
+            'produto_categoria_id' => $categoria->id,
+            'produto_unidade_estoque' => 'UN',
+            'produto_codigo_EAN' => '7891234567890',
+            'produto_saldo_estoque' => 0,
+            'produto_custo_medio' => 0,
+        ]);
+
+        $produtoTempero = $this->produto([
+            'produto_descricao' => 'Tempero composto',
+            'produto_categoria_id' => $categoria->id,
+            'produto_unidade_estoque' => 'CX',
+            'produto_saldo_estoque' => 0,
+            'produto_custo_medio' => 0,
+        ]);
+
+        // Primeira importação: o usuário corrige manualmente o fator do item mapeado por EAN antes de confirmar.
+        $compra1 = app(NfeImportService::class)->importar($this->xmlExemplo());
+        $itemAcucar1 = $compra1->itens()->where('ci_produto_id', $produtoAcucar->id)->firstOrFail();
+        $itemAcucar1->update(['ci_fator_conversao' => 6]);
+        $itemTempero1 = $compra1->itens()->whereNull('ci_produto_id')->firstOrFail();
+        $itemTempero1->update(['ci_produto_id' => $produtoTempero->id]);
+
+        app(CompraService::class)->confirmar($compra1->fresh());
+
+        // Segunda importação (NF-e diferente, mesmo fornecedor/produto) deve nascer já com o fator 6, não reiniciar em 1.
+        $compra2 = app(NfeImportService::class)->importar($this->xmlExemploOutraNota());
+        $itemAcucar2 = $compra2->itens()->where('ci_produto_id', $produtoAcucar->id)->firstOrFail();
+
+        $this->assertEqualsWithDelta(6.0, (float) $itemAcucar2->ci_fator_conversao, 0.0001);
     }
 
     public function test_fluxo_completo_import_mapear_pendente_e_confirmar_gera_estoque(): void
