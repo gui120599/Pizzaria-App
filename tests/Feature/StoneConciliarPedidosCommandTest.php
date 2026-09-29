@@ -2,9 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ProdutoTipoEnum;
+use App\Models\Caixa;
+use App\Models\Categoria;
+use App\Models\ItensPedido;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
+use App\Models\Pedido;
+use App\Models\Produto;
+use App\Models\SessaoCaixa;
 use App\Models\StonePedido;
+use App\Models\User;
 use App\Models\Venda;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -116,5 +124,62 @@ class StoneConciliarPedidosCommandTest extends TestCase
         $this->artisan('stone:conciliar-pedidos')->assertExitCode(0);
 
         $this->assertSame('falha', $pedido->fresh()->stp_status->value);
+    }
+
+    public function test_reprocessa_pedido_pago_sem_venda_quando_o_caixa_abre_depois(): void
+    {
+        Http::fake(['api.pagar.me/*/closed' => Http::response([], 200)]);
+
+        $user = User::factory()->admin()->create(['name_first' => 'Admin']);
+        $caixa = Caixa::create(['caixa_nome' => 'Caixa 1']);
+        SessaoCaixa::create([
+            'sessaocaixa_caixa_id' => $caixa->id,
+            'sessaocaixa_status' => 'ABERTA',
+            'sessaocaixa_data_hora_abertura' => now(),
+            'sessaocaixa_saldo_inicial' => 0,
+            'sessaocaixa_saldo_final' => 0,
+            'sessaocaixa_user_id' => $user->id,
+        ]);
+
+        $categoria = Categoria::create(['categoria_nome' => 'Pizzas']);
+        $produto = Produto::create([
+            'produto_descricao' => 'Calabresa',
+            'produto_categoria_id' => $categoria->id,
+            'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value,
+            'produto_preco_venda' => 20.00,
+        ]);
+        $pedidoDelivery = Pedido::create(['pedido_status' => 'EM TRANSPORTE']);
+        ItensPedido::create([
+            'item_pedido_pedido_id' => $pedidoDelivery->id,
+            'item_pedido_produto_id' => $produto->id,
+            'item_pedido_quantidade' => 1,
+            'item_pedido_valor_unitario' => 20.00,
+            'item_pedido_valor' => 20.00,
+            'item_pedido_desconto' => 0,
+            'item_pedido_valor_adicionais' => 0,
+            'item_pedido_status' => 'INSERIDO',
+        ]);
+
+        // Simula o que aconteceu no webhook: pago, mas sem sessão de caixa
+        // aberta na hora — ficou com stp_erro e sem stp_venda_id.
+        $stonePedido = StonePedido::create([
+            'stp_pedido_id' => $pedidoDelivery->id,
+            'stp_origem' => 'pedido',
+            'stp_order_id' => 'or_sem_venda',
+            'stp_order_code' => 'CODE2',
+            'stp_valor_solicitado' => 20.00,
+            'stp_valor_pago' => 20.00,
+            'stp_status' => 'pago',
+            'stp_modo' => 'listado',
+            'stp_erro' => 'Não foi possível determinar a sessão de caixa: 0 sessão(ões) ABERTA(S).',
+        ]);
+
+        $this->artisan('stone:conciliar-pedidos')->assertExitCode(0);
+
+        $venda = Venda::sole();
+        $this->assertSame('FINALIZADA', $venda->venda_status);
+        $this->assertSame($venda->id, $stonePedido->fresh()->stp_venda_id);
+        $this->assertSame('FINALIZADO', $pedidoDelivery->fresh()->pedido_status);
+        $this->assertSame(1, PagamentosVenda::count());
     }
 }

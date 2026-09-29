@@ -66,17 +66,19 @@ class StoneConnectService
     {
         ['base_url' => $base] = $this->config();
 
-        $pedido->loadMissing(['venda.cliente', 'pedido.cliente', 'maquininha', 'opcaoPagamento']);
-        $cliente = $pedido->venda?->cliente ?? $pedido->pedido?->cliente;
+        $pedido->loadMissing(['venda.cliente', 'pedido.cliente', 'sessaoMesa.cliente', 'sessaoMesa.mesa', 'maquininha', 'opcaoPagamento']);
+        $cliente = $pedido->venda?->cliente ?? $pedido->pedido?->cliente ?? $pedido->sessaoMesa?->cliente;
 
         $nome = Str::limit(trim((string) ($cliente->cliente_nome ?? 'Consumidor')), 64, '');
         $email = filled($cliente->cliente_email ?? null)
             ? Str::limit($cliente->cliente_email, 64, '')
             : 'consumidor@exemplo.com';
 
-        $rotulo = filled($pedido->stp_venda_id)
-            ? "Venda #{$pedido->stp_venda_id}"
-            : "Pedido #{$pedido->stp_pedido_id}";
+        $rotulo = match (true) {
+            filled($pedido->stp_venda_id) => "Venda #{$pedido->stp_venda_id}",
+            filled($pedido->stp_sessao_mesa_id) => 'Mesa '.($pedido->sessaoMesa?->mesa?->mesa_nome ?? $pedido->stp_sessao_mesa_id).' — conta',
+            default => "Pedido #{$pedido->stp_pedido_id}",
+        };
 
         $body = [
             'customer' => [

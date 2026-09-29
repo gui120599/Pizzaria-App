@@ -4,6 +4,7 @@ namespace App\Services\Stone;
 
 use App\Enums\OperadoraMaquininha;
 use App\Enums\StonePedidoModo;
+use App\Enums\StonePedidoOrigem;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
 use App\Models\ItensPedido;
@@ -11,11 +12,14 @@ use App\Models\Maquininha;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
+use App\Models\Pedido;
+use App\Models\SessaoMesa;
 use App\Models\StonePedido;
 use App\Models\StoneWebhook;
 use App\Models\Venda;
 use App\Services\MovimentacaoCaixaService;
 use App\Services\VendaService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -61,6 +65,78 @@ class StoneRecebimentoService
         float $valor,
         StonePedidoModo $modo = StonePedidoModo::Direto,
     ): StonePedido {
+        $modoEfetivo = $this->validarECalcularModoEfetivo($opcao, $maquininha, $valor, $modo);
+
+        if ($modo === StonePedidoModo::Direto && $modoEfetivo === StonePedidoModo::Listado) {
+            Log::channel('stone')->info('STONE_CONNECT_PEDIDO_DIRETO desligado — pedido criado como Listado', [
+                'venda_id' => $venda->id,
+            ]);
+        }
+
+        return $this->criarStonePedido([
+            'stp_venda_id' => $venda->id,
+            'stp_pedido_id' => $this->pedidoVinculadoAVenda($venda),
+            'stp_origem' => StonePedidoOrigem::Venda,
+            'stp_usuario_id' => Auth::id(),
+            'stp_maquininha_id' => $maquininha->id,
+            'stp_opcaopagamento_id' => $opcao?->id,
+            'stp_valor_solicitado' => round($valor, 2),
+            'stp_valor_pago' => 0,
+            'stp_status' => StonePedidoStatus::Aguardando,
+            'stp_modo' => $modoEfetivo,
+        ]);
+    }
+
+    /**
+     * Cria o pedido na Stone a partir de um Pedido avulso (balcão, retirada,
+     * delivery) ou da conta de uma SessaoMesa — sem Venda prévia. O webhook
+     * charge.paid cria a Venda quando o pagamento chegar (ver
+     * StoneVendaAutomaticaService). Mesmas validações e camadas de
+     * idempotência de iniciarCobranca().
+     */
+    public function iniciarCobrancaDePedido(
+        Pedido|SessaoMesa $alvo,
+        ?OpcoesPagamento $opcao,
+        Maquininha $maquininha,
+        float $valor,
+        StonePedidoModo $modo = StonePedidoModo::Direto,
+    ): StonePedido {
+        $modoEfetivo = $this->validarECalcularModoEfetivo($opcao, $maquininha, $valor, $modo);
+        $origem = $alvo instanceof Pedido ? StonePedidoOrigem::Pedido : StonePedidoOrigem::SessaoMesa;
+
+        if ($modo === StonePedidoModo::Direto && $modoEfetivo === StonePedidoModo::Listado) {
+            Log::channel('stone')->info('STONE_CONNECT_PEDIDO_DIRETO desligado — pedido criado como Listado', [
+                'origem' => $origem->value, 'alvo_id' => $alvo->id,
+            ]);
+        }
+
+        return $this->criarStonePedido([
+            'stp_pedido_id' => $alvo instanceof Pedido ? $alvo->id : null,
+            'stp_sessao_mesa_id' => $alvo instanceof SessaoMesa ? $alvo->id : null,
+            'stp_origem' => $origem,
+            'stp_usuario_id' => Auth::id(),
+            'stp_maquininha_id' => $maquininha->id,
+            'stp_opcaopagamento_id' => $opcao?->id,
+            'stp_valor_solicitado' => round($valor, 2),
+            'stp_valor_pago' => 0,
+            'stp_status' => StonePedidoStatus::Aguardando,
+            'stp_modo' => $modoEfetivo,
+        ]);
+    }
+
+    /**
+     * Valida forma de pagamento, maquininha e valor (regras comuns a
+     * iniciarCobranca e iniciarCobrancaDePedido) e resolve o modo efetivo —
+     * Pedido Direto exige a conta credenciada para o modelo; com a flag
+     * services.stone.pedido_direto desligada, cai para Listado sem quebrar
+     * (só degrada a UX no POS).
+     */
+    private function validarECalcularModoEfetivo(
+        ?OpcoesPagamento $opcao,
+        Maquininha $maquininha,
+        float $valor,
+        StonePedidoModo $modo,
+    ): StonePedidoModo {
         if ($modo === StonePedidoModo::Direto) {
             if (! $opcao || ! $opcao->ehIntegracaoStone()) {
                 throw new StoneConnectException('Esta forma de pagamento não está integrada à maquininha Stone.');
@@ -80,28 +156,17 @@ class StoneRecebimentoService
             throw new StoneConnectException('Informe um valor maior que zero para enviar à maquininha.');
         }
 
-        // Pedido Direto exige a conta credenciada para o modelo Direto. Com a
-        // flag desligada, cai para Listado sem quebrar (só degrada a UX no POS).
-        $modoEfetivo = ($modo === StonePedidoModo::Direto && config('services.stone.pedido_direto'))
+        return ($modo === StonePedidoModo::Direto && config('services.stone.pedido_direto'))
             ? StonePedidoModo::Direto
             : StonePedidoModo::Listado;
+    }
 
-        if ($modo === StonePedidoModo::Direto && $modoEfetivo === StonePedidoModo::Listado) {
-            Log::channel('stone')->info('STONE_CONNECT_PEDIDO_DIRETO desligado — pedido criado como Listado', [
-                'venda_id' => $venda->id,
-            ]);
-        }
-
-        $pedido = StonePedido::create([
-            'stp_venda_id' => $venda->id,
-            'stp_pedido_id' => $this->pedidoVinculadoAVenda($venda),
-            'stp_maquininha_id' => $maquininha->id,
-            'stp_opcaopagamento_id' => $opcao?->id,
-            'stp_valor_solicitado' => round($valor, 2),
-            'stp_valor_pago' => 0,
-            'stp_status' => StonePedidoStatus::Aguardando,
-            'stp_modo' => $modoEfetivo,
-        ]);
+    /**
+     * @param  array<string, mixed>  $dados
+     */
+    private function criarStonePedido(array $dados): StonePedido
+    {
+        $pedido = StonePedido::create($dados);
 
         try {
             $resposta = $this->connect->criarPedido($pedido);
@@ -183,12 +248,21 @@ class StoneRecebimentoService
         $valor = round((float) ($charge['paid_amount'] ?? $charge['amount'] ?? 0) / 100, 2);
         $meta = $charge['metadata'] ?? [];
 
-        // Pedido Stone sem venda (recebimento na entrega) — fluxo ainda não
-        // integrado: registra o valor no hub e loga, sem criar pagamento.
+        // Pedido/SessaoMesa sem Venda ainda (origem Pedido/SessaoMesa — ver
+        // StonePedidoOrigem): tenta criar a Venda agora. Sem sessão de caixa
+        // aberta (ou mais de uma) ou sem pedido ativo, cai no fallback que só
+        // registra o valor no hub (registrarChargeSemVenda) — recuperável
+        // depois por stone:conciliar-pedidos.
         if (blank($pedido->stp_venda_id)) {
-            $this->registrarChargeSemVenda($pedido, $charge, $valor);
+            $venda = app(StoneVendaAutomaticaService::class)->resolverOuCriarVenda($pedido);
 
-            return;
+            if (! $venda) {
+                $this->registrarChargeSemVenda($pedido, $charge, $valor);
+
+                return;
+            }
+
+            $pedido->forceFill(['stp_venda_id' => $venda->id])->save();
         }
 
         $fechar = DB::transaction(function () use ($webhook, $pedido, $charge, $meta, $valor) {
@@ -249,6 +323,13 @@ class StoneRecebimentoService
 
         if ($fechar) {
             $this->fecharPedidoNaStone($pedido->fresh());
+        }
+
+        // No-op para StonePedido de origem Venda (fluxo do PDV) — quem
+        // finaliza continua sendo o operador em OperarVenda.
+        $vendaAtualizada = Venda::find($pedido->fresh()->stp_venda_id);
+        if ($vendaAtualizada) {
+            app(StoneVendaAutomaticaService::class)->finalizarSePago($vendaAtualizada, $pedido->fresh());
         }
     }
 

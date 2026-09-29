@@ -3,17 +3,23 @@
 namespace App\Filament\Pages;
 
 use App\Enums\PedidoOrigemEnum;
+use App\Enums\StonePedidoModo;
+use App\Enums\StonePedidoStatus;
+use App\Exceptions\StoneConnectException;
 use App\Livewire\PedidoProdutoSelector;
 use App\Models\AdicionaisItemPedido;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
+use App\Models\Maquininha;
 use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\Produto;
+use App\Models\StonePedido;
 use App\Services\ClienteResolverService;
 use App\Services\EstoqueService;
+use App\Services\Stone\StoneRecebimentoService;
 use App\Support\TotaisPedido;
 use BackedEnum;
 use Filament\Notifications\Notification;
@@ -69,6 +75,20 @@ class AtenderPedido extends Page
 
     public bool $somenteLeitura = false;
 
+    // ── Cobrança na maquininha Stone (recebimento direto no pedido) ────────
+    public bool $modalStoneAberta = false;
+
+    public ?int $stoneMaquininhaId = null;
+
+    public ?int $stoneOpcaoPagamentoId = null;
+
+    /** aguardando|pago|erro|cancelado */
+    public string $stoneStatusModal = 'aguardando';
+
+    public ?string $stoneErroModal = null;
+
+    public ?int $stonePedidoId = null;
+
     /** Status a partir dos quais o conteúdo do pedido não faz mais sentido editar (mesmo espírito de isEditableContentWise() do razelfood). */
     private const STATUS_SOMENTE_LEITURA = ['ENTREGUE', 'FINALIZADO', 'CANCELADO'];
 
@@ -90,6 +110,10 @@ class AtenderPedido extends Page
 
     public function mount(?Pedido $pedido = null): void
     {
+        // Última maquininha usada por este operador — reduz o risco de
+        // mandar a cobrança pro aparelho errado (ver Maquininha::scopeStoneDisponivel).
+        $this->stoneMaquininhaId = session('stone_ultima_maquininha_id.'.Auth::id());
+
         if (! $pedido?->exists) {
             return;
         }
@@ -327,7 +351,13 @@ class AtenderPedido extends Page
             ];
 
             if ($souNovo) {
-                $dadosPedido['pedido_status'] = 'INICIADO';
+                // ABERTO, não INICIADO: um pedido montado aqui pelo atendente já está
+                // confirmado por definição. INICIADO é o estado "aguardando confirmação
+                // da loja" do cardápio público (ver ConfirmacoesPedidos) — pedidos nesse
+                // status ficam invisíveis pro resto do sistema (OperarVenda, dashboards,
+                // PDFController) e sujeitos ao cancelamento em massa de
+                // pedidos:zerar-iniciados.
+                $dadosPedido['pedido_status'] = 'ABERTO';
                 $dadosPedido['pedido_usuario_garcom_id'] = Auth::id();
                 $dadosPedido['pedido_origem'] = PedidoOrigemEnum::ATENDENTE;
             } else {
@@ -503,5 +533,119 @@ class AtenderPedido extends Page
     public function getOpcoesStatus(): array
     {
         return self::OPCOES_STATUS;
+    }
+
+    /** Maquininhas Stone com número de série — mesmo critério do PDV (OperarVenda). */
+    #[Computed]
+    public function maquininhasStone()
+    {
+        return Maquininha::stoneDisponivel()->orderBy('nome')->pluck('nome', 'id');
+    }
+
+    #[Computed]
+    public function opcoesPagamentoStone()
+    {
+        return OpcoesPagamento::where('opcaopag_stone_integrada', true)->orderBy('opcaopag_nome')->pluck('opcaopag_nome', 'id');
+    }
+
+    public function abrirModalStone(): void
+    {
+        if (! $this->pedidoId) {
+            $this->notificarErro('Salve o pedido antes de cobrar na maquininha.');
+
+            return;
+        }
+
+        $this->modalStoneAberta = true;
+        $this->stoneStatusModal = 'form';
+        $this->stoneErroModal = null;
+        $this->stonePedidoId = null;
+    }
+
+    public function fecharModalStone(): void
+    {
+        $recemPago = $this->stoneStatusModal === 'pago';
+
+        $this->modalStoneAberta = false;
+        $this->stonePedidoId = null;
+        $this->stoneErroModal = null;
+        $this->stoneStatusModal = 'form';
+
+        // O pagamento integral finaliza o pedido pelo webhook — recarrega a
+        // página pra refletir o novo status (a mesma UX de OperarVenda).
+        if ($recemPago) {
+            $this->redirect(static::getUrl(['pedido' => $this->pedidoId]));
+        }
+    }
+
+    public function enviarCobrancaStone(): void
+    {
+        if (! $this->stoneMaquininhaId) {
+            $this->addError('stoneMaquininhaId', 'Selecione a maquininha.');
+
+            return;
+        }
+
+        $maquininha = Maquininha::find($this->stoneMaquininhaId);
+        $pedido = Pedido::find($this->pedidoId);
+
+        if (! $maquininha || ! $pedido) {
+            $this->notificarErro('Pedido ou maquininha não encontrado.');
+
+            return;
+        }
+
+        session(['stone_ultima_maquininha_id.'.Auth::id() => $this->stoneMaquininhaId]);
+
+        $opcao = $this->stoneOpcaoPagamentoId ? OpcoesPagamento::find($this->stoneOpcaoPagamentoId) : null;
+        $modo = $opcao ? StonePedidoModo::Direto : StonePedidoModo::Listado;
+
+        try {
+            $stonePedido = app(StoneRecebimentoService::class)->iniciarCobrancaDePedido(
+                $pedido, $opcao, $maquininha, $this->totalPreview, $modo,
+            );
+            $this->stonePedidoId = $stonePedido->id;
+            $this->stoneStatusModal = 'aguardando';
+        } catch (StoneConnectException $e) {
+            $this->stoneStatusModal = 'erro';
+            $this->stoneErroModal = $e->getMessage();
+        }
+    }
+
+    public function verificarStatusStone(): void
+    {
+        if (! $this->stonePedidoId) {
+            return;
+        }
+
+        $pedido = StonePedido::find($this->stonePedidoId);
+        if (! $pedido) {
+            return;
+        }
+
+        $this->stoneStatusModal = match ($pedido->stp_status) {
+            StonePedidoStatus::Pago => 'pago',
+            StonePedidoStatus::Cancelado, StonePedidoStatus::Estornado => 'cancelado',
+            StonePedidoStatus::Falha => 'erro',
+            default => $this->stoneStatusModal,
+        };
+
+        if ($this->stoneStatusModal === 'erro' && $this->stoneErroModal === null) {
+            $this->stoneErroModal = 'A cobrança falhou na Stone. Tente novamente.';
+        }
+    }
+
+    public function cancelarCobrancaStone(): void
+    {
+        if (! $this->stonePedidoId) {
+            return;
+        }
+
+        $stonePedido = StonePedido::find($this->stonePedidoId);
+        if ($stonePedido) {
+            app(StoneRecebimentoService::class)->cancelarCobranca($stonePedido);
+        }
+
+        $this->fecharModalStone();
     }
 }

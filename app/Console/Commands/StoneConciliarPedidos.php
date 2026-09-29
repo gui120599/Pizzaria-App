@@ -2,11 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\StonePedidoOrigem;
 use App\Enums\StonePedidoStatus;
 use App\Models\StonePedido;
 use App\Models\StoneWebhook;
 use App\Services\Stone\StoneConnectService;
 use App\Services\Stone\StoneRecebimentoService;
+use App\Services\Stone\StoneVendaAutomaticaService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -17,7 +19,10 @@ use Illuminate\Support\Facades\Log;
  *   1. pedidos PAGOS que não conseguiram ser fechados na Stone (PATCH falhou);
  *   2. pedidos AGUARDANDO antigos cujo webhook charge.paid pode ter se perdido
  *      — consulta a Stone e reprocessa;
- *   3. pedidos AGUARDANDO muito antigos (> 2h) viram FALHA.
+ *   3. pedidos AGUARDANDO muito antigos (> 2h) viram FALHA;
+ *   4. pedidos de origem Pedido/SessaoMesa PAGOS sem Venda (a ambiguidade de
+ *      sessão de caixa que gerou stp_erro pode ter se resolvido sozinha —
+ *      ver StoneVendaAutomaticaService::recuperarVendaEPagamento()).
  */
 class StoneConciliarPedidos extends Command
 {
@@ -27,7 +32,7 @@ class StoneConciliarPedidos extends Command
 
     protected $description = 'Fecha pedidos Stone pendentes e recupera webhooks charge.paid perdidos';
 
-    public function handle(StoneConnectService $connect, StoneRecebimentoService $recebimento): int
+    public function handle(StoneConnectService $connect, StoneRecebimentoService $recebimento, StoneVendaAutomaticaService $vendaAutomatica): int
     {
         if (blank(config('services.stone.secret_key'))) {
             $this->warn('Integração Stone não configurada — nada a fazer.');
@@ -37,11 +42,12 @@ class StoneConciliarPedidos extends Command
 
         $fechados = $this->fecharPendentes($connect);
         $recuperados = $this->recuperarPerdidos($connect, $recebimento);
+        $vendasGeradas = $this->reprocessarPagosSemVenda($vendaAutomatica);
         $expirados = $this->expirarAntigos();
 
         $this->table(
-            ['Fechados', 'Recuperados', 'Expirados'],
-            [[$fechados, $recuperados, $expirados]],
+            ['Fechados', 'Recuperados', 'Vendas geradas', 'Expirados'],
+            [[$fechados, $recuperados, $vendasGeradas, $expirados]],
         );
 
         return self::SUCCESS;
@@ -131,6 +137,34 @@ class StoneConciliarPedidos extends Command
         }
 
         return $recuperados;
+    }
+
+    /**
+     * Pedidos de origem Pedido/SessaoMesa pagos que ficaram sem Venda por
+     * ambiguidade de sessão de caixa (stp_erro preenchido) — tenta de novo
+     * agora que o caixa pode ter sido aberto/fechado nesse meio tempo.
+     */
+    private function reprocessarPagosSemVenda(StoneVendaAutomaticaService $vendaAutomatica): int
+    {
+        $pedidos = StonePedido::whereIn('stp_status', [StonePedidoStatus::Pago->value, StonePedidoStatus::PagoParcial->value])
+            ->whereNull('stp_venda_id')
+            ->where('stp_origem', '!=', StonePedidoOrigem::Venda->value)
+            ->get();
+
+        $gerados = 0;
+        foreach ($pedidos as $pedido) {
+            try {
+                if ($vendaAutomatica->recuperarVendaEPagamento($pedido)) {
+                    $gerados++;
+                }
+            } catch (\Throwable $e) {
+                Log::channel('stone')->error('Conciliação: falha ao reprocessar pedido pago sem venda', [
+                    'stone_pedido_id' => $pedido->id, 'erro' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $gerados;
     }
 
     private function expirarAntigos(): int
