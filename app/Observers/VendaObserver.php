@@ -94,8 +94,15 @@ class VendaObserver
             $sessaoMesa->update(['sessao_mesa_status' => 'FINALIZADA']);
 
             $mesa = Mesa::find($sessaoMesa->sessao_mesa_mesa_id);
+            // Só limpa mesa_sessao_atual_id se ainda apontar pra esta sessão —
+            // protege contra derrubar mesa já reocupada por outra sessão
+            // (mesmo padrão de SessaoMesaService::liberarMesaSeAindaForaDela).
             if ($mesa) {
-                $mesa->update(['mesa_status' => 'LIBERADA']);
+                $dados = ['mesa_status' => 'LIBERADA'];
+                if ((int) $mesa->mesa_sessao_atual_id === (int) $sessaoMesa->id) {
+                    $dados['mesa_sessao_atual_id'] = null;
+                }
+                $mesa->update($dados);
             }
         }
     }

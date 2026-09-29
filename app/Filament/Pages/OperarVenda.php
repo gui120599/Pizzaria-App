@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Enums\FormaPagamento;
-use App\Enums\OperadoraMaquininha;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\EstoqueInsuficienteException;
@@ -30,6 +29,7 @@ use App\Models\StonePedido;
 use App\Models\Venda;
 use App\Services\EstoqueService;
 use App\Services\FinalizacaoVendaService;
+use App\Services\LancamentoItensVendaService;
 use App\Services\NfeIoService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Services\VendaService;
@@ -685,29 +685,14 @@ class OperarVenda extends Page
             SessaoMesa::where('id', $sessaoMesaId)->value('sessao_mesa_cliente_id')
         );
 
-        $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)
-            ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
-            ->get();
-
-        foreach ($pedidos as $pedido) {
-            // whereNull('item_pedido_venda_id') é o que garante idempotência:
-            // reclicar "lançar" num pedido já lançado não soma de novo (bug
-            // corrigido — antes o filtro só checava um campo morto em Pedido,
-            // nunca escrito por este fluxo, então repetia a soma sempre).
-            $itensPedido = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
-                ->where('item_pedido_status', 'INSERIDO')
-                ->whereNull('item_pedido_venda_id')
-                ->with('adicionaisItemPedido', 'produto')
-                ->get();
-
-            if ($itensPedido->isEmpty()) {
-                continue;
-            }
-
-            $this->adicionarItensPedidoNaVenda($itensPedido);
-
-            ItensPedido::whereIn('id', $itensPedido->pluck('id'))
-                ->update(['item_pedido_venda_id' => $this->vendaId]);
+        $sessaoMesa = SessaoMesa::find($sessaoMesaId);
+        if ($sessaoMesa) {
+            // whereNull('item_pedido_venda_id') (dentro do service) é o que
+            // garante idempotência: reclicar "lançar" num pedido já lançado
+            // não soma de novo (bug corrigido — antes o filtro só checava um
+            // campo morto em Pedido, nunca escrito por este fluxo, então
+            // repetia a soma sempre).
+            app(LancamentoItensVendaService::class)->lancarSessaoMesa($this->venda, $sessaoMesa);
         }
 
         app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
@@ -728,6 +713,8 @@ class OperarVenda extends Page
             ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
             ->get();
 
+        $service = app(LancamentoItensVendaService::class);
+
         foreach ($pedidos as $pedido) {
             $query = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
                 ->where('item_pedido_status', 'INSERIDO')
@@ -746,7 +733,7 @@ class OperarVenda extends Page
                 continue;
             }
 
-            $this->adicionarItensPedidoNaVenda($itensPedido);
+            $service->lancarItens($this->venda, $itensPedido);
 
             // Correção de um bug do legado (adicionarItensSessaoMesaPorCliente
             // nunca marcava item_pedido_venda_id): sem isso, os itens ficam
@@ -845,24 +832,16 @@ class OperarVenda extends Page
     {
         $this->iniciarVendaSeNecessario();
 
-        $this->preencherClienteSeVazio(
-            Pedido::where('id', $pedidoId)->value('pedido_cliente_id')
-        );
-
-        $itensPedido = ItensPedido::where('item_pedido_pedido_id', $pedidoId)
-            ->where('item_pedido_status', 'INSERIDO')
-            ->whereNull('item_pedido_venda_id')
-            ->with('adicionaisItemPedido', 'produto')
-            ->get();
-
-        if ($itensPedido->isEmpty()) {
+        $pedido = Pedido::find($pedidoId);
+        if (! $pedido) {
             return;
         }
 
-        $this->adicionarItensPedidoNaVenda($itensPedido);
+        $this->preencherClienteSeVazio($pedido->pedido_cliente_id);
 
-        ItensPedido::whereIn('id', $itensPedido->pluck('id'))
-            ->update(['item_pedido_venda_id' => $this->vendaId]);
+        if (app(LancamentoItensVendaService::class)->lancarPedido($this->venda, $pedido) === 0) {
+            return;
+        }
 
         app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
         $this->limparCachesDoCarrinho();
@@ -892,57 +871,9 @@ class OperarVenda extends Page
     }
 
     // ── Helpers compartilhados (Mesas + Pedidos avulsos) ────────────────────
-
-    /**
-     * Lança os itens de um Pedido (mesa ou avulso) na venda atual, mesclando
-     * na linha existente quando possível. Espelha
-     * ItensVendaController::adicionarItensPedidoNaVenda (legado).
-     */
-    private function adicionarItensPedidoNaVenda($itensPedido): void
-    {
-        foreach ($itensPedido as $item) {
-            $itemAtualTemAdicionais = ($item->adicionaisItemPedido !== null && ! $item->adicionaisItemPedido->isEmpty())
-                || ($item->item_pedido_valor_adicionais > 0);
-
-            $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
-                ->where('item_venda_venda_id', $this->vendaId)
-                ->where('item_venda_valor_adicionais', 0)
-                ->first();
-
-            if ($itemVenda && ! $itemAtualTemAdicionais) {
-                $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
-                $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
-                $itemVenda->item_venda_valor += $item->item_pedido_valor;
-                $itemVenda->item_venda_quantidade_tributavel += $item->item_pedido_quantidade;
-                $this->somarTributosItemVenda($itemVenda, $item->produto, $item->item_pedido_valor);
-                $itemVenda->save();
-            } else {
-                $nextItemNumber = (ItensVenda::where('item_venda_venda_id', $this->vendaId)->max('item_numero') ?? 0) + 1;
-
-                $valorEfetivo = $item->item_pedido_valor;
-                $itemVenda = ItensVenda::create([
-                    'item_numero' => $nextItemNumber,
-                    'item_venda_venda_id' => $this->vendaId,
-                    'item_venda_produto_id' => $item->item_pedido_produto_id,
-                    'item_venda_quantidade' => $item->item_pedido_quantidade,
-                    'item_venda_valor_unitario' => $item->item_pedido_valor_unitario,
-                    'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais,
-                    'item_venda_desconto' => $item->item_pedido_desconto,
-                    'item_venda_valor' => $valorEfetivo,
-                    'item_venda_status' => 'INSERIDO',
-                    'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
-                    'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,
-                    'item_venda_valor_base_calculo' => $valorEfetivo,
-                    'item_venda_valor_icms' => ($valorEfetivo * $item->produto->produto_valor_percentual_icms) / 100,
-                    'item_venda_valor_pis' => ($valorEfetivo * $item->produto->produto_valor_percentual_pis) / 100,
-                    'item_venda_valor_cofins' => ($valorEfetivo * $item->produto->produto_valor_percentual_cofins) / 100,
-                    'item_venda_valor_total_tributos' => ($valorEfetivo * ($item->produto->produto_valor_percentual_icms + $item->produto->produto_valor_percentual_pis + $item->produto->produto_valor_percentual_cofins)) / 100,
-                ]);
-            }
-
-            $this->adicionarOuAtualizarAdicionaisDoItem($item, $itemVenda);
-        }
-    }
+    // A cópia ItensPedido → ItensVenda (adicionarItensPedidoNaVenda) mora em
+    // App\Services\LancamentoItensVendaService — extraída para ser
+    // reaproveitada pelo webhook Stone, que não pode instanciar esta Page.
 
     private function somarTributosItemVenda(ItensVenda $itemVenda, $produto, float $valorTotal): void
     {
@@ -951,31 +882,6 @@ class OperarVenda extends Page
         $itemVenda->item_venda_valor_pis += ($valorTotal * $produto->produto_valor_percentual_pis) / 100;
         $itemVenda->item_venda_valor_cofins += ($valorTotal * $produto->produto_valor_percentual_cofins) / 100;
         $itemVenda->item_venda_valor_total_tributos += ($valorTotal * ($produto->produto_valor_percentual_icms + $produto->produto_valor_percentual_pis + $produto->produto_valor_percentual_cofins)) / 100;
-    }
-
-    private function adicionarOuAtualizarAdicionaisDoItem(ItensPedido $item, ItensVenda $itemVenda): void
-    {
-        $adicionaisPedido = AdicionaisItemPedido::where('aip_item_pedido_id', $item->id)->get();
-
-        foreach ($adicionaisPedido as $adicionalPedido) {
-            $adicionalVenda = AdicionaisItemVenda::where('aiv_item_venda_id', $itemVenda->id)
-                ->where('aiv_adicional_id', $adicionalPedido->aip_adicional_id)
-                ->first();
-
-            if ($adicionalVenda) {
-                $adicionalVenda->aiv_quantidade += $adicionalPedido->aip_quantidade;
-                $adicionalVenda->aiv_valor_total += $adicionalPedido->aip_valor_total;
-                $adicionalVenda->save();
-            } else {
-                AdicionaisItemVenda::create([
-                    'aiv_adicional_id' => $adicionalPedido->aip_adicional_id,
-                    'aiv_item_venda_id' => $itemVenda->id,
-                    'aiv_valor_unitario' => $adicionalPedido->aip_valor_unitario,
-                    'aiv_quantidade' => $adicionalPedido->aip_quantidade,
-                    'aiv_valor_total' => $adicionalPedido->aip_valor_total,
-                ]);
-            }
-        }
     }
 
     /**
@@ -1184,10 +1090,7 @@ class OperarVenda extends Page
     #[Computed]
     public function maquininhasStone()
     {
-        return Maquininha::where('operadora', OperadoraMaquininha::Stone->value)
-            ->whereNotNull('numero_serie')
-            ->orderBy('nome')
-            ->pluck('nome', 'id');
+        return Maquininha::stoneDisponivel()->orderBy('nome')->pluck('nome', 'id');
     }
 
     /** Existe ao menos uma forma de pagamento integrada à Stone cadastrada. */

@@ -491,6 +491,9 @@
                     mesa</x-primary-link>
                 @endcan
                 <x-secondary-button id="btn-imprimir">IMPRIMIR</x-secondary-button>
+                @can('operar:venda')
+                    <livewire:mesa-stone-cobranca :sessao-mesa-id="$sessao_mesa->id" :key="'stone-mesa-'.$sessao_mesa->id" />
+                @endcan
                 @can('update', $sessao_mesa)
                 <form action="{{ route('sessaoMesa.fechar', ['sessaoMesa' => $sessao_mesa]) }}" method="get">
                     @method('patch')
