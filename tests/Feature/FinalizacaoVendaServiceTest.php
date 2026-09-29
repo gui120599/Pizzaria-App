@@ -76,6 +76,27 @@ class FinalizacaoVendaServiceTest extends TestCase
         $this->assertSame(50.00, (float) MovimentacoesSessaoCaixa::where('mov_venda_id', $venda->id)->first()->mov_valor);
     }
 
+    public function test_finaliza_venda_sem_sessao_de_caixa_sem_criar_movimento(): void
+    {
+        // Cenário Stone: venda criada sem sessão de caixa vinculada (0 ou 2+
+        // sessões ABERTA no momento do pagamento) — finaliza normalmente, só
+        // sem movimento de caixa; fica pendente de vínculo manual (ver
+        // SessaoCaixaService::vincularVendasOrfas).
+        $venda = Venda::create([
+            'venda_status' => 'INICIADA',
+            'venda_sessao_caixa_id' => null,
+            'venda_valor_total' => 50.00,
+            'venda_valor_pago' => 50.00,
+            'venda_valor_troco' => 0,
+        ]);
+
+        $vendaFinalizada = $this->service->finalizar($venda);
+
+        $this->assertSame('FINALIZADA', $vendaFinalizada->venda_status);
+        $this->assertNull($vendaFinalizada->venda_sessao_caixa_id);
+        $this->assertSame(0, MovimentacoesSessaoCaixa::where('mov_venda_id', $venda->id)->count());
+    }
+
     public function test_finaliza_venda_com_troco_informado(): void
     {
         $sessaoCaixa = $this->sessaoCaixaAberta(0);

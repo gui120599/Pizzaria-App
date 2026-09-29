@@ -251,21 +251,29 @@ class StoneVendaPeloWebhookTest extends TestCase
         $this->assertSame(1, PagamentosVenda::count());
     }
 
-    public function test_sem_sessao_de_caixa_aberta_nao_cria_venda_e_registra_erro(): void
+    public function test_sem_sessao_de_caixa_aberta_finaliza_a_venda_sem_sessao(): void
     {
+        // O estado do caixa nunca bloqueia o recebimento: a venda nasce e é
+        // finalizada mesmo sem nenhuma sessão ABERTA no momento — fica órfã,
+        // pra ser vinculada depois (ver SessaoCaixaService::vincularVendasOrfas).
         $pedido = Pedido::create(['pedido_status' => 'EM TRANSPORTE']);
         $this->itemPedido($pedido, 1);
         $this->stonePedidoDePedido($pedido, 50.00);
 
         $this->postJson('/api/webhook/stone-connect', $this->payloadChargePaid())->assertOk();
 
-        $this->assertSame(0, Venda::count());
+        $venda = Venda::sole();
+        $this->assertSame('FINALIZADA', $venda->venda_status);
+        $this->assertNull($venda->venda_sessao_caixa_id);
+
         $stonePedido = StonePedido::sole();
-        $this->assertNull($stonePedido->stp_venda_id);
-        $this->assertStringContainsString('sessão de caixa', $stonePedido->stp_erro);
+        $this->assertSame($venda->id, $stonePedido->stp_venda_id);
+        $this->assertNull($stonePedido->stp_erro);
+
+        $this->assertSame('FINALIZADO', $pedido->fresh()->pedido_status);
     }
 
-    public function test_duas_sessoes_de_caixa_abertas_nao_cria_venda_e_registra_erro(): void
+    public function test_duas_sessoes_de_caixa_abertas_finaliza_a_venda_sem_sessao(): void
     {
         $this->abrirSessaoCaixa();
         $this->abrirSessaoCaixa();
@@ -276,8 +284,10 @@ class StoneVendaPeloWebhookTest extends TestCase
 
         $this->postJson('/api/webhook/stone-connect', $this->payloadChargePaid())->assertOk();
 
-        $this->assertSame(0, Venda::count());
-        $this->assertStringContainsString('2 sessão', StonePedido::sole()->stp_erro);
+        $venda = Venda::sole();
+        $this->assertSame('FINALIZADA', $venda->venda_status);
+        $this->assertNull($venda->venda_sessao_caixa_id);
+        $this->assertNull(StonePedido::sole()->stp_erro);
     }
 
     public function test_itens_ja_lancados_no_pdv_anexam_na_venda_existente(): void

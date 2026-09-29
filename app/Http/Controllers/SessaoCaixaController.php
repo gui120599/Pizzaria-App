@@ -77,7 +77,11 @@ class SessaoCaixaController extends Controller
             FormaPagamento::Dinheiro->value => (float) $saldoInicial,
         ]);
 
-        return redirect()->route('sessao_caixa')->with('success', 'Sessão Aberta com sucesso!');
+        return redirect()->route('sessao_caixa')
+            ->with('success', 'Sessão Aberta com sucesso!')
+            // Dispara o modal de "vendas sem sessão de caixa" (ver
+            // App\Livewire\VendasSemSessaoCaixa) na próxima carga da página.
+            ->with('sessao_recem_aberta_id', $sessao_caixa->id);
     }
 
     /**
@@ -137,6 +141,6 @@ class SessaoCaixaController extends Controller
         $vendas = $sessaoCaixa->vendas()->where('venda_status', 'FINALIZADA')->orderBy('id', 'desc')->get() ?? collect();
         $vendasIniciadas = $sessaoCaixa->vendas()->where('venda_status', 'INICIADA')->with('cliente')->orderBy('id', 'desc')->get() ?? collect();
 
-        return view('app.sessao_caixa.vendas', compact('vendas', 'vendasIniciadas'));
+        return view('app.sessao_caixa.vendas', compact('vendas', 'vendasIniciadas', 'sessaoCaixa'));
     }
 }

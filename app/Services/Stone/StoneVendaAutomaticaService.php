@@ -45,10 +45,13 @@ class StoneVendaAutomaticaService
      * lançou esses itens manualmente enquanto a maquininha processava, ou
      * cria uma Venda nova.
      *
-     * Sem $sessaoCaixaId, exige exatamente uma SessaoCaixa ABERTA no momento
-     * (caminho automático do webhook). Com $sessaoCaixaId (recuperação manual
-     * via StonePedidoResource — ação "Gerar venda" — quando o auto ficou
-     * ambíguo), usa a sessão informada direto, sem a checagem de unicidade.
+     * O estado do caixa nunca impede a venda de nascer: sem $sessaoCaixaId,
+     * usa a única SessaoCaixa ABERTA se houver exatamente uma; com zero ou 2+
+     * sessões ABERTA, a venda é criada mesmo assim, com
+     * venda_sessao_caixa_id null (órfã) — quem abrir/revisar uma sessão
+     * depois vincula via SessaoCaixaService::vincularVendasOrfas(). Com
+     * $sessaoCaixaId explícito (recuperação manual via StonePedidoResource —
+     * ação "Gerar venda"), usa a sessão informada direto.
      *
      * Não persiste stp_venda_id — quem chama decide o momento (dentro da
      * transação do pagamento, junto do restante do estado do StonePedido).
@@ -77,6 +80,15 @@ class StoneVendaAutomaticaService
             return Venda::find($vendaExistenteId);
         }
 
+        // O estado do caixa nunca bloqueia o recebimento: com $sessaoCaixaId
+        // explícito (recuperação manual) usa essa sessão; senão usa a única
+        // sessão ABERTA se houver exatamente uma; com zero ou 2+ sessões
+        // ABERTA, a venda nasce sem sessão (venda_sessao_caixa_id null) — fica
+        // disponível pra alguém vincular depois via
+        // SessaoCaixaService::vincularVendasOrfas() quando abrir/revisar uma
+        // sessão (ver App\Livewire\VendasSemSessaoCaixa).
+        $sessaoCaixaIdEscolhida = null;
+
         if ($sessaoCaixaId !== null) {
             $sessaoEscolhida = SessaoCaixa::where('id', $sessaoCaixaId)->where('sessaocaixa_status', 'ABERTA')->first();
             if (! $sessaoEscolhida) {
@@ -84,22 +96,17 @@ class StoneVendaAutomaticaService
 
                 return null;
             }
+            $sessaoCaixaIdEscolhida = $sessaoEscolhida->id;
         } else {
             $sessoesAbertas = SessaoCaixa::where('sessaocaixa_status', 'ABERTA')->get();
-            if ($sessoesAbertas->count() !== 1) {
-                $this->registrarErro($stonePedido, sprintf(
-                    'Não foi possível determinar a sessão de caixa: %d sessão(ões) ABERTA(S) no momento do pagamento.',
-                    $sessoesAbertas->count(),
-                ));
-
-                return null;
+            if ($sessoesAbertas->count() === 1) {
+                $sessaoCaixaIdEscolhida = $sessoesAbertas->first()->id;
             }
-            $sessaoEscolhida = $sessoesAbertas->first();
         }
 
         $venda = Venda::create([
             'venda_status' => 'INICIADA',
-            'venda_sessao_caixa_id' => $sessaoEscolhida->id,
+            'venda_sessao_caixa_id' => $sessaoCaixaIdEscolhida,
             'venda_cliente_id' => $this->resolverClienteId($stonePedido, $pedidosAlvo),
             'venda_datahora_iniciada' => now(),
         ]);
