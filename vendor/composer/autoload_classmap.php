@@ -394,6 +394,7 @@ return array(
     'App\\Livewire\\PainelEntregador' => $baseDir . '/app/Livewire/PainelEntregador.php',
     'App\\Livewire\\PedidoProdutoSelector' => $baseDir . '/app/Livewire/PedidoProdutoSelector.php',
     'App\\Livewire\\VendaProdutoSelector' => $baseDir . '/app/Livewire/VendaProdutoSelector.php',
+    'App\\Livewire\\VendasSemSessaoCaixa' => $baseDir . '/app/Livewire/VendasSemSessaoCaixa.php',
     'App\\Models\\AdicionaisItemPedido' => $baseDir . '/app/Models/AdicionaisItemPedido.php',
     'App\\Models\\AdicionaisItemVenda' => $baseDir . '/app/Models/AdicionaisItemVenda.php',
     'App\\Models\\AdicionaisProduto' => $baseDir . '/app/Models/AdicionaisProduto.php',

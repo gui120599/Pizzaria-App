@@ -1284,6 +1284,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Livewire\\PainelEntregador' => __DIR__ . '/../..' . '/app/Livewire/PainelEntregador.php',
         'App\\Livewire\\PedidoProdutoSelector' => __DIR__ . '/../..' . '/app/Livewire/PedidoProdutoSelector.php',
         'App\\Livewire\\VendaProdutoSelector' => __DIR__ . '/../..' . '/app/Livewire/VendaProdutoSelector.php',
+        'App\\Livewire\\VendasSemSessaoCaixa' => __DIR__ . '/../..' . '/app/Livewire/VendasSemSessaoCaixa.php',
         'App\\Models\\AdicionaisItemPedido' => __DIR__ . '/../..' . '/app/Models/AdicionaisItemPedido.php',
         'App\\Models\\AdicionaisItemVenda' => __DIR__ . '/../..' . '/app/Models/AdicionaisItemVenda.php',
         'App\\Models\\AdicionaisProduto' => __DIR__ . '/../..' . '/app/Models/AdicionaisProduto.php',

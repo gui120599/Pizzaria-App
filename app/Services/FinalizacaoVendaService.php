@@ -51,7 +51,14 @@ class FinalizacaoVendaService
         ?Carbon $fiadoVencimento = null,
     ): Venda {
         return DB::transaction(function () use ($venda, $clienteAdHoc, $idSessaoMesa, $idPedido, $permitirSaldoAberto, $fiadoVencimento) {
-            $sessaoCaixa = SessaoCaixa::findOrFail($venda->venda_sessao_caixa_id);
+            // Venda sem sessão de caixa (ex.: recebida pela maquininha Stone com
+            // nenhuma/mais de uma sessão ABERTA — ver StoneVendaAutomaticaService)
+            // finaliza normalmente, só sem o movimento de caixa: fica pendente de
+            // vínculo manual via SessaoCaixaService::vincularVendasOrfas() quando
+            // alguém abrir uma sessão.
+            $sessaoCaixa = $venda->venda_sessao_caixa_id
+                ? SessaoCaixa::findOrFail($venda->venda_sessao_caixa_id)
+                : null;
 
             if ($venda->venda_cliente_id === null && $clienteAdHoc) {
                 $venda->venda_cliente_id = $this->resolverClienteAdHoc($clienteAdHoc)->id;
@@ -82,18 +89,21 @@ class FinalizacaoVendaService
                 ]);
             }
 
-            // mov_valor usa o valor efetivamente PAGO (não o total): numa venda
-            // fiado/parcial, o saldo em aberto vira Lancamento a receber acima,
-            // não dinheiro que entrou de fato no caixa desta sessão.
-            MovimentacoesSessaoCaixa::create([
-                'mov_sessaocaixa_id' => $sessaoCaixa->id,
-                'mov_venda_id' => $venda->id,
-                'mov_descricao' => 'VENDA: '.$venda->id,
-                'mov_tipo' => 'ENTRADA',
-                'mov_valor' => $venda->venda_valor_pago,
-            ]);
+            if ($sessaoCaixa) {
+                // mov_valor usa o valor efetivamente PAGO (não o total): numa
+                // venda fiado/parcial, o saldo em aberto vira Lancamento a
+                // receber acima, não dinheiro que entrou de fato no caixa
+                // desta sessão.
+                MovimentacoesSessaoCaixa::create([
+                    'mov_sessaocaixa_id' => $sessaoCaixa->id,
+                    'mov_venda_id' => $venda->id,
+                    'mov_descricao' => 'VENDA: '.$venda->id,
+                    'mov_tipo' => 'ENTRADA',
+                    'mov_valor' => $venda->venda_valor_pago,
+                ]);
 
-            $this->movimentacaoCaixa->recalcularSaldoFinal($sessaoCaixa);
+                $this->movimentacaoCaixa->recalcularSaldoFinal($sessaoCaixa);
+            }
 
             $this->finalizarSessoesEMesas($idSessaoMesa, $venda->id);
             $this->finalizarPedidosIndividuais($idPedido, $venda->id);

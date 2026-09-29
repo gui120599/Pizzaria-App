@@ -8,6 +8,10 @@
 
     <div class="py-6">
         <div class="w-full  mx-auto sm:px-6 lg:px-8 space-y-6">
+            @if (session('sessao_recem_aberta_id'))
+                <livewire:vendas-sem-sessao-caixa :sessao-caixa-id="session('sessao_recem_aberta_id')" :auto-abrir="true" />
+            @endif
+
             <div class="p-4 flex flex-col lg:flex-row space-y-5 lg:space-y-0 items-center sm:p-8 bg-white shadow sm:rounded-lg">
                 <div class="w-full lg:w-2/6">
                     <!-- Incluir formulário para criar nova mesa -->

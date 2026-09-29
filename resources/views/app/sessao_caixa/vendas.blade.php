@@ -9,6 +9,10 @@
     <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
+            @if ($sessaoCaixa->sessaocaixa_status === 'ABERTA')
+                <livewire:vendas-sem-sessao-caixa :sessao-caixa-id="$sessaoCaixa->id" />
+            @endif
+
             {{-- Vendas em aberto (INICIADA) --}}
             @if($vendasIniciadas->isNotEmpty())
             <div class="p-4 sm:p-8 bg-yellow-50 border border-yellow-200 shadow sm:rounded-lg">
