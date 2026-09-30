@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\ProdutoTipoEnum;
+use App\Enums\StatusPedidoEnum;
 use App\Http\Requests\UpdatePedidoRequest;
 use App\Models\Categoria;
 use App\Models\Cliente;
@@ -15,6 +16,7 @@ use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoMesa;
 use App\Services\ClienteResolverService;
+use App\Services\PedidoStatusService;
 use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use Carbon\Carbon;
@@ -404,38 +406,25 @@ class PedidoController extends Controller
 
     public function AceitarPedido(Request $request)
     {
-
-        $pedido_id = $request->id;
-        $pedido = Pedido::find($pedido_id);
+        $pedido = Pedido::find($request->id);
         $this->authorize('accept', $pedido);
-        $pedido->update([
-            'pedido_status' => 'PREPARANDO',
-            'pedido_datahora_preparo' => Carbon::now(),
-        ]);
+
+        app(PedidoStatusService::class)->aceitar($pedido);
 
         return response()->json(['message' => 'Pedido aceito!'], 200);
     }
 
     public function RejeitarPedido(Request $request)
     {
-
-        $pedido_id = $request->id;
-        $pedido = Pedido::find($pedido_id);
+        $pedido = Pedido::find($request->id);
         $this->authorize('reject', $pedido);
 
-        DB::transaction(function () use ($pedido, $request) {
-            // Devolve ao saldo qualquer promoção relâmpago/adicional consumida
-            // pelos itens deste pedido antes de marcá-lo como cancelado.
-            app(PromocaoRelampagoService::class)->estornarPedido($pedido);
-            app(PromocaoAdicionalService::class)->estornarPedido($pedido);
-
-            $pedido->update([
-                'pedido_status' => 'CANCELADO',
-                'pedido_motivo_cancelamento' => $request->input('pedido_motivo_cancelamento', MotivoCancelamentoEnum::OUTRO->value),
-                'pedido_usuario_cancelou_id' => auth()->id(),
-                'pedido_datahora_cancelado' => Carbon::now(),
-            ]);
-        });
+        app(PedidoStatusService::class)->rejeitar(
+            $pedido,
+            motivo: MotivoCancelamentoEnum::tryFrom(
+                (string) $request->input('pedido_motivo_cancelamento')
+            ) ?? MotivoCancelamentoEnum::OUTRO,
+        );
 
         return response()->json(['message' => 'Pedido Cancelado!'], 200);
     }
@@ -564,14 +553,10 @@ class PedidoController extends Controller
 
     public function AvancarPedidoPronto(Request $request)
     {
-
-        $pedido_id = $request->id;
-        $pedido = Pedido::find($pedido_id);
+        $pedido = Pedido::find($request->id);
         $this->authorize('advance', $pedido);
-        $pedido->update([
-            'pedido_status' => 'PRONTO',
-            'pedido_datahora_pronto' => Carbon::now(),
-        ]);
+
+        app(PedidoStatusService::class)->avancarPara($pedido, StatusPedidoEnum::PRONTO);
 
         return response()->json(['message' => 'Pedido Pronto!'], 200);
     }
@@ -585,10 +570,11 @@ class PedidoController extends Controller
         // pedidos de mesa/retirada sem entregador designado, não só delivery
         // via QR — a ownership estrita fica só no fluxo EntregaService/QR.
         $this->authorize('advance', $pedido);
-        $pedido->update([
-            'pedido_status' => 'EM TRANSPORTE',
-            'pedido_datahora_transporte' => Carbon::now(),
-        ]);
+
+        // despachar() é intenção explícita e não aplica a bifurcação por tipo de
+        // entrega, então a tela legada segue mandando qualquer pedido pra
+        // EM TRANSPORTE, como sempre fez.
+        app(PedidoStatusService::class)->despachar($pedido);
 
         return response()->json(['message' => 'Pedido Pronto!'], 200);
     }
@@ -596,20 +582,12 @@ class PedidoController extends Controller
     public function AvancarPedidoEntregue(Request $request)
     {
 
-        $pedido_id = $request->id;
-        $pedido = Pedido::find($pedido_id);
+        $pedido = Pedido::find($request->id);
         $this->authorize('advance', $pedido);
-        if ($pedido->pedido_datahora_finalizado) {
-            $pedido->update([
-                'pedido_status' => 'FINALIZADO',
-                'pedido_datahora_entrega' => Carbon::now(),
-            ]);
-        } else {
-            $pedido->update([
-                'pedido_status' => 'ENTREGUE',
-                'pedido_datahora_entrega' => Carbon::now(),
-            ]);
-        }
+
+        // A regra ENTREGUE-vs-FINALIZADO (pedido já pago encerra em FINALIZADO)
+        // vive no service agora.
+        app(PedidoStatusService::class)->marcarEntregue($pedido);
 
         return response()->json(['message' => 'Pedido Pronto!'], 200);
     }

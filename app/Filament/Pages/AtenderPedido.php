@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Enums\PedidoOrigemEnum;
+use App\Enums\StatusPedidoEnum;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
@@ -89,19 +90,13 @@ class AtenderPedido extends Page
 
     public ?int $stonePedidoId = null;
 
-    /** Status a partir dos quais o conteúdo do pedido não faz mais sentido editar (mesmo espírito de isEditableContentWise() do razelfood). */
+    /**
+     * Status a partir dos quais o conteúdo do pedido não faz mais sentido
+     * editar. Mais restritivo que StatusPedidoEnum::ehEditavelQuantoAoConteudo()
+     * de propósito: aqui a tela inteira vira leitura, porque mexer no conteúdo
+     * de um pedido já entregue exigiria também desfazer venda e estoque.
+     */
     private const STATUS_SOMENTE_LEITURA = ['ENTREGUE', 'FINALIZADO', 'CANCELADO'];
-
-    /** Opções do Select de status — sem CANCELADO de propósito: cancelar exige a rota dedicada (motivo + PedidoPolicy::cancel). */
-    private const OPCOES_STATUS = [
-        'INICIADO' => 'Iniciado',
-        'ABERTO' => 'Aberto',
-        'PREPARANDO' => 'Preparando',
-        'PRONTO' => 'Pronto',
-        'EM TRANSPORTE' => 'Em transporte',
-        'ENTREGUE' => 'Entregue',
-        'FINALIZADO' => 'Finalizado',
-    ];
 
     public static function canAccess(): bool
     {
@@ -530,9 +525,17 @@ class AtenderPedido extends Page
             ->send();
     }
 
+    /**
+     * Opções do Select de status — sem CANCELADO de propósito: cancelar exige o
+     * caminho dedicado, com motivo obrigatório e PedidoPolicy::cancel.
+     *
+     * @return array<string, string>
+     */
     public function getOpcoesStatus(): array
     {
-        return self::OPCOES_STATUS;
+        return collect(StatusPedidoEnum::paraSelect())
+            ->forget(StatusPedidoEnum::CANCELADO->value)
+            ->all();
     }
 
     /** Maquininhas Stone com número de série — mesmo critério do PDV (OperarVenda). */
