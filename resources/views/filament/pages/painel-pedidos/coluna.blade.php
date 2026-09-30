@@ -11,15 +11,10 @@
     $ehEntregue = $status === StatusPedidoEnum::ENTREGUE;
     $ehIniciado = $status === StatusPedidoEnum::INICIADO;
 
-    // Qual ação é a primária desta coluna, e como se chama o botão.
-    [$acaoPrimaria, $rotuloPrimario] = match ($status) {
-        StatusPedidoEnum::INICIADO => ['confirmar', 'Confirmar'],
-        StatusPedidoEnum::ABERTO => ['aceitar', 'Aceitar'],
-        StatusPedidoEnum::PREPARANDO => ['avancar', 'Pronto'],
-        StatusPedidoEnum::PRONTO => [$usaTransporte ? 'despachar' : 'avancar', $usaTransporte ? 'Despachar' : 'Entregue'],
-        StatusPedidoEnum::EM_TRANSPORTE => ['avancar', 'Entregue'],
-        default => [null, null],
-    };
+    // A ação primária é decidida POR PEDIDO (Page::acaoPrimaria/rotuloPrimario),
+    // não pela coluna: na coluna Prontos convivem pedido de delivery (que
+    // despacha para EM TRANSPORTE) e pedido de mesa/balcão (que vai direto
+    // para ENTREGUE) — decidir pela coluna mandava os dois pro mesmo destino.
 
     // Pedido que ainda não entrou em produção é "rejeitado" (permission reject);
     // do preparo em diante é "cancelado", com os guards de mesa e pagamento.
@@ -76,8 +71,8 @@
                 @include('filament.pages.painel-pedidos.card', [
                     'pedido' => $pedido,
                     'status' => $status,
-                    'acaoPrimaria' => $acaoPrimaria,
-                    'rotuloPrimario' => $rotuloPrimario,
+                    'acaoPrimaria' => $this->acaoPrimaria($pedido),
+                    'rotuloPrimario' => $this->rotuloPrimario($pedido),
                     'acaoCancelar' => $acaoCancelar,
                     'podeCancelar' => $status->podeSerCancelado(),
                 ])

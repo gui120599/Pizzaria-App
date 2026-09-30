@@ -244,6 +244,64 @@ class PainelPedidosTest extends TestCase
         $this->assertSame(StatusPedidoEnum::PREPARANDO->value, $pedido->refresh()->pedido_status);
     }
 
+    /**
+     * O hotfix: a ação primária do card é decidida POR PEDIDO, não pela
+     * coluna. Pedido de mesa/balcão em Prontos precisa oferecer "Finalizar"
+     * (avancar → ENTREGUE), nunca "Despachar" (que mandaria pra EM TRANSPORTE).
+     */
+    public function test_acao_primaria_de_pedido_de_balcao_em_pronto_e_avancar(): void
+    {
+        $this->actingAs($this->gerente());
+
+        $balcao = OpcoesEntregas::create([
+            'opcaoentrega_nome' => 'Balcão',
+            'opcaoentrega_requer_endereco' => false,
+        ]);
+
+        $pedido = $this->pedido(StatusPedidoEnum::PRONTO, ['pedido_opcaoentrega_id' => $balcao->id]);
+
+        $painel = new PainelPedidos;
+
+        $this->assertSame('avancar', $painel->acaoPrimaria($pedido));
+        $this->assertSame('Finalizar', $painel->rotuloPrimario($pedido));
+    }
+
+    /** O mesmo pedido em Prontos, mas de delivery, oferece Despachar. */
+    public function test_acao_primaria_de_pedido_delivery_em_pronto_e_despachar(): void
+    {
+        $this->actingAs($this->gerente());
+
+        $delivery = OpcoesEntregas::create([
+            'opcaoentrega_nome' => 'Delivery',
+            'opcaoentrega_requer_endereco' => true,
+        ]);
+
+        $pedido = $this->pedido(StatusPedidoEnum::PRONTO, ['pedido_opcaoentrega_id' => $delivery->id]);
+
+        $painel = new PainelPedidos;
+
+        $this->assertSame('despachar', $painel->acaoPrimaria($pedido));
+        $this->assertSame('Despachar', $painel->rotuloPrimario($pedido));
+    }
+
+    public function test_acao_primaria_de_pedido_delivery_sem_atribuir_entregador(): void
+    {
+        $this->actingAs($this->gerente());
+
+        config(['pizzaria.pedidos.atribui_entregador' => false]);
+
+        $delivery = OpcoesEntregas::create([
+            'opcaoentrega_nome' => 'Delivery',
+            'opcaoentrega_requer_endereco' => true,
+        ]);
+
+        $pedido = $this->pedido(StatusPedidoEnum::PRONTO, ['pedido_opcaoentrega_id' => $delivery->id]);
+
+        $painel = new PainelPedidos;
+
+        $this->assertSame('Saída para entrega', $painel->rotuloPrimario($pedido));
+    }
+
     public function test_pedido_de_balcao_avanca_de_pronto_direto_para_entregue(): void
     {
         $this->actingAs($this->gerente());
