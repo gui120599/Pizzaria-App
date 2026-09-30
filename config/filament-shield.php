@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\PainelPedidos;
 use App\Filament\Resources\Roles\RoleResource;
 use App\Filament\Widgets\AcessoRapidoWidget;
 use App\Filament\Widgets\ResumoOperacionalWidget;
@@ -233,6 +234,11 @@ return [
         'prefix' => 'view',
         'exclude' => [
             Dashboard::class,
+            // O Painel de Pedidos autoriza pelo canAccess() com
+            // `view_any:pedido`, a mesma permission da rota legada. Uma
+            // permission `view:PainelPedidos` separada só poluiria a tela de
+            // roles e daria dois lugares para liberar o mesmo acesso.
+            PainelPedidos::class,
         ],
     ],
 

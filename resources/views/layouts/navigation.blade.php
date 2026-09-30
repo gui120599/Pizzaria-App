@@ -47,6 +47,13 @@
             <i class='text-[13px] bx bx-receipt'></i>
             <span class="text-[12px] ml-4 text-gray-200">{{ __('Pedidos Abertos') }}</span>
         </x-nav-link>
+        {{-- Painel novo (Filament). Conviva com o "Pedidos Abertos" acima até a
+             equipe validar; as duas telas compartilham o PedidoStatusService,
+             então não divergem em regra de negócio. --}}
+        <x-nav-link :href="\App\Filament\Pages\PainelPedidos::getUrl()" :active="false">
+            <i class='text-[13px] bx bx-grid-alt'></i>
+            <span class="text-[12px] ml-4 text-gray-200">{{ __('Painel de Pedidos') }}</span>
+        </x-nav-link>
     @endcan
     <!--@hasrole('Entregador')
         <x-nav-link :href="route('entregador.painel')" :active="request()->routeIs('entregador.painel')">

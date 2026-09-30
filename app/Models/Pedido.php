@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\PedidoOrigemEnum;
+use App\Enums\StatusPedidoEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
@@ -135,5 +136,32 @@ class Pedido extends Model
     public function linkScanEntrega(): string
     {
         return URL::signedRoute('entregador.scan', ['pedido' => $this->id]);
+    }
+
+    /**
+     * O pedido sai para entrega (delivery), em oposição a mesa/balcão?
+     *
+     * A fonte é a flag `opcaoentrega_requer_endereco` da opção de entrega — não
+     * o `id === 3` hardcoded que a view legada de pedidos abertos usa. Decide a
+     * bifurcação do fluxo em PRONTO (ver StatusPedidoEnum::proximo()).
+     */
+    public function exigeEntrega(): bool
+    {
+        return (bool) $this->opcaoEntrega?->opcaoentrega_requer_endereco;
+    }
+
+    /**
+     * O estágio EM TRANSPORTE se aplica a este pedido? Combina a natureza do
+     * pedido com a config que permite desligar o estágio para a operação toda.
+     */
+    public function usaEstagioTransporte(): bool
+    {
+        return $this->exigeEntrega() && (bool) config('pizzaria.pedidos.usa_estagio_transporte', true);
+    }
+
+    /** Status atual como enum. Null só se o banco tiver valor fora do enum. */
+    public function status(): ?StatusPedidoEnum
+    {
+        return StatusPedidoEnum::tryFrom((string) $this->pedido_status);
     }
 }

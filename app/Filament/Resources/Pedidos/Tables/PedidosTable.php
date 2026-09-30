@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Pedidos\Tables;
 
+use App\Enums\StatusPedidoEnum;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
@@ -23,17 +24,6 @@ use Illuminate\Database\Eloquent\Collection;
 
 class PedidosTable
 {
-    private const CORES_STATUS = [
-        'INICIADO' => 'gray',
-        'ABERTO' => 'info',
-        'PREPARANDO' => 'warning',
-        'PRONTO' => 'warning',
-        'EM TRANSPORTE' => 'info',
-        'ENTREGUE' => 'success',
-        'FINALIZADO' => 'success',
-        'CANCELADO' => 'danger',
-    ];
-
     public static function configure(Table $table): Table
     {
         return $table
@@ -66,7 +56,7 @@ class PedidosTable
                 TextColumn::make('pedido_status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn (string $state): string => self::CORES_STATUS[$state] ?? 'gray'),
+                    ->color(fn (string $state): string => StatusPedidoEnum::tryFrom($state)?->cor() ?? 'gray'),
                 TextColumn::make('created_at')
                     ->label('Criado em')
                     ->dateTime('d/m/Y H:i')
