@@ -555,6 +555,7 @@ return array(
     'App\\Services\\Stone\\StoneVendaAutomaticaService' => $baseDir . '/app/Services/Stone/StoneVendaAutomaticaService.php',
     'App\\Services\\VendaService' => $baseDir . '/app/Services/VendaService.php',
     'App\\Support\\CustoUnitarioFormatter' => $baseDir . '/app/Support/CustoUnitarioFormatter.php',
+    'App\\Support\\FormatoQuantidade' => $baseDir . '/app/Support/FormatoQuantidade.php',
     'App\\Support\\JanelaOperacional' => $baseDir . '/app/Support/JanelaOperacional.php',
     'App\\Support\\RateioCentavos' => $baseDir . '/app/Support/RateioCentavos.php',
     'App\\Support\\TotaisPedido' => $baseDir . '/app/Support/TotaisPedido.php',

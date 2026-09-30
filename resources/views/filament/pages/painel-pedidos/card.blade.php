@@ -17,6 +17,7 @@
 --}}
 @php
     use App\Enums\UrgenciaPedidoEnum;
+    use App\Support\FormatoQuantidade;
 
     $urgencia = UrgenciaPedidoEnum::paraPedido($pedido, $status);
     $minutos = UrgenciaPedidoEnum::minutosNoStatus($pedido, $status);
@@ -92,7 +93,7 @@
         @foreach ($itens as $item)
             <li class="flex gap-2 px-3 py-1.5">
                 <span class="w-6 shrink-0 text-center text-sm font-bold text-gray-950 tabular-nums dark:text-white">
-                    {{ (int) $item->item_pedido_quantidade }}
+                    {{ FormatoQuantidade::item($item->item_pedido_quantidade) }}
                 </span>
 
                 <div class="min-w-0 flex-1">

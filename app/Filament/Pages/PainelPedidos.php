@@ -307,6 +307,42 @@ class PainelPedidos extends Page implements HasActions
         return in_array(StatusPedidoEnum::EM_TRANSPORTE, StatusPedidoEnum::colunasKanban(), true);
     }
 
+    /**
+     * Ação do botão principal do card, decidida POR PEDIDO.
+     *
+     * Na coluna Prontos convivem pedidos de delivery e de mesa/balcão, que têm
+     * destinos diferentes: o delivery é despachado para EM TRANSPORTE, o de
+     * mesa vai direto para ENTREGUE. Decidir pela coluna mandava pedido de mesa
+     * para EM TRANSPORTE — despachar() salta a bifurcação de propósito, porque
+     * é intenção explícita do operador.
+     */
+    public function acaoPrimaria(Pedido $pedido): ?string
+    {
+        return match ($pedido->status()) {
+            StatusPedidoEnum::INICIADO => 'confirmar',
+            StatusPedidoEnum::ABERTO => 'aceitar',
+            StatusPedidoEnum::PREPARANDO, StatusPedidoEnum::EM_TRANSPORTE => 'avancar',
+            StatusPedidoEnum::PRONTO => $pedido->usaEstagioTransporte() ? 'despachar' : 'avancar',
+            default => null,
+        };
+    }
+
+    public function rotuloPrimario(Pedido $pedido): string
+    {
+        return match ($pedido->status()) {
+            StatusPedidoEnum::INICIADO => 'Confirmar',
+            StatusPedidoEnum::ABERTO => 'Iniciar preparo',
+            StatusPedidoEnum::PREPARANDO => 'Marcar pronto',
+            StatusPedidoEnum::PRONTO => match (true) {
+                $pedido->usaEstagioTransporte() && config('pizzaria.pedidos.atribui_entregador', true) => 'Despachar',
+                $pedido->usaEstagioTransporte() => 'Saída para entrega',
+                default => 'Finalizar',
+            },
+            StatusPedidoEnum::EM_TRANSPORTE => 'Confirmar entrega',
+            default => 'Ver detalhes',
+        };
+    }
+
     public function alternarForaDoTurno(): void
     {
         $this->mostrarForaDoTurno = ! $this->mostrarForaDoTurno;

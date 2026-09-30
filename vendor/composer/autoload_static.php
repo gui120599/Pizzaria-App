@@ -1445,6 +1445,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Services\\Stone\\StoneVendaAutomaticaService' => __DIR__ . '/../..' . '/app/Services/Stone/StoneVendaAutomaticaService.php',
         'App\\Services\\VendaService' => __DIR__ . '/../..' . '/app/Services/VendaService.php',
         'App\\Support\\CustoUnitarioFormatter' => __DIR__ . '/../..' . '/app/Support/CustoUnitarioFormatter.php',
+        'App\\Support\\FormatoQuantidade' => __DIR__ . '/../..' . '/app/Support/FormatoQuantidade.php',
         'App\\Support\\JanelaOperacional' => __DIR__ . '/../..' . '/app/Support/JanelaOperacional.php',
         'App\\Support\\RateioCentavos' => __DIR__ . '/../..' . '/app/Support/RateioCentavos.php',
         'App\\Support\\TotaisPedido' => __DIR__ . '/../..' . '/app/Support/TotaisPedido.php',
