@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -98,5 +99,10 @@ class Categoria extends Model
     public function ultimoHistoricoPreco(): HasOne
     {
         return $this->hasOne(ProdutoPrecoHistorico::class, 'categoria_id')->latestOfMany();
+    }
+
+    public function linhasProducao(): BelongsToMany
+    {
+        return $this->belongsToMany(LinhaProducao::class, 'categoria_linha_producao', 'categoria_id', 'linha_producao_id');
     }
 }

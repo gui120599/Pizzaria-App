@@ -8,16 +8,17 @@ return [
     |--------------------------------------------------------------------------
     |
     | Recorte de tempo que o Painel de Pedidos considera "o turno de hoje". A
-    | operação abre pela manhã e fecha na madrugada do dia seguinte, então a
-    | janela atravessa a meia-noite: das 07:00 de hoje às 03:00 de amanhã.
-    | Regra extraída de PedidoController::PedidosEntregueLista, onde os
-    | horários estavam hardcoded.
+    | fonte de verdade é o model HorarioFuncionamento (App\Support\JanelaOperacional
+    | resolve a abertura mais recente entre os horários ativos, suportando
+    | vários turnos por dia). `abertura` aqui é só o FALLBACK usado quando não
+    | há nenhum horário de funcionamento cadastrado/ativo — não existe mais um
+    | horário de fechamento fixo: o turno dura 24h a partir da abertura
+    | resolvida, e o próximo turno substitui a janela naturalmente.
     |
     */
 
     'janela_operacional' => [
         'abertura' => env('PIZZARIA_TURNO_ABERTURA', '07:00'),
-        'fechamento' => env('PIZZARIA_TURNO_FECHAMENTO', '03:00'),
     ],
 
     'pedidos' => [

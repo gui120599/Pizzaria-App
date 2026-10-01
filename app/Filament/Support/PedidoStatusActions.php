@@ -149,6 +149,106 @@ class PedidoStatusActions
             ));
     }
 
+    /**
+     * Modal de detalhes completos do pedido: cliente, entrega, itens, valores,
+     * pagamento e a linha do tempo de transições — reusado como "Ver detalhes"
+     * do menu ⋮ e ao clicar no card.
+     */
+    public static function verDetalhes(): Action
+    {
+        return Action::make('verDetalhes')
+            ->label('Ver detalhes')
+            ->icon(Heroicon::OutlinedEye)
+            ->color('gray')
+            ->modalHeading(fn (array $arguments): string => 'Pedido #'.($arguments['pedido'] ?? ''))
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Fechar')
+            ->modalWidth('3xl')
+            ->modalContent(function (array $arguments) {
+                $pedido = Pedido::query()
+                    ->with([
+                        'cliente',
+                        'opcaoEntrega',
+                        'sessaoMesa.mesa',
+                        'entregador:id,name_first',
+                        'usuarioCancelou:id,name_first',
+                        'pagamentosCombinados',
+                        'historicoStatus.usuario:id,name_first',
+                        'item_pedido_pedido_id' => fn ($q) => $q
+                            ->where('item_pedido_status', 'INSERIDO')
+                            ->with(['produto.categoria', 'adicionaisItemPedido.adicional']),
+                    ])
+                    ->findOrFail($arguments['pedido']);
+
+                return view('filament.pages.painel-pedidos.detalhes-modal', ['pedido' => $pedido]);
+            });
+    }
+
+    /**
+     * QR code + link assinado pro entregador confirmar a entrega pelo celular
+     * (Pedido::linkScanEntrega(), já usado no ticket impresso) — poupa o
+     * entregador de abrir o painel completo só pra dar baixa numa entrega.
+     */
+    public static function linkEntrega(): Action
+    {
+        return Action::make('linkEntrega')
+            ->label('Link de entrega')
+            ->icon(Heroicon::OutlinedQrCode)
+            ->color('gray')
+            ->modalHeading('Link de entrega')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Fechar')
+            ->modalContent(function (array $arguments) {
+                $pedido = self::resolveOrFail($arguments);
+                $url = $pedido->linkScanEntrega();
+
+                return view('filament.pages.painel-pedidos.link-entrega-modal', [
+                    'pedido' => $pedido,
+                    'url' => $url,
+                    'whatsappUrl' => 'https://wa.me/?text='.rawurlencode("Link de entrega do pedido #{$pedido->id}: {$url}"),
+                ]);
+            });
+    }
+
+    /**
+     * Troca o entregador SEM mexer no status — pro caso do entregador ficar
+     * indisponível no meio da rota. Ver PedidoStatusService::reatribuirEntregador().
+     */
+    public static function trocarEntregador(): Action
+    {
+        return Action::make('trocarEntregador')
+            ->label('Trocar entregador')
+            ->icon(Heroicon::OutlinedUserCircle)
+            ->color('gray')
+            ->schema([
+                Select::make('entregador')
+                    ->label('Entregador')
+                    ->options(fn () => User::role('Entregador')->pluck('name_first', 'id'))
+                    ->searchable()
+                    ->required(),
+            ])
+            ->action(function (array $arguments, array $data): void {
+                $pedido = self::resolveOrFail($arguments);
+                $entregador = User::find($data['entregador']);
+
+                if (! $entregador) {
+                    Notification::make()->title('Entregador não encontrado')->danger()->send();
+
+                    return;
+                }
+
+                try {
+                    app(PedidoStatusService::class)->reatribuirEntregador($pedido, $entregador, Auth::user());
+                } catch (AuthorizationException) {
+                    Notification::make()->title('Sem permissão para esta ação')->danger()->send();
+
+                    return;
+                }
+
+                Notification::make()->title('Entregador atualizado')->success()->send();
+            });
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Visibilidade — mesma regra para board, tabela e tela de atendimento
     // ─────────────────────────────────────────────────────────────────────────
@@ -172,6 +272,27 @@ class PedidoStatusActions
         return (bool) $pedido->status()?->podeSerCancelado();
     }
 
+    /** Só faz sentido quando a operação passa por "Em transporte" de verdade. */
+    public static function podeLinkEntrega(Pedido $pedido): bool
+    {
+        return $pedido->usaEstagioTransporte()
+            && in_array($pedido->status(), [StatusPedidoEnum::PRONTO, StatusPedidoEnum::EM_TRANSPORTE], true);
+    }
+
+    /**
+     * Visível quando já há um entregador atribuído (pra trocar) ou o pedido
+     * está numa etapa em que atribuir um faz sentido.
+     */
+    public static function podeTrocarEntregador(Pedido $pedido): bool
+    {
+        if (! self::atribuiEntregador()) {
+            return false;
+        }
+
+        return $pedido->pedido_usuario_entrega_id !== null
+            || in_array($pedido->status(), [StatusPedidoEnum::PRONTO, StatusPedidoEnum::EM_TRANSPORTE], true);
+    }
+
     /** @return array<int, Select> */
     private static function camposMotivo(): array
     {
@@ -182,6 +303,12 @@ class PedidoStatusActions
                 ->required()
                 ->native(false),
         ];
+    }
+
+    /** Resolve o pedido dos argumentos ou lança 404 — usado nas ações que só leem. */
+    private static function resolveOrFail(array $arguments): Pedido
+    {
+        return Pedido::findOrFail($arguments['pedido']);
     }
 
     /**

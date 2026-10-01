@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Enums\MovimentacaoOrigemEnum;
+use App\Models\HistoricoStatusPedido;
 use App\Models\ItensPedido;
 use App\Models\ItensVenda;
 use App\Models\Mesa;
@@ -11,6 +12,7 @@ use App\Models\SessaoMesa;
 use App\Models\Venda;
 use App\Services\EstoqueService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class VendaObserver
@@ -58,16 +60,25 @@ class VendaObserver
                 continue;
             }
 
+            $statusAnterior = $pedido->pedido_status;
+
             $dados = [
                 'pedido_venda_id' => $venda->id,
                 'pedido_datahora_finalizado' => Carbon::now(),
             ];
 
-            if (in_array($pedido->pedido_status, ['ENTREGUE', 'EM TRANSPORTE'])) {
+            if (in_array($statusAnterior, ['ENTREGUE', 'EM TRANSPORTE'])) {
                 $dados['pedido_status'] = 'FINALIZADO';
             }
 
             $pedido->updateQuietly($dados);
+
+            // updateQuietly() não dispara eventos Eloquent — a timeline de
+            // status (HistoricoStatusPedidoObserver) não veria esta transição
+            // sem este registro explícito.
+            if (isset($dados['pedido_status'])) {
+                HistoricoStatusPedido::registrar($pedido->id, $statusAnterior, $dados['pedido_status'], Auth::id());
+            }
 
             if ($pedido->pedido_sessao_mesa_id) {
                 $sessaoMesaIds[] = $pedido->pedido_sessao_mesa_id;
