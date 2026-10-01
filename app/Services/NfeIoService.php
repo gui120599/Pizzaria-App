@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Exceptions\NfeIoException;
 use App\Models\Empresa;
+use App\Models\NfEmissao;
 use App\Models\Venda;
+use App\Services\Nfe\NfNumeracaoService;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
@@ -23,6 +25,8 @@ use Illuminate\Support\Facades\Http;
 class NfeIoService
 {
     private const BASE_URL = 'https://api.nfse.io/v2';
+
+    public function __construct(private readonly NfNumeracaoService $numeracaoService) {}
 
     /**
      * @return array{companyId: string, apiKey: string}
@@ -51,7 +55,14 @@ class NfeIoService
         ])->acceptJson();
     }
 
-    public function emitir(Venda $venda): array
+    /**
+     * O número da nota é reservado (ou reaproveitado, em reenvio) antes do
+     * POST e fica gravado em nf_emissoes mesmo se a NFe.io recusar — o número
+     * só volta a ser usado pelo reenvio desta mesma venda.
+     *
+     * @param  NfEmissao::DECISAO_*  $decisao  se o envio foi decidido pela forma de pagamento ou pelo operador
+     */
+    public function emitir(Venda $venda, string $decisao = NfEmissao::DECISAO_MANUAL): array
     {
         $venda->loadMissing([
             'cliente',
@@ -63,10 +74,14 @@ class NfeIoService
 
         ['companyId' => $companyId, 'apiKey' => $apiKey] = $this->credenciais();
 
+        $emissao = $this->numeracaoService->reservarPara($venda, $decisao);
+
         $response = $this->client($apiKey)
-            ->post(self::BASE_URL."/companies/{$companyId}/consumerinvoices", $this->montarPayload($venda));
+            ->post(self::BASE_URL."/companies/{$companyId}/consumerinvoices", $this->montarPayload($venda, $emissao->serie, $emissao->numero));
 
         if ($response->failed()) {
+            $emissao->update(['status' => NfEmissao::STATUS_FALHA_ENVIO]);
+
             throw new NfeIoException(
                 'Falha ao enfileirar emissão da NFC-e: '.($response->json('message') ?? $response->body()),
                 $response->json()
@@ -74,6 +89,12 @@ class NfeIoService
         }
 
         $data = $response->json() ?? [];
+
+        $emissao->update([
+            'status' => $data['status'] ?? 'Processing',
+            'nfeio_id' => $data['id'] ?? $emissao->nfeio_id,
+            'enviada_em' => now(),
+        ]);
 
         if (filled($data['id'] ?? null)) {
             $venda->update(['venda_id_nfe' => $data['id']]);
@@ -108,6 +129,10 @@ class NfeIoService
 
         if (filled($status) && $status !== $venda->venda_status_nfe) {
             $venda->update(['venda_status_nfe' => $status]);
+        }
+
+        if (filled($status)) {
+            NfEmissao::espelharStatus($venda->venda_id_nfe, $status);
         }
 
         return $status ?? $venda->venda_status_nfe ?? 'Processing';
@@ -146,7 +171,7 @@ class NfeIoService
         return $uri;
     }
 
-    /** Monta o payload sem enviar — usado pela tela de debug/preview (rota venda.gerar_JSONNFE). */
+    /** Monta o payload sem enviar nem reservar número — usado pela tela de debug/preview (rota venda.gerar_JSONNFE). */
     public function payloadPreview(Venda $venda): array
     {
         $venda->loadMissing([
@@ -157,16 +182,22 @@ class NfeIoService
             'pagamentos.cartao',
         ]);
 
-        return $this->montarPayload($venda);
+        $emissao = $venda->nfEmissaoAtual;
+
+        if ($emissao && ! $emissao->numeroConsumido()) {
+            return $this->montarPayload($venda, $emissao->serie, $emissao->numero);
+        }
+
+        return $this->montarPayload($venda, NfNumeracaoService::SERIE_PADRAO, $this->numeracaoService->proximoNumero());
     }
 
-    private function montarPayload(Venda $venda): array
+    private function montarPayload(Venda $venda, int $serie, int $numero): array
     {
         return [
             'id' => (string) $venda->id,
             'payment' => $this->montarPagamentos($venda),
-            'serie' => 1,
-            'number' => $venda->id,
+            'serie' => $serie,
+            'number' => $numero,
             'operationOn' => $venda->venda_datahora_finalizada,
             'operationNature' => 'Venda de mercadoria',
             'operationType' => 'Outgoing',

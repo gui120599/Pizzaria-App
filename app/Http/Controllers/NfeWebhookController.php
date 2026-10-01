@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\NfEmissao;
 use App\Models\NfeWebhook;
 use App\Models\Venda;
 use Illuminate\Http\JsonResponse;
@@ -25,6 +26,7 @@ class NfeWebhookController extends Controller
 
         if ($venda && filled($data['status'] ?? null)) {
             $venda->update(['venda_status_nfe' => $data['status']]);
+            NfEmissao::espelharStatus($data['id'], $data['status']);
         }
 
         NfeWebhook::create([
