@@ -110,12 +110,12 @@
     <ul class="mt-2 divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/5 dark:border-white/5">
         @foreach ($itens as $item)
             <li class="flex gap-2 px-3 py-1.5">
-                <span class="w-6 shrink-0 text-center text-sm font-bold text-gray-950 tabular-nums dark:text-white">
+                <span class="w-6 shrink-0 text-center text-[13px] font-bold text-gray-950 tabular-nums dark:text-white">
                     {{ FormatoQuantidade::item($item->item_pedido_quantidade) }}
                 </span>
 
                 <div class="min-w-0 flex-1">
-                    <span class="text-sm font-semibold uppercase leading-tight text-gray-950 dark:text-white">
+                    <span class="text-[13px] font-semibold uppercase leading-tight text-gray-950 dark:text-white">
                         {{ $item->produto?->categoria?->categoria_nome }} {{ $item->produto?->produto_descricao }}
                         @if ($item->item_pedido_origem_id)
                             <span title="Oferta de promoção adicional">🎁</span>

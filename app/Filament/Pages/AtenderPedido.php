@@ -25,6 +25,7 @@ use App\Support\TotaisPedido;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -58,6 +59,8 @@ class AtenderPedido extends Page
     protected static ?string $slug = 'pedidos/atender/{pedido?}';
 
     protected string $view = 'filament.pages.atender-pedido';
+
+    protected Width|string|null $maxContentWidth = Width::Full;
 
     public ?int $pedidoId = null;
 

@@ -124,6 +124,39 @@
                 </button>
             @endif
 
+            {{-- Colunas visíveis — preferência gravada no usuário. --}}
+            <div x-data="{ aberto: false }" class="relative" @click.outside="aberto = false">
+                <button
+                    type="button"
+                    @click="aberto = ! aberto"
+                    class="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-200 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
+                >
+                    <x-heroicon-m-view-columns class="h-4 w-4" />
+                    Colunas
+                    @if (count($colunasOcultas) > 0)
+                        <span class="font-normal opacity-75">({{ count($colunasOcultas) }} {{ Str::plural('oculta', count($colunasOcultas)) }})</span>
+                    @endif
+                </button>
+
+                <div
+                    x-show="aberto"
+                    x-cloak
+                    class="absolute right-0 z-20 mt-1 w-56 rounded-lg bg-white p-2 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
+                >
+                    @foreach ($this->colunasDisponiveis() as $coluna)
+                        <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
+                            <input
+                                type="checkbox"
+                                @checked(! in_array($coluna->value, $colunasOcultas, true))
+                                wire:click="alternarColuna('{{ $coluna->value }}')"
+                                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-white/20 dark:bg-gray-800"
+                            >
+                            {{ $coluna->label() }}
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+
             {{-- Navegador bloqueia áudio sem um gesto do usuário: este botão é o
                  gesto que destrava o alerta pelo resto da sessão. --}}
             <button
@@ -146,7 +179,7 @@
              custom property — Tailwind não gera classe a partir de valor
              calculado em runtime. --}}
         <div
-            class="flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain pb-2 xl:grid xl:snap-none xl:overflow-visible xl:[grid-template-columns:repeat(var(--painel-colunas),minmax(0,1fr))]"
+            class="flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain pb-2 xl:grid xl:snap-none xl:[grid-template-columns:repeat(var(--painel-colunas),minmax(19rem,1fr))]"
             style="--painel-colunas: {{ count($this->colunasKanban) }}"
         >
             @foreach ($this->colunasKanban as $coluna)

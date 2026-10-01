@@ -166,9 +166,9 @@ class PedidoProdutoSelector extends Component
     {
         $tiposVenda = [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value];
 
-        return Categoria::with(['produtos' => fn ($q) => $q->whereIn('produto_tipo', $tiposVenda)->whereNotNull('produto_foto')])
+        return Categoria::with(['produtos' => fn ($q) => $q->whereIn('produto_tipo', $tiposVenda)->where('produto_cardapio_garcom', true)->whereNotNull('produto_foto')])
             ->where('categoria_cardapio_garcom', true)
-            ->whereHas('produtos', fn ($q) => $q->whereIn('produto_tipo', $tiposVenda))
+            ->whereHas('produtos', fn ($q) => $q->whereIn('produto_tipo', $tiposVenda)->where('produto_cardapio_garcom', true))
             ->orderBy('categoria_ordem')
             ->orderBy('categoria_nome')
             ->get();
@@ -181,6 +181,7 @@ class PedidoProdutoSelector extends Component
 
         return Produto::with('categoria')
             ->whereIn('produto_tipo', $tiposVenda)
+            ->where('produto_cardapio_garcom', true)
             ->when($this->busca, fn ($q) => $q->where('produto_descricao', 'like', "%{$this->busca}%"))
             ->when($this->categoriaId, fn ($q) => $q->where('produto_categoria_id', $this->categoriaId))
             ->orderBy('produto_ordem')
@@ -427,6 +428,7 @@ class PedidoProdutoSelector extends Component
         $produtos = Produto::with('categoria')
             ->where('produto_categoria_id', $categoria->id)
             ->whereIn('produto_tipo', $tiposVenda)
+            ->where('produto_cardapio_garcom', true)
             ->orderBy('produto_descricao')
             ->get()
             ->map(fn ($p) => [

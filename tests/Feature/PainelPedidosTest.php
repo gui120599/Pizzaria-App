@@ -114,6 +114,45 @@ class PainelPedidosTest extends TestCase
         $this->assertSame([$preparando->id], $colunas['PREPARANDO']->pluck('id')->all());
     }
 
+    public function test_ocultar_coluna_persiste_na_preferencia_do_usuario(): void
+    {
+        $gerente = $this->gerente();
+        $this->actingAs($gerente);
+
+        Livewire::test(PainelPedidos::class)
+            ->call('alternarColuna', StatusPedidoEnum::ENTREGUE->value)
+            ->assertSet('colunasOcultas', [StatusPedidoEnum::ENTREGUE->value]);
+
+        $this->assertSame(
+            [StatusPedidoEnum::ENTREGUE->value],
+            $gerente->fresh()->preferencias['painel_pedidos']['colunas_ocultas'],
+        );
+
+        $colunas = Livewire::test(PainelPedidos::class)->instance()->colunasKanban();
+        $this->assertNotContains(StatusPedidoEnum::ENTREGUE, $colunas);
+
+        Livewire::test(PainelPedidos::class)
+            ->call('alternarColuna', StatusPedidoEnum::ENTREGUE->value)
+            ->assertSet('colunasOcultas', []);
+    }
+
+    public function test_alternar_coluna_ignora_status_invalido_e_nao_oculta_todas(): void
+    {
+        $this->actingAs($this->gerente());
+
+        $painel = Livewire::test(PainelPedidos::class)
+            ->call('alternarColuna', 'QUALQUER')
+            ->assertSet('colunasOcultas', []);
+
+        $todas = array_map(fn (StatusPedidoEnum $s): string => $s->value, StatusPedidoEnum::colunasKanban());
+        foreach ($todas as $status) {
+            $painel->call('alternarColuna', $status);
+        }
+
+        $this->assertCount(count($todas) - 1, $painel->get('colunasOcultas'));
+        $painel->assertNotified('Mantenha ao menos uma coluna visível.');
+    }
+
     public function test_pedido_cancelado_nao_aparece_no_board(): void
     {
         $this->actingAs($this->gerente());

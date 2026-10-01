@@ -20,12 +20,12 @@
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-A4eny4x1.css",
+    "file": "assets/app-BG8Fb0w3.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-DrlA2sSp.css",
+    "file": "assets/theme-CSnng4RP.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },

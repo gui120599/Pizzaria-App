@@ -8,6 +8,7 @@ use App\Filament\Resources\Prestadors\Pages\ManagePrestadors;
 use App\Models\Prestador;
 use App\Services\IBGEServices;
 use BackedEnum;
+use Closure;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -25,11 +26,13 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Support\RawJs;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Leandrocfe\FilamentPtbrFormFields\PtbrCpfCnpj;
 use UnitEnum;
 
 class PrestadorResource extends Resource
@@ -125,11 +128,27 @@ class PrestadorResource extends Resource
                     ->columnSpanFull()
                     ->columns(2)
                     ->schema([
-                        TextInput::make('cpf_cnpj')
-                            ->label(fn (Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value ? 'CNPJ' : 'CPF')
-                            ->mask(fn (Get $get) => $get('tipo') === PrestadorTipoEnum::PJ->value
-                                ? '99.999.999/9999-99'
-                                : '999.999.999-99')
+                        // Máscara decidida pela quantidade de dígitos, não pelo Select de tipo:
+                        // o x-mask do Alpine não reinicializa quando o Livewire troca o atributo.
+                        PtbrCpfCnpj::make('cpf_cnpj')
+                            ->label(fn (Get $get) => self::ehPessoaJuridica($get('tipo')) ? 'CNPJ' : 'CPF')
+                            ->dynamic(false)
+                            ->mask(RawJs::make(<<<'JS'
+                                $input.replace(/\D/g, '').length > 11 ? '99.999.999/9999-99' : '999.999.999-99'
+                            JS))
+                            ->rule(fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                                $digitos = strlen(preg_replace('/\D/', '', (string) $value) ?? '');
+
+                                if ($digitos === 0) {
+                                    return;
+                                }
+
+                                if (self::ehPessoaJuridica($get('tipo')) && $digitos !== 14) {
+                                    $fail('Informe um CNPJ completo (14 dígitos).');
+                                } elseif (! self::ehPessoaJuridica($get('tipo')) && $digitos !== 11) {
+                                    $fail('Informe um CPF completo (11 dígitos).');
+                                }
+                            })
                             ->columnSpan(1),
 
                         TextInput::make('inscricao_estadual')
@@ -313,6 +332,13 @@ class PrestadorResource extends Resource
                     RestoreBulkAction::make(),
                 ]),
             ]);
+    }
+
+    private static function ehPessoaJuridica(mixed $tipo): bool
+    {
+        $tipo = $tipo instanceof PrestadorTipoEnum ? $tipo : PrestadorTipoEnum::tryFrom((string) $tipo);
+
+        return $tipo === PrestadorTipoEnum::PJ;
     }
 
     public static function getPages(): array

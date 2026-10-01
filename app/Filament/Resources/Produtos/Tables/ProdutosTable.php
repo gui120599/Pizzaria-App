@@ -129,6 +129,9 @@ class ProdutosTable
                 ToggleColumn::make('produto_cardapio')
                     ->label('Cardápio'),
 
+                ToggleColumn::make('produto_cardapio_garcom')
+                    ->label('Cardápio Garçom'),
+
                 TextColumn::make('produto_unidade_comercial')
                     ->label('Un. venda')
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -279,6 +282,11 @@ class ProdutosTable
                     ->query(fn (Builder $query): Builder => $query->where('produto_cardapio', true))
                     ->toggle(),
 
+                Filter::make('cardapio_garcom')
+                    ->label('Mostrar no Cardápio do Garçom')
+                    ->query(fn (Builder $query): Builder => $query->where('produto_cardapio_garcom', true))
+                    ->toggle(),
+
                 Filter::make('destaque_mais_vendidos')
                     ->label('Destaque "Mais Vendidos"')
                     ->query(fn (Builder $query): Builder => $query->where('produto_destaque_mais_vendidos', true))
@@ -363,6 +371,7 @@ class ProdutosTable
                     ->columns(2)
                     ->schema([
                         $filters['cardapio'],
+                        $filters['cardapio_garcom'],
                         $filters['destaque_mais_vendidos'],
                     ]),
 
@@ -775,6 +784,16 @@ class ProdutosTable
                                                 ->visible(fn (Get $get): bool => (bool) $get('alterar_cardapio'))
                                                 ->columnSpan(2),
 
+                                            Toggle::make('alterar_cardapio_garcom')
+                                                ->label('Alterar "mostrar no cardápio do garçom"')
+                                                ->live()
+                                                ->inline(false)
+                                                ->columnSpan(1),
+                                            Toggle::make('produto_cardapio_garcom')
+                                                ->label('Mostrar no cardápio do garçom/atendente')
+                                                ->visible(fn (Get $get): bool => (bool) $get('alterar_cardapio_garcom'))
+                                                ->columnSpan(2),
+
                                             Toggle::make('alterar_destaque')
                                                 ->label('Alterar destaque "Mais Vendidos"')
                                                 ->live()
@@ -933,6 +952,7 @@ class ProdutosTable
                                 'alterar_perecivel' => 'produto_perecivel',
                                 'alterar_unidade_estoque' => 'produto_unidade_estoque',
                                 'alterar_cardapio' => 'produto_cardapio',
+                                'alterar_cardapio_garcom' => 'produto_cardapio_garcom',
                                 'alterar_destaque' => 'produto_destaque_mais_vendidos',
                                 'alterar_exibe_categoria' => 'produto_exibe_categoria',
                                 'alterar_ncm' => 'produto_codigo_NCM',
