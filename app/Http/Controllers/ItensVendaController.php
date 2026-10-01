@@ -314,9 +314,7 @@ class ItensVendaController extends Controller
                 ->get();
 
             foreach ($itensPedido as $item) {
-                $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
-                    ->where('item_venda_venda_id', $venda_id)
-                    ->first();
+                $itemVenda = ItensVenda::correspondenteAoItemPedido((int) $venda_id, $item);
 
                 if ($itemVenda) {
                     // Reduzir a quantidade do item na venda
@@ -431,9 +429,7 @@ class ItensVendaController extends Controller
             ->get();
 
         foreach ($itensPedido as $item) {
-            $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
-                ->where('item_venda_venda_id', $venda_id)
-                ->first();
+            $itemVenda = ItensVenda::correspondenteAoItemPedido((int) $venda_id, $item);
 
             if ($itemVenda) {
                 // Reduzir a quantidade do item na venda
@@ -501,6 +497,7 @@ class ItensVendaController extends Controller
             ->where('item_venda_venda_id', $venda_id)
             ->where('item_venda_valor_adicionais', '=', 0)
             ->where('item_venda_quantidade', '<>', 0.5)
+            ->whereNull('item_venda_sabores')
             ->first();
 
         if ($itemVenda) {
@@ -832,9 +829,7 @@ class ItensVendaController extends Controller
             ->get();
 
         foreach ($itensPedido as $item) {
-            $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
-                ->where('item_venda_venda_id', $venda_id)
-                ->first();
+            $itemVenda = ItensVenda::correspondenteAoItemPedido((int) $venda_id, $item);
 
             if ($itemVenda) {
                 // Se o item já existe na venda, atualizar os valores
@@ -956,10 +951,14 @@ class ItensVendaController extends Controller
                 ! $item->adicionaisItemVenda->isEmpty()) ||
                 ($item->item_pedido_valor_adicionais > 0);
 
-            $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
-                ->where('item_venda_venda_id', $venda_id)
-                ->where('item_venda_valor_adicionais', 0)
-                ->first();
+            // Pizza de sabores nunca mescla — ver LancamentoItensVendaService::lancarItens().
+            $itemVenda = $item->ehMultiSabor()
+                ? null
+                : ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
+                    ->where('item_venda_venda_id', $venda_id)
+                    ->where('item_venda_valor_adicionais', 0)
+                    ->whereNull('item_venda_sabores')
+                    ->first();
 
             // Só atualiza item existente se o item ATUAL NÃO tiver adicionais
             if ($itemVenda && ! $itemAtualTemAdicionais) {
@@ -995,6 +994,7 @@ class ItensVendaController extends Controller
                     'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais,
                     'item_venda_desconto' => $item->item_pedido_desconto,
                     'item_venda_valor' => $valorEfetivo,
+                    'item_venda_sabores' => $item->item_pedido_sabores,
                     'item_venda_status' => 'INSERIDO',
                     'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
                     'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PedidoOrigemEnum;
+use App\Exceptions\ComboSaboresInvalidoException;
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\Cliente;
 use App\Models\HorarioFuncionamento;
@@ -107,7 +108,9 @@ class CardapioCheckoutController extends Controller
             'itens.*.id' => 'required|integer|exists:produtos,id',
             'itens.*.qty' => 'required|integer|min:1|max:99',
             'itens.*.observacao' => 'nullable|string|max:500',
-            'itens.*.sabores' => 'nullable|array|min:2|max:3',
+            // Teto real vem das opções de quantidade da categoria
+            // (PrecificadorService::opcaoDoCombo); aqui só um limite de sanidade.
+            'itens.*.sabores' => 'nullable|array|min:2|max:6',
             'itens.*.sabores.*.id' => 'required|integer|exists:produtos,id',
             // Só sinaliza QUAL produto o cliente escolheu entre as opções de
             // oferta do gatilho — o servidor decide se essa oferta existe, está
@@ -156,8 +159,9 @@ class CardapioCheckoutController extends Controller
                 : collect($item['sabores'])->pluck('id')->all()
         )->unique();
 
-        // Eager load de categoria: maxSaboresEfetivo() consulta categoria_max_sabores.
-        $produtos = Produto::with('categoria')->whereIn('id', $produtoIds)->get()->keyBy('id');
+        // Eager load de categoria e opções de sabores: maxSaboresEfetivo() e
+        // opcaoDoCombo() consultam as quantidades (próprias e herdadas do pai).
+        $produtos = Produto::with(['categoria.quantidadesSabores', 'categoria.pai.quantidadesSabores'])->whereIn('id', $produtoIds)->get()->keyBy('id');
 
         if ($produtos->count() !== $produtoIds->count()) {
             return response()->json(['message' => 'Um dos produtos do carrinho não está mais disponível.'], 422);
@@ -171,26 +175,34 @@ class CardapioCheckoutController extends Controller
             $observacao = $item['observacao'] ?? null;
 
             if (! empty($sabores) && count($sabores) > 1) {
-                // Meia a meia / terços: um item_pedido por sabor com quantidade fracionada.
+                // Meia a meia / 3 sabores: UMA linha com os sabores congelados
+                // em JSON (preço = média; ver PrecificadorService::precificarCombo).
                 $saboresProdutos = collect($sabores)
                     ->map(fn (array $sabor) => $produtos->get($sabor['id']))
                     ->all();
 
-                foreach ($precificador->ratearCombo($saboresProdutos, $qty, $opcaoPagamentoId) as $rateio) {
-                    $linhas[] = [
-                        'item_pedido_produto_id' => $rateio['produto_id'],
-                        'item_pedido_promocao_id' => $rateio['promocao_id'],
-                        'item_pedido_promocao_adicional_regra_id' => $rateio['promocao_adicional_regra_id'],
-                        'item_pedido_quantidade' => $rateio['quantidade'],
-                        'item_pedido_valor_unitario' => $rateio['valor_unitario'],
-                        'item_pedido_valor' => $rateio['valor'],
-                        'item_pedido_desconto' => $rateio['desconto'],
-                        'item_pedido_desconto_unitario' => $rateio['desconto_unitario'],
-                        'item_pedido_valor_adicionais' => 0,
-                        'item_pedido_observacao' => $observacao,
-                        'item_pedido_status' => 'INSERIDO',
-                    ];
+                try {
+                    $opcaoSabores = $precificador->opcaoDoCombo($saboresProdutos);
+                } catch (ComboSaboresInvalidoException $e) {
+                    return response()->json(['message' => $e->getMessage()], 422);
                 }
+
+                $combo = $precificador->precificarCombo($saboresProdutos, $qty, $opcaoSabores, $opcaoPagamentoId);
+
+                $linhas[] = [
+                    'item_pedido_produto_id' => $combo['produto_id'],
+                    'item_pedido_promocao_id' => $combo['promocao_id'],
+                    'item_pedido_promocao_adicional_regra_id' => $combo['promocao_adicional_regra_id'],
+                    'item_pedido_quantidade' => $combo['quantidade'],
+                    'item_pedido_valor_unitario' => $combo['valor_unitario'],
+                    'item_pedido_valor' => $combo['valor'],
+                    'item_pedido_desconto' => $combo['desconto'],
+                    'item_pedido_desconto_unitario' => $combo['desconto_unitario'],
+                    'item_pedido_valor_adicionais' => 0,
+                    'item_pedido_observacao' => $observacao,
+                    'item_pedido_sabores' => $combo['sabores'],
+                    'item_pedido_status' => 'INSERIDO',
+                ];
 
                 continue;
             }
@@ -239,14 +251,22 @@ class CardapioCheckoutController extends Controller
         $bloqueiosEstoque = [];
         $estoque = app(EstoqueService::class);
 
-        foreach (collect($linhas)->groupBy('item_pedido_produto_id') as $produtoId => $doGrupo) {
+        $consumoPorProduto = [];
+
+        foreach ($linhas as $linha) {
+            // Pizza de sabores consome cada sabor pelo seu percentual.
+            foreach ((new ItensPedido($linha))->consumosPorProduto() as $produtoId => $quantidade) {
+                $consumoPorProduto[$produtoId] = ($consumoPorProduto[$produtoId] ?? 0) + $quantidade;
+            }
+        }
+
+        foreach ($consumoPorProduto as $produtoId => $qtdTotal) {
             $produtoLinha = $produtos->get($produtoId);
             if (! $produtoLinha) {
                 continue;
             }
 
-            $qtdTotal = (float) collect($doGrupo)->sum('item_pedido_quantidade');
-            $resultado = $estoque->checarDisponibilidade($produtoLinha, $qtdTotal);
+            $resultado = $estoque->checarDisponibilidade($produtoLinha, (float) $qtdTotal);
             array_push($bloqueiosEstoque, ...$resultado['bloqueios']);
         }
 

@@ -211,7 +211,7 @@ class PromocaoRelampago extends Model
         $tetos = [];
 
         foreach ($produtos as $produto) {
-            $tetos[] = (int) ($produto->categoria?->categoria_max_sabores ?? 1);
+            $tetos[] = (int) ($produto->categoria?->maxSabores() ?? 1);
         }
 
         if ($tetos === []) {

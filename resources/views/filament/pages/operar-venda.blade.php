@@ -128,7 +128,7 @@
                                 @forelse ($sessaoMesa->pedidos as $pedido)
                                     @foreach ($pedido->item_pedido_pedido_id as $itemPedido)
                                         <div class="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                            <span class="truncate">{{ rtrim(rtrim(number_format((float) $itemPedido->item_pedido_quantidade, 3, ',', '.'), '0'), ',') }}x {{ $itemPedido->produto?->produto_descricao ?? '—' }}</span>
+                                            <span class="min-w-0">{{ rtrim(rtrim(number_format((float) $itemPedido->item_pedido_quantidade, 3, ',', '.'), '0'), ',') }}x <x-item-nome :item="$itemPedido" /></span>
                                             <span class="shrink-0">R$ {{ number_format((float) $itemPedido->item_pedido_valor, 2, ',', '.') }}</span>
                                         </div>
                                     @endforeach
@@ -187,7 +187,7 @@
                             <div x-show="aberto" x-cloak class="pl-6 space-y-1">
                                 @foreach ($pedido->item_pedido_pedido_id as $itemPedido)
                                     <div class="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                        <span class="truncate">{{ rtrim(rtrim(number_format((float) $itemPedido->item_pedido_quantidade, 3, ',', '.'), '0'), ',') }}x {{ $itemPedido->produto?->produto_descricao ?? '—' }}</span>
+                                        <span class="min-w-0">{{ rtrim(rtrim(number_format((float) $itemPedido->item_pedido_quantidade, 3, ',', '.'), '0'), ',') }}x <x-item-nome :item="$itemPedido" /></span>
                                         <span class="shrink-0">R$ {{ number_format((float) $itemPedido->item_pedido_valor, 2, ',', '.') }}</span>
                                     </div>
                                 @endforeach
@@ -261,8 +261,7 @@
                         <div wire:key="item-carrinho-{{ $item->id }}" class="px-4 py-3 space-y-2">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
-                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ $item->produto?->produto_descricao ?? '—' }}</p>
-                                    <p class="text-xs text-gray-400 dark:text-gray-500">{{ $item->produto?->categoria?->categoria_nome }}</p>
+                                    <x-item-nome :item="$item" class="block text-sm font-medium text-gray-800 dark:text-gray-200" />
                                 </div>
                                 <button wire:click="removerItemCarrinho({{ $item->id }})" type="button" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 shrink-0">
                                     <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4" />
@@ -412,10 +411,10 @@
             @if ($this->nfeIoDisponivel)
                 <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
                     <input type="checkbox" wire:model="emitirNfeAoFinalizar" class="h-4 w-4 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-primary-600 focus:ring-primary-500" />
+                    Emitir NFC-e ao finalizar
                     @if (! $nfeDecisaoManual && $this->pagamentosLancados->isNotEmpty())
                         <span class="text-gray-400 dark:text-gray-500">(sugerido pela forma de pagamento)</span>
                     @endif
-                    Emitir NFC-e ao finalizar
                 </label>
             @endif
 

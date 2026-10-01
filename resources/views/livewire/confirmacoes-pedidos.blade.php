@@ -213,7 +213,7 @@
                                                 $qtd == (int)$qtd       => (string)(int)$qtd,
                                                 default                 => number_format($qtd, 2, ',', ''),
                                             };
-                                            $nomeProduto = $item->produto?->produto_descricao ?? '—';
+                                            $nomeProduto = $item->nomeProduto();
                                             $obs         = $item->item_pedido_observacao;
                                             $mostrarObs  = $obs && $obs !== $nomeProduto;
                                         @endphp
@@ -226,9 +226,9 @@
                                                     </span>
                                                 @endif
                                                 {{-- Quantidade + nome --}}
-                                                <span class="flex items-center gap-1 text-sm text-gray-800">
+                                                <span class="flex items-start gap-1 text-sm text-gray-800">
                                                     <span class="font-semibold text-green-600">{{ $qtdFormatada }}×</span>
-                                                    <span class="truncate">{{ $nomeProduto }}</span>
+                                                    <x-item-nome :item="$item" :categoria="false" class="min-w-0 truncate" />
                                                 </span>
                                                 @if($mostrarObs)
                                                     <p class="text-gray-400 text-xs truncate ml-5">{{ $obs }}</p>

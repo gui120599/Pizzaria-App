@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Enums\ProdutoTipoEnum;
+use App\Exceptions\ComboSaboresInvalidoException;
 use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\AdicionaisItemPedido;
@@ -87,7 +88,13 @@ class PedidoProdutoSelector extends Component
 
     public int $saboresModo = 1;
 
-    public int $saboresMaxModo = 2;
+    /**
+     * Opções de quantidade (≥ 2 sabores) da categoria, já limitadas pelo teto
+     * da promoção vigente — o "Inteiro" (1) é sempre exibido à parte.
+     *
+     * @var array<int, array{quantidade: int, descricao: string}>
+     */
+    public array $saboresOpcoes = [];
 
     public array $saboresProdutos = [];
 
@@ -133,8 +140,13 @@ class PedidoProdutoSelector extends Component
             ->map(fn ($item) => [
                 'id' => $item->id,
                 'produto_id' => $item->item_pedido_produto_id,
-                'produto_nome' => $item->produto?->produto_descricao ?? '—',
+                'produto_nome' => $item->ehMultiSabor()
+                    ? $item->descricaoSabores()
+                    : ($item->produto?->produto_descricao ?? '—'),
                 'categoria_nome' => $item->produto?->categoria?->categoria_nome ?? '',
+                'multi_sabor' => $item->ehMultiSabor(),
+                'sabores' => $item->item_pedido_sabores,
+                'sabores_linhas' => $item->linhasSabores(),
                 'produto_foto' => $item->produto?->getImagemUrl(),
                 'cliente_id' => $item->item_pedido_cliente_id,
                 'cliente_nome' => $item->item_pedido_cliente_id
@@ -451,7 +463,12 @@ class PedidoProdutoSelector extends Component
         $presel = collect($produtos)->firstWhere('id', $produtoId);
 
         $this->saboresCategoriaNome = $categoria->categoria_nome;
-        $this->saboresMaxModo = $produtoBase->maxSaboresCardapio();
+        $maxSabores = $produtoBase->maxSaboresCardapio();
+        $this->saboresOpcoes = $categoria->quantidadesSaboresResolvidas()
+            ->filter(fn ($o) => $o->quantidade_sabor_quantidade >= 2 && $o->quantidade_sabor_quantidade <= $maxSabores)
+            ->map(fn ($o) => ['quantidade' => $o->quantidade_sabor_quantidade, 'descricao' => $o->quantidade_sabor_descricao])
+            ->values()
+            ->all();
         $this->saboresModo = 1;
         $this->saboresProdutos = $produtos;
         $this->saboresSelecionados = $presel ? [$presel] : [];
@@ -465,6 +482,10 @@ class PedidoProdutoSelector extends Component
 
     public function setModoSabores(int $modo): void
     {
+        if ($modo !== 1 && ! collect($this->saboresOpcoes)->contains('quantidade', $modo)) {
+            return;
+        }
+
         $this->saboresModo = $modo;
         $this->saboresSelecionados = [];
         $this->atualizarOfertaSaborUnico();
@@ -521,10 +542,10 @@ class PedidoProdutoSelector extends Component
         $this->erroEstoque = null;
         $this->avisoEstoque = null;
 
-        // Refaz o rateio com a mesma fonte da verdade do checkout público
-        // (PrecificadorService::ratearCombo) em vez de recalcular na mão aqui:
+        // Refaz o preço com a mesma fonte da verdade do checkout público
+        // (PrecificadorService::precificarCombo) em vez de recalcular na mão aqui:
         // evita a fração e o combo divergirem sobre quando a promoção vale.
-        $produtosPorId = Produto::with('categoria')
+        $produtosPorId = Produto::with(['categoria.quantidadesSabores', 'categoria.pai.quantidadesSabores'])
             ->whereIn('id', collect($sel)->pluck('id'))
             ->get()
             ->keyBy('id');
@@ -543,14 +564,15 @@ class PedidoProdutoSelector extends Component
         $promocoes = app(PromocaoRelampagoService::class);
 
         // Pizza inteira (um só sabor) resolve como item avulso — inclui
-        // relâmpago mesmo fora de uma promoção "que permite sabores". O rateio
-        // de combo (ratearCombo) só entra em jogo com 2+ sabores, igual ao
-        // checkout público (CardapioCheckoutController).
+        // relâmpago mesmo fora de uma promoção "que permite sabores". O combo
+        // (precificarCombo) só entra em jogo com 2+ sabores, igual ao checkout
+        // público (CardapioCheckoutController), e vira UMA linha com os
+        // sabores congelados em item_pedido_sabores.
         if (count($produtosOrdenados) === 1) {
             $preco = $precificador->resolver($produtosOrdenados[0]);
             $linhaUnica = ItensPedido::calcularLinha(1, $preco->valorUnitario, $preco->descontoUnitario);
 
-            $rateio = [[
+            $linha = [
                 'produto_id' => $produtosOrdenados[0]->id,
                 'quantidade' => 1.0,
                 'valor_unitario' => $linhaUnica['valor_unitario'],
@@ -559,27 +581,42 @@ class PedidoProdutoSelector extends Component
                 'valor' => $linhaUnica['valor'],
                 'promocao_id' => $preco->promocaoId,
                 'promocao_adicional_regra_id' => $preco->promocaoAdicionalRegraId,
-            ]];
+                'sabores' => null,
+            ];
         } else {
-            // Meia a meia/terços ficam fora do escopo da promoção adicional —
-            // cada sabor usa o preço cheio (sem override) para o rateio, igual
-            // ao tratamento que já existia para o preço promocional do produto.
-            $rateio = $precificador->ratearCombo($produtosOrdenados, qtd: 1);
+            try {
+                $opcaoSabores = $precificador->opcaoDoCombo($produtosOrdenados);
+            } catch (ComboSaboresInvalidoException $e) {
+                $this->erroPromocao = $e->getMessage();
+
+                return;
+            }
+
+            $linha = $precificador->precificarCombo($produtosOrdenados, 1, $opcaoSabores);
         }
+
+        $previa = new ItensPedido([
+            'item_pedido_produto_id' => $linha['produto_id'],
+            'item_pedido_quantidade' => $linha['quantidade'],
+            'item_pedido_sabores' => $linha['sabores'],
+        ]);
+        $nomeLinha = $previa->ehMultiSabor()
+            ? $previa->descricaoSabores()
+            : ($produtosPorId->get($linha['produto_id'])?->produto_descricao ?? '—');
 
         if ($this->pedidoId) {
             $estoque = app(EstoqueService::class);
             $avisos = [];
 
             try {
-                foreach ($rateio as $linha) {
-                    $produtoLinha = $produtosPorId->get($linha['produto_id']);
+                foreach ($previa->consumosPorProduto() as $produtoId => $quantidade) {
+                    $produtoLinha = $produtosPorId->get($produtoId);
 
                     if (! $produtoLinha) {
                         continue;
                     }
 
-                    array_push($avisos, ...$estoque->validarDisponibilidade($produtoLinha, (float) $linha['quantidade']));
+                    array_push($avisos, ...$estoque->validarDisponibilidade($produtoLinha, (float) $quantidade));
                 }
             } catch (EstoqueInsuficienteException $e) {
                 $this->erroEstoque = $e->getMessage();
@@ -592,16 +629,15 @@ class PedidoProdutoSelector extends Component
             }
         }
 
-        $promocaoId = $rateio[0]['promocao_id'] ?? null;
+        $promocaoId = $linha['promocao_id'] ?? null;
 
         if ($promocaoId && $this->pedidoId) {
             $promocao = PromocaoRelampago::find($promocaoId);
-            $qtdTotal = (float) collect($rateio)->sum('quantidade');
 
             try {
                 $promocoes->validarLimitePorPedido(
                     $promocao,
-                    $promocoes->quantidadeNoPedido($promocao, $this->pedidoId) + $qtdTotal,
+                    $promocoes->quantidadeNoPedido($promocao, $this->pedidoId) + (float) $linha['quantidade'],
                 );
             } catch (PromocaoIndisponivelException $e) {
                 $this->erroPromocao = $e->getMessage();
@@ -620,86 +656,71 @@ class PedidoProdutoSelector extends Component
         // adicionada normalmente.
         $ofertaParaConfirmar = $this->validarOfertaParaConfirmar();
 
+        $produto = $produtosPorId->get($linha['produto_id']);
+        $itemUi = [
+            'produto_id' => $linha['produto_id'],
+            'produto_nome' => $nomeLinha,
+            'categoria_nome' => $this->saboresCategoriaNome,
+            'produto_foto' => $produto?->getImagemUrl(),
+            'cliente_id' => $this->clienteSelecionadoId ?: null,
+            'cliente_nome' => $clienteNome,
+            'quantidade' => $linha['quantidade'],
+            'valor_unitario' => $linha['valor_unitario'],
+            'desconto_unit' => $linha['desconto_unitario'],
+            'valor' => $linha['valor'],
+            'desconto' => $linha['desconto'],
+            'adicionais_valor' => 0,
+            'adicionais' => [],
+            'observacao' => '',
+            'multi_sabor' => $previa->ehMultiSabor(),
+            'sabores' => $linha['sabores'],
+            'sabores_linhas' => $previa->linhasSabores(),
+        ];
+
         $novosItens = [];
         $idGatilhoParaOferta = null;
 
         try {
             if ($this->pedidoId) {
-                DB::transaction(function () use ($rateio, $produtosPorId, $clienteNome, $promocoes, &$novosItens, &$idGatilhoParaOferta) {
-                    foreach ($rateio as $linha) {
-                        $itemModel = ItensPedido::create([
-                            'item_pedido_pedido_id' => $this->pedidoId,
-                            'item_pedido_produto_id' => $linha['produto_id'],
-                            'item_pedido_promocao_id' => $linha['promocao_id'],
-                            'item_pedido_promocao_adicional_regra_id' => $linha['promocao_adicional_regra_id'] ?? null,
-                            'item_pedido_cliente_id' => $this->clienteSelecionadoId ?: null,
-                            'item_pedido_quantidade' => $linha['quantidade'],
-                            'item_pedido_valor_unitario' => $linha['valor_unitario'],
-                            'item_pedido_valor' => $linha['valor'],
-                            'item_pedido_desconto' => $linha['desconto'],
-                            'item_pedido_desconto_unitario' => $linha['desconto_unitario'],
-                            'item_pedido_valor_adicionais' => 0,
-                            'item_pedido_observacao' => null,
-                            'item_pedido_status' => 'INSERIDO',
-                        ]);
+                DB::transaction(function () use ($linha, $itemUi, $promocoes, &$novosItens, &$idGatilhoParaOferta) {
+                    $itemModel = ItensPedido::create([
+                        'item_pedido_pedido_id' => $this->pedidoId,
+                        'item_pedido_produto_id' => $linha['produto_id'],
+                        'item_pedido_promocao_id' => $linha['promocao_id'],
+                        'item_pedido_promocao_adicional_regra_id' => $linha['promocao_adicional_regra_id'] ?? null,
+                        'item_pedido_cliente_id' => $this->clienteSelecionadoId ?: null,
+                        'item_pedido_quantidade' => $linha['quantidade'],
+                        'item_pedido_valor_unitario' => $linha['valor_unitario'],
+                        'item_pedido_valor' => $linha['valor'],
+                        'item_pedido_desconto' => $linha['desconto'],
+                        'item_pedido_desconto_unitario' => $linha['desconto_unitario'],
+                        'item_pedido_valor_adicionais' => 0,
+                        'item_pedido_observacao' => null,
+                        'item_pedido_sabores' => $linha['sabores'],
+                        'item_pedido_status' => 'INSERIDO',
+                    ]);
 
-                        if ($linha['promocao_id']) {
-                            $promocoes->consumir($itemModel);
-                        }
-
-                        $produto = $produtosPorId->get($linha['produto_id']);
-
-                        $novosItens[] = [
-                            'id' => $itemModel->id,
-                            'produto_id' => $linha['produto_id'],
-                            'produto_nome' => $produto?->produto_descricao ?? '—',
-                            'categoria_nome' => $this->saboresCategoriaNome,
-                            'produto_foto' => $produto?->getImagemUrl(),
-                            'cliente_id' => $this->clienteSelecionadoId ?: null,
-                            'cliente_nome' => $clienteNome,
-                            'quantidade' => $linha['quantidade'],
-                            'valor_unitario' => $linha['valor_unitario'],
-                            'desconto_unit' => $linha['desconto_unitario'],
-                            'valor' => $linha['valor'],
-                            'desconto' => $linha['desconto'],
-                            'adicionais_valor' => 0,
-                            'adicionais' => [],
-                            'observacao' => '',
-                            'promocao_id' => $linha['promocao_id'],
-                            'promocao_adicional_regra_id' => $linha['promocao_adicional_regra_id'] ?? null,
-                            'item_origem_id' => null,
-                        ];
-
-                        // Só há 1 linha no rateio quando é pizza inteira — mesmo
-                        // caso em que ofertaParaConfirmar pode estar preenchido.
-                        $idGatilhoParaOferta = $itemModel->id;
+                    if ($linha['promocao_id']) {
+                        $promocoes->consumir($itemModel);
                     }
+
+                    $novosItens[] = $itemUi + [
+                        'id' => $itemModel->id,
+                        'promocao_id' => $linha['promocao_id'],
+                        'promocao_adicional_regra_id' => $linha['promocao_adicional_regra_id'] ?? null,
+                        'item_origem_id' => null,
+                    ];
+
+                    // Oferta só existe para pizza inteira (ver atualizarOfertaSaborUnico()).
+                    $idGatilhoParaOferta = $itemModel->id;
                 });
             } else {
                 // Sem pedido gravado ainda: mantém só a prévia visual (sem
                 // debitar promoção — não há item persistido para o ledger).
-                foreach ($rateio as $linha) {
-                    $produto = $produtosPorId->get($linha['produto_id']);
-
-                    $novosItens[] = [
-                        'id' => uniqid('tmp_'),
-                        'produto_id' => $linha['produto_id'],
-                        'produto_nome' => $produto?->produto_descricao ?? '—',
-                        'categoria_nome' => $this->saboresCategoriaNome,
-                        'produto_foto' => $produto?->getImagemUrl(),
-                        'cliente_id' => $this->clienteSelecionadoId ?: null,
-                        'cliente_nome' => $clienteNome,
-                        'quantidade' => $linha['quantidade'],
-                        'valor_unitario' => $linha['valor_unitario'],
-                        'desconto_unit' => $linha['desconto_unitario'],
-                        'valor' => $linha['valor'],
-                        'desconto' => $linha['desconto'],
-                        'adicionais_valor' => 0,
-                        'adicionais' => [],
-                        'observacao' => '',
-                        'promocao_id' => null,
-                    ];
-                }
+                $novosItens[] = $itemUi + [
+                    'id' => uniqid('tmp_'),
+                    'promocao_id' => null,
+                ];
             }
         } catch (PromocaoIndisponivelException $e) {
             $this->erroPromocao = $e->getMessage();
@@ -971,6 +992,9 @@ class PedidoProdutoSelector extends Component
                 return;
             }
 
+            // Pizza de sabores é uma linha com quantidade inteira (nº de pizzas),
+            // então cai no denominador 1. As frações abaixo só sobrevivem para
+            // linhas legadas gravadas antes da linha única de sabores.
             // Incrementa/decrementa na grade da fração: inteiro (1), meia (½) ou
             // terço (⅓). Trabalha em "unidades da fração" para evitar resíduo
             // (ex.: ⅓ → 0,3333 → 0,6667 → 1,0), sem corromper a precisão.
@@ -1091,14 +1115,25 @@ class PedidoProdutoSelector extends Component
         $this->editAdicionaisSelecionados = array_column($item['adicionais'] ?? [], 'id');
         $this->editClienteId = $item['cliente_id'] ?? null;
 
-        $produto = Produto::with('ap_produto_id.adicional')->find($item['produto_id']);
-        $this->editAdicionaisDisponiveis = $produto?->ap_produto_id
-            ->filter(fn ($ap) => $ap->adicional !== null)
-            ->map(fn ($ap) => [
-                'id' => $ap->adicional->id,
-                'nome' => $ap->adicional->adicional_nome,
-                'valor' => (float) $ap->adicional->adicional_valor,
-            ])
+        // Pizza de sabores: só os adicionais vinculados a TODOS os sabores
+        // (mesma regra do RazelFood) — borda de chocolate não vale para a
+        // metade calabresa.
+        $produtoIds = ! empty($item['multi_sabor'])
+            ? array_column($item['sabores'] ?? [], 'produto_id')
+            : [$item['produto_id']];
+
+        $this->editAdicionaisDisponiveis = Produto::with('ap_produto_id.adicional')
+            ->whereIn('id', $produtoIds)
+            ->get()
+            ->map(fn (Produto $produto) => $produto->ap_produto_id
+                ->filter(fn ($ap) => $ap->adicional !== null)
+                ->mapWithKeys(fn ($ap) => [$ap->adicional->id => [
+                    'id' => $ap->adicional->id,
+                    'nome' => $ap->adicional->adicional_nome,
+                    'valor' => (float) $ap->adicional->adicional_valor,
+                ]]))
+            ->reduce(fn ($comuns, $doProduto) => $comuns === null ? $doProduto : $comuns->intersectByKeys($doProduto))
+            ?->values()
             ->toArray() ?? [];
 
         $this->editModalAberta = true;
@@ -1140,8 +1175,8 @@ class PedidoProdutoSelector extends Component
                 continue;
             }
 
-            // Preserva o valor base (já distribuído em centavos nas frações de
-            // sabor) e apenas troca os adicionais — evita re-arredondar a fração.
+            // Preserva o valor base (preço congelado da pizza/item) e apenas
+            // troca os adicionais — evita reprecificar.
             $baseSemAdic = round((float) $item['valor'] - (float) ($item['adicionais_valor'] ?? 0), 2);
             $item['observacao'] = $this->editObservacao;
             $item['adicionais'] = $adicionaisList;

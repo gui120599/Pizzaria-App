@@ -82,10 +82,16 @@ class LancamentoItensVendaService
             $itemAtualTemAdicionais = ($item->adicionaisItemPedido !== null && ! $item->adicionaisItemPedido->isEmpty())
                 || ($item->item_pedido_valor_adicionais > 0);
 
-            $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
-                ->where('item_venda_venda_id', $venda->id)
-                ->where('item_venda_valor_adicionais', 0)
-                ->first();
+            // Pizza de sabores nunca mescla: é uma linha própria com os sabores
+            // congelados — somar ½ calabresa numa calabresa inteira (como era
+            // antes da linha única) perdia o agrupamento da pizza na venda/NF-e.
+            $itemVenda = $item->ehMultiSabor()
+                ? null
+                : ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
+                    ->where('item_venda_venda_id', $venda->id)
+                    ->where('item_venda_valor_adicionais', 0)
+                    ->whereNull('item_venda_sabores')
+                    ->first();
 
             if ($itemVenda && ! $itemAtualTemAdicionais) {
                 $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
@@ -107,6 +113,7 @@ class LancamentoItensVendaService
                     'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais,
                     'item_venda_desconto' => $item->item_pedido_desconto,
                     'item_venda_valor' => $valorEfetivo,
+                    'item_venda_sabores' => $item->item_pedido_sabores,
                     'item_venda_status' => 'INSERIDO',
                     'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
                     'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,

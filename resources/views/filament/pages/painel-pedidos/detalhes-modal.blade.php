@@ -74,10 +74,10 @@
                 <div class="flex items-start justify-between gap-3 py-1.5">
                     <div class="min-w-0">
                         <div class="flex items-center gap-1.5">
-                            <p class="text-gray-950 dark:text-white">
+                            <div class="text-gray-950 dark:text-white">
                                 {{ FormatoQuantidade::item($item->item_pedido_quantidade) }}x
-                                {{ $item->produto?->categoria?->categoria_nome }} {{ $item->produto?->produto_descricao }}
-                            </p>
+                                <x-item-nome :item="$item" />
+                            </div>
 
                             @if ($item->item_pedido_origem_id)
                                 <span class="shrink-0 text-xs font-semibold text-success-600 dark:text-success-400" title="Oferta de promoção adicional">

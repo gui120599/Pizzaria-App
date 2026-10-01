@@ -75,6 +75,29 @@
         </div>
     </div>
     <script type="module">
+        // Pizza de vários sabores é uma linha só, com os sabores em
+        // item_pedido_sabores — um sabor por linha e fração por extenso,
+        // espelhando o componente Blade item-nome (TemSabores::linhasSabores()).
+        function nomeItemPedido(item) {
+            const sabores = item.item_pedido_sabores || [];
+            if (sabores.length < 2) {
+                return item.produto.produto_descricao;
+            }
+            const fracoes = { 50: 'MEIA', 33.33: 'TERÇO', 33.34: 'TERÇO', 25: 'QUARTO', 66.67: 'DOIS TERÇOS', 75: 'TRÊS QUARTOS' };
+            return sabores
+                // Descrição congelada no item (configurável na categoria); item
+                // antigo sem a chave cai no por extenso.
+                .map(s => {
+                    const rotulo = ('rotulo' in s) ? (s.rotulo ?? '') : (fracoes[Number(s.percentual)] ?? (Number(s.percentual) + '%'));
+                    return `<span class="block">${`${rotulo} ${s.nome}`.trim()}</span>`;
+                })
+                .join('');
+        }
+
+        function badgeCategoria(nome) {
+            return `<span class="inline-block rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-700">${nome}</span>`;
+        }
+
         var qtd_aberto = null;
 
         $(document).ready(function() {
@@ -217,8 +240,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} `;
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} `;
                                                         produto.adicionais_item_pedido.forEach(element => {
                                                             pedidoHtml +=`<p>${element.aip_quantidade} ADIC. ${element.adicional.adicional_nome}</p>`;
                                                         });
@@ -233,8 +256,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} `;
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} `;
                                                         produto.adicionais_item_pedido.forEach(element => {
                                                             pedidoHtml +=`<p>${element.aip_quantidade} ADIC. ${element.adicional.adicional_nome}</p>`;
                                                         });
@@ -251,8 +274,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} 
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} 
                                                         <p>OBS: ${produto.item_pedido_observacao}</p>
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
@@ -265,8 +288,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao}
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)}
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
                                                 </tr>
@@ -649,8 +672,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} `;
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} `;
                                                         produto.adicionais_item_pedido.forEach(element => {
                                                             pedidoHtml +=`<p>${element.aip_quantidade} ADIC. ${element.adicional.adicional_nome}</p>`;
                                                         });
@@ -665,8 +688,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} `;
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} `;
                                                         produto.adicionais_item_pedido.forEach(element => {
                                                             pedidoHtml +=`<p>${element.aip_quantidade} ADIC. ${element.adicional.adicional_nome}</p>`;
                                                         });
@@ -683,8 +706,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} 
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} 
                                                         <p>OBS: ${produto.item_pedido_observacao}</p>
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
@@ -697,8 +720,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao}
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)}
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
                                                 </tr>
@@ -896,8 +919,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} `;
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} `;
                                                         produto.adicionais_item_pedido.forEach(element => {
                                                             pedidoHtml +=`<p>${element.aip_quantidade} ADIC. ${element.adicional.adicional_nome}</p>`;
                                                         });
@@ -912,8 +935,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} `;
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} `;
                                                         produto.adicionais_item_pedido.forEach(element => {
                                                             pedidoHtml +=`<p>${element.aip_quantidade} ADIC. ${element.adicional.adicional_nome}</p>`;
                                                         });
@@ -930,8 +953,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} 
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} 
                                                         <p>OBS: ${produto.item_pedido_observacao}</p>
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
@@ -944,8 +967,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao}
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)}
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
                                                 </tr>
@@ -1234,8 +1257,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} `;
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} `;
                                                         produto.adicionais_item_pedido.forEach(element => {
                                                             pedidoHtml +=`<p>${element.aip_quantidade} ADIC. ${element.adicional.adicional_nome}</p>`;
                                                         });
@@ -1250,8 +1273,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} `;
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} `;
                                                         produto.adicionais_item_pedido.forEach(element => {
                                                             pedidoHtml +=`<p>${element.aip_quantidade} ADIC. ${element.adicional.adicional_nome}</p>`;
                                                         });
@@ -1268,8 +1291,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome}
-                                                        ${produto.produto.produto_descricao}
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)}
+                                                        ${nomeItemPedido(produto)}
                                                         <p>OBS: ${produto.item_pedido_observacao} </p>
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
@@ -1282,8 +1305,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao}
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)}
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
                                                 </tr>
@@ -1487,8 +1510,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} `;
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} `;
                                                         produto.adicionais_item_pedido.forEach(element => {
                                                             pedidoHtml +=`<p>${element.aip_quantidade} ADIC. ${element.adicional.adicional_nome}</p>`;
                                                         });
@@ -1503,8 +1526,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} `;
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} `;
                                                         produto.adicionais_item_pedido.forEach(element => {
                                                             pedidoHtml +=`<p>${element.aip_quantidade} ADIC. ${element.adicional.adicional_nome}</p>`;
                                                         });
@@ -1521,8 +1544,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao} 
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)} 
                                                         <p>OBS: ${produto.item_pedido_observacao}</p>
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
@@ -1535,8 +1558,8 @@
                                                 <tr>
                                                     <td class="text-sm font-bold text-center">${produto.item_pedido_quantidade}</td>
                                                     <td class="text-sm font-bold text-center uppercase">
-                                                        ${produto.produto.categoria.categoria_nome} 
-                                                        ${produto.produto.produto_descricao}
+                                                        ${badgeCategoria(produto.produto.categoria.categoria_nome)} 
+                                                        ${nomeItemPedido(produto)}
                                                     </td>
                                                     <td class="text-xs font-bold text-right">R$ ${parseFloat(produto.item_pedido_valor).toFixed(2)}</td>
                                                 </tr>

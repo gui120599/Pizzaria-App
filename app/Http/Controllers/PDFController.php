@@ -124,7 +124,9 @@ class PDFController extends Controller
 
         $quantidadePorProdutoEmPedidos = [];
         $somarPedido = function (Pedido $pedido) use (&$quantidadePorProdutoEmPedidos): void {
-            foreach ($pedido->item_pedido_pedido_id as $item) {
+            // Pizza de sabores tem linha própria na venda (nunca mescla) —
+            // não entra no abatimento por produto.
+            foreach ($pedido->item_pedido_pedido_id->reject->ehMultiSabor() as $item) {
                 $quantidadePorProdutoEmPedidos[$item->item_pedido_produto_id] =
                     ($quantidadePorProdutoEmPedidos[$item->item_pedido_produto_id] ?? 0.0) + (float) $item->item_pedido_quantidade;
             }
@@ -139,7 +141,7 @@ class PDFController extends Controller
         }
 
         $produtosAvulsos = collect();
-        foreach ($venda->itensVenda->groupBy('item_venda_produto_id') as $produtoId => $itens) {
+        foreach ($venda->itensVenda->reject->ehMultiSabor()->groupBy('item_venda_produto_id') as $produtoId => $itens) {
             $quantidadeTotal = (float) $itens->sum('item_venda_quantidade');
             $quantidadeEmPedidos = $quantidadePorProdutoEmPedidos[$produtoId] ?? 0.0;
             $quantidadeAvulsa = round($quantidadeTotal - $quantidadeEmPedidos, 3);

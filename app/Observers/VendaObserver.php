@@ -135,6 +135,9 @@ class VendaObserver
 
         $itens = $venda->itensVenda()
             ->whereNotIn('item_venda_produto_id', $produtosVindosDePedido)
+            // Pizza de sabores só nasce em pedido (o PDV avulso não monta
+            // sabores) — o estoque dela já foi baixado pelo PedidoObserver.
+            ->whereNull('item_venda_sabores')
             ->where('item_venda_status', 'INSERIDO')
             ->with(['produto', 'produto.fichaItens', 'produto.fichaItens.insumo'])
             ->get();

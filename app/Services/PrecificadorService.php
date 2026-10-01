@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Exceptions\ComboSaboresInvalidoException;
 use App\Models\Produto;
 use App\Models\PromocaoAdicionalOferta;
 use App\Models\PromocaoAdicionalRegra;
 use App\Models\PromocaoRelampago;
 use App\Models\PromocaoRelampagoProduto;
+use App\Models\QuantidadeSabor;
 use App\Support\RateioCentavos;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -291,30 +293,81 @@ class PrecificadorService
     }
 
     /**
-     * Rateia uma pizza de N sabores em N linhas de item de pedido, preservando
-     * a convenção existente: quantidade fracionada (1/N) e valor_unitario com o
-     * preço cheio do sabor.
+     * Valida a combinação de sabores e devolve a opção de quantidade da
+     * categoria que ela usa. Regras (iguais às do RazelFood):
+     * sabores distintos, todos da mesma categoria, categoria que permite
+     * sabores e quantidade com opção cadastrada (própria ou herdada do pai).
      *
-     * Sob promoção, a pizza inteira custa o MAIOR preço promocional entre os
-     * sabores escolhidos (preço anunciado; a média produziria um valor que
-     * nunca foi divulgado). O desconto resultante é rateado entre os sabores em
-     * proporção ao preço cheio de cada um, o que garante desconto nunca
-     * negativo e soma exata em centavos.
+     * @param  array<int, Produto>  $produtos  Sabores, na ordem escolhida
+     *
+     * @throws ComboSaboresInvalidoException
+     */
+    public function opcaoDoCombo(array $produtos): QuantidadeSabor
+    {
+        $ids = array_map(fn (Produto $p) => $p->id, $produtos);
+
+        if (count($ids) < 2 || count(array_unique($ids)) !== count($ids)) {
+            throw new ComboSaboresInvalidoException('Escolha sabores diferentes para a pizza.');
+        }
+
+        $categoriaIds = array_unique(array_map(fn (Produto $p) => $p->produto_categoria_id, $produtos));
+
+        if (count($categoriaIds) !== 1) {
+            throw new ComboSaboresInvalidoException('Os sabores precisam ser da mesma categoria.');
+        }
+
+        $categoria = $produtos[array_key_first($produtos)]->categoria;
+
+        if (! $categoria?->categoria_permite_sabores) {
+            throw new ComboSaboresInvalidoException('Esta categoria não permite combinar sabores.');
+        }
+
+        $opcao = $categoria->opcaoQuantidadeSabores(count($produtos));
+
+        if (! $opcao) {
+            throw new ComboSaboresInvalidoException(
+                'A categoria "'.$categoria->categoria_nome.'" não oferece pizza com '.count($produtos).' sabores.'
+            );
+        }
+
+        return $opcao;
+    }
+
+    /**
+     * Precifica uma pizza de N sabores como UMA linha de item.
+     *
+     * Preço: a média dos preços dos sabores (cada sabor contribui com 1/N do
+     * seu preço, em centavos). Sob promoção de combo (relâmpago ou adicional
+     * cobrindo TODOS os sabores), a pizza custa o MAIOR preço promocional
+     * entre os sabores — o preço anunciado; a média produziria um valor que
+     * nunca foi divulgado —, e o desconto é rateado entre as fatias em
+     * proporção ao preço cheio de cada uma.
+     *
+     * Os percentuais da opção de quantidade NÃO entram no preço: só ficam
+     * congelados em cada sabor para baixa de estoque e ledger de promoção.
      *
      * @param  array<int, Produto>  $produtos  Sabores, na ordem escolhida
      * @param  int  $qtd  Quantidade de pizzas
+     * @param  ?QuantidadeSabor  $opcao  Opção da categoria (percentuais); null = percentuais iguais
      * @param  ?int  $opcaoPagamentoId  Ver resolver() — só o checkout público sabe a forma de pagamento neste momento.
-     * @return array<int, array{produto_id: int, quantidade: float, valor_unitario: float, desconto: float, desconto_unitario: float, valor: float, promocao_id: ?int, promocao_adicional_regra_id: ?int}>
+     * @return array{produto_id: int, quantidade: int, valor_unitario: float, desconto: float, desconto_unitario: float, valor: float, promocao_id: ?int, promocao_adicional_regra_id: ?int, sabores: array<int, array{produto_id: int, nome: string, percentual: float, rotulo: string, valor_unitario: float, valor_fatia: float, desconto_fatia: float, promocao_adicional_regra_id: ?int}>}
      */
-    public function ratearCombo(array $produtos, int $qtd, ?int $opcaoPagamentoId = null): array
+    public function precificarCombo(array $produtos, int $qtd, ?QuantidadeSabor $opcao = null, ?int $opcaoPagamentoId = null): array
     {
+        $produtos = array_values($produtos);
         $numSabores = count($produtos);
         $promocao = $this->promocaoDoCombo($produtos);
         // Só entra em jogo quando não há combo relâmpago cobrindo os mesmos
         // sabores — relâmpago tem prioridade, igual ao item avulso.
         $regrasAdicionais = $promocao === null ? $this->regrasAdicionaisDoCombo($produtos, $opcaoPagamentoId) : null;
 
-        // Preço cheio de cada sabor, em centavos, já dividido entre os N sabores.
+        $usaOpcao = $opcao !== null && $opcao->quantidade_sabor_quantidade === $numSabores;
+        $percentuais = $usaOpcao ? $opcao->percentuais() : QuantidadeSabor::percentuaisIguais($numSabores);
+        // Descrição de cada posição congelada no item: mudar a nomenclatura da
+        // categoria depois não altera pedidos já lançados.
+        $rotulos = $usaOpcao ? $opcao->rotulos() : QuantidadeSabor::rotulosPadrao($percentuais, 'extenso');
+
+        // Preço cheio de cada sabor e a fatia (1/N) dele, em centavos.
         // Sob promoção o preço cheio é sempre o de venda: o promocional do
         // produto não se acumula com o da promoção relâmpago/adicional.
         $valorUnitario = [];
@@ -347,32 +400,38 @@ class PrecificadorService
             $descontoUnitCents = RateioCentavos::ratearProporcional($descontoTotalCents, $brutoUnitCents);
         }
 
-        // Quantidade: 1/N por sabor, em centésimos, somando exatamente $qtd.
-        $qtdCentesimos = $qtd * 100;
-        $qtdPorItem = intdiv($qtdCentesimos, $numSabores);
-        $qtdExtra = $qtdCentesimos % $numSabores;
-
-        $linhas = [];
+        $sabores = [];
 
         foreach ($produtos as $idx => $produto) {
-            $quantidade = ($qtdPorItem + ($idx >= $numSabores - $qtdExtra ? 1 : 0)) / 100;
-
-            $bruto = round($brutoUnitCents[$idx] / 100 * $qtd, 2);
-            $desconto = round($descontoUnitCents[$idx] / 100 * $qtd, 2);
-
-            $linhas[] = [
+            $sabores[] = [
                 'produto_id' => $produto->id,
-                'quantidade' => $quantidade,
+                'nome' => $produto->produto_descricao,
+                'percentual' => (float) $percentuais[$idx],
+                'rotulo' => $rotulos[$idx],
                 'valor_unitario' => $valorUnitario[$idx],
-                'desconto' => $desconto,
-                'desconto_unitario' => $quantidade > 0 ? round($desconto / $quantidade, 2) : 0.0,
-                'valor' => round($bruto - $desconto, 2),
-                'promocao_id' => $promocao?->id,
+                'valor_fatia' => $brutoUnitCents[$idx] / 100,
+                'desconto_fatia' => $descontoUnitCents[$idx] / 100,
                 'promocao_adicional_regra_id' => $regrasAdicionais?->get($produto->id)?->id,
             ];
         }
 
-        return $linhas;
+        $brutoPizzaCents = array_sum($brutoUnitCents);
+        $descontoPizzaCents = array_sum($descontoUnitCents);
+        $desconto = round($descontoPizzaCents * $qtd / 100, 2);
+
+        return [
+            'produto_id' => $produtos[0]->id,
+            'quantidade' => $qtd,
+            'valor_unitario' => $brutoPizzaCents / 100,
+            'desconto' => $desconto,
+            'desconto_unitario' => $descontoPizzaCents / 100,
+            'valor' => round($brutoPizzaCents * $qtd / 100 - $desconto, 2),
+            'promocao_id' => $promocao?->id,
+            // Marca a linha como "preço congelado por promoção adicional" —
+            // a regra de cada sabor fica no JSON de sabores.
+            'promocao_adicional_regra_id' => $regrasAdicionais?->first()?->id,
+            'sabores' => $sabores,
+        ];
     }
 
     /**

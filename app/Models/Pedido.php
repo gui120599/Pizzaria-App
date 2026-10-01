@@ -96,13 +96,13 @@ class Pedido extends Model
     public function produtos()
     {
         return $this->belongsToMany(Produto::class, 'itens_pedidos', 'item_pedido_pedido_id', 'item_pedido_produto_id')
-            ->withPivot('item_pedido_quantidade', 'item_pedido_valor', 'item_pedido_observacao', 'item_pedido_status', 'item_pedido_usuario_removeu');
+            ->withPivot('item_pedido_quantidade', 'item_pedido_valor', 'item_pedido_observacao', 'item_pedido_sabores', 'item_pedido_status', 'item_pedido_usuario_removeu');
     }
 
     public function produtosInseridosPedido()
     {
         return $this->belongsToMany(Produto::class, 'itens_pedidos', 'item_pedido_pedido_id', 'item_pedido_produto_id')
-            ->withPivot('id', 'item_pedido_quantidade', 'item_pedido_valor', 'item_pedido_observacao', 'item_pedido_status', 'item_pedido_usuario_removeu')
+            ->withPivot('id', 'item_pedido_quantidade', 'item_pedido_valor', 'item_pedido_observacao', 'item_pedido_sabores', 'item_pedido_status', 'item_pedido_usuario_removeu')
             ->wherePivot('item_pedido_status', 'INSERIDO')
             ->with('categoria');
     }

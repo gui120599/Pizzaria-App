@@ -301,8 +301,12 @@ class CorrecaoEstoqueService
                 continue;
             }
 
+            // Pizza de sabores tem custo composto (Σ sabor × percentual): não
+            // dá para sobrescrever com o custo de um único sabor — cai como
+            // venda indireta, igual a insumo de ficha técnica.
             $itemVenda = ItensVenda::where('item_venda_venda_id', $mov->mov_venda_id)
                 ->where('item_venda_produto_id', $produto->id)
+                ->whereNull('item_venda_sabores')
                 ->first();
 
             if ($itemVenda) {

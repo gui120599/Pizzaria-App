@@ -4,6 +4,7 @@ namespace App\Filament\Widgets\Concerns;
 
 use App\Models\ItensVenda;
 use App\Models\Venda;
+use App\Support\ExpansaoSabores;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -109,12 +110,23 @@ trait InteractsComPeriodo
 
             $query->whereHas('itensVenda', function ($q) use ($categorias, $produtosIds) {
                 $q->where('item_venda_status', 'INSERIDO')
-                    ->whereHas('produto', function ($q2) use ($categorias, $produtosIds) {
-                        if ($categorias !== []) {
-                            $q2->whereIn('produto_categoria_id', $categorias);
-                        }
-                        if ($produtosIds !== []) {
-                            $q2->whereIn('id', $produtosIds);
+                    ->where(function ($q1) use ($categorias, $produtosIds) {
+                        $q1->whereHas('produto', function ($q2) use ($categorias, $produtosIds) {
+                            if ($categorias !== []) {
+                                $q2->whereIn('produto_categoria_id', $categorias);
+                            }
+                            if ($produtosIds !== []) {
+                                $q2->whereIn('id', $produtosIds);
+                            }
+                        });
+
+                        // Sabor que não é o 1º de uma pizza de vários sabores.
+                        // Categoria não precisa disso: todos os sabores são da
+                        // mesma categoria do produto da linha.
+                        if ($produtosIds !== [] && $categorias === []) {
+                            foreach ($produtosIds as $produtoId) {
+                                $q1->orWhereRaw('JSON_CONTAINS(item_venda_sabores, JSON_OBJECT(\'produto_id\', ?))', [(int) $produtoId]);
+                            }
                         }
                     });
             });
@@ -128,9 +140,16 @@ trait InteractsComPeriodo
      * dashboard aplicados (tipo de entrega, categoria, produto). Use para KPIs
      * atribuíveis a um item (receita/custo/quantidade de produtos filtrados).
      */
-    protected function itensFiltradosQuery(Carbon $inicio, Carbon $fim): Builder
+    protected function itensFiltradosQuery(Carbon $inicio, Carbon $fim, bool $porSabor = false): Builder
     {
-        $query = ItensVenda::query()
+        // Pizza de vários sabores é uma linha só; por produto (ranking ou
+        // filtro de categoria/produto) cada sabor precisa contar pela sua
+        // fração — senão a pizza inteira cairia no 1º sabor.
+        $query = ($porSabor || $this->filtrandoPorProduto())
+            ? ItensVenda::query()->fromSub(ExpansaoSabores::itensVenda(), 'itens_vendas')
+            : ItensVenda::query();
+
+        $query = $query
             ->join('vendas', 'vendas.id', '=', 'itens_vendas.item_venda_venda_id')
             ->join('produtos', 'produtos.id', '=', 'itens_vendas.item_venda_produto_id')
             ->where('vendas.venda_status', 'FINALIZADA')

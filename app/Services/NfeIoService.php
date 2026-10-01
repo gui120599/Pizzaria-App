@@ -302,7 +302,17 @@ class NfeIoService
             $itensArray[] = [
                 'code' => (string) $produto->id,
                 'codeGTIN' => $produto->produto_gtin ?? null,
-                'description' => $produto->categoria->categoria_nome.' '.$produto->produto_descricao.$descAdicionais,
+                // Pizza de sabores é um item só na nota: categoria + frações dos
+                // sabores (ex.: PIZZA GRANDE 1/2 CALABRESA / 1/2 MUSSARELA). NCM,
+                // CFOP e tributos seguem o produto da linha (1º sabor) — todos
+                // os sabores são da mesma categoria. xProd tem teto de 120.
+                'description' => mb_substr(
+                    $produto->categoria->categoria_nome.' '
+                        .($item->ehMultiSabor() ? $item->descricaoSabores(ascii: true) : $produto->produto_descricao)
+                        .$descAdicionais,
+                    0,
+                    120,
+                ),
                 'ncm' => $produto->produto_codigo_NCM ?? null,
                 'cfop' => (int) $produto->produto_CFOP,
                 'unit' => $produto->produto_unidade_comercial,

@@ -265,8 +265,7 @@
                                                                     <td class="text-xs font-bold text-center">
                                                                         {{ $item->pivot->item_pedido_quantidade }}</td>
                                                                     <td class="text-xs text-center uppercase">
-                                                                        {{ $item->categoria->categoria_nome }}
-                                                                        {{ $item->produto_descricao }} -
+                                                                        <x-item-nome :item="\App\Models\ItensPedido::doPivot($item)" /> -
                                                                         <span
                                                                             class="font-bold">{{ $item->pivot->item_pedido_observacao }}</span>
                                                                     </td>
@@ -279,8 +278,7 @@
                                                                     <td class="text-xs font-bold text-center">
                                                                         {{ $item->pivot->item_pedido_quantidade }}</td>
                                                                     <td class="text-xs text-center uppercase">
-                                                                        {{ $item->categoria->categoria_nome }}
-                                                                        {{ $item->produto_descricao }}</td>
+                                                                        <x-item-nome :item="\App\Models\ItensPedido::doPivot($item)" /></td>
                                                                     <td class="text-xs font-bold text-right">R$
                                                                         {{ str_replace('.', ',', $item->pivot->item_pedido_valor) }}
                                                                     </td>
@@ -415,8 +413,7 @@
                                                                     <td class="text-xs font-bold text-center">
                                                                         {{ $item->pivot->item_pedido_quantidade }}</td>
                                                                     <td class="text-xs text-center uppercase">
-                                                                        {{ $item->categoria->categoria_nome }}
-                                                                        {{ $item->produto_descricao }} -
+                                                                        <x-item-nome :item="\App\Models\ItensPedido::doPivot($item)" /> -
                                                                         <span
                                                                             class="font-bold">{{ $item->pivot->item_pedido_observacao }}</span>
                                                                     </td>
@@ -429,8 +426,7 @@
                                                                     <td class="text-xs font-bold text-center">
                                                                         {{ $item->pivot->item_pedido_quantidade }}</td>
                                                                     <td class="text-xs text-center uppercase">
-                                                                        {{ $item->categoria->categoria_nome }}
-                                                                        {{ $item->produto_descricao }}</td>
+                                                                        <x-item-nome :item="\App\Models\ItensPedido::doPivot($item)" /></td>
                                                                     <td class="text-xs font-bold text-right">R$
                                                                         {{ str_replace('.', ',', $item->pivot->item_pedido_valor) }}
                                                                     </td>
@@ -607,8 +603,7 @@
                                                         <td class="text-xs font-bold text-center">
                                                             {{ $item->pivot->item_pedido_quantidade }}</td>
                                                         <td class="text-xs text-center uppercase">
-                                                            {{ $item->categoria->categoria_nome }}
-                                                            {{ $item->produto_descricao }} -
+                                                            <x-item-nome :item="\App\Models\ItensPedido::doPivot($item)" /> -
                                                             <span
                                                                 class="font-bold">{{ $item->pivot->item_pedido_observacao }}</span>
                                                         </td>
@@ -635,8 +630,7 @@
                                                         <td class="text-xs font-bold text-center">
                                                             {{ $item->pivot->item_pedido_quantidade }}</td>
                                                         <td class="text-xs text-center uppercase">
-                                                            {{ $item->categoria->categoria_nome }}
-                                                            {{ $item->produto_descricao }}</td>
+                                                            <x-item-nome :item="\App\Models\ItensPedido::doPivot($item)" /></td>
                                                         <td class="text-xs font-bold text-right">R$
                                                             {{ str_replace('.', ',', $item->pivot->item_pedido_valor) }}
                                                         </td>

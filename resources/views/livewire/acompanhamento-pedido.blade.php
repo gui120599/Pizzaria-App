@@ -193,10 +193,10 @@
                                         {{ $item->produto->categoria->categoria_nome }}
                                     </span>
                                 @endif
-                                <p class="text-sm text-white leading-tight">
+                                <div class="text-sm text-white leading-tight">
                                     <span class="text-green-400 font-bold">{{ $qtdFmt }}×</span>
-                                    {{ $item->produto?->produto_descricao ?? '—' }}
-                                </p>
+                                    <x-item-nome :item="$item" :categoria="false" />
+                                </div>
                                 @if($item->item_pedido_observacao && $item->item_pedido_observacao !== $item->produto?->produto_descricao)
                                     <p class="text-gray-500 text-xs mt-0.5">{{ $item->item_pedido_observacao }}</p>
                                 @endif
