@@ -96,4 +96,28 @@ class Venda extends Model
     {
         return $this->hasMany(Lancamento::class, 'venda_id');
     }
+
+    /** Números de NF reservados para esta venda (normalmente um; mais de um só se a nota anterior foi cancelada). */
+    public function nfEmissoes()
+    {
+        return $this->hasMany(NfEmissao::class, 'venda_id');
+    }
+
+    public function nfEmissaoAtual()
+    {
+        return $this->hasOne(NfEmissao::class, 'venda_id')->latestOfMany();
+    }
+
+    /**
+     * Regra de envio automático: basta um pagamento numa forma marcada com
+     * opcaopag_envio_automatico_nfe (ex.: Pix/Dinheiro) para a venda ir à
+     * NFe.io. Venda paga só em formas com NF emitida fora do sistema (ex.:
+     * cartão na maquininha Stone) não é enviada.
+     */
+    public function exigeEnvioNfe(): bool
+    {
+        return $this->pagamentos()
+            ->whereHas('opcaoPagamento', fn ($query) => $query->withTrashed()->where('opcaopag_envio_automatico_nfe', true))
+            ->exists();
+    }
 }

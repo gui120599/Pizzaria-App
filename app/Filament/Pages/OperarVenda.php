@@ -19,6 +19,7 @@ use App\Models\ItensVenda;
 use App\Models\Lancamento;
 use App\Models\Maquininha;
 use App\Models\Mesa;
+use App\Models\NfEmissao;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
 use App\Models\Pedido;
@@ -166,7 +167,11 @@ class OperarVenda extends Page
     public ?string $motivoCancelamento = null;
 
     // ── Emissão de NFC-e (NFe.io) ────────────────────────────────────────────
+    /** Pré-marcado pela forma de pagamento (Venda::exigeEnvioNfe()) até o operador mexer nele. */
     public bool $emitirNfeAoFinalizar = false;
+
+    /** Operador mexeu no checkbox: a sugestão automática para de sobrescrever a escolha dele. */
+    public bool $nfeDecisaoManual = false;
 
     public bool $modalNfeAberta = false;
 
@@ -227,13 +232,12 @@ class OperarVenda extends Page
         // checagem é ->exists, não a truthiness do objeto.
         if ($venda?->exists) {
             $this->vendaId = $venda->id;
+            $this->sincronizarSugestaoNfe();
         }
 
         // Sem parâmetro: $this->vendaId fica null. A Venda só é criada no
         // primeiro lançamento real (ver iniciarVendaSeNecessario()) — igual
-        // ao legado. Criar antecipadamente aqui queimaria o autoincrement
-        // sequencial (usado como número da NF-e perante a SEFAZ) toda vez
-        // que a página é aberta/recarregada sem nenhum item lançado.
+        // ao legado, pra não criar vendas vazias a cada abertura da página.
     }
 
     /**
@@ -1388,6 +1392,22 @@ class OperarVenda extends Page
 
     private function recarregarPagamentos(): void
     {
+        $this->sincronizarSugestaoNfe();
+    }
+
+    public function updatedEmitirNfeAoFinalizar(): void
+    {
+        $this->nfeDecisaoManual = true;
+    }
+
+    /** Reaplica a regra de envio automático por forma de pagamento enquanto o operador não decidiu no checkbox. */
+    private function sincronizarSugestaoNfe(): void
+    {
+        if ($this->nfeDecisaoManual || $this->vendaId === null) {
+            return;
+        }
+
+        $this->emitirNfeAoFinalizar = (bool) Venda::find($this->vendaId)?->exigeEnvioNfe();
         unset($this->pagamentosLancados, $this->venda);
     }
 
@@ -1500,7 +1520,7 @@ class OperarVenda extends Page
         $venda->save();
 
         $this->fecharModalPagamento();
-        unset($this->pagamentosLancados, $this->venda);
+        $this->recarregarPagamentos();
     }
 
     public function removerPagamento(int $pagamentoId): void
@@ -1514,7 +1534,7 @@ class OperarVenda extends Page
         $pagamento->delete();
 
         app(VendaService::class)->atualizarValoresdaVenda($vendaId);
-        unset($this->pagamentosLancados, $this->venda);
+        $this->recarregarPagamentos();
     }
 
     // ── Dividir conta ────────────────────────────────────────────────────────
@@ -1577,7 +1597,7 @@ class OperarVenda extends Page
         });
 
         $this->fecharModalDividirConta();
-        unset($this->pagamentosLancados, $this->venda);
+        $this->recarregarPagamentos();
     }
 
     // ── Finalizar / cancelar venda ───────────────────────────────────────────
@@ -1699,9 +1719,13 @@ class OperarVenda extends Page
         $this->modalNfeAberta = true;
         $this->nfeStatusModal = 'processando';
         $this->nfeErroModal = null;
+        // Reenvio (botão "tentar novamente" do modal) reaproveita a reserva
+        // e a decisão já gravadas em nf_emissoes; o argumento só vale na 1ª.
+        $decisao = $venda->exigeEnvioNfe() ? NfEmissao::DECISAO_AUTOMATICA : NfEmissao::DECISAO_MANUAL;
+
 
         try {
-            app(NfeIoService::class)->emitir($venda);
+            app(NfeIoService::class)->emitir($venda, $decisao);
             $this->nfeInvoiceId = $venda->fresh()->venda_id_nfe;
         } catch (NfeIoException $e) {
             $this->nfeStatusModal = 'erro';

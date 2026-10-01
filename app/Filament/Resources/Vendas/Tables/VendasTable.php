@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Vendas\Tables;
 
 use App\Exceptions\NfeIoException;
 use App\Filament\Pages\OperarVenda;
+use App\Models\NfEmissao;
 use App\Models\Venda;
 use App\Services\NfeIoService;
 use Filament\Actions\Action;
@@ -129,6 +130,7 @@ class VendasTable
                         try {
                             $service->cancelar($record->venda_id_nfe);
                             $record->update(['venda_status_nfe' => 'CancelamentoSolicitado']);
+                            NfEmissao::espelharStatus($record->venda_id_nfe, 'CancelamentoSolicitado');
 
                             Notification::make()
                                 ->title('Cancelamento solicitado')

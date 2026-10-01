@@ -23,6 +23,7 @@ use Filament\Schemas\Components\Section as SchemaSection;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\TernaryFilter;
@@ -95,6 +96,12 @@ class OpcoesPagamentoResource extends Resource
                         ->nullable()
                         ->placeholder('Selecione o código NFe'),
 
+                    Toggle::make('opcaopag_envio_automatico_nfe')
+                        ->label('Envia NFC-e automaticamente')
+                        ->default(false)
+                        ->inline()
+                        ->helperText('Venda com pelo menos um pagamento nesta forma já vem marcada para emitir NFC-e ao finalizar (o operador ainda pode desmarcar). Deixe desligado para formas cuja nota é emitida fora do sistema, como cartão na maquininha Stone.'),
+
                     Select::make('plano_receita_id')
                         ->label('Plano de receita')
                         ->relationship('planoReceita', 'nome')
@@ -165,6 +172,10 @@ class OpcoesPagamentoResource extends Resource
 
                 ToggleColumn::make('opcaopag_aparece_cardapio')
                     ->label('No Cardápio'),
+
+                IconColumn::make('opcaopag_envio_automatico_nfe')
+                    ->label('NFC-e automática')
+                    ->boolean(),
 
                 TextColumn::make('opcaopag_descricao')
                     ->label('Descrição')

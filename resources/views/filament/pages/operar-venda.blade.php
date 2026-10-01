@@ -412,6 +412,9 @@
             @if ($this->nfeIoDisponivel)
                 <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
                     <input type="checkbox" wire:model="emitirNfeAoFinalizar" class="h-4 w-4 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-primary-600 focus:ring-primary-500" />
+                    @if (! $nfeDecisaoManual && $this->pagamentosLancados->isNotEmpty())
+                        <span class="text-gray-400 dark:text-gray-500">(sugerido pela forma de pagamento)</span>
+                    @endif
                     Emitir NFC-e ao finalizar
                 </label>
             @endif
