@@ -14,6 +14,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -121,6 +122,14 @@ class PainelPedidos extends Page implements HasActions
     #[Url(as: 'linha')]
     public ?int $linhaProducaoId = null;
 
+    /**
+     * Colunas de status que o usuário escolheu esconder — preferência gravada
+     * no próprio usuário (users.preferencias), vale em qualquer aparelho.
+     *
+     * @var array<int, string>
+     */
+    public array $colunasOcultas = [];
+
     public static function canAccess(): bool
     {
         return (bool) Auth::user()?->can('view_any:pedido');
@@ -131,6 +140,8 @@ class PainelPedidos extends Page implements HasActions
         abort_unless(static::canAccess(), 403);
 
         $this->dataEntregue ??= Carbon::now()->toDateString();
+
+        $this->colunasOcultas = array_values(Auth::user()?->preferencias['painel_pedidos']['colunas_ocultas'] ?? []);
 
         // linhaProducaoId não usa #[Session] (ver docblock da classe), mas
         // ainda assim sobrevive a navegação sem ?linha= na URL, contanto que
@@ -435,7 +446,48 @@ class PainelPedidos extends Page implements HasActions
     #[Computed]
     public function colunasKanban(): array
     {
+        return array_values(array_filter(
+            StatusPedidoEnum::colunasKanban(),
+            fn (StatusPedidoEnum $status): bool => ! in_array($status->value, $this->colunasOcultas, true),
+        ));
+    }
+
+    /**
+     * Todas as colunas possíveis (respeitando a config do estágio Em
+     * Transporte), para o seletor de colunas visíveis.
+     *
+     * @return array<int, StatusPedidoEnum>
+     */
+    public function colunasDisponiveis(): array
+    {
         return StatusPedidoEnum::colunasKanban();
+    }
+
+    public function alternarColuna(string $status): void
+    {
+        $disponiveis = array_map(fn (StatusPedidoEnum $s): string => $s->value, StatusPedidoEnum::colunasKanban());
+
+        if (! in_array($status, $disponiveis, true)) {
+            return;
+        }
+
+        $ocultas = in_array($status, $this->colunasOcultas, true)
+            ? array_values(array_diff($this->colunasOcultas, [$status]))
+            : [...$this->colunasOcultas, $status];
+
+        if (array_diff($disponiveis, $ocultas) === []) {
+            Notification::make()->warning()->title('Mantenha ao menos uma coluna visível.')->send();
+
+            return;
+        }
+
+        $this->colunasOcultas = $ocultas;
+        unset($this->colunasKanban);
+
+        $user = Auth::user();
+        $preferencias = $user->preferencias ?? [];
+        $preferencias['painel_pedidos']['colunas_ocultas'] = $ocultas;
+        $user->forceFill(['preferencias' => $preferencias])->save();
     }
 
     public function usaEstagioTransporte(): bool

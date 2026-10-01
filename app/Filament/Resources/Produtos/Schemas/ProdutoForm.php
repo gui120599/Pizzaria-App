@@ -131,8 +131,15 @@ class ProdutoForm
                     ->columnSpan(2)
                     ->schema([
                         Toggle::make('produto_cardapio')
-                            ->label('Mostrar no cardápio')
+                            ->label('Mostrar no cardápio do cliente')
                             ->helperText('Visível para os clientes')
+                            ->inline(false)
+                            ->columnSpan(1),
+
+                        Toggle::make('produto_cardapio_garcom')
+                            ->label('Mostrar no cardápio do garçom/atendente')
+                            ->helperText('Visível na tela de pedidos usada por garçom e atendente')
+                            ->default(true)
                             ->inline(false)
                             ->columnSpan(1),
 

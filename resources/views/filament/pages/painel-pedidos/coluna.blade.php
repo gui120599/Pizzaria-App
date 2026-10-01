@@ -65,7 +65,7 @@
 
     {{-- Corpo: rolagem independente por coluna. dvh, não vh — a barra de
          endereço do mobile muda a altura visível. --}}
-    <div class="flex-1 space-y-2 overflow-y-auto overscroll-contain rounded-b-xl border border-gray-200 bg-gray-50 p-2 h-[calc(100dvh-15rem)] dark:border-white/10 dark:bg-white/[0.02]">
+    <div class="flex-1 space-y-2 overflow-y-auto rounded-b-xl border border-gray-200 bg-gray-50 p-2 h-[calc(100dvh-15rem)] dark:border-white/10 dark:bg-white/[0.02]">
         @forelse ($pedidos as $pedido)
             <div wire:key="pedido-{{ $pedido->id }}">
                 @include('filament.pages.painel-pedidos.card', [

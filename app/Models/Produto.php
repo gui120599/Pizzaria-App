@@ -40,6 +40,7 @@ class Produto extends Model
         'produto_modo_controle_estoque',
         'produto_lista_estoque_zerado',
         'produto_cardapio',
+        'produto_cardapio_garcom',
         'produto_codigo_NCM',
         'produto_codigo_CEST',
         'produto_codigo_EAN',
@@ -72,6 +73,7 @@ class Produto extends Model
     ];
 
     protected $casts = [
+        'produto_cardapio_garcom' => 'boolean',
         'produto_exibe_categoria' => 'boolean',
         'produto_controla_lote' => 'boolean',
         'produto_controla_marca' => 'boolean',
