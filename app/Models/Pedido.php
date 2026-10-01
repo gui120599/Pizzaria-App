@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
+use App\Enums\TipoAtendimentoEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
@@ -138,6 +139,14 @@ class Pedido extends Model
         return URL::signedRoute('entregador.scan', ['pedido' => $this->id]);
     }
 
+    /** Timeline de transições de status — ver HistoricoStatusPedido. */
+    public function historicoStatus()
+    {
+        // Duas transições no mesmo segundo (created_at é timestamp sem
+        // microssegundos) empatam na ordenação — id como desempate estável.
+        return $this->hasMany(HistoricoStatusPedido::class, 'hsp_pedido_id')->orderBy('created_at')->orderBy('id');
+    }
+
     /**
      * O pedido sai para entrega (delivery), em oposição a mesa/balcão?
      *
@@ -163,5 +172,19 @@ class Pedido extends Model
     public function status(): ?StatusPedidoEnum
     {
         return StatusPedidoEnum::tryFrom((string) $this->pedido_status);
+    }
+
+    /**
+     * Como este pedido é atendido — não é uma coluna nova, é leitura de
+     * conveniência pra badge/filtro. Mesa tem prioridade (uma sessão de mesa
+     * nunca é delivery, mesmo que a opção de entrega tenha endereço).
+     */
+    public function tipoAtendimento(): TipoAtendimentoEnum
+    {
+        return match (true) {
+            $this->pedido_sessao_mesa_id !== null => TipoAtendimentoEnum::MESA,
+            $this->exigeEntrega() => TipoAtendimentoEnum::DELIVERY,
+            default => TipoAtendimentoEnum::RETIRADA,
+        };
     }
 }

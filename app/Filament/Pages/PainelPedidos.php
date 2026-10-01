@@ -4,8 +4,11 @@ namespace App\Filament\Pages;
 
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
+use App\Enums\UrgenciaPedidoEnum;
 use App\Filament\Support\PedidoStatusActions;
+use App\Models\LinhaProducao;
 use App\Models\Pedido;
+use App\Models\User;
 use App\Support\JanelaOperacional;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -19,7 +22,10 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Session as LivewireSession;
+use Livewire\Attributes\Url;
 use UnitEnum;
 
 /**
@@ -31,13 +37,19 @@ use UnitEnum;
  * re-registrados a cada refresh (que acumulavam e podiam disparar a mesma
  * transição duas vezes — logo, baixa dupla de estoque).
  *
- * Aqui são 3 queries por render, um partial de card só, polling com guarda de
- * assinatura, e as transições passando pelo PedidoStatusService, que serializa
- * concorrência com lockForUpdate.
+ * Aqui são poucas queries por render, um partial de card só, polling com
+ * guarda de assinatura, e as transições passando pelo PedidoStatusService, que
+ * serializa concorrência com lockForUpdate.
  *
  * A Page já É um componente Livewire. Não há componente filho por coluna de
  * propósito: seis filhos custariam seis hidratações e seis queries por ciclo de
  * poll, além de precisarem conversar entre si quando um card muda de coluna.
+ *
+ * Filtros (busca, tipo, entregador, período, atrasados, cancelados) sobrevivem
+ * a um F5 via #[Session] — sem tabela nova. A exceção é `linhaProducaoId`, que
+ * só vem de `#[Url]`: é o mecanismo de fixar um tablet numa estação (ex.:
+ * .../pedidos/painel?linha=3), e um valor de sessão concorrendo com isso só
+ * confundiria qual dos dois "ganha" ao trocar de tablet.
  */
 class PainelPedidos extends Page implements HasActions
 {
@@ -59,7 +71,7 @@ class PainelPedidos extends Page implements HasActions
 
     protected Width|string|null $maxContentWidth = Width::Full;
 
-    /** Data de abertura do turno cujos pedidos entregues a coluna final mostra. */
+    /** Data de abertura do turno cujos pedidos finalizados a coluna final mostra. */
     public ?string $dataEntregue = null;
 
     public bool $mostrarForaDoTurno = false;
@@ -75,6 +87,40 @@ class PainelPedidos extends Page implements HasActions
     /** Contagem da fila de entrada, para tocar o alerta só quando ela cresce. */
     public int $contagemEntrada = 0;
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Filtros — ver o docblock da classe sobre por que linhaProducaoId é à parte.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * 'todos'|'delivery'|'retirada'|'mesa'|'novos'|'preparando'|'prontos'|
+     * 'em_entrega'|'finalizados' — um único filtro rápido cobre tipo de
+     * atendimento OU etapa do fluxo, nunca os dois ao mesmo tempo (mesmo
+     * desenho do quickFilter da Central de Pedidos do RazelFood).
+     */
+    #[LivewireSession]
+    public string $filtroRapido = 'todos';
+
+    #[LivewireSession]
+    public string $busca = '';
+
+    #[LivewireSession]
+    public ?int $entregadorId = null;
+
+    #[LivewireSession]
+    public ?string $periodoDe = null;
+
+    #[LivewireSession]
+    public ?string $periodoAte = null;
+
+    #[LivewireSession]
+    public bool $somenteAtrasados = false;
+
+    #[LivewireSession]
+    public bool $mostrarCancelados = false;
+
+    #[Url(as: 'linha')]
+    public ?int $linhaProducaoId = null;
+
     public static function canAccess(): bool
     {
         return (bool) Auth::user()?->can('view_any:pedido');
@@ -85,8 +131,26 @@ class PainelPedidos extends Page implements HasActions
         abort_unless(static::canAccess(), 403);
 
         $this->dataEntregue ??= Carbon::now()->toDateString();
+
+        // linhaProducaoId não usa #[Session] (ver docblock da classe), mas
+        // ainda assim sobrevive a navegação sem ?linha= na URL, contanto que
+        // nenhuma URL explícita tenha vindo primeiro.
+        if ($this->linhaProducaoId === null) {
+            $this->linhaProducaoId = Session::get($this->sessaoChaveLinha());
+        }
+
         $this->assinatura = $this->assinaturaAtual();
         $this->contagemEntrada = $this->contarEntrada();
+    }
+
+    public function updatedLinhaProducaoId(): void
+    {
+        Session::put($this->sessaoChaveLinha(), $this->linhaProducaoId);
+    }
+
+    private function sessaoChaveLinha(): string
+    {
+        return 'painel-pedidos.linha_producao_id.'.Auth::id();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -121,6 +185,21 @@ class PainelPedidos extends Page implements HasActions
     public function cancelarAction(): Action
     {
         return PedidoStatusActions::cancelar();
+    }
+
+    public function verDetalhesAction(): Action
+    {
+        return PedidoStatusActions::verDetalhes();
+    }
+
+    public function linkEntregaAction(): Action
+    {
+        return PedidoStatusActions::linkEntrega();
+    }
+
+    public function trocarEntregadorAction(): Action
+    {
+        return PedidoStatusActions::trocarEntregador();
     }
 
     /** @return array<int, Action> */
@@ -165,7 +244,7 @@ class PainelPedidos extends Page implements HasActions
         }
 
         $this->assinatura = $nova;
-        unset($this->colunas, $this->entregues, $this->foraDoTurno, $this->totalForaDoTurno);
+        unset($this->colunas, $this->entregues, $this->foraDoTurno, $this->totalForaDoTurno, $this->cancelados);
 
         $entrada = $this->contarEntrada();
 
@@ -177,20 +256,29 @@ class PainelPedidos extends Page implements HasActions
     }
 
     /**
-     * Contagem por status + MAX(updated_at) das colunas de fluxo.
+     * Contagem por status + MAX(updated_at) das colunas de fluxo (mais
+     * CANCELADO quando a faixa de cancelados está visível, senão uma mudança
+     * ali passaria batido pelo poll).
      *
      * A contagem é indispensável: EntregaService::aceitar() e
      * ConfirmacoesPedidos::confirmar() gravam por query builder, que NÃO toca
      * updated_at. Só o timestamp deixaria essas transições invisíveis ao poll.
      * Qualquer mudança de status move contagem entre grupos.
      *
-     * dataEntregue e entregueExpandido ficam de fora de propósito: mudá-los já
-     * re-renderiza por si, e incluí-los aqui viraria loop.
+     * dataEntregue, entregueExpandido e os filtros ficam de fora de propósito:
+     * mudá-los já dispara um request Livewire próprio, que recalcula os
+     * #[Computed] do zero — incluí-los aqui só geraria comparação inútil.
      */
     private function assinaturaAtual(): string
     {
+        $status = StatusPedidoEnum::valoresKanban();
+
+        if ($this->mostrarCancelados) {
+            $status[] = 'CANCELADO';
+        }
+
         return Pedido::query()
-            ->whereIn('pedido_status', StatusPedidoEnum::valoresKanban())
+            ->whereIn('pedido_status', $status)
             ->selectRaw('pedido_status, COUNT(*) AS total, COALESCE(MAX(updated_at), 0) AS ultimo')
             ->groupBy('pedido_status')
             ->orderBy('pedido_status')
@@ -213,41 +301,62 @@ class PainelPedidos extends Page implements HasActions
     /**
      * Colunas de fluxo ativo, em UMA query, agrupadas em memória.
      *
+     * Um filtro rápido de etapa única (novos/preparando/prontos/em_entrega)
+     * restringe a UMA coluna — as demais ficam vazias, como no board do
+     * RazelFood. "finalizados" esvazia todas (o foco passa pra coluna final).
+     *
      * @return array<string, Collection<int, Pedido>>
      */
     #[Computed]
     public function colunas(): array
     {
+        $vazias = collect(StatusPedidoEnum::valoresEmAndamento())
+            ->mapWithKeys(fn (string $status) => [$status => collect()]);
+
+        if ($this->filtroRapido === 'finalizados') {
+            return $vazias->all();
+        }
+
         [$inicio] = JanelaOperacional::atual();
+        $statusUnico = $this->statusFilterValue();
 
         $pedidos = $this->baseQuery()
-            ->whereIn('pedido_status', StatusPedidoEnum::valoresEmAndamento())
+            ->when(
+                $statusUnico,
+                fn (Builder $q, string $s) => $q->where('pedido_status', $s),
+                fn (Builder $q) => $q->whereIn('pedido_status', StatusPedidoEnum::valoresEmAndamento()),
+            )
             // INICIADO de outras origens é rascunho em construção no
             // AtenderPedido/PDV — nunca deve aparecer na fila da cozinha.
             ->where(fn (Builder $q) => $q
                 ->where('pedido_status', '!=', StatusPedidoEnum::INICIADO->value)
                 ->orWhere('pedido_origem', PedidoOrigemEnum::CARDAPIO->value))
-            ->when(! $this->mostrarForaDoTurno, fn (Builder $q) => $q->where(
-                fn (Builder $sub) => $sub
-                    ->where('pedido_datahora_abertura', '>=', $inicio)
-                    ->orWhereNull('pedido_datahora_abertura')
-            ))
+            ->when(
+                $this->periodoDe || $this->periodoAte,
+                fn (Builder $q) => $this->aplicarPeriodo($q),
+                fn (Builder $q) => $q->when(! $this->mostrarForaDoTurno, fn (Builder $qq) => $qq->where(
+                    fn (Builder $sub) => $sub
+                        ->where('pedido_datahora_abertura', '>=', $inicio)
+                        ->orWhereNull('pedido_datahora_abertura')
+                )),
+            )
             ->orderBy('pedido_datahora_abertura')
             ->orderBy('id')
             ->get()
             ->pipe(fn (EloquentCollection $c) => $this->somenteComItens($c))
+            ->pipe(fn (Collection $c) => $this->somenteAtrasados ? $this->apenasAtrasados($c) : $c)
             ->groupBy('pedido_status');
-
-        // Pré-preenche todas as colunas: sem isso, coluna vazia sai do grid.
-        $vazias = collect(StatusPedidoEnum::valoresEmAndamento())
-            ->mapWithKeys(fn (string $status) => [$status => collect()]);
 
         return $vazias->merge($pedidos)->all();
     }
 
     /**
-     * Coluna "Entregue": janela do turno escolhido, mais recentes primeiro e com
-     * limite — é a única coluna que cresce sem parar ao longo do dia.
+     * Coluna final: ENTREGUE + FINALIZADO juntos (pedido pago direto no caixa,
+     * sem passar por "Em transporte", nunca tinha pedido_datahora_entrega — só
+     * pedido_datahora_finalizado — e por isso sumia do board antes).
+     *
+     * Janela do turno escolhido, mais recentes primeiro e com limite — é a
+     * única coluna que cresce sem parar ao longo do dia.
      *
      * @return Collection<int, Pedido>
      */
@@ -257,12 +366,39 @@ class PainelPedidos extends Page implements HasActions
         [$inicio, $fim] = JanelaOperacional::paraDiaDeAbertura($this->dataEntregue ?? Carbon::now());
 
         return $this->baseQuery()
-            ->where('pedido_status', StatusPedidoEnum::ENTREGUE->value)
-            ->whereBetween('pedido_datahora_entrega', [$inicio, $fim])
-            ->orderByDesc('pedido_datahora_entrega')
+            ->whereIn('pedido_status', [StatusPedidoEnum::ENTREGUE->value, StatusPedidoEnum::FINALIZADO->value])
+            ->where(fn (Builder $q) => $q
+                ->whereBetween('pedido_datahora_entrega', [$inicio, $fim])
+                ->orWhereBetween('pedido_datahora_finalizado', [$inicio, $fim]))
+            ->orderByRaw('COALESCE(pedido_datahora_entrega, pedido_datahora_finalizado) DESC')
             ->limit($this->limiteEntregue())
             ->get()
             ->pipe(fn (EloquentCollection $c) => $this->somenteComItens($c));
+    }
+
+    /**
+     * Pedidos cancelados no turno atual — escondidos por padrão porque
+     * cancelamento é exceção, não fluxo normal. Carrega quem cancelou pro
+     * motivo aparecer no card.
+     *
+     * @return Collection<int, Pedido>
+     */
+    #[Computed]
+    public function cancelados(): Collection
+    {
+        if (! $this->mostrarCancelados) {
+            return collect();
+        }
+
+        [$inicio] = JanelaOperacional::atual();
+
+        return $this->baseQuery()
+            ->with('usuarioCancelou:id,name_first')
+            ->where('pedido_status', StatusPedidoEnum::CANCELADO->value)
+            ->where('pedido_datahora_cancelado', '>=', $inicio)
+            ->orderByDesc('pedido_datahora_cancelado')
+            ->limit(20)
+            ->get();
     }
 
     /**
@@ -307,6 +443,23 @@ class PainelPedidos extends Page implements HasActions
         return in_array(StatusPedidoEnum::EM_TRANSPORTE, StatusPedidoEnum::colunasKanban(), true);
     }
 
+    /** Entregadores pra o filtro e pro modal de troca — só quando a operação atribui entregador. */
+    #[Computed]
+    public function entregadores(): Collection
+    {
+        if (! $this->atribuiEntregador()) {
+            return collect();
+        }
+
+        return User::role('Entregador')->orderBy('name_first')->pluck('name_first', 'id');
+    }
+
+    #[Computed]
+    public function linhasProducaoOpcoes(): Collection
+    {
+        return LinhaProducao::orderBy('linha_nome')->pluck('linha_nome', 'id');
+    }
+
     /**
      * Ação do botão principal do card, decidida POR PEDIDO.
      *
@@ -334,13 +487,20 @@ class PainelPedidos extends Page implements HasActions
             StatusPedidoEnum::ABERTO => 'Iniciar preparo',
             StatusPedidoEnum::PREPARANDO => 'Marcar pronto',
             StatusPedidoEnum::PRONTO => match (true) {
-                $pedido->usaEstagioTransporte() && config('pizzaria.pedidos.atribui_entregador', true) => 'Despachar',
+                $pedido->usaEstagioTransporte() && $this->atribuiEntregador() => 'Despachar',
                 $pedido->usaEstagioTransporte() => 'Saída para entrega',
                 default => 'Finalizar',
             },
             StatusPedidoEnum::EM_TRANSPORTE => 'Confirmar entrega',
             default => 'Ver detalhes',
         };
+    }
+
+    public function urgenciaDe(Pedido $pedido): UrgenciaPedidoEnum
+    {
+        $status = $pedido->status();
+
+        return $status ? UrgenciaPedidoEnum::paraPedido($pedido, $status) : UrgenciaPedidoEnum::NORMAL;
     }
 
     public function alternarForaDoTurno(): void
@@ -362,9 +522,43 @@ class PainelPedidos extends Page implements HasActions
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Filtros
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** @return array<int, string> */
+    private function statusOptionsMap(): array
+    {
+        return [
+            'novos' => StatusPedidoEnum::INICIADO->value,
+            'preparando' => StatusPedidoEnum::PREPARANDO->value,
+            'prontos' => StatusPedidoEnum::PRONTO->value,
+            'em_entrega' => StatusPedidoEnum::EM_TRANSPORTE->value,
+        ];
+    }
+
+    private function statusFilterValue(): ?string
+    {
+        return $this->statusOptionsMap()[$this->filtroRapido] ?? null;
+    }
+
+    private function fulfillmentFilterValue(): ?string
+    {
+        return in_array($this->filtroRapido, ['delivery', 'retirada', 'mesa'], true)
+            ? $this->filtroRapido
+            : null;
+    }
+
+    private function atribuiEntregador(): bool
+    {
+        return (bool) config('pizzaria.pedidos.atribui_entregador', true);
+    }
 
     /**
-     * Select enxuto + eager load do que o card realmente mostra.
+     * Select enxuto + eager load do que o card realmente mostra, com os
+     * filtros que se aplicam em qualquer seção do board (busca, entregador,
+     * tipo de atendimento, linha de produção). Cada seção (colunas ativas,
+     * finalizados, cancelados) acrescenta por cima o próprio filtro de
+     * status/data.
      *
      * Toda lista de colunas numa relação inclui a FK — sem ela o eager load
      * devolve vazio silenciosamente (é o que PainelPedidosQueryCountTest pega).
@@ -383,12 +577,17 @@ class PainelPedidos extends Page implements HasActions
                 'pedido_endereco_entrega',
                 'pedido_venda_id',
                 'pedido_valor_total',
+                'pedido_descricao_pagamento',
+                'pedido_observacao_pagamento',
+                'pedido_motivo_cancelamento',
+                'pedido_usuario_cancelou_id',
                 'pedido_datahora_abertura',
                 'pedido_datahora_preparo',
                 'pedido_datahora_pronto',
                 'pedido_datahora_transporte',
                 'pedido_datahora_entrega',
                 'pedido_datahora_finalizado',
+                'pedido_datahora_cancelado',
                 'created_at',
                 'updated_at',
             ])
@@ -397,7 +596,7 @@ class PainelPedidos extends Page implements HasActions
                 'sessaoMesa:id,sessao_mesa_mesa_id',
                 'sessaoMesa.mesa:id,mesa_nome',
                 'entregador:id,name_first',
-                'cliente:id,cliente_nome',
+                'cliente:id,cliente_nome,cliente_celular',
                 // O filtro de itens vai para a query. A tela legada trazia os
                 // itens cancelados pela rede e filtrava em JavaScript, a cada
                 // ciclo de poll.
@@ -407,6 +606,7 @@ class PainelPedidos extends Page implements HasActions
                         'id',
                         'item_pedido_pedido_id',
                         'item_pedido_produto_id',
+                        'item_pedido_origem_id',
                         'item_pedido_quantidade',
                         'item_pedido_valor',
                         'item_pedido_observacao',
@@ -417,7 +617,82 @@ class PainelPedidos extends Page implements HasActions
                         'adicionaisItemPedido:id,aip_item_pedido_id,aip_adicional_id,aip_quantidade',
                         'adicionaisItemPedido.adicional:id,adicional_nome',
                     ]),
-            ]);
+            ])
+            ->when(trim($this->busca) !== '', fn (Builder $q) => $this->aplicarBusca($q))
+            ->when(
+                $this->entregadorId && $this->atribuiEntregador(),
+                fn (Builder $q) => $q->where('pedido_usuario_entrega_id', $this->entregadorId),
+            )
+            ->when(
+                $this->fulfillmentFilterValue(),
+                fn (Builder $q, string $tipo) => $this->aplicarTipoAtendimento($q, $tipo),
+            )
+            ->when($this->linhaProducaoId, fn (Builder $q) => $this->aplicarLinhaProducao($q));
+    }
+
+    /** Busca por número do pedido (id numérico) ou nome/celular do cliente. */
+    private function aplicarBusca(Builder $query): Builder
+    {
+        $termo = trim($this->busca);
+
+        return $query->where(function (Builder $inner) use ($termo): void {
+            if (is_numeric($termo)) {
+                $inner->orWhere('id', (int) $termo);
+            }
+
+            $inner->orWhereHas('cliente', function (Builder $clienteQuery) use ($termo): void {
+                $clienteQuery->where('cliente_nome', 'like', "%{$termo}%")
+                    ->orWhere('cliente_celular', 'like', "%{$termo}%");
+            });
+        });
+    }
+
+    /**
+     * Mesma regra de Pedido::tipoAtendimento(), em SQL: mesa tem prioridade,
+     * delivery exige a flag da opção de entrega, retirada é o resto.
+     */
+    private function aplicarTipoAtendimento(Builder $query, string $tipo): Builder
+    {
+        return match ($tipo) {
+            'mesa' => $query->whereNotNull('pedido_sessao_mesa_id'),
+            'delivery' => $query->whereNull('pedido_sessao_mesa_id')
+                ->whereHas('opcaoEntrega', fn (Builder $q) => $q->where('opcaoentrega_requer_endereco', true)),
+            'retirada' => $query->whereNull('pedido_sessao_mesa_id')
+                ->where(fn (Builder $q) => $q
+                    ->whereNull('pedido_opcaoentrega_id')
+                    ->orWhereHas('opcaoEntrega', fn (Builder $q2) => $q2->where('opcaoentrega_requer_endereco', false))),
+            default => $query,
+        };
+    }
+
+    /**
+     * Pedido com item de alguma categoria da linha (ou de uma subcategoria
+     * dela) — mostra o pedido inteiro, não só os itens da linha, igual ao
+     * comportamento do ProductionLine do RazelFood.
+     */
+    private function aplicarLinhaProducao(Builder $query): Builder
+    {
+        $linha = LinhaProducao::find($this->linhaProducaoId);
+
+        if (! $linha) {
+            return $query;
+        }
+
+        $ids = $linha->idsCategoriasComDescendentes();
+
+        return $query->whereHas(
+            'item_pedido_pedido_id',
+            fn (Builder $q) => $q->where('item_pedido_status', 'INSERIDO')
+                ->whereHas('produto', fn (Builder $p) => $p->whereIn('produto_categoria_id', $ids)),
+        );
+    }
+
+    /** Período preenchido substitui a janela do turno nas colunas ativas. */
+    private function aplicarPeriodo(Builder $query): Builder
+    {
+        return $query
+            ->when($this->periodoDe, fn (Builder $q, string $de) => $q->whereDate('created_at', '>=', $de))
+            ->when($this->periodoAte, fn (Builder $q, string $ate) => $q->whereDate('created_at', '<=', $ate));
     }
 
     /**
@@ -432,6 +707,17 @@ class PainelPedidos extends Page implements HasActions
     {
         return $pedidos->reject(
             fn (Pedido $pedido) => $pedido->item_pedido_pedido_id->isEmpty()
+        )->values();
+    }
+
+    /**
+     * @param  Collection<int, Pedido>  $pedidos
+     * @return Collection<int, Pedido>
+     */
+    private function apenasAtrasados(Collection $pedidos): Collection
+    {
+        return $pedidos->filter(
+            fn (Pedido $pedido) => $this->urgenciaDe($pedido) === UrgenciaPedidoEnum::ATRASADO
         )->values();
     }
 

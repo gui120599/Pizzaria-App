@@ -8,6 +8,7 @@ use App\Models\Pedido;
 use App\Models\Venda;
 use App\Observers\ClienteObserver;
 use App\Observers\ItensVendaObserver;
+use App\Observers\HistoricoStatusPedidoObserver;
 use App\Observers\PedidoObserver;
 use App\Observers\VendaObserver;
 use Illuminate\Auth\Events\Registered;
@@ -48,7 +49,7 @@ class EventServiceProvider extends ServiceProvider
      * Observadores de inserção ou alteração de objetos
      */
     protected $observers = [
-        Pedido::class => [PedidoObserver::class],
+        Pedido::class => [PedidoObserver::class, HistoricoStatusPedidoObserver::class],
         Venda::class => [VendaObserver::class],
         ItensVenda::class => [ItensVendaObserver::class],
         Cliente::class => [ClienteObserver::class],

@@ -3,10 +3,12 @@
 namespace App\Livewire;
 
 use App\Enums\PedidoOrigemEnum;
+use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
+use App\Services\PedidoStatusService;
 use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use App\Support\TotaisPedido;
@@ -41,9 +43,18 @@ class ConfirmacoesPedidos extends Component
         // middleware da rota /confirmacoes.
         abort_unless(auth()->user()->can('accept:pedido'), 403);
 
-        Pedido::where('id', $id)
-            ->where('pedido_status', 'INICIADO')
-            ->update(['pedido_status' => 'ABERTO']);
+        $pedido = Pedido::find($id);
+
+        if (! $pedido) {
+            return;
+        }
+
+        try {
+            app(PedidoStatusService::class)->confirmar($pedido, auth()->user());
+        } catch (TransicaoPedidoInvalidaException) {
+            // Já não está mais em INICIADO (outro operador confirmou/rejeitou
+            // antes) — a lista reflete o estado real no próximo poll.
+        }
     }
 
     public function cancelar(int $id): void

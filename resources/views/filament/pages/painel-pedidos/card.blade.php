@@ -17,17 +17,28 @@
 --}}
 @php
     use App\Enums\UrgenciaPedidoEnum;
+    use App\Filament\Support\PedidoStatusActions;
+    use App\Support\FormatoDuracao;
     use App\Support\FormatoQuantidade;
 
     $urgencia = UrgenciaPedidoEnum::paraPedido($pedido, $status);
     $minutos = UrgenciaPedidoEnum::minutosNoStatus($pedido, $status);
     $itens = $pedido->item_pedido_pedido_id;
     $jaPago = $pedido->pedido_datahora_finalizado !== null;
+    $tipoAtendimento = $pedido->tipoAtendimento();
+    $podeLinkEntrega = PedidoStatusActions::podeLinkEntrega($pedido);
+    $podeTrocarEntregador = PedidoStatusActions::podeTrocarEntregador($pedido);
 @endphp
 
 <div
     class="rounded-lg bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 {{ $urgencia->classeBorda() }}"
 >
+    {{-- Área clicável: abre o modal de detalhes. Os botões de ação ficam fora
+         dela, no rodapé, pra não competir por clique. --}}
+    <div
+        wire:click="mountAction('verDetalhes', { pedido: {{ $pedido->id }} })"
+        class="cursor-pointer"
+    >
     {{-- Cabeçalho: número, tempo no status, forma de entrega --}}
     <div class="flex items-start justify-between gap-2 px-3 pt-2.5">
         <div class="min-w-0">
@@ -39,10 +50,17 @@
                 </span>
             @endif
 
+            <span class="ml-1 inline-block rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                {{ $tipoAtendimento->label() }}
+            </span>
+
             <div class="truncate text-xs text-gray-500 dark:text-gray-400">
                 {{ $pedido->opcaoEntrega->opcaoentrega_nome }}
                 @if ($pedido->pedido_cliente_id)
                     &middot; {{ $pedido->cliente->cliente_nome }}
+                    @if ($pedido->cliente->cliente_celular)
+                        &middot; {{ $pedido->cliente->cliente_celular }}
+                    @endif
                 @endif
             </div>
         </div>
@@ -61,7 +79,7 @@
                     title="{{ $urgencia->label() }} neste status"
                 >
                     <x-heroicon-m-clock class="h-3.5 w-3.5" />
-                    {{ $minutos }} min
+                    {{ FormatoDuracao::minutos($minutos) }}
                 </span>
             @endif
 
@@ -99,6 +117,9 @@
                 <div class="min-w-0 flex-1">
                     <span class="text-sm font-semibold uppercase leading-tight text-gray-950 dark:text-white">
                         {{ $item->produto?->categoria?->categoria_nome }} {{ $item->produto?->produto_descricao }}
+                        @if ($item->item_pedido_origem_id)
+                            <span title="Oferta de promoção adicional">🎁</span>
+                        @endif
                     </span>
 
                     @foreach ($item->adicionaisItemPedido as $adicional)
@@ -127,37 +148,91 @@
             Já pago &middot; venda #{{ $pedido->pedido_venda_id }}
         </div>
     @endif
+    </div>{{-- fim da área clicável --}}
 
-    {{-- Ações. Alvos de toque generosos: esta tela roda em tablet no balcão. --}}
+    {{-- Ações. Alvos de toque generosos: esta tela roda em tablet no balcão.
+         Só a ação primária fica solta; o resto vai no menu ⋮ — menos risco de
+         toque errado no tablet, e evita o ActionGroup nativo do Filament
+         (no 4.12.6 ele não propaga ->arguments() pro wire:click de cada item:
+         cada botão do grupo resolveria a Action sem o argumento `pedido`). --}}
     <div class="flex items-stretch gap-1 border-t border-gray-100 p-2 dark:border-white/5">
-        @if ($podeCancelar)
+        <div x-data="{ open: false }" class="relative shrink-0">
             <button
                 type="button"
-                wire:click="mountAction('{{ $acaoCancelar }}', { pedido: {{ $pedido->id }} })"
-                wire:loading.attr="disabled"
-                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-danger-600 ring-1 ring-danger-200 transition hover:bg-danger-50 disabled:opacity-50 dark:text-danger-400 dark:ring-danger-500/30 dark:hover:bg-danger-500/10"
-                title="{{ $acaoCancelar === 'rejeitar' ? 'Rejeitar pedido' : 'Cancelar pedido' }}"
+                x-on:click="open = !open"
+                x-on:click.outside="open = false"
+                class="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 ring-1 ring-gray-200 transition hover:bg-gray-50 dark:text-gray-400 dark:ring-white/10 dark:hover:bg-white/5"
+                title="Mais ações"
             >
-                <x-heroicon-o-x-mark class="h-5 w-5" />
+                <x-heroicon-o-ellipsis-vertical class="h-5 w-5" />
             </button>
-        @endif
 
-        <a
-            href="{{ route('pedido.imprimir', ['id' => $pedido->id]) }}"
-            target="_blank"
-            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 ring-1 ring-gray-200 transition hover:bg-gray-50 dark:text-gray-400 dark:ring-white/10 dark:hover:bg-white/5"
-            title="Imprimir pedido"
-        >
-            <x-heroicon-o-printer class="h-5 w-5" />
-        </a>
+            <div
+                x-show="open"
+                x-cloak
+                x-transition
+                class="absolute left-0 bottom-full z-10 mb-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-white/10 dark:bg-gray-800"
+            >
+                <button
+                    type="button"
+                    wire:click="mountAction('verDetalhes', { pedido: {{ $pedido->id }} })"
+                    x-on:click="open = false"
+                    class="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                >
+                    Ver detalhes
+                </button>
 
-        <a
-            href="{{ \App\Filament\Pages\AtenderPedido::getUrl(['pedido' => $pedido->id]) }}"
-            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 ring-1 ring-gray-200 transition hover:bg-gray-50 dark:text-gray-400 dark:ring-white/10 dark:hover:bg-white/5"
-            title="Abrir no atendimento"
-        >
-            <x-heroicon-o-pencil-square class="h-5 w-5" />
-        </a>
+                <a
+                    href="{{ route('pedido.imprimir', ['id' => $pedido->id]) }}"
+                    target="_blank"
+                    x-on:click="open = false"
+                    class="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                >
+                    Imprimir pedido
+                </a>
+
+                <a
+                    href="{{ \App\Filament\Pages\AtenderPedido::getUrl(['pedido' => $pedido->id]) }}"
+                    x-on:click="open = false"
+                    class="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                >
+                    Abrir no atendimento
+                </a>
+
+                @if ($podeLinkEntrega)
+                    <button
+                        type="button"
+                        wire:click="mountAction('linkEntrega', { pedido: {{ $pedido->id }} })"
+                        x-on:click="open = false"
+                        class="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                    >
+                        Link de entrega
+                    </button>
+                @endif
+
+                @if ($podeTrocarEntregador)
+                    <button
+                        type="button"
+                        wire:click="mountAction('trocarEntregador', { pedido: {{ $pedido->id }} })"
+                        x-on:click="open = false"
+                        class="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                    >
+                        Trocar entregador
+                    </button>
+                @endif
+
+                @if ($podeCancelar)
+                    <button
+                        type="button"
+                        wire:click="mountAction('{{ $acaoCancelar }}', { pedido: {{ $pedido->id }} })"
+                        x-on:click="open = false"
+                        class="block w-full px-3 py-2 text-left text-xs text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-danger-500/10"
+                    >
+                        {{ $acaoCancelar === 'rejeitar' ? 'Rejeitar pedido' : 'Cancelar pedido' }}
+                    </button>
+                @endif
+            </div>
+        </div>
 
         @if ($acaoPrimaria)
             {{--

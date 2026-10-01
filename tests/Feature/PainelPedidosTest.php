@@ -184,14 +184,16 @@ class PainelPedidosTest extends TestCase
     {
         $this->actingAs($this->gerente());
 
-        // 01:00 de 01/10 ainda pertence ao turno aberto em 30/09.
+        // O turno dura 24h a partir da abertura (sem HorarioFuncionamento
+        // cadastrado, cai no fallback de config: 07:00) — 05:00 de 01/10
+        // ainda pertence ao turno aberto em 30/09, 07:00.
         $desteTurno = $this->pedido(StatusPedidoEnum::ENTREGUE, [
-            'pedido_datahora_entrega' => Carbon::parse('2026-10-01 01:00:00'),
+            'pedido_datahora_entrega' => Carbon::parse('2026-10-01 05:00:00'),
         ]);
 
-        // 05:00 já é o turno seguinte (fechamento às 03:00).
+        // 08:00 já é o turno seguinte (abriu de novo às 07:00 de 01/10).
         $this->pedido(StatusPedidoEnum::ENTREGUE, [
-            'pedido_datahora_entrega' => Carbon::parse('2026-10-01 05:00:00'),
+            'pedido_datahora_entrega' => Carbon::parse('2026-10-01 08:00:00'),
         ]);
 
         $entregues = Livewire::test(PainelPedidos::class)

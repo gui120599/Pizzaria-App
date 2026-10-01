@@ -46,12 +46,22 @@ enum StatusPedidoEnum: string
         };
     }
 
-    /** Rótulo da coluna no painel — mais explícito que o label curto do badge. */
+    /**
+     * Rótulo da coluna do Painel de Pedidos — diferente do label() curto do
+     * badge (mesmo espírito de Kitchen::columnLabel() no RazelFood: o rótulo
+     * da coluna do board é mais operacional que o rótulo comercial do status).
+     * ENTREGUE é o marcador da última coluna, mas ela mostra ENTREGUE+FINALIZADO
+     * juntos — por isso "Finalizados", não "Entregue".
+     */
     public function labelColuna(): string
     {
         return match ($this) {
-            self::INICIADO => 'Aguardando confirmação',
-            self::PRONTO => 'Pronto — aguardando saída',
+            self::INICIADO => 'Novos',
+            self::ABERTO => 'Aceitos',
+            self::PREPARANDO => 'Preparando',
+            self::PRONTO => 'Prontos',
+            self::EM_TRANSPORTE => 'Em entrega',
+            self::ENTREGUE => 'Finalizados',
             default => $this->label(),
         };
     }

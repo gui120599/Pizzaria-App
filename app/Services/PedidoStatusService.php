@@ -117,6 +117,27 @@ class PedidoStatusService
     }
 
     /**
+     * Troca o entregador atribuído SEM mexer no status — entregador ficou
+     * indisponível no meio da rota, por exemplo. Usa o mesmo lock das
+     * transições pra não colidir com um avancar()/marcarEntregue()
+     * concorrente, mas como pedido_status não muda, nem PedidoObserver (baixa
+     * de estoque) nem HistoricoStatusPedidoObserver (timeline) disparam —
+     * corretamente, já que isto não é uma transição de status.
+     */
+    public function reatribuirEntregador(Pedido $pedido, User $entregador, ?User $ator = null): Pedido
+    {
+        $this->autorizar('advance', $pedido, $ator);
+
+        return DB::transaction(function () use ($pedido, $entregador) {
+            $fresco = Pedido::whereKey($pedido->getKey())->lockForUpdate()->firstOrFail();
+
+            $fresco->fill(['pedido_usuario_entrega_id' => $entregador->id])->save();
+
+            return $fresco;
+        });
+    }
+
+    /**
      * Rejeita um pedido ainda não aceito. Mesmo efeito de cancelar, mas com a
      * permission `reject` e sem os guards de mesa/pagamento, que não fazem
      * sentido num pedido que nunca entrou em produção.

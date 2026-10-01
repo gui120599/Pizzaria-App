@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\HistoricoStatusPedido;
 use App\Models\Pedido;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -55,6 +56,12 @@ class EntregaService
                 'pedido_datahora_transporte' => Carbon::now(),
                 'pedido_usuario_entrega_id' => $entregador->id,
             ]);
+
+        // update() por query builder não dispara HistoricoStatusPedidoObserver
+        // — grava aqui pra timeline não ter buraco no claim de entrega.
+        if ($claimed > 0) {
+            HistoricoStatusPedido::registrar($pedidoId, 'PRONTO', 'EM TRANSPORTE', $entregador->id);
+        }
 
         return $claimed > 0;
     }
