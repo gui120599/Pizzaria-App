@@ -68,6 +68,10 @@ class PainelEntregador extends Component
 
     public function abrirModalStone(int $pedidoId): void
     {
+        if (! Pedido::find($pedidoId)?->temPagamentoCombinadoStone()) {
+            return;
+        }
+
         $this->stonePedidoAlvoId = $pedidoId;
         $this->modalStoneAberta = true;
         $this->stoneStatusModal = 'form';
@@ -154,6 +158,7 @@ class PainelEntregador extends Component
         return $query->with([
             'cliente',
             'opcaoEntrega',
+            'pagamentosCombinados.opcaoPagamento',
             'item_pedido_pedido_id' => fn ($q) => $q
                 ->where('item_pedido_status', 'INSERIDO')
                 ->with('produto.categoria'),

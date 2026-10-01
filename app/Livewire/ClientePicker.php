@@ -190,7 +190,7 @@ class ClientePicker extends Component
 
     public function updated(string $name): void
     {
-        if (str_starts_with($name, 'endereco')) {
+        if ($name === 'nome' || str_starts_with($name, 'endereco')) {
             $this->emitirMudanca();
         }
     }

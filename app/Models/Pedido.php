@@ -129,6 +129,20 @@ class Pedido extends Model
         return $this->hasMany(PagamentosPedido::class, 'pg_pedido_pedido_id')->orderBy('pg_pedido_ordem');
     }
 
+    /** Só pedidos combinados em forma integrada à Stone podem ser cobrados na maquininha. */
+    public function temPagamentoCombinadoStone(): bool
+    {
+        if ($this->relationLoaded('pagamentosCombinados')) {
+            return $this->pagamentosCombinados->contains(
+                fn (PagamentosPedido $pagamento): bool => (bool) $pagamento->opcaoPagamento?->opcaopag_stone_integrada
+            );
+        }
+
+        return $this->pagamentosCombinados()
+            ->whereHas('opcaoPagamento', fn ($query) => $query->where('opcaopag_stone_integrada', true))
+            ->exists();
+    }
+
     /**
      * URL assinada (sem expiração) que o QR code do ticket/painel do
      * entregador codifica — abrir o link já é a prova de posse do QR, sem

@@ -16,7 +16,7 @@
     <div class="space-y-2 {{ $semCliente ? 'opacity-40 pointer-events-none' : '' }}">
         <div class="relative">
             <input type="tel" wire:model.live.debounce.500ms="celular" placeholder="(11) 99999-9999"
-                x-on:input="$el.value = window.maskPhone ? window.maskPhone($el.value) : $el.value"
+                x-mask:dynamic="$input.replace(/\D/g, '').length > 10 ? '(99) 99999-9999' : '(99) 9999-99999'"
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
             @if ($clienteEncontrado)
                 <span class="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-500" title="Cliente encontrado">
@@ -38,7 +38,7 @@
             <div x-show="open" x-cloak class="mt-2 grid grid-cols-6 gap-2">
                 <div class="col-span-2">
                     <input type="text" wire:model.blur="enderecoCep" wire:change="buscarPorCep" placeholder="CEP"
-                        x-on:input="$el.value = window.maskCep ? window.maskCep($el.value) : $el.value"
+                        x-mask="99999-999"
                         class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
                     @if ($cepNaoEncontrado)
                         <p class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">CEP não encontrado — preencha manualmente.</p>

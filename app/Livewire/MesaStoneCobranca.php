@@ -6,6 +6,7 @@ use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
 use App\Models\Maquininha;
+use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\StonePedido;
@@ -52,6 +53,12 @@ class MesaStoneCobranca extends Component
     }
 
     #[Computed]
+    public function temFormaStone(): bool
+    {
+        return OpcoesPagamento::where('opcaopag_stone_integrada', true)->exists();
+    }
+
+    #[Computed]
     public function totalAberto(): float
     {
         return (float) Pedido::where('pedido_sessao_mesa_id', $this->sessaoMesaId)
@@ -61,6 +68,10 @@ class MesaStoneCobranca extends Component
 
     public function abrirModal(): void
     {
+        if (! $this->temFormaStone) {
+            return;
+        }
+
         $this->status = 'form';
         $this->erro = null;
         $this->stonePedidoId = null;
