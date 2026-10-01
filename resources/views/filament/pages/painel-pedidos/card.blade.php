@@ -116,7 +116,7 @@
 
                 <div class="min-w-0 flex-1">
                     <span class="text-[13px] font-semibold uppercase leading-tight text-gray-950 dark:text-white">
-                        {{ $item->produto?->categoria?->categoria_nome }} {{ $item->produto?->produto_descricao }}
+                        <x-item-nome :item="$item" />
                         @if ($item->item_pedido_origem_id)
                             <span title="Oferta de promoção adicional">🎁</span>
                         @endif

@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\ItensVenda;
 use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -31,7 +32,7 @@ class TopProdutosVendidos extends BaseWidget
                 // Assim o Filament (ordenação por chave, count de paginação)
                 // opera sobre colunas simples, sem violar only_full_group_by.
                 ItensVenda::query()->fromSub(
-                    $this->itensFiltradosQuery($inicio, $fim)
+                    $this->itensFiltradosQuery($inicio, $fim, porSabor: true)
                         ->leftJoin('categorias', 'categorias.id', '=', 'produtos.produto_categoria_id')
                         ->groupBy(
                             'itens_vendas.item_venda_produto_id',
@@ -61,7 +62,7 @@ class TopProdutosVendidos extends BaseWidget
 
                 TextColumn::make('produto')
                     ->label('Produto')
-                    ->weight(\Filament\Support\Enums\FontWeight::SemiBold)
+                    ->weight(FontWeight::SemiBold)
                     ->wrap(),
 
                 TextColumn::make('categoria')

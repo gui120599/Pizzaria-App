@@ -41,8 +41,8 @@ class CardapioPromocaoRelampagoViewTest extends TestCase
     {
         $this->categoria->update([
             'categoria_permite_sabores' => true,
-            'categoria_max_sabores' => 2,
         ]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
     }
 
     private function promocao(array $attrs, Produto ...$produtos): PromocaoRelampago

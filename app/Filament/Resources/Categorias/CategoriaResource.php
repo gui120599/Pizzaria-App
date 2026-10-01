@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Categorias;
 
 use App\Filament\Resources\Categorias\Pages\ManageCategorias;
+use App\Filament\Resources\Categorias\Schemas\QuantidadesSaboresRepeater;
 use App\Models\Categoria;
 use App\Models\ProdutoPrecoHistorico;
 use BackedEnum;
@@ -87,6 +88,7 @@ class CategoriaResource extends Resource
                             ->searchable()
                             ->native(false)
                             ->placeholder('Nenhuma (categoria de topo)')
+                            ->live()
                             ->helperText('Agrupa esta categoria sob outra — usado no filtro de produtos por categoria pai.'),
 
                         TextInput::make('categoria_preposicao_padrao')
@@ -125,13 +127,17 @@ class CategoriaResource extends Resource
                             ->live()
                             ->helperText('Ative para categorias como pizzas (meia a meia, terços)'),
 
-                        \Filament\Forms\Components\Select::make('categoria_max_sabores')
-                            ->label('Máximo de Sabores')
-                            ->options([2 => 'Até 2 (Meia a Meia)', 3 => 'Até 3 (Terços)'])
-                            ->default(2)
-                            ->visible(fn ($get) => (bool) $get('categoria_permite_sabores'))
-                            ->required(fn ($get) => (bool) $get('categoria_permite_sabores'))
-                            ->helperText('Quantos sabores o cliente pode combinar'),
+                        Toggle::make('categoria_herda_sabores')
+                            ->label('Herdar quantidades de sabores da categoria pai')
+                            ->inline()
+                            ->live()
+                            ->visible(fn ($get) => (bool) $get('categoria_permite_sabores') && filled($get('categoria_pai_id')))
+                            ->helperText('Usa as mesmas opções (meia a meia, 3 sabores...) cadastradas na categoria pai'),
+
+                        QuantidadesSaboresRepeater::make()
+                            ->visible(fn ($get) => (bool) $get('categoria_permite_sabores')
+                                && ! ((bool) $get('categoria_herda_sabores') && filled($get('categoria_pai_id'))))
+                            ->helperText('O cliente escolhe primeiro a quantidade de sabores e depois quais. O preço é a média dos sabores; o percentual de cada posição define a baixa de estoque.'),
                     ]),
 
                 SchemaSection::make('Estatísticas')
@@ -155,7 +161,8 @@ class CategoriaResource extends Resource
                             ->label('Total de Ajustes')
                             ->content(fn ($record) => $record instanceof Categoria ? $record->historicosPrecos()->count() : 0),
                     ]),
-            ]);
+            ])
+            ->columns(1);
     }
 
     public static function table(Table $table): Table

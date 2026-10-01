@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TemSabores;
 use App\Services\PrecificadorService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 class ItensPedido extends Model
 {
     use HasFactory;
+    use TemSabores;
 
     protected $fillable = [
         'item_pedido_produto_id',
@@ -26,9 +28,49 @@ class ItensPedido extends Model
         'item_pedido_valor_adicionais',
         'item_pedido_valor',
         'item_pedido_observacao',
+        'item_pedido_sabores',
         'item_pedido_status',
         'item_pedido_usuario_removeu',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'item_pedido_sabores' => 'array',
+        ];
+    }
+
+    protected function colunaSabores(): string
+    {
+        return 'item_pedido_sabores';
+    }
+
+    protected function colunaProduto(): string
+    {
+        return 'item_pedido_produto_id';
+    }
+
+    protected function colunaQuantidade(): string
+    {
+        return 'item_pedido_quantidade';
+    }
+
+    /**
+     * Item montado a partir do pivô Pedido::produtos*() (telas legadas), onde
+     * só há o Produto com o pivô cru — o JSON de sabores chega como string.
+     * Serve para reaproveitar <x-item-nome> nessas telas.
+     */
+    public static function doPivot(Produto $produto): static
+    {
+        $sabores = $produto->pivot?->item_pedido_sabores;
+
+        $item = new static([
+            'item_pedido_produto_id' => $produto->id,
+            'item_pedido_sabores' => is_string($sabores) ? json_decode($sabores, true) : $sabores,
+        ]);
+
+        return $item->setRelation('produto', $produto);
+    }
 
     public function produto()
     {
@@ -161,7 +203,9 @@ class ItensPedido extends Model
         $quantidade = (float) $this->item_pedido_quantidade;
         $adicionais = $valorAdicionais ?? (float) $this->adicionaisItemPedido()->sum('aip_valor_total');
 
-        if ($this->item_pedido_promocao_id || $this->item_pedido_promocao_adicional_regra_id) {
+        if ($this->item_pedido_promocao_id || $this->item_pedido_promocao_adicional_regra_id || $this->ehMultiSabor()) {
+            // Pizza de vários sabores também tem o preço congelado: o unitário é
+            // a média dos sabores, não o preço do produto da linha (1º sabor).
             // Preço congelado no momento da venda. Reprecificar aqui faria o item
             // perder a promoção quando ela expirasse, ou herdar uma promoção nova.
             // Cobre tanto o gatilho com preço override quanto a linha da oferta

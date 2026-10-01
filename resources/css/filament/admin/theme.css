@@ -13,3 +13,6 @@
  */
 @source '../../../../app/Livewire/**/*';
 @source '../../../../resources/views/livewire/**/*';
+
+/* Componentes Blade compartilhados usados nas páginas do painel (ex.: x-item-nome). */
+@source '../../../../resources/views/components/**/*';

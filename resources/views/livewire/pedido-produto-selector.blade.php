@@ -575,20 +575,13 @@
                                 {{ $saboresModo === 1 ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-teal-400 dark:hover:border-teal-500/50' }}">
                             <i class='bx bxs-circle text-xs mr-1'></i> Inteiro
                         </button>
-                        @if ($saboresMaxModo >= 2)
-                            <button wire:click="setModoSabores(2)" type="button"
+                        @foreach ($saboresOpcoes as $opcaoSabor)
+                            <button wire:click="setModoSabores({{ $opcaoSabor['quantidade'] }})" type="button"
                                 class="flex-1 border rounded-lg py-2 text-sm font-semibold transition-colors
-                                    {{ $saboresModo === 2 ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-teal-400 dark:hover:border-teal-500/50' }}">
-                                <i class='bx bxs-pie-chart-alt-2 text-xs mr-1'></i> Meia a Meia
+                                    {{ $saboresModo === $opcaoSabor['quantidade'] ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-teal-400 dark:hover:border-teal-500/50' }}">
+                                <i class='bx {{ $opcaoSabor['quantidade'] === 2 ? 'bxs-pie-chart-alt-2' : 'bxs-pie-chart' }} text-xs mr-1'></i> {{ $opcaoSabor['descricao'] }}
                             </button>
-                        @endif
-                        @if ($saboresMaxModo >= 3)
-                            <button wire:click="setModoSabores(3)" type="button"
-                                class="flex-1 border rounded-lg py-2 text-sm font-semibold transition-colors
-                                    {{ $saboresModo === 3 ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-teal-400 dark:hover:border-teal-500/50' }}">
-                                <i class='bx bxs-pie-chart text-xs mr-1'></i> Três Sabores
-                            </button>
-                        @endif
+                        @endforeach
                     </div>
                 </div>
 

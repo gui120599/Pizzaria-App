@@ -11,6 +11,7 @@ use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\PromocaoRelampago;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
@@ -35,7 +36,8 @@ class CardapioCheckoutPrecoServidorTest extends TestCase
             'horario_fechamento' => '23:59:59',
         ]);
 
-        $categoria = Categoria::create(['categoria_nome' => 'Pizzas']);
+        $categoria = Categoria::create(['categoria_nome' => 'Pizzas', 'categoria_permite_sabores' => true]);
+        $categoria->sincronizarQuantidadesSabores(2);
 
         $this->pizza = Produto::create([
             'produto_descricao' => 'Calabresa',
@@ -52,7 +54,7 @@ class CardapioCheckoutPrecoServidorTest extends TestCase
         ]);
     }
 
-    private function checkout(array $itens): \Illuminate\Testing\TestResponse
+    private function checkout(array $itens): TestResponse
     {
         return $this->postJson(route('cardapio.checkout'), [
             'nome' => 'Cliente Teste',
@@ -145,6 +147,8 @@ class CardapioCheckoutPrecoServidorTest extends TestCase
         $meia = Pedido::latest('id')->first();
 
         $this->assertSame('55.00', $meia->pedido_valor_total);
+        // Meia a meia é UMA linha com os dois sabores congelados.
+        $this->assertSame(1, ItensPedido::where('item_pedido_pedido_id', $meia->id)->count());
         $this->assertNull(ItensPedido::where('item_pedido_pedido_id', $meia->id)->first()->item_pedido_promocao_id);
         // Só a pizza inteira debitou: a fração não consome a promoção.
         $this->assertSame('1.00', $promocao->fresh()->promocao_qtd_vendida);

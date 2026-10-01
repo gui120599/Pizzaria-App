@@ -114,6 +114,24 @@ class PainelPedidosTest extends TestCase
         $this->assertSame([$preparando->id], $colunas['PREPARANDO']->pluck('id')->all());
     }
 
+    public function test_card_mostra_todos_os_sabores_do_item(): void
+    {
+        $this->actingAs($this->gerente());
+
+        $pedido = $this->pedido(StatusPedidoEnum::ABERTO);
+        $pedido->item_pedido_pedido_id()->first()->update([
+            'item_pedido_sabores' => [
+                ['produto_id' => $this->produto->id, 'nome' => 'Calabresa', 'percentual' => 50],
+                ['produto_id' => $this->produto->id, 'nome' => 'Mussarela', 'percentual' => 50],
+            ],
+        ]);
+
+        // Um sabor por linha, com a fração por extenso.
+        Livewire::test(PainelPedidos::class)
+            ->assertSeeInOrder(['MEIA Calabresa', 'MEIA Mussarela'])
+            ->assertDontSee('½');
+    }
+
     public function test_ocultar_coluna_persiste_na_preferencia_do_usuario(): void
     {
         $gerente = $this->gerente();

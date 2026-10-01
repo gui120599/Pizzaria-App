@@ -919,18 +919,15 @@
                             class="flex-1 border rounded-lg py-2 text-sm font-semibold transition-colors">
                         <i class='bx bxs-circle text-xs mr-1'></i> Inteiro
                     </button>
-                    <button @click="$store.cart.setModoSabores(2)"
-                            :class="$store.cart.saboresModal.modo === 2 ? 'bg-green-500 text-white border-green-500' : 'bg-gray-800 text-gray-300 border-gray-600'"
-                            class="flex-1 border rounded-lg py-2 text-sm font-semibold transition-colors">
-                        <i class='bx bxs-pie-chart-alt-2 text-xs mr-1'></i> Meia a Meia
-                    </button>
-                    <button x-show="$store.cart.saboresModal.maxSabores >= 3"
-                            @click="$store.cart.setModoSabores(3)"
-                            :class="$store.cart.saboresModal.modo === 3 ? 'bg-green-500 text-white border-green-500' : 'bg-gray-800 text-gray-300 border-gray-600'"
-                            class="flex-1 border rounded-lg py-2 text-sm font-semibold transition-colors"
-                            style="display:none">
-                        <i class='bx bxs-pie-chart text-xs mr-1'></i> Três Sabores
-                    </button>
+                    {{-- Opções de quantidade da categoria (≥ 2), já limitadas pela promoção --}}
+                    <template x-for="opcao in $store.cart.saboresModal.opcoes" :key="opcao.quantidade">
+                        <button @click="$store.cart.setModoSabores(opcao.quantidade)"
+                                :class="$store.cart.saboresModal.modo === opcao.quantidade ? 'bg-green-500 text-white border-green-500' : 'bg-gray-800 text-gray-300 border-gray-600'"
+                                class="flex-1 border rounded-lg py-2 text-sm font-semibold transition-colors">
+                            <i class='bx text-xs mr-1' :class="opcao.quantidade === 2 ? 'bxs-pie-chart-alt-2' : 'bxs-pie-chart'"></i>
+                            <span x-text="opcao.descricao"></span>
+                        </button>
+                    </template>
                 </div>
                 <p class="text-gray-500 text-xs mt-1.5 text-center">
                     Selecione <span class="text-green-400 font-semibold" x-text="$store.cart.saboresModal.modo"></span>
@@ -1090,7 +1087,7 @@
                 // ── Modal de sabores ──
                 saboresModal: {
                     open: false, categoriaId: null, categoriaNome: '', maxSabores: 2,
-                    modo: 1, produtos: [], selecionados: [],
+                    modo: 1, produtos: [], selecionados: [], opcoes: [],
                 },
 
                 // ── Modal de oferta (promoção "leve outro produto por +R$X") ──
@@ -1287,9 +1284,10 @@
                     const cat      = _categoriasComSabores.find(c => c.id === categoriaId);
                     const produtos  = cat ? cat.produtos : [];
                     const presel   = produtoId ? (produtos.find(p => p.id === produtoId) ?? null) : null;
+                    const opcoes   = (cat ? cat.opcoesSabores : []).filter(o => o.quantidade <= maxSabores);
                     this.saboresModal = {
                         open: true, categoriaId, categoriaNome, maxSabores,
-                        modo: 1, produtos, selecionados: presel ? [presel] : [],
+                        modo: 1, produtos, selecionados: presel ? [presel] : [], opcoes,
                     };
                     if (presel) {
                         setTimeout(() => {
@@ -1354,7 +1352,8 @@
                     const { preco, precoOriginal } = this.precoSabores(sel);
                     const nomes   = sel.map(s => s.nome).join(' / ');
                     const nome    = this.saboresModal.categoriaNome + ' — ' + nomes;
-                    const cartKey = 'sabor-' + sel.map(s => s.id).sort((a,b)=>a-b).join('-');
+                    // Ordem importa: cada posição tem seu percentual na categoria.
+                    const cartKey = 'sabor-' + sel.map(s => s.id).join('-');
                     const idx = this.items.findIndex(i => i.cartKey === cartKey);
                     const sabores = sel.length > 1 ? sel.map(s => ({ id: s.id, nome: s.nome, preco: s.preco, precoOriginal: s.precoOriginal ?? s.preco })) : null;
                     const foto = sel[0]?.foto ?? '';

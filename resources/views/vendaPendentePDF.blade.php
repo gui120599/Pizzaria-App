@@ -50,7 +50,7 @@
                         @foreach ($pedido->item_pedido_pedido_id as $item)
                             <tr>
                                 <td class="text-xs font-bold text-center w-8">{{ rtrim(rtrim(number_format((float) $item->item_pedido_quantidade, 3, ',', '.'), '0'), ',') }}</td>
-                                <td class="text-xs uppercase">{{ $item->produto?->produto_descricao ?? '—' }}</td>
+                                <td class="text-xs uppercase"><x-impressao.nome-item :item="$item" :categoria="false" /></td>
                                 <td class="text-xs font-bold text-right w-16">R$ {{ number_format((float) $item->item_pedido_valor, 2, ',', '.') }}</td>
                             </tr>
                         @endforeach
@@ -70,7 +70,7 @@
                             @foreach ($pedido->item_pedido_pedido_id as $item)
                                 <tr>
                                     <td class="text-xs font-bold text-center w-8">{{ rtrim(rtrim(number_format((float) $item->item_pedido_quantidade, 3, ',', '.'), '0'), ',') }}</td>
-                                    <td class="text-xs uppercase">{{ $item->produto?->produto_descricao ?? '—' }}</td>
+                                    <td class="text-xs uppercase"><x-impressao.nome-item :item="$item" :categoria="false" /></td>
                                     <td class="text-xs font-bold text-right w-16">R$ {{ number_format((float) $item->item_pedido_valor, 2, ',', '.') }}</td>
                                 </tr>
                             @endforeach

@@ -191,8 +191,8 @@ class PedidoProdutoSelectorPrecoTest extends TestCase
     {
         $this->categoria->update([
             'categoria_permite_sabores' => true,
-            'categoria_max_sabores' => 2,
         ]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
 
         $marguerita = $this->produto('Marguerita', 55.00);
         $promocao = $this->promocao(produtos: [$marguerita]);

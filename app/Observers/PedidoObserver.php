@@ -6,7 +6,9 @@ use App\Enums\MovimentacaoOrigemEnum;
 use App\Models\ItensPedido;
 use App\Models\MovimentacaoPedido;
 use App\Models\Pedido;
+use App\Models\Produto;
 use App\Services\EstoqueService;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -87,16 +89,9 @@ class PedidoObserver
         EstoqueService $service,
         string $motivo,
     ): void {
-        $produto = $item->produto;
-        $quantidade = (float) $item->item_pedido_quantidade;
-
-        if (! $produto) {
-            return;
-        }
-
         $opts = ['referencia' => $pedido, 'motivo' => $motivo];
 
-        foreach ($service->itensConsumo($produto, $quantidade) as $consumo) {
+        foreach ($this->consumosDoItem($item, $service) as $consumo) {
             $insumo = $consumo['produto'];
 
             if (! $insumo->produto_controla_estoque) {
@@ -113,16 +108,9 @@ class PedidoObserver
         EstoqueService $service,
         string $motivo,
     ): void {
-        $produto = $item->produto;
-        $quantidade = (float) $item->item_pedido_quantidade;
-
-        if (! $produto) {
-            return;
-        }
-
         $opts = ['referencia' => $pedido, 'motivo' => $motivo];
 
-        foreach ($service->itensConsumo($produto, $quantidade) as $consumo) {
+        foreach ($this->consumosDoItem($item, $service) as $consumo) {
             $insumo = $consumo['produto'];
 
             if (! $insumo->produto_controla_estoque) {
@@ -137,6 +125,32 @@ class PedidoObserver
                 $opts,
             );
         }
+    }
+
+    /**
+     * Insumos consumidos por um item, já expandidos pela ficha técnica. Pizza
+     * de vários sabores consome cada sabor pela fração congelada no item
+     * (ItensPedido::consumosPorProduto()), não o 1º sabor inteiro.
+     *
+     * @return SupportCollection<int, array{produto: Produto, quantidade: float}>
+     */
+    private function consumosDoItem(ItensPedido $item, EstoqueService $service): SupportCollection
+    {
+        $consumos = collect();
+
+        foreach ($item->consumosPorProduto() as $produtoId => $quantidade) {
+            $produto = $produtoId === (int) $item->item_pedido_produto_id
+                ? $item->produto
+                : Produto::with(['fichaItens', 'fichaItens.insumo'])->find($produtoId);
+
+            if (! $produto) {
+                continue;
+            }
+
+            $consumos = $consumos->merge($service->itensConsumo($produto, (float) $quantidade));
+        }
+
+        return $consumos;
     }
 
     private function carregarItens(Pedido $pedido): \Illuminate\Database\Eloquent\Collection

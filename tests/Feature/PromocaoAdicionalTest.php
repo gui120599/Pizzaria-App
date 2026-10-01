@@ -299,12 +299,12 @@ class PromocaoAdicionalTest extends TestCase
         $regraMarguerita = $this->regra($promocao, ['par_produto_gatilho_id' => $marguerita->id, 'par_preco_gatilho_override' => 45.00]);
         $this->oferta($regraMarguerita);
 
-        $rateio = app(PrecificadorService::class)->ratearCombo([$this->pizza, $marguerita], qtd: 1);
+        $combo = app(PrecificadorService::class)->precificarCombo([$this->pizza, $marguerita], qtd: 1);
 
-        $this->assertNull(collect($rateio)->pluck('promocao_adicional_regra_id')->filter()->first());
+        $this->assertNull($combo['promocao_adicional_regra_id']);
         // Sem promoção de combo, a pizza fracionada vale a MÉDIA do preço
         // cheio de cada sabor (convenção já existente pro meia a meia).
-        $this->assertSame(57.45, round(array_sum(array_column($rateio, 'valor')), 2));
+        $this->assertSame(57.45, $combo['valor']);
     }
 
     public function test_fracionado_ligado_combo_aplica_maior_override_entre_os_sabores(): void
@@ -315,11 +315,12 @@ class PromocaoAdicionalTest extends TestCase
         $regraMarguerita = $this->regra($promocao, ['par_produto_gatilho_id' => $marguerita->id, 'par_preco_gatilho_override' => 45.00]);
         $this->oferta($regraMarguerita);
 
-        $rateio = app(PrecificadorService::class)->ratearCombo([$this->pizza, $marguerita], qtd: 1);
+        $combo = app(PrecificadorService::class)->precificarCombo([$this->pizza, $marguerita], qtd: 1);
 
         // Maior override entre os dois sabores (45.00) é o preço anunciado da pizza.
-        $this->assertSame(45.00, round(array_sum(array_column($rateio, 'valor')), 2));
-        $this->assertNotNull(collect($rateio)->pluck('promocao_adicional_regra_id')->filter()->first());
+        $this->assertSame(45.00, $combo['valor']);
+        $this->assertNotNull($combo['promocao_adicional_regra_id']);
+        $this->assertCount(2, array_filter(array_column($combo['sabores'], 'promocao_adicional_regra_id')));
     }
 
     public function test_fracionado_ligado_mas_so_um_sabor_com_override_nao_aplica(): void
@@ -329,9 +330,9 @@ class PromocaoAdicionalTest extends TestCase
         $this->regraComOferta($promocao, ['par_preco_gatilho_override' => 39.90]);
         // Marguerita não participa da campanha — sem override.
 
-        $rateio = app(PrecificadorService::class)->ratearCombo([$this->pizza, $marguerita], qtd: 1);
+        $combo = app(PrecificadorService::class)->precificarCombo([$this->pizza, $marguerita], qtd: 1);
 
-        $this->assertSame(57.45, round(array_sum(array_column($rateio, 'valor')), 2));
+        $this->assertSame(57.45, $combo['valor']);
     }
 
     public function test_fracionado_desligado_produto_gatilho_continua_disponivel_como_sabor_no_preco_normal(): void
@@ -339,7 +340,8 @@ class PromocaoAdicionalTest extends TestCase
         // Categoria permite sabores; a promoção adicional não marca fracionado.
         // O produto continua selecionável como meia a meia/três sabores — só a
         // FRAÇÃO não recebe o override, volta ao preço normal cadastrado.
-        $this->categoria->update(['categoria_permite_sabores' => true, 'categoria_max_sabores' => 2]);
+        $this->categoria->update(['categoria_permite_sabores' => true]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
         $promocao = $this->promocao(['promoad_aplica_fracionado' => false]);
         $this->regraComOferta($promocao, ['par_preco_gatilho_override' => 39.90]);
 
@@ -353,7 +355,8 @@ class PromocaoAdicionalTest extends TestCase
 
     public function test_fracionado_ligado_produto_gatilho_usa_override_tambem_na_fracao(): void
     {
-        $this->categoria->update(['categoria_permite_sabores' => true, 'categoria_max_sabores' => 2]);
+        $this->categoria->update(['categoria_permite_sabores' => true]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
         $promocao = $this->promocao(['promoad_aplica_fracionado' => true]);
         $this->regraComOferta($promocao, ['par_preco_gatilho_override' => 39.90]);
 

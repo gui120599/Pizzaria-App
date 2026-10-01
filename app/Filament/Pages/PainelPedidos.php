@@ -662,6 +662,7 @@ class PainelPedidos extends Page implements HasActions
                         'item_pedido_quantidade',
                         'item_pedido_valor',
                         'item_pedido_observacao',
+                        'item_pedido_sabores',
                     ])
                     ->with([
                         'produto:id,produto_descricao,produto_categoria_id',

@@ -330,6 +330,7 @@ class OperarVenda extends Page
                 ->where('item_venda_venda_id', $this->vendaId)
                 ->where('item_venda_valor_adicionais', 0)
                 ->where('item_venda_quantidade', '<>', 0.5)
+                ->whereNull('item_venda_sabores')
                 ->first();
 
             if ($itemVenda) {
@@ -895,9 +896,7 @@ class OperarVenda extends Page
      */
     private function removerItemPedidoDaVenda(ItensPedido $item): void
     {
-        $itemVenda = ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
-            ->where('item_venda_venda_id', $this->vendaId)
-            ->first();
+        $itemVenda = ItensVenda::correspondenteAoItemPedido($this->vendaId, $item);
 
         if (! $itemVenda) {
             return;
@@ -1392,6 +1391,7 @@ class OperarVenda extends Page
 
     private function recarregarPagamentos(): void
     {
+        unset($this->pagamentosLancados, $this->venda);
         $this->sincronizarSugestaoNfe();
     }
 
@@ -1408,7 +1408,6 @@ class OperarVenda extends Page
         }
 
         $this->emitirNfeAoFinalizar = (bool) Venda::find($this->vendaId)?->exigeEnvioNfe();
-        unset($this->pagamentosLancados, $this->venda);
     }
 
     /**
@@ -1719,10 +1718,10 @@ class OperarVenda extends Page
         $this->modalNfeAberta = true;
         $this->nfeStatusModal = 'processando';
         $this->nfeErroModal = null;
+
         // Reenvio (botão "tentar novamente" do modal) reaproveita a reserva
         // e a decisão já gravadas em nf_emissoes; o argumento só vale na 1ª.
         $decisao = $venda->exigeEnvioNfe() ? NfEmissao::DECISAO_AUTOMATICA : NfEmissao::DECISAO_MANUAL;
-
 
         try {
             app(NfeIoService::class)->emitir($venda, $decisao);

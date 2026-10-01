@@ -108,7 +108,7 @@ class Produto extends Model
     public function politicaSaboresCardapio(): array
     {
         $catPermite = (bool) ($this->categoria->categoria_permite_sabores ?? false);
-        $catMax = (int) ($this->categoria->categoria_max_sabores ?? 2);
+        $catMax = (int) ($this->categoria?->maxSabores() ?? 1);
 
         $promos = app(PrecificadorService::class)->promocoesVigentesDoProduto($this->id);
 
@@ -169,7 +169,7 @@ class Produto extends Model
      * pizza multi-sabor. Numa promoção "só inteira" (relâmpago ou adicional)
      * a fração volta ao preço normal; nos demais casos segue o preço
      * resolvido da unidade inteira. Espelha o que o servidor cobra em
-     * ratearCombo().
+     * precificarCombo().
      */
     public function precoFracaoCardapio(): float
     {

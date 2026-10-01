@@ -166,9 +166,10 @@ class AtenderPedido extends Page
             ->map(fn (ItensPedido $item): array => [
                 'id' => $item->id,
                 'produto_id' => $item->item_pedido_produto_id,
-                'produto_nome' => $item->produto?->produto_descricao ?? '—',
+                'produto_nome' => $item->nomeProduto(),
                 'categoria_nome' => $item->produto?->categoria?->categoria_nome ?? '',
                 'produto_foto' => $item->produto?->getImagemUrl(),
+                'sabores_linhas' => $item->linhasSabores(),
                 'cliente_nome' => null,
                 'quantidade' => (float) $item->item_pedido_quantidade,
                 'valor_unitario' => (float) $item->item_pedido_valor_unitario,
@@ -478,7 +479,10 @@ class AtenderPedido extends Page
                 'item_pedido_valor' => $item['valor'],
                 'item_pedido_desconto' => $item['desconto'] ?? 0,
                 'item_pedido_valor_adicionais' => $item['adicionais_valor'] ?? 0,
+                'item_pedido_desconto_unitario' => $item['desconto_unit'] ?? null,
                 'item_pedido_observacao' => ($item['observacao'] ?? '') !== '' ? $item['observacao'] : null,
+                // Pizza de sabores: uma linha com os sabores congelados.
+                'item_pedido_sabores' => $item['sabores'] ?? null,
                 'item_pedido_status' => 'INSERIDO',
             ]);
 

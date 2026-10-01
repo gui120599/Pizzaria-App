@@ -29,10 +29,10 @@
                             {{ $item->produto->categoria->categoria_nome }}
                         </span>
                     @endif
-                    <p class="text-gray-800">
+                    <div class="text-gray-800">
                         <span class="font-semibold text-green-600">{{ $qtdFormatada }}×</span>
-                        {{ $item->produto?->produto_descricao ?? '—' }}
-                    </p>
+                        <x-item-nome :item="$item" :categoria="false" />
+                    </div>
                     @if($item->item_pedido_observacao)
                         <p class="text-gray-400 text-xs">{{ $item->item_pedido_observacao }}</p>
                     @endif

@@ -46,8 +46,8 @@ class ConfirmacoesPedidosTotaisTest extends TestCase
         $this->categoria = Categoria::create([
             'categoria_nome' => 'Pizzas',
             'categoria_permite_sabores' => true,
-            'categoria_max_sabores' => 2,
         ]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
 
         $this->entrega = OpcoesEntregas::create([
             'opcaoentrega_nome' => 'Entregar',

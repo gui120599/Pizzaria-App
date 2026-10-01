@@ -14,6 +14,12 @@ use Illuminate\Support\Facades\Storage;
 
 class CardapioController extends Controller
 {
+    /**
+     * Categoria do produto com as opções de quantidade de sabores (próprias e
+     * herdadas do pai) — politicaSaboresCardapio() consulta as duas por card.
+     */
+    private const CATEGORIA_COM_SABORES = ['categoria.quantidadesSabores', 'categoria.pai.quantidadesSabores'];
+
     public function index()
     {
         // Só categorias de topo entram como seção própria — uma categoria com
@@ -22,9 +28,12 @@ class CardapioController extends Controller
         $categorias = Categoria::whereNull('categoria_pai_id')
             ->where('categoria_cardapio', true)
             ->with([
+                'quantidadesSabores',
+                'filhas.quantidadesSabores',
+                'filhas.pai.quantidadesSabores',
                 'produtos' => function ($query) {
                     $query->visivelCardapio()
-                        ->with('categoria')
+                        ->with(self::CATEGORIA_COM_SABORES)
                         ->orderBy('produto_ordem')
                         ->orderBy('produto_descricao');
                 },
@@ -37,7 +46,7 @@ class CardapioController extends Controller
                 },
                 'filhas.produtos' => function ($query) {
                     $query->visivelCardapio()
-                        ->with('categoria')
+                        ->with(self::CATEGORIA_COM_SABORES)
                         ->orderBy('produto_ordem')
                         ->orderBy('produto_descricao');
                 },
@@ -64,7 +73,7 @@ class CardapioController extends Controller
         $promocoesRelampago = PromocaoRelampago::query()
             ->vigente()
             ->comSaldo()
-            ->with(['promocaoProdutos.produto.categoria'])
+            ->with(['promocaoProdutos.produto.categoria.quantidadesSabores', 'promocaoProdutos.produto.categoria.pai.quantidadesSabores'])
             ->orderBy('promocao_ordem')
             ->orderBy('promocao_nome')
             ->get()
@@ -141,14 +150,14 @@ class CardapioController extends Controller
         // sozinha, sem depender de alguém zerar o preço promocional na mão.
         $promocoes = Produto::visivelCardapio()
             ->comPromocaoDeProdutoVigente()
-            ->with('categoria')
+            ->with(self::CATEGORIA_COM_SABORES)
             ->orderByDesc('produto_qtd_vendas')
             ->get();
 
         $maisVendidos = Produto::visivelCardapio()
             ->where('produto_qtd_vendas', '>', 0)
             ->where('produto_destaque_mais_vendidos', true)
-            ->with('categoria')
+            ->with(self::CATEGORIA_COM_SABORES)
             ->orderByDesc('produto_qtd_vendas')
             ->limit(8)
             ->get();
@@ -182,7 +191,15 @@ class CardapioController extends Controller
             ->map(fn ($c) => [
                 'id' => $c->id,
                 'nome' => $c->categoria_nome,
-                'maxSabores' => $c->categoria_max_sabores ?? 2,
+                'maxSabores' => $c->maxSabores(),
+                // Opções de quantidade (≥ 2): o cliente escolhe primeiro quantos
+                // sabores, depois quais — o servidor recusa quantidade sem opção.
+                'opcoesSabores' => $c->quantidadesSaboresResolvidas()
+                    ->where('quantidade_sabor_quantidade', '>=', 2)
+                    ->map(fn ($o) => [
+                        'quantidade' => $o->quantidade_sabor_quantidade,
+                        'descricao' => $o->quantidade_sabor_descricao,
+                    ])->values(),
                 // Produto em promoção relâmpago "só inteira" também entra na lista
                 // de sabores: como fração ele volta ao preço normal (precoFracao),
                 // enquanto inteiro (1 sabor) sai pelo promocional (preco).

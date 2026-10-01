@@ -22,7 +22,10 @@ use Illuminate\Support\Facades\DB;
 class PromocaoRelampagoService
 {
     /**
-     * Debita o saldo (pool e sublimite do produto) e registra o consumo.
+     * Debita o saldo (pool e sublimite de cada produto) e registra o consumo.
+     * Pizza de sabores é uma linha só: cada sabor debita a sua fração
+     * (quantidade × percentual congelado) do pool e do sublimite do seu
+     * produto, numa linha de ledger por produto.
      * Idempotente: chamar duas vezes para o mesmo item não debita duas vezes.
      *
      * @throws PromocaoIndisponivelException quando o saldo acabou.
@@ -35,9 +38,9 @@ class PromocaoRelampagoService
             return;
         }
 
-        $quantidade = round((float) $item->item_pedido_quantidade, 2);
+        $consumos = array_filter(self::consumosEmCentesimos($item->consumosPorProduto()), fn (float $qtd) => $qtd > 0);
 
-        if ($quantidade <= 0) {
+        if ($consumos === []) {
             return;
         }
 
@@ -59,40 +62,62 @@ class PromocaoRelampagoService
             );
         }
 
-        $prp = PromocaoRelampagoProduto::where('prp_promocao_id', $promocaoId)
-            ->where('prp_produto_id', $item->item_pedido_produto_id)
-            ->first();
+        $prps = PromocaoRelampagoProduto::where('prp_promocao_id', $promocaoId)
+            ->whereIn('prp_produto_id', array_keys($consumos))
+            ->get()
+            ->keyBy('prp_produto_id');
 
-        if (! $prp) {
+        if ($prps->count() !== count($consumos)) {
             throw new PromocaoIndisponivelException('Este produto não faz parte da promoção informada.');
         }
 
-        DB::transaction(function () use ($item, $prp, $promocaoId, $quantidade) {
-            $this->debitarPool($promocaoId, $quantidade);
-            $this->debitarProduto($prp, $quantidade);
+        DB::transaction(function () use ($item, $prps, $promocaoId, $consumos) {
+            $this->debitarPool($promocaoId, round(array_sum($consumos), 2));
 
-            PromocaoConsumo::create([
-                'consumo_promocao_id' => $promocaoId,
-                'consumo_promocao_produto_id' => $prp->id,
-                'consumo_item_pedido_id' => $item->id,
-                'consumo_pedido_id' => $item->item_pedido_pedido_id,
-                'consumo_quantidade' => $quantidade,
-            ]);
+            foreach ($consumos as $produtoId => $quantidade) {
+                $prp = $prps->get($produtoId);
+                $this->debitarProduto($prp, $quantidade);
+
+                PromocaoConsumo::create([
+                    'consumo_promocao_id' => $promocaoId,
+                    'consumo_promocao_produto_id' => $prp->id,
+                    'consumo_item_pedido_id' => $item->id,
+                    'consumo_pedido_id' => $item->item_pedido_pedido_id,
+                    'consumo_quantidade' => $quantidade,
+                ]);
+            }
         });
+    }
+
+    /**
+     * Arredonda os consumos para centésimos (escala do ledger) sem perder a
+     * soma: ⅓ + ⅓ + ⅓ vira 0,33 + 0,33 + 0,34, não 0,99. O resíduo vai para o
+     * último produto, mesma convenção dos percentuais.
+     *
+     * @param  array<int, float>  $consumos
+     * @return array<int, float>
+     */
+    private static function consumosEmCentesimos(array $consumos): array
+    {
+        if ($consumos === []) {
+            return [];
+        }
+
+        $total = round(array_sum($consumos), 2);
+        $arredondados = array_map(fn (float $qtd) => round($qtd, 2), $consumos);
+        $ultimo = array_key_last($arredondados);
+        $arredondados[$ultimo] = round($arredondados[$ultimo] + $total - array_sum($arredondados), 2);
+
+        return $arredondados;
     }
 
     /** Devolve ao saldo o consumo de um item. Não faz nada se já foi revertido. */
     public function estornarItem(ItensPedido $item): void
     {
-        $consumo = PromocaoConsumo::where('consumo_item_pedido_id', $item->id)
+        PromocaoConsumo::where('consumo_item_pedido_id', $item->id)
             ->whereNull('consumo_revertido_em')
-            ->first();
-
-        if (! $consumo) {
-            return;
-        }
-
-        $this->estornarConsumo($consumo);
+            ->get()
+            ->each(fn (PromocaoConsumo $consumo) => $this->estornarConsumo($consumo));
     }
 
     /** Devolve ao saldo todos os consumos ainda ativos de um pedido. */

@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TemSabores;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ItensVenda extends Model
 {
     use HasFactory;
+    use TemSabores;
 
     protected $table = 'itens_vendas';
 
@@ -30,6 +32,7 @@ class ItensVenda extends Model
         'item_venda_valor_cofins',
         'item_venda_valor_total_tributos',
         'item_venda_observacao',
+        'item_venda_sabores',
         'item_venda_status',
         'item_venda_usuario_removeu',
     ];
@@ -49,7 +52,55 @@ class ItensVenda extends Model
         'item_venda_valor_pis' => 'decimal:2',
         'item_venda_valor_cofins' => 'decimal:2',
         'item_venda_valor_total_tributos' => 'decimal:2',
+        'item_venda_sabores' => 'array',
     ];
+
+    protected function colunaSabores(): string
+    {
+        return 'item_venda_sabores';
+    }
+
+    protected function colunaProduto(): string
+    {
+        return 'item_venda_produto_id';
+    }
+
+    protected function colunaQuantidade(): string
+    {
+        return 'item_venda_quantidade';
+    }
+
+    /**
+     * Linha da venda que recebeu um item de pedido — usada para abater o item
+     * quando o pedido sai da venda. Pizza de sabores casa pela mesma lista de
+     * sabores (nunca foi mesclada); item comum casa pelo produto entre as
+     * linhas sem sabores, como sempre foi.
+     */
+    public static function correspondenteAoItemPedido(int $vendaId, ItensPedido $itemPedido): ?self
+    {
+        $candidatas = static::where('item_venda_venda_id', $vendaId)
+            ->where('item_venda_produto_id', $itemPedido->item_pedido_produto_id);
+
+        if (! $itemPedido->ehMultiSabor()) {
+            return $candidatas->whereNull('item_venda_sabores')->first();
+        }
+
+        $assinatura = static::assinaturaSabores($itemPedido->sabores());
+
+        return $candidatas->whereNotNull('item_venda_sabores')
+            ->get()
+            ->first(fn (self $linha) => static::assinaturaSabores($linha->sabores()) === $assinatura);
+    }
+
+    /**
+     * @param  array<int, array{produto_id: int, percentual: float}>  $sabores
+     */
+    private static function assinaturaSabores(array $sabores): string
+    {
+        return collect($sabores)
+            ->map(fn (array $sabor) => $sabor['produto_id'].':'.round((float) $sabor['percentual'], 2))
+            ->implode('|');
+    }
 
     public function venda()
     {

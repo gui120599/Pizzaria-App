@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 class Categoria extends Model
 {
@@ -25,14 +26,14 @@ class Categoria extends Model
         'categoria_cardapio',
         'categoria_cardapio_garcom',
         'categoria_permite_sabores',
-        'categoria_max_sabores',
+        'categoria_herda_sabores',
     ];
 
     protected $casts = [
         'categoria_cardapio' => 'boolean',
         'categoria_cardapio_garcom' => 'boolean',
         'categoria_permite_sabores' => 'boolean',
-        'categoria_max_sabores' => 'integer',
+        'categoria_herda_sabores' => 'boolean',
         'categoria_ordem' => 'integer',
     ];
 
@@ -89,6 +90,80 @@ class Categoria extends Model
         }
 
         return $ids;
+    }
+
+    public function quantidadesSabores(): HasMany
+    {
+        return $this->hasMany(QuantidadeSabor::class, 'quantidade_sabor_categoria_id')
+            ->orderBy('quantidade_sabor_ordem')
+            ->orderBy('quantidade_sabor_quantidade');
+    }
+
+    /**
+     * A subcategoria herda as opções de quantidade de sabores da categoria pai?
+     * Só vale quando de fato existe pai — sem ele o toggle é ignorado.
+     */
+    public function herdaQuantidadesSabores(): bool
+    {
+        return $this->categoria_pai_id !== null && $this->categoria_herda_sabores;
+    }
+
+    /**
+     * Opções de quantidade de sabores efetivas: as da categoria pai quando
+     * esta herda, senão as próprias.
+     *
+     * @return Collection<int, QuantidadeSabor>
+     */
+    public function quantidadesSaboresResolvidas(): Collection
+    {
+        if ($this->herdaQuantidadesSabores() && $this->pai) {
+            return $this->pai->quantidadesSabores;
+        }
+
+        return $this->quantidadesSabores;
+    }
+
+    public function opcaoQuantidadeSabores(int $quantidade): ?QuantidadeSabor
+    {
+        return $this->quantidadesSaboresResolvidas()
+            ->firstWhere('quantidade_sabor_quantidade', $quantidade);
+    }
+
+    /**
+     * Maior quantidade de sabores combináveis nesta categoria — 1 quando ela
+     * não permite sabores ou não tem opção cadastrada além do sabor único.
+     */
+    public function maxSabores(): int
+    {
+        if (! $this->categoria_permite_sabores) {
+            return 1;
+        }
+
+        return max(1, (int) $this->quantidadesSaboresResolvidas()->max('quantidade_sabor_quantidade'));
+    }
+
+    /**
+     * Cria (ou completa) as opções de 1 até $max sabores com percentuais
+     * iguais — atalho para seeders/testes e para o padrão de categoria nova.
+     */
+    public function sincronizarQuantidadesSabores(int $max): void
+    {
+        for ($n = 1; $n <= $max; $n++) {
+            $this->quantidadesSabores()->firstOrCreate(
+                ['quantidade_sabor_quantidade' => $n],
+                [
+                    'quantidade_sabor_descricao' => match ($n) {
+                        1 => 'Sabor único',
+                        2 => 'Meia a meia',
+                        default => "{$n} sabores",
+                    },
+                    'quantidade_sabor_percentuais' => QuantidadeSabor::percentuaisIguais($n),
+                    'quantidade_sabor_ordem' => $n,
+                ],
+            );
+        }
+
+        $this->unsetRelation('quantidadesSabores');
     }
 
     public function historicosPrecos(): HasMany

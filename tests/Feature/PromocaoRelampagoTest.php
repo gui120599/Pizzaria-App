@@ -33,8 +33,8 @@ class PromocaoRelampagoTest extends TestCase
         $this->categoria = Categoria::create([
             'categoria_nome' => 'Pizza Grande',
             'categoria_permite_sabores' => true,
-            'categoria_max_sabores' => 2,
         ]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
 
         $this->calabresa = $this->produto('Calabresa', 55.00);
         $this->marguerita = $this->produto('Marguerita', 55.00);
@@ -139,7 +139,7 @@ class PromocaoRelampagoTest extends TestCase
             $portuguesa->permiteSaboresCardapio(),
         );
         $this->assertSame(
-            (int) $portuguesa->categoria->categoria_max_sabores,
+            $portuguesa->categoria->maxSabores(),
             $portuguesa->maxSaboresCardapio(),
         );
     }
@@ -162,42 +162,43 @@ class PromocaoRelampagoTest extends TestCase
     {
         $this->promocao();
 
-        $linhas = app(PrecificadorService::class)->ratearCombo(
+        $combo = app(PrecificadorService::class)->precificarCombo(
             [$this->calabresa, $this->marguerita],
             qtd: 1,
         );
 
-        $this->assertCount(2, $linhas);
-        $this->assertSame(39.90, round(array_sum(array_column($linhas, 'valor')), 2));
-        $this->assertSame(1.0, round(array_sum(array_column($linhas, 'quantidade')), 2));
-        $this->assertNotNull($linhas[0]['promocao_id']);
+        // Uma linha só: a pizza, com os dois sabores congelados.
+        $this->assertCount(2, $combo['sabores']);
+        $this->assertSame(39.90, $combo['valor']);
+        $this->assertSame(1, $combo['quantidade']);
+        $this->assertNotNull($combo['promocao_id']);
     }
 
     public function test_sabor_fora_da_promocao_derruba_a_promocao_do_combo(): void
     {
         $this->promocao();
 
-        $linhas = app(PrecificadorService::class)->ratearCombo(
+        $combo = app(PrecificadorService::class)->precificarCombo(
             [$this->calabresa, $this->portuguesa],
             qtd: 1,
         );
 
         // (55 + 60) / 2 = 57,50 — preço cheio, sem promoção.
-        $this->assertSame(57.50, round(array_sum(array_column($linhas, 'valor')), 2));
-        $this->assertNull($linhas[0]['promocao_id']);
+        $this->assertSame(57.50, $combo['valor']);
+        $this->assertNull($combo['promocao_id']);
     }
 
     public function test_promocao_que_nao_permite_sabores_nao_vale_para_meia_a_meia(): void
     {
         $this->promocao(['promocao_permite_sabores' => false]);
 
-        $linhas = app(PrecificadorService::class)->ratearCombo(
+        $combo = app(PrecificadorService::class)->precificarCombo(
             [$this->calabresa, $this->marguerita],
             qtd: 1,
         );
 
-        $this->assertSame(55.00, round(array_sum(array_column($linhas, 'valor')), 2));
-        $this->assertNull($linhas[0]['promocao_id']);
+        $this->assertSame(55.00, $combo['valor']);
+        $this->assertNull($combo['promocao_id']);
     }
 
     public function test_contador_nao_ultrapassa_o_teto_do_pool(): void

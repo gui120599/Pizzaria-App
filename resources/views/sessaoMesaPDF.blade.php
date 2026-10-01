@@ -71,7 +71,7 @@
                                 <td class="text-xs font-bold text-center align-top">{{ $item->item_pedido_quantidade }}</td>
                             @endif
                             <td class="text-xs text-center uppercase align-top">
-                                {{ $item->produto->categoria->categoria_nome }} {{ $item->produto->produto_descricao }}
+                                <x-impressao.nome-item :item="$item" />
                                 @foreach ($item->adicionaisItemPedido as $adicional)
                                     <p class="text-[8px] font-bold">{{ $adicional->aip_quantidade }} Adic. {{ $adicional->adicional->adicional_nome }}</p>
                                 @endforeach

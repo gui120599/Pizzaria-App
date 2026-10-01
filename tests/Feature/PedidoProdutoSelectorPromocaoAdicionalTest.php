@@ -247,7 +247,8 @@ class PedidoProdutoSelectorPromocaoAdicionalTest extends TestCase
 
     public function test_pizza_inteira_via_sabores_oferece_e_aceita_a_promocao(): void
     {
-        $this->categoria->update(['categoria_permite_sabores' => true, 'categoria_max_sabores' => 2]);
+        $this->categoria->update(['categoria_permite_sabores' => true]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
         $regra = $this->regra();
         $ofertaId = $regra->ofertas->first()->id;
 
@@ -269,7 +270,8 @@ class PedidoProdutoSelectorPromocaoAdicionalTest extends TestCase
 
     public function test_meia_a_meia_nao_oferece_promocao_adicional(): void
     {
-        $this->categoria->update(['categoria_permite_sabores' => true, 'categoria_max_sabores' => 2]);
+        $this->categoria->update(['categoria_permite_sabores' => true]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
         $this->regra();
         $outraPizza = $this->produto('Marguerita', 55.00);
 

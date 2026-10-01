@@ -47,7 +47,14 @@
                 </span>
             @endif
         </div>
-        <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ $itemNome }}</p>
+        @if (!empty($item['sabores_linhas']))
+            {{-- Pizza de vários sabores: um sabor por linha ("MEIA CALABRESA"). --}}
+            @foreach ($item['sabores_linhas'] as $linhaSabor)
+                <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ $linhaSabor }}</p>
+            @endforeach
+        @else
+            <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ $itemNome }}</p>
+        @endif
         @if (!empty($item['adicionais']))
             <p class="text-xs text-gray-500 dark:text-gray-400 truncate">+ {{ collect($item['adicionais'])->pluck('nome')->join(', ') }}</p>
         @endif
