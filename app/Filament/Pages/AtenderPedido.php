@@ -551,10 +551,29 @@ class AtenderPedido extends Page
         return OpcoesPagamento::where('opcaopag_stone_integrada', true)->orderBy('opcaopag_nome')->pluck('opcaopag_nome', 'id');
     }
 
+    #[Computed]
+    public function podeCobrarStone(): bool
+    {
+        return ! $this->somenteLeitura
+            && $this->maquininhasStone->isNotEmpty()
+            && $this->pedidoTemCombinadoStone();
+    }
+
+    private function pedidoTemCombinadoStone(): bool
+    {
+        return (bool) ($this->pedidoId ? Pedido::find($this->pedidoId)?->temPagamentoCombinadoStone() : false);
+    }
+
     public function abrirModalStone(): void
     {
         if (! $this->pedidoId) {
             $this->notificarErro('Salve o pedido antes de cobrar na maquininha.');
+
+            return;
+        }
+
+        if (! $this->pedidoTemCombinadoStone()) {
+            $this->notificarErro('Nenhuma forma de pagamento combinada deste pedido está integrada à Stone.');
 
             return;
         }
@@ -594,6 +613,12 @@ class AtenderPedido extends Page
 
         if (! $maquininha || ! $pedido) {
             $this->notificarErro('Pedido ou maquininha não encontrado.');
+
+            return;
+        }
+
+        if (! $pedido->temPagamentoCombinadoStone()) {
+            $this->notificarErro('Nenhuma forma de pagamento combinada deste pedido está integrada à Stone.');
 
             return;
         }

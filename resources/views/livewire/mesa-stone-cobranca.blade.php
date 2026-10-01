@@ -1,5 +1,5 @@
 <div>
-    @if ($this->maquininhasStone->isNotEmpty() && $this->totalAberto > 0)
+    @if ($this->temFormaStone && $this->maquininhasStone->isNotEmpty() && $this->totalAberto > 0)
         <x-secondary-button type="button" wire:click="abrirModal">
             Cobrar na maquininha
         </x-secondary-button>

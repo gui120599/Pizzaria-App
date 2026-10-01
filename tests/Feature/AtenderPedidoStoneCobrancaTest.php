@@ -8,6 +8,7 @@ use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\Maquininha;
 use App\Models\OpcoesPagamento;
+use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\StonePedido;
@@ -40,7 +41,7 @@ class AtenderPedidoStoneCobrancaTest extends TestCase
         Http::preventStrayRequests();
     }
 
-    private function pedidoComItem(): Pedido
+    private function pedidoComItem(bool $combinadoStone = true): Pedido
     {
         $categoria = Categoria::create(['categoria_nome' => 'Pizzas']);
         $produto = Produto::create([
@@ -63,7 +64,28 @@ class AtenderPedidoStoneCobrancaTest extends TestCase
             'item_pedido_status' => 'INSERIDO',
         ]);
 
+        $this->combinarPagamento($pedido, $combinadoStone);
+
         return $pedido;
+    }
+
+    private function combinarPagamento(Pedido $pedido, bool $stoneIntegrada = true): void
+    {
+        $opcao = OpcoesPagamento::create([
+            'opcaopag_nome' => $stoneIntegrada ? 'Cartão Stone' : 'Dinheiro',
+            'opcaopag_desc_nfe' => $stoneIntegrada ? 'creditCard' : 'cash',
+            'opcaopag_tipo_taxa' => 'N/A',
+            'opcaopag_valor_percentual_taxa' => 0,
+            'opcaopag_stone_integrada' => $stoneIntegrada,
+        ]);
+
+        PagamentosPedido::create([
+            'pg_pedido_pedido_id' => $pedido->id,
+            'pg_pedido_opcaopagamento_id' => $opcao->id,
+            'pg_pedido_opcaopagamento_nome' => $opcao->opcaopag_nome,
+            'pg_pedido_valor' => (float) $pedido->pedido_valor_total,
+            'pg_pedido_ordem' => 0,
+        ]);
     }
 
     public function test_sem_maquininha_selecionada_mostra_erro(): void
@@ -146,5 +168,26 @@ class AtenderPedidoStoneCobrancaTest extends TestCase
 
         Http::assertSent(fn ($request) => str_contains($request->url(), '/orders')
             && ($request->data()['poi_payment_settings']['payment_setup']['type'] ?? null) === 'credit');
+    }
+
+    public function test_botao_cobrar_some_quando_pagamento_combinado_nao_e_stone(): void
+    {
+        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $pedido = $this->pedidoComItem(combinadoStone: false);
+
+        Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
+            ->assertSet('podeCobrarStone', false)
+            ->assertDontSee('Cobrar na maquininha')
+            ->call('abrirModalStone')
+            ->assertSet('modalStoneAberta', false);
+    }
+
+    public function test_botao_cobrar_aparece_quando_pagamento_combinado_e_stone(): void
+    {
+        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $pedido = $this->pedidoComItem();
+
+        Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
+            ->assertSee('Cobrar na maquininha');
     }
 }

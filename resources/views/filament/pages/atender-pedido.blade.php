@@ -82,7 +82,7 @@
                     {{ $pedidoId ? 'Salvar alterações' : 'Criar pedido' }}
                 </button>
 
-                @if ($pedidoId && ! $somenteLeitura && $this->maquininhasStone->isNotEmpty())
+                @if ($this->podeCobrarStone)
                     <button type="button" wire:click="abrirModalStone"
                         class="w-full rounded-lg border border-primary-300 dark:border-primary-500/30 py-2.5 text-sm font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-500/10">
                         Cobrar na maquininha

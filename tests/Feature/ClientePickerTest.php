@@ -51,6 +51,16 @@ class ClientePickerTest extends TestCase
             ->assertSet('clienteId', null);
     }
 
+    public function test_nome_digitado_para_telefone_novo_e_repassado_ao_pedido(): void
+    {
+        Livewire::test(ClientePicker::class)
+            ->set('celular', '11999990000')
+            ->set('nome', 'Cliente Novo')
+            ->assertDispatched('pedido-cliente-atualizado', fn (string $evento, array $params): bool => $params['dados']['nome'] === 'Cliente Novo'
+                && $params['dados']['celular'] === '11999990000'
+                && $params['dados']['clienteId'] === null);
+    }
+
     public function test_endereco_ja_digitado_na_tela_nao_e_sobrescrito_pelo_cadastro(): void
     {
         Cliente::create([

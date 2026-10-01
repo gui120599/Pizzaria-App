@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Livewire\PainelEntregador;
 use App\Models\Maquininha;
 use App\Models\OpcoesEntregas;
+use App\Models\OpcoesPagamento;
+use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\StonePedido;
 use App\Models\User;
@@ -37,18 +39,41 @@ class PainelEntregadorStoneCobrancaTest extends TestCase
         Http::preventStrayRequests();
     }
 
-    private function pedidoEmTransporte(User $entregador): Pedido
+    private function pedidoEmTransporte(User $entregador, bool $combinadoStone = true): Pedido
     {
         OpcoesEntregas::create(['opcaoentrega_nome' => 'Retirada']);
         OpcoesEntregas::create(['opcaoentrega_nome' => 'Comer no Local']);
         $delivery = OpcoesEntregas::create(['opcaoentrega_nome' => 'Entrega']);
 
-        return Pedido::create([
+        $pedido = Pedido::create([
             'pedido_opcaoentrega_id' => $delivery->id,
             'pedido_status' => 'EM TRANSPORTE',
             'pedido_datahora_transporte' => now(),
             'pedido_usuario_entrega_id' => $entregador->id,
             'pedido_valor_total' => 50.0,
+        ]);
+
+        $this->combinarPagamento($pedido, $combinadoStone);
+
+        return $pedido;
+    }
+
+    private function combinarPagamento(Pedido $pedido, bool $stoneIntegrada = true): void
+    {
+        $opcao = OpcoesPagamento::create([
+            'opcaopag_nome' => $stoneIntegrada ? 'Cartão Stone' : 'Dinheiro',
+            'opcaopag_desc_nfe' => $stoneIntegrada ? 'creditCard' : 'cash',
+            'opcaopag_tipo_taxa' => 'N/A',
+            'opcaopag_valor_percentual_taxa' => 0,
+            'opcaopag_stone_integrada' => $stoneIntegrada,
+        ]);
+
+        PagamentosPedido::create([
+            'pg_pedido_pedido_id' => $pedido->id,
+            'pg_pedido_opcaopagamento_id' => $opcao->id,
+            'pg_pedido_opcaopagamento_nome' => $opcao->opcaopag_nome,
+            'pg_pedido_valor' => (float) $pedido->pedido_valor_total,
+            'pg_pedido_ordem' => 0,
         ]);
     }
 
@@ -95,5 +120,18 @@ class PainelEntregadorStoneCobrancaTest extends TestCase
         Http::assertSent(fn ($request) => str_contains($request->url(), '/orders')
             && $request->data()['poi_payment_settings']['devices_serial_number'] === ['999']
             && ! isset($request->data()['poi_payment_settings']['payment_setup']));
+    }
+
+    public function test_botao_receber_some_quando_pagamento_combinado_nao_e_stone(): void
+    {
+        $entregador = User::factory()->create(['name_first' => 'Entregador']);
+        $pedido = $this->pedidoEmTransporte($entregador, combinadoStone: false);
+        Maquininha::create(['nome' => 'Entregador 1', 'operadora' => 'stone', 'numero_serie' => '999']);
+        $this->actingAs($entregador);
+
+        Livewire::test(PainelEntregador::class)
+            ->assertDontSee('Receber na maquininha')
+            ->call('abrirModalStone', $pedido->id)
+            ->assertSet('modalStoneAberta', false);
     }
 }

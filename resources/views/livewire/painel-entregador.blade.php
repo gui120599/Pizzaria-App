@@ -82,7 +82,7 @@
                         @include('livewire.partials.painel-entregador-qrcode', ['pedido' => $pedido])
 
                         <div class="px-4 pb-4 pt-3 space-y-2">
-                            @if ($this->maquininhasStone->isNotEmpty())
+                            @if ($this->maquininhasStone->isNotEmpty() && $pedido->temPagamentoCombinadoStone())
                                 <button wire:click="abrirModalStone({{ $pedido->id }})"
                                         class="w-full py-2.5 border-2 border-teal-500 text-teal-600 font-bold rounded-lg text-sm flex items-center justify-center gap-2">
                                     <i class='bx bx-credit-card-alt text-lg'></i>

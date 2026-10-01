@@ -7,6 +7,8 @@ use App\Filament\Resources\Pedidos\Pages\ListPedidos;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\Maquininha;
+use App\Models\OpcoesPagamento;
+use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\StonePedido;
@@ -41,7 +43,7 @@ class PedidosTableStoneCobrancaTest extends TestCase
         Http::preventStrayRequests();
     }
 
-    private function pedidoComItem(string $status = 'EM TRANSPORTE'): Pedido
+    private function pedidoComItem(string $status = 'EM TRANSPORTE', bool $combinadoStone = true): Pedido
     {
         $categoria = Categoria::create(['categoria_nome' => 'Pizzas']);
         $produto = Produto::create([
@@ -64,7 +66,28 @@ class PedidosTableStoneCobrancaTest extends TestCase
             'item_pedido_status' => 'INSERIDO',
         ]);
 
+        $this->combinarPagamento($pedido, $combinadoStone);
+
         return $pedido;
+    }
+
+    private function combinarPagamento(Pedido $pedido, bool $stoneIntegrada = true): void
+    {
+        $opcao = OpcoesPagamento::create([
+            'opcaopag_nome' => $stoneIntegrada ? 'Cartão Stone' : 'Dinheiro',
+            'opcaopag_desc_nfe' => $stoneIntegrada ? 'creditCard' : 'cash',
+            'opcaopag_tipo_taxa' => 'N/A',
+            'opcaopag_valor_percentual_taxa' => 0,
+            'opcaopag_stone_integrada' => $stoneIntegrada,
+        ]);
+
+        PagamentosPedido::create([
+            'pg_pedido_pedido_id' => $pedido->id,
+            'pg_pedido_opcaopagamento_id' => $opcao->id,
+            'pg_pedido_opcaopagamento_nome' => $opcao->opcaopag_nome,
+            'pg_pedido_valor' => (float) $pedido->pedido_valor_total,
+            'pg_pedido_ordem' => 0,
+        ]);
     }
 
     public function test_action_enviar_stone_cria_pedido_na_maquininha_escolhida(): void
@@ -92,6 +115,15 @@ class PedidosTableStoneCobrancaTest extends TestCase
     public function test_action_enviar_stone_fica_invisivel_para_pedido_finalizado(): void
     {
         $pedido = $this->pedidoComItem('FINALIZADO');
+        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+
+        Livewire::test(ListPedidos::class)
+            ->assertActionHidden(TestAction::make('enviarStone')->table($pedido));
+    }
+
+    public function test_action_enviar_stone_fica_invisivel_sem_pagamento_combinado_stone(): void
+    {
+        $pedido = $this->pedidoComItem(combinadoStone: false);
         Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
 
         Livewire::test(ListPedidos::class)

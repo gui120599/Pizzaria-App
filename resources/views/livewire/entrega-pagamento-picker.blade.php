@@ -33,14 +33,16 @@
 
                 <div class="w-24">
                     <input type="text" wire:model.live.debounce.500ms="pagamentos.{{ $indice }}.valor"
-                        x-on:input="$el.value = window.maskMoney ? window.maskMoney($el.value) : $el.value"
+                        inputmode="decimal"
+                        x-on:input="$el.value = Currency.masking($el.value, {locales:'pt-BR'})"
                         class="w-full px-2 py-1.5 text-xs text-right border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
                 </div>
 
                 @if ($this->linhaEhDinheiro($indice))
                     <div class="w-24">
                         <input type="text" wire:model.live.debounce.500ms="pagamentos.{{ $indice }}.trocoPara" placeholder="Troco p/"
-                            x-on:input="$el.value = window.maskMoney ? window.maskMoney($el.value) : $el.value"
+                            inputmode="decimal"
+                        x-on:input="$el.value = Currency.masking($el.value, {locales:'pt-BR'})"
                             class="w-full px-2 py-1.5 text-xs text-right border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
                     </div>
                 @endif

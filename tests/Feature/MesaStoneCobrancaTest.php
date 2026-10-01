@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\MesaStoneCobranca;
 use App\Models\Maquininha;
 use App\Models\Mesa;
+use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\StonePedido;
@@ -36,6 +37,14 @@ class MesaStoneCobrancaTest extends TestCase
             'services.stone.pedido_direto' => true,
         ]);
         Http::preventStrayRequests();
+
+        OpcoesPagamento::create([
+            'opcaopag_nome' => 'Cartão Stone',
+            'opcaopag_desc_nfe' => 'creditCard',
+            'opcaopag_tipo_taxa' => 'N/A',
+            'opcaopag_valor_percentual_taxa' => 0,
+            'opcaopag_stone_integrada' => true,
+        ]);
     }
 
     private function sessaoMesaComConta(): SessaoMesa
@@ -90,5 +99,17 @@ class MesaStoneCobrancaTest extends TestCase
 
         Http::assertSent(fn ($request) => str_contains($request->url(), '/orders')
             && $request->data()['poi_payment_settings']['devices_serial_number'] === ['555']);
+    }
+
+    public function test_botao_cobrar_some_sem_forma_de_pagamento_integrada_stone(): void
+    {
+        OpcoesPagamento::query()->update(['opcaopag_stone_integrada' => false]);
+        Maquininha::create(['nome' => 'Garçom', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $sessaoMesa = $this->sessaoMesaComConta();
+
+        Livewire::test(MesaStoneCobranca::class, ['sessaoMesaId' => $sessaoMesa->id])
+            ->assertDontSee('Cobrar na maquininha')
+            ->call('abrirModal')
+            ->assertSet('modalAberta', false);
     }
 }

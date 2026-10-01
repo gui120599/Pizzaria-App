@@ -231,6 +231,7 @@ class PedidosTable
         return ! in_array($record->pedido_status, ['CANCELADO', 'FINALIZADO'], true)
             && blank($record->pedido_venda_id)
             && self::stonePedidoPendente($record) === null
-            && Maquininha::stoneDisponivel()->exists();
+            && Maquininha::stoneDisponivel()->exists()
+            && $record->temPagamentoCombinadoStone();
     }
 }
