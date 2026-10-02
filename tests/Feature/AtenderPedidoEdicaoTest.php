@@ -77,7 +77,8 @@ class AtenderPedidoEdicaoTest extends TestCase
                 ],
             ])
             ->call('save')
-            ->assertHasNoErrors();
+            ->assertHasNoErrors()
+            ->assertRedirect(AtenderPedido::getUrl());
 
         $pedido->refresh();
         $this->assertSame('PREPARANDO', $pedido->pedido_status);

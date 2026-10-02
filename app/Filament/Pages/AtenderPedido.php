@@ -399,12 +399,20 @@ class AtenderPedido extends Page
             $this->pedidoId = $pedido->id;
         });
 
+        // Salvou, a tela volta em branco para o próximo atendimento — o
+        // balcão lança um pedido atrás do outro. O link da notificação reabre
+        // o que acabou de ser salvo (ex.: para cobrar na maquininha).
         Notification::make()
-            ->title($this->pedidoId ? "Pedido #{$this->pedidoId} salvo" : 'Pedido salvo')
+            ->title("Pedido #{$this->pedidoId} salvo")
             ->success()
+            ->actions([
+                Action::make('abrirPedido')
+                    ->label('Abrir pedido')
+                    ->url(static::getUrl(['pedido' => $this->pedidoId])),
+            ])
             ->send();
 
-        $this->redirect(static::getUrl(['pedido' => $this->pedidoId]));
+        $this->redirect(static::getUrl());
     }
 
     private function verificarEstoque(): array

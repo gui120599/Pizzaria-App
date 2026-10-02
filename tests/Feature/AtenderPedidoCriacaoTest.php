@@ -80,7 +80,8 @@ class AtenderPedidoCriacaoTest extends TestCase
             ])
             ->call('save');
 
-        $component->assertHasNoErrors();
+        // Salvou: a tela volta em branco para o próximo pedido.
+        $component->assertHasNoErrors()->assertRedirect(AtenderPedido::getUrl());
 
         $pedido = Pedido::latest('id')->firstOrFail();
 
