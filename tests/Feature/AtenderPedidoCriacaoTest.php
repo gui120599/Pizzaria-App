@@ -96,6 +96,8 @@ class AtenderPedidoCriacaoTest extends TestCase
         // Pedido montado pelo atendente nasce ABERTO (confirmado), não INICIADO
         // (estado "aguardando confirmação da loja" do cardápio público).
         $this->assertSame('ABERTO', $pedido->pedido_status);
+        // A forma de pagamento também vai para o texto que a comanda e o PDV leem.
+        $this->assertSame('Dinheiro', $pedido->pedido_descricao_pagamento);
         $this->assertSame('João da Silva', $pedido->cliente->cliente_nome);
         $this->assertSame(1, $pedido->item_pedido_pedido_id()->count());
 

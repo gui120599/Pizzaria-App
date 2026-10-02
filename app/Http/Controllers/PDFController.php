@@ -26,7 +26,7 @@ class PDFController extends Controller
             ->where('item_pedido_pedido_id', $pedido_id)
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
-        $pedido = Pedido::with(['cliente', 'garcom', 'opcaoEntrega', 'sessaoMesa.mesa'])->find($pedido_id);
+        $pedido = Pedido::with(['cliente', 'garcom', 'opcaoEntrega', 'sessaoMesa.mesa', 'pagamentosCombinados'])->find($pedido_id);
 
         return view('pedidoPDF', ['itens_inserido_pedido' => $itensInseridoPedido, 'pedido' => $pedido]);
     }
