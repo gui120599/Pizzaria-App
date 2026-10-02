@@ -289,7 +289,8 @@ class PainelPedidos extends Page implements HasActions
     private function despacharRodadasMesaParaImpressao(): void
     {
         $novas = Pedido::query()
-            ->where('pedido_origem', PedidoOrigemEnum::MESA->value)
+            // Rodadas de mesa e retiradas lançadas pelo Painel do Garçom.
+            ->whereIn('pedido_origem', [PedidoOrigemEnum::MESA->value, PedidoOrigemEnum::GARCOM->value])
             ->whereNotIn('pedido_status', [StatusPedidoEnum::INICIADO->value, StatusPedidoEnum::CANCELADO->value])
             ->where('pedido_datahora_abertura', '>=', $this->impressaoMesaDesde ?? Carbon::now()->toDateTimeString())
             ->whereNotIn('id', $this->rodadasMesaImpressas)

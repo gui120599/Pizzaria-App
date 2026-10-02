@@ -13,13 +13,11 @@ use App\Models\AdicionaisItemPedido;
 use App\Models\AdicionaisItemVenda;
 use App\Models\CartoesPagamento;
 use App\Models\Cliente;
-use App\Models\Empresa;
 use App\Models\ItensPedido;
 use App\Models\ItensVenda;
 use App\Models\Lancamento;
 use App\Models\Maquininha;
 use App\Models\Mesa;
-use App\Models\NfEmissao;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
 use App\Models\Pedido;
@@ -31,6 +29,7 @@ use App\Models\Venda;
 use App\Services\EstoqueService;
 use App\Services\FinalizacaoVendaService;
 use App\Services\LancamentoItensVendaService;
+use App\Services\Nfe\EmissaoNfeAutomaticaService;
 use App\Services\NfeIoService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Services\VendaService;
@@ -1580,16 +1579,6 @@ class OperarVenda extends Page
     // ── Finalizar / cancelar venda ───────────────────────────────────────────
 
     /**
-     * Emissão no PDV é regra de negócio (forma de pagamento), não ação do
-     * operador — por isso não exige a permission emitir:nfe, que continua
-     * valendo só pro botão manual "Gerar NFC-E" da tela legada.
-     */
-    private function emissaoAutomaticaDisponivel(): bool
-    {
-        return (bool) Empresa::first()?->nfeIoConfigurado();
-    }
-
-    /**
      * Finaliza a venda via FinalizacaoVendaService. Diferente do legado (que
      * recebia checkboxes id_sessao_mesa[]/id_pedido[] do form), deriva quais
      * mesas/pedidos finalizar a partir do que já está de fato vinculado à
@@ -1611,7 +1600,7 @@ class OperarVenda extends Page
             return;
         }
 
-        if ($this->emissaoAutomaticaDisponivel() && $venda->exigeEnvioNfe()) {
+        if (app(EmissaoNfeAutomaticaService::class)->deveEmitir($venda)) {
             $this->iniciarEmissaoNfe($venda);
 
             return;
@@ -1701,7 +1690,7 @@ class OperarVenda extends Page
 
         // Reenvio (botão "tentar novamente" do modal) reaproveita a reserva já gravada em nf_emissoes.
         try {
-            app(NfeIoService::class)->emitir($venda, NfEmissao::DECISAO_AUTOMATICA);
+            app(EmissaoNfeAutomaticaService::class)->emitir($venda);
             $this->nfeInvoiceId = $venda->fresh()->venda_id_nfe;
         } catch (NfeIoException $e) {
             $this->nfeStatusModal = 'erro';

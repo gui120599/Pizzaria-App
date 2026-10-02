@@ -27,7 +27,7 @@
                         </div>
 
                         <p class="text-xs text-gray-500">
-                            Envia a conta inteira da mesa
+                            Envia {{ $pedidoId ? 'o pedido #'.$pedidoId : 'a conta inteira da mesa' }}
                             (<strong class="text-gray-700">R$ {{ number_format($this->totalAberto, 2, ',', '.') }}</strong>)
                             pra lista do POS — o tipo (crédito, débito ou PIX) é escolhido na própria maquininha.
                         </p>

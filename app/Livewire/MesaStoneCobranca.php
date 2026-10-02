@@ -7,6 +7,7 @@ use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
 use App\Models\Maquininha;
 use App\Models\OpcoesPagamento;
+use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\StonePedido;
 use App\Services\Stone\StoneRecebimentoService;
@@ -16,7 +17,8 @@ use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 /**
- * Botão + modal "Cobrar conta na maquininha" embutido na tela legada de
+ * Botão + modal "Cobrar conta na maquininha" — conta de mesa (sessaoMesaId)
+ * ou pedido avulso (pedidoId, retirada do Painel do Garçom). Embutido na tela legada de
  * pedidos da mesa (resources/views/app/sessao_mesa/partials/list_itens.blade.php)
  * — envia a conta inteira da sessão (todos os pedidos ativos) sem Venda
  * prévia; o webhook charge.paid cria a Venda quando o pagamento chegar (ver
@@ -25,7 +27,10 @@ use Livewire\Component;
  */
 class MesaStoneCobranca extends Component
 {
-    public int $sessaoMesaId;
+    public ?int $sessaoMesaId = null;
+
+    /** Pedido avulso (retirada do Painel do Garçom) em vez de conta de mesa. */
+    public ?int $pedidoId = null;
 
     public bool $modalAberta = false;
 
@@ -38,9 +43,10 @@ class MesaStoneCobranca extends Component
 
     public ?int $stonePedidoId = null;
 
-    public function mount(int $sessaoMesaId): void
+    public function mount(?int $sessaoMesaId = null, ?int $pedidoId = null): void
     {
         $this->sessaoMesaId = $sessaoMesaId;
+        $this->pedidoId = $pedidoId;
         // Última maquininha usada por este garçom — na prática ele leva
         // sempre o mesmo aparelho (ver Maquininha::scopeStoneDisponivel).
         $this->maquininhaId = session('stone_ultima_maquininha_id.'.Auth::id());
@@ -62,6 +68,12 @@ class MesaStoneCobranca extends Component
     #[Computed]
     public function totalAberto(): float
     {
+        if ($this->pedidoId) {
+            $pedido = $this->pedidoAvulso();
+
+            return $pedido ? (float) $pedido->pedido_valor_total : 0.0;
+        }
+
         $sessaoMesa = SessaoMesa::find($this->sessaoMesaId);
 
         return $sessaoMesa ? ContaMesa::para($sessaoMesa)['total'] : 0.0;
@@ -102,11 +114,11 @@ class MesaStoneCobranca extends Component
         }
 
         $maquininha = Maquininha::find($this->maquininhaId);
-        $sessaoMesa = SessaoMesa::find($this->sessaoMesaId);
+        $alvo = $this->pedidoId ? $this->pedidoAvulso() : SessaoMesa::find($this->sessaoMesaId);
         $valor = $this->totalAberto;
 
-        if (! $maquininha || ! $sessaoMesa || $valor <= 0) {
-            $this->erro = 'Sessão de mesa ou valor inválido para envio.';
+        if (! $maquininha || ! $alvo || $valor <= 0) {
+            $this->erro = 'Conta ou valor inválido para envio.';
             $this->status = 'erro';
 
             return;
@@ -118,7 +130,7 @@ class MesaStoneCobranca extends Component
         // — modo Listado, igual ao botão "Lançar total" do PDV.
         try {
             $stonePedido = app(StoneRecebimentoService::class)->iniciarCobrancaDePedido(
-                $sessaoMesa, null, $maquininha, $valor, StonePedidoModo::Listado,
+                $alvo, null, $maquininha, $valor, StonePedidoModo::Listado,
             );
             $this->stonePedidoId = $stonePedido->id;
             $this->status = 'aguardando';
@@ -162,5 +174,17 @@ class MesaStoneCobranca extends Component
     public function render()
     {
         return view('livewire.mesa-stone-cobranca');
+    }
+
+    /** Pedido avulso ainda cobrável: não cancelado/finalizado e sem item lançado em venda. */
+    private function pedidoAvulso(): ?Pedido
+    {
+        return Pedido::query()
+            ->whereKey($this->pedidoId)
+            ->whereNull('pedido_sessao_mesa_id')
+            ->whereNull('pedido_venda_id')
+            ->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO'])
+            ->whereDoesntHave('item_pedido_pedido_id', fn ($q) => $q->whereNotNull('item_pedido_venda_id'))
+            ->first();
     }
 }

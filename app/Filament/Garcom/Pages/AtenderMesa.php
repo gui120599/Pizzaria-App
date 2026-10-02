@@ -4,28 +4,25 @@ namespace App\Filament\Garcom\Pages;
 
 use App\Enums\AcaoAutorizadaEnum;
 use App\Enums\StatusPedidoEnum;
-use App\Exceptions\AutorizacaoNegadaException;
 use App\Exceptions\TransicaoPedidoInvalidaException;
+use App\Filament\Garcom\Concerns\AutorizaComPinDeGerente;
 use App\Models\ItensPedido;
 use App\Models\Mesa;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\User;
 use App\Services\Garcom\AtendimentoMesaService;
-use App\Services\Garcom\AutorizacaoGerenteService;
 use App\Support\ContaMesa;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Schemas\Components\Component;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
 use RuntimeException;
-use Throwable;
 
 /**
  * Atendimento de uma conta de mesa/comanda: lançar a rodada, acompanhar as
@@ -33,6 +30,8 @@ use Throwable;
  */
 class AtenderMesa extends Page
 {
+    use AutorizaComPinDeGerente;
+
     protected string $view = 'filament.garcom.pages.atender-mesa';
 
     protected static ?string $slug = 'mesa/{sessao}';
@@ -268,50 +267,6 @@ class AtenderMesa extends Page
     }
 
     // ── Apoio ───────────────────────────────────────────────────────────────
-
-    /**
-     * Seletor de gerente + PIN, só para quem não tem a permissão da ação.
-     *
-     * @return array<int, Component>
-     */
-    private function camposAutorizacao(AcaoAutorizadaEnum $acao): array
-    {
-        $autorizacoes = app(AutorizacaoGerenteService::class);
-
-        if ($autorizacoes->dispensaPin($this->usuario(), $acao)) {
-            return [];
-        }
-
-        return [
-            Select::make('autorizador_id')
-                ->label('Gerente que autoriza')
-                ->options($autorizacoes->autorizadoresDisponiveis($acao))
-                ->required(),
-            TextInput::make('pin')
-                ->label('PIN do gerente')
-                ->password()
-                ->required()
-                ->extraInputAttributes(['inputmode' => 'numeric', 'autocomplete' => 'off']),
-        ];
-    }
-
-    private function executarAutorizado(callable $operacao, string $sucesso): void
-    {
-        try {
-            $operacao();
-        } catch (AutorizacaoNegadaException|RuntimeException $e) {
-            Notification::make()->title($e->getMessage())->danger()->send();
-
-            return;
-        } catch (Throwable $e) {
-            report($e);
-            Notification::make()->title('Não foi possível concluir. Tente de novo.')->danger()->send();
-
-            return;
-        }
-
-        Notification::make()->title($sucesso)->success()->send();
-    }
 
     /** @return array<int, int> */
     private function rodadasProntasIds(): array

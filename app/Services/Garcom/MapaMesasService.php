@@ -2,6 +2,7 @@
 
 namespace App\Services\Garcom;
 
+use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusMapaMesaEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Enums\TipoMesaEnum;
@@ -65,7 +66,8 @@ class MapaMesasService
     }
 
     /**
-     * Rodadas PRONTO de mesas deste garçom — alimenta o aviso de "pedido pronto".
+     * Rodadas de mesa e retiradas PRONTO deste garçom — alimenta o aviso de
+     * "pedido pronto".
      *
      * @return array<int, array{id: int, mesa: string}>
      */
@@ -73,11 +75,18 @@ class MapaMesasService
     {
         return Pedido::query()
             ->where('pedido_status', StatusPedidoEnum::PRONTO->value)
-            ->whereNotNull('pedido_sessao_mesa_id')
             ->where('pedido_usuario_garcom_id', $garcomId)
-            ->with('sessaoMesa:id,sessao_mesa_mesa_id', 'sessaoMesa.mesa:id,mesa_nome')
-            ->get(['id', 'pedido_sessao_mesa_id'])
-            ->map(fn (Pedido $pedido) => ['id' => $pedido->id, 'mesa' => $pedido->sessaoMesa?->mesa?->mesa_nome ?? 'Mesa'])
+            ->where(fn ($q) => $q
+                ->whereNotNull('pedido_sessao_mesa_id')
+                ->orWhere('pedido_origem', PedidoOrigemEnum::GARCOM->value))
+            ->with('sessaoMesa:id,sessao_mesa_mesa_id', 'sessaoMesa.mesa:id,mesa_nome', 'cliente:id,cliente_nome')
+            ->get(['id', 'pedido_sessao_mesa_id', 'pedido_cliente_id'])
+            ->map(fn (Pedido $pedido) => [
+                'id' => $pedido->id,
+                'mesa' => $pedido->pedido_sessao_mesa_id
+                    ? ($pedido->sessaoMesa?->mesa?->mesa_nome ?? 'Mesa')
+                    : 'Retirada: '.($pedido->cliente?->cliente_nome ?? '#'.$pedido->id),
+            ])
             ->all();
     }
 

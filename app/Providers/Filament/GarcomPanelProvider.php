@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Garcom\Pages\AtenderMesa;
+use App\Filament\Garcom\Pages\AtenderRetirada;
 use App\Filament\Garcom\Pages\Auth\LoginGarcom;
 use App\Filament\Garcom\Pages\MapaMesas;
 use Filament\Actions\Action;
@@ -45,10 +46,11 @@ class GarcomPanelProvider extends PanelProvider
             ->topNavigation()
             ->maxContentWidth(Width::Full)
             ->homeUrl(fn (): string => MapaMesas::getUrl())
-            // Sem discoverPages(): só as duas telas do salão, registradas aqui.
+            // Sem discoverPages(): só as telas do salão, registradas aqui.
             ->pages([
                 MapaMesas::class,
                 AtenderMesa::class,
+                AtenderRetirada::class,
             ])
             ->userMenuItems([
                 'logout' => fn (Action $action) => $action
