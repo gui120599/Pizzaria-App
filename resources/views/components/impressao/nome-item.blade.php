@@ -10,7 +10,7 @@
 @endphp
 
 @if ($nomeCategoria)
-    <span class="inline-block rounded border border-black px-1 text-[9px] font-bold uppercase leading-tight">{{ $nomeCategoria }}</span>
+    <span class="inline-block rounded border-2 border-black px-1.5 py-0.5 text-sm font-bold uppercase leading-tight">{{ $nomeCategoria }}</span>
 @endif
 
 @if ($item->ehMultiSabor())
