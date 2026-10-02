@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Categorias;
 
+use App\Enums\RegraPrecoSaboresEnum;
 use App\Filament\Resources\Categorias\Pages\ManageCategorias;
 use App\Filament\Resources\Categorias\Schemas\QuantidadesSaboresRepeater;
 use App\Models\Categoria;
@@ -137,7 +138,16 @@ class CategoriaResource extends Resource
                         QuantidadesSaboresRepeater::make()
                             ->visible(fn ($get) => (bool) $get('categoria_permite_sabores')
                                 && ! ((bool) $get('categoria_herda_sabores') && filled($get('categoria_pai_id'))))
-                            ->helperText('O cliente escolhe primeiro a quantidade de sabores e depois quais. O preço é a média dos sabores; o percentual de cada posição define a baixa de estoque.'),
+                            ->helperText('O cliente escolhe primeiro a quantidade de sabores e depois quais. O preço segue a regra abaixo; o percentual de cada posição define a baixa de estoque.'),
+
+                        Select::make('categoria_regra_preco_sabores')
+                            ->label('Preço da pizza de vários sabores')
+                            ->options(RegraPrecoSaboresEnum::class)
+                            ->default(RegraPrecoSaboresEnum::MEDIA)
+                            ->selectablePlaceholder(false)
+                            ->visible(fn ($get) => (bool) $get('categoria_permite_sabores')
+                                && ! ((bool) $get('categoria_herda_sabores') && filled($get('categoria_pai_id'))))
+                            ->helperText('Vale para todos os canais: cardápio online, PDV, atendente e garçom.'),
                     ]),
 
                 SchemaSection::make('Estatísticas')

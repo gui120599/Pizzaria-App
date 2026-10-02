@@ -359,6 +359,13 @@
                     </div>
                 </div>
 
+                @if ((float) $this->venda?->venda_valor_taxa_servico > 0)
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Taxa de serviço (mesa)</span>
+                        <span class="text-xs font-semibold text-gray-800 dark:text-gray-200">R$ {{ number_format((float) $this->venda->venda_valor_taxa_servico, 2, ',', '.') }}</span>
+                    </div>
+                @endif
+
                 <div class="border-t border-gray-100 dark:border-white/10 pt-3 flex items-center justify-between">
                     <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Total</span>
                     <span class="text-lg font-bold text-gray-900 dark:text-white">R$ {{ number_format((float) $this->venda?->venda_valor_total, 2, ',', '.') }}</span>

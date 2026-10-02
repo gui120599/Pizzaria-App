@@ -34,6 +34,7 @@ use App\Services\LancamentoItensVendaService;
 use App\Services\NfeIoService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Services\VendaService;
+use App\Support\ContaMesa;
 use App\Support\RateioCentavos;
 use BackedEnum;
 use Carbon\Carbon;
@@ -619,7 +620,7 @@ class OperarVenda extends Page
         $venda->venda_valor_frete = $valor;
         $venda->venda_valor_total = $venda->venda_valor_itens == 0
             ? $valor
-            : $venda->venda_valor_itens + $valor - $venda->venda_valor_desconto;
+            : $venda->venda_valor_itens + $valor - $venda->venda_valor_desconto + (float) $venda->venda_valor_taxa_servico;
         $venda->save();
 
         $this->limparCachesDoCarrinho();
@@ -715,7 +716,7 @@ class OperarVenda extends Page
         $this->preencherClienteSeVazio($clienteId === 'sem_cliente' ? null : $clienteId);
 
         $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)
-            ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
+            ->whereNotIn('pedido_status', ContaMesa::STATUS_FORA_DA_CONTA)
             ->get();
 
         $service = app(LancamentoItensVendaService::class);

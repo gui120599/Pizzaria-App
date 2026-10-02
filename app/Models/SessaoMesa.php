@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class SessaoMesa extends Model
 {
@@ -15,10 +16,18 @@ class SessaoMesa extends Model
         'sessao_mesa_usuario_id',
         'sessao_mesa_status',
         'sessao_mesa_motivo_cancelamento',
+        'sessao_mesa_pessoas',
+        'sessao_mesa_taxa_servico_percentual',
+        'sessao_mesa_conta_solicitada_em',
+        'sessao_mesa_versao',
     ];
 
     protected $casts = [
         'sessao_mesa_status' => 'string',
+        'sessao_mesa_pessoas' => 'integer',
+        'sessao_mesa_taxa_servico_percentual' => 'decimal:2',
+        'sessao_mesa_conta_solicitada_em' => 'datetime',
+        'sessao_mesa_versao' => 'integer',
     ];
 
     public function mesa()
@@ -48,5 +57,20 @@ class SessaoMesa extends Model
     public function clientes()
     {
         return $this->hasMany(SessaoMesaCliente::class, 'smc_sessao_mesa_id');
+    }
+
+    public function autorizacoes(): MorphMany
+    {
+        return $this->morphMany(AutorizacaoGerente::class, 'autorizacao_auditavel');
+    }
+
+    public function temTaxaServico(): bool
+    {
+        return (float) $this->sessao_mesa_taxa_servico_percentual > 0;
+    }
+
+    public function contaSolicitada(): bool
+    {
+        return $this->sessao_mesa_conta_solicitada_em !== null;
     }
 }

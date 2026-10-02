@@ -78,4 +78,55 @@ return [
         'limite_entregue_expandido' => 200,
     ],
 
+    'salao' => [
+
+        /*
+        |----------------------------------------------------------------------
+        | Taxa de serviço
+        |----------------------------------------------------------------------
+        |
+        | Percentual sugerido em toda conta de mesa/comanda. É copiado para a
+        | sessão na abertura (sessao_mesa_taxa_servico_percentual); mudar aqui
+        | não altera contas já abertas. Remover a taxa de uma conta exige a
+        | permissão remover_taxa:sessao_mesa ou o PIN de um gerente.
+        |
+        */
+
+        'taxa_servico_percentual' => (float) env('PIZZARIA_TAXA_SERVICO_PERCENTUAL', 10),
+        'taxa_servico_padrao_ligada' => (bool) env('PIZZARIA_TAXA_SERVICO_PADRAO_LIGADA', true),
+
+        /*
+        |----------------------------------------------------------------------
+        | Alerta de mesa parada
+        |----------------------------------------------------------------------
+        |
+        | Minutos sem nenhuma rodada nova (ou desde a abertura) para o card da
+        | mesa no mapa ganhar o alerta de "mesa parada".
+        |
+        */
+
+        'alerta_mesa_parada_minutos' => (int) env('PIZZARIA_ALERTA_MESA_PARADA_MINUTOS', 40),
+
+        /*
+        |----------------------------------------------------------------------
+        | Intervalos de atualização do Painel do Garçom, em segundos
+        |----------------------------------------------------------------------
+        */
+
+        'polling_mapa_segundos' => 10,
+        'polling_mesa_segundos' => 5,
+
+        /*
+        |----------------------------------------------------------------------
+        | PIN
+        |----------------------------------------------------------------------
+        |
+        | Tentativas erradas por usuário antes do bloqueio temporário.
+        |
+        */
+
+        'pin_tentativas' => 5,
+        'pin_bloqueio_segundos' => 300,
+    ],
+
 ];

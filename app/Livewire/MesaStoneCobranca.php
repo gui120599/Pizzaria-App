@@ -7,10 +7,10 @@ use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
 use App\Models\Maquininha;
 use App\Models\OpcoesPagamento;
-use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\StonePedido;
 use App\Services\Stone\StoneRecebimentoService;
+use App\Support\ContaMesa;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -58,12 +58,13 @@ class MesaStoneCobranca extends Component
         return OpcoesPagamento::where('opcaopag_stone_integrada', true)->exists();
     }
 
+    /** Consumo ainda não pago + taxa de serviço da sessão (ver ContaMesa). */
     #[Computed]
     public function totalAberto(): float
     {
-        return (float) Pedido::where('pedido_sessao_mesa_id', $this->sessaoMesaId)
-            ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
-            ->sum('pedido_valor_total');
+        $sessaoMesa = SessaoMesa::find($this->sessaoMesaId);
+
+        return $sessaoMesa ? ContaMesa::para($sessaoMesa)['total'] : 0.0;
     }
 
     public function abrirModal(): void

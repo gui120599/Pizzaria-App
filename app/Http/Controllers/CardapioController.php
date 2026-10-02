@@ -192,6 +192,7 @@ class CardapioController extends Controller
                 'id' => $c->id,
                 'nome' => $c->categoria_nome,
                 'maxSabores' => $c->maxSabores(),
+                'regraPreco' => $c->regraPrecoSaboresResolvida()->value,
                 // Opções de quantidade (≥ 2): o cliente escolhe primeiro quantos
                 // sabores, depois quais — o servidor recusa quantidade sem opção.
                 'opcoesSabores' => $c->quantidadesSaboresResolvidas()

@@ -2,11 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ProdutoTipoEnum;
 use App\Livewire\MesaStoneCobranca;
+use App\Models\Categoria;
+use App\Models\ItensPedido;
 use App\Models\Maquininha;
 use App\Models\Mesa;
 use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
+use App\Models\Produto;
 use App\Models\SessaoMesa;
 use App\Models\StonePedido;
 use App\Models\User;
@@ -55,10 +59,23 @@ class MesaStoneCobrancaTest extends TestCase
             'sessao_mesa_usuario_id' => auth()->id(),
             'sessao_mesa_status' => 'ABERTA',
         ]);
-        Pedido::create([
+        $pedido = Pedido::create([
             'pedido_sessao_mesa_id' => $sessaoMesa->id,
             'pedido_status' => 'ENTREGUE',
             'pedido_valor_total' => 80.0,
+        ]);
+        // A conta da mesa soma os itens ainda não cobrados (ContaMesa), não o cabeçalho do pedido.
+        ItensPedido::create([
+            'item_pedido_pedido_id' => $pedido->id,
+            'item_pedido_produto_id' => Produto::create([
+                'produto_descricao' => 'Pizza',
+                'produto_categoria_id' => Categoria::create(['categoria_nome' => 'Pizzas'])->id,
+                'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value,
+            ])->id,
+            'item_pedido_quantidade' => 1,
+            'item_pedido_valor_unitario' => 80.0,
+            'item_pedido_valor' => 80.0,
+            'item_pedido_status' => 'INSERIDO',
         ]);
 
         return $sessaoMesa;

@@ -1288,6 +1288,7 @@
                     this.saboresModal = {
                         open: true, categoriaId, categoriaNome, maxSabores,
                         modo: 1, produtos, selecionados: presel ? [presel] : [], opcoes,
+                        regraPreco: cat ? cat.regraPreco : 'MEDIA',
                     };
                     if (presel) {
                         setTimeout(() => {
@@ -1311,14 +1312,26 @@
                         this.saboresModal.selecionados.push(produto);
                     }
                 },
-                // Preço de pizza multi-sabor = MÉDIA dos sabores, distribuída em
-                // centavos (mesma regra do back-end), evitando perda de arredondamento.
+                // Preço de pizza multi-sabor pela regra da categoria (mesma do
+                // back-end): MEDIA distribui cada sabor em centavos, evitando perda
+                // de arredondamento; MAIOR cobra o sabor de maior preço final.
                 // Retorna { preco (líquido), precoOriginal (bruto) } por pizza.
                 precoSabores(sel) {
                     const n = sel.length;
                     if (n === 1) {
                         const s = sel[0];
                         return { preco: s.preco, precoOriginal: s.precoOriginal ?? s.preco };
+                    }
+                    if (this.saboresModal.regraPreco === 'MAIOR') {
+                        let maior = null;
+                        sel.forEach((s) => {
+                            const precoFrac = s.precoFracao ?? s.preco;
+                            const orig = Math.max(s.precoOriginal ?? precoFrac, precoFrac);
+                            if (maior === null || precoFrac > maior.preco) {
+                                maior = { preco: precoFrac, precoOriginal: orig };
+                            }
+                        });
+                        return maior;
                     }
                     const fatia = (valor, idx) => {
                         const tc = Math.round(valor * 100);

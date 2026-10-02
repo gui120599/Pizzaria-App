@@ -88,6 +88,18 @@ class PainelPedidos extends Page implements HasActions
     /** Contagem da fila de entrada, para tocar o alerta só quando ela cresce. */
     public int $contagemEntrada = 0;
 
+    /**
+     * Rodadas de mesa (Painel do Garçom) já entregues ao navegador para
+     * impressão automática. Quem imprime é o JS, e só se o aparelho ligou a
+     * opção — ver painel-pedidos.blade.php.
+     *
+     * @var array<int, int>
+     */
+    public array $rodadasMesaImpressas = [];
+
+    /** Rodadas enviadas antes de a tela abrir não são reimpressas. */
+    public ?string $impressaoMesaDesde = null;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Filtros — ver o docblock da classe sobre por que linhaProducaoId é à parte.
     // ─────────────────────────────────────────────────────────────────────────
@@ -152,6 +164,7 @@ class PainelPedidos extends Page implements HasActions
 
         $this->assinatura = $this->assinaturaAtual();
         $this->contagemEntrada = $this->contarEntrada();
+        $this->impressaoMesaDesde = Carbon::now()->toDateTimeString();
     }
 
     public function updatedLinhaProducaoId(): void
@@ -264,6 +277,36 @@ class PainelPedidos extends Page implements HasActions
         }
 
         $this->contagemEntrada = $entrada;
+
+        $this->despacharRodadasMesaParaImpressao();
+    }
+
+    /**
+     * Rodadas de mesa que chegaram à cozinha desde a última checagem: o
+     * navegador imprime cada uma (pedido.imprimir) se a auto-impressão estiver
+     * ligada neste aparelho.
+     */
+    private function despacharRodadasMesaParaImpressao(): void
+    {
+        $novas = Pedido::query()
+            ->where('pedido_origem', PedidoOrigemEnum::MESA->value)
+            ->whereNotIn('pedido_status', [StatusPedidoEnum::INICIADO->value, StatusPedidoEnum::CANCELADO->value])
+            ->where('pedido_datahora_abertura', '>=', $this->impressaoMesaDesde ?? Carbon::now()->toDateTimeString())
+            ->whereNotIn('id', $this->rodadasMesaImpressas)
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+
+        if ($novas === []) {
+            return;
+        }
+
+        $this->rodadasMesaImpressas = [...$this->rodadasMesaImpressas, ...$novas];
+
+        $this->dispatch('imprimir-rodadas-mesa', urls: array_map(
+            fn (int $id) => route('pedido.imprimir', ['id' => $id]),
+            $novas,
+        ));
     }
 
     /**
@@ -298,10 +341,20 @@ class PainelPedidos extends Page implements HasActions
             ->implode('|');
     }
 
+    /**
+     * Fila de entrada: pedidos ABERTO mais os INICIADO do cardápio (aguardando
+     * confirmação). Rascunho de outras origens — rodada do garçom ainda não
+     * enviada, AtenderPedido/PDV — não entra, senão o alerta tocaria quando o
+     * garçom abre a mesa e não quando a rodada chega.
+     */
     private function contarEntrada(): int
     {
         return Pedido::query()
-            ->whereIn('pedido_status', [StatusPedidoEnum::INICIADO->value, StatusPedidoEnum::ABERTO->value])
+            ->where(fn (Builder $q) => $q
+                ->where('pedido_status', StatusPedidoEnum::ABERTO->value)
+                ->orWhere(fn (Builder $qq) => $qq
+                    ->where('pedido_status', StatusPedidoEnum::INICIADO->value)
+                    ->where('pedido_origem', PedidoOrigemEnum::CARDAPIO->value)))
             ->count();
     }
 

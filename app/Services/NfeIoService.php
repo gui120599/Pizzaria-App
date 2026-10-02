@@ -7,6 +7,7 @@ use App\Models\Empresa;
 use App\Models\NfEmissao;
 use App\Models\Venda;
 use App\Services\Nfe\NfNumeracaoService;
+use App\Support\RateioCentavos;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
@@ -289,6 +290,14 @@ class NfeIoService
         $qtdItens = $venda->itensVenda->count();
         $freteItem = $qtdItens > 0 ? round((float) ($venda->venda_valor_frete ?? 0) / $qtdItens, 2) : 0;
 
+        // Taxa de serviço da mesa também vai em "outras despesas" (vOutro),
+        // rateada pelo valor de cada item, em centavos — sem ela o total dos
+        // pagamentos ficaria acima do total da nota.
+        $taxaServicoPorItem = RateioCentavos::ratearProporcional(
+            (int) round((float) $venda->venda_valor_taxa_servico * 100),
+            $venda->itensVenda->mapWithKeys(fn ($item) => [$item->id => (int) round((float) $item->item_venda_valor * 100)])->all(),
+        );
+
         foreach ($venda->itensVenda as $item) {
             $produto = $item->produto;
 
@@ -323,7 +332,7 @@ class NfeIoService
                 'quantityTax' => $item->item_venda_quantidade_tributavel,
                 'taxUnitAmount' => $item->item_venda_valor_unitario,
                 'discountAmount' => (float) $item->item_venda_desconto,
-                'othersAmount' => $item->item_venda_valor_adicionais + $freteItem,
+                'othersAmount' => round($item->item_venda_valor_adicionais + $freteItem + ($taxaServicoPorItem[$item->id] ?? 0) / 100, 2),
                 'totalIndicator' => (bool) $item->item_venda_valor,
                 'cest' => $produto->produto_codigo_CEST,
                 'tax' => $item404 ? [
