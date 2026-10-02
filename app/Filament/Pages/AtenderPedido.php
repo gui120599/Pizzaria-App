@@ -522,9 +522,11 @@ class AtenderPedido extends Page
     private function sincronizarPagamentos(Pedido $pedido, array $pagamentos): void
     {
         $pedido->pagamentosCombinados()->delete();
+        $nomes = [];
 
         foreach (array_values($pagamentos) as $ordem => $linha) {
             $opcao = ($linha['opcaoPagamentoId'] ?? null) ? OpcoesPagamento::find($linha['opcaoPagamentoId']) : null;
+            $nomes[] = $opcao?->opcaopag_nome;
 
             PagamentosPedido::create([
                 'pg_pedido_pedido_id' => $pedido->id,
@@ -535,6 +537,11 @@ class AtenderPedido extends Page
                 'pg_pedido_ordem' => $ordem,
             ]);
         }
+
+        // Texto legado, no mesmo formato da tela antiga ("Pix, Dinheiro"):
+        // ainda é o que a sugestão de pagamento do PDV (OperarVenda) e as
+        // telas legadas leem.
+        $pedido->update(['pedido_descricao_pagamento' => implode(', ', array_filter($nomes)) ?: null]);
     }
 
     private function parseValor(mixed $valor): float
