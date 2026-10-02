@@ -359,6 +359,13 @@
                     </div>
                 </div>
 
+                @if ((float) $this->venda?->venda_valor_taxa_servico > 0)
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Taxa de serviço (mesa)</span>
+                        <span class="text-xs font-semibold text-gray-800 dark:text-gray-200">R$ {{ number_format((float) $this->venda->venda_valor_taxa_servico, 2, ',', '.') }}</span>
+                    </div>
+                @endif
+
                 <div class="border-t border-gray-100 dark:border-white/10 pt-3 flex items-center justify-between">
                     <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Total</span>
                     <span class="text-lg font-bold text-gray-900 dark:text-white">R$ {{ number_format((float) $this->venda?->venda_valor_total, 2, ',', '.') }}</span>
@@ -407,16 +414,6 @@
             @error('finalizar')
                 <div class="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-400 text-sm rounded-lg px-4 py-3">{{ $message }}</div>
             @enderror
-
-            @if ($this->nfeIoDisponivel)
-                <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
-                    <input type="checkbox" wire:model="emitirNfeAoFinalizar" class="h-4 w-4 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-primary-600 focus:ring-primary-500" />
-                    Emitir NFC-e ao finalizar
-                    @if (! $nfeDecisaoManual && $this->pagamentosLancados->isNotEmpty())
-                        <span class="text-gray-400 dark:text-gray-500">(sugerido pela forma de pagamento)</span>
-                    @endif
-                </label>
-            @endif
 
             @if ($this->venda?->venda_cliente_id)
                 <div class="space-y-2">

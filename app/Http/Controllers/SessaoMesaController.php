@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PedidoOrigemEnum;
+use App\Exceptions\MesaIndisponivelException;
 use App\Http\Requests\StoreSessaoMesaRequest;
 use App\Http\Requests\UpdateSessaoMesaRequest;
 use App\Models\Cliente;
@@ -322,11 +323,15 @@ class SessaoMesaController extends Controller
     {
         $mesa_id = $request->input('sessao_mesa_mesa_id');
 
-        $sessaoMesa = $this->sessaoMesaService->abrir(
-            mesaId: (int) $mesa_id,
-            usuarioId: (int) $request->input('sessao_mesa_usuario_id'),
-            clienteId: $request->input('sessao_mesa_cliente_id') ?: null,
-        );
+        try {
+            $sessaoMesa = $this->sessaoMesaService->abrir(
+                mesaId: (int) $mesa_id,
+                usuarioId: (int) $request->input('sessao_mesa_usuario_id'),
+                clienteId: $request->input('sessao_mesa_cliente_id') ?: null,
+            );
+        } catch (MesaIndisponivelException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         // Registrar clientes na sessão
         $clientesIds = $request->input('clientes_ids', []);

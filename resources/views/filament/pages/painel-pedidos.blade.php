@@ -11,6 +11,7 @@
         wire:poll.10s="atualizar"
         x-data="painelPedidos()"
         @novo-pedido.window="alertar()"
+        @imprimir-rodadas-mesa.window="imprimirRodadas($event.detail.urls)"
     >
         {{-- Barra de filtros --}}
         <div class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white p-2.5 dark:border-white/10 dark:bg-gray-900">
@@ -85,6 +86,13 @@
                  quando nada mudou, então um label renderizado no request nunca
                  avançaria sozinho. Alpine escuta o hook de commit do Livewire e
                  atualiza a cada resposta do poll, mudança ou não. --}}
+            {{-- Preferência do aparelho (localStorage): ligar só no computador
+                 da cozinha, que tem a impressora. --}}
+            <label class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600 dark:border-gray-600 dark:text-gray-300">
+                <input type="checkbox" x-model="autoImprimirMesa" @change="salvarAutoImprimir()" class="rounded border-gray-300 text-primary-600">
+                Imprimir rodadas de mesa
+            </label>
+
             <span class="ml-auto shrink-0 text-xs text-gray-400" x-text="`🔄 Atualizado às ${ultimaAtualizacao}`"></span>
         </div>
 
@@ -226,11 +234,13 @@
         <script>
             Alpine.data('painelPedidos', () => ({
                 somAtivo: false,
+                autoImprimirMesa: false,
                 ultimaAtualizacao: new Date().toLocaleTimeString('pt-BR').slice(0, 8),
 
                 init() {
                     try {
                         this.somAtivo = localStorage.getItem('painel-pedidos-som') === '1';
+                        this.autoImprimirMesa = localStorage.getItem('painel-pedidos-auto-imprimir-mesa') === '1';
                     } catch (_) {
                         // Aba privada / storage bloqueado: segue sem preferência.
                     }
@@ -262,6 +272,33 @@
                     if (this.somAtivo) {
                         this.alertar();
                     }
+                },
+
+                salvarAutoImprimir() {
+                    try {
+                        localStorage.setItem('painel-pedidos-auto-imprimir-mesa', this.autoImprimirMesa ? '1' : '0');
+                    } catch (_) {}
+                },
+
+                // A comanda (pedido.imprimir) chama window.print() ao carregar;
+                // num iframe oculto ela imprime sem abrir janela, então o
+                // bloqueador de pop-up não interfere. Para sair sem o diálogo
+                // de impressão, o Chrome da cozinha deve rodar com
+                // --kiosk-printing.
+                imprimirRodadas(urls) {
+                    if (! this.autoImprimirMesa) {
+                        return;
+                    }
+
+                    urls.forEach((url, i) => {
+                        setTimeout(() => {
+                            const iframe = document.createElement('iframe');
+                            iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
+                            iframe.src = url;
+                            document.body.appendChild(iframe);
+                            setTimeout(() => iframe.remove(), 60000);
+                        }, i * 1500);
+                    });
                 },
 
                 irPara(id) {

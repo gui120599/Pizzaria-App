@@ -122,9 +122,18 @@
             <span class="font-bold">R$ {{ number_format($totalDesconto, 2, ',', '.') }}</span>
         </div>
         @endif
+        @php
+            $taxaServico = \App\Support\ContaMesa::taxaServico($sessao_mesa, (float) $totalGeral);
+        @endphp
+        @if ($taxaServico > 0)
+        <div class="flex justify-between text-xs">
+            <span>(+) Taxa de Serviço ({{ number_format((float) $sessao_mesa->sessao_mesa_taxa_servico_percentual, 0) }}%)</span>
+            <span class="font-bold">R$ {{ number_format($taxaServico, 2, ',', '.') }}</span>
+        </div>
+        @endif
         <div class="flex justify-between text-sm font-bold border-t-2 border-black pt-1 mt-1">
             <span>(=) TOTAL GERAL</span>
-            <span>R$ {{ number_format($totalGeral, 2, ',', '.') }}</span>
+            <span>R$ {{ number_format($totalGeral + $taxaServico, 2, ',', '.') }}</span>
         </div>
 
         <p class="text-center font-bold mt-2">**COMPROVANTE NÃO FISCAL**</p>

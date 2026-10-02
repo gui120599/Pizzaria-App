@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\RegraPrecoSaboresEnum;
 use App\Exceptions\ComboSaboresInvalidoException;
 use App\Models\Produto;
 use App\Models\PromocaoAdicionalOferta;
@@ -336,8 +337,9 @@ class PrecificadorService
     /**
      * Precifica uma pizza de N sabores como UMA linha de item.
      *
-     * Preço: a média dos preços dos sabores (cada sabor contribui com 1/N do
-     * seu preço, em centavos). Sob promoção de combo (relâmpago ou adicional
+     * Preço: pela regra da categoria (RegraPrecoSaboresEnum) — MEDIA, a média
+     * dos preços dos sabores (cada sabor contribui com 1/N do seu preço, em
+     * centavos), ou MAIOR, o preço do sabor mais caro. Sob promoção de combo (relâmpago ou adicional
      * cobrindo TODOS os sabores), a pizza custa o MAIOR preço promocional
      * entre os sabores — o preço anunciado; a média produziria um valor que
      * nunca foi divulgado —, e o desconto é rateado entre as fatias em
@@ -371,6 +373,7 @@ class PrecificadorService
         // Sob promoção o preço cheio é sempre o de venda: o promocional do
         // produto não se acumula com o da promoção relâmpago/adicional.
         $valorUnitario = [];
+        $descontoCheio = [];
         $brutoUnitCents = [];
         $descontoUnitCents = [];
 
@@ -384,6 +387,7 @@ class PrecificadorService
                 : $this->resolver($produto, considerarRelampago: false, considerarPromoAdicional: false);
 
             $valorUnitario[$idx] = $preco->valorUnitario;
+            $descontoCheio[$idx] = $preco->descontoUnitario;
             $brutoUnitCents[$idx] = RateioCentavos::fatiaCentavos($preco->valorUnitario, $numSabores, $idx);
             $descontoUnitCents[$idx] = ($promocao !== null || $regrasAdicionais !== null)
                 ? 0
@@ -398,6 +402,8 @@ class PrecificadorService
             $precoPizzaCents = (int) round($this->precoDoComboPromocionalAdicional($regrasAdicionais) * 100);
             $descontoTotalCents = max(0, array_sum($brutoUnitCents) - $precoPizzaCents);
             $descontoUnitCents = RateioCentavos::ratearProporcional($descontoTotalCents, $brutoUnitCents);
+        } elseif ($this->regraPrecoDoCombo($produtos) === RegraPrecoSaboresEnum::MAIOR) {
+            [$brutoUnitCents, $descontoUnitCents] = $this->fatiasPeloMaiorPreco($valorUnitario, $descontoCheio);
         }
 
         $sabores = [];
@@ -431,6 +437,45 @@ class PrecificadorService
             // a regra de cada sabor fica no JSON de sabores.
             'promocao_adicional_regra_id' => $regrasAdicionais?->first()?->id,
             'sabores' => $sabores,
+        ];
+    }
+
+    /**
+     * Regra de preço configurada na categoria dos sabores (todos são da mesma
+     * categoria — garantido por opcaoDoCombo()).
+     *
+     * @param  array<int, Produto>  $produtos
+     */
+    private function regraPrecoDoCombo(array $produtos): RegraPrecoSaboresEnum
+    {
+        return $produtos[0]->categoria?->regraPrecoSaboresResolvida() ?? RegraPrecoSaboresEnum::MEDIA;
+    }
+
+    /**
+     * Regra MAIOR: a pizza custa o sabor de maior preço final (com o desconto
+     * do próprio produto, se houver). O bruto e o desconto desse sabor são
+     * rateados entre as fatias na proporção do preço cheio de cada sabor, para
+     * relatórios por sabor continuarem somando o valor da pizza.
+     *
+     * @param  array<int, float>  $valorUnitario  Preço cheio de cada sabor
+     * @param  array<int, float>  $descontoCheio  Desconto unitário de cada sabor
+     * @return array{0: array<int, int>, 1: array<int, int>} Bruto e desconto por fatia, em centavos
+     */
+    private function fatiasPeloMaiorPreco(array $valorUnitario, array $descontoCheio): array
+    {
+        $idxMaior = array_key_first($valorUnitario);
+
+        foreach ($valorUnitario as $idx => $valor) {
+            if ($valor - $descontoCheio[$idx] > $valorUnitario[$idxMaior] - $descontoCheio[$idxMaior]) {
+                $idxMaior = $idx;
+            }
+        }
+
+        $pesos = array_map(fn (float $valor) => (int) round($valor * 100), $valorUnitario);
+
+        return [
+            RateioCentavos::ratearProporcional((int) round($valorUnitario[$idxMaior] * 100), $pesos),
+            RateioCentavos::ratearProporcional((int) round($descontoCheio[$idxMaior] * 100), $pesos),
         ];
     }
 

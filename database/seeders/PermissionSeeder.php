@@ -48,6 +48,9 @@ class PermissionSeeder extends Seeder
             // view:relatorio_financeiro (só quem fecha o financeiro vê).
             'create:cliente', 'update:cliente', 'delete:cliente',
             'view_any:nota_fiscal', 'view:nota_fiscal',
+            // Ações sensíveis do salão: quem tem dispensa o PIN de gerente
+            // (ver AcaoAutorizadaEnum::permissao()).
+            'cancelar_item:pedido', 'remover_taxa:sessao_mesa', 'transferir:sessao_mesa',
         ],
         'Atendente' => [
             'cancel:pedido', 'accept:pedido', 'reject:pedido', 'advance:pedido',
@@ -63,6 +66,12 @@ class PermissionSeeder extends Seeder
         ],
         'Entregador' => [
             'deliver:pedido',
+        ],
+        'Garcom' => [
+            'view:sessao_mesa', 'view_any:sessao_mesa', 'create:sessao_mesa',
+            'view:pedido', 'view_any:pedido', 'create:pedido', 'update:pedido',
+            'cancel:pedido', 'advance:pedido',
+            'create:cliente', 'update:cliente',
         ],
     ];
 

@@ -1,0 +1,14 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+@import url('/node_modules/boxicons/css/boxicons.min.css');
+
+@source '../../../../app/Filament/Garcom/**/*';
+@source '../../../../resources/views/filament/garcom/**/*';
+@source '../../../../app/Enums/StatusMapaMesaEnum.php';
+
+/*
+ * Componentes Livewire embutidos nas telas do salão (PedidoProdutoSelector,
+ * MesaStoneCobranca) — mesma razão do tema do /admin.
+ */
+@source '../../../../app/Livewire/**/*';
+@source '../../../../resources/views/livewire/**/*';
+@source '../../../../resources/views/components/**/*';

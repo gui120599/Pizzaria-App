@@ -4,6 +4,7 @@ namespace App\Services\Stone;
 
 use App\Enums\StonePedidoOrigem;
 use App\Exceptions\VendaNaoFinalizavelException;
+use App\Jobs\EmitirNfeAutomaticaJob;
 use App\Models\ItensPedido;
 use App\Models\PagamentosVenda;
 use App\Models\Pedido;
@@ -14,6 +15,7 @@ use App\Models\Venda;
 use App\Services\FinalizacaoVendaService;
 use App\Services\LancamentoItensVendaService;
 use App\Services\VendaService;
+use App\Support\ContaMesa;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -205,6 +207,10 @@ class StoneVendaAutomaticaService
             return false;
         }
 
+        // Mesma regra de NFC-e automática do PDV (forma de pagamento) — em
+        // fila, depois do commit, para não segurar a resposta do webhook.
+        EmitirNfeAutomaticaJob::dispatch($venda->id)->afterCommit();
+
         return true;
     }
 
@@ -214,8 +220,9 @@ class StoneVendaAutomaticaService
     private function resolverPedidosAlvo(StonePedido $stonePedido): Collection
     {
         if (filled($stonePedido->stp_sessao_mesa_id)) {
+            // Rascunho de rodada (INICIADO) não foi enviado nem cobrado na maquininha.
             return Pedido::where('pedido_sessao_mesa_id', $stonePedido->stp_sessao_mesa_id)
-                ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
+                ->whereNotIn('pedido_status', ContaMesa::STATUS_FORA_DA_CONTA)
                 ->get();
         }
 

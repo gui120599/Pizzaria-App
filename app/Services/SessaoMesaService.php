@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Exceptions\MesaIndisponivelException;
 use App\Models\Mesa;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -15,21 +17,56 @@ use RuntimeException;
  */
 class SessaoMesaService
 {
-    public function abrir(int $mesaId, int $usuarioId, ?int $clienteId = null): SessaoMesa
+    /**
+     * Abre a sessão travando a linha da mesa: dois garçons tocando na mesma
+     * mesa livre ao mesmo tempo não criam duas sessões.
+     *
+     * @param  ?float  $taxaServicoPercentual  null = padrão de config('pizzaria.salao')
+     *
+     * @throws MesaIndisponivelException quando a mesa já está ocupada ou inativa.
+     */
+    public function abrir(
+        int $mesaId,
+        int $usuarioId,
+        ?int $clienteId = null,
+        int $pessoas = 1,
+        ?float $taxaServicoPercentual = null,
+    ): SessaoMesa {
+        return DB::transaction(function () use ($mesaId, $usuarioId, $clienteId, $pessoas, $taxaServicoPercentual) {
+            $mesa = Mesa::whereKey($mesaId)->lockForUpdate()->firstOrFail();
+
+            if ($mesa->mesa_status === 'OCUPADA') {
+                throw new MesaIndisponivelException("{$mesa->mesa_nome} já está ocupada por outra sessão.");
+            }
+
+            if ($mesa->mesa_status === 'INATIVA') {
+                throw new MesaIndisponivelException("{$mesa->mesa_nome} está inativa.");
+            }
+
+            $sessaoMesa = SessaoMesa::create([
+                'sessao_mesa_mesa_id' => $mesaId,
+                'sessao_mesa_status' => 'ABERTA',
+                'sessao_mesa_usuario_id' => $usuarioId,
+                'sessao_mesa_cliente_id' => $clienteId,
+                'sessao_mesa_pessoas' => max(1, $pessoas),
+                'sessao_mesa_taxa_servico_percentual' => $taxaServicoPercentual ?? self::taxaServicoPadrao(),
+            ]);
+
+            $mesa->update([
+                'mesa_status' => 'OCUPADA',
+                'mesa_sessao_atual_id' => $sessaoMesa->id,
+            ]);
+
+            return $sessaoMesa;
+        });
+    }
+
+    /** Percentual de taxa de serviço aplicado a uma conta nova. */
+    public static function taxaServicoPadrao(): float
     {
-        $sessaoMesa = SessaoMesa::create([
-            'sessao_mesa_mesa_id' => $mesaId,
-            'sessao_mesa_status' => 'ABERTA',
-            'sessao_mesa_usuario_id' => $usuarioId,
-            'sessao_mesa_cliente_id' => $clienteId,
-        ]);
-
-        Mesa::whereKey($mesaId)->update([
-            'mesa_status' => 'OCUPADA',
-            'mesa_sessao_atual_id' => $sessaoMesa->id,
-        ]);
-
-        return $sessaoMesa;
+        return config('pizzaria.salao.taxa_servico_padrao_ligada')
+            ? (float) config('pizzaria.salao.taxa_servico_percentual')
+            : 0.0;
     }
 
     /** Fecha com pedidos ativos, ou cancela se não houver nenhum — sempre libera a mesa. */

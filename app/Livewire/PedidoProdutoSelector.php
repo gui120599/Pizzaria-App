@@ -84,6 +84,9 @@ class PedidoProdutoSelector extends Component
     // Modal sabores (meia a meia / terços)
     public bool $saboresModalAberta = false;
 
+    /** Observação da pizza escolhida no modal de sabores (ex.: "sem cebola"). */
+    public string $saboresObservacao = '';
+
     public string $saboresCategoriaNome = '';
 
     public int $saboresModo = 1;
@@ -671,7 +674,7 @@ class PedidoProdutoSelector extends Component
             'desconto' => $linha['desconto'],
             'adicionais_valor' => 0,
             'adicionais' => [],
-            'observacao' => '',
+            'observacao' => trim($this->saboresObservacao),
             'multi_sabor' => $previa->ehMultiSabor(),
             'sabores' => $linha['sabores'],
             'sabores_linhas' => $previa->linhasSabores(),
@@ -695,7 +698,7 @@ class PedidoProdutoSelector extends Component
                         'item_pedido_desconto' => $linha['desconto'],
                         'item_pedido_desconto_unitario' => $linha['desconto_unitario'],
                         'item_pedido_valor_adicionais' => 0,
-                        'item_pedido_observacao' => null,
+                        'item_pedido_observacao' => trim($this->saboresObservacao) ?: null,
                         'item_pedido_sabores' => $linha['sabores'],
                         'item_pedido_status' => 'INSERIDO',
                     ]);
@@ -753,6 +756,7 @@ class PedidoProdutoSelector extends Component
     public function fecharSaboresModal(): void
     {
         $this->saboresModalAberta = false;
+        $this->saboresObservacao = '';
         $this->saboresSelecionados = [];
         $this->saboresProdutos = [];
         $this->clienteSelecionadoId = null;

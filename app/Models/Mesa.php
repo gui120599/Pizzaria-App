@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\TipoMesaEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Mesa extends Model
@@ -26,6 +28,10 @@ class Mesa extends Model
         'mesa_nome',
         'mesa_status',
         'mesa_sessao_atual_id',
+        'mesa_tipo',
+        'mesa_numero',
+        'mesa_capacidade',
+        'mesa_area',
     ];
 
     /**
@@ -35,6 +41,9 @@ class Mesa extends Model
      */
     protected $casts = [
         'mesa_status' => 'string',
+        'mesa_tipo' => TipoMesaEnum::class,
+        'mesa_numero' => 'integer',
+        'mesa_capacidade' => 'integer',
     ];
 
     /**
@@ -58,5 +67,15 @@ class Mesa extends Model
     public function sessoes()
     {
         return $this->hasMany(SessaoMesa::class, 'sessao_mesa_mesa_id');
+    }
+
+    public function sessaoAtual(): BelongsTo
+    {
+        return $this->belongsTo(SessaoMesa::class, 'mesa_sessao_atual_id');
+    }
+
+    public function ehComanda(): bool
+    {
+        return $this->mesa_tipo === TipoMesaEnum::COMANDA;
     }
 }

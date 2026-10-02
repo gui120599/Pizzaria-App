@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
@@ -26,9 +27,26 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
      */
     private const PANEL_ROLES = ['Admin', 'Gerente', 'Atendente', 'Caixa', 'Entregador'];
 
+    /** Roles que operam o salão pelo Painel do Garçom (/garcom). */
+    public const GARCOM_PANEL_ROLES = ['Admin', 'Gerente', 'Atendente', 'Garcom'];
+
     public function canAccessPanel(Panel $panel): bool
     {
+        if ($panel->getId() === 'garcom') {
+            return $this->hasAnyRole(self::GARCOM_PANEL_ROLES);
+        }
+
         return $this->hasAnyRole(self::PANEL_ROLES);
+    }
+
+    public function temPin(): bool
+    {
+        return filled($this->user_pin);
+    }
+
+    public function conferePin(string $pin): bool
+    {
+        return $this->temPin() && Hash::check($pin, $this->user_pin);
     }
 
     /**
@@ -43,6 +61,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'password',
         'name_first',
         'avatar',
+        'user_pin',
     ];
 
     /**
@@ -63,6 +82,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     protected $hidden = [
         'password',
         'remember_token',
+        'user_pin',
     ];
 
     /**
@@ -73,6 +93,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'user_pin' => 'hashed',
         'preferencias' => 'array',
     ];
 

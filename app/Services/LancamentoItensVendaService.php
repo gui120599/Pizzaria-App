@@ -9,6 +9,7 @@ use App\Models\ItensVenda;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
+use App\Support\ContaMesa;
 use Illuminate\Support\Collection;
 
 /**
@@ -22,14 +23,15 @@ use Illuminate\Support\Collection;
 class LancamentoItensVendaService
 {
     /**
-     * Lança todos os pedidos ativos (não cancelados/finalizados) de uma
-     * sessão de mesa na venda, um a um. Retorna a quantidade total de
-     * ItensPedido lançados.
+     * Lança todos os pedidos ativos de uma sessão de mesa na venda, um a um.
+     * Rascunhos (INICIADO) ficam de fora: são rodadas que o garçom ainda não
+     * enviou para a cozinha (ver ContaMesa::STATUS_FORA_DA_CONTA). Retorna a
+     * quantidade total de ItensPedido lançados.
      */
     public function lancarSessaoMesa(Venda $venda, SessaoMesa $sessaoMesa): int
     {
         $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesa->id)
-            ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
+            ->whereNotIn('pedido_status', ContaMesa::STATUS_FORA_DA_CONTA)
             ->get();
 
         $total = 0;

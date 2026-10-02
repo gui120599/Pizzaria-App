@@ -78,6 +78,17 @@ class UserResource extends Resource
                             ->required(fn (string $operation): bool => $operation === 'create')
                             ->revealable()
                             ->password(),
+                        TextInput::make('user_pin')
+                            ->label('PIN do salão')
+                            ->helperText('4 a 6 números. Login rápido no Painel do Garçom e, para gerentes, autorização de cancelamentos e taxa de serviço. Em branco mantém o atual.')
+                            ->password()
+                            ->revealable()
+                            ->autocomplete('new-password')
+                            ->regex('/^\d{4,6}$/')
+                            ->validationMessages(['regex' => 'O PIN deve ter de 4 a 6 números.'])
+                            // O cast 'hashed' do User gera o hash; vazio não sobrescreve.
+                            ->formatStateUsing(fn (): ?string => null)
+                            ->dehydrated(fn (?string $state): bool => filled($state)),
 
                     ]),
                 Section::make('Acesso')

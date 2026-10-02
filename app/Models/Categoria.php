@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RegraPrecoSaboresEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,7 @@ class Categoria extends Model
         'categoria_cardapio_garcom',
         'categoria_permite_sabores',
         'categoria_herda_sabores',
+        'categoria_regra_preco_sabores',
     ];
 
     protected $casts = [
@@ -35,6 +37,7 @@ class Categoria extends Model
         'categoria_permite_sabores' => 'boolean',
         'categoria_herda_sabores' => 'boolean',
         'categoria_ordem' => 'integer',
+        'categoria_regra_preco_sabores' => RegraPrecoSaboresEnum::class,
     ];
 
     protected static function booted(): void
@@ -121,6 +124,19 @@ class Categoria extends Model
         }
 
         return $this->quantidadesSabores;
+    }
+
+    /**
+     * Regra de preço da pizza de vários sabores, seguindo a mesma herança das
+     * opções de quantidade (categoria_herda_sabores).
+     */
+    public function regraPrecoSaboresResolvida(): RegraPrecoSaboresEnum
+    {
+        if ($this->herdaQuantidadesSabores() && $this->pai) {
+            return $this->pai->regraPrecoSaboresResolvida();
+        }
+
+        return $this->categoria_regra_preco_sabores ?? RegraPrecoSaboresEnum::MEDIA;
     }
 
     public function opcaoQuantidadeSabores(int $quantidade): ?QuantidadeSabor

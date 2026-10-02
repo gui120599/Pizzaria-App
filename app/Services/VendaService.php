@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ItensPedido;
 use App\Models\Pedido;
 use App\Models\Venda;
+use App\Support\ContaMesa;
 
 class VendaService
 {
@@ -65,7 +66,9 @@ class VendaService
         $venda->venda_valor_itens = $venda_valor_itens;
         $venda->venda_valor_frete = $venda_valor_frete;
         $venda->venda_valor_desconto = $venda_valor_desconto;
-        $venda->venda_valor_total = $venda_valor_total + $venda_valor_frete;
+        // Taxa de serviço das mesas cujos itens estão nesta venda (0 sem mesa).
+        $venda->venda_valor_taxa_servico = ContaMesa::taxaServicoDaVenda($venda->id);
+        $venda->venda_valor_total = $venda_valor_total + $venda_valor_frete + $venda->venda_valor_taxa_servico;
         $venda->venda_valor_pago = $venda_valor_pago;
         $venda->venda_valor_acrescimo = $venda_valor_acrescimo;
         // Troco agora é a soma dos trocos registrados em cada pagamento

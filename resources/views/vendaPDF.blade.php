@@ -92,6 +92,9 @@
                 @if ($venda->venda_valor_frete > 0)
                     <label>(+) Taxa de Entrega</label><br>
                 @endif
+                @if ($venda->venda_valor_taxa_servico > 0)
+                    <label>(+) Taxa de Serviço</label><br>
+                @endif
                 <label>(=) Valor Total</label><br>
                 <label>Valor Pago</label><br>
                 @if ($venda->venda_valor_troco > 0)
@@ -109,6 +112,9 @@
                 @endif
                 @if ($venda->venda_valor_frete > 0)
                     <label>R$ {{ number_format($venda->venda_valor_frete, 2, ',', '.') }}</label><br>
+                @endif
+                @if ($venda->venda_valor_taxa_servico > 0)
+                    <label>R$ {{ number_format($venda->venda_valor_taxa_servico, 2, ',', '.') }}</label><br>
                 @endif
                 <label>R$ {{ number_format($venda->venda_valor_total, 2, ',', '.') }}</label><br>
                 <label>R$ {{ number_format($venda->venda_valor_pago, 2, ',', '.') }}</label><br>

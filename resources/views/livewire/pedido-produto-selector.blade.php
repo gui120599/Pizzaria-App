@@ -693,6 +693,10 @@
                         </div>
                     @endif
 
+                    <input type="text" wire:model="saboresObservacao" maxlength="255"
+                        placeholder="Observação (ex.: sem cebola, bem assada)"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-xl bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+
                     <div class="flex gap-3">
                         <button wire:click="fecharSaboresModal" type="button"
                             class="flex-1 py-2.5 border border-gray-300 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
