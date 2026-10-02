@@ -91,7 +91,7 @@ class ClientePicker extends Component
 
     private function buscarPorCelular(string $normalizado): void
     {
-        $cliente = Cliente::where('cliente_celular', 'like', "%{$normalizado}%")->first();
+        $cliente = Cliente::naoAvulsos()->where('cliente_celular', 'like', "%{$normalizado}%")->first();
 
         if (! $cliente) {
             $this->clienteEncontrado = false;
@@ -145,8 +145,10 @@ class ClientePicker extends Component
         $digitos = preg_replace('/\D/', '', $this->buscaQuery) ?? '';
 
         return Cliente::query()
-            ->where('cliente_nome', 'like', "%{$this->buscaQuery}%")
-            ->when($digitos !== '', fn ($query) => $query->orWhere('cliente_celular', 'like', "%{$digitos}%"))
+            ->naoAvulsos()
+            ->where(fn ($query) => $query
+                ->where('cliente_nome', 'like', "%{$this->buscaQuery}%")
+                ->when($digitos !== '', fn ($q) => $q->orWhere('cliente_celular', 'like', "%{$digitos}%")))
             ->limit(10)
             ->get();
     }

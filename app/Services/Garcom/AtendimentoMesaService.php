@@ -7,18 +7,23 @@ use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Exceptions\AutorizacaoNegadaException;
+use App\Models\Cliente;
 use App\Models\ItensPedido;
 use App\Models\Mesa;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
+use App\Models\SessaoMesaCliente;
 use App\Models\User;
+use App\Services\ClienteResolverService;
 use App\Services\PedidoStatusService;
 use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use App\Services\SessaoMesaService;
 use App\Support\TotaisPedido;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use RuntimeException;
 
 /**
@@ -287,6 +292,108 @@ class AtendimentoMesaService
 
             return $this->sessoes->trocarMesa($sessao, $novaMesa->id);
         });
+    }
+
+    /**
+     * Fecha a sessão pelo garçom e libera a mesa para o próximo cliente. A
+     * conta continua pendente no caixa (sessão FECHADA aparece na OperarVenda
+     * até ser paga); sem nenhuma rodada enviada, a sessão é CANCELADA.
+     *
+     * @throws RuntimeException quando há rodada montada e não enviada
+     * @throws AuthorizationException quem não é o garçom da mesa nem gerente
+     */
+    public function fecharSessao(SessaoMesa $sessao, User $ator): SessaoMesa
+    {
+        Gate::forUser($ator)->authorize('update', $sessao);
+
+        return DB::transaction(function () use ($sessao) {
+            $sessao = SessaoMesa::whereKey($sessao->getKey())->lockForUpdate()->firstOrFail();
+            $this->garantirSessaoAberta($sessao);
+
+            $rascunhos = Pedido::query()
+                ->where('pedido_sessao_mesa_id', $sessao->id)
+                ->where('pedido_status', StatusPedidoEnum::INICIADO->value)
+                ->withCount(['item_pedido_pedido_id as itens_ativos' => fn ($q) => $q->where('item_pedido_status', 'INSERIDO')])
+                ->with('garcom:id,name,name_first')
+                ->lockForUpdate()
+                ->get();
+
+            $comItens = $rascunhos->firstWhere('itens_ativos', '>', 0);
+
+            if ($comItens) {
+                $quem = $comItens->garcom?->name_first ?: $comItens->garcom?->name ?: 'um garçom';
+
+                throw new RuntimeException("Há uma rodada montada e não enviada por {$quem}. Envie ou esvazie antes de fechar a mesa.");
+            }
+
+            // Rascunho vazio não vira pedido órfão em sessão fechada.
+            $rascunhos->each(fn (Pedido $rascunho) => $rascunho->fill([
+                'pedido_status' => StatusPedidoEnum::CANCELADO->value,
+                'pedido_motivo_cancelamento' => MotivoCancelamentoEnum::OUTRO->value,
+                'pedido_datahora_cancelado' => Carbon::now(),
+            ])->save());
+
+            return $this->sessoes->fechar($sessao);
+        });
+    }
+
+    /** Rodadas enviadas e ainda não servidas — aviso no modal de fechar mesa. */
+    public function rodadasNaoServidas(SessaoMesa $sessao): int
+    {
+        return Pedido::where('pedido_sessao_mesa_id', $sessao->id)
+            ->whereIn('pedido_status', [StatusPedidoEnum::ABERTO->value, StatusPedidoEnum::PREPARANDO->value, StatusPedidoEnum::PRONTO->value])
+            ->count();
+    }
+
+    /**
+     * Inclui uma pessoa na mesa para separar comandas: cliente já cadastrado
+     * ($clienteId), cadastro novo (nome + celular opcional) ou nome livre sem
+     * cadastro ($semCadastro — Cliente avulso, fora das buscas).
+     *
+     * @throws RuntimeException
+     */
+    public function adicionarClienteNaMesa(
+        SessaoMesa $sessao,
+        ?int $clienteId,
+        ?string $nome = null,
+        ?string $celular = null,
+        bool $semCadastro = false,
+    ): Cliente {
+        $this->garantirSessaoAberta($sessao);
+        $nome = trim((string) $nome);
+
+        $cliente = match (true) {
+            $clienteId !== null => Cliente::findOrFail($clienteId),
+            $nome === '' => throw new RuntimeException('Informe o nome da pessoa.'),
+            $semCadastro => Cliente::create(['cliente_nome' => $nome, 'cliente_tipo' => 'Física', 'cliente_avulso' => true]),
+            default => app(ClienteResolverService::class)->resolverOuCriar([
+                'nome' => $nome,
+                'celular' => filled($celular) ? $celular : null,
+            ]),
+        };
+
+        SessaoMesaCliente::firstOrCreate([
+            'smc_sessao_mesa_id' => $sessao->id,
+            'smc_cliente_id' => $cliente->id,
+        ]);
+
+        return $cliente;
+    }
+
+    /** @throws RuntimeException quando a pessoa já tem itens na mesa */
+    public function removerClienteDaMesa(SessaoMesa $sessao, int $clienteId): void
+    {
+        $temItens = ItensPedido::query()
+            ->where('item_pedido_cliente_id', $clienteId)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->whereHas('pedido', fn ($q) => $q->where('pedido_sessao_mesa_id', $sessao->id))
+            ->exists();
+
+        if ($temItens) {
+            throw new RuntimeException('Esta pessoa já tem itens na mesa — mova ou cancele os itens antes.');
+        }
+
+        SessaoMesaCliente::where('smc_sessao_mesa_id', $sessao->id)->where('smc_cliente_id', $clienteId)->delete();
     }
 
     /**

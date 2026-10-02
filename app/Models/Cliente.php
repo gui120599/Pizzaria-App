@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -30,11 +31,13 @@ class Cliente extends Model
         'cliente_cep',
         'cliente_foto', // Novo campo adicionado
         'cliente_limite_credito',
+        'cliente_avulso',
     ];
 
     protected $casts = [
         'cliente_data_nascimento' => 'date',
         'cliente_limite_credito' => 'decimal:2',
+        'cliente_avulso' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -47,6 +50,12 @@ class Cliente extends Model
         $foto->move($caminho, $nomeArquivo);
         $this->cliente_foto = $nomeArquivo;
         $this->save();
+    }
+
+    /** Exclui o "nome livre" de mesa (cliente_avulso) — buscas e listagens de clientes. */
+    public function scopeNaoAvulsos(Builder $query): Builder
+    {
+        return $query->where('cliente_avulso', false);
     }
 
     public function pedidos()

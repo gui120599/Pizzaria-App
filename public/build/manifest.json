@@ -20,17 +20,17 @@
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BkU5SyCP.css",
+    "file": "assets/app-gYn3L23w.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-fPm7HinE.css",
+    "file": "assets/theme-DNPuypPX.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
   "resources/css/filament/garcom/theme.css": {
-    "file": "assets/theme-CAGK7PDv.css",
+    "file": "assets/theme-D1UoSV-2.css",
     "src": "resources/css/filament/garcom/theme.css",
     "isEntry": true
   },

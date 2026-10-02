@@ -153,6 +153,19 @@ class ClientesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                // Nome livre do Painel do Garçom (pessoa da mesa sem cadastro):
+                // escondido por padrão para não poluir a base de clientes.
+                TernaryFilter::make('cliente_avulso')
+                    ->label('Nome livre de mesa')
+                    ->placeholder('Somente cadastrados')
+                    ->trueLabel('Somente nome livre')
+                    ->falseLabel('Todos')
+                    ->queries(
+                        true: fn (Builder $query) => $query->where('cliente_avulso', true),
+                        false: fn (Builder $query) => $query,
+                        blank: fn (Builder $query) => $query->where('cliente_avulso', false),
+                    ),
+
                 SelectFilter::make('cliente_tipo')
                     ->label('Tipo de Cliente')
                     ->options([

@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Enums\StatusPedidoEnum;
 use App\Models\ItensPedido;
 use App\Models\SessaoMesa;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -34,6 +35,54 @@ final class ContaMesa
             ->where('item_pedido_status', 'INSERIDO')
             ->whereNull('item_pedido_venda_id')
             ->sum('item_pedido_valor'), 2);
+    }
+
+    /**
+     * Itens ainda na conta (mesmo escopo de subtotal()), com produto,
+     * adicionais, pessoa e a rodada de origem — base da pré-conta.
+     *
+     * @return Collection<int, ItensPedido>
+     */
+    public static function itensEmAberto(int $sessaoMesaId, ?int $clienteId = null): Collection
+    {
+        return ItensPedido::query()
+            ->whereHas('pedido', fn ($q) => $q
+                ->where('pedido_sessao_mesa_id', $sessaoMesaId)
+                ->whereNotIn('pedido_status', self::STATUS_FORA_DA_CONTA))
+            ->where('item_pedido_status', 'INSERIDO')
+            ->whereNull('item_pedido_venda_id')
+            // 0 = itens da mesa sem pessoa ("Mesa geral").
+            ->when($clienteId !== null, fn ($q) => $clienteId === 0
+                ? $q->whereNull('item_pedido_cliente_id')
+                : $q->where('item_pedido_cliente_id', $clienteId))
+            ->with(['pedido.garcom', 'produto.categoria', 'adicionaisItemPedido.adicional', 'cliente'])
+            ->orderBy('item_pedido_pedido_id')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Conta separada por pessoa da mesa (chave 0 = mesa geral), com a taxa
+     * de serviço proporcional a cada uma.
+     *
+     * @return array<int, array{nome: string, subtotal: float, taxa: float, total: float}>
+     */
+    public static function porPessoa(SessaoMesa $sessao): array
+    {
+        return self::itensEmAberto($sessao->id)
+            ->groupBy(fn (ItensPedido $item) => (int) ($item->item_pedido_cliente_id ?? 0))
+            ->map(function ($itens, int $clienteId) use ($sessao) {
+                $subtotal = round((float) $itens->sum('item_pedido_valor'), 2);
+                $taxa = self::taxaServico($sessao, $subtotal);
+
+                return [
+                    'nome' => $clienteId === 0 ? 'Mesa geral' : ($itens->first()->cliente?->cliente_nome ?? 'Cliente #'.$clienteId),
+                    'subtotal' => $subtotal,
+                    'taxa' => $taxa,
+                    'total' => round($subtotal + $taxa, 2),
+                ];
+            })
+            ->all();
     }
 
     public static function taxaServico(SessaoMesa $sessao, float $subtotal): float

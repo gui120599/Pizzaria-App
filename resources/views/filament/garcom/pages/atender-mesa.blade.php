@@ -42,12 +42,16 @@
             </div>
 
             {{-- Pedir --}}
-            <div @class(['hidden' => $aba !== 'pedir'])>
+            <div @class(['space-y-3', 'hidden' => $aba !== 'pedir'])>
+                @include('filament.garcom.partials.pessoas-mesa')
+
+                @php $pessoasMesa = $this->clientesDaMesa(); @endphp
                 @livewire('pedido-produto-selector', [
                     'pedidoId' => $rascunhoId,
                     'saveButtonLabel' => 'Enviar para a cozinha',
-                    'sessaoMesaClientes' => $this->clientesDaMesa(),
-                ], key('rodada-'.$rascunhoId))
+                    'sessaoMesaClientes' => $pessoasMesa,
+                    'clientePadraoId' => $clientePadraoId,
+                ], key('rodada-'.$rascunhoId.'-'.($clientePadraoId ?? 0).'-'.count($pessoasMesa)))
 
                 <form id="pedido-form" wire:submit="enviarRodada" class="hidden"></form>
             </div>
@@ -91,6 +95,9 @@
                                             <p class="text-sm font-medium text-gray-900 dark:text-white">
                                                 {{ \App\Support\FormatoQuantidade::item($item->item_pedido_quantidade) }}× {{ $item->nomeProduto() }}
                                             </p>
+                                            @if ($item->cliente)
+                                                <p class="text-xs font-semibold text-primary-600 dark:text-primary-400">{{ $item->cliente->cliente_nome }}</p>
+                                            @endif
                                             @if ($item->adicionaisItemPedido->isNotEmpty())
                                                 <p class="text-xs text-gray-500">+ {{ $item->adicionaisItemPedido->map(fn ($a) => $a->adicional?->adicional_nome)->filter()->implode(', ') }}</p>
                                             @endif
@@ -164,10 +171,19 @@
                             {{ $sessao->contaSolicitada() ? 'Desfazer pedido de conta' : 'Mesa pediu a conta' }}
                         </button>
 
-                        <a href="{{ route('sessaoMesa.imprimir', ['id' => $sessao->id]) }}" target="_blank"
-                           class="rounded-xl bg-gray-100 py-3 text-center text-sm font-semibold text-gray-800 active:scale-[.98] dark:bg-white/10 dark:text-white">
-                            Imprimir pré-conta
-                        </a>
+                        <div x-data="{ aberto: false }" class="relative">
+                            <button type="button" x-on:click="aberto = ! aberto"
+                                    class="w-full rounded-xl bg-gray-100 py-3 text-center text-sm font-semibold text-gray-800 active:scale-[.98] dark:bg-white/10 dark:text-white">
+                                Imprimir pré-conta ▾
+                            </button>
+                            <div x-show="aberto" x-cloak x-on:click.outside="aberto = false"
+                                 class="absolute left-0 z-20 mt-1 w-56 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-white/10">
+                                @foreach (['agrupado' => 'Itens agrupados', 'rodada' => 'Por rodada', 'cliente' => 'Por pessoa'] as $modo => $rotulo)
+                                    <a href="{{ route('sessaoMesa.imprimir', ['id' => $sessao->id, 'modo' => $modo]) }}" target="_blank"
+                                       class="block px-4 py-3 text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-white/5">{{ $rotulo }}</a>
+                                @endforeach
+                            </div>
+                        </div>
 
                         <button type="button" wire:click="mountAction('alterarPessoas')"
                                 class="rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-800 active:scale-[.98] dark:bg-white/10 dark:text-white">
@@ -190,6 +206,42 @@
                                 class="rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-800 active:scale-[.98] dark:bg-white/10 dark:text-white">
                             Transferir mesa
                         </button>
+
+                        @if ($this->podeFecharMesa())
+                            <button type="button" wire:click="mountAction('fecharMesa')"
+                                    class="col-span-2 rounded-xl py-3 text-sm font-semibold text-red-600 ring-1 ring-red-300 active:scale-[.98] dark:ring-red-500/40">
+                                Fechar mesa (liberar para outro cliente)
+                            </button>
+                        @endif
+                    </div>
+
+                    {{-- Conta por pessoa + comanda individual --}}
+                    @php $porPessoa = $this->contaPorPessoa(); @endphp
+                    <div class="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
+                        @include('filament.garcom.partials.pessoas-mesa')
+
+                        @if (count($porPessoa) > 0)
+                            <ul class="divide-y divide-gray-100 dark:divide-white/10">
+                                @foreach ($porPessoa as $clienteId => $parcial)
+                                    <li wire:key="parcial-{{ $clienteId }}" class="flex items-center gap-3 py-2.5">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $parcial['nome'] }}</p>
+                                            <p class="text-xs text-gray-500">
+                                                R$ {{ number_format($parcial['subtotal'], 2, ',', '.') }}
+                                                @if ($parcial['taxa'] > 0)
+                                                    + taxa R$ {{ number_format($parcial['taxa'], 2, ',', '.') }}
+                                                @endif
+                                            </p>
+                                        </div>
+                                        <span class="text-sm font-bold text-gray-900 dark:text-white">R$ {{ number_format($parcial['total'], 2, ',', '.') }}</span>
+                                        <a href="{{ route('sessaoMesa.imprimir', ['id' => $sessao->id, 'modo' => 'cliente', 'cliente' => $clienteId]) }}" target="_blank"
+                                           class="rounded-lg px-2 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 dark:text-gray-200 dark:ring-white/10">
+                                            Comanda
+                                        </a>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
                     </div>
 
                     <div>

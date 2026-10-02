@@ -1,16 +1,31 @@
 {{--
-    Retirada do Painel do Garçom. Montando: cliente + PedidoProdutoSelector no
-    rascunho; o botão do selector dispara #pedido-form → enviar(). Enviada:
-    status, itens, cobrança Stone e "Entregue ao cliente", com poll do status.
+    Pedido para viagem do Painel do Garçom (retirada ou entrega). Montando:
+    cliente (+ endereço/frete/forma combinada na entrega) e PedidoProdutoSelector
+    no rascunho; o botão do selector dispara #pedido-form → enviar(). Enviado:
+    status e itens; retirada tem cobrança Stone e "Entregue ao cliente".
 --}}
 <x-filament-panels::page>
     <div class="space-y-4">
         @include('filament.garcom.partials.sem-conexao')
 
         <a href="{{ \App\Filament\Garcom\Pages\MapaMesas::getUrl(['tipo' => 'RETIRADA']) }}" wire:navigate
-           class="inline-block text-sm font-semibold text-primary-600 dark:text-primary-400">&larr; Retiradas</a>
+           class="inline-block text-sm font-semibold text-primary-600 dark:text-primary-400">&larr; Viagem</a>
 
         @if (! $pedidoId)
+            <div class="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1 dark:bg-white/5">
+                @foreach (['retirada' => 'Retirada', 'entrega' => 'Entrega'] as $valor => $rotulo)
+                    <button type="button" wire:click="usarTipo('{{ $valor }}')"
+                            @class([
+                                'rounded-xl py-3 text-base font-semibold transition',
+                                'bg-white text-gray-900 shadow dark:bg-gray-800 dark:text-white' => $tipo === $valor,
+                                'text-gray-500 dark:text-gray-400' => $tipo !== $valor,
+                            ])>
+                        {{ $rotulo }}
+                    </button>
+                @endforeach
+            </div>
+
+            @if ($tipo === 'retirada')
             {{-- Cliente --}}
             <div class="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cliente</h2>
@@ -32,6 +47,21 @@
                     @endif
                 </div>
             </div>
+
+            @else
+                {{-- Entrega: mesmos componentes do AtenderPedido (cliente com
+                     endereço/CEP e opção de entrega + forma combinada). --}}
+                @livewire('cliente-picker', ['inicial' => $clienteData], key('entrega-cliente-'.$rascunhoId))
+
+                @livewire('entrega-pagamento-picker', ['inicial' => $entregaPagamentoData, 'total' => $this->totaisEntrega()['total']], key('entrega-pagamento-'.$rascunhoId))
+
+                @php $totaisEntrega = $this->totaisEntrega(); @endphp
+                <p class="text-right text-sm text-gray-600 dark:text-gray-300">
+                    Itens R$ {{ number_format($totaisEntrega['itens'] - $totaisEntrega['desconto'], 2, ',', '.') }}
+                    · Frete {{ $totaisEntrega['frete'] > 0 ? 'R$ '.number_format($totaisEntrega['frete'], 2, ',', '.') : 'grátis' }}
+                    · <strong>Total R$ {{ number_format($totaisEntrega['total'], 2, ',', '.') }}</strong>
+                </p>
+            @endif
 
             @livewire('pedido-produto-selector', [
                 'pedidoId' => $rascunhoId,
@@ -67,6 +97,7 @@
                                 \App\Enums\StatusPedidoEnum::ABERTO => 'Enviado',
                                 \App\Enums\StatusPedidoEnum::PREPARANDO => 'Em preparo',
                                 \App\Enums\StatusPedidoEnum::PRONTO => 'Pronto',
+                                \App\Enums\StatusPedidoEnum::EM_TRANSPORTE => 'Saiu para entrega',
                                 \App\Enums\StatusPedidoEnum::ENTREGUE => 'Entregue',
                                 \App\Enums\StatusPedidoEnum::FINALIZADO => 'Entregue e pago',
                                 \App\Enums\StatusPedidoEnum::CANCELADO => 'Cancelado',
@@ -106,20 +137,36 @@
                     </div>
                 </div>
 
-                @if ($status === \App\Enums\StatusPedidoEnum::PRONTO)
+                @if ($retirada->exigeEntrega())
+                    <div class="space-y-1 rounded-2xl bg-white p-4 text-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
+                        <p class="font-semibold text-gray-900 dark:text-white">Entrega · {{ $retirada->opcaoEntrega?->opcaoentrega_nome }}</p>
+                        <p class="text-gray-600 dark:text-gray-300">{{ $retirada->pedido_endereco_entrega }}</p>
+                        @foreach ($retirada->pagamentosCombinados as $combinado)
+                            <p class="text-gray-600 dark:text-gray-300">
+                                {{ $combinado->pg_pedido_opcaopagamento_nome }}: R$ {{ number_format((float) $combinado->pg_pedido_valor, 2, ',', '.') }}
+                                @if ($combinado->pg_pedido_valor_troco_para)
+                                    (troco para R$ {{ number_format((float) $combinado->pg_pedido_valor_troco_para, 2, ',', '.') }})
+                                @endif
+                            </p>
+                        @endforeach
+                        <p class="pt-1 text-xs text-gray-500">O entregador leva e cobra pelo Painel do Entregador.</p>
+                    </div>
+                @endif
+
+                @if ($status === \App\Enums\StatusPedidoEnum::PRONTO && ! $retirada->exigeEntrega())
                     <button type="button" wire:click="entregarAoCliente" wire:loading.attr="disabled"
                             class="w-full rounded-xl bg-emerald-600 py-4 text-base font-semibold text-white active:scale-[.98]">
                         Entregue ao cliente
                     </button>
                 @endif
 
-                @if (! $pago && $status !== \App\Enums\StatusPedidoEnum::CANCELADO)
+                @if (! $pago && $status !== \App\Enums\StatusPedidoEnum::CANCELADO && ! $retirada->exigeEntrega())
                     @livewire('mesa-stone-cobranca', ['pedidoId' => $retirada->id], key('stone-retirada-'.$retirada->id))
 
                     <p class="text-xs text-gray-500 dark:text-gray-400">
                         Dinheiro ou PIX: o caixa lança esta retirada em "Pedidos avulsos" e recebe.
                     </p>
-                @elseif ($pago)
+                @elseif ($pago && ! $retirada->exigeEntrega())
                     <p class="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">Pagamento registrado.</p>
                 @endif
             </div>
