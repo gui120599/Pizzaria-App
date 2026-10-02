@@ -5,7 +5,9 @@ namespace App\Filament\Garcom\Pages;
 use App\Enums\TipoMesaEnum;
 use App\Exceptions\MesaIndisponivelException;
 use App\Models\Mesa;
+use App\Models\Pedido;
 use App\Services\Garcom\MapaMesasService;
+use App\Services\Garcom\RetiradaService;
 use App\Services\SessaoMesaService;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -56,6 +58,10 @@ class MapaMesas extends Page
     /** @return Collection<string, Collection<int, array<string, mixed>>> */
     public function mesasPorArea(): Collection
     {
+        if ($this->tipo === 'RETIRADA') {
+            return collect();
+        }
+
         return app(MapaMesasService::class)
             ->mapa(TipoMesaEnum::tryFrom($this->tipo) ?? TipoMesaEnum::MESA)
             ->groupBy('area');
@@ -64,6 +70,12 @@ class MapaMesas extends Page
     public function temComandas(): bool
     {
         return Mesa::where('mesa_tipo', TipoMesaEnum::COMANDA->value)->exists();
+    }
+
+    /** @return Collection<int, Pedido> */
+    public function retiradas(): Collection
+    {
+        return app(RetiradaService::class)->retiradasDoTurno();
     }
 
     /** Chamado pelo wire:poll: avisa rodadas que ficaram prontas desde o último ciclo. */

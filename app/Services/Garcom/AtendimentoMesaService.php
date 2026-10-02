@@ -103,8 +103,9 @@ class AtendimentoMesaService
     }
 
     /**
-     * Cancela um item de rodada já enviada, com autorização (permissão ou PIN
-     * de gerente). Último item restante cancela a rodada inteira.
+     * Cancela um item de rodada de mesa ou de retirada já enviada, com
+     * autorização (permissão ou PIN de gerente). Último item restante cancela
+     * o pedido inteiro.
      *
      * @throws RuntimeException|AutorizacaoNegadaException
      */
@@ -127,8 +128,14 @@ class AtendimentoMesaService
                 throw new RuntimeException('Este item já foi lançado no caixa e não pode ser cancelado aqui.');
             }
 
-            if ($pedido->sessaoMesa?->sessao_mesa_status !== 'ABERTA') {
+            // Retirada (sem sessão) não tem conta para conferir; pedido de
+            // mesa só cancela item enquanto a conta estiver aberta.
+            if ($pedido->pedido_sessao_mesa_id !== null && $pedido->sessaoMesa?->sessao_mesa_status !== 'ABERTA') {
                 throw new RuntimeException('A conta desta mesa não está mais aberta.');
+            }
+
+            if (in_array($pedido->pedido_status, [StatusPedidoEnum::CANCELADO->value, StatusPedidoEnum::FINALIZADO->value], true)) {
+                throw new RuntimeException('Este pedido já foi encerrado.');
             }
 
             $this->autorizacoes->autorizar(

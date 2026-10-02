@@ -125,6 +125,18 @@ return [
         |
         */
 
+        /*
+        |----------------------------------------------------------------------
+        | Retirada pelo garçom
+        |----------------------------------------------------------------------
+        |
+        | Opção de entrega gravada no pedido de retirada lançado pelo garçom.
+        | Null = a primeira opção que não exige endereço.
+        |
+        */
+
+        'opcao_entrega_retirada_id' => env('PIZZARIA_OPCAO_ENTREGA_RETIRADA_ID'),
+
         'pin_tentativas' => 5,
         'pin_bloqueio_segundos' => 300,
     ],
