@@ -14,6 +14,7 @@ use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Js;
 
 /**
  * Catálogo das ações de mudança de status do pedido.
@@ -46,17 +47,30 @@ class PedidoStatusActions
             ));
     }
 
-    /** ABERTO → PREPARANDO. Separada de avancar() porque a cozinha lê "Aceitar". */
-    public static function aceitar(): Action
+    /**
+     * ABERTO → PREPARANDO. Separada de avancar() porque a cozinha lê "Aceitar".
+     *
+     * $aposAceitar recebe o pedido só quando a transição deu certo — o Painel
+     * de Pedidos usa para mandar a comanda para a impressora.
+     *
+     * @param  (callable(Pedido): void)|null  $aposAceitar
+     */
+    public static function aceitar(?callable $aposAceitar = null): Action
     {
         return Action::make('aceitar')
             ->label('Aceitar')
             ->icon(Heroicon::OutlinedFire)
             ->color('warning')
-            ->action(fn (array $arguments) => self::executar(
-                $arguments,
-                fn (PedidoStatusService $s, Pedido $p, ?User $ator) => $s->aceitar($p, $ator),
-            ));
+            ->action(function (array $arguments) use ($aposAceitar): void {
+                $pedido = self::executar(
+                    $arguments,
+                    fn (PedidoStatusService $s, Pedido $p, ?User $ator) => $s->aceitar($p, $ator),
+                );
+
+                if ($pedido && $aposAceitar) {
+                    $aposAceitar($pedido);
+                }
+            });
     }
 
     /** INICIADO → ABERTO, para o pedido que chegou pelo cardápio. */
@@ -125,6 +139,61 @@ class PedidoStatusActions
                     MotivoCancelamentoEnum::from($data['motivo']),
                 ),
             ));
+    }
+
+    /**
+     * Cancelamento para a tabela de pedidos, que não sabe em que coluna o
+     * pedido está: antes da produção (INICIADO/ABERTO) é rejeição, depois é
+     * cancelamento com os guards — a mesma escolha do card do painel
+     * (painel-pedidos/coluna.blade.php).
+     */
+    public static function cancelarDaTabela(): Action
+    {
+        return Action::make('cancelarPedido')
+            ->label('Cancelar pedido')
+            ->icon(Heroicon::OutlinedXCircle)
+            ->color('danger')
+            ->visible(fn (Pedido $record): bool => self::podeCancelar($record))
+            ->requiresConfirmation()
+            ->modalHeading(fn (Pedido $record): string => 'Cancelar pedido #'.$record->id)
+            ->modalDescription('O estoque consumido é estornado e as promoções voltam ao saldo.')
+            ->modalSubmitActionLabel('Cancelar pedido')
+            ->schema(self::camposMotivo())
+            ->action(fn (Pedido $record, array $data) => self::executar(
+                ['pedido' => $record->id],
+                fn (PedidoStatusService $s, Pedido $p, ?User $ator) => in_array($p->status(), [StatusPedidoEnum::INICIADO, StatusPedidoEnum::ABERTO], true)
+                    ? $s->rejeitar($p, $ator, MotivoCancelamentoEnum::from($data['motivo']))
+                    : $s->cancelar($p, $ator, MotivoCancelamentoEnum::from($data['motivo'])),
+            ));
+    }
+
+    /**
+     * Copia o link público de acompanhamento (o mesmo que o cardápio manda ao
+     * cliente) para o atendente colar no WhatsApp.
+     */
+    public static function copiarLinkAcompanhamento(): Action
+    {
+        return Action::make('copiarLinkAcompanhamento')
+            ->label('Copiar link de acompanhamento')
+            ->icon(Heroicon::OutlinedLink)
+            ->color('gray')
+            ->alpineClickHandler(fn (?Pedido $record): string => self::jsCopiarLink(route('pedido.acompanhar', $record?->id)));
+    }
+
+    /**
+     * JS de "copiar link" compartilhado pela action e pelo card do painel. O
+     * Clipboard API só existe em contexto seguro (HTTPS/localhost): fora dele,
+     * cai num prompt com o link selecionado para Ctrl+C.
+     */
+    public static function jsCopiarLink(string $url): string
+    {
+        $urlJs = Js::from($url);
+
+        return <<<JS
+            (window.navigator.clipboard?.writeText({$urlJs}) ?? Promise.reject())
+                .then(() => new FilamentNotification().title('Link de acompanhamento copiado').success().send())
+                .catch(() => window.prompt('Copie o link de acompanhamento:', {$urlJs}))
+            JS;
     }
 
     /** Cancela um pedido já em produção — aplica os guards de mesa e pagamento. */
@@ -294,7 +363,7 @@ class PedidoStatusActions
     }
 
     /** @return array<int, Select> */
-    private static function camposMotivo(): array
+    public static function camposMotivo(): array
     {
         return [
             Select::make('motivo')
@@ -317,8 +386,9 @@ class PedidoStatusActions
      *
      * @param  array<string, mixed>  $arguments
      * @param  callable(PedidoStatusService, Pedido, ?User): Pedido  $transicao
+     * @return ?Pedido o pedido atualizado, ou null quando a transição não ocorreu
      */
-    private static function executar(array $arguments, callable $transicao): void
+    private static function executar(array $arguments, callable $transicao): ?Pedido
     {
         $pedido = Pedido::find($arguments['pedido'] ?? null);
 
@@ -328,7 +398,7 @@ class PedidoStatusActions
                 ->danger()
                 ->send();
 
-            return;
+            return null;
         }
 
         try {
@@ -343,20 +413,22 @@ class PedidoStatusActions
                 ->persistent()
                 ->send();
 
-            return;
+            return null;
         } catch (AuthorizationException) {
             Notification::make()
                 ->title('Sem permissão para esta ação')
                 ->danger()
                 ->send();
 
-            return;
+            return null;
         }
 
         Notification::make()
             ->title("Pedido #{$atualizado->id} → ".($atualizado->status()?->label() ?? $atualizado->pedido_status))
             ->success()
             ->send();
+
+        return $atualizado;
     }
 
     private static function atribuiEntregador(): bool

@@ -7,6 +7,7 @@ use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
 use App\Filament\Pages\AtenderPedido;
+use App\Filament\Support\PedidoStatusActions;
 use App\Models\Maquininha;
 use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
@@ -28,6 +29,7 @@ class PedidosTable
     {
         return $table
             ->defaultSort('id', 'desc')
+            ->recordUrl(fn (Pedido $record): string => AtenderPedido::getUrl(['pedido' => $record]))
             ->columns([
                 TextColumn::make('id')
                     ->label('#')
@@ -77,6 +79,8 @@ class PedidosTable
                     ->icon('heroicon-o-pencil-square')
                     ->url(fn (Pedido $record): string => AtenderPedido::getUrl(['pedido' => $record])),
 
+                PedidoStatusActions::copiarLinkAcompanhamento(),
+                PedidoStatusActions::cancelarDaTabela(),
                 self::enviarStoneAction(),
                 self::cancelarStoneAction(),
             ])

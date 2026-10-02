@@ -181,6 +181,8 @@ class EntregaPagamentoPicker extends Component
         $this->dispatch('pedido-entrega-pagamento-atualizado', dados: [
             'opcaoEntregaId' => $this->opcaoEntregaId,
             'pagamentos' => $this->pagamentos,
+            // O ClientePicker abre o bloco de endereço quando a opção exige.
+            'requerEndereco' => (bool) ($this->opcaoEntregaId ? OpcoesEntregas::find($this->opcaoEntregaId)?->opcaoentrega_requer_endereco : false),
         ]);
     }
 }

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\ClientePicker;
 use App\Livewire\EntregaPagamentoPicker;
+use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -81,5 +83,24 @@ class EntregaPagamentoPickerTest extends TestCase
             ->call('adicionarLinhaPagamento')
             ->call('removerLinhaPagamento', 0)
             ->assertCount('pagamentos', 1);
+    }
+
+    public function test_opcao_de_entrega_que_exige_endereco_avisa_o_cliente_picker(): void
+    {
+        $delivery = OpcoesEntregas::create(['opcaoentrega_nome' => 'Delivery', 'opcaoentrega_requer_endereco' => true]);
+        $balcao = OpcoesEntregas::create(['opcaoentrega_nome' => 'Balcão', 'opcaoentrega_requer_endereco' => false]);
+
+        Livewire::test(EntregaPagamentoPicker::class, ['total' => 50.0])
+            ->set('opcaoEntregaId', $delivery->id)
+            ->assertDispatched('pedido-entrega-pagamento-atualizado', fn (string $evento, array $params) => $params['dados']['requerEndereco'] === true)
+            ->set('opcaoEntregaId', $balcao->id)
+            ->assertDispatched('pedido-entrega-pagamento-atualizado', fn (string $evento, array $params) => $params['dados']['requerEndereco'] === false);
+    }
+
+    public function test_pedido_aberto_com_entrega_que_exige_endereco_ja_mostra_o_endereco_expandido(): void
+    {
+        Livewire::test(ClientePicker::class, ['inicial' => ['requerEndereco' => true]])
+            ->assertSet('requerEndereco', true)
+            ->assertSeeHtml('open: true');
     }
 }

@@ -7,6 +7,7 @@ use App\Enums\StatusPedidoEnum;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
+use App\Filament\Support\PedidoStatusActions;
 use App\Livewire\PedidoProdutoSelector;
 use App\Models\AdicionaisItemPedido;
 use App\Models\Cliente;
@@ -23,6 +24,7 @@ use App\Services\EstoqueService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Support\TotaisPedido;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -101,6 +103,16 @@ class AtenderPedido extends Page
      */
     private const STATUS_SOMENTE_LEITURA = ['ENTREGUE', 'FINALIZADO', 'CANCELADO'];
 
+    /** @return array<int, Action> */
+    protected function getHeaderActions(): array
+    {
+        return [
+            PedidoStatusActions::copiarLinkAcompanhamento()
+                ->visible(fn (): bool => $this->pedidoId !== null)
+                ->alpineClickHandler(fn (): string => PedidoStatusActions::jsCopiarLink(route('pedido.acompanhar', $this->pedidoId))),
+        ];
+    }
+
     public static function canAccess(): bool
     {
         return (bool) (Auth::user()?->can('create:pedido') || Auth::user()?->can('update:pedido'));
@@ -139,6 +151,7 @@ class AtenderPedido extends Page
             'enderecoUf' => $cliente?->cliente_uf_estado ?? '',
             'enderecoCep' => $cliente?->cliente_cep ?? '',
             'semCliente' => $pedido->pedido_cliente_id === null,
+            'requerEndereco' => (bool) $pedido->opcaoEntrega?->opcaoentrega_requer_endereco,
         ];
 
         $this->entregaPagamentoData = [

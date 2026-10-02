@@ -28,7 +28,11 @@
         <input type="text" wire:model.blur="nome" placeholder="Nome do cliente"
             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
 
-        <div x-data="{ open: {{ $enderecoRua || $enderecoBairro ? 'true' : 'false' }} }">
+        {{-- Abre sozinho quando a opção de entrega escolhida exige endereço
+             (evento do EntregaPagamentoPicker); nunca fecha sozinho, para não
+             esconder o que o atendente já digitou. --}}
+        <div x-data="{ open: {{ $enderecoRua || $enderecoBairro || $requerEndereco ? 'true' : 'false' }} }"
+            x-on:pedido-entrega-pagamento-atualizado.window="if ($event.detail.dados?.requerEndereco) open = true">
             <button type="button" x-on:click="open = !open"
                 class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
                 <span x-show="!open">+ Endereço de entrega</span>

@@ -195,4 +195,36 @@ class PainelPedidosAcoesTest extends TestCase
 
         $this->assertFalse(PedidoStatusActions::podeTrocarEntregador($pedido));
     }
+
+    public function test_aceitar_manda_a_comanda_para_a_impressora(): void
+    {
+        $this->actingAs($this->gerente());
+        $pedido = $this->pedido(StatusPedidoEnum::ABERTO);
+
+        Livewire::test(PainelPedidos::class)
+            ->callAction('aceitar', arguments: ['pedido' => $pedido->id])
+            ->assertDispatched('imprimir-pedido', url: route('pedido.imprimir', ['id' => $pedido->id]), mesa: false);
+
+        $this->assertSame(StatusPedidoEnum::PREPARANDO->value, $pedido->refresh()->pedido_status);
+    }
+
+    public function test_aceitar_que_nao_muda_o_status_nao_imprime(): void
+    {
+        $this->actingAs($this->gerente());
+        $pedido = $this->pedido(StatusPedidoEnum::PREPARANDO);
+
+        Livewire::test(PainelPedidos::class)
+            ->callAction('aceitar', arguments: ['pedido' => $pedido->id])
+            ->assertNotDispatched('imprimir-pedido');
+    }
+
+    public function test_card_oferece_copiar_o_link_de_acompanhamento(): void
+    {
+        $this->actingAs($this->gerente());
+        $pedido = $this->pedido(StatusPedidoEnum::ABERTO);
+
+        Livewire::test(PainelPedidos::class)
+            ->assertSee('Copiar link de acompanhamento')
+            ->assertSee(str_replace('/', '\\/', route('pedido.acompanhar', $pedido->id)), escape: false);
+    }
 }
