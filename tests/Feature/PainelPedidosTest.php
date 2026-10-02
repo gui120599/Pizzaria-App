@@ -114,6 +114,19 @@ class PainelPedidosTest extends TestCase
         $this->assertSame([$preparando->id], $colunas['PREPARANDO']->pluck('id')->all());
     }
 
+    public function test_pedidos_da_coluna_seguem_a_ordem_do_numero(): void
+    {
+        $this->actingAs($this->gerente());
+
+        // O segundo pedido tem abertura anterior, mas o número manda.
+        $primeiro = $this->pedido(StatusPedidoEnum::ABERTO);
+        $segundo = $this->pedido(StatusPedidoEnum::ABERTO, ['pedido_datahora_abertura' => Carbon::now()->subMinutes(30)]);
+
+        $colunas = Livewire::test(PainelPedidos::class)->get('colunas');
+
+        $this->assertSame([$primeiro->id, $segundo->id], $colunas['ABERTO']->pluck('id')->all());
+    }
+
     public function test_card_mostra_todos_os_sabores_do_item(): void
     {
         $this->actingAs($this->gerente());
