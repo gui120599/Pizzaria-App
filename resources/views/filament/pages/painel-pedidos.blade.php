@@ -12,6 +12,7 @@
         x-data="painelPedidos()"
         @novo-pedido.window="alertar()"
         @imprimir-rodadas-mesa.window="imprimirRodadas($event.detail.urls)"
+        @imprimir-pedido.window="imprimirPedido($event.detail)"
     >
         {{-- Barra de filtros --}}
         <div class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white p-2.5 dark:border-white/10 dark:bg-gray-900">
@@ -291,14 +292,26 @@
                     }
 
                     urls.forEach((url, i) => {
-                        setTimeout(() => {
-                            const iframe = document.createElement('iframe');
-                            iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
-                            iframe.src = url;
-                            document.body.appendChild(iframe);
-                            setTimeout(() => iframe.remove(), 60000);
-                        }, i * 1500);
+                        setTimeout(() => this.imprimirUrl(url), i * 1500);
                     });
+                },
+
+                // Pedido aceito: imprime sempre. A exceção é rodada de mesa
+                // com a auto-impressão ligada, que já saiu quando chegou.
+                imprimirPedido({ url, mesa }) {
+                    if (mesa && this.autoImprimirMesa) {
+                        return;
+                    }
+
+                    this.imprimirUrl(url);
+                },
+
+                imprimirUrl(url) {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
+                    iframe.src = url;
+                    document.body.appendChild(iframe);
+                    setTimeout(() => iframe.remove(), 60000);
                 },
 
                 irPara(id) {

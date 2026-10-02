@@ -186,9 +186,19 @@ class PainelPedidos extends Page implements HasActions
         return PedidoStatusActions::confirmar();
     }
 
+    /**
+     * Aceitar manda a comanda para a impressora, como o kanban legado fazia.
+     * O navegador imprime num iframe oculto (ver imprimirPedido() na view):
+     * um window.open depois do round-trip do Livewire já não conta como gesto
+     * do usuário e seria barrado pelo bloqueador de pop-up.
+     */
     public function aceitarAction(): Action
     {
-        return PedidoStatusActions::aceitar();
+        return PedidoStatusActions::aceitar(fn (Pedido $pedido) => $this->dispatch(
+            'imprimir-pedido',
+            url: route('pedido.imprimir', ['id' => $pedido->id]),
+            mesa: in_array($pedido->pedido_origem, [PedidoOrigemEnum::MESA, PedidoOrigemEnum::GARCOM], true),
+        ));
     }
 
     public function avancarAction(): Action

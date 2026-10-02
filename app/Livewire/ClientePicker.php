@@ -56,6 +56,9 @@ class ClientePicker extends Component
 
     public bool $semCliente = false;
 
+    /** A opção de entrega do pedido exige endereço: o bloco já abre expandido. */
+    public bool $requerEndereco = false;
+
     public bool $buscaModalAberta = false;
 
     public string $buscaQuery = '';
@@ -72,6 +75,7 @@ class ClientePicker extends Component
         $this->enderecoUf = $inicial['enderecoUf'] ?? '';
         $this->enderecoCep = $inicial['enderecoCep'] ?? '';
         $this->semCliente = $inicial['semCliente'] ?? false;
+        $this->requerEndereco = (bool) ($inicial['requerEndereco'] ?? false);
         $this->clienteEncontrado = (bool) $this->clienteId;
     }
 
