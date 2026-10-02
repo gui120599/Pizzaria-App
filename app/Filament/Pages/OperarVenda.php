@@ -168,12 +168,6 @@ class OperarVenda extends Page
     public ?string $motivoCancelamento = null;
 
     // ── Emissão de NFC-e (NFe.io) ────────────────────────────────────────────
-    /** Pré-marcado pela forma de pagamento (Venda::exigeEnvioNfe()) até o operador mexer nele. */
-    public bool $emitirNfeAoFinalizar = false;
-
-    /** Operador mexeu no checkbox: a sugestão automática para de sobrescrever a escolha dele. */
-    public bool $nfeDecisaoManual = false;
-
     public bool $modalNfeAberta = false;
 
     /** @var 'processando'|'erro'|'emitido'|null */
@@ -233,7 +227,6 @@ class OperarVenda extends Page
         // checagem é ->exists, não a truthiness do objeto.
         if ($venda?->exists) {
             $this->vendaId = $venda->id;
-            $this->sincronizarSugestaoNfe();
         }
 
         // Sem parâmetro: $this->vendaId fica null. A Venda só é criada no
@@ -1393,22 +1386,6 @@ class OperarVenda extends Page
     private function recarregarPagamentos(): void
     {
         unset($this->pagamentosLancados, $this->venda);
-        $this->sincronizarSugestaoNfe();
-    }
-
-    public function updatedEmitirNfeAoFinalizar(): void
-    {
-        $this->nfeDecisaoManual = true;
-    }
-
-    /** Reaplica a regra de envio automático por forma de pagamento enquanto o operador não decidiu no checkbox. */
-    private function sincronizarSugestaoNfe(): void
-    {
-        if ($this->nfeDecisaoManual || $this->vendaId === null) {
-            return;
-        }
-
-        $this->emitirNfeAoFinalizar = (bool) Venda::find($this->vendaId)?->exigeEnvioNfe();
     }
 
     /**
@@ -1602,13 +1579,14 @@ class OperarVenda extends Page
 
     // ── Finalizar / cancelar venda ───────────────────────────────────────────
 
-    #[Computed]
-    public function nfeIoDisponivel(): bool
+    /**
+     * Emissão no PDV é regra de negócio (forma de pagamento), não ação do
+     * operador — por isso não exige a permission emitir:nfe, que continua
+     * valendo só pro botão manual "Gerar NFC-E" da tela legada.
+     */
+    private function emissaoAutomaticaDisponivel(): bool
     {
-        // Mesma permission já usada pelo botão "Gerar NFC-E" da tela legada
-        // (resources/views/app/sessao_caixa/vendas.blade.php) — cancel:venda
-        // e emitir:nfe ficam restritos a quem também fecha caixa.
-        return Auth::user()?->can('emitir:nfe') && Empresa::first()?->nfeIoConfigurado();
+        return (bool) Empresa::first()?->nfeIoConfigurado();
     }
 
     /**
@@ -1618,7 +1596,8 @@ class OperarVenda extends Page
      * venda (item_pedido_venda_id), já que o lançamento acontece no clique,
      * não no fim.
      *
-     * Quando "emitir NFC-e ao finalizar" está marcado, o redirect pra
+     * Quando algum pagamento usa forma com envio automático de NFC-e
+     * (Venda::exigeEnvioNfe()), a nota é emitida e o redirect pra
      * próxima venda só acontece depois que o modal de emissão for fechado
      * (ver fecharModalNfe()) — a finalização em si (status, estoque,
      * pagamento) sempre acontece aqui embaixo de qualquer forma, porque o
@@ -1632,7 +1611,7 @@ class OperarVenda extends Page
             return;
         }
 
-        if ($this->emitirNfeAoFinalizar && $this->nfeIoDisponivel) {
+        if ($this->emissaoAutomaticaDisponivel() && $venda->exigeEnvioNfe()) {
             $this->iniciarEmissaoNfe($venda);
 
             return;
@@ -1720,12 +1699,9 @@ class OperarVenda extends Page
         $this->nfeStatusModal = 'processando';
         $this->nfeErroModal = null;
 
-        // Reenvio (botão "tentar novamente" do modal) reaproveita a reserva
-        // e a decisão já gravadas em nf_emissoes; o argumento só vale na 1ª.
-        $decisao = $venda->exigeEnvioNfe() ? NfEmissao::DECISAO_AUTOMATICA : NfEmissao::DECISAO_MANUAL;
-
+        // Reenvio (botão "tentar novamente" do modal) reaproveita a reserva já gravada em nf_emissoes.
         try {
-            app(NfeIoService::class)->emitir($venda, $decisao);
+            app(NfeIoService::class)->emitir($venda, NfEmissao::DECISAO_AUTOMATICA);
             $this->nfeInvoiceId = $venda->fresh()->venda_id_nfe;
         } catch (NfeIoException $e) {
             $this->nfeStatusModal = 'erro';
@@ -1759,7 +1735,7 @@ class OperarVenda extends Page
         // qualquer outro status (ex. 'Processing'): mantém 'processando', o poll continua.
     }
 
-    /** Único ponto que redireciona pra próxima venda quando o checkbox de NFC-e está marcado. */
+    /** Único ponto que redireciona pra próxima venda quando a venda emitiu NFC-e. */
     public function fecharModalNfe(): void
     {
         $this->modalNfeAberta = false;

@@ -100,7 +100,7 @@ class OpcoesPagamentoResource extends Resource
                         ->label('Envia NFC-e automaticamente')
                         ->default(false)
                         ->inline()
-                        ->helperText('Venda com pelo menos um pagamento nesta forma já vem marcada para emitir NFC-e ao finalizar (o operador ainda pode desmarcar). Deixe desligado para formas cuja nota é emitida fora do sistema, como cartão na maquininha Stone.'),
+                        ->helperText('Venda finalizada no PDV com pelo menos um pagamento nesta forma emite a NFC-e automaticamente. Deixe desligado para formas cuja nota é emitida fora do sistema, como cartão na maquininha Stone.'),
 
                     Select::make('plano_receita_id')
                         ->label('Plano de receita')

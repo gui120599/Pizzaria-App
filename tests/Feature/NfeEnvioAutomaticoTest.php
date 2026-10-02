@@ -15,6 +15,7 @@ use App\Models\Venda;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -92,7 +93,6 @@ class NfeEnvioAutomaticoTest extends TestCase
         $this->pagar($this->cartaoStone(), 50);
 
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->assertSet('emitirNfeAoFinalizar', false)
             ->call('finalizarVenda')
             ->assertRedirect(OperarVenda::getUrl());
 
@@ -108,8 +108,8 @@ class NfeEnvioAutomaticoTest extends TestCase
         $this->pagar($this->pix(), 30);
 
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->assertSet('emitirNfeAoFinalizar', true)
             ->call('finalizarVenda')
+            ->assertNoRedirect()
             ->assertSet('modalNfeAberta', true);
 
         Http::assertSent(fn ($request) => $request['number'] === 1 && $request['serie'] === 1);
@@ -124,61 +124,41 @@ class NfeEnvioAutomaticoTest extends TestCase
         $this->pagar($this->pix(), 30);
 
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->assertSet('emitirNfeAoFinalizar', true)
             ->call('finalizarVenda');
 
         Http::assertSent(fn ($request) => array_column($request['payment'][0]['paymentDetail'], 'method') === ['creditCard', 'InstantPayment']);
-        $this->assertSame(NfEmissao::DECISAO_AUTOMATICA, NfEmissao::sole()->decisao_envio);
     }
 
-    public function test_remover_o_pagamento_que_exige_envio_desmarca_o_checkbox(): void
-    {
-        $pagamentoPix = $this->pagar($this->pix(), 30);
-
-        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->assertSet('emitirNfeAoFinalizar', true)
-            ->call('removerPagamento', $pagamentoPix->id)
-            ->assertSet('emitirNfeAoFinalizar', false);
-    }
-
-    public function test_operador_desmarca_venda_com_pix_e_ela_nao_e_enviada(): void
+    public function test_pix_removido_antes_de_finalizar_nao_envia(): void
     {
         Http::preventStrayRequests();
         Http::fake();
-        $this->pagar($this->pix(), 30);
+        $pagamentoPix = $this->pagar($this->pix(), 30);
+        $this->pagar($this->cartaoStone(), 50);
 
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->set('emitirNfeAoFinalizar', false)
+            ->call('removerPagamento', $pagamentoPix->id)
             ->call('finalizarVenda')
             ->assertRedirect(OperarVenda::getUrl());
 
         Http::assertNothingSent();
-        $this->assertSame(0, NfEmissao::count());
     }
 
-    public function test_escolha_do_operador_nao_e_sobrescrita_por_novo_pagamento(): void
-    {
-        $opcaoPix = $this->pix();
-        $pagamentoPix = $this->pagar($opcaoPix, 30);
-        $this->pagar($opcaoPix, 20);
-
-        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->set('emitirNfeAoFinalizar', false)
-            ->call('removerPagamento', $pagamentoPix->id)
-            ->assertSet('emitirNfeAoFinalizar', false);
-    }
-
-    public function test_operador_marca_venda_so_com_cartao_stone_e_envio_fica_registrado_como_manual(): void
+    public function test_operador_sem_permissao_de_emitir_nfe_tambem_dispara_o_envio_automatico(): void
     {
         Http::preventStrayRequests();
         Http::fake([self::URL_EMISSAO => Http::response(['id' => 'inv-1', 'status' => 'Processing'])]);
-        $this->pagar($this->cartaoStone(), 50);
+        $operador = User::factory()->atendente()->create(['name_first' => 'Atendente']);
+        $operador->givePermissionTo(Permission::firstOrCreate(['name' => 'operar:venda', 'guard_name' => 'web']));
+        SessaoCaixa::query()->update(['sessaocaixa_user_id' => $operador->id]);
+        $this->actingAs($operador);
+        $this->pagar($this->pix(), 30);
 
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->set('emitirNfeAoFinalizar', true)
-            ->call('finalizarVenda');
+            ->call('finalizarVenda')
+            ->assertSet('modalNfeAberta', true);
 
+        $this->assertFalse($operador->can('emitir:nfe'));
         Http::assertSentCount(1);
-        $this->assertSame(NfEmissao::DECISAO_MANUAL, NfEmissao::sole()->decisao_envio);
     }
 }

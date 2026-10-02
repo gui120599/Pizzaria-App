@@ -13,6 +13,8 @@ use App\Models\ItensPedido;
 use App\Models\Lancamento;
 use App\Models\Mesa;
 use App\Models\MovimentacoesSessaoCaixa;
+use App\Models\OpcoesPagamento;
+use App\Models\PagamentosVenda;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoCaixa;
@@ -184,7 +186,20 @@ class OperarVendaFinalizarCancelarTest extends TestCase
         ]);
     }
 
-    public function test_finalizar_venda_sem_checkbox_marcado_mantem_comportamento_atual(): void
+    /** Pagamento numa forma com envio automático de NFC-e — é o que faz o PDV emitir ao finalizar. */
+    private function pagarComFormaQueEmiteNfe(): void
+    {
+        $pix = OpcoesPagamento::create(['opcaopag_nome' => 'Pix', 'opcaopag_desc_nfe' => 'InstantPayment', 'opcaopag_envio_automatico_nfe' => true]);
+        $this->venda->update(['venda_valor_total' => 30, 'venda_valor_pago' => 30]);
+        PagamentosVenda::create([
+            'pg_venda_venda_id' => $this->venda->id,
+            'pg_venda_opcaopagamento_id' => $pix->id,
+            'pg_venda_valor_pagamento' => 30,
+            'pg_venda_valor_pago_pelo_cliente' => 30,
+        ]);
+    }
+
+    public function test_finalizar_venda_sem_forma_que_emite_nfe_redireciona_sem_modal(): void
     {
         $this->configurarNfeIo();
 
@@ -196,15 +211,16 @@ class OperarVendaFinalizarCancelarTest extends TestCase
         $this->assertSame('FINALIZADA', $this->venda->fresh()->venda_status);
     }
 
-    public function test_finalizar_venda_com_checkbox_marcado_abre_modal_e_nao_redireciona(): void
+    public function test_finalizar_venda_com_forma_que_emite_nfe_abre_modal_e_nao_redireciona(): void
     {
         $this->configurarNfeIo();
         Http::fake([
             'api.nfse.io/*' => Http::response(['id' => 'inv-123'], 200),
         ]);
 
+        $this->pagarComFormaQueEmiteNfe();
+
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->set('emitirNfeAoFinalizar', true)
             ->call('finalizarVenda')
             ->assertNoRedirect()
             ->assertSet('modalNfeAberta', true)
@@ -223,8 +239,9 @@ class OperarVendaFinalizarCancelarTest extends TestCase
             'api.nfse.io/v2/companies/company-teste/consumerinvoices/inv-123' => Http::response(['id' => 'inv-123', 'status' => 'Issued'], 200),
         ]);
 
+        $this->pagarComFormaQueEmiteNfe();
+
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->set('emitirNfeAoFinalizar', true)
             ->call('finalizarVenda')
             ->call('verificarStatusNfe')
             ->assertSet('nfeStatusModal', 'emitido');
@@ -237,8 +254,9 @@ class OperarVendaFinalizarCancelarTest extends TestCase
             'api.nfse.io/*' => Http::response(['message' => 'CNPJ inválido'], 400),
         ]);
 
+        $this->pagarComFormaQueEmiteNfe();
+
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->set('emitirNfeAoFinalizar', true)
             ->call('finalizarVenda')
             ->assertSet('modalNfeAberta', true)
             ->assertSet('nfeStatusModal', 'erro')
@@ -252,8 +270,9 @@ class OperarVendaFinalizarCancelarTest extends TestCase
         $this->configurarNfeIo();
         Http::fake(['api.nfse.io/*' => Http::response(['id' => 'inv-123'], 200)]);
 
+        $this->pagarComFormaQueEmiteNfe();
+
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->set('emitirNfeAoFinalizar', true)
             ->call('finalizarVenda')
             ->call('fecharModalNfe')
             ->assertRedirect(OperarVenda::getUrl());
