@@ -415,7 +415,8 @@ class PainelPedidos extends Page implements HasActions
                         ->orWhereNull('pedido_datahora_abertura')
                 )),
             )
-            ->orderBy('pedido_datahora_abertura')
+            // Pelo número do pedido, mais antigo no topo (fila) — é a
+            // sequência que a cozinha confere na comanda.
             ->orderBy('id')
             ->get()
             ->pipe(fn (EloquentCollection $c) => $this->somenteComItens($c))
@@ -430,7 +431,8 @@ class PainelPedidos extends Page implements HasActions
      * sem passar por "Em transporte", nunca tinha pedido_datahora_entrega — só
      * pedido_datahora_finalizado — e por isso sumia do board antes).
      *
-     * Janela do turno escolhido, mais recentes primeiro e com limite — é a
+     * Janela do turno escolhido, pelo número do pedido (mais recente
+     * primeiro) e com limite — é a
      * única coluna que cresce sem parar ao longo do dia.
      *
      * @return Collection<int, Pedido>
@@ -445,7 +447,7 @@ class PainelPedidos extends Page implements HasActions
             ->where(fn (Builder $q) => $q
                 ->whereBetween('pedido_datahora_entrega', [$inicio, $fim])
                 ->orWhereBetween('pedido_datahora_finalizado', [$inicio, $fim]))
-            ->orderByRaw('COALESCE(pedido_datahora_entrega, pedido_datahora_finalizado) DESC')
+            ->orderByDesc('id')
             ->limit($this->limiteEntregue())
             ->get()
             ->pipe(fn (EloquentCollection $c) => $this->somenteComItens($c));
@@ -471,7 +473,7 @@ class PainelPedidos extends Page implements HasActions
             ->with('usuarioCancelou:id,name_first')
             ->where('pedido_status', StatusPedidoEnum::CANCELADO->value)
             ->where('pedido_datahora_cancelado', '>=', $inicio)
-            ->orderByDesc('pedido_datahora_cancelado')
+            ->orderByDesc('id')
             ->limit(20)
             ->get();
     }
