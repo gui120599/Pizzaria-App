@@ -14,7 +14,7 @@
 
         {{-- Cabeçalho --}}
         <img src="{{ asset('img/Logo Pizzaria login.png') }}" alt="" class="w-28 mx-auto">
-        <p class="text-center font-bold mb-2">Comanda de Mesa</p>
+        <p class="text-center font-bold mb-2">{{ $titulo_impressao }}</p>
 
         <div class="grid grid-cols-2 text-xs mb-1">
             <div class="col-span-1 flex flex-col text-left">
@@ -37,18 +37,20 @@
 
         @php $totalGeral = 0; @endphp
 
-        {{-- Itens agrupados por cliente --}}
-        @foreach ($itens_por_cliente as $clienteId => $itens)
+        {{-- Blocos conforme a modalidade (PDFController::sessaoMesaPDF): por
+             pessoa, por rodada ou um único bloco de itens agrupados. --}}
+        @foreach ($blocos as $bloco)
             @php
-                $nomeCliente = $clienteId === 0
-                    ? 'Sem cliente atribuído'
-                    : ($itens->first()->cliente?->cliente_nome ?? 'Cliente #' . $clienteId);
-                $subtotal = $itens->sum('item_pedido_valor');
+                $subtotal = $bloco['subtotal'];
                 $totalGeral += $subtotal;
             @endphp
 
-            {{-- Cabeçalho do cliente --}}
-            <p class="text-xs font-bold uppercase mt-1">{{ $nomeCliente }}</p>
+            @if ($bloco['titulo'])
+                <p class="text-xs font-bold uppercase mt-1">{{ $bloco['titulo'] }}</p>
+            @endif
+            @if ($bloco['subtitulo'])
+                <p class="text-[10px]">{{ $bloco['subtitulo'] }}</p>
+            @endif
             <p class="text-center text-[8px]">------------------------------------------------------------------------</p>
 
             <table class="w-full">
@@ -60,47 +62,24 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($itens as $item)
-                        <tr>
-                            @if ($item->item_pedido_quantidade == 0.5)
-                                <td class="text-xs font-bold text-center align-top">
-                                    {{ $item->item_pedido_quantidade }}<br>
-                                    <span class="text-[8px]">(Meia)</span>
-                                </td>
-                            @else
-                                <td class="text-xs font-bold text-center align-top">{{ $item->item_pedido_quantidade }}</td>
-                            @endif
-                            <td class="text-xs text-center uppercase align-top">
-                                <x-impressao.nome-item :item="$item" />
-                                @foreach ($item->adicionaisItemPedido as $adicional)
-                                    <p class="text-[8px] font-bold">{{ $adicional->aip_quantidade }} Adic. {{ $adicional->adicional->adicional_nome }}</p>
-                                @endforeach
-                                @if ($item->item_pedido_observacao)
-                                    <p class="text-[8px] font-bold">Obs: {{ $item->item_pedido_observacao }}</p>
-                                @endif
-                                @if ($item->item_pedido_desconto > 0)
-                                    <p class="text-[8px] font-bold normal-case">Promoção: você economizou R$ {{ number_format($item->item_pedido_desconto, 2, ',', '.') }}</p>
-                                @endif
-                            </td>
-                            <td class="text-[9px] font-bold text-right align-top">
-                                @if ($item->item_pedido_desconto > 0)
-                                    @php $valorSemDesconto = $item->item_pedido_valor + $item->item_pedido_desconto; @endphp
-                                    <span class="text-[8px] font-normal line-through">R$ {{ number_format($valorSemDesconto, 2, ',', '.') }}</span><br>
-                                    R$ {{ number_format($item->item_pedido_valor, 2, ',', '.') }}
-                                @else
-                                    R$ {{ number_format($item->item_pedido_valor, 2, ',', '.') }}
-                                @endif
-                            </td>
-                        </tr>
-                    @endforeach
+                    @if (isset($bloco['agrupados']))
+                        @foreach ($bloco['agrupados'] as $grupo)
+                            @include('sessao-mesa-pdf.linha-agrupada', ['grupo' => $grupo])
+                        @endforeach
+                    @else
+                        @foreach ($bloco['itens'] as $item)
+                            @include('sessao-mesa-pdf.linha-item', ['item' => $item])
+                        @endforeach
+                    @endif
                 </tbody>
             </table>
 
-            {{-- Subtotal do cliente --}}
-            <div class="flex justify-between text-xs font-bold mt-1 border-t border-dashed border-gray-400 pt-1">
-                <span>Subtotal {{ $nomeCliente }}</span>
-                <span>R$ {{ number_format($subtotal, 2, ',', '.') }}</span>
-            </div>
+            @if (count($blocos) > 1)
+                <div class="flex justify-between text-xs font-bold mt-1 border-t border-dashed border-gray-400 pt-1">
+                    <span>Subtotal {{ $bloco['titulo'] }}</span>
+                    <span>R$ {{ number_format($subtotal, 2, ',', '.') }}</span>
+                </div>
+            @endif
             <p class="text-center text-[8px]">------------------------------------------------------------------------</p>
 
         @endforeach

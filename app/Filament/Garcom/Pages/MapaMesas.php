@@ -75,7 +75,7 @@ class MapaMesas extends Page
     /** @return Collection<int, Pedido> */
     public function retiradas(): Collection
     {
-        return app(RetiradaService::class)->retiradasDoTurno();
+        return app(RetiradaService::class)->pedidosViagemDoTurno();
     }
 
     /** Chamado pelo wire:poll: avisa rodadas que ficaram prontas desde o último ciclo. */

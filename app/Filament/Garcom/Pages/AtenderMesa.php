@@ -6,6 +6,7 @@ use App\Enums\AcaoAutorizadaEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Filament\Garcom\Concerns\AutorizaComPinDeGerente;
+use App\Models\Cliente;
 use App\Models\ItensPedido;
 use App\Models\Mesa;
 use App\Models\Pedido;
@@ -16,8 +17,11 @@ use App\Support\ContaMesa;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -47,6 +51,9 @@ class AtenderMesa extends Page
 
     /** @var array<int, int> */
     public array $prontasAvisadas = [];
+
+    /** "Lançando para": pessoa da mesa que recebe os próximos itens (null = mesa geral). */
+    public ?int $clientePadraoId = null;
 
     public function mount(int|string $sessao): void
     {
@@ -93,6 +100,7 @@ class AtenderMesa extends Page
                 'garcom:id,name,name_first',
                 'item_pedido_pedido_id' => fn ($q) => $q->where('item_pedido_status', 'INSERIDO'),
                 'item_pedido_pedido_id.produto:id,produto_descricao',
+                'item_pedido_pedido_id.cliente:id,cliente_nome',
                 'item_pedido_pedido_id.adicionaisItemPedido.adicional:id,adicional_nome',
             ])
             ->latest('id')
@@ -103,6 +111,94 @@ class AtenderMesa extends Page
     public function conta(): array
     {
         return ContaMesa::para($this->sessao());
+    }
+
+    /** @return array<int, array{nome: string, subtotal: float, taxa: float, total: float}> */
+    public function contaPorPessoa(): array
+    {
+        return ContaMesa::porPessoa($this->sessao());
+    }
+
+    public function podeFecharMesa(): bool
+    {
+        return (bool) $this->usuario()->can('update', $this->sessao());
+    }
+
+    // ── Pessoas da mesa ─────────────────────────────────────────────────────
+
+    public function lancarPara(?int $clienteId): void
+    {
+        $this->clientePadraoId = $clienteId && collect($this->clientesDaMesa())->contains('id', $clienteId)
+            ? $clienteId
+            : null;
+    }
+
+    public function adicionarPessoaAction(): Action
+    {
+        return Action::make('adicionarPessoa')
+            ->modalHeading('Pessoa na mesa')
+            ->modalSubmitActionLabel('Adicionar')
+            ->modalWidth('sm')
+            ->schema([
+                ToggleButtons::make('modo')
+                    ->hiddenLabel()
+                    ->options(['buscar' => 'Buscar', 'cadastrar' => 'Cadastrar', 'livre' => 'Só o nome'])
+                    ->default('buscar')
+                    ->inline()
+                    ->live(),
+                Select::make('cliente_id')
+                    ->label('Cliente')
+                    ->placeholder('Digite nome ou celular')
+                    ->searchable()
+                    ->getSearchResultsUsing(function (string $busca): array {
+                        $digitos = preg_replace('/\D/', '', $busca);
+
+                        return Cliente::query()
+                            ->naoAvulsos()
+                            ->where(fn ($q) => $q
+                                ->where('cliente_nome', 'like', "%{$busca}%")
+                                ->when(strlen($digitos) >= 4, fn ($qq) => $qq->orWhere('cliente_celular', 'like', "%{$digitos}%")))
+                            ->orderBy('cliente_nome')
+                            ->limit(20)
+                            ->get(['id', 'cliente_nome', 'cliente_celular'])
+                            ->mapWithKeys(fn (Cliente $c) => [$c->id => trim($c->cliente_nome.' '.($c->cliente_celular ? '· '.$c->cliente_celular : ''))])
+                            ->all();
+                    })
+                    ->getOptionLabelUsing(fn ($value): ?string => Cliente::find($value)?->cliente_nome)
+                    ->visible(fn (Get $get): bool => $get('modo') === 'buscar')
+                    ->required(fn (Get $get): bool => $get('modo') === 'buscar'),
+                TextInput::make('nome')
+                    ->label(fn (Get $get): string => $get('modo') === 'livre' ? 'Nome (não cria cadastro)' : 'Nome')
+                    ->maxLength(120)
+                    ->visible(fn (Get $get): bool => $get('modo') !== 'buscar')
+                    ->required(fn (Get $get): bool => $get('modo') !== 'buscar'),
+                TextInput::make('celular')
+                    ->label('Celular (opcional)')
+                    ->tel()
+                    ->mask('(99) 99999-9999')
+                    ->visible(fn (Get $get): bool => $get('modo') === 'cadastrar'),
+            ])
+            ->action(function (array $data): void {
+                $this->executarAutorizado(function () use ($data) {
+                    $cliente = $this->servico()->adicionarClienteNaMesa(
+                        $this->sessao(),
+                        ($data['modo'] ?? 'buscar') === 'buscar' ? (int) $data['cliente_id'] : null,
+                        $data['nome'] ?? null,
+                        $data['celular'] ?? null,
+                        ($data['modo'] ?? null) === 'livre',
+                    );
+                    $this->clientePadraoId = $cliente->id;
+                }, 'Pessoa adicionada à mesa.');
+            });
+    }
+
+    public function removerPessoa(int $clienteId): void
+    {
+        $this->executarAutorizado(fn () => $this->servico()->removerClienteDaMesa($this->sessao(), $clienteId), 'Pessoa removida da mesa.');
+
+        if ($this->clientePadraoId === $clienteId && ! collect($this->clientesDaMesa())->contains('id', $clienteId)) {
+            $this->clientePadraoId = null;
+        }
     }
 
     // ── Poll ────────────────────────────────────────────────────────────────
@@ -241,6 +337,35 @@ class AtenderMesa extends Page
             fn () => $this->servico()->restaurarTaxaServico($sessao, $sessao->sessao_mesa_versao),
             'Taxa de serviço incluída.',
         );
+    }
+
+    public function fecharMesaAction(): Action
+    {
+        return Action::make('fecharMesa')
+            ->label('Fechar mesa')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading('Fechar mesa e liberar para outro cliente?')
+            ->modalDescription(function (): string {
+                $naCozinha = $this->servico()->rodadasNaoServidas($this->sessao());
+
+                return ($naCozinha > 0 ? "Há {$naCozinha} rodada(s) ainda não servida(s). " : '')
+                    .'A conta continua pendente no caixa até ser paga.';
+            })
+            ->modalSubmitActionLabel('Fechar mesa')
+            ->visible(fn (): bool => $this->podeFecharMesa())
+            ->action(function (): void {
+                try {
+                    $this->servico()->fecharSessao($this->sessao(), $this->usuario());
+                } catch (RuntimeException|AuthorizationException $e) {
+                    Notification::make()->title($e->getMessage())->danger()->send();
+
+                    return;
+                }
+
+                Notification::make()->title('Mesa liberada. A conta segue pendente no caixa.')->success()->send();
+                $this->redirect(MapaMesas::getUrl(), navigate: true);
+            });
     }
 
     public function transferirMesaAction(): Action

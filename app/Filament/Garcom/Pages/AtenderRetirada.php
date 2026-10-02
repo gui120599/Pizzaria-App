@@ -9,22 +9,27 @@ use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Filament\Garcom\Concerns\AutorizaComPinDeGerente;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
+use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
 use App\Models\User;
 use App\Services\Garcom\AtendimentoMesaService;
 use App\Services\Garcom\RetiradaService;
+use App\Support\TotaisPedido;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\On;
 use RuntimeException;
 
 /**
- * Retirada atendida pelo garçom fora de mesa. Sem {pedido}: monta a retirada
- * (cliente + itens no rascunho) e envia para a cozinha. Com {pedido}:
- * acompanha, cobra na Stone e entrega ao cliente.
+ * Pedido "para viagem" atendido pelo garçom fora de mesa — retirada ou
+ * entrega. Sem {pedido}: monta (cliente + itens no rascunho; na entrega,
+ * endereço, frete e forma combinada) e envia para a cozinha. Com {pedido}:
+ * acompanha; na retirada, cobra na Stone e entrega ao cliente (a entrega é
+ * cobrada pelo entregador).
  */
 class AtenderRetirada extends Page
 {
@@ -49,10 +54,28 @@ class AtenderRetirada extends Page
 
     public bool $prontoAvisado = false;
 
+    /** 'retirada' | 'entrega' — só no modo de montagem. */
+    public string $tipo = 'retirada';
+
+    /** Estado do ClientePicker (entrega), recebido por evento. */
+    public array $clienteData = [];
+
+    /** Estado do EntregaPagamentoPicker (entrega), recebido por evento. */
+    public array $entregaPagamentoData = ['opcaoEntregaId' => null, 'pagamentos' => []];
+
+    /** Itens do rascunho como o PedidoProdutoSelector os expõe (para o total com frete). */
+    public array $itensCarrinho = [];
+
     public function mount(int|string|null $pedido = null): void
     {
         if ($pedido === null || $pedido === '') {
-            $this->rascunhoId = app(RetiradaService::class)->rascunho($this->usuario())->id;
+            $rascunho = app(RetiradaService::class)->rascunho($this->usuario());
+            $this->rascunhoId = $rascunho->id;
+            $this->itensCarrinho = $rascunho->item_pedido_pedido_id()
+                ->where('item_pedido_status', 'INSERIDO')
+                ->get(['item_pedido_valor', 'item_pedido_desconto'])
+                ->map(fn (ItensPedido $item) => ['valor' => (float) $item->item_pedido_valor, 'desconto' => (float) $item->item_pedido_desconto])
+                ->all();
 
             return;
         }
@@ -77,7 +100,11 @@ class AtenderRetirada extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return $this->pedidoId ? "Retirada #{$this->pedidoId}" : 'Nova retirada';
+        if (! $this->pedidoId) {
+            return $this->tipo === 'entrega' ? 'Nova entrega' : 'Nova retirada';
+        }
+
+        return (Pedido::with('opcaoEntrega')->find($this->pedidoId)?->exigeEntrega() ? 'Entrega' : 'Retirada')." #{$this->pedidoId}";
     }
 
     public function retirada(): ?Pedido
@@ -86,6 +113,8 @@ class AtenderRetirada extends Page
             ? Pedido::with([
                 'cliente:id,cliente_nome,cliente_celular',
                 'garcom:id,name,name_first',
+                'opcaoEntrega',
+                'pagamentosCombinados',
                 'item_pedido_pedido_id' => fn ($q) => $q->where('item_pedido_status', 'INSERIDO'),
                 'item_pedido_pedido_id.produto:id,produto_descricao',
                 'item_pedido_pedido_id.adicionaisItemPedido.adicional:id,adicional_nome',
@@ -114,11 +143,55 @@ class AtenderRetirada extends Page
         }
     }
 
+    public function usarTipo(string $tipo): void
+    {
+        $this->tipo = $tipo === 'entrega' ? 'entrega' : 'retirada';
+    }
+
+    #[On('itens-pedido-atualizados')]
+    public function onItensAtualizados(array $itens): void
+    {
+        $this->itensCarrinho = $itens;
+    }
+
+    #[On('pedido-cliente-atualizado')]
+    public function onClienteAtualizado(array $dados): void
+    {
+        $this->clienteData = $dados;
+    }
+
+    #[On('pedido-entrega-pagamento-atualizado')]
+    public function onEntregaPagamentoAtualizado(array $dados): void
+    {
+        $this->entregaPagamentoData = $dados;
+    }
+
+    /**
+     * Total da entrega com frete (TotaisPedido), para o EntregaPagamentoPicker.
+     *
+     * @return array{itens: float, desconto: float, frete: float, total: float}
+     */
+    public function totaisEntrega(): array
+    {
+        $opcaoId = $this->entregaPagamentoData['opcaoEntregaId'] ?? null;
+
+        return TotaisPedido::paraItens(
+            collect($this->itensCarrinho)->map(fn (array $item): ItensPedido => new ItensPedido([
+                'item_pedido_valor' => $item['valor'] ?? 0,
+                'item_pedido_desconto' => $item['desconto'] ?? 0,
+            ])),
+            $opcaoId ? OpcoesEntregas::find($opcaoId) : null,
+        );
+    }
+
     /** Disparado pelo botão do PedidoProdutoSelector (requestSubmit de #pedido-form). */
     public function enviar(): void
     {
         try {
-            $enviada = app(RetiradaService::class)->enviar(Pedido::findOrFail($this->rascunhoId), $this->nome, $this->celular);
+            $rascunho = Pedido::findOrFail($this->rascunhoId);
+            $enviada = $this->tipo === 'entrega'
+                ? app(RetiradaService::class)->enviarEntrega($rascunho, $this->clienteData, $this->entregaPagamentoData)
+                : app(RetiradaService::class)->enviar($rascunho, $this->nome, $this->celular);
         } catch (RuntimeException $e) {
             Notification::make()->title($e->getMessage())->warning()->send();
 
@@ -126,7 +199,7 @@ class AtenderRetirada extends Page
         }
 
         Notification::make()
-            ->title($enviada ? 'Retirada enviada para a cozinha.' : 'Esta retirada já tinha sido enviada.')
+            ->title($enviada ? 'Pedido enviado para a cozinha.' : 'Este pedido já tinha sido enviado.')
             ->success()
             ->send();
 
@@ -148,7 +221,12 @@ class AtenderRetirada extends Page
 
     public function entregarAoCliente(): void
     {
-        $pedido = Pedido::findOrFail($this->pedidoId);
+        $pedido = Pedido::with('opcaoEntrega')->findOrFail($this->pedidoId);
+
+        // Entrega é finalizada pelo entregador (EM TRANSPORTE → ENTREGUE).
+        if ($pedido->exigeEntrega()) {
+            return;
+        }
 
         try {
             app(RetiradaService::class)->marcarEntregue($pedido, $this->usuario());

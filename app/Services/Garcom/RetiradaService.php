@@ -5,6 +5,8 @@ namespace App\Services\Garcom;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Models\OpcoesEntregas;
+use App\Models\OpcoesPagamento;
+use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\User;
 use App\Services\ClienteResolverService;
@@ -101,6 +103,125 @@ class RetiradaService
         });
     }
 
+    /**
+     * Envia uma ENTREGA para a cozinha: mesma validação do AtenderPedido —
+     * cliente com nome e celular, endereço (rua e bairro) para opção que exige
+     * endereço e formas de pagamento combinadas somando o total com frete. O
+     * entregador cobra no Painel do Entregador.
+     *
+     * @param  array{clienteId?: ?int, nome?: string, celular?: string, enderecoRua?: string, enderecoNumero?: string, enderecoBairro?: string, enderecoCidade?: string, enderecoUf?: string, enderecoCep?: string}  $cliente
+     * @param  array{opcaoEntregaId?: ?int, pagamentos?: array<int, array{opcaoPagamentoId?: ?int, valor?: ?string, trocoPara?: ?string}>}  $entregaPagamento
+     * @return bool false quando a entrega já tinha sido enviada (reenvio)
+     *
+     * @throws RuntimeException
+     */
+    public function enviarEntrega(Pedido $rascunho, array $cliente, array $entregaPagamento): bool
+    {
+        $nome = trim((string) ($cliente['nome'] ?? ''));
+        $digitosCelular = preg_replace('/\D/', '', (string) ($cliente['celular'] ?? ''));
+
+        if ($nome === '') {
+            throw new RuntimeException('Informe o nome do cliente.');
+        }
+
+        if (blank($cliente['clienteId'] ?? null) && strlen($digitosCelular) < 10) {
+            throw new RuntimeException('Informe o celular do cliente com DDD.');
+        }
+
+        $opcao = ($entregaPagamento['opcaoEntregaId'] ?? null) ? OpcoesEntregas::find($entregaPagamento['opcaoEntregaId']) : null;
+
+        if (! $opcao?->opcaoentrega_requer_endereco) {
+            throw new RuntimeException('Escolha uma opção de entrega (com endereço).');
+        }
+
+        if (blank($cliente['enderecoRua'] ?? null) || blank($cliente['enderecoBairro'] ?? null)) {
+            throw new RuntimeException('Informe rua e bairro da entrega.');
+        }
+
+        $pagamentos = array_values($entregaPagamento['pagamentos'] ?? []);
+
+        if ($pagamentos === [] || collect($pagamentos)->contains(fn (array $p): bool => blank($p['opcaoPagamentoId'] ?? null) || blank($p['valor'] ?? null))) {
+            throw new RuntimeException('Escolha a forma de pagamento e o valor de cada uma.');
+        }
+
+        return DB::transaction(function () use ($rascunho, $cliente, $nome, $digitosCelular, $opcao, $pagamentos) {
+            $pedido = Pedido::whereKey($rascunho->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($pedido->pedido_status !== StatusPedidoEnum::INICIADO->value) {
+                return false;
+            }
+
+            $itens = $pedido->item_pedido_pedido_id()->where('item_pedido_status', 'INSERIDO')->get();
+
+            if ($itens->isEmpty()) {
+                throw new RuntimeException('Adicione pelo menos um item antes de enviar.');
+            }
+
+            $totais = TotaisPedido::paraItens($itens, $opcao);
+            $somaPagamentos = collect($pagamentos)->sum(fn (array $p): float => self::valorDigitado($p['valor']));
+
+            if (abs($somaPagamentos - $totais['total']) > 0.01) {
+                throw new RuntimeException(sprintf(
+                    'A soma das formas de pagamento (R$ %s) precisa bater com o total com frete (R$ %s).',
+                    number_format($somaPagamentos, 2, ',', '.'),
+                    number_format($totais['total'], 2, ',', '.'),
+                ));
+            }
+
+            $clienteModel = $this->clientes->resolverOuCriar([
+                'nome' => $nome,
+                'celular' => $digitosCelular !== '' ? $digitosCelular : null,
+                'endereco' => $cliente['enderecoRua'] ?? null,
+                'numero_endereco' => $cliente['enderecoNumero'] ?? null,
+                'bairro' => $cliente['enderecoBairro'] ?? null,
+                'cidade' => $cliente['enderecoCidade'] ?? null,
+                'uf_estado' => $cliente['enderecoUf'] ?? null,
+                'cep' => $cliente['enderecoCep'] ?? null,
+            ]);
+
+            $pedido->fill([
+                'pedido_cliente_id' => $clienteModel->id,
+                'pedido_opcaoentrega_id' => $opcao->id,
+                'pedido_endereco_entrega' => collect([
+                    $cliente['enderecoRua'] ?? null,
+                    $cliente['enderecoNumero'] ?? null,
+                    $cliente['enderecoBairro'] ?? null,
+                    $cliente['enderecoCidade'] ?? null,
+                ])->filter(fn ($v) => filled($v))->implode(', '),
+                'pedido_valor_itens' => $totais['itens'],
+                'pedido_valor_desconto' => $totais['desconto'],
+                'pedido_valor_frete' => $totais['frete'],
+                'pedido_valor_total' => $totais['total'],
+                'pedido_datahora_abertura' => Carbon::now(),
+            ])->save();
+
+            $pedido->pagamentosCombinados()->delete();
+
+            foreach ($pagamentos as $ordem => $linha) {
+                $forma = OpcoesPagamento::find($linha['opcaoPagamentoId']);
+
+                PagamentosPedido::create([
+                    'pg_pedido_pedido_id' => $pedido->id,
+                    'pg_pedido_opcaopagamento_id' => $forma?->id,
+                    'pg_pedido_opcaopagamento_nome' => $forma?->opcaopag_nome,
+                    'pg_pedido_valor' => self::valorDigitado($linha['valor']),
+                    'pg_pedido_valor_troco_para' => filled($linha['trocoPara'] ?? null) ? self::valorDigitado($linha['trocoPara']) : null,
+                    'pg_pedido_ordem' => $ordem,
+                ]);
+            }
+
+            $this->status->confirmar($pedido);
+
+            return true;
+        });
+    }
+
+    /** Valor mascarado do EntregaPagamentoPicker ("1.234,50") em reais — mesma regra do AtenderPedido. */
+    private static function valorDigitado(mixed $valor): float
+    {
+        return ((int) str_replace(['.', ','], '', (string) ($valor ?? '0'))) / 100;
+    }
+
     /** Retirada pronta entregue ao cliente (PRONTO → ENTREGUE, ou FINALIZADO se já paga). */
     public function marcarEntregue(Pedido $pedido, User $garcom): Pedido
     {
@@ -108,12 +229,12 @@ class RetiradaService
     }
 
     /**
-     * Retiradas do turno ainda em andamento — inclui ENTREGUE sem venda
-     * (cliente levou e vai pagar no caixa).
+     * Retiradas e entregas do turno lançadas pelo garçom ainda em andamento —
+     * inclui EM TRANSPORTE e ENTREGUE sem venda (vai pagar no caixa).
      *
      * @return Collection<int, Pedido>
      */
-    public function retiradasDoTurno(): Collection
+    public function pedidosViagemDoTurno(): Collection
     {
         [$inicio] = JanelaOperacional::atual();
 
@@ -126,7 +247,7 @@ class RetiradaService
                 StatusPedidoEnum::FINALIZADO->value,
             ])
             ->where('pedido_datahora_abertura', '>=', $inicio)
-            ->with(['cliente:id,cliente_nome', 'garcom:id,name,name_first'])
+            ->with(['cliente:id,cliente_nome', 'garcom:id,name,name_first', 'opcaoEntrega:id,opcaoentrega_nome,opcaoentrega_requer_endereco'])
             ->orderBy('pedido_datahora_abertura')
             ->get();
     }

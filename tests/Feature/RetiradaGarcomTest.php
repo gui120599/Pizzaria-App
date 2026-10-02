@@ -188,7 +188,7 @@ class RetiradaGarcomTest extends TestCase
         $mapa = Livewire::test(MapaMesas::class)
             ->set('tipo', 'RETIRADA')
             ->assertSee('João Silva')
-            ->assertSee('Nova retirada');
+            ->assertSee('Retirada ou entrega');
 
         $pedido->update(['pedido_status' => StatusPedidoEnum::PRONTO->value]);
 

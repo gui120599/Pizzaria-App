@@ -14,7 +14,7 @@
             if ($this->temComandas()) {
                 $abas['COMANDA'] = 'Comandas';
             }
-            $abas['RETIRADA'] = 'Retiradas';
+            $abas['RETIRADA'] = 'Viagem';
         @endphp
         <div @class(['grid gap-2 rounded-2xl bg-gray-100 p-1 dark:bg-white/5', count($abas) === 3 ? 'grid-cols-3' : 'grid-cols-2'])>
             @foreach ($abas as $valor => $rotulo)
@@ -32,7 +32,7 @@
         @if ($tipo === 'RETIRADA')
             <a href="{{ \App\Filament\Garcom\Pages\AtenderRetirada::getUrl() }}" wire:navigate
                class="block w-full rounded-2xl bg-primary-600 py-4 text-center text-base font-semibold text-white active:scale-[.98]">
-                + Nova retirada
+                + Retirada ou entrega
             </a>
 
             <div class="space-y-3">
@@ -47,10 +47,14 @@
                            'flex items-center gap-3 rounded-2xl p-4 ring-2 transition active:scale-[.98]',
                            \App\Enums\StatusMapaMesaEnum::PRONTO->classes() => $statusRetirada === \App\Enums\StatusPedidoEnum::PRONTO,
                            \App\Enums\StatusMapaMesaEnum::EM_PREPARO->classes() => in_array($statusRetirada, [\App\Enums\StatusPedidoEnum::ABERTO, \App\Enums\StatusPedidoEnum::PREPARANDO], true),
+                           \App\Enums\StatusMapaMesaEnum::AGUARDANDO_PEDIDO->classes() => $statusRetirada === \App\Enums\StatusPedidoEnum::EM_TRANSPORTE,
                            \App\Enums\StatusMapaMesaEnum::CONTA_SOLICITADA->classes() => $statusRetirada === \App\Enums\StatusPedidoEnum::ENTREGUE,
                        ])>
                         <div class="min-w-0 flex-1">
-                            <p class="truncate text-base font-bold">{{ $retirada->cliente?->cliente_nome }}</p>
+                            <p class="truncate text-base font-bold">
+                                <span class="mr-1 rounded bg-black/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase">{{ $retirada->exigeEntrega() ? 'Entrega' : 'Retirada' }}</span>
+                                {{ $retirada->cliente?->cliente_nome }}
+                            </p>
                             <p class="text-xs opacity-90">
                                 #{{ $retirada->id }} · {{ (int) \Illuminate\Support\Carbon::parse($retirada->pedido_datahora_abertura)->diffInMinutes(now()) }} min
                                 @unless ($minhaRetirada)
@@ -64,6 +68,7 @@
                                     \App\Enums\StatusPedidoEnum::ABERTO => 'Enviado',
                                     \App\Enums\StatusPedidoEnum::PREPARANDO => 'Em preparo',
                                     \App\Enums\StatusPedidoEnum::PRONTO => 'Pronto',
+                                    \App\Enums\StatusPedidoEnum::EM_TRANSPORTE => 'Saiu para entrega',
                                     \App\Enums\StatusPedidoEnum::ENTREGUE => 'Aguarda pagamento',
                                     default => $retirada->pedido_status,
                                 } }}
@@ -73,7 +78,7 @@
                     </a>
                 @empty
                     <div class="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-500 dark:border-white/10">
-                        Nenhuma retirada em andamento neste turno.
+                        Nenhuma retirada ou entrega em andamento neste turno.
                     </div>
                 @endforelse
             </div>

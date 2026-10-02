@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cliente;
 use App\Models\ItensPedido;
 use App\Models\Lancamento;
 use App\Models\MovimentacoesSessaoCaixa;
@@ -11,8 +12,10 @@ use App\Models\Pedido;
 use App\Models\SessaoCaixa;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
+use App\Support\ContaMesa;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class PDFController extends Controller
 {
@@ -47,35 +50,91 @@ class PDFController extends Controller
         return view('vendaPDF', ['venda' => $venda]);
     }
 
+    /**
+     * Pré-conta da mesa. Mesmo escopo da baixa na venda (ContaMesa::itensEmAberto):
+     * ignora rascunhos, cancelados, finalizados e itens já lançados numa venda.
+     *
+     * ?modo=cliente (padrão, por pessoa) | agrupado (itens iguais somados) |
+     * rodada (cada envio com data/hora e garçom); ?cliente={id} imprime a
+     * comanda individual de uma pessoa (0 = itens da mesa sem pessoa).
+     */
     public function sessaoMesaPDF(Request $request)
     {
-        $sessaoMesaId = $request->id;
-        $sessaoMesa = SessaoMesa::with(['mesa', 'cliente', 'garcom'])->find($sessaoMesaId);
+        $sessaoMesa = SessaoMesa::with(['mesa', 'cliente', 'garcom'])->findOrFail($request->id);
+        $modo = in_array($request->query('modo'), ['agrupado', 'rodada'], true) ? $request->query('modo') : 'cliente';
+        $clienteId = $request->query('cliente') !== null ? (int) $request->query('cliente') : null;
 
-        // Mesmo escopo da baixa na venda: ignora rascunhos (INICIADO), cancelados,
-        // já finalizados e itens já vinculados a uma venda (cobrados/lançados).
-        // Assim o total da comanda bate com o valor a cobrar na venda.
-        $itensInseridoPedido = ItensPedido::whereHas('pedido', function ($query) use ($sessaoMesaId) {
-            $query->where('pedido_sessao_mesa_id', $sessaoMesaId)
-                ->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO']);
-        })
-            ->where('item_pedido_status', 'INSERIDO')
-            ->whereNull('item_pedido_venda_id')
-            ->with(['pedido.garcom', 'produto.categoria', 'adicionaisItemPedido.adicional', 'cliente'])
-            ->get();
+        $itens = ContaMesa::itensEmAberto($sessaoMesa->id, $clienteId);
 
-        // Desconto pelo conjunto de itens exibido (não pelo cabeçalho do pedido),
-        // para ficar correto também em pagamentos parciais.
-        $totalDesconto = round($itensInseridoPedido->sum('item_pedido_desconto'), 2);
+        $blocos = match ($modo) {
+            'agrupado' => [[
+                'titulo' => null,
+                'subtitulo' => null,
+                'subtotal' => round((float) $itens->sum('item_pedido_valor'), 2),
+                'agrupados' => $this->agruparItensIguais($itens),
+            ]],
+            'rodada' => $itens->groupBy('item_pedido_pedido_id')->map(fn ($daRodada) => [
+                'titulo' => 'Rodada #'.$daRodada->first()->item_pedido_pedido_id,
+                'subtitulo' => collect([
+                    $daRodada->first()->pedido?->pedido_datahora_abertura
+                        ? Carbon::parse($daRodada->first()->pedido->pedido_datahora_abertura)->format('d/m H:i')
+                        : null,
+                    $daRodada->first()->pedido?->garcom?->name_first,
+                ])->filter()->implode(' · '),
+                'subtotal' => round((float) $daRodada->sum('item_pedido_valor'), 2),
+                'itens' => $daRodada,
+            ])->values()->all(),
+            default => $itens->groupBy(fn ($item) => $item->item_pedido_cliente_id ?? 0)->map(fn ($daPessoa, $id) => [
+                'titulo' => $id === 0 ? 'Mesa geral' : ($daPessoa->first()->cliente?->cliente_nome ?? 'Cliente #'.$id),
+                'subtitulo' => null,
+                'subtotal' => round((float) $daPessoa->sum('item_pedido_valor'), 2),
+                'itens' => $daPessoa,
+            ])->values()->all(),
+        };
 
-        // Agrupa por cliente: usa item_pedido_cliente_id; null vai para chave 0
-        $itensPorCliente = $itensInseridoPedido->groupBy(fn ($item) => $item->item_pedido_cliente_id ?? 0);
+        $tituloImpressao = match (true) {
+            $clienteId === 0 => 'Comanda — Mesa geral',
+            $clienteId !== null => 'Comanda de '.(Cliente::find($clienteId)?->cliente_nome ?? 'Cliente'),
+            $modo === 'agrupado' => 'Pré-conta (itens agrupados)',
+            $modo === 'rodada' => 'Pré-conta por rodada',
+            default => 'Comanda de Mesa',
+        };
 
         return view('sessaoMesaPDF', [
             'sessao_mesa' => $sessaoMesa,
-            'itens_por_cliente' => $itensPorCliente,
-            'total_desconto' => $totalDesconto,
+            'blocos' => $blocos,
+            'titulo_impressao' => $tituloImpressao,
+            // Desconto pelo conjunto de itens exibido (não pelo cabeçalho do pedido).
+            'total_desconto' => round($itens->sum('item_pedido_desconto'), 2),
         ]);
+    }
+
+    /**
+     * Soma itens iguais — mesmo nome (com sabores), adicionais e observação.
+     *
+     * @param  Collection<int, ItensPedido>  $itens
+     * @return array<int, array{nome: string, adicionais: string, observacao: string, quantidade: float, valor: float, desconto: float}>
+     */
+    private function agruparItensIguais(Collection $itens): array
+    {
+        return $itens
+            ->map(fn (ItensPedido $item) => [
+                'nome' => $item->nomeProduto(),
+                'adicionais' => $item->adicionaisItemPedido->map(fn ($a) => $a->adicional?->adicional_nome)->filter()->sort()->implode(', '),
+                'observacao' => trim((string) $item->item_pedido_observacao),
+                'quantidade' => (float) $item->item_pedido_quantidade,
+                'valor' => (float) $item->item_pedido_valor,
+                'desconto' => (float) $item->item_pedido_desconto,
+            ])
+            ->groupBy(fn (array $linha) => $linha['nome'].'|'.$linha['adicionais'].'|'.$linha['observacao'])
+            ->map(fn (Collection $iguais) => [
+                ...$iguais->first(),
+                'quantidade' => round($iguais->sum('quantidade'), 4),
+                'valor' => round($iguais->sum('valor'), 2),
+                'desconto' => round($iguais->sum('desconto'), 2),
+            ])
+            ->values()
+            ->all();
     }
 
     /**

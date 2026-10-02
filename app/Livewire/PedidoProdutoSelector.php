@@ -79,6 +79,13 @@ class PedidoProdutoSelector extends Component
 
     public ?int $clienteSelecionadoId = null;
 
+    /**
+     * Pessoa da mesa para quem o garçom está lançando ("Lançando para…" no
+     * Painel do Garçom): cada item novo nasce para ela, e a seleção volta a
+     * ela depois de cada item. Null = mesa geral.
+     */
+    public ?int $clientePadraoId = null;
+
     public ?int $editClienteId = null;
 
     // Modal sabores (meia a meia / terços)
@@ -123,9 +130,11 @@ class PedidoProdutoSelector extends Component
 
     public ?string $avisoEstoque = null;
 
-    public function mount(?int $pedidoId = null, array $itensIniciais = []): void
+    public function mount(?int $pedidoId = null, array $itensIniciais = [], ?int $clientePadraoId = null): void
     {
         $this->pedidoId = $pedidoId;
+        $this->clientePadraoId = $clientePadraoId;
+        $this->clienteSelecionadoId = $clientePadraoId;
 
         if ($pedidoId) {
             $this->carregarItensDB();
@@ -759,7 +768,7 @@ class PedidoProdutoSelector extends Component
         $this->saboresObservacao = '';
         $this->saboresSelecionados = [];
         $this->saboresProdutos = [];
-        $this->clienteSelecionadoId = null;
+        $this->clienteSelecionadoId = $this->clientePadraoId;
         $this->ofertasDisponiveis = [];
         $this->ofertaEscolhidaId = null;
     }
@@ -962,7 +971,7 @@ class PedidoProdutoSelector extends Component
         $this->produtoSelecionadoId = null;
         $this->adicionaisDisponiveis = [];
         $this->adicionaisSelecionados = [];
-        $this->clienteSelecionadoId = null;
+        $this->clienteSelecionadoId = $this->clientePadraoId;
         $this->ofertasDisponiveis = [];
         $this->ofertaEscolhidaId = null;
     }
