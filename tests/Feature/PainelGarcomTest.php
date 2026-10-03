@@ -194,4 +194,43 @@ class PainelGarcomTest extends TestCase
 
         $this->assertSame('Sem cebola', ItensPedido::sole()->item_pedido_observacao);
     }
+
+    public function test_seletor_em_layout_desktop_entrega_os_itens_do_rascunho_ao_painel(): void
+    {
+        $this->actingAs($this->garcom);
+        $rascunho = app(AtendimentoMesaService::class)->rascunho($this->sessaoAberta(), $this->garcom);
+        $this->item($rascunho);
+
+        Livewire::test(PedidoProdutoSelector::class, ['pedidoId' => $rascunho->id, 'layoutDesktop' => true])
+            ->assertDispatched('itens-pedido-atualizados', fn (string $evento, array $params) => count($params['itens']) === 1
+                && (float) $params['itens'][0]['valor'] === 50.0);
+
+        Livewire::test(PedidoProdutoSelector::class, ['pedidoId' => $rascunho->id])
+            ->assertNotDispatched('itens-pedido-atualizados');
+    }
+
+    public function test_carrinho_lateral_da_mesa_repassa_acoes_e_reinicia_apos_enviar(): void
+    {
+        $this->actingAs($this->garcom);
+        $sessao = $this->sessaoAberta();
+
+        $tela = Livewire::test(AtenderMesa::class, ['sessao' => $sessao->id]);
+        $rascunho = Pedido::findOrFail($tela->get('rascunhoId'));
+        $item = $this->item($rascunho);
+
+        $tela->call('onItensAtualizados', [[
+            'id' => $item->id, 'produto_id' => $item->item_pedido_produto_id, 'produto_nome' => 'Calabresa',
+            'quantidade' => 1.0, 'valor' => 50.0, 'desconto' => 0.0,
+        ]])
+            ->assertSee('Rodada atual')
+            ->assertSee('R$ 50,00')
+            ->call('incrementarQtd', (string) $item->id)
+            ->assertDispatched('pedido-incrementar-item', itemId: (string) $item->id)
+            ->set('abaPainel', 'conta')
+            ->call('enviarRodada')
+            ->assertSet('abaPainel', 'rodada')
+            ->assertSet('itensCarrinho', []);
+
+        $this->assertSame(StatusPedidoEnum::ABERTO->value, $rascunho->fresh()->pedido_status);
+    }
 }

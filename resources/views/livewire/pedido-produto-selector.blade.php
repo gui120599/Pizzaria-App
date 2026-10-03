@@ -82,7 +82,14 @@
     </div>
 
     {{-- ── Grid de produtos ────────────────────────────────────────────────── --}}
-    <div class="divide-y divide-gray-100 dark:divide-white/10 overflow-y-auto" style="max-height: clamp(18rem, 60vh, 48rem)">
+    {{-- layoutDesktop (Painel do Garçom, tema próprio): altura e grade por
+         classe para o lg poder sobrescrever; as demais telas mantêm o estilo
+         inline de sempre (o CSS delas não gera estas classes). --}}
+    <div @class([
+            'divide-y divide-gray-100 dark:divide-white/10 overflow-y-auto',
+            'max-h-[clamp(18rem,60vh,48rem)] lg:grid lg:grid-cols-2 lg:content-start lg:gap-3 lg:divide-y-0 lg:p-3 lg:max-h-[calc(100vh-17rem)] 2xl:grid-cols-3' => $layoutDesktop,
+        ])
+        @unless ($layoutDesktop) style="max-height: clamp(18rem, 60vh, 48rem)" @endunless>
         @forelse ($this->produtos as $produto)
             @php
                 // Mesma resolução de preço do cardápio — inclui promoção relâmpago
@@ -97,7 +104,10 @@
                 $temRelampago = $preco->temPromocaoRelampago();
             @endphp
             <div wire:key="produto-{{ $produto->id }}"
-                 class="relative p-2 flex items-start gap-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                 @class([
+                     'relative p-2 flex items-start gap-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors',
+                     'lg:rounded-xl lg:ring-1 lg:ring-gray-200 lg:dark:ring-white/10 lg:p-3' => $layoutDesktop,
+                 ])>
 
                 {{-- Imagem --}}
                 <div class="relative shrink-0">
@@ -165,7 +175,7 @@
     @unless ($carrinhoTopo)
         {{-- ── FAB: Salvar + Ver itens ─────────────────────────────────────── --}}
         @php $totalFab = collect($itens)->sum('valor'); @endphp
-        <div class="fixed bottom-5 inset-x-0 px-4 z-40 flex justify-center pointer-events-none">
+        <div @class(['fixed bottom-5 inset-x-0 px-4 z-40 flex justify-center pointer-events-none', 'lg:hidden' => $layoutDesktop])>
             <div class="flex flex-col sm:flex-row items-center gap-2 pointer-events-none">
 
                 {{-- Botão salvar (sempre visível) --}}
@@ -193,7 +203,7 @@
 
         {{-- ── Drawer: lista de itens (bottom sheet) ──────────────────────── --}}
         <div x-show="drawerOpen"
-             class="fixed inset-0 z-50 flex flex-col justify-end"
+             @class(['fixed inset-0 z-50 flex flex-col justify-end', 'lg:hidden' => $layoutDesktop])"
              style="display:none">
 
             {{-- Backdrop --}}

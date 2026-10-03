@@ -4,7 +4,7 @@
 --}}
 <x-filament-panels::page>
     <div wire:poll.{{ (int) config('pizzaria.salao.polling_mapa_segundos') }}s="verificarProntas"
-         class="space-y-5">
+         class="w-full space-y-5">
 
         @include('filament.garcom.partials.sem-conexao')
         @include('filament.garcom.partials.alerta-pronto')
@@ -16,7 +16,7 @@
             }
             $abas['RETIRADA'] = 'Viagem';
         @endphp
-        <div @class(['grid gap-2 rounded-2xl bg-gray-100 p-1 dark:bg-white/5', count($abas) === 3 ? 'grid-cols-3' : 'grid-cols-2'])>
+        <div @class(['grid gap-2 rounded-2xl bg-gray-100 p-1 lg:max-w-xl dark:bg-white/5', count($abas) === 3 ? 'grid-cols-3' : 'grid-cols-2'])>
             @foreach ($abas as $valor => $rotulo)
                 <button type="button" wire:click="$set('tipo', '{{ $valor }}')"
                         @class([
@@ -31,11 +31,11 @@
 
         @if ($tipo === 'RETIRADA')
             <a href="{{ \App\Filament\Garcom\Pages\AtenderRetirada::getUrl() }}" wire:navigate
-               class="block w-full rounded-2xl bg-primary-600 py-4 text-center text-base font-semibold text-white active:scale-[.98]">
+               class="block w-full rounded-2xl bg-primary-600 py-4 text-center text-base font-semibold text-white active:scale-[.98] lg:inline-block lg:w-auto lg:px-10">
                 + Retirada ou entrega
             </a>
 
-            <div class="space-y-3">
+            <div class="space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 xl:grid-cols-3">
                 @forelse ($this->retiradas() as $retirada)
                     @php
                         $statusRetirada = \App\Enums\StatusPedidoEnum::tryFrom($retirada->pedido_status);
@@ -77,7 +77,7 @@
                         </div>
                     </a>
                 @empty
-                    <div class="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-500 dark:border-white/10">
+                    <div class="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-500 md:col-span-2 xl:col-span-3 dark:border-white/10">
                         Nenhuma retirada ou entrega em andamento neste turno.
                     </div>
                 @endforelse
@@ -87,14 +87,14 @@
             <section class="space-y-2">
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $area }}</h2>
 
-                <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10">
                     @foreach ($mesas as $mesa)
                         <button type="button"
                                 wire:key="mesa-{{ $mesa['id'] }}"
                                 wire:click="tocarMesa({{ $mesa['id'] }})"
                                 @disabled($mesa['status'] === \App\Enums\StatusMapaMesaEnum::INATIVA)
                                 @class([
-                                    'relative flex aspect-square flex-col items-center justify-center gap-0.5 rounded-2xl p-2 text-center ring-2 transition active:scale-95',
+                                    'relative flex aspect-square flex-col items-center justify-center gap-0.5 rounded-2xl p-2 text-center ring-2 transition active:scale-95 lg:aspect-auto lg:h-36 lg:hover:brightness-95',
                                     $mesa['status']->classes(),
                                 ])>
                             @if ($mesa['parada'])

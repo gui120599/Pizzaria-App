@@ -146,7 +146,7 @@ class EntregaGarcomTest extends TestCase
             ->call('usarTipo', 'entrega')
             ->call('onClienteAtualizado', $this->cliente())
             ->call('onEntregaPagamentoAtualizado', $this->entregaPagamento())
-            ->call('onItensAtualizados', [['valor' => 50.0, 'desconto' => 0.0]])
+            ->call('onItensAtualizados', [['id' => 1, 'produto_id' => 1, 'produto_nome' => 'Calabresa', 'quantidade' => 1.0, 'valor' => 50.0, 'desconto' => 0.0]])
             ->assertSee('R$ 58,00')
             ->call('enviar')
             ->assertRedirect(AtenderRetirada::getUrl(['pedido' => $rascunho->id]));
