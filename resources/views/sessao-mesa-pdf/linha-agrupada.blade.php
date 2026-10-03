@@ -3,7 +3,7 @@
 <tr>
     <td class="text-xs font-bold text-center align-top">{{ \App\Support\FormatoQuantidade::item($grupo['quantidade']) }}</td>
     <td class="text-xs text-center uppercase align-top">
-        <p class="font-bold">{{ $grupo['nome'] }}</p>
+        <div class="font-bold"><x-impressao.nome-item :item="$grupo['item']" /></div>
         @if ($grupo['adicionais'] !== '')
             <p class="text-[8px] font-bold">Adic. {{ $grupo['adicionais'] }}</p>
         @endif

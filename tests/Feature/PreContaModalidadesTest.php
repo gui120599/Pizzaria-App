@@ -103,8 +103,20 @@ class PreContaModalidadesTest extends TestCase
         $this->get($this->url(['modo' => 'agrupado']))
             ->assertOk()
             ->assertSee('Pré-conta (itens agrupados)')
-            ->assertSeeInOrder(['2', 'Coca-Cola', 'R$ 28,00'])
+            ->assertSeeInOrder(['2', 'Cardápio', 'Coca-Cola', 'R$ 28,00'])
             ->assertDontSee('Subtotal');
+    }
+
+    public function test_agrupado_nao_junta_o_mesmo_produto_de_categorias_diferentes(): void
+    {
+        $broto = Categoria::create(['categoria_nome' => 'Pizza Broto']);
+        $calabresaBroto = Produto::create(['produto_descricao' => 'Calabresa', 'produto_categoria_id' => $broto->id, 'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value, 'produto_preco_venda' => 30]);
+        $this->rodada([[$calabresaBroto, null]]);
+
+        $this->get($this->url(['modo' => 'agrupado']))
+            ->assertOk()
+            ->assertSeeInOrder(['Cardápio', 'Calabresa', 'R$ 50,00'])
+            ->assertSeeInOrder(['Pizza Broto', 'Calabresa', 'R$ 30,00']);
     }
 
     public function test_por_rodada_mostra_data_hora_e_garcom(): void

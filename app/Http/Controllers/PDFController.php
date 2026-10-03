@@ -110,15 +110,21 @@ class PDFController extends Controller
     }
 
     /**
-     * Soma itens iguais — mesmo nome (com sabores), adicionais e observação.
+     * Soma itens iguais — mesma categoria, nome (com sabores), adicionais e
+     * observação. A categoria entra na chave porque o mesmo sabor existe em
+     * tamanhos diferentes (Calabresa Grande × Broto). O primeiro item do grupo
+     * vai junto para a linha imprimir o nome pelo mesmo componente das outras
+     * impressões (badge da categoria + um sabor por linha).
      *
      * @param  Collection<int, ItensPedido>  $itens
-     * @return array<int, array{nome: string, adicionais: string, observacao: string, quantidade: float, valor: float, desconto: float}>
+     * @return array<int, array{item: ItensPedido, categoria: ?int, nome: string, adicionais: string, observacao: string, quantidade: float, valor: float, desconto: float}>
      */
     private function agruparItensIguais(Collection $itens): array
     {
         return $itens
             ->map(fn (ItensPedido $item) => [
+                'item' => $item,
+                'categoria' => $item->produto?->produto_categoria_id,
                 'nome' => $item->nomeProduto(),
                 'adicionais' => $item->adicionaisItemPedido->map(fn ($a) => $a->adicional?->adicional_nome)->filter()->sort()->implode(', '),
                 'observacao' => trim((string) $item->item_pedido_observacao),
@@ -126,7 +132,7 @@ class PDFController extends Controller
                 'valor' => (float) $item->item_pedido_valor,
                 'desconto' => (float) $item->item_pedido_desconto,
             ])
-            ->groupBy(fn (array $linha) => $linha['nome'].'|'.$linha['adicionais'].'|'.$linha['observacao'])
+            ->groupBy(fn (array $linha) => $linha['categoria'].'|'.$linha['nome'].'|'.$linha['adicionais'].'|'.$linha['observacao'])
             ->map(fn (Collection $iguais) => [
                 ...$iguais->first(),
                 'quantidade' => round($iguais->sum('quantidade'), 4),
