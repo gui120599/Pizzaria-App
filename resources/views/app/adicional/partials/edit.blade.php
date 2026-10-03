@@ -38,7 +38,7 @@
                 </div>
                 <div class="flex flex-col items-center justify-center gap-y-2">
                     @if ($adicional->adicional_foto)
-                    <img id="imagem-preview" class="mborder rounded-lg object-contain w-40 h-40 p-1" src="{{ asset('img/fotos_adicionais/' . $adicional->adicional_foto) }}" />
+                    <img id="imagem-preview" class="mborder rounded-lg object-contain w-40 h-40 p-1" src="{{ $adicional->getImagemUrl() }}" />
                     @else
                     <img id="imagem-preview" class="mborder rounded-lg object-contain w-40 h-40 p-1" src="{{ asset('Sem Imagem.png') }}" />
                     @endif

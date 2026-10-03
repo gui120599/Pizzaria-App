@@ -8,6 +8,7 @@ use App\Services\PrecoResolvido;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
@@ -429,6 +430,14 @@ class Produto extends Model
     public function ap_produto_id()
     {
         return $this->hasMany(AdicionaisProduto::class, 'ap_produto_id');
+    }
+
+    /** Adicionais vinculados (ignora vínculos inativados pelo legado). */
+    public function adicionais(): BelongsToMany
+    {
+        return $this->belongsToMany(Adicional::class, 'adicionais_produtos', 'ap_produto_id', 'ap_adicional_id')
+            ->wherePivotNull('deleted_at')
+            ->withTimestamps();
     }
 
     public function balancos()
