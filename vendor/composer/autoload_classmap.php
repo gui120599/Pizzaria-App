@@ -82,6 +82,7 @@ return array(
     'App\\Exceptions\\VendaNaoFinalizavelException' => $baseDir . '/app/Exceptions/VendaNaoFinalizavelException.php',
     'App\\Filament\\Components\\MarcaSelect' => $baseDir . '/app/Filament/Components/MarcaSelect.php',
     'App\\Filament\\Garcom\\Concerns\\AutorizaComPinDeGerente' => $baseDir . '/app/Filament/Garcom/Concerns/AutorizaComPinDeGerente.php',
+    'App\\Filament\\Garcom\\Concerns\\CarrinhoLateral' => $baseDir . '/app/Filament/Garcom/Concerns/CarrinhoLateral.php',
     'App\\Filament\\Garcom\\Pages\\AtenderMesa' => $baseDir . '/app/Filament/Garcom/Pages/AtenderMesa.php',
     'App\\Filament\\Garcom\\Pages\\AtenderRetirada' => $baseDir . '/app/Filament/Garcom/Pages/AtenderRetirada.php',
     'App\\Filament\\Garcom\\Pages\\Auth\\LoginGarcom' => $baseDir . '/app/Filament/Garcom/Pages/Auth/LoginGarcom.php',

@@ -86,6 +86,13 @@ class PedidoProdutoSelector extends Component
      */
     public ?int $clientePadraoId = null;
 
+    /**
+     * Painel do Garçom no desktop (≥ lg): produtos em grade e, em vez do
+     * botão flutuante/gaveta, o carrinho fica num painel lateral da página
+     * (alimentado por itens-pedido-atualizados). Abaixo de lg, igual ao celular.
+     */
+    public bool $layoutDesktop = false;
+
     public ?int $editClienteId = null;
 
     // Modal sabores (meia a meia / terços)
@@ -130,16 +137,23 @@ class PedidoProdutoSelector extends Component
 
     public ?string $avisoEstoque = null;
 
-    public function mount(?int $pedidoId = null, array $itensIniciais = [], ?int $clientePadraoId = null): void
+    public function mount(?int $pedidoId = null, array $itensIniciais = [], ?int $clientePadraoId = null, bool $layoutDesktop = false): void
     {
         $this->pedidoId = $pedidoId;
         $this->clientePadraoId = $clientePadraoId;
         $this->clienteSelecionadoId = $clientePadraoId;
+        $this->layoutDesktop = $layoutDesktop;
 
         if ($pedidoId) {
             $this->carregarItensDB();
         } else {
             $this->itens = $itensIniciais;
+        }
+
+        // No desktop o carrinho é um painel da página (Painel do Garçom):
+        // ela precisa dos itens já gravados no rascunho desde o início.
+        if ($layoutDesktop) {
+            $this->notificarPai();
         }
     }
 

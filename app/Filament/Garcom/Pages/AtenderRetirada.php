@@ -7,6 +7,7 @@ use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Filament\Garcom\Concerns\AutorizaComPinDeGerente;
+use App\Filament\Garcom\Concerns\CarrinhoLateral;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
@@ -34,6 +35,7 @@ use RuntimeException;
 class AtenderRetirada extends Page
 {
     use AutorizaComPinDeGerente;
+    use CarrinhoLateral;
 
     protected string $view = 'filament.garcom.pages.atender-retirada';
 
@@ -63,19 +65,11 @@ class AtenderRetirada extends Page
     /** Estado do EntregaPagamentoPicker (entrega), recebido por evento. */
     public array $entregaPagamentoData = ['opcaoEntregaId' => null, 'pagamentos' => []];
 
-    /** Itens do rascunho como o PedidoProdutoSelector os expõe (para o total com frete). */
-    public array $itensCarrinho = [];
-
     public function mount(int|string|null $pedido = null): void
     {
         if ($pedido === null || $pedido === '') {
-            $rascunho = app(RetiradaService::class)->rascunho($this->usuario());
-            $this->rascunhoId = $rascunho->id;
-            $this->itensCarrinho = $rascunho->item_pedido_pedido_id()
-                ->where('item_pedido_status', 'INSERIDO')
-                ->get(['item_pedido_valor', 'item_pedido_desconto'])
-                ->map(fn (ItensPedido $item) => ['valor' => (float) $item->item_pedido_valor, 'desconto' => (float) $item->item_pedido_desconto])
-                ->all();
+            // Itens do carrinho chegam do seletor (layoutDesktop notifica no mount).
+            $this->rascunhoId = app(RetiradaService::class)->rascunho($this->usuario())->id;
 
             return;
         }
@@ -146,12 +140,6 @@ class AtenderRetirada extends Page
     public function usarTipo(string $tipo): void
     {
         $this->tipo = $tipo === 'entrega' ? 'entrega' : 'retirada';
-    }
-
-    #[On('itens-pedido-atualizados')]
-    public function onItensAtualizados(array $itens): void
-    {
-        $this->itensCarrinho = $itens;
     }
 
     #[On('pedido-cliente-atualizado')]

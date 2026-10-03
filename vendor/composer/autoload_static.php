@@ -972,6 +972,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Exceptions\\VendaNaoFinalizavelException' => __DIR__ . '/../..' . '/app/Exceptions/VendaNaoFinalizavelException.php',
         'App\\Filament\\Components\\MarcaSelect' => __DIR__ . '/../..' . '/app/Filament/Components/MarcaSelect.php',
         'App\\Filament\\Garcom\\Concerns\\AutorizaComPinDeGerente' => __DIR__ . '/../..' . '/app/Filament/Garcom/Concerns/AutorizaComPinDeGerente.php',
+        'App\\Filament\\Garcom\\Concerns\\CarrinhoLateral' => __DIR__ . '/../..' . '/app/Filament/Garcom/Concerns/CarrinhoLateral.php',
         'App\\Filament\\Garcom\\Pages\\AtenderMesa' => __DIR__ . '/../..' . '/app/Filament/Garcom/Pages/AtenderMesa.php',
         'App\\Filament\\Garcom\\Pages\\AtenderRetirada' => __DIR__ . '/../..' . '/app/Filament/Garcom/Pages/AtenderRetirada.php',
         'App\\Filament\\Garcom\\Pages\\Auth\\LoginGarcom' => __DIR__ . '/../..' . '/app/Filament/Garcom/Pages/Auth/LoginGarcom.php',

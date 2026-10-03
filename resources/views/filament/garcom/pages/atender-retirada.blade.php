@@ -5,13 +5,17 @@
     status e itens; retirada tem cobrança Stone e "Entregue ao cliente".
 --}}
 <x-filament-panels::page>
-    <div class="space-y-4">
+    <div class="w-full space-y-4">
         @include('filament.garcom.partials.sem-conexao')
 
         <a href="{{ \App\Filament\Garcom\Pages\MapaMesas::getUrl(['tipo' => 'RETIRADA']) }}" wire:navigate
            class="inline-block text-sm font-semibold text-primary-600 dark:text-primary-400">&larr; Viagem</a>
 
         @if (! $pedidoId)
+            {{-- Desktop (≥ lg): cardápio à esquerda, painel fixo à direita com
+                 tipo, cliente, carrinho e envio. No celular a ordem é a do DOM. --}}
+            <div class="space-y-4 lg:grid lg:grid-cols-12 lg:items-start lg:gap-6 lg:space-y-0">
+            <div class="space-y-4 lg:sticky lg:top-4 lg:order-2 lg:col-span-5 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 2xl:col-span-4">
             <div class="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1 dark:bg-white/5">
                 @foreach (['retirada' => 'Retirada', 'entrega' => 'Entrega'] as $valor => $rotulo)
                     <button type="button" wire:click="usarTipo('{{ $valor }}')"
@@ -63,10 +67,23 @@
                 </p>
             @endif
 
-            @livewire('pedido-produto-selector', [
-                'pedidoId' => $rascunhoId,
-                'saveButtonLabel' => 'Enviar para a cozinha',
-            ], key('retirada-'.$rascunhoId))
+            <div class="hidden lg:block">
+                @include('filament.garcom.partials.carrinho-lateral', [
+                    'acaoEnviar' => 'enviar',
+                    'tituloCarrinho' => $tipo === 'entrega' ? 'Itens da entrega' : 'Itens da retirada',
+                    'totalExibido' => $tipo === 'entrega' ? $this->totaisEntrega()['total'] : null,
+                ])
+            </div>
+            </div>
+
+            <div class="lg:order-1 lg:col-span-7 2xl:col-span-8">
+                @livewire('pedido-produto-selector', [
+                    'pedidoId' => $rascunhoId,
+                    'saveButtonLabel' => 'Enviar para a cozinha',
+                    'layoutDesktop' => true,
+                ], key('retirada-'.$rascunhoId))
+            </div>
+            </div>
 
             <form id="pedido-form" wire:submit="enviar" class="hidden"></form>
         @else
@@ -76,7 +93,8 @@
                 $pago = $retirada->pedido_venda_id !== null || $status === \App\Enums\StatusPedidoEnum::FINALIZADO;
             @endphp
 
-            <div wire:poll.{{ (int) config('pizzaria.salao.polling_mesa_segundos') }}s="atualizar" class="space-y-4">
+            <div wire:poll.{{ (int) config('pizzaria.salao.polling_mesa_segundos') }}s="atualizar"
+                 class="w-full max-w-6xl space-y-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
                 @include('filament.garcom.partials.alerta-pronto')
 
                 <div class="rounded-2xl bg-white p-4 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
@@ -137,6 +155,7 @@
                     </div>
                 </div>
 
+                <div class="space-y-4">
                 @if ($retirada->exigeEntrega())
                     <div class="space-y-1 rounded-2xl bg-white p-4 text-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
                         <p class="font-semibold text-gray-900 dark:text-white">Entrega · {{ $retirada->opcaoEntrega?->opcaoentrega_nome }}</p>
@@ -169,6 +188,7 @@
                 @elseif ($pago && ! $retirada->exigeEntrega())
                     <p class="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">Pagamento registrado.</p>
                 @endif
+                </div>
             </div>
         @endif
     </div>

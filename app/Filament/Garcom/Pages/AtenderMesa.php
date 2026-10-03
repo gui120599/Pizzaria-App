@@ -6,6 +6,7 @@ use App\Enums\AcaoAutorizadaEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Filament\Garcom\Concerns\AutorizaComPinDeGerente;
+use App\Filament\Garcom\Concerns\CarrinhoLateral;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
 use App\Models\Mesa;
@@ -35,6 +36,7 @@ use RuntimeException;
 class AtenderMesa extends Page
 {
     use AutorizaComPinDeGerente;
+    use CarrinhoLateral;
 
     protected string $view = 'filament.garcom.pages.atender-mesa';
 
@@ -48,6 +50,9 @@ class AtenderMesa extends Page
 
     #[Url]
     public string $aba = 'pedir';
+
+    /** Painel lateral no desktop: 'rodada' (carrinho) | 'rodadas' | 'conta'. */
+    public string $abaPainel = 'rodada';
 
     /** @var array<int, int> */
     public array $prontasAvisadas = [];
@@ -238,7 +243,10 @@ class AtenderMesa extends Page
             ->send();
 
         $this->rascunhoId = $this->servico()->rascunho($this->sessao(), $this->usuario())->id;
+        // Celular vai para Rodadas; no desktop o painel volta à rodada nova (vazia).
         $this->aba = 'rodadas';
+        $this->abaPainel = 'rodada';
+        $this->itensCarrinho = [];
     }
 
     public function marcarEntregue(int $pedidoId): void
