@@ -717,7 +717,7 @@
                                     itemHtml += `
                                             <div class="grid grid-cols-8 mt-2 items-center">
                                                 <div class="col-span-1">
-                                                    <img id="imagem-preview" class="w-10 h-10 object-cover rounded-lg" src="/img/fotos_adicionais/${add.adicional.adicional_foto}" alt="Imagem do Adicional">
+                                                    <img id="imagem-preview" class="w-10 h-10 object-cover rounded-lg" src="${add.adicional.adicional_foto_url}" alt="Imagem do Adicional">
                                                 </div>
                                                 <div class="col-span-2">
                                                     <span class="text-start">${add.adicional.adicional_nome}</span>

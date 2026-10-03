@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Produtos;
 use App\Filament\Resources\Produtos\Pages\CreateProduto;
 use App\Filament\Resources\Produtos\Pages\EditProduto;
 use App\Filament\Resources\Produtos\Pages\ListProdutos;
+use App\Filament\Resources\Produtos\RelationManagers\AdicionaisRelationManager;
 use App\Filament\Resources\Produtos\RelationManagers\FichaItensRelationManager;
 use App\Filament\Resources\Produtos\RelationManagers\LotesRelationManager;
 use App\Filament\Resources\Produtos\Schemas\ProdutoForm;
@@ -48,6 +49,7 @@ class ProdutoResource extends Resource
         return [
             FichaItensRelationManager::class,
             LotesRelationManager::class,
+            AdicionaisRelationManager::class,
         ];
     }
 

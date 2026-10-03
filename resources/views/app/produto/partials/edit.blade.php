@@ -394,7 +394,7 @@
                                     </td>
                                     <td class="flex items-center">
                                         @if ($adicional->adicional_foto)
-                                            <img src="{{ asset('img/fotos_adicionais/' . $adicional->adicional_foto) }}"
+                                            <img src="{{ $adicional->getImagemUrl() }}"
                                                 alt="{{ $adicional->adicional_nome }}"
                                                 class="w-10 h-10 object-cover rounded-full ">
                                         @else

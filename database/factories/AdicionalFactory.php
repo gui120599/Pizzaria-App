@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\Adicional;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Adicional>
+ * @extends Factory<Adicional>
  */
 class AdicionalFactory extends Factory
 {
@@ -17,7 +18,8 @@ class AdicionalFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'adicional_nome' => fake()->unique()->words(2, true),
+            'adicional_valor' => fake()->randomFloat(2, 1, 15),
         ];
     }
 }

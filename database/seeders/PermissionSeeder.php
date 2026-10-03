@@ -28,9 +28,10 @@ class PermissionSeeder extends Seeder
             'operar:venda', 'cancel:venda', 'emitir:nfe',
             // Cadastros/config (bloco amarelo): Produto/Categoria/OpcoesEntregas/
             // OpcoesPagamento usam os nomes gerados pelo Shield (já existem na
-            // tabela via ShieldSeeder). Mesa/Empresa/Caixa/Adicional não têm
-            // Resource no Filament — permissions criadas aqui mesmo, seguindo a
-            // mesma gramática, prontas se algum dia ganharem um Resource.
+            // tabela via ShieldSeeder). Mesa/Empresa/Caixa não têm Resource no
+            // Filament — permissions criadas aqui mesmo, seguindo a mesma
+            // gramática, prontas se algum dia ganharem um Resource. Adicional
+            // ganhou AdicionalResource: view_any/view/restore liberam a tela.
             // Nota: create:caixa/update:caixa/delete:caixa se referem ao MODEL
             // Caixa (cadastro de caixas físicos), não à role "Caixa" — tabelas
             // diferentes (permissions x roles), sem colisão real.
@@ -41,7 +42,7 @@ class PermissionSeeder extends Seeder
             'create:mesa', 'update:mesa', 'delete:mesa',
             'create:empresa', 'update:empresa', 'delete:empresa',
             'create:caixa', 'update:caixa', 'delete:caixa',
-            'create:adicional', 'update:adicional', 'delete:adicional',
+            'view_any:adicional', 'view:adicional', 'create:adicional', 'update:adicional', 'delete:adicional', 'restore:adicional',
             // Bloco verde: create:cliente/update:cliente também já existem via
             // Shield. view_any:nota_fiscal/view:nota_fiscal são novas (sem
             // Resource no Filament) — dado fiscal, mesmo racional de
