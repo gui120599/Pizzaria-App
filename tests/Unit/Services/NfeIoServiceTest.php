@@ -199,4 +199,78 @@ class NfeIoServiceTest extends TestCase
         $this->assertCount(1, $detalhe);
         $this->assertSame('cash', $detalhe[0]['method']);
     }
+
+    /**
+     * @param  array<string, mixed>  $valores
+     */
+    private function itemNaVenda(array $valores): ItensVenda
+    {
+        return ItensVenda::create([
+            'item_numero' => ItensVenda::where('item_venda_venda_id', $this->venda->id)->max('item_numero') + 1,
+            'item_venda_venda_id' => $this->venda->id,
+            'item_venda_produto_id' => Produto::first()->id,
+            'item_venda_quantidade_tributavel' => $valores['item_venda_quantidade'],
+            'item_venda_status' => 'INSERIDO',
+            'item_venda_desconto' => 0,
+            'item_venda_valor_adicionais' => 0,
+            ...$valores,
+        ]);
+    }
+
+    /**
+     * Total da nota como a NFe.io/SEFAZ calcula: Σ(vProd − vDesc + vOutro).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function totalDaNota(array $payload): float
+    {
+        return round(collect($payload['items'])->sum(fn (array $item): float => $item['totalAmount'] - $item['discountAmount'] + $item['othersAmount']), 2);
+    }
+
+    public function test_frete_e_rateado_em_centavos_e_a_nota_fecha_com_o_total(): void
+    {
+        $this->itemNaVenda(['item_venda_quantidade' => 1, 'item_venda_valor_unitario' => 16.00, 'item_venda_valor' => 16.00]);
+        $this->itemNaVenda(['item_venda_quantidade' => 1, 'item_venda_valor_unitario' => 6.90, 'item_venda_valor' => 6.90]);
+        $this->venda->update(['venda_valor_frete' => 4.00, 'venda_valor_total' => 76.90]);
+
+        $payload = app(NfeIoService::class)->payloadPreview($this->venda->fresh());
+
+        $this->assertSame(76.90, $this->totalDaNota($payload));
+    }
+
+    public function test_fracao_de_pizza_ajusta_a_diferenca_entre_quantidade_vezes_unitario_e_o_valor_cobrado(): void
+    {
+        // Terços de uma pizza de 86,90: 0,33 × 86,90 = 28,68, mas o terço foi cobrado 28,97.
+        $this->itemNaVenda(['item_venda_quantidade' => 0.33, 'item_venda_valor_unitario' => 86.90, 'item_venda_valor' => 28.97]);
+        $this->itemNaVenda(['item_venda_quantidade' => 0.34, 'item_venda_valor_unitario' => 86.90, 'item_venda_valor' => 28.96]);
+        $this->venda->update(['venda_valor_total' => 107.93]);
+
+        $payload = app(NfeIoService::class)->payloadPreview($this->venda->fresh());
+        $terco = $payload['items'][1];
+
+        $this->assertSame(28.68, $terco['totalAmount']);
+        $this->assertSame(0.29, $terco['othersAmount']);
+        $this->assertSame(0.0, (float) $terco['discountAmount']);
+        $this->assertSame(107.93, $this->totalDaNota($payload));
+    }
+
+    public function test_desconto_e_adicionais_entram_uma_vez_so(): void
+    {
+        $this->itemNaVenda([
+            'item_venda_quantidade' => 2,
+            'item_venda_valor_unitario' => 30.00,
+            'item_venda_desconto' => 3.00,
+            'item_venda_valor_adicionais' => 5.00,
+            'item_venda_valor' => 62.00,
+        ]);
+        $this->venda->update(['venda_valor_total' => 112.00]);
+
+        $payload = app(NfeIoService::class)->payloadPreview($this->venda->fresh());
+        $item = $payload['items'][1];
+
+        $this->assertSame(60.0, (float) $item['totalAmount']);
+        $this->assertSame(3.0, (float) $item['discountAmount']);
+        $this->assertSame(5.0, (float) $item['othersAmount']);
+        $this->assertSame(112.00, $this->totalDaNota($payload));
+    }
 }

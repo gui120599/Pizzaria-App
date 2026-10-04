@@ -41,6 +41,7 @@ use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
@@ -456,6 +457,19 @@ class OperarVenda extends Page
     {
         $itemVenda = ItensVenda::find($itemVendaId);
         if (! $itemVenda || $novoDesconto < 0) {
+            return;
+        }
+
+        // Desconto maior que o item deixava a linha negativa (rejeitada na NFC-e).
+        $valorBruto = $this->precoBaseParaDesconto($itemVenda) * (float) $itemVenda->item_venda_quantidade
+            + (float) $itemVenda->item_venda_valor_adicionais;
+        if (round($novoDesconto, 2) > round($valorBruto, 2)) {
+            Notification::make()
+                ->title('O desconto passa do valor do item (R$ '.number_format($valorBruto, 2, ',', '.').').')
+                ->danger()
+                ->send();
+            unset($this->itensCarrinho);
+
             return;
         }
 

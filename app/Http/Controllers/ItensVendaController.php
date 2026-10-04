@@ -651,6 +651,13 @@ class ItensVendaController extends Controller
             return response()->json(['error' => 'Item não encontrado'], 200);
         }
 
+        // Desconto maior que o item deixava a linha negativa (rejeitada na NFC-e).
+        $valorBruto = $this->precoBaseParaDesconto($itemVenda) * (float) $itemVenda->item_venda_quantidade
+            + (float) $itemVenda->item_venda_valor_adicionais;
+        if ($item_venda_desconto < 0 || round($item_venda_desconto, 2) > round($valorBruto, 2)) {
+            return response()->json(['error' => 'O desconto passa do valor do item.'], 200);
+        }
+
         $this->aplicarDescontoNoItem($itemVenda, $item_venda_desconto);
 
         // Atualizar valores da venda

@@ -210,4 +210,16 @@ class OperarVendaDescontoFreteTest extends TestCase
         $component->call('desfazerDescontoPercentual');
         $this->assertSame(110.00, (float) $this->venda->fresh()->venda_valor_total);
     }
+
+    public function test_desconto_maior_que_o_item_e_recusado(): void
+    {
+        $item = $this->itemNaVenda(2); // 20,00
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('atualizarDescontoItem', $item->id, 25.00)
+            ->assertNotified('O desconto passa do valor do item (R$ 20,00).');
+
+        $this->assertSame(0.0, (float) $item->fresh()->item_venda_desconto);
+        $this->assertSame(20.00, (float) $item->fresh()->item_venda_valor);
+    }
 }

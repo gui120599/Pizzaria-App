@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\NfeIoException;
 use App\Models\Empresa;
+use App\Models\ItensVenda;
 use App\Models\NfEmissao;
 use App\Models\Venda;
 use App\Services\Nfe\NfNumeracaoService;
@@ -286,9 +287,13 @@ class NfeIoService
     {
         $itensArray = [];
 
-        // Rateia o frete da venda igualmente entre os itens.
-        $qtdItens = $venda->itensVenda->count();
-        $freteItem = $qtdItens > 0 ? round((float) ($venda->venda_valor_frete ?? 0) / $qtdItens, 2) : 0;
+        // Rateia o frete da venda igualmente entre os itens, em centavos: com
+        // round(frete / n) por item, R$ 4,00 em 3 itens virava 3,99 e a nota
+        // ficava 1 centavo abaixo dos pagamentos (rejeitada).
+        $fretePorItem = RateioCentavos::ratearProporcional(
+            (int) round((float) ($venda->venda_valor_frete ?? 0) * 100),
+            $venda->itensVenda->mapWithKeys(fn ($item) => [$item->id => 1])->all(),
+        );
 
         // Taxa de serviço da mesa também vai em "outras despesas" (vOutro),
         // rateada pelo valor de cada item, em centavos — sem ela o total dos
@@ -300,6 +305,7 @@ class NfeIoService
 
         foreach ($venda->itensVenda as $item) {
             $produto = $item->produto;
+            $valores = $this->valoresDoItem($item);
 
             $descAdicionais = '';
             foreach ($item->adicionaisItemVenda as $adicional) {
@@ -327,12 +333,12 @@ class NfeIoService
                 'unit' => $produto->produto_unidade_comercial,
                 'quantity' => $item->item_venda_quantidade,
                 'unitAmount' => $item->item_venda_valor_unitario,
-                'totalAmount' => (float) $item->item_venda_valor,
+                'totalAmount' => $valores['bruto'],
                 'unitTax' => (string) $produto->produto_unidade_comercial,
                 'quantityTax' => $item->item_venda_quantidade_tributavel,
                 'taxUnitAmount' => $item->item_venda_valor_unitario,
-                'discountAmount' => (float) $item->item_venda_desconto,
-                'othersAmount' => round($item->item_venda_valor_adicionais + $freteItem + ($taxaServicoPorItem[$item->id] ?? 0) / 100, 2),
+                'discountAmount' => $valores['desconto'],
+                'othersAmount' => round($valores['outros'] + (($fretePorItem[$item->id] ?? 0) + ($taxaServicoPorItem[$item->id] ?? 0)) / 100, 2),
                 'totalIndicator' => (bool) $item->item_venda_valor,
                 'cest' => $produto->produto_codigo_CEST,
                 'tax' => $item404 ? [
@@ -358,5 +364,36 @@ class NfeIoService
         }
 
         return $itensArray;
+    }
+
+    /**
+     * Valores do item na nota. A NFe.io/SEFAZ calcula o valor do produto
+     * como quantidade × unitário (vProd), enquanto item_venda_valor é o valor
+     * cobrado (vProd − desconto + adicionais). Quando os dois não fecham —
+     * fração de pizza (0,33 × 86,90 = 28,68, mas o terço foi cobrado 28,97) —
+     * a diferença entra como desconto ou outras despesas, para o total da nota
+     * bater com o total da venda e com os pagamentos.
+     *
+     * @return array{bruto: float, desconto: float, outros: float}
+     */
+    private function valoresDoItem(ItensVenda $item): array
+    {
+        $brutoCents = (int) round((float) $item->item_venda_quantidade * (float) $item->item_venda_valor_unitario * 100);
+        $descontoCents = (int) round((float) $item->item_venda_desconto * 100);
+        $outrosCents = (int) round((float) $item->item_venda_valor_adicionais * 100);
+
+        $ajusteCents = (int) round((float) $item->item_venda_valor * 100) - ($brutoCents - $descontoCents + $outrosCents);
+
+        if ($ajusteCents > 0) {
+            $outrosCents += $ajusteCents;
+        } else {
+            $descontoCents -= $ajusteCents;
+        }
+
+        return [
+            'bruto' => $brutoCents / 100,
+            'desconto' => $descontoCents / 100,
+            'outros' => $outrosCents / 100,
+        ];
     }
 }
