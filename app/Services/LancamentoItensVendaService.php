@@ -11,6 +11,7 @@ use App\Models\SessaoMesa;
 use App\Models\Venda;
 use App\Support\ContaMesa;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Copia itens de um Pedido (avulso ou de sessão de mesa) para uma Venda,
@@ -94,6 +95,11 @@ class LancamentoItensVendaService
                     ->where('item_venda_venda_id', $venda->id)
                     ->where('item_venda_valor_adicionais', 0)
                     ->whereNull('item_venda_sabores')
+                    // Só mescla em linha que também veio de pedido: produto
+                    // lançado à mão fica numa linha própria, com +/- livre.
+                    ->whereExists(fn ($query) => $query->select(DB::raw(1))
+                        ->from('itens_pedidos')
+                        ->whereColumn('itens_pedidos.item_pedido_item_venda_id', 'itens_vendas.id'))
                     ->first();
 
             if ($itemVenda && ! $itemAtualTemAdicionais) {
