@@ -346,4 +346,25 @@ class OperarVendaItensParciaisTest extends TestCase
             ->set('abaAtiva', 'pedidos')
             ->assertSeeText(["Pedido #{$avulso->id}", 'Dividir']);
     }
+
+    public function test_quantidade_de_linha_vinda_de_mesa_nao_muda_no_carrinho(): void
+    {
+        $item = $this->item($this->pedido(), 3);
+        $pdv = $this->pdv()->call('lancarItensDaMesa', $this->sessao->id);
+        $linha = ItensVenda::where('item_venda_venda_id', $this->venda->id)->sole();
+
+        $pdv->call('atualizarQtdItem', $linha->id, 1)->assertNotified();
+
+        $this->assertEquals(3, $linha->fresh()->item_venda_quantidade);
+        $this->assertSame($this->venda->id, $item->fresh()->item_pedido_venda_id);
+    }
+
+    public function test_aba_de_pedidos_avulsos_nao_lista_pedidos_de_mesa(): void
+    {
+        $this->item($this->pedido());
+        $avulso = Pedido::create(['pedido_status' => 'ABERTO']);
+        $this->item($avulso);
+
+        $this->assertSame([$avulso->id], $this->pdv()->instance()->pedidosAvulsos->pluck('id')->all());
+    }
 }
