@@ -73,8 +73,9 @@ class LancamentoItensVendaService
      * Núcleo da cópia: mescla na linha de ItensVenda existente (mesmo
      * produto, sem adicionais, ainda nesta venda) quando o item atual também
      * não tem adicionais, senão cria uma linha nova com tributos calculados
-     * pelos percentuais do produto. Não marca item_pedido_venda_id — quem
-     * chama decide o momento (permite filtro adicional, ex.: por cliente).
+     * pelos percentuais do produto. Grava em cada item a linha em que ele
+     * entrou (item_pedido_item_venda_id), mas não marca item_pedido_venda_id —
+     * quem chama decide o momento (permite filtro adicional, ex.: por cliente).
      *
      * @param  Collection<int, ItensPedido>  $itensPedido
      */
@@ -128,6 +129,11 @@ class LancamentoItensVendaService
             }
 
             $this->adicionarOuAtualizarAdicionaisDoItem($item, $itemVenda);
+
+            // Vínculo exato com a linha (mesclada ou nova): retirar o item
+            // depois abate esta linha, e não outra do mesmo produto.
+            $item->item_pedido_item_venda_id = $itemVenda->id;
+            ItensPedido::whereKey($item->id)->update(['item_pedido_item_venda_id' => $itemVenda->id]);
         }
     }
 

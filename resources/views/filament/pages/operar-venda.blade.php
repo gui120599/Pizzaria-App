@@ -94,8 +94,20 @@
                     @forelse ($this->mesas as $sessaoMesa)
                         @php
                             $itensDaMesa = $sessaoMesa->pedidos->flatMap(fn ($p) => $p->item_pedido_pedido_id);
-                            $qtdItensPendentes = $itensDaMesa->where('item_pedido_venda_id', '!==', $this->vendaId)->count();
+                            $situacoes = $itensDaMesa->mapWithKeys(fn ($item) => [$item->id => $this->situacaoDoItem($item)]);
+                            $qtdItensPendentes = $situacoes->filter(fn ($s) => $s === 'livre')->count();
                             $mesaLancada = $this->itensEstaoLancadosNestaVenda($itensDaMesa);
+                            $somaPorSituacao = fn (array $quais) => (float) $itensDaMesa->filter(fn ($item) => in_array($situacoes[$item->id], $quais, true))->sum('item_pedido_valor');
+                            // Chips por pessoa: só os itens que ainda podem entrar nesta venda.
+                            $pessoas = $itensDaMesa
+                                ->filter(fn ($item) => in_array($situacoes[$item->id], ['livre', 'nesta'], true))
+                                ->groupBy(fn ($item) => $item->item_pedido_cliente_id ?? 'sem_cliente')
+                                ->map(fn ($itens, $chave) => [
+                                    'chave' => $chave,
+                                    'nome' => $chave === 'sem_cliente' ? 'Mesa' : ($itens->first()->cliente?->cliente_nome ?? 'Cliente'),
+                                    'valor' => (float) $itens->sum('item_pedido_valor'),
+                                    'lancada' => $itens->every(fn ($item) => $situacoes[$item->id] === 'nesta'),
+                                ]);
                         @endphp
                         <div wire:key="mesa-{{ $sessaoMesa->id }}" class="p-4 space-y-2" x-data="{ aberto: @js($this->abrirCardsPorPadrao) }">
                             <div class="flex items-center justify-between gap-2">
@@ -103,7 +115,7 @@
                                     <x-filament::icon icon="heroicon-o-chevron-right" x-bind:class="aberto ? 'rotate-90' : ''" class="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 transition-transform shrink-0" />
                                     <div class="min-w-0">
                                         <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{{ $sessaoMesa->mesa->mesa_nome }}</p>
-                                        <p class="text-xs text-gray-400 dark:text-gray-500">{{ $sessaoMesa->cliente->cliente_nome }} · {{ $qtdItensPendentes }} {{ Str::plural('item', $qtdItensPendentes) }} pendente(s)</p>
+                                        <p class="text-xs text-gray-400 dark:text-gray-500">{{ $sessaoMesa->cliente->cliente_nome }} · {{ $qtdItensPendentes }} {{ Str::plural('item', $qtdItensPendentes) }} a cobrar</p>
                                     </div>
                                 </button>
                                 <button type="button"
@@ -113,7 +125,7 @@
                                     <x-filament::icon icon="heroicon-o-printer" class="h-4 w-4" />
                                 </button>
                                 <label class="flex items-center gap-2 shrink-0 cursor-pointer select-none">
-                                    <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Lançada</span>
+                                    <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Mesa inteira</span>
                                     <input
                                         type="checkbox"
                                         wire:loading.attr="disabled"
@@ -124,17 +136,62 @@
                                 </label>
                             </div>
 
-                            <div x-show="aberto" x-cloak class="pl-6 space-y-1">
+                            <div x-show="aberto" x-cloak class="pl-6 space-y-2">
+                                @if ($pessoas->keys()->reject(fn ($chave) => $chave === 'sem_cliente')->isNotEmpty())
+                                    <div class="flex flex-wrap gap-1.5">
+                                        @foreach ($pessoas as $pessoa)
+                                            <button type="button"
+                                                wire:key="mesa-{{ $sessaoMesa->id }}-pessoa-{{ $pessoa['chave'] }}"
+                                                wire:loading.attr="disabled"
+                                                wire:click="alternarClienteDaMesa({{ $sessaoMesa->id }}, @js($pessoa['chave']))"
+                                                title="{{ $pessoa['lancada'] ? 'Retirar os itens desta pessoa' : 'Lançar os itens desta pessoa' }}"
+                                                @class([
+                                                    'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition disabled:opacity-50',
+                                                    'border-primary-600 bg-primary-600 text-white' => $pessoa['lancada'],
+                                                    'border-gray-300 text-gray-700 hover:border-primary-500 hover:text-primary-600 dark:border-white/20 dark:text-gray-200' => ! $pessoa['lancada'],
+                                                ])>
+                                                @if ($pessoa['lancada'])
+                                                    <x-filament::icon icon="heroicon-m-check" class="h-3 w-3" />
+                                                @endif
+                                                {{ $pessoa['nome'] }} · R$ {{ number_format($pessoa['valor'], 2, ',', '.') }}
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                @endif
+
                                 @forelse ($sessaoMesa->pedidos as $pedido)
-                                    @foreach ($pedido->item_pedido_pedido_id as $itemPedido)
-                                        <div class="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                            <span class="min-w-0">{{ rtrim(rtrim(number_format((float) $itemPedido->item_pedido_quantidade, 3, ',', '.'), '0'), ',') }}x <x-item-nome :item="$itemPedido" /></span>
-                                            <span class="shrink-0">R$ {{ number_format((float) $itemPedido->item_pedido_valor, 2, ',', '.') }}</span>
+                                    @continue($pedido->item_pedido_pedido_id->isEmpty())
+                                    <div wire:key="mesa-{{ $sessaoMesa->id }}-pedido-{{ $pedido->id }}" class="space-y-1">
+                                        <label class="flex items-center gap-2 cursor-pointer select-none text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                            <input
+                                                type="checkbox"
+                                                wire:loading.attr="disabled"
+                                                @checked($this->itensEstaoLancadosNestaVenda($pedido->item_pedido_pedido_id))
+                                                @disabled($pedido->item_pedido_pedido_id->every(fn ($item) => in_array($situacoes[$item->id], ['outra', 'paga'], true)))
+                                                x-on:change="$wire.alternarPedido({{ $pedido->id }})"
+                                                class="h-3.5 w-3.5 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-primary-600 focus:ring-primary-500 disabled:opacity-40"
+                                            />
+                                            Pedido #{{ $pedido->id }} · {{ $pedido->created_at?->format('H:i') }}
+                                        </label>
+                                        <div class="pl-5 space-y-1">
+                                            @foreach ($pedido->item_pedido_pedido_id as $itemPedido)
+                                                @include('filament.pages.operar-venda.item-pedido', ['itemPedido' => $itemPedido, 'mostrarPessoa' => true])
+                                            @endforeach
                                         </div>
-                                    @endforeach
+                                    </div>
                                 @empty
                                     <p class="text-xs text-gray-400 dark:text-gray-500">Nenhum item pendente.</p>
                                 @endforelse
+
+                                @if ($itensDaMesa->isNotEmpty())
+                                    <p class="flex flex-wrap gap-x-3 border-t border-gray-100 pt-1.5 text-[11px] text-gray-500 dark:border-white/10 dark:text-gray-400">
+                                        <span>A cobrar: <strong>R$ {{ number_format($somaPorSituacao(['livre']), 2, ',', '.') }}</strong></span>
+                                        <span>Nesta venda: <strong>R$ {{ number_format($somaPorSituacao(['nesta']), 2, ',', '.') }}</strong></span>
+                                        @if ($somaPorSituacao(['outra', 'paga']) > 0)
+                                            <span>Outras vendas: R$ {{ number_format($somaPorSituacao(['outra', 'paga']), 2, ',', '.') }}</span>
+                                        @endif
+                                    </p>
+                                @endif
                             </div>
                         </div>
                     @empty
@@ -186,10 +243,7 @@
 
                             <div x-show="aberto" x-cloak class="pl-6 space-y-1">
                                 @foreach ($pedido->item_pedido_pedido_id as $itemPedido)
-                                    <div class="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                        <span class="min-w-0">{{ rtrim(rtrim(number_format((float) $itemPedido->item_pedido_quantidade, 3, ',', '.'), '0'), ',') }}x <x-item-nome :item="$itemPedido" /></span>
-                                        <span class="shrink-0">R$ {{ number_format((float) $itemPedido->item_pedido_valor, 2, ',', '.') }}</span>
-                                    </div>
+                                    @include('filament.pages.operar-venda.item-pedido', ['itemPedido' => $itemPedido])
                                 @endforeach
                             </div>
                         </div>

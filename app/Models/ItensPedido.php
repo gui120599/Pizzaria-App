@@ -21,6 +21,7 @@ class ItensPedido extends Model
         'item_pedido_pedido_id',
         'item_pedido_cliente_id',
         'item_pedido_venda_id',
+        'item_pedido_item_venda_id',
         'item_pedido_quantidade',
         'item_pedido_valor_unitario',
         'item_pedido_desconto',
@@ -129,6 +130,12 @@ class ItensPedido extends Model
     public function venda()
     {
         return $this->belongsTo(Venda::class, 'item_pedido_venda_id');
+    }
+
+    /** Linha da venda em que este item entrou (nula para lançamentos antigos). */
+    public function itemVenda()
+    {
+        return $this->belongsTo(ItensVenda::class, 'item_pedido_item_venda_id');
     }
 
     // ──────────────────────────────────────────────────────────────────────────
