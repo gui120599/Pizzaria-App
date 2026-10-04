@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\OperadoraMaquininha;
 use App\Filament\Resources\Maquininhas\Pages\EditMaquininha;
+use App\Filament\Resources\Maquininhas\Pages\ListMaquininhas;
 use App\Filament\Resources\Maquininhas\RelationManagers\TaxasRelationManager;
 use App\Models\CartoesPagamento;
 use App\Models\Maquininha;
@@ -144,5 +145,40 @@ class TaxaMaquininhaServiceTest extends TestCase
         $relationManager
             ->callAction(TestAction::make('create')->table(), ['mt_tipo' => 'credito', 'mt_cartao_id' => null, 'mt_percentual' => 9])
             ->assertHasFormErrors(['mt_tipo' => 'unique']);
+    }
+
+    public function test_copiar_taxas_substitui_ou_so_acrescenta_as_que_faltam(): void
+    {
+        $destino = Maquininha::create(['nome' => 'Stone 2', 'operadora' => OperadoraMaquininha::Stone]);
+        $this->taxa('credito', 9.99, null, $destino);
+        $this->taxa('debito', 1.10, null, $destino);
+
+        // Sem substituir: mantém o crédito e o débito do destino, acrescenta o crédito Visa e o pix.
+        $this->assertSame(2, $destino->copiarTaxasDe($this->maquininha, substituir: false));
+        $this->assertEquals(9.99, $destino->taxas()->where('mt_tipo', 'credito')->whereNull('mt_cartao_id')->value('mt_percentual'));
+        $this->assertSame(4, $destino->taxas()->count());
+
+        // Substituindo: fica igual à origem.
+        $this->assertSame(3, $destino->copiarTaxasDe($this->maquininha));
+        $this->assertSame(
+            $this->maquininha->taxas()->orderBy('mt_tipo')->orderBy('mt_cartao_id')->get(['mt_tipo', 'mt_cartao_id', 'mt_percentual'])->toArray(),
+            $destino->taxas()->orderBy('mt_tipo')->orderBy('mt_cartao_id')->get(['mt_tipo', 'mt_cartao_id', 'mt_percentual'])->toArray(),
+        );
+    }
+
+    public function test_bulk_action_copia_as_taxas_para_as_maquininhas_selecionadas(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+        $stone2 = Maquininha::create(['nome' => 'Stone 2', 'operadora' => OperadoraMaquininha::Stone]);
+        $stone3 = Maquininha::create(['nome' => 'Stone 3', 'operadora' => OperadoraMaquininha::Stone]);
+
+        Livewire::test(ListMaquininhas::class)
+            ->selectTableRecords([$stone2->id, $stone3->id, $this->maquininha->id])
+            ->callAction(TestAction::make('copiarTaxas')->table()->bulk(), ['origem_id' => $this->maquininha->id, 'substituir' => true])
+            ->assertNotified();
+
+        $this->assertSame(3, $stone2->taxas()->count());
+        $this->assertSame(3, $stone3->taxas()->count());
+        $this->assertSame(3, $this->maquininha->taxas()->count());
     }
 }
