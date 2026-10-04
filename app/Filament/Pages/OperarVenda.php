@@ -432,6 +432,19 @@ class OperarVenda extends Page
             return;
         }
 
+        // Linha vinda de mesa/pedido: a quantidade é a dos itens do pedido.
+        // Mudar só aqui deixaria a venda diferente do que foi marcado como
+        // cobrado (sobraria item "pago" sem estar na venda, ou vice-versa).
+        if ($this->itensPedidoDaLinha($itemVenda)->isNotEmpty()) {
+            Notification::make()
+                ->warning()
+                ->title('Item lançado de mesa/pedido')
+                ->body('Para cobrar menos unidades, desmarque o item na aba de Mesas/Pedidos e use "Dividir".')
+                ->send();
+
+            return;
+        }
+
         $precoBase = $this->precoBaseParaDesconto($itemVenda);
         // Desconto escala com a quantidade: preserva o desconto POR UNIDADE
         // (não o valor total fixo) para que dobrar a quantidade dobre o
@@ -1054,6 +1067,8 @@ class OperarVenda extends Page
             // Some da lista quando todos os itens já estão em OUTRA venda.
             // Com parte livre (conta dividida) ou ligada à venda atual,
             // continua aparecendo pra o operador lançar/desmarcar.
+            // Pedidos de mesa ficam só na aba Mesas.
+            ->whereNull('pedido_sessao_mesa_id')
             ->where(fn ($query) => $query
                 ->whereDoesntHave('item_pedido_pedido_id', fn ($q) => $q
                     ->where('item_pedido_status', 'INSERIDO')
