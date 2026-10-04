@@ -367,4 +367,22 @@ class OperarVendaItensParciaisTest extends TestCase
 
         $this->assertSame([$avulso->id], $this->pdv()->instance()->pedidosAvulsos->pluck('id')->all());
     }
+
+    public function test_linha_de_mesa_e_linha_lancada_a_mao_ficam_separadas(): void
+    {
+        $this->item($this->pedido(), 2);
+
+        $pdv = $this->pdv()
+            ->call('adicionarProdutoAvulso', $this->produto->id)
+            ->call('lancarItensDaMesa', $this->sessao->id)
+            ->call('adicionarProdutoAvulso', $this->produto->id);
+
+        $linhas = ItensVenda::where('item_venda_venda_id', $this->venda->id)->orderBy('id')->get();
+        $this->assertCount(2, $linhas);
+        $this->assertEquals([2, 2], $linhas->pluck('item_venda_quantidade')->map(fn ($q) => (float) $q)->sort()->values()->all());
+
+        $manual = $linhas->first(fn ($linha) => ! ItensPedido::where('item_pedido_item_venda_id', $linha->id)->exists());
+        $pdv->call('atualizarQtdItem', $manual->id, 5)->assertNotNotified();
+        $this->assertEquals(5, $manual->fresh()->item_venda_quantidade);
+    }
 }
