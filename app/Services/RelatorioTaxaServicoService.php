@@ -14,16 +14,28 @@ use Illuminate\Support\Facades\DB;
  * garçons pelo consumo das rodadas que cada um lançou — a soma bate no
  * centavo com venda_valor_taxa_servico. Rodada sem garçom (PDV) fica com o
  * garçom que abriu a mesa. Venda em que o caixa tirou a taxa fica de fora.
+ * No modo "sessao", a taxa da mesa inteira vai para o garçom que a abriu.
  *
- * Filtros (mesmo shape da página RelatorioTaxaServico): inicio, fim, garcom_id.
+ * Filtros (mesmo shape da página RelatorioTaxaServico): inicio, fim,
+ * garcom_id, atribuicao (rodada|sessao, padrão rodada).
  */
 class RelatorioTaxaServicoService
 {
+    public const ATRIBUICAO_RODADA = 'rodada';
+
+    public const ATRIBUICAO_SESSAO = 'sessao';
+
+    /** @var array<string, string> */
+    public const ATRIBUICOES = [
+        self::ATRIBUICAO_RODADA => 'Por rodada (garçom que lançou)',
+        self::ATRIBUICAO_SESSAO => 'Por sessão (garçom que abriu a mesa)',
+    ];
+
     /** @var Collection<int, array<string, mixed>>|null */
     private ?Collection $linhas = null;
 
     /**
-     * @param  array{inicio?: ?string, fim?: ?string, garcom_id?: int|string|null}  $filtros
+     * @param  array{inicio?: ?string, fim?: ?string, garcom_id?: int|string|null, atribuicao?: ?string}  $filtros
      */
     public function __construct(private readonly array $filtros = []) {}
 
@@ -45,6 +57,13 @@ class RelatorioTaxaServicoService
         return [$inicio, $fim];
     }
 
+    public function atribuicao(): string
+    {
+        return ($this->filtros['atribuicao'] ?? null) === self::ATRIBUICAO_SESSAO
+            ? self::ATRIBUICAO_SESSAO
+            : self::ATRIBUICAO_RODADA;
+    }
+
     /**
      * Uma linha por venda × mesa × garçom.
      *
@@ -57,6 +76,10 @@ class RelatorioTaxaServicoService
         }
 
         [$inicio, $fim] = $this->periodo();
+
+        $garcom = $this->atribuicao() === self::ATRIBUICAO_SESSAO
+            ? 'sessao_mesas.sessao_mesa_usuario_id'
+            : 'COALESCE(pedidos.pedido_usuario_garcom_id, sessao_mesas.sessao_mesa_usuario_id)';
 
         $consumos = DB::table('itens_pedidos')
             ->join('pedidos', 'pedidos.id', '=', 'itens_pedidos.item_pedido_pedido_id')
@@ -72,11 +95,11 @@ class RelatorioTaxaServicoService
                 'vendas.id', 'vendas.venda_datahora_finalizada', 'sessao_mesas.id',
                 'sessao_mesas.sessao_mesa_taxa_servico_percentual', 'mesas.mesa_nome', 'garcom_id',
             )
-            ->selectRaw('vendas.id AS venda_id, vendas.venda_datahora_finalizada AS finalizada_em,
+            ->selectRaw("vendas.id AS venda_id, vendas.venda_datahora_finalizada AS finalizada_em,
                 sessao_mesas.id AS sessao_id, sessao_mesas.sessao_mesa_taxa_servico_percentual AS percentual,
                 mesas.mesa_nome AS mesa,
-                COALESCE(pedidos.pedido_usuario_garcom_id, sessao_mesas.sessao_mesa_usuario_id) AS garcom_id,
-                SUM(itens_pedidos.item_pedido_valor) AS consumo')
+                {$garcom} AS garcom_id,
+                SUM(itens_pedidos.item_pedido_valor) AS consumo")
             ->orderBy('vendas.venda_datahora_finalizada')
             ->get();
 
@@ -112,6 +135,28 @@ class RelatorioTaxaServicoService
             ->values();
 
         return $this->linhas;
+    }
+
+    /**
+     * Quanto cada garçom recebeu em cada venda (soma das mesas da venda).
+     *
+     * @return Collection<int, array{key: string, venda_id: int, finalizada_em: Carbon, mesas: string, garcom_id: int, garcom: string, consumo: float, taxa: float}>
+     */
+    public function porVenda(): Collection
+    {
+        return $this->linhas()
+            ->groupBy(fn (array $linha): string => $linha['venda_id'].'-'.$linha['garcom_id'])
+            ->map(fn (Collection $linhas, string $key): array => [
+                'key' => $key,
+                'venda_id' => $linhas->first()['venda_id'],
+                'finalizada_em' => $linhas->first()['finalizada_em'],
+                'mesas' => $linhas->pluck('mesa')->unique()->implode(', '),
+                'garcom_id' => $linhas->first()['garcom_id'],
+                'garcom' => $linhas->first()['garcom'],
+                'consumo' => round($linhas->sum('consumo'), 2),
+                'taxa' => round($linhas->sum('taxa'), 2),
+            ])
+            ->values();
     }
 
     /**

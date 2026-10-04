@@ -11,7 +11,7 @@ use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
- * Detalhe da taxa de serviço por venda × mesa × garçom.
+ * Quanto cada garçom recebeu em cada venda (mesas da venda somadas).
  */
 class TaxaServicoDetalhamentoWidget extends BaseWidget
 {
@@ -25,7 +25,7 @@ class TaxaServicoDetalhamentoWidget extends BaseWidget
         return $table
             ->heading('Detalhamento por venda')
             ->records(function (int $page, int $recordsPerPage): LengthAwarePaginator {
-                $linhas = (new RelatorioTaxaServicoService($this->pageFilters ?? []))->linhas();
+                $linhas = (new RelatorioTaxaServicoService($this->pageFilters ?? []))->porVenda();
 
                 return new LengthAwarePaginator(
                     $linhas->forPage($page, $recordsPerPage)->keyBy('key')->all(),
@@ -42,16 +42,13 @@ class TaxaServicoDetalhamentoWidget extends BaseWidget
                 TextColumn::make('venda_id')
                     ->label('Venda')
                     ->prefix('#'),
-                TextColumn::make('mesa')
-                    ->label('Mesa'),
+                TextColumn::make('mesas')
+                    ->label('Mesas'),
                 TextColumn::make('garcom')
                     ->label('Garçom'),
                 TextColumn::make('consumo')
                     ->label('Consumo')
                     ->money('BRL'),
-                TextColumn::make('percentual')
-                    ->label('%')
-                    ->suffix('%'),
                 TextColumn::make('taxa')
                     ->label('Taxa')
                     ->money('BRL'),

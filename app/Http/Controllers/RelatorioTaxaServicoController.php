@@ -24,7 +24,8 @@ class RelatorioTaxaServicoController extends Controller
             'garcomFiltrado' => ! empty($filtros['garcom_id']) ? User::find($filtros['garcom_id'])?->name : null,
             'totais' => $service->totais(),
             'porGarcom' => $service->porGarcom(),
-            'linhas' => $service->linhas(),
+            'porVenda' => $service->porVenda(),
+            'atribuicao' => RelatorioTaxaServicoService::ATRIBUICOES[$service->atribuicao()],
             'geradoEm' => now(),
             'geradoPor' => $request->user()?->name ?? 'Sistema',
         ]);
