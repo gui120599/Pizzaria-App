@@ -605,9 +605,7 @@ class ItensVendaController extends Controller
             return response()->json(['error' => 'Item não encontrado'], 200);
         }
 
-        $precoBase = ($itemVenda->produto->produto_preco_promocional > 0 && $itemVenda->produto->produto_preco_promocional > $itemVenda->produto->produto_preco_venda)
-            ? (float) $itemVenda->produto->produto_preco_promocional
-            : (float) $itemVenda->produto->produto_preco_venda;
+        $precoBase = $this->precoBaseParaDesconto($itemVenda);
 
         $desconto = (float) $itemVenda->item_venda_desconto;
         // Adicional é cobrado pela própria quantidade (1 porção), não pela
@@ -665,6 +663,24 @@ class ItensVendaController extends Controller
     }
 
     /**
+     * Preço unitário sobre o qual o desconto é recalculado. Pizza de vários
+     * sabores usa o preço congelado no lançamento (média ou maior dos sabores),
+     * não o do produto da linha, que é só o 1º sabor.
+     */
+    private function precoBaseParaDesconto(ItensVenda $itemVenda): float
+    {
+        if ($itemVenda->ehMultiSabor() && (float) $itemVenda->item_venda_valor_unitario > 0) {
+            return (float) $itemVenda->item_venda_valor_unitario;
+        }
+
+        $produto = $itemVenda->produto;
+
+        return ($produto->produto_preco_promocional > 0 && $produto->produto_preco_promocional > $produto->produto_preco_venda)
+            ? (float) $produto->produto_preco_promocional
+            : (float) $produto->produto_preco_venda;
+    }
+
+    /**
      * Aplica o novo valor de desconto (R$) a um item de venda, recalculando
      * a base de cálculo, o valor líquido e os tributos proporcionalmente.
      * Não persiste os totais da venda — quem chama deve rodar
@@ -672,9 +688,7 @@ class ItensVendaController extends Controller
      */
     private function aplicarDescontoNoItem(ItensVenda $itemVenda, float $novoDesconto): void
     {
-        $precoBaseDesconto = ($itemVenda->produto->produto_preco_promocional > 0 && $itemVenda->produto->produto_preco_promocional > $itemVenda->produto->produto_preco_venda)
-            ? (float) $itemVenda->produto->produto_preco_promocional
-            : (float) $itemVenda->produto->produto_preco_venda;
+        $precoBaseDesconto = $this->precoBaseParaDesconto($itemVenda);
 
         // Adicional entra cheio, pela própria quantidade — não escala com a
         // quantidade do produto.
@@ -727,9 +741,7 @@ class ItensVendaController extends Controller
 
             $pesosCents = [];
             foreach ($itens as $item) {
-                $precoBase = ($item->produto->produto_preco_promocional > 0 && $item->produto->produto_preco_promocional > $item->produto->produto_preco_venda)
-                    ? (float) $item->produto->produto_preco_promocional
-                    : (float) $item->produto->produto_preco_venda;
+                $precoBase = $this->precoBaseParaDesconto($item);
 
                 $valorBruto = ($precoBase * $item->item_venda_quantidade) + (float) $item->item_venda_valor_adicionais;
                 $pesosCents[$item->id] = (int) round($valorBruto * 100);

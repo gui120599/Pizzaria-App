@@ -120,6 +120,86 @@ class OperarVendaFinalizarCancelarTest extends TestCase
         $this->assertSame($this->venda->id, $item->fresh()->item_pedido_venda_id);
     }
 
+    /**
+     * @return array{0: Mesa, 1: SessaoMesa, 2: Pedido}
+     */
+    private function mesaOcupadaComPedido(): array
+    {
+        $mesa = Mesa::create(['mesa_nome' => 'Mesa 1', 'mesa_status' => 'LIBERADA']);
+        $sessaoMesa = SessaoMesa::create([
+            'sessao_mesa_mesa_id' => $mesa->id,
+            'sessao_mesa_usuario_id' => auth()->id(),
+            'sessao_mesa_status' => 'FECHADA',
+        ]);
+        $mesa->update(['mesa_status' => 'OCUPADA', 'mesa_sessao_atual_id' => $sessaoMesa->id]);
+        $pedido = Pedido::create(['pedido_sessao_mesa_id' => $sessaoMesa->id, 'pedido_status' => 'ENTREGUE']);
+
+        return [$mesa, $sessaoMesa, $pedido];
+    }
+
+    private function itemDoPedido(Pedido $pedido, ?int $vendaId): ItensPedido
+    {
+        return ItensPedido::create([
+            'item_pedido_pedido_id' => $pedido->id,
+            'item_pedido_produto_id' => $this->produtoParaItemPedido()->id,
+            'item_pedido_quantidade' => 1,
+            'item_pedido_status' => 'INSERIDO',
+            'item_pedido_venda_id' => $vendaId,
+        ]);
+    }
+
+    public function test_finalizar_venda_de_uma_pessoa_nao_finaliza_mesa_com_itens_ainda_sem_venda(): void
+    {
+        [$mesa, $sessaoMesa, $pedido] = $this->mesaOcupadaComPedido();
+        $this->itemDoPedido($pedido, $this->venda->id);
+        $this->itemDoPedido($pedido, null);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('finalizarVenda');
+
+        $this->assertSame('FINALIZADA', $this->venda->fresh()->venda_status);
+        $this->assertSame('FECHADA', $sessaoMesa->fresh()->sessao_mesa_status);
+        $this->assertSame('OCUPADA', $mesa->fresh()->mesa_status);
+        $this->assertSame('ENTREGUE', $pedido->fresh()->pedido_status);
+    }
+
+    public function test_finalizar_venda_nao_finaliza_mesa_com_itens_em_outra_venda_ainda_aberta(): void
+    {
+        [$mesa, $sessaoMesa, $pedido] = $this->mesaOcupadaComPedido();
+        $outraVenda = Venda::create(['venda_status' => 'INICIADA', 'venda_sessao_caixa_id' => $this->sessaoCaixa->id]);
+        $this->itemDoPedido($pedido, $this->venda->id);
+        $this->itemDoPedido($pedido, $outraVenda->id);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('finalizarVenda');
+
+        $this->assertSame('FECHADA', $sessaoMesa->fresh()->sessao_mesa_status);
+        $this->assertSame('OCUPADA', $mesa->fresh()->mesa_status);
+        $this->assertSame('ENTREGUE', $pedido->fresh()->pedido_status);
+
+        // Quando a segunda venda fecha, a mesa está quitada e finaliza.
+        Livewire::test(OperarVenda::class, ['venda' => $outraVenda])
+            ->call('finalizarVenda');
+
+        $this->assertSame('FINALIZADA', $sessaoMesa->fresh()->sessao_mesa_status);
+        $this->assertSame('LIBERADA', $mesa->fresh()->mesa_status);
+        $this->assertSame('FINALIZADO', $pedido->fresh()->pedido_status);
+    }
+
+    public function test_finalizar_venda_ignora_item_de_pedido_cancelado_da_mesa(): void
+    {
+        [$mesa, $sessaoMesa, $pedido] = $this->mesaOcupadaComPedido();
+        $this->itemDoPedido($pedido, $this->venda->id);
+        $pedidoCancelado = Pedido::create(['pedido_sessao_mesa_id' => $sessaoMesa->id, 'pedido_status' => 'CANCELADO']);
+        $this->itemDoPedido($pedidoCancelado, null);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('finalizarVenda');
+
+        $this->assertSame('FINALIZADA', $sessaoMesa->fresh()->sessao_mesa_status);
+        $this->assertSame('LIBERADA', $mesa->fresh()->mesa_status);
+    }
+
     public function test_finalizar_venda_finaliza_pedido_avulso_vinculado_via_itens_lancados(): void
     {
         $pedido = Pedido::create(['pedido_status' => 'EM TRANSPORTE']);

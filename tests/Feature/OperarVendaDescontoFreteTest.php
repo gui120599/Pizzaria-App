@@ -133,4 +133,81 @@ class OperarVendaDescontoFreteTest extends TestCase
 
         $this->assertSame(7.50, (float) $this->venda->fresh()->venda_valor_total);
     }
+
+    public function test_atualizar_frete_nao_desconta_de_novo_o_desconto_dos_itens(): void
+    {
+        $item = $this->itemNaVenda(2); // 20,00
+        $item->update(['item_venda_desconto' => 4.00, 'item_venda_valor' => 16.00]);
+        app(VendaService::class)->atualizarValoresdaVenda($this->venda->id);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('atualizarFrete', 5.00);
+
+        $this->assertSame(21.00, (float) $this->venda->fresh()->venda_valor_total);
+    }
+
+    /**
+     * Pizza ½ Calabresa (50,00) + ½ Portuguesa (60,00) pela média: 55,00. O
+     * produto da linha é o 1º sabor (Calabresa).
+     */
+    private function pizzaDeSaboresNaVenda(): ItensVenda
+    {
+        $categoria = Categoria::create(['categoria_nome' => 'Pizzas']);
+        $calabresa = Produto::create([
+            'produto_descricao' => 'Calabresa',
+            'produto_categoria_id' => $categoria->id,
+            'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value,
+            'produto_preco_venda' => 50.00,
+        ]);
+        $portuguesa = Produto::create([
+            'produto_descricao' => 'Portuguesa',
+            'produto_categoria_id' => $categoria->id,
+            'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value,
+            'produto_preco_venda' => 60.00,
+        ]);
+
+        return ItensVenda::create([
+            'item_numero' => 1,
+            'item_venda_venda_id' => $this->venda->id,
+            'item_venda_produto_id' => $calabresa->id,
+            'item_venda_quantidade' => 1,
+            'item_venda_quantidade_tributavel' => 1,
+            'item_venda_valor_unitario' => 55.00,
+            'item_venda_desconto' => 0,
+            'item_venda_valor' => 55.00,
+            'item_venda_valor_base_calculo' => 55.00,
+            'item_venda_sabores' => [
+                ['produto_id' => $calabresa->id, 'nome' => 'Calabresa', 'percentual' => 50, 'valor_unitario' => 50.00],
+                ['produto_id' => $portuguesa->id, 'nome' => 'Portuguesa', 'percentual' => 50, 'valor_unitario' => 60.00],
+            ],
+            'item_venda_status' => 'INSERIDO',
+        ]);
+    }
+
+    public function test_desconto_em_pizza_de_sabores_parte_do_preco_da_pizza_e_nao_do_primeiro_sabor(): void
+    {
+        $pizza = $this->pizzaDeSaboresNaVenda();
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('atualizarDescontoItem', $pizza->id, 5.00);
+
+        $this->assertSame(50.00, (float) $pizza->fresh()->item_venda_valor);
+        $this->assertSame(50.00, (float) $this->venda->fresh()->venda_valor_total);
+    }
+
+    public function test_quantidade_e_desconto_percentual_em_pizza_de_sabores_mantem_o_preco_da_pizza(): void
+    {
+        $pizza = $this->pizzaDeSaboresNaVenda();
+
+        $component = Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('atualizarQtdItem', $pizza->id, 2);
+
+        $this->assertSame(110.00, (float) $pizza->fresh()->item_venda_valor);
+
+        $component->call('aplicarDescontoPercentual', 10);
+        $this->assertSame(99.00, (float) $this->venda->fresh()->venda_valor_total);
+
+        $component->call('desfazerDescontoPercentual');
+        $this->assertSame(110.00, (float) $this->venda->fresh()->venda_valor_total);
+    }
 }

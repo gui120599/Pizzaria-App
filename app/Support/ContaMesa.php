@@ -38,6 +38,24 @@ final class ContaMesa
     }
 
     /**
+     * A sessão está paga quando nenhum item ativo de rodada enviada está fora
+     * de uma venda FINALIZADA — item sem venda, ou lançado numa venda ainda
+     * aberta (conta dividida por pessoa), mantém a mesa na lista do caixa.
+     */
+    public static function sessaoQuitada(int $sessaoMesaId): bool
+    {
+        return ! ItensPedido::query()
+            ->whereHas('pedido', fn ($q) => $q
+                ->where('pedido_sessao_mesa_id', $sessaoMesaId)
+                ->whereNotIn('pedido_status', self::STATUS_FORA_DA_CONTA))
+            ->where('item_pedido_status', 'INSERIDO')
+            ->where(fn ($q) => $q
+                ->whereNull('item_pedido_venda_id')
+                ->orWhereDoesntHave('venda', fn ($v) => $v->where('venda_status', 'FINALIZADA')))
+            ->exists();
+    }
+
+    /**
      * Itens ainda na conta (mesmo escopo de subtotal()), com produto,
      * adicionais, pessoa e a rodada de origem — base da pré-conta.
      *

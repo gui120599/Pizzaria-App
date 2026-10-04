@@ -11,6 +11,7 @@ use App\Models\Caixa;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\Mesa;
+use App\Models\PagamentosVenda;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoCaixa;
@@ -19,6 +20,7 @@ use App\Models\User;
 use App\Models\Venda;
 use App\Services\Garcom\AtendimentoMesaService;
 use App\Services\SessaoMesaService;
+use App\Services\VendaService;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -157,7 +159,21 @@ class FecharMesaGarcomTest extends TestCase
 
         $pdv->call('lancarItensDaMesa', $sessao->id);
 
-        $this->assertEquals(50.00, Venda::sole()->venda_valor_total);
+        $venda = Venda::sole();
+        $this->assertEquals(50.00, $venda->venda_valor_total);
+        // Lançar não finaliza: a mesa só sai do caixa quando a venda fecha.
+        $this->assertSame('FECHADA', $sessao->fresh()->sessao_mesa_status);
+
+        PagamentosVenda::create([
+            'pg_venda_venda_id' => $venda->id,
+            'pg_venda_valor_pagamento' => 50.00,
+            'pg_venda_valor_pago_pelo_cliente' => 50.00,
+        ]);
+        app(VendaService::class)->atualizarValoresdaVenda($venda->id);
+
+        Livewire::test(OperarVenda::class, ['venda' => $venda])->call('finalizarVenda');
+
+        $this->assertSame('FINALIZADA', $venda->fresh()->venda_status);
         $this->assertSame('FINALIZADA', $sessao->fresh()->sessao_mesa_status);
     }
 

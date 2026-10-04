@@ -5,7 +5,7 @@ namespace App\Filament\Garcom\Pages;
 use App\Enums\AcaoAutorizadaEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Exceptions\TransicaoPedidoInvalidaException;
-use App\Filament\Garcom\Concerns\AutorizaComPinDeGerente;
+use App\Filament\Concerns\AutorizaComPinDeGerente;
 use App\Filament\Garcom\Concerns\CarrinhoLateral;
 use App\Models\Cliente;
 use App\Models\ItensPedido;

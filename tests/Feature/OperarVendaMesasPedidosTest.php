@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\ProdutoTipoEnum;
 use App\Filament\Pages\OperarVenda;
 use App\Models\Caixa;
@@ -112,7 +113,7 @@ class OperarVendaMesasPedidosTest extends TestCase
         $this->assertSame(1, ItensVenda::where('item_venda_venda_id', $novaVendaId)->count());
     }
 
-    public function test_lancar_itens_da_mesa_cria_itens_na_venda_e_finaliza_sessao_completa(): void
+    public function test_lancar_itens_da_mesa_cria_itens_na_venda_e_mantem_sessao_ate_finalizar(): void
     {
         $mesa = Mesa::create(['mesa_nome' => 'Mesa 1', 'mesa_status' => 'LIBERADA']);
         $sessaoMesa = SessaoMesa::create([
@@ -125,43 +126,46 @@ class OperarVendaMesasPedidosTest extends TestCase
         $pedido = Pedido::create(['pedido_sessao_mesa_id' => $sessaoMesa->id, 'pedido_status' => 'ENTREGUE']);
         $item = $this->itemPedido($pedido, 2);
 
-        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+        $component = Livewire::test(OperarVenda::class, ['venda' => $this->venda])
             ->call('lancarItensDaMesa', $sessaoMesa->id);
 
         $itemVenda = ItensVenda::where('item_venda_venda_id', $this->venda->id)->firstOrFail();
         $this->assertSame(2.0, (float) $itemVenda->item_venda_quantidade);
         $this->assertSame(100.00, (float) $itemVenda->item_venda_valor);
         $this->assertSame($this->venda->id, $item->fresh()->item_pedido_venda_id);
-
-        $this->assertSame('FINALIZADA', $sessaoMesa->fresh()->sessao_mesa_status);
-        $this->assertSame('LIBERADA', $mesa->fresh()->mesa_status);
         $this->assertSame(100.00, (float) $this->venda->fresh()->venda_valor_total);
+
+        // A sessão só finaliza no fechamento da venda: até lá a mesa segue
+        // na lista e o "Lançada" pode ser desfeito.
+        $this->assertSame('ABERTA', $sessaoMesa->fresh()->sessao_mesa_status);
+        $this->assertSame('OCUPADA', $mesa->fresh()->mesa_status);
+        $this->assertTrue($component->instance()->mesas->contains('id', $sessaoMesa->id));
     }
 
-    public function test_lancar_itens_da_mesa_ignora_pendencia_de_pedido_cancelado(): void
+    public function test_cancelar_venda_com_mesa_lancada_devolve_a_mesa_para_a_lista(): void
     {
         $mesa = Mesa::create(['mesa_nome' => 'Mesa 1', 'mesa_status' => 'LIBERADA']);
         $sessaoMesa = SessaoMesa::create([
             'sessao_mesa_mesa_id' => $mesa->id,
             'sessao_mesa_usuario_id' => auth()->id(),
-            'sessao_mesa_status' => 'ABERTA',
+            'sessao_mesa_status' => 'FECHADA',
         ]);
         $mesa->update(['mesa_status' => 'OCUPADA', 'mesa_sessao_atual_id' => $sessaoMesa->id]);
-
-        $pedidoAtivo = Pedido::create(['pedido_sessao_mesa_id' => $sessaoMesa->id, 'pedido_status' => 'ENTREGUE']);
-        $this->itemPedido($pedidoAtivo, 1);
-
-        // Pedido cancelado com item ainda INSERIDO (nunca chega a ser lançado,
-        // pois é excluído da varredura) não deve impedir a sessão de finalizar.
-        $pedidoCancelado = Pedido::create(['pedido_sessao_mesa_id' => $sessaoMesa->id, 'pedido_status' => 'CANCELADO']);
-        $this->itemPedido($pedidoCancelado, 1);
+        $pedido = Pedido::create(['pedido_sessao_mesa_id' => $sessaoMesa->id, 'pedido_status' => 'ENTREGUE']);
+        $item = $this->itemPedido($pedido);
 
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
-            ->call('lancarItensDaMesa', $sessaoMesa->id);
+            ->call('lancarItensDaMesa', $sessaoMesa->id)
+            ->set('motivoCancelamento', MotivoCancelamentoEnum::CLIENTE_DESISTIU->value)
+            ->call('confirmarCancelamento');
 
-        $this->assertSame(1, ItensVenda::where('item_venda_venda_id', $this->venda->id)->count());
-        $this->assertSame('FINALIZADA', $sessaoMesa->fresh()->sessao_mesa_status);
-        $this->assertSame('LIBERADA', $mesa->fresh()->mesa_status);
+        $this->assertSame('CANCELADA', $this->venda->fresh()->venda_status);
+        $this->assertNull($item->fresh()->item_pedido_venda_id);
+        $this->assertSame('FECHADA', $sessaoMesa->fresh()->sessao_mesa_status);
+        $this->assertSame('OCUPADA', $mesa->fresh()->mesa_status);
+
+        $novaVenda = Livewire::test(OperarVenda::class);
+        $this->assertTrue($novaVenda->instance()->mesas->contains('id', $sessaoMesa->id));
     }
 
     public function test_lancar_itens_do_cliente_da_mesa_filtra_por_cliente(): void
