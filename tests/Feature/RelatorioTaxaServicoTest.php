@@ -114,6 +114,43 @@ class RelatorioTaxaServicoTest extends TestCase
         );
     }
 
+    public function test_por_sessao_a_taxa_da_mesa_inteira_vai_para_quem_abriu(): void
+    {
+        $sessao = $this->sessao($this->ana, 'Mesa 1');
+        $this->rodada($sessao, $this->ana, 60.00);
+        $this->rodada($sessao, $this->bruno, 40.00);
+        $this->vendaFinalizada($sessao);
+
+        $porGarcom = (new RelatorioTaxaServicoService(['atribuicao' => 'sessao']))->porGarcom();
+
+        $this->assertCount(1, $porGarcom);
+        $this->assertSame($this->ana->id, $porGarcom->first()['garcom_id']);
+        $this->assertEquals(10.00, $porGarcom->first()['taxa']);
+    }
+
+    public function test_detalhamento_agrupa_o_que_cada_garcom_recebeu_na_venda(): void
+    {
+        // Duas mesas pagas na mesma venda, com rodadas da Ana nas duas.
+        $mesa1 = $this->sessao($this->ana, 'Mesa 1');
+        $this->rodada($mesa1, $this->ana, 50.00);
+        $this->rodada($mesa1, $this->bruno, 30.00);
+        $mesa2 = $this->sessao($this->bruno, 'Mesa 2');
+        $this->rodada($mesa2, $this->ana, 20.00);
+
+        $venda = Venda::create(['venda_status' => 'INICIADA']);
+        ItensPedido::query()->update(['item_pedido_venda_id' => $venda->id]);
+        app(VendaService::class)->atualizarValoresdaVenda($venda->id);
+        $venda->update(['venda_status' => 'FINALIZADA', 'venda_datahora_finalizada' => now()]);
+
+        $porVenda = (new RelatorioTaxaServicoService)->porVenda()->keyBy('garcom_id');
+
+        $this->assertCount(2, $porVenda);
+        $this->assertSame('Mesa 1, Mesa 2', $porVenda[$this->ana->id]['mesas']);
+        $this->assertEquals(70.00, $porVenda[$this->ana->id]['consumo']);
+        $this->assertEquals(7.00, $porVenda[$this->ana->id]['taxa']);
+        $this->assertEquals(3.00, $porVenda[$this->bruno->id]['taxa']);
+    }
+
     public function test_venda_com_taxa_tirada_no_caixa_fica_fora_e_filtro_por_garcom(): void
     {
         $sessaoAna = $this->sessao($this->ana, 'Mesa 1');

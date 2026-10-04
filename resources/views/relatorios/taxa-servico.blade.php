@@ -37,6 +37,7 @@
                             — Garçom: {{ $garcomFiltrado }}
                         @endif
                     </p>
+                    <p class="text-gray-600">Atribuição: {{ $atribuicao }}</p>
                 </div>
             </div>
             <div class="text-right text-gray-600">
@@ -107,26 +108,24 @@
                     <tr class="bg-gray-100">
                         <th class="border p-1 text-left">Finalizada em</th>
                         <th class="border p-1 text-left">Venda</th>
-                        <th class="border p-1 text-left">Mesa</th>
+                        <th class="border p-1 text-left">Mesas</th>
                         <th class="border p-1 text-left">Garçom</th>
                         <th class="border p-1 text-right">Consumo</th>
-                        <th class="border p-1 text-right">%</th>
                         <th class="border p-1 text-right">Taxa</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($linhas as $linha)
+                    @forelse ($porVenda as $linha)
                         <tr>
                             <td class="border p-1">{{ $linha['finalizada_em']->format('d/m/Y H:i') }}</td>
                             <td class="border p-1">#{{ $linha['venda_id'] }}</td>
-                            <td class="border p-1">{{ $linha['mesa'] }}</td>
+                            <td class="border p-1">{{ $linha['mesas'] }}</td>
                             <td class="border p-1">{{ $linha['garcom'] }}</td>
                             <td class="border p-1 text-right">R$ {{ number_format($linha['consumo'], 2, ',', '.') }}</td>
-                            <td class="border p-1 text-right">{{ number_format($linha['percentual'], 2, ',', '.') }}%</td>
                             <td class="border p-1 text-right">R$ {{ number_format($linha['taxa'], 2, ',', '.') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="border p-2 text-center italic">Nenhuma venda encontrada para os filtros selecionados.</td></tr>
+                        <tr><td colspan="6" class="border p-2 text-center italic">Nenhuma venda encontrada para os filtros selecionados.</td></tr>
                     @endforelse
                 </tbody>
             </table>

@@ -6,6 +6,7 @@ use App\Filament\Widgets\TaxaServicoDetalhamentoWidget;
 use App\Filament\Widgets\TaxaServicoPorGarcomWidget;
 use App\Filament\Widgets\TaxaServicoStatsOverview;
 use App\Models\User;
+use App\Services\RelatorioTaxaServicoService;
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Filament\Actions\Action;
@@ -46,7 +47,7 @@ class RelatorioTaxaServico extends BaseDashboard
             Section::make('Filtros')
                 ->description('Vendas finalizadas no período.')
                 ->icon('heroicon-o-funnel')
-                ->columns(3)
+                ->columns(4)
                 ->columnSpanFull()
                 ->schema([
                     DatePicker::make('inicio')
@@ -71,6 +72,13 @@ class RelatorioTaxaServico extends BaseDashboard
                             ->all())
                         ->placeholder('Todos')
                         ->searchable()
+                        ->native(false),
+
+                    Select::make('atribuicao')
+                        ->label('Atribuir a taxa')
+                        ->options(RelatorioTaxaServicoService::ATRIBUICOES)
+                        ->default(RelatorioTaxaServicoService::ATRIBUICAO_RODADA)
+                        ->selectablePlaceholder(false)
                         ->native(false),
                 ]),
         ]);
