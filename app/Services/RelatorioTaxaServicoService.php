@@ -31,8 +31,8 @@ class RelatorioTaxaServicoService
         self::ATRIBUICAO_SESSAO => 'Por sessão (garçom que abriu a mesa)',
     ];
 
-    /** @var Collection<int, array<string, mixed>>|null */
-    private ?Collection $linhas = null;
+    /** @var array<string, Collection<int, array<string, mixed>>> */
+    private array $linhas = [];
 
     /**
      * @param  array{inicio?: ?string, fim?: ?string, garcom_id?: int|string|null, atribuicao?: ?string}  $filtros
@@ -71,11 +71,43 @@ class RelatorioTaxaServicoService
      */
     public function linhas(): Collection
     {
-        if ($this->linhas !== null) {
-            return $this->linhas;
-        }
+        return $this->linhas['cobradas'] ??= $this->montarLinhas(cobradas: true);
+    }
 
+    /**
+     * Mesas que não pagaram a taxa: sessão aberta ou deixada sem taxa pelo
+     * garçom (percentual 0) ou venda em que o caixa tirou a taxa. O valor é o
+     * que teria sido cobrado — o percentual da sessão ou, se ela ficou em 0,
+     * o padrão de config('pizzaria.salao.taxa_servico_percentual'). Só conta
+     * sessões abertas depois da primeira sessão com taxa: as anteriores ao
+     * recurso também têm percentual 0 e não são taxa perdida.
+     *
+     * @return array{mesas: int, valor: float}
+     */
+    public function semTaxa(): array
+    {
+        $linhas = $this->linhas['sem_taxa'] ??= $this->montarLinhas(cobradas: false);
+
+        return [
+            'mesas' => $linhas->pluck('sessao_id')->unique()->count(),
+            'valor' => round($linhas->sum('taxa'), 2),
+        ];
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function montarLinhas(bool $cobradas): Collection
+    {
         [$inicio, $fim] = $this->periodo();
+
+        $inicioDaTaxa = $cobradas ? null : DB::table('sessao_mesas')
+            ->where('sessao_mesa_taxa_servico_percentual', '>', 0)
+            ->min('created_at');
+
+        if (! $cobradas && $inicioDaTaxa === null) {
+            return collect();
+        }
 
         $garcom = $this->atribuicao() === self::ATRIBUICAO_SESSAO
             ? 'sessao_mesas.sessao_mesa_usuario_id'
@@ -87,10 +119,16 @@ class RelatorioTaxaServicoService
             ->join('vendas', 'vendas.id', '=', 'itens_pedidos.item_pedido_venda_id')
             ->leftJoin('mesas', 'mesas.id', '=', 'sessao_mesas.sessao_mesa_mesa_id')
             ->where('vendas.venda_status', 'FINALIZADA')
-            ->where('vendas.venda_taxa_servico_removida', false)
             ->whereBetween('vendas.venda_datahora_finalizada', [$inicio, $fim])
             ->where('itens_pedidos.item_pedido_status', 'INSERIDO')
-            ->where('sessao_mesas.sessao_mesa_taxa_servico_percentual', '>', 0)
+            ->when($cobradas, fn ($q) => $q
+                ->where('vendas.venda_taxa_servico_removida', false)
+                ->where('sessao_mesas.sessao_mesa_taxa_servico_percentual', '>', 0))
+            ->when(! $cobradas, fn ($q) => $q
+                ->where('sessao_mesas.created_at', '>=', $inicioDaTaxa)
+                ->where(fn ($q) => $q
+                    ->where('vendas.venda_taxa_servico_removida', true)
+                    ->orWhere('sessao_mesas.sessao_mesa_taxa_servico_percentual', 0)))
             ->groupBy(
                 'vendas.id', 'vendas.venda_datahora_finalizada', 'sessao_mesas.id',
                 'sessao_mesas.sessao_mesa_taxa_servico_percentual', 'mesas.mesa_nome', 'garcom_id',
@@ -107,13 +145,16 @@ class RelatorioTaxaServicoService
             ->whereIn('id', $consumos->pluck('garcom_id')->unique())
             ->pluck('name', 'id');
 
-        $this->linhas = $consumos
+        return $consumos
             ->groupBy(fn (object $linha): string => $linha->venda_id.'-'.$linha->sessao_id)
-            ->flatMap(function (Collection $garcons) use ($nomes): array {
+            ->flatMap(function (Collection $garcons) use ($nomes, $cobradas): array {
                 $consumoCents = $garcons->mapWithKeys(fn (object $linha): array => [
                     (int) $linha->garcom_id => (int) round((float) $linha->consumo * 100),
                 ])->all();
                 $percentual = (float) $garcons->first()->percentual;
+                if (! $cobradas && $percentual <= 0) {
+                    $percentual = (float) config('pizzaria.salao.taxa_servico_percentual');
+                }
                 $taxaCents = (int) round(round(array_sum($consumoCents) / 100 * $percentual / 100, 2) * 100);
                 $rateio = RateioCentavos::ratearProporcional($taxaCents, $consumoCents);
 
@@ -133,8 +174,6 @@ class RelatorioTaxaServicoService
             ->when(! empty($this->filtros['garcom_id']), fn (Collection $linhas) => $linhas
                 ->where('garcom_id', (int) $this->filtros['garcom_id']))
             ->values();
-
-        return $this->linhas;
     }
 
     /**

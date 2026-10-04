@@ -175,6 +175,33 @@ class RelatorioTaxaServicoTest extends TestCase
         $this->assertEquals(10.00, $soDaAna->totais()['taxa']);
     }
 
+    public function test_mesas_sem_taxa_contam_sessao_sem_taxa_e_taxa_tirada_no_caixa(): void
+    {
+        config(['pizzaria.salao.taxa_servico_percentual' => 10]);
+
+        // Sessão de antes do recurso de taxa (percentual 0 por padrão): fora.
+        $antiga = $this->sessao($this->ana, 'Mesa 0');
+        $antiga->forceFill(['sessao_mesa_taxa_servico_percentual' => 0, 'created_at' => now()->subDay()])->save();
+        $this->rodada($antiga, $this->ana, 200.00);
+        $this->vendaFinalizada($antiga);
+
+        $comTaxa = $this->sessao($this->ana, 'Mesa 1');
+        $this->rodada($comTaxa, $this->ana, 100.00);
+        $this->vendaFinalizada($comTaxa);
+
+        $semTaxa = $this->sessao($this->ana, 'Mesa 2');
+        $semTaxa->update(['sessao_mesa_taxa_servico_percentual' => 0]);
+        $this->rodada($semTaxa, $this->ana, 80.00);
+        $this->vendaFinalizada($semTaxa);
+
+        $tiradaNoCaixa = $this->sessao($this->bruno, 'Mesa 3');
+        $this->rodada($tiradaNoCaixa, $this->bruno, 50.00);
+        $this->vendaFinalizada($tiradaNoCaixa, taxaRemovida: true);
+
+        $this->assertSame(['mesas' => 2, 'valor' => 13.0], (new RelatorioTaxaServicoService)->semTaxa());
+        $this->assertSame(['mesas' => 1, 'valor' => 5.0], (new RelatorioTaxaServicoService(['garcom_id' => $this->bruno->id]))->semTaxa());
+    }
+
     public function test_impressao_mostra_o_total_por_garcom(): void
     {
         $sessao = $this->sessao($this->ana, 'Mesa 1');

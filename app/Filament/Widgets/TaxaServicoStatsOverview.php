@@ -19,12 +19,14 @@ class TaxaServicoStatsOverview extends BaseWidget
 
     protected function getColumns(): int
     {
-        return 3;
+        return 4;
     }
 
     protected function getStats(): array
     {
-        $totais = (new RelatorioTaxaServicoService($this->pageFilters ?? []))->totais();
+        $service = new RelatorioTaxaServicoService($this->pageFilters ?? []);
+        $totais = $service->totais();
+        $semTaxa = $service->semTaxa();
 
         return [
             Stat::make('Taxa de serviço', $this->brl($totais['taxa']))
@@ -41,6 +43,11 @@ class TaxaServicoStatsOverview extends BaseWidget
                 ->description('Sessões de mesa com taxa')
                 ->descriptionIcon('heroicon-m-squares-2x2')
                 ->color('gray'),
+
+            Stat::make('Mesas sem taxa', (string) $semTaxa['mesas'])
+                ->description("{$this->brl($semTaxa['valor'])} não cobrados")
+                ->descriptionIcon('heroicon-m-exclamation-triangle')
+                ->color($semTaxa['mesas'] > 0 ? 'warning' : 'gray'),
         ];
     }
 }

@@ -48,7 +48,7 @@
 
         <div class="secao mb-6">
             <h2 class="text-sm font-bold border-b border-gray-300 pb-1 mb-3">Indicadores</h2>
-            <div class="grid grid-cols-3 gap-3">
+            <div class="grid grid-cols-4 gap-3">
                 <div class="card border border-gray-300 rounded-md p-3">
                     <p class="text-[10px] uppercase text-gray-500">Taxa de serviço</p>
                     <p class="text-base font-bold">R$ {{ number_format($totais['taxa'], 2, ',', '.') }}</p>
@@ -60,6 +60,11 @@
                 <div class="card border border-gray-300 rounded-md p-3">
                     <p class="text-[10px] uppercase text-gray-500">Mesas atendidas</p>
                     <p class="text-base font-bold">{{ $totais['mesas'] }}</p>
+                </div>
+                <div class="card border border-gray-300 rounded-md p-3">
+                    <p class="text-[10px] uppercase text-gray-500">Mesas sem taxa</p>
+                    <p class="text-base font-bold">{{ $semTaxa['mesas'] }}</p>
+                    <p class="text-[10px] text-gray-500">R$ {{ number_format($semTaxa['valor'], 2, ',', '.') }} não cobrados</p>
                 </div>
             </div>
         </div>
