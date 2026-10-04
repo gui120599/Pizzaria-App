@@ -111,28 +111,40 @@
             <table class="w-full border-collapse">
                 <thead>
                     <tr class="bg-gray-100">
-                        <th class="border p-1 text-left">Finalizada em</th>
-                        <th class="border p-1 text-left">Venda</th>
-                        <th class="border p-1 text-left">Mesas</th>
+                        <th class="border p-1 text-left">Pedido</th>
+                        <th class="border p-1 text-left">Mesa</th>
                         <th class="border p-1 text-left">Garçom</th>
                         <th class="border p-1 text-right">Consumo</th>
                         <th class="border p-1 text-right">Taxa</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @forelse ($porVenda as $linha)
-                        <tr>
-                            <td class="border p-1">{{ $linha['finalizada_em']->format('d/m/Y H:i') }}</td>
-                            <td class="border p-1">#{{ $linha['venda_id'] }}</td>
-                            <td class="border p-1">{{ $linha['mesas'] }}</td>
-                            <td class="border p-1">{{ $linha['garcom'] }}</td>
-                            <td class="border p-1 text-right">R$ {{ number_format($linha['consumo'], 2, ',', '.') }}</td>
-                            <td class="border p-1 text-right">R$ {{ number_format($linha['taxa'], 2, ',', '.') }}</td>
+                @forelse ($porVenda as $venda)
+                    <tbody>
+                        <tr class="bg-gray-50">
+                            <td class="border p-1 font-semibold" colspan="5">
+                                Venda #{{ $venda['venda_id'] }} — {{ $venda['finalizada_em']->format('d/m/Y H:i') }}
+                            </td>
                         </tr>
-                    @empty
-                        <tr><td colspan="6" class="border p-2 text-center italic">Nenhuma venda encontrada para os filtros selecionados.</td></tr>
-                    @endforelse
-                </tbody>
+                        @foreach ($venda['rodadas'] as $rodada)
+                            <tr>
+                                <td class="border p-1">#{{ $rodada['pedido_id'] }}</td>
+                                <td class="border p-1">{{ $rodada['mesa'] }}</td>
+                                <td class="border p-1">{{ $rodada['garcom'] }}</td>
+                                <td class="border p-1 text-right">R$ {{ number_format($rodada['consumo'], 2, ',', '.') }}</td>
+                                <td class="border p-1 text-right">R$ {{ number_format($rodada['taxa'], 2, ',', '.') }}</td>
+                            </tr>
+                        @endforeach
+                        <tr class="font-bold">
+                            <td class="border p-1" colspan="3">Total da venda</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($venda['consumo'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($venda['taxa'], 2, ',', '.') }}</td>
+                        </tr>
+                    </tbody>
+                @empty
+                    <tbody>
+                        <tr><td colspan="5" class="border p-2 text-center italic">Nenhuma venda encontrada para os filtros selecionados.</td></tr>
+                    </tbody>
+                @endforelse
             </table>
         </div>
     </div>

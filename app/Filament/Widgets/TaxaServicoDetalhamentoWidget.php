@@ -5,13 +5,15 @@ namespace App\Filament\Widgets;
 use App\Services\RelatorioTaxaServicoService;
 use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
- * Quanto cada garçom recebeu em cada venda (mesas da venda somadas).
+ * Uma linha por venda, com as rodadas (pedido, garçom e taxa da rodada) e o
+ * total da venda.
  */
 class TaxaServicoDetalhamentoWidget extends BaseWidget
 {
@@ -44,14 +46,9 @@ class TaxaServicoDetalhamentoWidget extends BaseWidget
                     ->prefix('#'),
                 TextColumn::make('mesas')
                     ->label('Mesas'),
-                TextColumn::make('garcom')
-                    ->label('Garçom'),
-                TextColumn::make('consumo')
-                    ->label('Consumo')
-                    ->money('BRL'),
-                TextColumn::make('taxa')
-                    ->label('Taxa')
-                    ->money('BRL'),
+                ViewColumn::make('rodadas')
+                    ->label('Rodadas (pedido · mesa · garçom · taxa)')
+                    ->view('filament.widgets.partials.taxa-servico-rodadas'),
             ]);
     }
 }
