@@ -128,9 +128,9 @@ class RelatorioTaxaServicoTest extends TestCase
         $this->assertEquals(10.00, $porGarcom->first()['taxa']);
     }
 
-    public function test_detalhamento_agrupa_o_que_cada_garcom_recebeu_na_venda(): void
+    public function test_detalhamento_lista_as_rodadas_da_venda_com_garcom_taxa_e_total(): void
     {
-        // Duas mesas pagas na mesma venda, com rodadas da Ana nas duas.
+        // Duas mesas pagas na mesma venda.
         $mesa1 = $this->sessao($this->ana, 'Mesa 1');
         $this->rodada($mesa1, $this->ana, 50.00);
         $this->rodada($mesa1, $this->bruno, 30.00);
@@ -142,13 +142,17 @@ class RelatorioTaxaServicoTest extends TestCase
         app(VendaService::class)->atualizarValoresdaVenda($venda->id);
         $venda->update(['venda_status' => 'FINALIZADA', 'venda_datahora_finalizada' => now()]);
 
-        $porVenda = (new RelatorioTaxaServicoService)->porVenda()->keyBy('garcom_id');
+        $porVenda = (new RelatorioTaxaServicoService)->porVenda();
 
-        $this->assertCount(2, $porVenda);
-        $this->assertSame('Mesa 1, Mesa 2', $porVenda[$this->ana->id]['mesas']);
-        $this->assertEquals(70.00, $porVenda[$this->ana->id]['consumo']);
-        $this->assertEquals(7.00, $porVenda[$this->ana->id]['taxa']);
-        $this->assertEquals(3.00, $porVenda[$this->bruno->id]['taxa']);
+        $this->assertCount(1, $porVenda);
+        $linha = $porVenda->first();
+        $this->assertSame('Mesa 1, Mesa 2', $linha['mesas']);
+        $this->assertSame(
+            [['Mesa 1', 'Ana', 5.0], ['Mesa 1', 'Bruno', 3.0], ['Mesa 2', 'Ana', 2.0]],
+            collect($linha['rodadas'])->map(fn (array $r): array => [$r['mesa'], $r['garcom'], $r['taxa']])->all(),
+        );
+        $this->assertEquals(100.00, $linha['consumo']);
+        $this->assertEquals((float) $venda->fresh()->venda_valor_taxa_servico, $linha['taxa']);
     }
 
     public function test_venda_com_taxa_tirada_no_caixa_fica_fora_e_filtro_por_garcom(): void
@@ -225,6 +229,8 @@ class RelatorioTaxaServicoTest extends TestCase
         Livewire::test(RelatorioTaxaServico::class)->assertOk();
         Livewire::test(TaxaServicoStatsOverview::class)->assertSeeText('R$ 10,00');
         Livewire::test(TaxaServicoPorGarcomWidget::class)->assertSeeText('Ana');
-        Livewire::test(TaxaServicoDetalhamentoWidget::class)->assertSeeText('Mesa 1');
+        Livewire::test(TaxaServicoDetalhamentoWidget::class)
+            ->assertSeeText('Mesa 1')
+            ->assertSeeText('Total da venda');
     }
 }
