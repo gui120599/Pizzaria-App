@@ -7,6 +7,7 @@ use App\Enums\FormaPagamento;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\EstoqueInsuficienteException;
+use App\Exceptions\ItemNaoDivisivelException;
 use App\Exceptions\NfeIoException;
 use App\Exceptions\StoneConnectException;
 use App\Exceptions\VendaNaoFinalizavelException;
@@ -27,6 +28,7 @@ use App\Models\SessaoCaixa;
 use App\Models\SessaoMesa;
 use App\Models\StonePedido;
 use App\Models\Venda;
+use App\Services\DivisaoItemPedidoService;
 use App\Services\EstoqueService;
 use App\Services\FinalizacaoVendaService;
 use App\Services\LancamentoItensVendaService;
@@ -44,6 +46,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -489,11 +492,40 @@ class OperarVenda extends Page
             return;
         }
 
+        // A linha pode ter vindo de mesa/pedido: os itens de origem voltam a
+        // ficar livres (senão ficariam presos à venda, gerando taxa de serviço
+        // e contando como quitados sem estar na venda).
+        ItensPedido::whereIn('id', $this->itensPedidoDaLinha($itemVenda))
+            ->update(['item_pedido_venda_id' => null, 'item_pedido_item_venda_id' => null]);
+
         $itemVenda->adicionaisItemVenda()->delete();
         $itemVenda->delete();
 
         app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
-        unset($this->itensCarrinho, $this->venda);
+        $this->limparCachesDoCarrinho();
+    }
+
+    /**
+     * Itens de pedido lançados nesta venda que entraram nesta linha: pelo
+     * vínculo gravado no lançamento ou, para lançamentos antigos sem vínculo,
+     * pela mesma busca por produto/sabores usada na retirada.
+     *
+     * @return Collection<int, int>
+     */
+    private function itensPedidoDaLinha(ItensVenda $itemVenda): Collection
+    {
+        $vinculados = ItensPedido::where('item_pedido_venda_id', $this->vendaId)
+            ->where('item_pedido_item_venda_id', $itemVenda->id)
+            ->pluck('id');
+
+        $semVinculo = ItensPedido::where('item_pedido_venda_id', $this->vendaId)
+            ->whereNull('item_pedido_item_venda_id')
+            ->where('item_pedido_produto_id', $itemVenda->item_venda_produto_id)
+            ->get()
+            ->filter(fn (ItensPedido $item): bool => ItensVenda::correspondenteAoItemPedido($this->vendaId, $item)?->id === $itemVenda->id)
+            ->pluck('id');
+
+        return $vinculados->merge($semVinculo);
     }
 
     /**
@@ -693,10 +725,13 @@ class OperarVenda extends Page
                 'cliente',
                 'pedidos' => function ($query) {
                     $query->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO', 'FINALIZADO'])
+                        ->orderBy('id')
                         ->with([
                             'cliente',
                             'item_pedido_pedido_id.produto.categoria',
                             'item_pedido_pedido_id.adicionaisItemPedido.adicional',
+                            'item_pedido_pedido_id.cliente:id,cliente_nome',
+                            'item_pedido_pedido_id.venda:id,venda_status',
                             'item_pedido_pedido_id' => function ($query) {
                                 $query->where('item_pedido_status', 'INSERIDO');
                             },
@@ -708,27 +743,13 @@ class OperarVenda extends Page
 
     public function lancarItensDaMesa(int $sessaoMesaId): void
     {
-        $this->iniciarVendaSeNecessario();
-
         // Coluna crua (não a relação cliente(), que tem withDefault e nunca
         // retorna null de verdade) — só preenche se a venda ainda não tiver
         // cliente (ver preencherClienteSeVazio()).
-        $this->preencherClienteSeVazio(
-            SessaoMesa::where('id', $sessaoMesaId)->value('sessao_mesa_cliente_id')
+        $this->lancarItensPedido(
+            $this->idsDosItensDaMesa($sessaoMesaId),
+            SessaoMesa::where('id', $sessaoMesaId)->value('sessao_mesa_cliente_id'),
         );
-
-        $sessaoMesa = SessaoMesa::find($sessaoMesaId);
-        if ($sessaoMesa) {
-            // whereNull('item_pedido_venda_id') (dentro do service) é o que
-            // garante idempotência: reclicar "lançar" num pedido já lançado
-            // não soma de novo (bug corrigido — antes o filtro só checava um
-            // campo morto em Pedido, nunca escrito por este fluxo, então
-            // repetia a soma sempre).
-            app(LancamentoItensVendaService::class)->lancarSessaoMesa($this->venda, $sessaoMesa);
-        }
-
-        app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
-        $this->limparCachesDoCarrinho();
     }
 
     /**
@@ -736,76 +757,250 @@ class OperarVenda extends Page
      */
     public function lancarItensDoClienteDaMesa(int $sessaoMesaId, $clienteId): void
     {
-        $this->iniciarVendaSeNecessario();
-
-        $this->preencherClienteSeVazio($clienteId === 'sem_cliente' ? null : $clienteId);
-
-        $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)
-            ->whereNotIn('pedido_status', ContaMesa::STATUS_FORA_DA_CONTA)
-            ->get();
-
-        $service = app(LancamentoItensVendaService::class);
-
-        foreach ($pedidos as $pedido) {
-            $query = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
-                ->where('item_pedido_status', 'INSERIDO')
-                ->whereNull('item_pedido_venda_id')
-                ->with('adicionaisItemPedido', 'produto');
-
-            if ($clienteId === 'sem_cliente') {
-                $query->whereNull('item_pedido_cliente_id');
-            } else {
-                $query->where('item_pedido_cliente_id', $clienteId);
-            }
-
-            $itensPedido = $query->get();
-
-            if ($itensPedido->isEmpty()) {
-                continue;
-            }
-
-            $service->lancarItens($this->venda, $itensPedido);
-
-            // Correção de um bug do legado (adicionarItensSessaoMesaPorCliente
-            // nunca marcava item_pedido_venda_id): sem isso, os itens ficam
-            // sujeitos a lançamento duplicado e a sessão nunca fica quitada.
-            ItensPedido::whereIn('id', $itensPedido->pluck('id'))
-                ->update(['item_pedido_venda_id' => $this->vendaId]);
-        }
-
-        app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
-        $this->limparCachesDoCarrinho();
+        $this->lancarItensPedido(
+            $this->idsDosItensDaMesa($sessaoMesaId, $clienteId),
+            $clienteId === 'sem_cliente' ? null : (int) $clienteId,
+        );
     }
 
     public function removerItensDaMesa(int $sessaoMesaId): void
     {
-        if ($this->vendaId === null) {
-            return;
-        }
+        $this->retirarItensPedido($this->idsDosItensDaMesa($sessaoMesaId));
+    }
 
-        $pedidos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)->get();
+    /**
+     * Chip da pessoa na mesa: lança os itens dela ainda livres ou, se todos
+     * já estão nesta venda, retira.
+     *
+     * @param  int|'sem_cliente'  $clienteId
+     */
+    public function alternarClienteDaMesa(int $sessaoMesaId, $clienteId): void
+    {
+        $this->alternarItensPedido(
+            $this->idsDosItensDaMesa($sessaoMesaId, $clienteId),
+            $clienteId === 'sem_cliente' ? null : (int) $clienteId,
+        );
+    }
 
-        foreach ($pedidos as $pedido) {
-            // where('item_pedido_venda_id', $this->vendaId) é o que evita a
-            // remoção cruzada (bug corrigido — antes filtrava só por status,
-            // então "Remover" de um pedido nunca lançado ainda assim abatia a
-            // quantidade da linha mesclada de OUTRO pedido com o mesmo produto).
-            $itensPedido = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+    /** Checkbox de um pedido (rodada da mesa): mesma regra do chip da pessoa. */
+    public function alternarPedido(int $pedidoId): void
+    {
+        $this->alternarItensPedido($this->idsDosItensDoPedido($pedidoId));
+    }
+
+    /** Checkbox de um item: lança se estiver livre, retira se estiver nesta venda. */
+    public function alternarItemPedido(int $itemPedidoId): void
+    {
+        $this->alternarItensPedido(collect([$itemPedidoId]));
+    }
+
+    /**
+     * Itens ativos (INSERIDO, em pedido que conta na conta) de uma sessão de
+     * mesa, opcionalmente só os de uma pessoa ('sem_cliente' = sem pessoa).
+     *
+     * @param  int|'sem_cliente'|null  $clienteId
+     * @return Collection<int, int>
+     */
+    private function idsDosItensDaMesa(int $sessaoMesaId, $clienteId = null): Collection
+    {
+        return ItensPedido::query()
+            ->whereHas('pedido', fn ($query) => $query
+                ->where('pedido_sessao_mesa_id', $sessaoMesaId)
+                ->whereNotIn('pedido_status', ContaMesa::STATUS_FORA_DA_CONTA))
+            ->where('item_pedido_status', 'INSERIDO')
+            ->when($clienteId === 'sem_cliente', fn ($query) => $query->whereNull('item_pedido_cliente_id'))
+            ->when($clienteId !== null && $clienteId !== 'sem_cliente', fn ($query) => $query->where('item_pedido_cliente_id', $clienteId))
+            ->orderBy('item_pedido_pedido_id')
+            ->orderBy('id')
+            ->pluck('id');
+    }
+
+    /** @return Collection<int, int> */
+    private function idsDosItensDoPedido(int $pedidoId): Collection
+    {
+        return ItensPedido::where('item_pedido_pedido_id', $pedidoId)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->orderBy('id')
+            ->pluck('id');
+    }
+
+    /**
+     * Lança os livres do grupo; se nenhum estiver livre, retira os que estão
+     * nesta venda. Itens de outra venda nunca são tocados.
+     *
+     * @param  Collection<int, int>  $itemPedidoIds
+     */
+    private function alternarItensPedido(Collection $itemPedidoIds, ?int $clienteDaVenda = null): void
+    {
+        $temLivre = ItensPedido::whereIn('id', $itemPedidoIds)->whereNull('item_pedido_venda_id')->exists();
+
+        $temLivre
+            ? $this->lancarItensPedido($itemPedidoIds, $clienteDaVenda)
+            : $this->retirarItensPedido($itemPedidoIds);
+    }
+
+    /**
+     * Lança na venda os itens informados que ainda estão livres (INSERIDO,
+     * sem venda, em pedido que conta na conta) e marca item_pedido_venda_id.
+     * O whereNull + lockForUpdate garante que reclicar não soma de novo e que
+     * dois caixas não lançam o mesmo item. Os ids vêm da tela: o filtro
+     * aqui é o que vale.
+     *
+     * @param  Collection<int, int>|array<int, int>  $itemPedidoIds
+     * @param  int|null  $clienteDaVenda  Cliente para a venda sem cliente; nulo = o do 1º item lançado
+     */
+    private function lancarItensPedido(Collection|array $itemPedidoIds, ?int $clienteDaVenda = null): int
+    {
+        $this->iniciarVendaSeNecessario();
+
+        $itens = DB::transaction(function () use ($itemPedidoIds): Collection {
+            $itens = ItensPedido::whereIn('id', collect($itemPedidoIds)->all())
                 ->where('item_pedido_status', 'INSERIDO')
-                ->where('item_pedido_venda_id', $this->vendaId)
-                ->with('produto')
+                ->whereNull('item_pedido_venda_id')
+                ->whereHas('pedido', fn ($query) => $query->whereNotIn('pedido_status', ContaMesa::STATUS_FORA_DA_CONTA))
+                ->with('adicionaisItemPedido', 'produto', 'pedido.sessaoMesa')
+                ->orderBy('item_pedido_pedido_id')
+                ->orderBy('id')
+                ->lockForUpdate()
                 ->get();
 
-            foreach ($itensPedido as $item) {
-                $this->removerItemPedidoDaVenda($item);
+            if ($itens->isEmpty()) {
+                return $itens;
             }
 
-            ItensPedido::whereIn('id', $itensPedido->pluck('id'))
-                ->update(['item_pedido_venda_id' => null]);
+            app(LancamentoItensVendaService::class)->lancarItens($this->venda, $itens);
+
+            ItensPedido::whereIn('id', $itens->pluck('id'))
+                ->update(['item_pedido_venda_id' => $this->vendaId]);
+
+            return $itens;
+        });
+
+        if ($itens->isEmpty()) {
+            return 0;
         }
+
+        $primeiro = $itens->first();
+        $this->preencherClienteSeVazio(
+            $clienteDaVenda
+                ?? $primeiro->item_pedido_cliente_id
+                ?? $primeiro->pedido?->sessaoMesa?->sessao_mesa_cliente_id
+                ?? $primeiro->pedido?->pedido_cliente_id
+        );
 
         app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
         $this->limparCachesDoCarrinho();
+
+        return $itens->count();
+    }
+
+    /**
+     * Retira da venda os itens informados que estão nela, abatendo a linha
+     * de cada um, e os deixa livres de novo. O filtro por esta venda evita a
+     * remoção cruzada (abater a linha mesclada de outro pedido nunca lançado).
+     *
+     * @param  Collection<int, int>|array<int, int>  $itemPedidoIds
+     */
+    private function retirarItensPedido(Collection|array $itemPedidoIds): int
+    {
+        if ($this->vendaId === null) {
+            return 0;
+        }
+
+        $itens = ItensPedido::whereIn('id', collect($itemPedidoIds)->all())
+            ->where('item_pedido_status', 'INSERIDO')
+            ->where('item_pedido_venda_id', $this->vendaId)
+            ->with('produto')
+            ->get();
+
+        DB::transaction(function () use ($itens): void {
+            foreach ($itens as $item) {
+                $this->removerItemPedidoDaVenda($item);
+            }
+
+            ItensPedido::whereIn('id', $itens->pluck('id'))
+                ->update(['item_pedido_venda_id' => null, 'item_pedido_item_venda_id' => null]);
+        });
+
+        app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
+        $this->limparCachesDoCarrinho();
+
+        return $itens->count();
+    }
+
+    /**
+     * Situação de um item de pedido em relação a esta venda, para a tela:
+     * livre, nesta venda, em outra venda aberta ou já paga. Usa a relação
+     * venda carregada em mesas()/pedidosAvulsos().
+     *
+     * @return 'livre'|'nesta'|'outra'|'paga'
+     */
+    public function situacaoDoItem(ItensPedido $item): string
+    {
+        if ($item->item_pedido_venda_id === null) {
+            return 'livre';
+        }
+
+        if ($this->vendaId !== null && $item->item_pedido_venda_id === $this->vendaId) {
+            return 'nesta';
+        }
+
+        return $item->venda?->venda_status === 'FINALIZADA' ? 'paga' : 'outra';
+    }
+
+    public function podeDividirItem(ItensPedido $item): bool
+    {
+        return DivisaoItemPedidoService::podeOferecer($item);
+    }
+
+    /**
+     * "Dividir" num item com mais de uma unidade: separa as unidades
+     * escolhidas numa linha nova do pedido e já lança essa linha na venda.
+     */
+    public function dividirItemAction(): Action
+    {
+        return Action::make('dividirItem')
+            ->label('Lançar parte do item')
+            ->modalHeading('Lançar parte do item')
+            ->modalDescription(function (array $arguments): ?string {
+                $item = ItensPedido::with('produto')->find($arguments['item'] ?? null);
+
+                return $item
+                    ? $this->formatarQuantidade((float) $item->item_pedido_quantidade).'x '.$item->produto?->produto_descricao
+                    : null;
+            })
+            ->modalSubmitActionLabel('Lançar')
+            ->modalWidth('sm')
+            ->schema(fn (array $arguments): array => [
+                TextInput::make('quantidade')
+                    ->label('Quantas unidades lançar nesta venda?')
+                    ->integer()
+                    ->required()
+                    ->default(1)
+                    ->minValue(1)
+                    ->maxValue(max(1, (int) ceil((float) ItensPedido::whereKey($arguments['item'] ?? 0)->value('item_pedido_quantidade')) - 1)),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                $item = ItensPedido::find($arguments['item'] ?? null);
+                if (! $item) {
+                    return;
+                }
+
+                try {
+                    $novo = app(DivisaoItemPedidoService::class)->dividir($item, (float) $data['quantidade']);
+                } catch (ItemNaoDivisivelException $e) {
+                    Notification::make()->danger()->title($e->getMessage())->send();
+
+                    return;
+                }
+
+                $this->lancarItensPedido([$novo->id]);
+            });
+    }
+
+    private function formatarQuantidade(float $quantidade): string
+    {
+        return rtrim(rtrim(number_format($quantidade, 3, ',', '.'), '0'), ',');
     }
 
     /**
@@ -819,11 +1014,18 @@ class OperarVenda extends Page
         // QUALQUER pedido nunca lançado (item_pedido_venda_id também null),
         // marcando o checkbox indevidamente — não existe venda pra estar
         // "lançado nela" antes dela existir.
-        if ($this->vendaId === null || $itensPedido->isEmpty()) {
+        if ($this->vendaId === null) {
             return false;
         }
 
-        return $itensPedido->every(fn ($item) => $item->item_pedido_venda_id === $this->vendaId);
+        // Itens já em outra venda (conta dividida) não contam: o grupo está
+        // lançado quando todo o resto está nesta venda.
+        $disponiveis = $itensPedido->filter(
+            fn ($item) => $item->item_pedido_venda_id === null || $item->item_pedido_venda_id === $this->vendaId
+        );
+
+        return $disponiveis->isNotEmpty()
+            && $disponiveis->every(fn ($item) => $item->item_pedido_venda_id === $this->vendaId);
     }
 
     // ── Aba Pedidos avulsos ─────────────────────────────────────────────────
@@ -843,61 +1045,39 @@ class OperarVenda extends Page
                 'cliente',
                 'item_pedido_pedido_id.produto.categoria',
                 'item_pedido_pedido_id.adicionaisItemPedido.adicional',
+                'item_pedido_pedido_id.cliente:id,cliente_nome',
+                'item_pedido_pedido_id.venda:id,venda_status',
                 'item_pedido_pedido_id' => function ($query) {
                     $query->where('item_pedido_status', 'INSERIDO');
                 },
             ])
-            // Só some da lista quando algum item já foi vendido em OUTRA
-            // venda — enquanto estiver ligado à venda atual, continua
-            // aparecendo (marcado) pra o operador poder desmarcar.
-            ->whereDoesntHave('item_pedido_pedido_id', function ($query) {
-                $query->where('item_pedido_status', 'INSERIDO')
-                    ->where('item_pedido_venda_id', '!=', $this->vendaId);
-            })
+            // Some da lista quando todos os itens já estão em OUTRA venda.
+            // Com parte livre (conta dividida) ou ligada à venda atual,
+            // continua aparecendo pra o operador lançar/desmarcar.
+            ->where(fn ($query) => $query
+                ->whereDoesntHave('item_pedido_pedido_id', fn ($q) => $q
+                    ->where('item_pedido_status', 'INSERIDO')
+                    ->whereNotNull('item_pedido_venda_id')
+                    ->when($this->vendaId !== null, fn ($q) => $q->where('item_pedido_venda_id', '!=', $this->vendaId)))
+                ->orWhereHas('item_pedido_pedido_id', fn ($q) => $q
+                    ->where('item_pedido_status', 'INSERIDO')
+                    ->where(fn ($q) => $q->whereNull('item_pedido_venda_id')
+                        ->when($this->vendaId !== null, fn ($q) => $q->orWhere('item_pedido_venda_id', $this->vendaId)))))
             ->orderByDesc('id')
             ->get();
     }
 
     public function lancarPedidoAvulso(int $pedidoId): void
     {
-        $this->iniciarVendaSeNecessario();
-
-        $pedido = Pedido::find($pedidoId);
-        if (! $pedido) {
-            return;
-        }
-
-        $this->preencherClienteSeVazio($pedido->pedido_cliente_id);
-
-        if (app(LancamentoItensVendaService::class)->lancarPedido($this->venda, $pedido) === 0) {
-            return;
-        }
-
-        app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
-        $this->limparCachesDoCarrinho();
+        $this->lancarItensPedido(
+            $this->idsDosItensDoPedido($pedidoId),
+            Pedido::where('id', $pedidoId)->value('pedido_cliente_id'),
+        );
     }
 
     public function removerPedidoAvulso(int $pedidoId): void
     {
-        if ($this->vendaId === null) {
-            return;
-        }
-
-        $itensPedido = ItensPedido::where('item_pedido_pedido_id', $pedidoId)
-            ->where('item_pedido_status', 'INSERIDO')
-            ->where('item_pedido_venda_id', $this->vendaId)
-            ->with('produto')
-            ->get();
-
-        foreach ($itensPedido as $item) {
-            $this->removerItemPedidoDaVenda($item);
-        }
-
-        ItensPedido::whereIn('id', $itensPedido->pluck('id'))
-            ->update(['item_pedido_venda_id' => null]);
-
-        app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
-        $this->limparCachesDoCarrinho();
+        $this->retirarItensPedido($this->idsDosItensDoPedido($pedidoId));
     }
 
     // ── Helpers compartilhados (Mesas + Pedidos avulsos) ────────────────────
@@ -921,7 +1101,12 @@ class OperarVenda extends Page
      */
     private function removerItemPedidoDaVenda(ItensPedido $item): void
     {
-        $itemVenda = ItensVenda::correspondenteAoItemPedido($this->vendaId, $item);
+        // Pelo vínculo gravado no lançamento; a busca por produto/sabores só
+        // para itens lançados antes dele (ou pela tela legada).
+        $itemVenda = $item->item_pedido_item_venda_id
+            ? ItensVenda::where('id', $item->item_pedido_item_venda_id)->where('item_venda_venda_id', $this->vendaId)->first()
+            : null;
+        $itemVenda ??= ItensVenda::correspondenteAoItemPedido($this->vendaId, $item);
 
         if (! $itemVenda) {
             return;
@@ -935,6 +1120,8 @@ class OperarVenda extends Page
         $itemVenda->item_venda_valor_icms -= ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100;
         $itemVenda->item_venda_valor_pis -= ($item->item_pedido_valor * $item->produto->produto_valor_percentual_pis) / 100;
         $itemVenda->item_venda_valor_cofins -= ($item->item_pedido_valor * $item->produto->produto_valor_percentual_cofins) / 100;
+        $itemVenda->item_venda_valor_total_tributos = $itemVenda->item_venda_valor_icms + $itemVenda->item_venda_valor_pis + $itemVenda->item_venda_valor_cofins;
+        $itemVenda->item_venda_valor_adicionais = max(0, round((float) $itemVenda->item_venda_valor_adicionais - (float) $item->item_pedido_valor_adicionais, 2));
 
         if ($itemVenda->item_venda_quantidade <= 0) {
             AdicionaisItemVenda::where('aiv_item_venda_id', $itemVenda->id)->delete();

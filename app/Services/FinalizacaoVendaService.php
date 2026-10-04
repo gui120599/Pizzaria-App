@@ -123,7 +123,7 @@ class FinalizacaoVendaService
         ]);
 
         ItensPedido::where('item_pedido_venda_id', $venda->id)
-            ->update(['item_pedido_venda_id' => null]);
+            ->update(['item_pedido_venda_id' => null, 'item_pedido_item_venda_id' => null]);
 
         return $venda->fresh();
     }
