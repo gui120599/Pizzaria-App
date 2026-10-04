@@ -5,6 +5,7 @@ namespace App\Filament\Support;
 use App\Enums\OperadoraMaquininha;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 
 /**
  * Campos de cadastro de Maquininha, reaproveitados no createOptionForm inline
@@ -27,6 +28,9 @@ final class MaquininhaQuickCreateForm
             TextInput::make('numero_serie')
                 ->label('Número de série')
                 ->maxLength(255),
+            Toggle::make('maquininha_padrao')
+                ->label('Maquininha padrão')
+                ->helperText('Usada para achar a taxa quando o pagamento não informa a maquininha.'),
         ];
     }
 }

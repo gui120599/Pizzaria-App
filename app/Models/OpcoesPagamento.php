@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TipoPagamentoMaquininhaEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -98,6 +99,17 @@ class OpcoesPagamento extends Model
             'creditCard' => 'credit',
             'debitCard' => 'debit',
             'InstantPayment' => 'pix',
+            default => null,
+        };
+    }
+
+    /** Tipo de transação na maquininha (define a taxa da adquirente); null = não passa por maquininha. */
+    public function tipoMaquininha(): ?TipoPagamentoMaquininhaEnum
+    {
+        return match ($this->opcaopag_desc_nfe) {
+            'creditCard' => TipoPagamentoMaquininhaEnum::Credito,
+            'debitCard' => TipoPagamentoMaquininhaEnum::Debito,
+            'InstantPayment' => TipoPagamentoMaquininhaEnum::Pix,
             default => null,
         };
     }

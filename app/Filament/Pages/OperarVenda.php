@@ -134,6 +134,9 @@ class OperarVenda extends Page
 
     public ?int $cartaoId = null;
 
+    /** Maquininha do pagamento em cartão/pix — define a taxa da adquirente (TaxaMaquininhaService). */
+    public ?int $maquininhaPagamentoId = null;
+
     public ?string $numeroAutorizacaoCartao = null;
 
     public float $valorPagamento = 0;
@@ -1113,6 +1116,13 @@ class OperarVenda extends Page
         return CartoesPagamento::all();
     }
 
+    /** Maquininhas para o pagamento em cartão/pix lançado à mão (taxa da adquirente). */
+    #[Computed]
+    public function maquininhas()
+    {
+        return Maquininha::orderBy('nome')->pluck('nome', 'id');
+    }
+
     /** Maquininhas Stone com número de série — opções do modal de cobrança integrada. */
     #[Computed]
     public function maquininhasStone()
@@ -1220,6 +1230,8 @@ class OperarVenda extends Page
         if ($sugestao && $sugestao['opcao_id'] && $this->opcaoPagamentoSelecionadaId === null) {
             $this->opcaoPagamentoSelecionadaId = $sugestao['opcao_id'];
         }
+
+        $this->maquininhaPagamentoId ??= Maquininha::padrao()?->id;
     }
 
     public function fecharModalPagamento(): void
@@ -1227,6 +1239,7 @@ class OperarVenda extends Page
         $this->modalPagamentoAberta = false;
         $this->opcaoPagamentoSelecionadaId = null;
         $this->cartaoId = null;
+        $this->maquininhaPagamentoId = null;
         $this->numeroAutorizacaoCartao = null;
         $this->valorPagamento = 0;
         $this->valorPagoPeloCliente = 0;
@@ -1434,6 +1447,7 @@ class OperarVenda extends Page
         $this->pagamentoEmEdicaoId = $pagamento->id;
         $this->opcaoPagamentoSelecionadaId = $pagamento->pg_venda_opcaopagamento_id;
         $this->cartaoId = $pagamento->pg_venda_cartao_id;
+        $this->maquininhaPagamentoId = $pagamento->pg_venda_maquininha_id;
         $this->numeroAutorizacaoCartao = $pagamento->pg_venda_numero_autorizacao_cartao;
         $this->valorPagamento = (float) $pagamento->pg_venda_valor_pagamento;
         $this->valorPagoPeloCliente = (float) $pagamento->pg_venda_valor_pago_pelo_cliente;
@@ -1510,6 +1524,7 @@ class OperarVenda extends Page
             'pg_venda_venda_id' => $venda->id,
             'pg_venda_opcaopagamento_id' => $opcaoPagamento->id,
             'pg_venda_cartao_id' => $this->cartaoId ?: null,
+            'pg_venda_maquininha_id' => $opcaoPagamento->tipoMaquininha() ? ($this->maquininhaPagamentoId ?: null) : null,
             'pg_venda_numero_autorizacao_cartao' => $this->numeroAutorizacaoCartao ?: null,
             'pg_venda_valor_pagamento' => $valorRecebido,
             'pg_venda_valor_recebido' => $valorRecebido,

@@ -43,7 +43,18 @@ class TaxaServicoPorGarcomWidget extends BaseWidget
                     ->label('Consumo')
                     ->money('BRL'),
                 TextColumn::make('taxa')
-                    ->label('Taxa de serviço')
+                    ->label('Taxa bruta')
+                    ->money('BRL'),
+                TextColumn::make('desconto_maquininha')
+                    ->label('Maquininha')
+                    ->money('BRL')
+                    ->color('danger'),
+                TextColumn::make('desconto_imposto')
+                    ->label('Imposto NFC-e')
+                    ->money('BRL')
+                    ->color('danger'),
+                TextColumn::make('taxa_liquida')
+                    ->label('Líquido')
                     ->money('BRL')
                     ->weight('bold'),
             ]);
