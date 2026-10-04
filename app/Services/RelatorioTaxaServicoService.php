@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Empresa;
+use App\Models\NfEmissao;
+use App\Models\PagamentosVenda;
 use App\Support\RateioCentavos;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -15,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  * centavo com venda_valor_taxa_servico. O cálculo é por rodada (pedido): a
  * taxa da mesa é repartida pelo consumo de cada rodada. Rodada sem garçom (PDV) fica com o
  * garçom que abriu a mesa. Venda em que o caixa tirou a taxa fica de fora.
+ * Da taxa bruta saem a taxa da maquininha (proporcional) e o imposto da
+ * NFC-e, chegando na taxa líquida — ver aplicarDescontos().
  * No modo "sessao", a taxa da mesa inteira vai para o garçom que a abriu.
  *
  * Filtros (mesmo shape da página RelatorioTaxaServico): inicio, fim,
@@ -68,7 +73,7 @@ class RelatorioTaxaServicoService
     /**
      * Uma linha por rodada (pedido) de mesa em cada venda.
      *
-     * @return Collection<int, array{key: string, pedido_id: int, venda_id: int, finalizada_em: Carbon, sessao_id: int, mesa: string, garcom_id: int, garcom: string, percentual: float, consumo: float, taxa: float}>
+     * @return Collection<int, array{key: string, pedido_id: int, venda_id: int, finalizada_em: Carbon, sessao_id: int, mesa: string, garcom_id: int, garcom: string, percentual: float, consumo: float, taxa: float, desconto_maquininha: float, desconto_imposto: float, taxa_liquida: float}>
      */
     public function linhas(): Collection
     {
@@ -147,7 +152,7 @@ class RelatorioTaxaServicoService
             ->whereIn('id', $consumos->pluck('garcom_id')->unique())
             ->pluck('name', 'id');
 
-        return $consumos
+        $linhas = $consumos
             ->groupBy(fn (object $linha): string => $linha->venda_id.'-'.$linha->sessao_id)
             ->flatMap(function (Collection $rodadas) use ($nomes, $cobradas): array {
                 $consumoCents = $rodadas->mapWithKeys(fn (object $linha): array => [
@@ -172,17 +177,100 @@ class RelatorioTaxaServicoService
                     'percentual' => $percentual,
                     'consumo' => round((float) $linha->consumo, 2),
                     'taxa' => (float) (($rateio[(int) $linha->pedido_id] ?? 0) / 100),
+                    'desconto_maquininha' => 0.0,
+                    'desconto_imposto' => 0.0,
                 ])->all();
             })
+            ->values();
+
+        // Descontos antes do filtro de garçom: o rateio é sobre todas as
+        // rodadas da venda.
+        if ($cobradas) {
+            $linhas = $this->aplicarDescontos($linhas);
+        }
+
+        return $linhas
+            ->map(fn (array $linha): array => [
+                ...$linha,
+                'taxa_liquida' => round($linha['taxa'] - $linha['desconto_maquininha'] - $linha['desconto_imposto'], 2),
+            ])
             ->when(! empty($this->filtros['garcom_id']), fn (Collection $linhas) => $linhas
                 ->where('garcom_id', (int) $this->filtros['garcom_id']))
             ->values();
     }
 
     /**
+     * Desconta da taxa de cada venda:
+     * - a taxa da maquininha proporcional à taxa de serviço no total da venda
+     *   (custo dos pagamentos × taxa ÷ total);
+     * - o imposto sobre a taxa, se a NFC-e foi autorizada.
+     * Cada desconto é repartido entre as rodadas pela taxa de cada uma.
+     *
+     * @param  Collection<int, array<string, mixed>>  $linhas
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function aplicarDescontos(Collection $linhas): Collection
+    {
+        $vendaIds = $linhas->pluck('venda_id')->unique()->values();
+
+        if ($vendaIds->isEmpty()) {
+            return $linhas;
+        }
+
+        $vendas = DB::table('vendas')
+            ->whereIn('id', $vendaIds)
+            ->get(['id', 'venda_valor_total', 'venda_status_nfe', 'venda_imposto_taxa_servico_percentual'])
+            ->keyBy('id');
+
+        $taxas = app(TaxaMaquininhaService::class);
+        $custoMaquininha = PagamentosVenda::with('opcaoPagamento')
+            ->whereIn('pg_venda_venda_id', $vendaIds)
+            ->get()
+            ->groupBy('pg_venda_venda_id')
+            ->map(fn (Collection $pagamentos): float => $pagamentos->sum(fn (PagamentosVenda $pagamento): float => (float) (
+                $pagamento->pg_venda_taxa_maquininha_percentual !== null
+                    ? $pagamento->pg_venda_taxa_maquininha_valor
+                    : ($taxas->calcular($pagamento)['valor'] ?? 0)
+            )));
+
+        $impostoAtual = (float) (Empresa::query()->value('empresa_percentual_imposto_taxa_servico') ?? 0);
+
+        return $linhas
+            ->groupBy('venda_id')
+            ->flatMap(function (Collection $rodadas, int $vendaId) use ($vendas, $custoMaquininha, $impostoAtual): array {
+                $venda = $vendas[$vendaId];
+                $taxaCents = $rodadas->mapWithKeys(fn (array $linha): array => [$linha['pedido_id'] => (int) round($linha['taxa'] * 100)])->all();
+                $taxaVendaCents = array_sum($taxaCents);
+                $total = (float) $venda->venda_valor_total;
+
+                $maquininhaCents = $total > 0
+                    ? (int) round(($custoMaquininha[$vendaId] ?? 0) * ($taxaVendaCents / 100) / $total * 100)
+                    : 0;
+
+                $percentualImposto = $venda->venda_status_nfe === NfEmissao::STATUS_AUTORIZADA
+                    ? (float) ($venda->venda_imposto_taxa_servico_percentual ?? $impostoAtual)
+                    : 0.0;
+                $impostoCents = (int) round($taxaVendaCents * $percentualImposto / 100);
+
+                $maquininhaCents = min($maquininhaCents, $taxaVendaCents);
+                $impostoCents = min($impostoCents, $taxaVendaCents - $maquininhaCents);
+
+                $rateioMaquininha = RateioCentavos::ratearProporcional($maquininhaCents, $taxaCents);
+                $rateioImposto = RateioCentavos::ratearProporcional($impostoCents, $taxaCents);
+
+                return $rodadas->map(fn (array $linha): array => [
+                    ...$linha,
+                    'desconto_maquininha' => (float) (($rateioMaquininha[$linha['pedido_id']] ?? 0) / 100),
+                    'desconto_imposto' => (float) (($rateioImposto[$linha['pedido_id']] ?? 0) / 100),
+                ])->all();
+            })
+            ->values();
+    }
+
+    /**
      * Uma linha por venda, com as rodadas (pedido, garçom e taxa da rodada).
      *
-     * @return Collection<int, array{key: string, venda_id: int, finalizada_em: Carbon, mesas: string, rodadas: array<int, array{pedido_id: int, mesa: string, garcom: string, consumo: float, taxa: float}>, consumo: float, taxa: float}>
+     * @return Collection<int, array{key: string, venda_id: int, finalizada_em: Carbon, mesas: string, rodadas: array<int, array{pedido_id: int, mesa: string, garcom: string, consumo: float, taxa: float, desconto_maquininha: float, desconto_imposto: float, taxa_liquida: float}>, consumo: float, taxa: float, desconto_maquininha: float, desconto_imposto: float, taxa_liquida: float}>
      */
     public function porVenda(): Collection
     {
@@ -199,15 +287,17 @@ class RelatorioTaxaServicoService
                     'garcom' => $rodada['garcom'],
                     'consumo' => $rodada['consumo'],
                     'taxa' => $rodada['taxa'],
+                    'desconto_maquininha' => $rodada['desconto_maquininha'],
+                    'desconto_imposto' => $rodada['desconto_imposto'],
+                    'taxa_liquida' => $rodada['taxa_liquida'],
                 ])->values()->all(),
-                'consumo' => round($rodadas->sum('consumo'), 2),
-                'taxa' => round($rodadas->sum('taxa'), 2),
+                ...self::somas($rodadas),
             ])
             ->values();
     }
 
     /**
-     * @return Collection<int, array{key: string, garcom_id: int, garcom: string, mesas: int, vendas: int, consumo: float, taxa: float}>
+     * @return Collection<int, array{key: string, garcom_id: int, garcom: string, mesas: int, vendas: int, consumo: float, taxa: float, desconto_maquininha: float, desconto_imposto: float, taxa_liquida: float}>
      */
     public function porGarcom(): Collection
     {
@@ -219,25 +309,38 @@ class RelatorioTaxaServicoService
                 'garcom' => $linhas->first()['garcom'],
                 'mesas' => $linhas->pluck('sessao_id')->unique()->count(),
                 'vendas' => $linhas->pluck('venda_id')->unique()->count(),
-                'consumo' => round($linhas->sum('consumo'), 2),
-                'taxa' => round($linhas->sum('taxa'), 2),
+                ...self::somas($linhas),
             ])
-            ->sortByDesc('taxa')
+            ->sortByDesc('taxa_liquida')
             ->values();
     }
 
     /**
-     * @return array{taxa: float, consumo: float, mesas: int, garcons: int}
+     * @return array{consumo: float, taxa: float, desconto_maquininha: float, desconto_imposto: float, taxa_liquida: float, mesas: int, garcons: int}
      */
     public function totais(): array
     {
         $linhas = $this->linhas();
 
         return [
-            'taxa' => round($linhas->sum('taxa'), 2),
-            'consumo' => round($linhas->sum('consumo'), 2),
+            ...self::somas($linhas),
             'mesas' => $linhas->pluck('sessao_id')->unique()->count(),
             'garcons' => $linhas->pluck('garcom_id')->unique()->count(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $linhas
+     * @return array{consumo: float, taxa: float, desconto_maquininha: float, desconto_imposto: float, taxa_liquida: float}
+     */
+    private static function somas(Collection $linhas): array
+    {
+        return [
+            'consumo' => round($linhas->sum('consumo'), 2),
+            'taxa' => round($linhas->sum('taxa'), 2),
+            'desconto_maquininha' => round($linhas->sum('desconto_maquininha'), 2),
+            'desconto_imposto' => round($linhas->sum('desconto_imposto'), 2),
+            'taxa_liquida' => round($linhas->sum('taxa_liquida'), 2),
         ];
     }
 }

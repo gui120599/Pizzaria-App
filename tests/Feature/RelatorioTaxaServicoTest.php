@@ -2,14 +2,20 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OperadoraMaquininha;
 use App\Enums\ProdutoTipoEnum;
 use App\Filament\Pages\RelatorioTaxaServico;
 use App\Filament\Widgets\TaxaServicoDetalhamentoWidget;
 use App\Filament\Widgets\TaxaServicoPorGarcomWidget;
 use App\Filament\Widgets\TaxaServicoStatsOverview;
 use App\Models\Categoria;
+use App\Models\Empresa;
 use App\Models\ItensPedido;
+use App\Models\Maquininha;
+use App\Models\MaquininhaTaxa;
 use App\Models\Mesa;
+use App\Models\OpcoesPagamento;
+use App\Models\PagamentosVenda;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoMesa;
@@ -170,7 +176,7 @@ class RelatorioTaxaServicoTest extends TestCase
         $this->vendaFinalizada($sessaoBruno);
 
         $this->assertSame(
-            ['taxa' => 14.0, 'consumo' => 140.0, 'mesas' => 2, 'garcons' => 2],
+            ['consumo' => 140.0, 'taxa' => 14.0, 'desconto_maquininha' => 0.0, 'desconto_imposto' => 0.0, 'taxa_liquida' => 14.0, 'mesas' => 2, 'garcons' => 2],
             (new RelatorioTaxaServicoService)->totais(),
         );
 
@@ -204,6 +210,98 @@ class RelatorioTaxaServicoTest extends TestCase
 
         $this->assertSame(['mesas' => 2, 'valor' => 13.0], (new RelatorioTaxaServicoService)->semTaxa());
         $this->assertSame(['mesas' => 1, 'valor' => 5.0], (new RelatorioTaxaServicoService(['garcom_id' => $this->bruno->id]))->semTaxa());
+    }
+
+    /** Pagamento no crédito, na maquininha com taxa de 3% no crédito. */
+    private function pagarNoCredito(Venda $venda, float $valor, bool $comTaxaCadastrada = true): PagamentosVenda
+    {
+        $maquininha = Maquininha::firstOrCreate(['nome' => 'Stone 1'], ['operadora' => OperadoraMaquininha::Stone]);
+        if ($comTaxaCadastrada) {
+            MaquininhaTaxa::firstOrCreate(['mt_maquininha_id' => $maquininha->id, 'mt_tipo' => 'credito'], ['mt_percentual' => 3.00]);
+        }
+        $opcao = OpcoesPagamento::firstOrCreate(
+            ['opcaopag_nome' => 'Crédito'],
+            ['opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0, 'opcaopag_desc_nfe' => 'creditCard'],
+        );
+
+        return PagamentosVenda::create([
+            'pg_venda_venda_id' => $venda->id,
+            'pg_venda_opcaopagamento_id' => $opcao->id,
+            'pg_venda_maquininha_id' => $maquininha->id,
+            'pg_venda_valor_pagamento' => $valor,
+        ]);
+    }
+
+    public function test_desconta_maquininha_proporcional_e_imposto_da_nfce_da_taxa(): void
+    {
+        Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_taxa_servico' => 6]);
+
+        $sessao = $this->sessao($this->ana, 'Mesa 1');
+        $this->rodada($sessao, $this->ana, 60.00);
+        $this->rodada($sessao, $this->bruno, 40.00);
+        $venda = $this->vendaFinalizada($sessao); // taxa 10,00
+        // A fixture não cria itens_vendas: o total vem só da taxa. Venda real: 100 + 10.
+        $venda->update(['venda_valor_total' => 110.00]);
+        $this->pagarNoCredito($venda, 110.00); // custo 3,30
+        $venda->update(['venda_status_nfe' => 'Issued']);
+
+        $service = new RelatorioTaxaServicoService;
+        $totais = $service->totais();
+
+        // Maquininha: 3,30 × 10 ÷ 110 = 0,30. Imposto: 6% de 10,00 = 0,60.
+        $this->assertEquals(0.30, $totais['desconto_maquininha']);
+        $this->assertEquals(0.60, $totais['desconto_imposto']);
+        $this->assertEquals(9.10, $totais['taxa_liquida']);
+
+        $porGarcom = $service->porGarcom()->keyBy('garcom_id');
+        $this->assertEquals(5.46, $porGarcom[$this->ana->id]['taxa_liquida']);
+        $this->assertEquals(3.64, $porGarcom[$this->bruno->id]['taxa_liquida']);
+
+        $venda = $service->porVenda()->first();
+        $this->assertEquals(9.10, $venda['taxa_liquida']);
+        $this->assertEquals(9.10, round(collect($venda['rodadas'])->sum('taxa_liquida'), 2));
+    }
+
+    public function test_venda_sem_nfce_autorizada_nao_desconta_imposto(): void
+    {
+        Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_taxa_servico' => 6]);
+
+        $sessao = $this->sessao($this->ana, 'Mesa 1');
+        $this->rodada($sessao, $this->ana, 100.00);
+        $this->vendaFinalizada($sessao);
+
+        $totais = (new RelatorioTaxaServicoService)->totais();
+
+        $this->assertEquals(0, $totais['desconto_imposto']);
+        $this->assertEquals(10.00, $totais['taxa_liquida']);
+    }
+
+    public function test_imposto_usa_o_percentual_gravado_na_autorizacao_da_nota(): void
+    {
+        $empresa = Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_taxa_servico' => 6]);
+
+        $sessao = $this->sessao($this->ana, 'Mesa 1');
+        $this->rodada($sessao, $this->ana, 100.00);
+        $venda = $this->vendaFinalizada($sessao);
+        $venda->update(['venda_status_nfe' => 'Issued']);
+        $empresa->update(['empresa_percentual_imposto_taxa_servico' => 10]);
+
+        $this->assertEquals(6.00, $venda->fresh()->venda_imposto_taxa_servico_percentual);
+        $this->assertEquals(0.60, (new RelatorioTaxaServicoService)->totais()['desconto_imposto']);
+    }
+
+    public function test_pagamento_sem_taxa_gravada_usa_a_taxa_atual_da_maquininha(): void
+    {
+        $sessao = $this->sessao($this->ana, 'Mesa 1');
+        $this->rodada($sessao, $this->ana, 100.00);
+        $venda = $this->vendaFinalizada($sessao);
+        $venda->update(['venda_valor_total' => 110.00]);
+        $pagamento = $this->pagarNoCredito($venda, 110.00, comTaxaCadastrada: false);
+        $this->assertNull($pagamento->fresh()->pg_venda_taxa_maquininha_percentual);
+
+        MaquininhaTaxa::create(['mt_maquininha_id' => $pagamento->pg_venda_maquininha_id, 'mt_tipo' => 'credito', 'mt_percentual' => 3.00]);
+
+        $this->assertEquals(0.30, (new RelatorioTaxaServicoService)->totais()['desconto_maquininha']);
     }
 
     public function test_impressao_mostra_o_total_por_garcom(): void

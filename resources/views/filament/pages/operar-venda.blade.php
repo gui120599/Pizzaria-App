@@ -780,6 +780,18 @@
                         </div>
                     @endif
 
+                    @if ($opcaoSelecionada?->tipoMaquininha() && ! $opcaoSelecionada?->ehIntegracaoStone() && $this->maquininhas->isNotEmpty())
+                        <div>
+                            <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Maquininha</label>
+                            <select wire:model="maquininhaPagamentoId" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                <option value="">Selecione...</option>
+                                @foreach ($this->maquininhas as $id => $nome)
+                                    <option value="{{ $id }}">{{ $nome }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+
                     @if ($opcaoSelecionada?->opcaopag_requer_bandeira && ! $opcaoSelecionada?->ehIntegracaoStone())
                         <div>
                             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Cartão / bandeira</label>

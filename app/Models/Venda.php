@@ -26,6 +26,7 @@ class Venda extends Model
         'venda_valor_acrescimo',
         'venda_valor_taxa_servico',
         'venda_taxa_servico_removida',
+        'venda_imposto_taxa_servico_percentual',
         'venda_valor_desconto',
         'venda_desconto_percentual',
         'venda_valor_total',
@@ -50,6 +51,7 @@ class Venda extends Model
         'venda_valor_acrescimo' => 'decimal:2',
         'venda_valor_taxa_servico' => 'decimal:2',
         'venda_taxa_servico_removida' => 'boolean',
+        'venda_imposto_taxa_servico_percentual' => 'decimal:2',
         'venda_valor_desconto' => 'decimal:2',
         'venda_desconto_percentual' => 'decimal:2',
         'venda_valor_total' => 'decimal:2',
@@ -59,6 +61,22 @@ class Venda extends Model
         'venda_datahora_iniciada' => 'datetime',
         'venda_datahora_finalizada' => 'datetime',
     ];
+
+    /**
+     * Quando a NFC-e é autorizada (webhook, polling ou emissão), guarda o
+     * percentual de imposto sobre a taxa de serviço vigente — o relatório de
+     * taxa por garçom desconta por esse retrato.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Venda $venda): void {
+            if ($venda->isDirty('venda_status_nfe')
+                && $venda->venda_status_nfe === NfEmissao::STATUS_AUTORIZADA
+                && $venda->venda_imposto_taxa_servico_percentual === null) {
+                $venda->venda_imposto_taxa_servico_percentual = (float) (Empresa::query()->value('empresa_percentual_imposto_taxa_servico') ?? 0);
+            }
+        });
+    }
 
     public function sessaoCaixa()
     {

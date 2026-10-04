@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OperadoraMaquininha;
 use App\Enums\ProdutoTipoEnum;
 use App\Filament\Pages\OperarVenda;
 use App\Models\Caixa;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\ItensVenda;
+use App\Models\Maquininha;
+use App\Models\MaquininhaTaxa;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
 use App\Models\Pedido;
@@ -319,5 +322,28 @@ class OperarVendaPagamentoTest extends TestCase
             ->set('opcaoPagamentoSelecionadaId', $cartao->id)
             ->call('abrirModalPagamento')
             ->assertSet('opcaoPagamentoSelecionadaId', $cartao->id);
+    }
+
+    public function test_pagamento_no_cartao_grava_a_maquininha_e_a_taxa_da_adquirente(): void
+    {
+        $maquininha = Maquininha::create(['nome' => 'Cielo 1', 'operadora' => OperadoraMaquininha::Cielo]);
+        MaquininhaTaxa::create(['mt_maquininha_id' => $maquininha->id, 'mt_tipo' => 'debito', 'mt_percentual' => 1.50]);
+        $opcao = OpcoesPagamento::create([
+            'opcaopag_nome' => 'Débito',
+            'opcaopag_tipo_taxa' => 'N/A',
+            'opcaopag_valor_percentual_taxa' => 0,
+            'opcaopag_desc_nfe' => 'debitCard',
+        ]);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('opcaoPagamentoSelecionadaId', $opcao->id)
+            ->set('maquininhaPagamentoId', $maquininha->id)
+            ->set('valorPagamento', 20.00)
+            ->call('registrarPagamento');
+
+        $pagamento = PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->firstOrFail();
+        $this->assertSame($maquininha->id, $pagamento->pg_venda_maquininha_id);
+        $this->assertEquals(1.50, $pagamento->pg_venda_taxa_maquininha_percentual);
+        $this->assertEquals(0.30, $pagamento->pg_venda_taxa_maquininha_valor);
     }
 }

@@ -50,12 +50,14 @@
             <h2 class="text-sm font-bold border-b border-gray-300 pb-1 mb-3">Indicadores</h2>
             <div class="grid grid-cols-4 gap-3">
                 <div class="card border border-gray-300 rounded-md p-3">
-                    <p class="text-[10px] uppercase text-gray-500">Taxa de serviço</p>
+                    <p class="text-[10px] uppercase text-gray-500">Taxa de serviço (bruta)</p>
                     <p class="text-base font-bold">R$ {{ number_format($totais['taxa'], 2, ',', '.') }}</p>
+                    <p class="text-[10px] text-gray-500">Sobre R$ {{ number_format($totais['consumo'], 2, ',', '.') }} de consumo</p>
                 </div>
                 <div class="card border border-gray-300 rounded-md p-3">
-                    <p class="text-[10px] uppercase text-gray-500">Consumo com taxa</p>
-                    <p class="text-base font-bold">R$ {{ number_format($totais['consumo'], 2, ',', '.') }}</p>
+                    <p class="text-[10px] uppercase text-gray-500">Taxa líquida</p>
+                    <p class="text-base font-bold">R$ {{ number_format($totais['taxa_liquida'], 2, ',', '.') }}</p>
+                    <p class="text-[10px] text-gray-500">Maquininha R$ {{ number_format($totais['desconto_maquininha'], 2, ',', '.') }} · Imposto R$ {{ number_format($totais['desconto_imposto'], 2, ',', '.') }}</p>
                 </div>
                 <div class="card border border-gray-300 rounded-md p-3">
                     <p class="text-[10px] uppercase text-gray-500">Mesas atendidas</p>
@@ -78,7 +80,10 @@
                         <th class="border p-1 text-right">Mesas</th>
                         <th class="border p-1 text-right">Vendas</th>
                         <th class="border p-1 text-right">Consumo</th>
-                        <th class="border p-1 text-right">Taxa de serviço</th>
+                        <th class="border p-1 text-right">Taxa bruta</th>
+                        <th class="border p-1 text-right">Maquininha</th>
+                        <th class="border p-1 text-right">Imposto</th>
+                        <th class="border p-1 text-right">Líquido</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -88,10 +93,13 @@
                             <td class="border p-1 text-right">{{ $garcom['mesas'] }}</td>
                             <td class="border p-1 text-right">{{ $garcom['vendas'] }}</td>
                             <td class="border p-1 text-right">R$ {{ number_format($garcom['consumo'], 2, ',', '.') }}</td>
-                            <td class="border p-1 text-right font-semibold">R$ {{ number_format($garcom['taxa'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($garcom['taxa'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($garcom['desconto_maquininha'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($garcom['desconto_imposto'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right font-semibold">R$ {{ number_format($garcom['taxa_liquida'], 2, ',', '.') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="border p-2 text-center italic">Nenhuma taxa de serviço no período.</td></tr>
+                        <tr><td colspan="8" class="border p-2 text-center italic">Nenhuma taxa de serviço no período.</td></tr>
                     @endforelse
                 </tbody>
                 @if ($porGarcom->isNotEmpty())
@@ -100,6 +108,9 @@
                             <td class="border p-1" colspan="3">Total</td>
                             <td class="border p-1 text-right">R$ {{ number_format($totais['consumo'], 2, ',', '.') }}</td>
                             <td class="border p-1 text-right">R$ {{ number_format($totais['taxa'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($totais['desconto_maquininha'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($totais['desconto_imposto'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($totais['taxa_liquida'], 2, ',', '.') }}</td>
                         </tr>
                     </tfoot>
                 @endif
@@ -116,12 +127,15 @@
                         <th class="border p-1 text-left">Garçom</th>
                         <th class="border p-1 text-right">Consumo</th>
                         <th class="border p-1 text-right">Taxa</th>
+                        <th class="border p-1 text-right">Maquininha</th>
+                        <th class="border p-1 text-right">Imposto</th>
+                        <th class="border p-1 text-right">Líquido</th>
                     </tr>
                 </thead>
                 @forelse ($porVenda as $venda)
                     <tbody>
                         <tr class="bg-gray-50">
-                            <td class="border p-1 font-semibold" colspan="5">
+                            <td class="border p-1 font-semibold" colspan="8">
                                 Venda #{{ $venda['venda_id'] }} — {{ $venda['finalizada_em']->format('d/m/Y H:i') }}
                             </td>
                         </tr>
@@ -132,17 +146,23 @@
                                 <td class="border p-1">{{ $rodada['garcom'] }}</td>
                                 <td class="border p-1 text-right">R$ {{ number_format($rodada['consumo'], 2, ',', '.') }}</td>
                                 <td class="border p-1 text-right">R$ {{ number_format($rodada['taxa'], 2, ',', '.') }}</td>
+                                <td class="border p-1 text-right">R$ {{ number_format($rodada['desconto_maquininha'], 2, ',', '.') }}</td>
+                                <td class="border p-1 text-right">R$ {{ number_format($rodada['desconto_imposto'], 2, ',', '.') }}</td>
+                                <td class="border p-1 text-right">R$ {{ number_format($rodada['taxa_liquida'], 2, ',', '.') }}</td>
                             </tr>
                         @endforeach
                         <tr class="font-bold">
                             <td class="border p-1" colspan="3">Total da venda</td>
                             <td class="border p-1 text-right">R$ {{ number_format($venda['consumo'], 2, ',', '.') }}</td>
                             <td class="border p-1 text-right">R$ {{ number_format($venda['taxa'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($venda['desconto_maquininha'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($venda['desconto_imposto'], 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right">R$ {{ number_format($venda['taxa_liquida'], 2, ',', '.') }}</td>
                         </tr>
                     </tbody>
                 @empty
                     <tbody>
-                        <tr><td colspan="5" class="border p-2 text-center italic">Nenhuma venda encontrada para os filtros selecionados.</td></tr>
+                        <tr><td colspan="8" class="border p-2 text-center italic">Nenhuma venda encontrada para os filtros selecionados.</td></tr>
                     </tbody>
                 @endforelse
             </table>

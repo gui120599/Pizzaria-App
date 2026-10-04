@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Maquininhas;
 use App\Filament\Resources\Maquininhas\Pages\CreateMaquininha;
 use App\Filament\Resources\Maquininhas\Pages\EditMaquininha;
 use App\Filament\Resources\Maquininhas\Pages\ListMaquininhas;
+use App\Filament\Resources\Maquininhas\RelationManagers\TaxasRelationManager;
 use App\Filament\Resources\Maquininhas\Schemas\MaquininhaForm;
 use App\Filament\Resources\Maquininhas\Tables\MaquininhasTable;
 use App\Models\Maquininha;
@@ -46,7 +47,7 @@ class MaquininhaResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            TaxasRelationManager::class,
         ];
     }
 

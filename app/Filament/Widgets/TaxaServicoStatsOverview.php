@@ -29,19 +29,19 @@ class TaxaServicoStatsOverview extends BaseWidget
         $semTaxa = $service->semTaxa();
 
         return [
-            Stat::make('Taxa de serviço', $this->brl($totais['taxa']))
-                ->description("{$totais['garcons']} garçom(ns)")
-                ->descriptionIcon('heroicon-m-user-group')
-                ->color('success'),
-
-            Stat::make('Consumo com taxa', $this->brl($totais['consumo']))
-                ->description('Base de cálculo da taxa')
+            Stat::make('Taxa de serviço (bruta)', $this->brl($totais['taxa']))
+                ->description("Sobre {$this->brl($totais['consumo'])} de consumo")
                 ->descriptionIcon('heroicon-m-receipt-percent')
                 ->color('primary'),
 
+            Stat::make('Taxa líquida', $this->brl($totais['taxa_liquida']))
+                ->description("Maquininha {$this->brl($totais['desconto_maquininha'])} · Imposto {$this->brl($totais['desconto_imposto'])}")
+                ->descriptionIcon('heroicon-m-banknotes')
+                ->color('success'),
+
             Stat::make('Mesas atendidas', (string) $totais['mesas'])
-                ->description('Sessões de mesa com taxa')
-                ->descriptionIcon('heroicon-m-squares-2x2')
+                ->description("{$totais['garcons']} garçom(ns)")
+                ->descriptionIcon('heroicon-m-user-group')
                 ->color('gray'),
 
             Stat::make('Mesas sem taxa', (string) $semTaxa['mesas'])

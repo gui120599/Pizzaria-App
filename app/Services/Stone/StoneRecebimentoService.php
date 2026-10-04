@@ -280,6 +280,7 @@ class StoneRecebimentoService
                 'pg_venda_venda_id' => $venda->id,
                 'pg_venda_opcaopagamento_id' => $opcaoId,
                 'pg_venda_cartao_id' => $bandeiraId,
+                'pg_venda_maquininha_id' => $pedido->stp_maquininha_id,
                 'pg_venda_numero_autorizacao_cartao' => $meta['authorization_code'] ?? $charge['code'] ?? null,
                 'pg_venda_tipo_integracao' => 'integrated',
                 'pg_venda_valor_pagamento' => $valor,

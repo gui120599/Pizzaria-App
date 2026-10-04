@@ -152,6 +152,7 @@ class StoneVendaAutomaticaService
             PagamentosVenda::create([
                 'pg_venda_venda_id' => $venda->id,
                 'pg_venda_opcaopagamento_id' => $stonePedido->stp_opcaopagamento_id,
+                'pg_venda_maquininha_id' => $stonePedido->stp_maquininha_id,
                 'pg_venda_tipo_integracao' => 'integrated',
                 'pg_venda_valor_pagamento' => $stonePedido->stp_valor_pago,
                 'pg_venda_valor_recebido' => $stonePedido->stp_valor_pago,
