@@ -23,6 +23,7 @@ class RelatorioTaxaServicoController extends Controller
             'periodo' => $service->periodo(),
             'garcomFiltrado' => ! empty($filtros['garcom_id']) ? User::find($filtros['garcom_id'])?->name : null,
             'totais' => $service->totais(),
+            'semTaxa' => $service->semTaxa(),
             'porGarcom' => $service->porGarcom(),
             'porVenda' => $service->porVenda(),
             'atribuicao' => RelatorioTaxaServicoService::ATRIBUICOES[$service->atribuicao()],
