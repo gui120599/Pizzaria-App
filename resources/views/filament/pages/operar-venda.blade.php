@@ -294,7 +294,7 @@
                                         inputmode="decimal"
                                         value="{{ number_format((float) $item->item_venda_desconto, 2, ',', '.') }}"
                                         x-on:input="$el.value = Currency.masking($el.value, {locales:'pt-BR'})"
-                                        x-on:blur="$wire.atualizarDescontoItem({{ $item->id }}, Currency.unmaskedValue)"
+                                        x-on:change="$wire.atualizarDescontoItem({{ $item->id }}, Number($el.value.replace(/\D/g, '')) / 100)"
                                         class="w-16 text-xs border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-md px-1.5 py-1 text-right focus:outline-none focus:ring-1 focus:ring-primary-500"
                                     />
                                 </div>
@@ -353,16 +353,34 @@
                             inputmode="decimal"
                             value="{{ number_format((float) $this->venda?->venda_valor_frete, 2, ',', '.') }}"
                             x-on:input="$el.value = Currency.masking($el.value, {locales:'pt-BR'})"
-                            x-on:blur="$wire.atualizarFrete(Currency.unmaskedValue)"
+                            x-on:change="$wire.atualizarFrete(Number($el.value.replace(/\D/g, '')) / 100)"
                             class="w-20 text-xs border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-md px-1.5 py-1 text-right focus:outline-none focus:ring-1 focus:ring-primary-500"
                         />
                     </div>
                 </div>
 
-                @if ((float) $this->venda?->venda_valor_taxa_servico > 0)
+                @if ($this->taxaServicoDasMesas > 0)
+                    @php
+                        $taxaRemovida = (bool) $this->venda?->venda_taxa_servico_removida;
+                    @endphp
                     <div class="flex items-center justify-between gap-3">
-                        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Taxa de serviço (mesa)</span>
-                        <span class="text-xs font-semibold text-gray-800 dark:text-gray-200">R$ {{ number_format((float) $this->venda->venda_valor_taxa_servico, 2, ',', '.') }}</span>
+                        <span class="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                            Taxa de serviço (mesa)
+                            @if ($taxaRemovida)
+                                <button type="button" wire:click="restaurarTaxaServico" class="font-semibold text-primary-600 hover:underline dark:text-primary-400">
+                                    Incluir taxa
+                                </button>
+                            @else
+                                <button type="button" wire:click="mountAction('removerTaxaServico')" class="font-semibold text-danger-600 hover:underline dark:text-danger-400">
+                                    Tirar taxa
+                                </button>
+                            @endif
+                        </span>
+                        <span @class([
+                            'text-xs font-semibold',
+                            'text-gray-400 line-through dark:text-gray-500' => $taxaRemovida,
+                            'text-gray-800 dark:text-gray-200' => ! $taxaRemovida,
+                        ])>R$ {{ number_format($taxaRemovida ? $this->taxaServicoDasMesas : (float) $this->venda->venda_valor_taxa_servico, 2, ',', '.') }}</span>
                     </div>
                 @endif
 

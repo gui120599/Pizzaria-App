@@ -11,6 +11,7 @@ use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
 use App\Services\EstoqueService;
+use App\Support\ContaMesa;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -51,9 +52,14 @@ class VendaObserver
         $sessaoMesaIds = [];
 
         foreach ($pedidos as $pedido) {
-            // Só finaliza o pedido se não houver itens ainda sem venda atribuída
+            // Só finaliza o pedido se todos os itens ativos estiverem em venda
+            // FINALIZADA: na conta dividida por pessoa, o item lançado numa
+            // venda ainda aberta (que pode ser cancelada) segura o pedido.
             $temItensNaoLancados = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
-                ->whereNull('item_pedido_venda_id')
+                ->where('item_pedido_status', 'INSERIDO')
+                ->where(fn ($q) => $q
+                    ->whereNull('item_pedido_venda_id')
+                    ->orWhereDoesntHave('venda', fn ($v) => $v->where('venda_status', 'FINALIZADA')))
                 ->exists();
 
             if ($temItensNaoLancados) {
@@ -89,7 +95,7 @@ class VendaObserver
         foreach (array_unique($sessaoMesaIds) as $sessaoMesaId) {
             $sessaoMesa = SessaoMesa::find($sessaoMesaId);
 
-            if (! $sessaoMesa || $sessaoMesa->sessao_mesa_status === 'FINALIZADA') {
+            if (! $sessaoMesa || $sessaoMesa->sessao_mesa_status === 'FINALIZADA' || ! ContaMesa::sessaoQuitada($sessaoMesa->id)) {
                 continue;
             }
 

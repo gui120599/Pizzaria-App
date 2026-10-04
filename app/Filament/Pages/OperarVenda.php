@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\AcaoAutorizadaEnum;
 use App\Enums\FormaPagamento;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
@@ -9,6 +10,7 @@ use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\NfeIoException;
 use App\Exceptions\StoneConnectException;
 use App\Exceptions\VendaNaoFinalizavelException;
+use App\Filament\Concerns\AutorizaComPinDeGerente;
 use App\Models\AdicionaisItemPedido;
 use App\Models\AdicionaisItemVenda;
 use App\Models\CartoesPagamento;
@@ -17,7 +19,6 @@ use App\Models\ItensPedido;
 use App\Models\ItensVenda;
 use App\Models\Lancamento;
 use App\Models\Maquininha;
-use App\Models\Mesa;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
 use App\Models\Pedido;
@@ -32,11 +33,14 @@ use App\Services\LancamentoItensVendaService;
 use App\Services\Nfe\EmissaoNfeAutomaticaService;
 use App\Services\NfeIoService;
 use App\Services\Stone\StoneRecebimentoService;
+use App\Services\TaxaServicoVendaService;
 use App\Services\VendaService;
 use App\Support\ContaMesa;
 use App\Support\RateioCentavos;
 use BackedEnum;
 use Carbon\Carbon;
+use Filament\Actions\Action;
+use Filament\Forms\Components\TextInput;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
@@ -55,6 +59,8 @@ use UnitEnum;
  */
 class OperarVenda extends Page
 {
+    use AutorizaComPinDeGerente;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
 
     protected static ?string $navigationLabel = 'Nova Venda';
@@ -439,6 +445,7 @@ class OperarVenda extends Page
         $itemVenda->item_venda_valor_icms = round($valorBase * $itemVenda->produto->produto_valor_percentual_icms / 100, 4);
         $itemVenda->item_venda_valor_pis = round($valorBase * $itemVenda->produto->produto_valor_percentual_pis / 100, 4);
         $itemVenda->item_venda_valor_cofins = round($valorBase * $itemVenda->produto->produto_valor_percentual_cofins / 100, 4);
+        $itemVenda->item_venda_valor_total_tributos = $itemVenda->item_venda_valor_icms + $itemVenda->item_venda_valor_pis + $itemVenda->item_venda_valor_cofins;
         $itemVenda->save();
 
         app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
@@ -488,12 +495,21 @@ class OperarVenda extends Page
         $itemVenda->item_venda_valor_icms = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_icms) / 100;
         $itemVenda->item_venda_valor_pis = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_pis) / 100;
         $itemVenda->item_venda_valor_cofins = ($itemVenda->item_venda_valor_base_calculo * $itemVenda->produto->produto_valor_percentual_cofins) / 100;
+        $itemVenda->item_venda_valor_total_tributos = $itemVenda->item_venda_valor_icms + $itemVenda->item_venda_valor_pis + $itemVenda->item_venda_valor_cofins;
 
         $itemVenda->save();
     }
 
     private function precoBaseParaDesconto(ItensVenda $itemVenda): float
     {
+        // Pizza de vários sabores tem o preço congelado no lançamento (média
+        // ou maior dos sabores): o produto da linha é só o 1º sabor, e usar o
+        // preço dele mudava o total ao dar desconto (mesma regra de
+        // ItensPedido::recalcularValores).
+        if ($itemVenda->ehMultiSabor() && (float) $itemVenda->item_venda_valor_unitario > 0) {
+            return (float) $itemVenda->item_venda_valor_unitario;
+        }
+
         $produto = $itemVenda->produto;
 
         return ($produto->produto_preco_promocional > 0 && $produto->produto_preco_promocional > $produto->produto_preco_venda)
@@ -610,9 +626,10 @@ class OperarVenda extends Page
         }
 
         $venda->venda_valor_frete = $valor;
-        $venda->venda_valor_total = $venda->venda_valor_itens == 0
-            ? $valor
-            : $venda->venda_valor_itens + $valor - $venda->venda_valor_desconto + (float) $venda->venda_valor_taxa_servico;
+        // venda_valor_itens já é líquido do desconto dos itens (soma de
+        // item_venda_valor) — subtrair venda_valor_desconto de novo dava o
+        // desconto em dobro.
+        $venda->venda_valor_total = (float) $venda->venda_valor_itens + $valor + (float) $venda->venda_valor_taxa_servico;
         $venda->save();
 
         $this->limparCachesDoCarrinho();
@@ -694,7 +711,6 @@ class OperarVenda extends Page
         }
 
         app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
-        $this->finalizarSessaoSeCompleta($sessaoMesaId);
         $this->limparCachesDoCarrinho();
     }
 
@@ -735,13 +751,12 @@ class OperarVenda extends Page
 
             // Correção de um bug do legado (adicionarItensSessaoMesaPorCliente
             // nunca marcava item_pedido_venda_id): sem isso, os itens ficam
-            // sujeitos a lançamento duplicado e a sessão nunca finaliza sozinha.
+            // sujeitos a lançamento duplicado e a sessão nunca fica quitada.
             ItensPedido::whereIn('id', $itensPedido->pluck('id'))
                 ->update(['item_pedido_venda_id' => $this->vendaId]);
         }
 
         app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
-        $this->finalizarSessaoSeCompleta($sessaoMesaId);
         $this->limparCachesDoCarrinho();
     }
 
@@ -934,57 +949,59 @@ class OperarVenda extends Page
         $itemVenda->save();
     }
 
-    /**
-     * Finaliza a sessão de mesa quando todos os itens dos seus pedidos foram
-     * recebidos (lançados) na venda, liberando a mesa se ela ainda estiver
-     * ocupada por esta sessão. Espelha
-     * ItensVendaController::finalizarSessaoSeCompleta (legado).
-     */
-    private function finalizarSessaoSeCompleta(int $sessaoMesaId): bool
-    {
-        $sessao = SessaoMesa::find($sessaoMesaId);
-        if (! $sessao || ! in_array($sessao->sessao_mesa_status, ['ABERTA', 'FECHADA'])) {
-            return false;
-        }
-
-        $temPedidosAtivos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesaId)
-            ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
-            ->exists();
-
-        if (! $temPedidosAtivos) {
-            return false;
-        }
-
-        $pendentes = ItensPedido::whereHas('pedido', function ($q) use ($sessaoMesaId) {
-            $q->where('pedido_sessao_mesa_id', $sessaoMesaId)
-                ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO']);
-        })
-            ->where('item_pedido_status', 'INSERIDO')
-            ->whereNull('item_pedido_venda_id')
-            ->count();
-
-        if ($pendentes > 0) {
-            return false;
-        }
-
-        $sessao->update(['sessao_mesa_status' => 'FINALIZADA']);
-
-        $mesa = Mesa::find($sessao->sessao_mesa_mesa_id);
-        if ($mesa
-            && $mesa->mesa_status === 'OCUPADA'
-            && (int) $mesa->mesa_sessao_atual_id === (int) $sessao->id) {
-            $mesa->update([
-                'mesa_status' => 'LIBERADA',
-                'mesa_sessao_atual_id' => null,
-            ]);
-        }
-
-        return true;
-    }
-
     private function limparCachesDoCarrinho(): void
     {
-        unset($this->itensCarrinho, $this->venda, $this->mesas, $this->pedidosAvulsos);
+        unset($this->itensCarrinho, $this->venda, $this->mesas, $this->pedidosAvulsos, $this->taxaServicoDasMesas);
+    }
+
+    // ── Taxa de serviço das mesas ───────────────────────────────────────────
+
+    /** Taxa que as mesas lançadas gerariam, mesmo se o caixa tirou a taxa. */
+    #[Computed]
+    public function taxaServicoDasMesas(): float
+    {
+        return $this->vendaId === null ? 0.0 : ContaMesa::taxaServicoDaVenda($this->vendaId);
+    }
+
+    public function removerTaxaServicoAction(): Action
+    {
+        return Action::make('removerTaxaServico')
+            ->label('Tirar taxa de serviço')
+            ->modalSubmitActionLabel('Tirar taxa')
+            ->color('danger')
+            ->modalWidth('sm')
+            ->schema(fn (): array => [
+                TextInput::make('motivo')->label('Motivo')->maxLength(255),
+                ...$this->camposAutorizacao(AcaoAutorizadaEnum::REMOVER_TAXA_SERVICO),
+            ])
+            ->action(function (array $data): void {
+                $venda = $this->venda;
+                if (! $venda) {
+                    return;
+                }
+
+                $this->executarAutorizado(fn () => app(TaxaServicoVendaService::class)->remover(
+                    $venda, Auth::user(),
+                    $data['autorizador_id'] ?? null, $data['pin'] ?? null, $data['motivo'] ?? null,
+                ), 'Taxa de serviço retirada.');
+
+                $this->limparCachesDoCarrinho();
+            });
+    }
+
+    public function restaurarTaxaServico(): void
+    {
+        $venda = $this->venda;
+        if (! $venda) {
+            return;
+        }
+
+        $this->executarAutorizado(
+            fn () => app(TaxaServicoVendaService::class)->restaurar($venda),
+            'Taxa de serviço incluída.',
+        );
+
+        $this->limparCachesDoCarrinho();
     }
 
     // ── Modal Cliente ────────────────────────────────────────────────────────

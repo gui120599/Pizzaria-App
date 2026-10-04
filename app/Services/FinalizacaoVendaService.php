@@ -15,6 +15,7 @@ use App\Models\Pedido;
 use App\Models\SessaoCaixa;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
+use App\Support\ContaMesa;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -227,7 +228,9 @@ class FinalizacaoVendaService
     {
         foreach ($idSessaoMesa as $sessaoId) {
             $sessaoMesa = SessaoMesa::find($sessaoId);
-            if (! $sessaoMesa) {
+            // Conta dividida: enquanto houver item da mesa fora de venda
+            // finalizada, a sessão continua na lista do caixa.
+            if (! $sessaoMesa || ! ContaMesa::sessaoQuitada($sessaoMesa->id)) {
                 continue;
             }
 

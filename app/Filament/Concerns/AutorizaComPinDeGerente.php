@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Garcom\Concerns;
+namespace App\Filament\Concerns;
 
 use App\Enums\AcaoAutorizadaEnum;
 use App\Exceptions\AutorizacaoNegadaException;
@@ -15,7 +15,7 @@ use Throwable;
 
 /**
  * Campos de autorização de gerente (seletor + PIN) e execução com aviso de
- * erro/sucesso, compartilhados pelas telas do Painel do Garçom.
+ * erro/sucesso, compartilhados pelo Painel do Garçom e pelo caixa (OperarVenda).
  */
 trait AutorizaComPinDeGerente
 {

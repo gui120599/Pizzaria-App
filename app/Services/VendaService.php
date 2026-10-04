@@ -66,8 +66,11 @@ class VendaService
         $venda->venda_valor_itens = $venda_valor_itens;
         $venda->venda_valor_frete = $venda_valor_frete;
         $venda->venda_valor_desconto = $venda_valor_desconto;
-        // Taxa de serviço das mesas cujos itens estão nesta venda (0 sem mesa).
-        $venda->venda_valor_taxa_servico = ContaMesa::taxaServicoDaVenda($venda->id);
+        // Taxa de serviço das mesas cujos itens estão nesta venda (0 sem mesa
+        // ou quando o caixa tirou a taxa — ver TaxaServicoVendaService).
+        $venda->venda_valor_taxa_servico = $venda->venda_taxa_servico_removida
+            ? 0
+            : ContaMesa::taxaServicoDaVenda($venda->id);
         $venda->venda_valor_total = $venda_valor_total + $venda_valor_frete + $venda->venda_valor_taxa_servico;
         $venda->venda_valor_pago = $venda_valor_pago;
         $venda->venda_valor_acrescimo = $venda_valor_acrescimo;
