@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Maquininha extends Model
 {
@@ -43,6 +44,42 @@ class Maquininha extends Model
     public function taxas(): HasMany
     {
         return $this->hasMany(MaquininhaTaxa::class, 'mt_maquininha_id');
+    }
+
+    /**
+     * Copia para esta maquininha as taxas de outra (mesmo tipo e bandeira).
+     * Substituindo, apaga as taxas atuais antes; sem substituir, só acrescenta
+     * as combinações que ainda não existem. Retorna quantas taxas foram gravadas.
+     */
+    public function copiarTaxasDe(Maquininha $origem, bool $substituir = true): int
+    {
+        if ($origem->is($this)) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($origem, $substituir): int {
+            if ($substituir) {
+                $this->taxas()->delete();
+            }
+
+            $copiadas = 0;
+
+            foreach ($origem->taxas()->get() as $taxa) {
+                $existente = $this->taxas()
+                    ->where('mt_tipo', $taxa->mt_tipo)
+                    ->when($taxa->mt_cartao_id, fn ($q) => $q->where('mt_cartao_id', $taxa->mt_cartao_id), fn ($q) => $q->whereNull('mt_cartao_id'))
+                    ->exists();
+
+                if ($existente) {
+                    continue;
+                }
+
+                $this->taxas()->create($taxa->only(['mt_cartao_id', 'mt_tipo', 'mt_percentual']));
+                $copiadas++;
+            }
+
+            return $copiadas;
+        });
     }
 
     /** Maquininha usada quando o pagamento não informa qual foi. */
