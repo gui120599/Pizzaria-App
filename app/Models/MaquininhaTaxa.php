@@ -19,6 +19,7 @@ class MaquininhaTaxa extends Model
         'mt_cartao_id',
         'mt_tipo',
         'mt_percentual',
+        'mt_prazo_recebimento_dias',
     ];
 
     protected function casts(): array
@@ -26,6 +27,7 @@ class MaquininhaTaxa extends Model
         return [
             'mt_tipo' => TipoPagamentoMaquininhaEnum::class,
             'mt_percentual' => 'decimal:2',
+            'mt_prazo_recebimento_dias' => 'integer',
         ];
     }
 
