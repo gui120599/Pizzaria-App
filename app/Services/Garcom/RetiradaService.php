@@ -53,11 +53,13 @@ class RetiradaService
     /**
      * Envia a retirada para a cozinha (INICIADO → ABERTO), vinculando o cliente.
      *
+     *
+     * @param  ?int  $opcaoEntregaId  opção sem endereço escolhida pelo garçom (null = padrão de retirada)
      * @return bool false quando a retirada já tinha sido enviada (reenvio)
      *
      * @throws RuntimeException quando faltam itens, nome/celular ou opção de retirada
      */
-    public function enviar(Pedido $rascunho, string $nome, string $celular): bool
+    public function enviar(Pedido $rascunho, string $nome, string $celular, ?int $opcaoEntregaId = null): bool
     {
         $nome = trim($nome);
         $digitosCelular = preg_replace('/\D/', '', $celular);
@@ -70,7 +72,7 @@ class RetiradaService
             throw new RuntimeException('Informe o celular do cliente com DDD.');
         }
 
-        return DB::transaction(function () use ($rascunho, $nome, $digitosCelular) {
+        return DB::transaction(function () use ($rascunho, $nome, $digitosCelular, $opcaoEntregaId) {
             $pedido = Pedido::whereKey($rascunho->getKey())->lockForUpdate()->firstOrFail();
 
             if ($pedido->pedido_status !== StatusPedidoEnum::INICIADO->value) {
@@ -83,7 +85,7 @@ class RetiradaService
                 throw new RuntimeException('Adicione pelo menos um item antes de enviar.');
             }
 
-            $opcao = $this->opcaoEntregaRetirada();
+            $opcao = $this->opcaoEntregaRetirada($opcaoEntregaId);
             $cliente = $this->clientes->resolverOuCriar(['nome' => $nome, 'celular' => $digitosCelular]);
             $totais = TotaisPedido::paraItens($itens, $opcao);
 
@@ -252,15 +254,48 @@ class RetiradaService
             ->get();
     }
 
-    /** @throws RuntimeException quando não há opção de entrega sem endereço */
-    public function opcaoEntregaRetirada(): OpcoesEntregas
+    /**
+     * Opções sem endereço que o garçom pode escolher na retirada, com a
+     * padrão (opcaoEntregaRetirada) primeiro.
+     *
+     * @return Collection<int, OpcoesEntregas>
+     */
+    public function opcoesRetirada(): Collection
     {
+        $opcoes = OpcoesEntregas::where('opcaoentrega_requer_endereco', false)->orderBy('id')->get();
+        $padraoId = $opcoes->isEmpty() ? null : $this->opcaoEntregaRetirada()->id;
+
+        return $opcoes->sortBy(fn (OpcoesEntregas $o) => $o->id === $padraoId ? 0 : 1)->values();
+    }
+
+    /**
+     * Opção gravada na retirada: a escolhida pelo garçom (precisa ser sem
+     * endereço) ou a padrão — pizzaria.salao.opcao_entrega_retirada_id; sem
+     * config, a primeira sem endereço com "retir" no nome; senão a primeira
+     * que não seja de consumo no local.
+     *
+     * @throws RuntimeException quando não há opção de entrega sem endereço
+     */
+    public function opcaoEntregaRetirada(?int $escolhidaId = null): OpcoesEntregas
+    {
+        if ($escolhidaId) {
+            $escolhida = OpcoesEntregas::whereKey($escolhidaId)->where('opcaoentrega_requer_endereco', false)->first();
+
+            return $escolhida ?? throw new RuntimeException('Escolha uma opção de retirada (sem endereço).');
+        }
+
         $configurada = config('pizzaria.salao.opcao_entrega_retirada_id');
 
-        $opcao = $configurada
-            ? OpcoesEntregas::find($configurada)
-            : OpcoesEntregas::where('opcaoentrega_requer_endereco', false)->orderBy('id')->first();
+        if ($configurada && $opcao = OpcoesEntregas::find($configurada)) {
+            return $opcao;
+        }
 
-        return $opcao ?? throw new RuntimeException('Cadastre uma opção de entrega de retirada (sem endereço).');
+        $semEndereco = OpcoesEntregas::where('opcaoentrega_requer_endereco', false)->orderBy('id')->get();
+        $nome = fn (OpcoesEntregas $o): string => mb_strtolower((string) $o->opcaoentrega_nome);
+
+        return $semEndereco->first(fn (OpcoesEntregas $o) => str_contains($nome($o), 'retir'))
+            ?? $semEndereco->first(fn (OpcoesEntregas $o) => ! str_contains($nome($o), 'local'))
+            ?? $semEndereco->first()
+            ?? throw new RuntimeException('Cadastre uma opção de entrega de retirada (sem endereço).');
     }
 }

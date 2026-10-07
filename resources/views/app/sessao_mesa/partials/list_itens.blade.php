@@ -243,7 +243,7 @@
                                                 <div class="col-span-3 flex flex-col items-center">
                                                     <span class="text-[7px]">Mesa</span>
                                                     <span
-                                                        class="w-full flex items-center justify-center text-center text-sm bg-gray-700 rounded-lg p-1 text-white h-full uppercase">{{ $pedido->sessaoMesa->mesa->mesa_nome }}</span>
+                                                        class="w-full flex items-center justify-center text-center text-sm bg-gray-700 rounded-lg p-1 text-white h-full uppercase">{{ $pedido->sessaoMesa?->mesa?->mesa_nome ?? 'Sem mesa' }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -390,7 +390,7 @@
                                                 <div class="col-span-3 flex flex-col items-center">
                                                     <span class="text-[7px]">Mesa</span>
                                                     <span
-                                                        class="w-full flex items-center justify-center text-center text-sm bg-gray-700 rounded-lg p-1 text-white h-full uppercase">{{ $pedido->sessaoMesa->mesa->mesa_nome }}</span>
+                                                        class="w-full flex items-center justify-center text-center text-sm bg-gray-700 rounded-lg p-1 text-white h-full uppercase">{{ $pedido->sessaoMesa?->mesa?->mesa_nome ?? 'Sem mesa' }}</span>
                                                 </div>
                                             </div>
                                         </div>

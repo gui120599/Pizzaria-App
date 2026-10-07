@@ -26,7 +26,7 @@ class Venda extends Model
         'venda_valor_acrescimo',
         'venda_valor_taxa_servico',
         'venda_taxa_servico_removida',
-        'venda_imposto_taxa_servico_percentual',
+        'venda_imposto_nfe_percentual',
         'venda_valor_desconto',
         'venda_desconto_percentual',
         'venda_valor_total',
@@ -51,7 +51,7 @@ class Venda extends Model
         'venda_valor_acrescimo' => 'decimal:2',
         'venda_valor_taxa_servico' => 'decimal:2',
         'venda_taxa_servico_removida' => 'boolean',
-        'venda_imposto_taxa_servico_percentual' => 'decimal:2',
+        'venda_imposto_nfe_percentual' => 'decimal:2',
         'venda_valor_desconto' => 'decimal:2',
         'venda_desconto_percentual' => 'decimal:2',
         'venda_valor_total' => 'decimal:2',
@@ -64,16 +64,19 @@ class Venda extends Model
 
     /**
      * Quando a NFC-e é autorizada (webhook, polling ou emissão), guarda o
-     * percentual de imposto sobre a taxa de serviço vigente — o relatório de
-     * taxa por garçom desconta por esse retrato.
+     * percentual de imposto da NFC-e vigente — os relatórios de fechamento de
+     * caixa e de taxa por garçom descontam por esse retrato. Com a empresa sem
+     * percentual (0) não grava: fica nulo e os relatórios usam o percentual
+     * que vier a ser cadastrado.
      */
     protected static function booted(): void
     {
         static::saving(function (Venda $venda): void {
             if ($venda->isDirty('venda_status_nfe')
                 && $venda->venda_status_nfe === NfEmissao::STATUS_AUTORIZADA
-                && $venda->venda_imposto_taxa_servico_percentual === null) {
-                $venda->venda_imposto_taxa_servico_percentual = (float) (Empresa::query()->value('empresa_percentual_imposto_taxa_servico') ?? 0);
+                && $venda->venda_imposto_nfe_percentual === null) {
+                $percentual = (float) (Empresa::query()->value('empresa_percentual_imposto_nfe') ?? 0);
+                $venda->venda_imposto_nfe_percentual = $percentual > 0 ? $percentual : null;
             }
         });
     }

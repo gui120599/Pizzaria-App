@@ -208,6 +208,9 @@ class OperarVenda extends Page
 
     public ?string $numeroAutorizacaoRecebimento = null;
 
+    /** Ex.: com o que foi compensado — mesmo campo de observações do Contas a Receber. */
+    public ?string $observacaoRecebimento = null;
+
     public static function canAccess(): bool
     {
         return Auth::user()?->can('operar:venda') ?? false;
@@ -2033,6 +2036,7 @@ class OperarVenda extends Page
         $this->formaRecebimento = null;
         $this->cartaoRecebimentoId = null;
         $this->numeroAutorizacaoRecebimento = null;
+        $this->observacaoRecebimento = null;
         $this->modalRecebimentoAberto = true;
     }
 
@@ -2044,6 +2048,7 @@ class OperarVenda extends Page
         $this->formaRecebimento = null;
         $this->cartaoRecebimentoId = null;
         $this->numeroAutorizacaoRecebimento = null;
+        $this->observacaoRecebimento = null;
     }
 
     /** Registra um recebimento (parcial ou total) de um título fiado, reaproveitando Lancamento::registrarPagamento(). */
@@ -2060,6 +2065,7 @@ class OperarVenda extends Page
         $lancamento->registrarPagamento(
             valor: $this->valorRecebimento,
             forma: $forma,
+            observacoes: filled($this->observacaoRecebimento) ? trim($this->observacaoRecebimento) : null,
             sessaoCaixaId: $this->sessaoCaixaId,
             cartaoId: $ehCartao ? $this->cartaoRecebimentoId : null,
             numeroAutorizacaoCartao: $ehCartao ? $this->numeroAutorizacaoRecebimento : null,

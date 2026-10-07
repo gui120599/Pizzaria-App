@@ -3,16 +3,19 @@
 namespace App\Filament\Resources\FechamentosCaixa\Tables;
 
 use App\Enums\StatusFechamentoCaixa;
+use App\Filament\Pages\RelatorioFechamentoCaixa;
 use App\Filament\Resources\FechamentosCaixa\Support\ConfirmarFechamentoAction;
 use App\Filament\Resources\FechamentosCaixa\Support\EstornarImportacaoReceberAction;
 use App\Filament\Resources\FechamentosCaixa\Support\ImportarReceberAction;
 use App\Filament\Resources\FechamentosCaixa\Support\ImportarReceberBulkAction;
 use App\Filament\Resources\FechamentosCaixa\Support\ReabrirFechamentoAction;
 use App\Models\FechamentoCaixa;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -75,6 +78,12 @@ class FechamentosCaixaTable
                     ),
             ])
             ->recordActions([
+                Action::make('relatorio')
+                    ->label('Relatório')
+                    ->icon(Heroicon::OutlinedPresentationChartLine)
+                    ->color('gray')
+                    ->url(fn (FechamentoCaixa $record): string => RelatorioFechamentoCaixa::getUrl(['filters' => ['sessoes' => [$record->sessao_caixa_id]]]))
+                    ->visible(fn (): bool => RelatorioFechamentoCaixa::canAccess()),
                 ConfirmarFechamentoAction::make(),
                 ReabrirFechamentoAction::make(),
                 ImportarReceberAction::make(),

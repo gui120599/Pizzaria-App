@@ -47,7 +47,7 @@ class TaxaMaquininhaService
         }
 
         $percentual = $this->percentual(
-            $pagamento->pg_venda_maquininha_id ?: $this->padrao()?->id,
+            $this->resolverMaquininhaId($pagamento),
             $pagamento->pg_venda_cartao_id,
             $tipo,
         );
@@ -64,16 +64,28 @@ class TaxaMaquininhaService
 
     public function percentual(?int $maquininhaId, ?int $cartaoId, TipoPagamentoMaquininhaEnum $tipo): ?float
     {
+        $taxa = $this->taxa($maquininhaId, $cartaoId, $tipo);
+
+        return $taxa ? (float) $taxa->mt_percentual : null;
+    }
+
+    /** Taxa cadastrada da bandeira ou, sem ela, a taxa sem bandeira do tipo. */
+    public function taxa(?int $maquininhaId, ?int $cartaoId, TipoPagamentoMaquininhaEnum $tipo): ?MaquininhaTaxa
+    {
         if ($maquininhaId === null) {
             return null;
         }
 
         $daMaquininha = $this->taxas()->where('mt_maquininha_id', $maquininhaId)->where('mt_tipo', $tipo);
 
-        $taxa = ($cartaoId ? $daMaquininha->firstWhere('mt_cartao_id', $cartaoId) : null)
+        return ($cartaoId ? $daMaquininha->firstWhere('mt_cartao_id', $cartaoId) : null)
             ?? $daMaquininha->first(fn (MaquininhaTaxa $taxa): bool => $taxa->mt_cartao_id === null);
+    }
 
-        return $taxa ? (float) $taxa->mt_percentual : null;
+    /** Maquininha do pagamento ou, se ele não informa, a padrão. */
+    public function resolverMaquininhaId(PagamentosVenda $pagamento): ?int
+    {
+        return $pagamento->pg_venda_maquininha_id ?: $this->padrao()?->id;
     }
 
     /** @return Collection<int, MaquininhaTaxa> */

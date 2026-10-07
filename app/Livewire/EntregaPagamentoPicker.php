@@ -31,8 +31,12 @@ class EntregaPagamentoPicker extends Component
 
     public float $ultimoTotalSincronizado = 0;
 
-    public function mount(array $inicial = [], float $total = 0): void
+    /** Lista só opções que exigem endereço (entrega do Painel do Garçom). */
+    public bool $somenteComEndereco = false;
+
+    public function mount(array $inicial = [], float $total = 0, bool $somenteComEndereco = false): void
     {
+        $this->somenteComEndereco = $somenteComEndereco;
         $this->opcaoEntregaId = $inicial['opcaoEntregaId'] ?? null;
         $this->pagamentos = $inicial['pagamentos'] ?? [];
         $this->total = $total;
@@ -171,7 +175,10 @@ class EntregaPagamentoPicker extends Component
         }
 
         return view('livewire.entrega-pagamento-picker', [
-            'opcoesEntrega' => OpcoesEntregas::query()->orderBy('opcaoentrega_nome')->get(),
+            'opcoesEntrega' => OpcoesEntregas::query()
+                ->when($this->somenteComEndereco, fn ($q) => $q->where('opcaoentrega_requer_endereco', true))
+                ->orderBy('opcaoentrega_nome')
+                ->get(),
             'opcoesPagamento' => OpcoesPagamento::query()->orderBy('opcaopag_nome')->get(),
         ]);
     }

@@ -74,7 +74,7 @@ class Maquininha extends Model
                     continue;
                 }
 
-                $this->taxas()->create($taxa->only(['mt_cartao_id', 'mt_tipo', 'mt_percentual']));
+                $this->taxas()->create($taxa->only(['mt_cartao_id', 'mt_tipo', 'mt_percentual', 'mt_prazo_recebimento_dias']));
                 $copiadas++;
             }
 
