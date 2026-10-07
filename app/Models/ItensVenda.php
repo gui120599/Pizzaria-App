@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TemRespostas;
 use App\Models\Concerns\TemSabores;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 class ItensVenda extends Model
 {
     use HasFactory;
+    use TemRespostas;
     use TemSabores;
 
     protected $table = 'itens_vendas';
@@ -33,6 +35,7 @@ class ItensVenda extends Model
         'item_venda_valor_total_tributos',
         'item_venda_observacao',
         'item_venda_sabores',
+        'item_venda_respostas',
         'item_venda_status',
         'item_venda_usuario_removeu',
     ];
@@ -53,11 +56,17 @@ class ItensVenda extends Model
         'item_venda_valor_cofins' => 'decimal:2',
         'item_venda_valor_total_tributos' => 'decimal:2',
         'item_venda_sabores' => 'array',
+        'item_venda_respostas' => 'array',
     ];
 
     protected function colunaSabores(): string
     {
         return 'item_venda_sabores';
+    }
+
+    protected function colunaRespostas(): string
+    {
+        return 'item_venda_respostas';
     }
 
     protected function colunaProduto(): string

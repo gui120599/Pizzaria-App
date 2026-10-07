@@ -141,4 +141,38 @@ return [
         'pin_bloqueio_segundos' => 300,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Pedido pelo cliente no QR da mesa
+    |--------------------------------------------------------------------------
+    |
+    | O cliente lê o QR fixo da mesa (/mesa/{codigo}), se identifica e pede
+    | pelo celular. O pedido vai direto para a cozinha, exceto quando cai numa
+    | regra de aprovação — aí fica parado até o garçom aprovar.
+    |
+    */
+
+    'mesa_cliente' => [
+
+        // Liga/desliga o pedido pelo celular em todas as mesas (desligado, o
+        // QR mostra só o cardápio). Por mesa: mesas.mesa_pedido_cliente_ativo.
+        'ativo' => (bool) env('PIZZARIA_MESA_CLIENTE_ATIVO', true),
+
+        // Primeiro pedido pelo QR passa pelo garçom: 'mesa' = o primeiro da
+        // conta; 'participante' = o primeiro de cada celular (mais seguro
+        // contra quem fotografou o QR); 'off' = nunca.
+        'aprovacao_primeiro_pedido' => env('PIZZARIA_MESA_CLIENTE_APROVACAO_PRIMEIRO_PEDIDO', 'mesa'),
+
+        // Item com esta quantidade ou mais passa pelo garçom; acima do máximo
+        // o pedido é recusado.
+        'quantidade_aprovacao' => (int) env('PIZZARIA_MESA_CLIENTE_QUANTIDADE_APROVACAO', 5),
+        'quantidade_maxima' => (int) env('PIZZARIA_MESA_CLIENTE_QUANTIDADE_MAXIMA', 20),
+
+        // Rodadas que um mesmo celular pode enviar a cada 10 minutos.
+        'rodadas_por_10min' => (int) env('PIZZARIA_MESA_CLIENTE_RODADAS_POR_10MIN', 5),
+
+        // Intervalo da atualização do status no celular, em segundos.
+        'polling_segundos' => 15,
+    ],
+
 ];

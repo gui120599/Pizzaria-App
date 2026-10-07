@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Categorias;
 use App\Enums\RegraPrecoSaboresEnum;
 use App\Filament\Resources\Categorias\Pages\ManageCategorias;
 use App\Filament\Resources\Categorias\Schemas\QuantidadesSaboresRepeater;
+use App\Filament\Support\PerguntasSchema;
 use App\Models\Categoria;
 use App\Models\ProdutoPrecoHistorico;
 use BackedEnum;
@@ -19,6 +20,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -122,6 +124,11 @@ class CategoriaResource extends Resource
                             ->default(true)
                             ->helperText('Categorias visíveis na tela de pedidos usada por garçom e atendente'),
 
+                        Toggle::make('categoria_requer_aprovacao_mesa')
+                            ->label('Pedido pelo QR da mesa passa pelo garçom')
+                            ->inline()
+                            ->helperText('Vale para todos os produtos da categoria e das subcategorias (ex.: bebidas alcoólicas)'),
+
                         Toggle::make('categoria_permite_sabores')
                             ->label('Permite Múltiplos Sabores')
                             ->inline()
@@ -148,6 +155,23 @@ class CategoriaResource extends Resource
                             ->visible(fn ($get) => (bool) $get('categoria_permite_sabores')
                                 && ! ((bool) $get('categoria_herda_sabores') && filled($get('categoria_pai_id'))))
                             ->helperText('Vale para todos os canais: cardápio online, PDV, atendente e garçom.'),
+                    ]),
+
+                SchemaSection::make('Perguntas do item')
+                    ->description('Feitas ao lançar qualquer produto desta categoria (e das filhas), inclusive a pizza de sabores — ex.: "Escolha a borda". Valem no garçom, no balcão e no cardápio.')
+                    ->icon('heroicon-o-question-mark-circle')
+                    ->collapsible()
+                    ->collapsed(fn ($record): bool => ! ($record instanceof Categoria && $record->perguntas()->exists()))
+                    ->schema([
+                        Repeater::make('perguntas')
+                            ->hiddenLabel()
+                            ->relationship()
+                            ->orderColumn('pergunta_ordem')
+                            ->schema(PerguntasSchema::campos(aninhado: true))
+                            ->defaultItems(0)
+                            ->addActionLabel('Adicionar pergunta')
+                            ->itemLabel(fn (array $state): ?string => $state['pergunta_texto'] ?? null)
+                            ->collapsible(),
                     ]),
 
                 SchemaSection::make('Estatísticas')

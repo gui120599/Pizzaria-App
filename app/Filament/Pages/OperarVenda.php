@@ -340,6 +340,7 @@ class OperarVenda extends Page
                 ->where('item_venda_valor_adicionais', 0)
                 ->where('item_venda_quantidade', '<>', 0.5)
                 ->whereNull('item_venda_sabores')
+                ->whereNull('item_venda_respostas')
                 // Linha que veio de mesa/pedido fica separada: a quantidade
                 // dela é a dos itens do pedido (ver atualizarQtdItem).
                 ->whereNotExists(fn ($query) => $query->select(DB::raw(1))

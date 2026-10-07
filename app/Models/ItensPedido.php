@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TemRespostas;
 use App\Models\Concerns\TemSabores;
 use App\Services\PrecificadorService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 class ItensPedido extends Model
 {
     use HasFactory;
+    use TemRespostas;
     use TemSabores;
 
     protected $fillable = [
@@ -30,6 +32,7 @@ class ItensPedido extends Model
         'item_pedido_valor',
         'item_pedido_observacao',
         'item_pedido_sabores',
+        'item_pedido_respostas',
         'item_pedido_status',
         'item_pedido_usuario_removeu',
     ];
@@ -38,12 +41,18 @@ class ItensPedido extends Model
     {
         return [
             'item_pedido_sabores' => 'array',
+            'item_pedido_respostas' => 'array',
         ];
     }
 
     protected function colunaSabores(): string
     {
         return 'item_pedido_sabores';
+    }
+
+    protected function colunaRespostas(): string
+    {
+        return 'item_pedido_respostas';
     }
 
     protected function colunaProduto(): string
@@ -197,6 +206,16 @@ class ItensPedido extends Model
     }
 
     /**
+     * Quantas vezes cada adicional é cobrado numa linha: uma por unidade do
+     * item. Fração (meia porção) ainda leva o adicional inteiro, como no
+     * lançamento legado (ItensPedidoController::AtualizarQtdValor).
+     */
+    public static function quantidadeDosAdicionais(float $quantidadeItem): float
+    {
+        return max(1.0, $quantidadeItem);
+    }
+
+    /**
      * Recalcula e atribui (sem salvar) os campos de valor deste item a partir
      * do produto vinculado, da quantidade atual e dos adicionais persistidos.
      */
@@ -208,7 +227,10 @@ class ItensPedido extends Model
         }
 
         $quantidade = (float) $this->item_pedido_quantidade;
-        $adicionais = $valorAdicionais ?? (float) $this->adicionaisItemPedido()->sum('aip_valor_total');
+        // Sem valor informado: os adicionais gravados mais as respostas das
+        // perguntas, ambos por unidade do item.
+        $adicionais = $valorAdicionais ?? (float) $this->adicionaisItemPedido()->sum('aip_valor_total')
+            + round($this->valorUnitarioRespostas() * static::quantidadeDosAdicionais($quantidade), 2);
 
         if ($this->item_pedido_promocao_id || $this->item_pedido_promocao_adicional_regra_id || $this->ehMultiSabor()) {
             // Pizza de vários sabores também tem o preço congelado: o unitário é

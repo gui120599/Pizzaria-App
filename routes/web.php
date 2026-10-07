@@ -13,6 +13,7 @@ use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\EntregaScanController;
 use App\Http\Controllers\ItensPedidoController;
 use App\Http\Controllers\ItensVendaController;
+use App\Http\Controllers\MesaClienteController;
 use App\Http\Controllers\MesaController;
 use App\Http\Controllers\MovimentacoesSessaoCaixaController;
 use App\Http\Controllers\NfeVendaController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
 use App\Http\Controllers\VendaCancelarVaziaController;
 use App\Http\Controllers\VendaController;
+use App\Http\Middleware\ResolverParticipanteMesa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -57,6 +59,23 @@ Route::get('/Cardapio', [CardapioController::class, 'index'])->name('cardapio');
 Route::get('/cardapio/lookup-cliente', [CardapioCheckoutController::class, 'lookupCliente'])->name('cardapio.lookup_cliente');
 Route::post('/cardapio/checkout', [CardapioCheckoutController::class, 'checkout'])->name('cardapio.checkout');
 Route::get('/acompanhar/{id}', fn ($id) => view('app.acompanhamento.index', ['pedidoId' => (int) $id]))->name('pedido.acompanhar');
+
+// Pedido pelo QR da mesa (público, sem login). O código do QR não é o id da mesa.
+Route::prefix('mesa/{mesa:mesa_codigo_qr}')->name('mesa-cliente.')->controller(MesaClienteController::class)->group(function () {
+    Route::middleware('throttle:mesa-cliente')->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::get('/estado', 'estado')->name('estado');
+    });
+    Route::middleware('throttle:mesa-cliente-entrada')->group(function () {
+        Route::post('/entrar', 'entrar')->name('entrar');
+        Route::post('/abertura', 'abertura')->name('abertura');
+    });
+    Route::middleware(['throttle:mesa-cliente', ResolverParticipanteMesa::class])->group(function () {
+        Route::post('/pedidos', 'pedidos')->name('pedidos');
+        Route::post('/chamados', 'chamados')->name('chamados');
+    });
+});
+
 Route::get('/Produto/{produto}', [ProdutoController::class, 'show'])->name('produto.show');
 
 Route::get('/dashboard', [Dashboard::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');

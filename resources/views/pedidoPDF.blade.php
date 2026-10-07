@@ -91,6 +91,10 @@
                 </div>
             @endif
         </div>
+        @if ($pedido->participante)
+            {{-- Rodada pedida pelo cliente no QR da mesa. --}}
+            <p class="text-center text-sm font-bold uppercase mt-1">Pedido pelo cliente: {{ $pedido->participante->mp_nome }}</p>
+        @endif
         <p class="text-center text-[8px]">------------------------------------------------------------------------------</p>
         @if ($pedido->pedido_observacao_pagamento !== null)
             <div id="obs-valores" class="text-center font-bold max-w-64">

@@ -13,6 +13,17 @@
         title="Página não encontrada"
         message="A página que você está procurando não existe ou foi movida."
     />
+@elseif (! auth()->check())
+    {{-- Visitante (ex.: QR de mesa antigo ou regerado): o layout do site
+         operacional exige usuário logado. --}}
+    <x-guest-layout>
+        <div class="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
+            <h1 class="text-5xl font-bold text-red-500">404</h1>
+            <p class="text-lg text-white mt-4">Página não encontrada.</p>
+            <p class="text-sm text-gray-400 mt-2">Se você leu o QR da mesa, peça ajuda ao garçom.</p>
+            <a href="{{ route('cardapio') }}" class="mt-6 inline-block text-green-400 hover:underline">Ver o cardápio</a>
+        </div>
+    </x-guest-layout>
 @else
     <x-app-layout>
         <x-slot name="header">

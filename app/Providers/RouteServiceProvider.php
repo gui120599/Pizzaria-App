@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Controllers\MesaClienteController;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Http\Request;
@@ -27,6 +28,18 @@ class RouteServiceProvider extends ServiceProvider
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
+
+        // Página do QR da mesa: por celular identificado (ou IP + mesa, antes de
+        // se identificar). O polling consome 4/min; sobra folga para os toques.
+        RateLimiter::for('mesa-cliente', function (Request $request) {
+            $token = $request->cookie(MesaClienteController::COOKIE);
+
+            // O throttle roda antes do route model binding: aqui {mesa} ainda é o código do QR.
+            return Limit::perMinute(60)->by($token ? 'mp:'.sha1($token) : 'ip:'.$request->ip().'|'.$request->route()?->originalParameter('mesa'));
+        });
+
+        // Identificação e pedido de abertura: por IP, contra cadastro em massa.
+        RateLimiter::for('mesa-cliente-entrada', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
 
         $this->routes(function () {
             Route::middleware('api')

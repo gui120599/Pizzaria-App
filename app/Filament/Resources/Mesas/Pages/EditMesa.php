@@ -13,6 +13,9 @@ class EditMesa extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            MesaResource::verQrAction(),
+            MesaResource::imprimirQrAction(),
+            MesaResource::regerarQrAction(),
             DeleteAction::make(),
         ];
     }

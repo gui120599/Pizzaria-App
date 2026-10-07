@@ -2,6 +2,7 @@
     Nome do item nas impressões: categoria como badge (borda preta — sai
     legível em impressora térmica, sem depender de cor) e, para pizza de
     vários sabores, um sabor por linha ("MEIA CALABRESA" / "MEIA MUSSARELA").
+    As respostas das perguntas ("Borda: Catupiry") vêm em seguida, uma por linha.
 --}}
 @props(['item', 'categoria' => true])
 
@@ -20,3 +21,7 @@
 @else
     {{ $item->nomeProduto() }}
 @endif
+
+@foreach ($item->linhasRespostas() as $resposta)
+    <span class="block text-sm font-bold">» {{ $resposta }}</span>
+@endforeach

@@ -89,12 +89,15 @@ class LancamentoItensVendaService
             // Pizza de sabores nunca mescla: é uma linha própria com os sabores
             // congelados — somar ½ calabresa numa calabresa inteira (como era
             // antes da linha única) perdia o agrupamento da pizza na venda/NF-e.
-            $itemVenda = $item->ehMultiSabor()
+            // Nem item com respostas (borda, ponto da carne): cada escolha é
+            // uma linha própria na venda.
+            $itemVenda = $item->ehMultiSabor() || $item->respostas() !== []
                 ? null
                 : ItensVenda::where('item_venda_produto_id', $item->item_pedido_produto_id)
                     ->where('item_venda_venda_id', $venda->id)
                     ->where('item_venda_valor_adicionais', 0)
                     ->whereNull('item_venda_sabores')
+                    ->whereNull('item_venda_respostas')
                     // Só mescla em linha que também veio de pedido: produto
                     // lançado à mão fica numa linha própria, com +/- livre.
                     ->whereExists(fn ($query) => $query->select(DB::raw(1))
@@ -123,6 +126,7 @@ class LancamentoItensVendaService
                     'item_venda_desconto' => $item->item_pedido_desconto,
                     'item_venda_valor' => $valorEfetivo,
                     'item_venda_sabores' => $item->item_pedido_sabores,
+                    'item_venda_respostas' => $item->item_pedido_respostas,
                     'item_venda_status' => 'INSERIDO',
                     'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
                     'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,

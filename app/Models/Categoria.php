@@ -26,6 +26,7 @@ class Categoria extends Model
         'categoria_ordem',
         'categoria_cardapio',
         'categoria_cardapio_garcom',
+        'categoria_requer_aprovacao_mesa',
         'categoria_permite_sabores',
         'categoria_herda_sabores',
         'categoria_regra_preco_sabores',
@@ -34,6 +35,7 @@ class Categoria extends Model
     protected $casts = [
         'categoria_cardapio' => 'boolean',
         'categoria_cardapio_garcom' => 'boolean',
+        'categoria_requer_aprovacao_mesa' => 'boolean',
         'categoria_permite_sabores' => 'boolean',
         'categoria_herda_sabores' => 'boolean',
         'categoria_ordem' => 'integer',
@@ -93,6 +95,34 @@ class Categoria extends Model
         }
 
         return $ids;
+    }
+
+    public function perguntas(): HasMany
+    {
+        return $this->hasMany(Pergunta::class, 'pergunta_categoria_id')
+            ->orderBy('pergunta_ordem')
+            ->orderBy('id');
+    }
+
+    /**
+     * Perguntas ativas que valem para um item desta categoria — inclusive a
+     * pizza de sabores: as da categoria mãe primeiro, depois as próprias.
+     *
+     * @return Collection<int, Pergunta>
+     */
+    public function perguntasAplicaveis(): Collection
+    {
+        return Pergunta::query()
+            ->ativas()
+            ->whereIn('pergunta_categoria_id', array_filter([$this->categoria_pai_id, $this->id]))
+            ->with('opcoesAtivas')
+            ->get()
+            ->sortBy(fn (Pergunta $pergunta) => [
+                $pergunta->pergunta_categoria_id === $this->id ? 1 : 0,
+                $pergunta->pergunta_ordem,
+                $pergunta->id,
+            ])
+            ->values();
     }
 
     public function quantidadesSabores(): HasMany

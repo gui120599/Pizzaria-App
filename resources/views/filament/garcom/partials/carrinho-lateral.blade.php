@@ -1,7 +1,7 @@
 {{-- Carrinho da rodada/pedido em montagem no painel lateral (desktop). Os
      itens vêm do PedidoProdutoSelector (trait CarrinhoLateral); os botões do
      partial pedido-item-linha repassam os cliques para ele.
-     Espera $acaoEnviar (método Livewire) e, opcional, $totalExibido. --}}
+     Espera $acaoEnviar (método Livewire) e, opcionais, $totalExibido e $rotuloEnviar. --}}
 @php $totalExibido ??= $this->totalCarrinho(); @endphp
 <div class="overflow-hidden rounded-2xl bg-white ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
     <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-white/10">
@@ -27,7 +27,7 @@
         </div>
         <button type="button" wire:click="{{ $acaoEnviar }}" wire:loading.attr="disabled" @disabled(empty($itensCarrinho))
                 class="w-full rounded-xl bg-primary-600 py-4 text-base font-semibold uppercase tracking-wide text-white transition hover:bg-primary-500 active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-40">
-            Enviar para a cozinha
+            {{ $rotuloEnviar ?? 'Enviar para a cozinha' }}
         </button>
     </div>
 </div>

@@ -9,7 +9,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 class Produto extends Model
@@ -42,6 +44,7 @@ class Produto extends Model
         'produto_lista_estoque_zerado',
         'produto_cardapio',
         'produto_cardapio_garcom',
+        'produto_requer_aprovacao_mesa',
         'produto_codigo_NCM',
         'produto_codigo_CEST',
         'produto_codigo_EAN',
@@ -75,6 +78,7 @@ class Produto extends Model
 
     protected $casts = [
         'produto_cardapio_garcom' => 'boolean',
+        'produto_requer_aprovacao_mesa' => 'boolean',
         'produto_exibe_categoria' => 'boolean',
         'produto_controla_lote' => 'boolean',
         'produto_controla_marca' => 'boolean',
@@ -433,6 +437,31 @@ class Produto extends Model
     }
 
     /** Adicionais vinculados (ignora vínculos inativados pelo legado). */
+    public function perguntas(): HasMany
+    {
+        return $this->hasMany(Pergunta::class, 'pergunta_produto_id')
+            ->orderBy('pergunta_ordem')
+            ->orderBy('id');
+    }
+
+    /**
+     * Perguntas ativas que valem para este produto como item comum: as da
+     * categoria (e da mãe dela) primeiro, depois as do próprio produto.
+     *
+     * @return Collection<int, Pergunta>
+     */
+    public function perguntasAplicaveis(): Collection
+    {
+        $daCategoria = $this->categoria?->perguntasAplicaveis() ?? collect();
+
+        $proprias = $this->perguntas()
+            ->ativas()
+            ->with('opcoesAtivas')
+            ->get();
+
+        return $daCategoria->concat($proprias)->values();
+    }
+
     public function adicionais(): BelongsToMany
     {
         return $this->belongsToMany(Adicional::class, 'adicionais_produtos', 'ap_produto_id', 'ap_adicional_id')

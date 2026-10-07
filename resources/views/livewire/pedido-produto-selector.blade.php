@@ -95,8 +95,11 @@
                 // Mesma resolução de preço do cardápio — inclui promoção relâmpago
                 // vigente com saldo (ver Produto::precoResolvido()). O balcão vende
                 // pelo mesmo preço exibido: confirmarItem()/confirmarSabores() debitam
-                // o contador da promoção ao gravar o item.
-                $preco        = $produto->precoResolvido();
+                // o contador da promoção ao gravar o item. Sem pedido gravado (prévia)
+                // não há promoção, então o preço exibido também fica sem ela.
+                $preco        = $pedidoId
+                    ? $produto->precoResolvido()
+                    : app(\App\Services\PrecificadorService::class)->resolver($produto, considerarRelampago: false, considerarPromoAdicional: false);
                 $precoVenda   = $preco->valorUnitario;
                 $precoExibido = $preco->precoFinal();
                 $temDesconto  = $preco->descontoUnitario > 0;
@@ -203,7 +206,7 @@
 
         {{-- ── Drawer: lista de itens (bottom sheet) ──────────────────────── --}}
         <div x-show="drawerOpen"
-             @class(['fixed inset-0 z-50 flex flex-col justify-end', 'lg:hidden' => $layoutDesktop])"
+             @class(['fixed inset-0 z-50 flex flex-col justify-end', 'lg:hidden' => $layoutDesktop])
              style="display:none">
 
             {{-- Backdrop --}}
@@ -358,6 +361,8 @@
                         </div>
                     @endif
 
+                    @include('livewire.partials.perguntas-item')
+
                     {{-- Adicionais --}}
                     @if (count($adicionaisDisponiveis) > 0)
                         <div>
@@ -411,7 +416,9 @@
 
                     {{-- Preview total --}}
                     @php
-                        $adicionaisTotal = collect($adicionaisDisponiveis)->filter(fn($a) => in_array($a['id'], $adicionaisSelecionados))->sum('valor');
+                        // Adicionais e respostas são cobrados por unidade (ItensPedido::quantidadeDosAdicionais()).
+                        $adicionaisTotal = (collect($adicionaisDisponiveis)->filter(fn($a) => in_array($a['id'], $adicionaisSelecionados))->sum('valor')
+                            + $this->valorUnitarioRespostas()) * \App\Models\ItensPedido::quantidadeDosAdicionais((float) $quantidade);
                         $precoEfetivo    = $produtoSelecionado['preco_base'] - $produtoSelecionado['desconto_unit'];
                         $ofertaEscolhida = collect($ofertasDisponiveis)->firstWhere('oferta_id', $ofertaEscolhidaId);
                         $ofertaTotal     = $ofertaEscolhida['valor_adicional'] ?? 0;
@@ -683,6 +690,8 @@
                             {{ implode(' / ', array_column($saboresSelecionados, 'nome')) }}
                         </p>
                     @endif
+
+                    @include('livewire.partials.perguntas-item')
 
                     {{-- Oferta de promoção adicional (só pizza inteira) --}}
                     @if (count($ofertasDisponiveis) > 0)
