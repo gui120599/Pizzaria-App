@@ -229,6 +229,25 @@ class OperarVendaPendentesTest extends TestCase
         $this->assertNull($pagamento->numero_autorizacao_cartao);
     }
 
+    public function test_recebimento_por_compensacao_quita_o_titulo_com_a_observacao(): void
+    {
+        $lancamento = $this->lancamentoFiado(60);
+        $venda = Venda::create(['venda_status' => 'INICIADA', 'venda_sessao_caixa_id' => $this->sessaoCaixa->id]);
+
+        Livewire::test(OperarVenda::class, ['venda' => $venda])
+            ->call('abrirModalRecebimento', $lancamento->id)
+            ->set('formaRecebimento', FormaPagamento::Compensacao->value)
+            ->assertSeeText('Quita o título sem entrar no caixa')
+            ->set('observacaoRecebimento', '  Compensado com o serviço de março  ')
+            ->call('confirmarRecebimento');
+
+        $pagamento = LancamentoPagamento::where('lancamento_id', $lancamento->id)->sole();
+        $this->assertSame(FormaPagamento::Compensacao, $pagamento->forma_pagamento);
+        $this->assertSame('Compensado com o serviço de março', $pagamento->observacoes);
+        $this->assertSame($this->sessaoCaixa->id, $pagamento->sessao_caixa_id);
+        $this->assertSame(StatusLancamento::Pago, $lancamento->fresh()->status);
+    }
+
     public function test_recebimento_pelo_pdv_entra_na_sessao_de_caixa_aberta(): void
     {
         $lancamento = $this->lancamentoFiado(60);

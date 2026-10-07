@@ -26,4 +26,17 @@ enum FormaPagamento: string implements HasLabel
             self::Compensacao => 'Compensação',
         };
     }
+
+    /**
+     * Recebimento que entra no caixa da sessão (gaveta, maquininha ou Pix) e
+     * por isso conta no esperado do fechamento. Boleto, transferência e
+     * compensação quitam o título sem passar pelo caixa.
+     */
+    public function entraNoCaixa(): bool
+    {
+        return match ($this) {
+            self::Dinheiro, self::Pix, self::CartaoCredito, self::CartaoDebito => true,
+            self::Boleto, self::Transferencia, self::Compensacao => false,
+        };
+    }
 }

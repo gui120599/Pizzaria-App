@@ -311,15 +311,18 @@ class RelatorioFechamentoCaixaTest extends TestCase
         $movimento('ENTRADA', null, 200.00);
         $movimento('ENTRADA', MotivoSaidaCaixa::Suprimento, 50.00);
         $movimento('SAIDA', MotivoSaidaCaixa::Sangria, 120.00);
-        Lancamento::create([
+        $fiado = Lancamento::create([
             'tipo' => TipoLancamento::Receber,
             'descricao' => 'Fiado',
             'valor' => 1000,
             'vencimento' => now()->addDays(7),
             'status' => StatusLancamento::Pendente,
-        ])->registrarPagamento(25, forma: FormaPagamento::Pix, sessaoCaixaId: $this->sessao->id);
+        ]);
+        $fiado->registrarPagamento(25, forma: FormaPagamento::Pix, sessaoCaixaId: $this->sessao->id);
+        $fiado->registrarPagamento(300, forma: FormaPagamento::Compensacao, sessaoCaixaId: $this->sessao->id);
 
-        $fluxo = $this->relatorio(['sessoes' => [$this->sessao->id]])->fluxoCaixa()->keyBy('key');
+        $relatorio = $this->relatorio(['sessoes' => [$this->sessao->id]]);
+        $fluxo = $relatorio->fluxoCaixa()->keyBy('key');
         $esperadoDoFechamento = app(FechamentoCaixaService::class)->calcularEsperado($this->sessao);
 
         $this->assertSame(
@@ -330,6 +333,8 @@ class RelatorioFechamentoCaixaTest extends TestCase
         $this->assertEqualsWithDelta($esperadoDoFechamento['dinheiro'], $fluxo['dinheiro']['esperado'], 0.001);
         $this->assertEqualsWithDelta($esperadoDoFechamento['pix'], $fluxo['pix']['esperado'], 0.001);
         $this->assertNull($fluxo['dinheiro']['apurado']);
+        $this->assertFalse($fluxo->has('outros'));
+        $this->assertSame(300.0, $relatorio->movimentacoes()->firstWhere('forma', 'Compensação')['valor']);
     }
 
     public function test_conferencia_da_maquininha_compara_o_sistema_com_a_leitura_menos_a_abertura(): void

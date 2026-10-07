@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\FormaPagamento;
 use App\Enums\StatusFechamentoCaixa;
 use App\Models\FechamentoCaixa;
 use App\Models\NotaMoeda;
@@ -58,6 +59,12 @@ class FechamentoCaixaService
             ->get();
 
         foreach ($recebimentosFiado as $linha) {
+            // Compensação, boleto e transferência quitam o título sem passar
+            // pelo caixa — contar aqui geraria uma "falta" na conferência.
+            if (FormaPagamento::tryFrom((string) $linha->forma)?->entraNoCaixa() === false) {
+                continue;
+            }
+
             $categoria = match ($linha->forma) {
                 'dinheiro' => 'dinheiro',
                 'cartao_debito' => 'debito',

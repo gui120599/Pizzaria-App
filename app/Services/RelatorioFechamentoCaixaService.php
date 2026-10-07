@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\FormaPagamento;
 use App\Enums\MotivoSaidaCaixa;
 use App\Enums\TipoPagamentoMaquininhaEnum;
 use App\Models\CartoesPagamento;
@@ -567,6 +568,10 @@ class RelatorioFechamentoCaixaService
             ->get();
 
         foreach ($fiado as $linha) {
+            if (FormaPagamento::tryFrom((string) $linha->forma)?->entraNoCaixa() === false) {
+                continue;
+            }
+
             $componentes[$linha->sessao_id][self::categoriaDoFinanceiro($linha->forma)]['fiado'] += (float) $linha->total;
         }
 
@@ -719,13 +724,19 @@ class RelatorioFechamentoCaixaService
             ->groupBy('lancamento_pagamentos.forma_pagamento')
             ->selectRaw('lancamento_pagamentos.forma_pagamento AS forma, COUNT(*) AS qtd, SUM(lancamento_pagamentos.valor) AS total')
             ->get()
-            ->map(fn (object $linha): array => [
-                'key' => 'fiado|'.$linha->forma,
-                'movimento' => 'Recebimento de fiado',
-                'forma' => self::CATEGORIAS[self::categoriaDoFinanceiro($linha->forma)],
-                'quantidade' => (int) $linha->qtd,
-                'valor' => round((float) $linha->total, 2),
-            ]);
+            ->map(function (object $linha): array {
+                $forma = FormaPagamento::tryFrom((string) $linha->forma);
+
+                return [
+                    'key' => 'fiado|'.$linha->forma,
+                    'movimento' => $forma?->entraNoCaixa() === false
+                        ? 'Recebimento de fiado (sem entrada no caixa)'
+                        : 'Recebimento de fiado',
+                    'forma' => $forma?->getLabel() ?? 'Não informada',
+                    'quantidade' => (int) $linha->qtd,
+                    'valor' => round((float) $linha->total, 2),
+                ];
+            });
 
         $estornos = DB::table('movimentacoes_sessao_caixas')
             ->whereIn('mov_sessaocaixa_id', $ids)

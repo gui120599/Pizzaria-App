@@ -192,6 +192,19 @@ class FechamentoCaixaServiceTest extends TestCase
         $this->assertEqualsWithDelta(25.0, $esperado['pix'], 0.01);
     }
 
+    public function test_recebimento_de_fiado_que_nao_passa_pelo_caixa_fica_fora_do_esperado(): void
+    {
+        $lancamento = $this->lancamentoReceber();
+        $lancamento->registrarPagamento(300, forma: FormaPagamento::Compensacao, sessaoCaixaId: $this->sessao->id);
+        $lancamento->registrarPagamento(200, forma: FormaPagamento::Transferencia, sessaoCaixaId: $this->sessao->id);
+        $lancamento->registrarPagamento(100, forma: FormaPagamento::Boleto, sessaoCaixaId: $this->sessao->id);
+        $lancamento->registrarPagamento(40, forma: FormaPagamento::Dinheiro, sessaoCaixaId: $this->sessao->id);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertSame(['dinheiro' => 40.0, 'debito' => 0.0, 'credito' => 0.0, 'pix' => 0.0, 'outros' => 0.0], $esperado);
+    }
+
     public function test_pagamento_de_lancamento_sem_sessao_de_caixa_nao_entra_no_esperado(): void
     {
         $lancamento = $this->lancamentoReceber();

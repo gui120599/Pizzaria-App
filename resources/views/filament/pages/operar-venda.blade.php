@@ -1021,10 +1021,12 @@
                         <select wire:model.live="formaRecebimento" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="">Selecione...</option>
                             @foreach (\App\Enums\FormaPagamento::cases() as $forma)
-                                @continue($forma === \App\Enums\FormaPagamento::Compensacao)
                                 <option value="{{ $forma->value }}">{{ $forma->getLabel() }}</option>
                             @endforeach
                         </select>
+                        @if (\App\Enums\FormaPagamento::tryFrom((string) $formaRecebimento)?->entraNoCaixa() === false)
+                            <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Quita o título sem entrar no caixa — não conta no esperado do fechamento.</p>
+                        @endif
                     </div>
 
                     @if (in_array($formaRecebimento, [\App\Enums\FormaPagamento::CartaoCredito->value, \App\Enums\FormaPagamento::CartaoDebito->value], true))
@@ -1045,6 +1047,11 @@
                         </div>
                         <p class="text-xs text-gray-400 dark:text-gray-500">Só pra conciliar com a operadora — a nota fiscal desta venda, se emitida, já foi declarada sem depender desse recebimento.</p>
                     @endif
+
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Observação (opcional)</label>
+                        <input wire:model="observacaoRecebimento" type="text" maxlength="255" placeholder="{{ $formaRecebimento === \App\Enums\FormaPagamento::Compensacao->value ? 'Ex.: compensado com serviço de março' : '' }}" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                    </div>
 
                     <button wire:click="confirmarRecebimento" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
                         Confirmar recebimento
