@@ -7,6 +7,7 @@ use App\Enums\MotivoSaidaCaixa;
 use App\Enums\TipoPagamentoMaquininhaEnum;
 use App\Models\CartoesPagamento;
 use App\Models\Empresa;
+use App\Models\LancamentoPagamento;
 use App\Models\Maquininha;
 use App\Models\NfEmissao;
 use App\Models\PagamentosVenda;
@@ -43,7 +44,8 @@ class RelatorioFechamentoCaixaService
         'dinheiro' => 'Dinheiro',
         'debito' => 'Débito',
         'credito' => 'Crédito',
-        'pix' => 'Pix',
+        'pix' => 'Pix (maquininhas)',
+        'pix_cnpj' => 'PIX CNPJ',
         'outros' => 'Outros',
     ];
 
@@ -137,18 +139,22 @@ class RelatorioFechamentoCaixaService
     // ── Pagamentos ───────────────────────────────────────────────────────────
 
     /**
-     * Um item por pagamento das vendas do recorte.
+     * Um item por pagamento das vendas do recorte e por recebimento de fiado
+     * que entrou no caixa (origem "fiado").
      *
-     * @return Collection<int, array{id: int, venda_id: int, sessao_id: ?int, finalizada_em: Carbon, opcao_id: ?int, forma: string, categoria: string, tipo: ?TipoPagamentoMaquininhaEnum, maquininha_id: ?int, maquininha: string, bandeira: string, valor: float, taxa_percentual: ?float, taxa: float, sem_taxa: bool, prazo_dias: ?int}>
+     * @return Collection<int, array{id: int, origem: string, venda_id: ?int, sessao_id: ?int, finalizada_em: Carbon, opcao_id: ?int, forma: string, categoria: string, tipo: ?TipoPagamentoMaquininhaEnum, pix_cnpj: bool, maquininha_id: ?int, maquininha: string, bandeira: string, valor: float, taxa_percentual: ?float, taxa: float, sem_taxa: bool, prazo_dias: ?int}>
      */
     public function pagamentos(): Collection
     {
-        return $this->cache['pagamentos'] ??= $this->carregarPagamentos($this->vendasQuery());
+        return $this->cache['pagamentos'] ??= $this->carregarPagamentos($this->vendasQuery())
+            ->concat($this->carregarRecebimentos($this->recebimentosQuery()))
+            ->values();
     }
 
     /**
-     * Pagamentos das vendas FINALIZADAS das sessões do recorte (base do fluxo e
-     * da conferência). Com sessões selecionadas é o mesmo conjunto de pagamentos().
+     * Pagamentos das vendas FINALIZADAS e recebimentos de fiado das sessões do
+     * recorte (base do fluxo e da conferência). Com sessões selecionadas é o
+     * mesmo conjunto de pagamentos().
      *
      * @return Collection<int, array<string, mixed>>
      */
@@ -158,11 +164,52 @@ class RelatorioFechamentoCaixaService
             return $this->pagamentos();
         }
 
+        $ids = $this->sessoes()->modelKeys();
+
         return $this->cache['pagamentos_sessoes'] ??= $this->carregarPagamentos(
             DB::table('vendas')
                 ->where('vendas.venda_status', 'FINALIZADA')
-                ->whereIn('vendas.venda_sessao_caixa_id', $this->sessoes()->modelKeys()),
-        );
+                ->whereIn('vendas.venda_sessao_caixa_id', $ids),
+        )->concat($this->carregarRecebimentos(
+            $this->recebimentosBaseQuery()->whereIn('lancamento_pagamentos.sessao_caixa_id', $ids),
+        ))->values();
+    }
+
+    /**
+     * Recebimentos de título a receber que entram no caixa (dinheiro, cartão,
+     * Pix, PIX CNPJ). Por sessão quando há sessões selecionadas; senão pela
+     * data do recebimento — com filtro de caixa, só os feitos nas sessões dele.
+     */
+    private function recebimentosQuery(): Builder
+    {
+        $query = $this->recebimentosBaseQuery();
+
+        if ($this->filtrandoPorSessao()) {
+            return $query->whereIn('lancamento_pagamentos.sessao_caixa_id', $this->sessoesSelecionadas());
+        }
+
+        [$inicio, $fim] = $this->periodo();
+
+        return $query
+            ->whereBetween('lancamento_pagamentos.data_pagamento', [$inicio->toDateString(), $fim->toDateString()])
+            ->when($this->caixaId(), fn (Builder $query, int $caixaId) => $query->whereIn(
+                'lancamento_pagamentos.sessao_caixa_id',
+                fn (Builder $sub) => $sub->select('id')->from('sessao_caixas')->where('sessaocaixa_caixa_id', $caixaId),
+            ));
+    }
+
+    private function recebimentosBaseQuery(): Builder
+    {
+        $formasDoCaixa = collect(FormaPagamento::cases())
+            ->filter(fn (FormaPagamento $forma): bool => $forma->entraNoCaixa())
+            ->map(fn (FormaPagamento $forma): string => $forma->value)
+            ->values()
+            ->all();
+
+        return DB::table('lancamento_pagamentos')
+            ->join('lancamentos', 'lancamentos.id', '=', 'lancamento_pagamentos.lancamento_id')
+            ->where('lancamentos.tipo', 'receber')
+            ->whereIn('lancamento_pagamentos.forma_pagamento', $formasDoCaixa);
     }
 
     /**
@@ -179,7 +226,7 @@ class RelatorioFechamentoCaixaService
         }
 
         $taxas = app(TaxaMaquininhaService::class);
-        $maquininhas = Maquininha::withTrashed()->get()->keyBy('id');
+        $maquininhas = $this->maquininhasPorId();
 
         return PagamentosVenda::query()
             ->with([
@@ -192,41 +239,99 @@ class RelatorioFechamentoCaixaService
             ->map(function (PagamentosVenda $pagamento) use ($vendas, $taxas, $maquininhas): array {
                 $venda = $vendas[$pagamento->pg_venda_venda_id];
                 $opcao = $pagamento->opcaoPagamento;
+                $pixCnpj = (bool) $opcao?->ehPixCnpj();
                 $tipo = $opcao?->tipoMaquininha();
-                $valor = (float) $pagamento->pg_venda_valor_pagamento;
-
                 $maquininhaId = $tipo ? $taxas->resolverMaquininhaId($pagamento) : null;
-                $percentual = 0.0;
-                $taxa = 0.0;
 
-                if ($tipo && $pagamento->pg_venda_taxa_maquininha_percentual !== null) {
-                    $percentual = (float) $pagamento->pg_venda_taxa_maquininha_percentual;
-                    $taxa = (float) $pagamento->pg_venda_taxa_maquininha_valor;
-                } elseif ($tipo) {
-                    $atual = $taxas->calcular($pagamento);
-                    $percentual = $atual['percentual'];
-                    $taxa = (float) ($atual['valor'] ?? 0);
-                }
+                [$percentual, $taxa] = $pagamento->pg_venda_taxa_maquininha_percentual !== null
+                    ? [(float) $pagamento->pg_venda_taxa_maquininha_percentual, (float) $pagamento->pg_venda_taxa_maquininha_valor]
+                    : self::taxaAtual($taxas->calcular($pagamento));
 
                 return [
                     'id' => $pagamento->id,
+                    'origem' => 'venda',
                     'venda_id' => (int) $pagamento->pg_venda_venda_id,
                     'sessao_id' => $venda->venda_sessao_caixa_id ? (int) $venda->venda_sessao_caixa_id : null,
                     'finalizada_em' => Carbon::parse($venda->venda_datahora_finalizada),
                     'opcao_id' => $opcao?->id,
                     'forma' => (string) ($opcao?->opcaopag_nome ?? 'Forma #'.$pagamento->pg_venda_opcaopagamento_id),
-                    'categoria' => self::categoriaDaVenda($opcao?->opcaopag_desc_nfe),
+                    'categoria' => $pixCnpj ? 'pix_cnpj' : self::categoriaDaVenda($opcao?->opcaopag_desc_nfe),
                     'tipo' => $tipo,
+                    'pix_cnpj' => $pixCnpj,
                     'maquininha_id' => $maquininhaId,
                     'maquininha' => self::nomeMaquininha($maquininhas->get($maquininhaId), padraoUsada: $tipo && ! $pagamento->pg_venda_maquininha_id),
-                    'bandeira' => self::nomeBandeira($pagamento, $tipo),
-                    'valor' => $valor,
+                    'bandeira' => self::nomeBandeira($pagamento->cartao, $tipo),
+                    'valor' => (float) $pagamento->pg_venda_valor_pagamento,
                     'taxa_percentual' => $percentual,
                     'taxa' => $taxa,
                     'sem_taxa' => $tipo !== null && $percentual === null,
                     'prazo_dias' => $tipo ? $taxas->taxa($maquininhaId, $pagamento->pg_venda_cartao_id, $tipo)?->mt_prazo_recebimento_dias : null,
                 ];
             });
+    }
+
+    /**
+     * Recebimentos de fiado no mesmo formato de carregarPagamentos().
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function carregarRecebimentos(Builder $recebimentosQuery): Collection
+    {
+        $taxas = app(TaxaMaquininhaService::class);
+        $maquininhas = $this->maquininhasPorId();
+
+        return LancamentoPagamento::query()
+            ->with(['cartao' => fn ($query) => $query->withTrashed(), 'lancamento'])
+            ->whereIn('id', (clone $recebimentosQuery)->select('lancamento_pagamentos.id'))
+            ->orderBy('id')
+            ->get()
+            ->map(function (LancamentoPagamento $recebimento) use ($taxas, $maquininhas): array {
+                $forma = $recebimento->forma_pagamento;
+                $tipo = $forma?->tipoMaquininha();
+                $maquininhaId = $tipo ? $taxas->resolverMaquininhaIdRecebimento($recebimento) : null;
+
+                [$percentual, $taxa] = $recebimento->taxa_percentual !== null
+                    ? [(float) $recebimento->taxa_percentual, (float) $recebimento->taxa_valor]
+                    : self::taxaAtual($taxas->calcularRecebimento($recebimento));
+
+                return [
+                    'id' => $recebimento->id,
+                    'origem' => 'fiado',
+                    'venda_id' => $recebimento->lancamento?->venda_id,
+                    'sessao_id' => $recebimento->sessao_caixa_id ? (int) $recebimento->sessao_caixa_id : null,
+                    'finalizada_em' => Carbon::parse($recebimento->data_pagamento),
+                    'opcao_id' => null,
+                    'forma' => 'Fiado recebido — '.($forma === FormaPagamento::Pix ? 'Pix (maquininha)' : $forma?->getLabel()),
+                    'categoria' => self::categoriaDoFinanceiro($forma?->value),
+                    'tipo' => $tipo,
+                    'pix_cnpj' => $forma === FormaPagamento::PixCnpj,
+                    'maquininha_id' => $maquininhaId,
+                    'maquininha' => self::nomeMaquininha($maquininhas->get($maquininhaId), padraoUsada: $tipo && ! $recebimento->maquininha_id),
+                    'bandeira' => self::nomeBandeira($recebimento->cartao, $tipo),
+                    'valor' => (float) $recebimento->valor,
+                    'taxa_percentual' => $percentual,
+                    'taxa' => $taxa,
+                    'sem_taxa' => $tipo !== null && $percentual === null,
+                    'prazo_dias' => $tipo ? $taxas->taxa($maquininhaId, $recebimento->cartao_id, $tipo)?->mt_prazo_recebimento_dias : null,
+                ];
+            });
+    }
+
+    /**
+     * Sem retrato: taxa atual; sem taxa cadastrada, percentual nulo e valor 0.
+     *
+     * @param  array{percentual: ?float, valor: ?float}  $atual
+     * @return array{0: ?float, 1: float}
+     */
+    private static function taxaAtual(array $atual): array
+    {
+        return [$atual['percentual'], (float) ($atual['valor'] ?? 0)];
+    }
+
+    /** @return Collection<int, Maquininha> */
+    private function maquininhasPorId(): Collection
+    {
+        return $this->cache['maquininhas'] ??= Maquininha::withTrashed()->get()->keyBy('id');
     }
 
     private static function categoriaDaVenda(?string $descNfe): string
@@ -248,6 +353,7 @@ class RelatorioFechamentoCaixaService
             'cartao_debito' => 'debito',
             'cartao_credito' => 'credito',
             'pix' => 'pix',
+            'pix_cnpj' => 'pix_cnpj',
             default => 'outros',
         };
     }
@@ -261,13 +367,13 @@ class RelatorioFechamentoCaixaService
         return $padraoUsada ? "{$maquininha->nome} (padrão)" : $maquininha->nome;
     }
 
-    private static function nomeBandeira(PagamentosVenda $pagamento, ?TipoPagamentoMaquininhaEnum $tipo): string
+    private static function nomeBandeira(?CartoesPagamento $cartao, ?TipoPagamentoMaquininhaEnum $tipo): string
     {
         if ($tipo === TipoPagamentoMaquininhaEnum::Pix) {
             return 'Pix';
         }
 
-        $bandeira = (string) $pagamento->cartao?->getRawOriginal('cartao_bandeira');
+        $bandeira = (string) $cartao?->getRawOriginal('cartao_bandeira');
 
         if ($bandeira === '') {
             return 'Não informada';
@@ -286,10 +392,16 @@ class RelatorioFechamentoCaixaService
         return $this->pagamentos()->filter(fn (array $pagamento): bool => $pagamento['tipo'] !== null);
     }
 
+    /** @return Collection<int, array<string, mixed>> */
+    private function pagamentosPixCnpj(): Collection
+    {
+        return $this->pagamentos()->filter(fn (array $pagamento): bool => $pagamento['pix_cnpj']);
+    }
+
     // ── Resumo e DRE ─────────────────────────────────────────────────────────
 
     /**
-     * @return array{vendas: int, produtos: float, descontos: float, frete: float, taxa_servico: float, faturamento: float, receita_operacional: float, ticket_medio: float, recebido: float, fiado: float, troco: float, volume_maquininha: float, mdr: float, mdr_efetivo: float, participacao_maquininha: float, sem_taxa: int, vendas_nfe: int, faturamento_nfe: float, faturamento_sem_nfe: float, cobertura_nfe: float, imposto_nfe: float, imposto_efetivo: float, cmv: float, cmv_percentual: float, cobertura_custo: float, margem_contribuicao: float, margem_percentual: float, canceladas: int, valor_cancelado: float, taxa_cancelamento: float}
+     * @return array{vendas: int, produtos: float, descontos: float, frete: float, taxa_servico: float, faturamento: float, receita_operacional: float, ticket_medio: float, recebido: float, recebido_vendas: float, fiado_recebido: float, fiado: float, troco: float, volume_maquininha: float, volume_pix_cnpj: float, tarifa_pix_cnpj: float, mdr: float, mdr_efetivo: float, participacao_maquininha: float, sem_taxa: int, vendas_nfe: int, faturamento_nfe: float, faturamento_sem_nfe: float, cobertura_nfe: float, imposto_nfe: float, imposto_efetivo: float, cmv: float, cmv_percentual: float, cobertura_custo: float, margem_contribuicao: float, margem_percentual: float, canceladas: int, valor_cancelado: float, taxa_cancelamento: float}
      */
     public function resumo(): array
     {
@@ -327,11 +439,13 @@ class RelatorioFechamentoCaixaService
         $maquininha = $this->pagamentosMaquininha();
         $volumeMaquininha = round($maquininha->sum('valor'), 2);
         $recebido = round($this->pagamentos()->sum('valor'), 2);
+        $fiadoRecebido = round($this->pagamentos()->where('origem', 'fiado')->sum('valor'), 2);
         $mdr = round($maquininha->sum('taxa'), 2);
+        $tarifaPixCnpj = round($this->pagamentosPixCnpj()->sum('taxa'), 2);
         $faturamentoNfe = round((float) $nfe->total, 2);
         $impostoNfe = round((float) $nfe->imposto, 2);
         $cmv = $this->cmv();
-        $margem = round($receitaOperacional - $mdr - $impostoNfe - $cmv['cmv'], 2);
+        $margem = round($receitaOperacional - $mdr - $tarifaPixCnpj - $impostoNfe - $cmv['cmv'], 2);
         $qtdCanceladas = (int) $canceladas->qtd;
 
         return [
@@ -344,10 +458,14 @@ class RelatorioFechamentoCaixaService
             'receita_operacional' => $receitaOperacional,
             'ticket_medio' => $qtd > 0 ? round($faturamento / $qtd, 2) : 0.0,
             'recebido' => $recebido,
+            'recebido_vendas' => round($recebido - $fiadoRecebido, 2),
+            'fiado_recebido' => $fiadoRecebido,
             'fiado' => round($fiado, 2),
             'troco' => round((float) $vendas->troco, 2),
             'volume_maquininha' => $volumeMaquininha,
             'mdr' => $mdr,
+            'volume_pix_cnpj' => round($this->pagamentosPixCnpj()->sum('valor'), 2),
+            'tarifa_pix_cnpj' => $tarifaPixCnpj,
             'mdr_efetivo' => self::percentual($mdr, $volumeMaquininha),
             'participacao_maquininha' => self::percentual($volumeMaquininha, $recebido),
             'sem_taxa' => $maquininha->where('sem_taxa', true)->count(),
@@ -427,6 +545,7 @@ class RelatorioFechamentoCaixaService
             ['receita_operacional', '= Receita operacional', $resumo['receita_operacional'], true],
             ['imposto_nfe', '(−) Imposto da NFC-e (vendas com nota autorizada)', -$resumo['imposto_nfe'], false],
             ['mdr', '(−) Taxas das maquininhas (MDR)', -$resumo['mdr'], false],
+            ['tarifa_pix_cnpj', '(−) Tarifa bancária do PIX CNPJ', -$resumo['tarifa_pix_cnpj'], false],
             ['cmv', '(−) CMV (custo das mercadorias vendidas)', -$resumo['cmv'], false],
             ['margem', '= Margem de contribuição', $resumo['margem_contribuicao'], true],
         ];
@@ -582,7 +701,7 @@ class RelatorioFechamentoCaixaService
             $componentes[$id] = array_fill_keys(array_keys(self::CATEGORIAS), $vazio);
         }
 
-        foreach ($this->pagamentosDasSessoes() as $pagamento) {
+        foreach ($this->pagamentosDasSessoes()->where('origem', 'venda') as $pagamento) {
             if (isset($componentes[$pagamento['sessao_id']])) {
                 $componentes[$pagamento['sessao_id']][$pagamento['categoria']]['vendas'] += $pagamento['valor'];
             }
@@ -659,6 +778,7 @@ class RelatorioFechamentoCaixaService
             'debito' => $fechamento->totalDebito,
             'credito' => $fechamento->totalCredito,
             'pix' => $fechamento->totalPix,
+            'pix_cnpj' => $fechamento->totalPixCnpj,
             'outros' => 0.0,
         ];
     }
@@ -823,9 +943,10 @@ class RelatorioFechamentoCaixaService
 
     /**
      * Sistema × leitura por maquininha em cada sessão com fechamento. Sistema =
-     * pagamentos de venda atribuídos à maquininha (sem maquininha = padrão);
-     * leitura = o informado no fechamento menos o carryover da abertura.
-     * Recebimento de fiado em cartão não identifica a maquininha e não entra.
+     * pagamentos de venda e recebimentos de fiado atribuídos à maquininha (sem
+     * maquininha = padrão); leitura = o informado no fechamento menos o
+     * carryover da abertura. O PIX CNPJ entra numa linha própria contra o
+     * extrato informado no fechamento.
      *
      * @return Collection<int, array{key: string, sessao_id: int, maquininha: string, sistema: float, leitura: float, diferenca: float, diferenca_debito: float, diferenca_credito: float, diferenca_pix: float}>
      */
@@ -873,9 +994,39 @@ class RelatorioFechamentoCaixaService
                         'diferenca_credito' => round($porTipoLeitura['credito'] - $porTipoSistema['credito'], 2),
                         'diferenca_pix' => round($porTipoLeitura['pix'] - $porTipoSistema['pix'], 2),
                     ];
-                })->all();
+                })->push($this->conferenciaPixCnpj($sessao))->filter()->values()->all();
             })
             ->values();
+    }
+
+    /**
+     * Linha "PIX CNPJ" da conferência: vendas + fiado em PIX CNPJ da sessão ×
+     * valor do extrato informado no fechamento. Nula se não houve nenhum dos dois.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function conferenciaPixCnpj(SessaoCaixa $sessao): ?array
+    {
+        $sistema = round($this->pagamentosDasSessoes()
+            ->filter(fn (array $pagamento): bool => $pagamento['pix_cnpj'] && $pagamento['sessao_id'] === $sessao->id)
+            ->sum('valor'), 2);
+        $extrato = round($sessao->fechamentoCaixa->totalPixCnpj, 2);
+
+        if ($sistema == 0.0 && $extrato == 0.0) {
+            return null;
+        }
+
+        return [
+            'key' => $sessao->id.'-pix-cnpj',
+            'sessao_id' => $sessao->id,
+            'maquininha' => 'PIX CNPJ (extrato)',
+            'sistema' => $sistema,
+            'leitura' => $extrato,
+            'diferenca' => round($extrato - $sistema, 2),
+            'diferenca_debito' => 0.0,
+            'diferenca_credito' => 0.0,
+            'diferenca_pix' => round($extrato - $sistema, 2),
+        ];
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

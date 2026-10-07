@@ -272,6 +272,7 @@ class Lancamento extends Model
         ?int $sessaoCaixaId = null,
         ?int $cartaoId = null,
         ?string $numeroAutorizacaoCartao = null,
+        ?int $maquininhaId = null,
     ): LancamentoPagamento {
         return $this->pagamentos()->create([
             'valor' => $valor,
@@ -281,6 +282,7 @@ class Lancamento extends Model
             'sessao_caixa_id' => $sessaoCaixaId,
             'cartao_id' => $cartaoId,
             'numero_autorizacao_cartao' => $numeroAutorizacaoCartao,
+            'maquininha_id' => $forma?->tipoMaquininha() ? $maquininhaId : null,
         ]);
     }
 

@@ -389,6 +389,57 @@ class RelatorioFechamentoCaixaTest extends TestCase
         $this->assertSame(-5.0, $linha['diferenca']);
     }
 
+    public function test_fiado_recebido_na_maquininha_entra_por_bandeira_e_na_conferencia(): void
+    {
+        $this->taxa('credito', 3.00, $this->visa);
+        $this->pagar($this->venda(100.00), 'creditCard', 100.00, $this->visa, $this->stone);
+        Lancamento::create([
+            'tipo' => TipoLancamento::Receber,
+            'descricao' => 'Fiado',
+            'valor' => 50,
+            'vencimento' => now()->addDays(7),
+            'status' => StatusLancamento::Pendente,
+        ])->registrarPagamento(50, forma: FormaPagamento::CartaoCredito, sessaoCaixaId: $this->sessao->id, cartaoId: $this->visa->id, maquininhaId: $this->stone->id);
+        $fechamento = FechamentoCaixa::create(['sessao_caixa_id' => $this->sessao->id, 'user_id' => auth()->id(), 'status' => StatusFechamentoCaixa::Rascunho]);
+        FechamentoCaixaMaquininha::create(['fechamento_caixa_id' => $fechamento->id, 'maquininha_id' => $this->stone->id, 'valor_debito' => 0, 'valor_credito' => 150, 'valor_pix' => 0]);
+
+        $relatorio = $this->relatorio(['sessoes' => [$this->sessao->id]]);
+        $visa = $relatorio->maquininhas()->sole();
+        $resumo = $relatorio->resumo();
+
+        $this->assertSame([2, 150.0, 4.5], [$visa['transacoes'], $visa['bruto'], $visa['taxa']]);
+        $this->assertSame([100.0, 50.0], [$resumo['recebido_vendas'], $resumo['fiado_recebido']]);
+        $this->assertSame(0.0, $relatorio->conferenciaMaquininhas()->sole()['diferenca']);
+        $this->assertSame(100.0, $relatorio->fluxoCaixa()->keyBy('key')['credito']['vendas']);
+    }
+
+    public function test_pix_cnpj_fica_fora_das_maquininhas_com_tarifa_propria_e_conferencia_pelo_extrato(): void
+    {
+        $this->taxa('pix', 1.00);
+        $venda = $this->venda(300.00);
+        $this->pagar($venda, 'InstantPayment', 100.00, null, $this->stone);
+        $pixCnpj = OpcoesPagamento::create([
+            'opcaopag_nome' => 'PIX CNPJ',
+            'opcaopag_desc_nfe' => 'InstantPayment',
+            'opcaopag_tipo_taxa' => 'N/A',
+            'opcaopag_valor_percentual_taxa' => 0,
+            'opcaopag_pix_cnpj' => true,
+            'opcaopag_tarifa_percentual' => 0.50,
+        ]);
+        PagamentosVenda::create(['pg_venda_venda_id' => $venda->id, 'pg_venda_opcaopagamento_id' => $pixCnpj->id, 'pg_venda_valor_pagamento' => 200.00]);
+        FechamentoCaixa::create(['sessao_caixa_id' => $this->sessao->id, 'user_id' => auth()->id(), 'status' => StatusFechamentoCaixa::Rascunho, 'valor_pix_cnpj' => 195]);
+
+        $relatorio = $this->relatorio(['sessoes' => [$this->sessao->id]]);
+        $fluxo = $relatorio->fluxoCaixa()->keyBy('key');
+        $extrato = $relatorio->conferenciaMaquininhas()->firstWhere('maquininha', 'PIX CNPJ (extrato)');
+
+        $this->assertSame(100.0, $relatorio->porMaquininha()->sole()['bruto']);
+        $this->assertSame(-1.0, $relatorio->dre()->pluck('valor', 'key')['tarifa_pix_cnpj']);
+        $this->assertSame(-1.0, $relatorio->dre()->pluck('valor', 'key')['mdr']);
+        $this->assertSame([200.0, 195.0, -5.0], [$fluxo['pix_cnpj']['esperado'], $fluxo['pix_cnpj']['apurado'], $fluxo['pix_cnpj']['diferenca']]);
+        $this->assertSame([200.0, 195.0, -5.0], [$extrato['sistema'], $extrato['leitura'], $extrato['diferenca']]);
+    }
+
     public function test_cadastro_de_taxa_grava_o_prazo_de_recebimento_e_copiar_taxas_leva_o_prazo(): void
     {
         $destino = Maquininha::create(['nome' => 'Stone 2', 'operadora' => OperadoraMaquininha::Stone]);

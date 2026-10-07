@@ -202,7 +202,7 @@ class FechamentoCaixaServiceTest extends TestCase
 
         $esperado = $this->service->calcularEsperado($this->sessao);
 
-        $this->assertSame(['dinheiro' => 40.0, 'debito' => 0.0, 'credito' => 0.0, 'pix' => 0.0, 'outros' => 0.0], $esperado);
+        $this->assertSame(['dinheiro' => 40.0, 'debito' => 0.0, 'credito' => 0.0, 'pix' => 0.0, 'pix_cnpj' => 0.0, 'outros' => 0.0], $esperado);
     }
 
     public function test_pagamento_de_lancamento_sem_sessao_de_caixa_nao_entra_no_esperado(): void

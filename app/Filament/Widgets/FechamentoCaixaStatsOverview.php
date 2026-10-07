@@ -64,7 +64,7 @@ class FechamentoCaixaStatsOverview extends BaseWidget
                 }),
 
             Stat::make('Recebido', $this->brl($resumo['recebido']))
-                ->description("{$this->pct($resumo['participacao_maquininha'])} em maquininha · fiado {$this->brl($resumo['fiado'])}")
+                ->description("Vendas {$this->brl($resumo['recebido_vendas'])} · fiado recebido {$this->brl($resumo['fiado_recebido'])} · PIX CNPJ {$this->brl($resumo['volume_pix_cnpj'])}")
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->color('gray'),
 

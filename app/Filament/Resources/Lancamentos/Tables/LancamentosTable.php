@@ -6,7 +6,9 @@ use App\Enums\Comportamento;
 use App\Enums\FormaPagamento;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
+use App\Models\CartoesPagamento;
 use App\Models\Lancamento;
+use App\Models\Maquininha;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -18,6 +20,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Icons\Heroicon;
@@ -196,10 +199,27 @@ class LancamentosTable
                             ->required(),
                         Select::make('forma_pagamento')
                             ->label('Forma')
-                            ->options(FormaPagamento::class),
+                            ->options(FormaPagamento::class)
+                            ->live(),
                         TextInput::make('observacoes')
                             ->label('Observações')
                             ->maxLength(255),
+                        // Recebimento em cartão/Pix de maquininha: vincula a
+                        // maquininha e a bandeira para gravar a taxa e entrar
+                        // na conferência (ver TaxaMaquininhaService).
+                        Select::make('maquininha_id')
+                            ->label('Maquininha')
+                            ->options(fn (): array => Maquininha::orderBy('nome')->pluck('nome', 'id')->all())
+                            ->default(fn (): ?int => Maquininha::padrao()?->id)
+                            ->visible(fn (Get $get, Lancamento $record): bool => $record->tipo === TipoLancamento::Receber
+                                && self::forma($get('forma_pagamento'))?->tipoMaquininha() !== null),
+                        Select::make('cartao_id')
+                            ->label('Bandeira')
+                            ->options(fn (): array => CartoesPagamento::all()->mapWithKeys(fn (CartoesPagamento $cartao): array => [
+                                $cartao->id => (string) ($cartao->cartao_bandeira ?: $cartao->getRawOriginal('cartao_bandeira')),
+                            ])->all())
+                            ->visible(fn (Get $get, Lancamento $record): bool => $record->tipo === TipoLancamento::Receber
+                                && in_array(self::forma($get('forma_pagamento')), [FormaPagamento::CartaoCredito, FormaPagamento::CartaoDebito], true)),
                     ])
                     ->live()
                     ->columns(4)
@@ -248,11 +268,16 @@ class LancamentosTable
                     // Select::options(FormaPagamento::class) já entrega o state como
                     // instância do enum (Filament casta automaticamente) — nada de
                     // ::from() aqui, ou dá TypeError passando enum pra ::from().
+                    $forma = self::forma($item['forma_pagamento'] ?? null);
+                    $ehCartao = in_array($forma, [FormaPagamento::CartaoCredito, FormaPagamento::CartaoDebito], true);
+
                     $record->registrarPagamento(
                         self::normalizeMoney($item['valor'] ?? null),
                         ! empty($item['data_pagamento']) ? Carbon::parse($item['data_pagamento']) : null,
-                        $item['forma_pagamento'] ?? null,
+                        $forma,
                         $item['observacoes'] ?? null,
+                        cartaoId: $ehCartao && ! empty($item['cartao_id']) ? (int) $item['cartao_id'] : null,
+                        maquininhaId: ! empty($item['maquininha_id']) ? (int) $item['maquininha_id'] : null,
                     );
                 }
 
@@ -261,6 +286,12 @@ class LancamentosTable
                     ->success()
                     ->send();
             });
+    }
+
+    /** O Select entrega o enum, mas durante o preenchimento o estado pode vir como string. */
+    private static function forma(mixed $estado): ?FormaPagamento
+    {
+        return $estado instanceof FormaPagamento ? $estado : FormaPagamento::tryFrom((string) $estado);
     }
 
     /**

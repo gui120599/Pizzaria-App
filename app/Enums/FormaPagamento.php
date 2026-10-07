@@ -8,6 +8,7 @@ enum FormaPagamento: string implements HasLabel
 {
     case Dinheiro = 'dinheiro';
     case Pix = 'pix';
+    case PixCnpj = 'pix_cnpj';
     case CartaoCredito = 'cartao_credito';
     case CartaoDebito = 'cartao_debito';
     case Boleto = 'boleto';
@@ -19,6 +20,7 @@ enum FormaPagamento: string implements HasLabel
         return match ($this) {
             self::Dinheiro => 'Dinheiro',
             self::Pix => 'Pix',
+            self::PixCnpj => 'PIX CNPJ',
             self::CartaoCredito => 'Cartão de Crédito',
             self::CartaoDebito => 'Cartão de Débito',
             self::Boleto => 'Boleto',
@@ -35,8 +37,22 @@ enum FormaPagamento: string implements HasLabel
     public function entraNoCaixa(): bool
     {
         return match ($this) {
-            self::Dinheiro, self::Pix, self::CartaoCredito, self::CartaoDebito => true,
+            self::Dinheiro, self::Pix, self::PixCnpj, self::CartaoCredito, self::CartaoDebito => true,
             self::Boleto, self::Transferencia, self::Compensacao => false,
+        };
+    }
+
+    /**
+     * Tipo de transação na maquininha (define a taxa da adquirente). Pix aqui
+     * é o da maquininha; PIX CNPJ cai direto na conta e não tem maquininha.
+     */
+    public function tipoMaquininha(): ?TipoPagamentoMaquininhaEnum
+    {
+        return match ($this) {
+            self::CartaoDebito => TipoPagamentoMaquininhaEnum::Debito,
+            self::CartaoCredito => TipoPagamentoMaquininhaEnum::Credito,
+            self::Pix => TipoPagamentoMaquininhaEnum::Pix,
+            default => null,
         };
     }
 }

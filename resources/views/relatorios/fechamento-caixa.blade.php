@@ -93,7 +93,8 @@
                 <div class="card border border-gray-300 rounded-md p-3">
                     <p class="text-[10px] uppercase text-gray-500">Recebido</p>
                     <p class="text-base font-bold">{{ $brl($resumo['recebido']) }}</p>
-                    <p class="text-[10px] text-gray-500">{{ $pct($resumo['participacao_maquininha'], 1) }} em maquininha · fiado {{ $brl($resumo['fiado']) }}</p>
+                    <p class="text-[10px] text-gray-500">Vendas {{ $brl($resumo['recebido_vendas']) }} · fiado recebido {{ $brl($resumo['fiado_recebido']) }} · PIX CNPJ {{ $brl($resumo['volume_pix_cnpj']) }}</p>
+                    <p class="text-[10px] text-gray-500">{{ $pct($resumo['participacao_maquininha'], 1) }} em maquininha · a prazo {{ $brl($resumo['fiado']) }}</p>
                 </div>
                 <div class="card border border-gray-300 rounded-md p-3">
                     <p class="text-[10px] uppercase text-gray-500">Cancelamentos</p>
@@ -434,7 +435,7 @@
                         @endforeach
                     </tbody>
                 </table>
-                <p class="mt-1 text-[10px] text-gray-500">Leitura do fechamento menos o saldo da abertura. Recebimento de fiado em cartão não identifica a maquininha.</p>
+                <p class="mt-1 text-[10px] text-gray-500">Sistema = vendas e fiado recebido na maquininha. Leitura do fechamento menos o saldo da abertura; o PIX CNPJ é comparado com o extrato.</p>
             </div>
         @endif
     </div>

@@ -211,6 +211,9 @@ class OperarVenda extends Page
     /** Ex.: com o que foi compensado — mesmo campo de observações do Contas a Receber. */
     public ?string $observacaoRecebimento = null;
 
+    /** Maquininha do recebimento em cartão/Pix — define a taxa (TaxaMaquininhaService). */
+    public ?int $maquininhaRecebimentoId = null;
+
     public static function canAccess(): bool
     {
         return Auth::user()?->can('operar:venda') ?? false;
@@ -2038,6 +2041,7 @@ class OperarVenda extends Page
         $this->cartaoRecebimentoId = null;
         $this->numeroAutorizacaoRecebimento = null;
         $this->observacaoRecebimento = null;
+        $this->maquininhaRecebimentoId = Maquininha::padrao()?->id;
         $this->modalRecebimentoAberto = true;
     }
 
@@ -2050,6 +2054,7 @@ class OperarVenda extends Page
         $this->cartaoRecebimentoId = null;
         $this->numeroAutorizacaoRecebimento = null;
         $this->observacaoRecebimento = null;
+        $this->maquininhaRecebimentoId = null;
     }
 
     /** Registra um recebimento (parcial ou total) de um título fiado, reaproveitando Lancamento::registrarPagamento(). */
@@ -2070,6 +2075,7 @@ class OperarVenda extends Page
             sessaoCaixaId: $this->sessaoCaixaId,
             cartaoId: $ehCartao ? $this->cartaoRecebimentoId : null,
             numeroAutorizacaoCartao: $ehCartao ? $this->numeroAutorizacaoRecebimento : null,
+            maquininhaId: $this->maquininhaRecebimentoId,
         );
 
         $this->fecharModalRecebimento();

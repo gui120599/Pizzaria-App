@@ -1021,13 +1021,25 @@
                         <select wire:model.live="formaRecebimento" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="">Selecione...</option>
                             @foreach (\App\Enums\FormaPagamento::cases() as $forma)
-                                <option value="{{ $forma->value }}">{{ $forma->getLabel() }}</option>
+                                <option value="{{ $forma->value }}">{{ $forma === \App\Enums\FormaPagamento::Pix ? 'Pix (maquininha)' : $forma->getLabel() }}</option>
                             @endforeach
                         </select>
                         @if (\App\Enums\FormaPagamento::tryFrom((string) $formaRecebimento)?->entraNoCaixa() === false)
                             <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Quita o título sem entrar no caixa — não conta no esperado do fechamento.</p>
                         @endif
                     </div>
+
+                    @if (\App\Enums\FormaPagamento::tryFrom((string) $formaRecebimento)?->tipoMaquininha() && $this->maquininhas->isNotEmpty())
+                        <div>
+                            <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Maquininha</label>
+                            <select wire:model="maquininhaRecebimentoId" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                <option value="">Selecione...</option>
+                                @foreach ($this->maquininhas as $id => $nome)
+                                    <option value="{{ $id }}">{{ $nome }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
 
                     @if (in_array($formaRecebimento, [\App\Enums\FormaPagamento::CartaoCredito->value, \App\Enums\FormaPagamento::CartaoDebito->value], true))
                         <div class="grid grid-cols-2 gap-3">
@@ -1045,7 +1057,7 @@
                                 <input wire:model="numeroAutorizacaoRecebimento" type="text" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500" />
                             </div>
                         </div>
-                        <p class="text-xs text-gray-400 dark:text-gray-500">Só pra conciliar com a operadora — a nota fiscal desta venda, se emitida, já foi declarada sem depender desse recebimento.</p>
+                        <p class="text-xs text-gray-400 dark:text-gray-500">A bandeira define a taxa da maquininha — a nota fiscal desta venda, se emitida, já foi declarada sem depender desse recebimento.</p>
                     @endif
 
                     <div>

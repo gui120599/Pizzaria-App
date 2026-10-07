@@ -26,7 +26,7 @@ class FechamentoCaixaConferenciaMaquininhasWidget extends BaseWidget
 
         return $table
             ->heading('Conferência das maquininhas')
-            ->description('Leitura do fechamento menos o saldo da abertura. Recebimento de fiado em cartão não identifica a maquininha e não entra no sistema.')
+            ->description('Sistema = vendas e fiado recebido na maquininha. Leitura do fechamento menos o saldo da abertura; o PIX CNPJ é comparado com o extrato informado no fechamento.')
             ->records(fn (): array => (new RelatorioFechamentoCaixaService($this->pageFilters ?? []))
                 ->conferenciaMaquininhas()
                 ->keyBy('key')

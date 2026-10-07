@@ -25,6 +25,8 @@ class OpcoesPagamento extends Model
         'opcaopag_requer_bandeira',
         'opcaopag_requer_autorizacao',
         'opcaopag_stone_integrada',
+        'opcaopag_pix_cnpj',
+        'opcaopag_tarifa_percentual',
     ];
 
     protected $casts = [
@@ -36,6 +38,8 @@ class OpcoesPagamento extends Model
         'opcaopag_requer_bandeira' => 'boolean',
         'opcaopag_requer_autorizacao' => 'boolean',
         'opcaopag_stone_integrada' => 'boolean',
+        'opcaopag_pix_cnpj' => 'boolean',
+        'opcaopag_tarifa_percentual' => 'decimal:2',
     ];
 
     const TIPO_TAXA = [
@@ -103,9 +107,19 @@ class OpcoesPagamento extends Model
         };
     }
 
+    /** Pix direto na conta da empresa (chave CNPJ): conferido pelo extrato, com tarifa bancária, sem maquininha. */
+    public function ehPixCnpj(): bool
+    {
+        return $this->opcaopag_desc_nfe === 'InstantPayment' && (bool) $this->opcaopag_pix_cnpj;
+    }
+
     /** Tipo de transação na maquininha (define a taxa da adquirente); null = não passa por maquininha. */
     public function tipoMaquininha(): ?TipoPagamentoMaquininhaEnum
     {
+        if ($this->ehPixCnpj()) {
+            return null;
+        }
+
         return match ($this->opcaopag_desc_nfe) {
             'creditCard' => TipoPagamentoMaquininhaEnum::Credito,
             'debitCard' => TipoPagamentoMaquininhaEnum::Debito,
