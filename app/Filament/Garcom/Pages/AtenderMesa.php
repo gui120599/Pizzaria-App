@@ -14,8 +14,10 @@ use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\User;
 use App\Services\Garcom\AtendimentoMesaService;
+use App\Services\PedidosSessaoMesaService;
 use App\Support\ContaMesa;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
@@ -397,6 +399,72 @@ class AtenderMesa extends Page
                     $data['autorizador_id'] ?? null, $data['pin'] ?? null, $data['motivo'] ?? null,
                 ), 'Conta transferida.');
             });
+    }
+
+    // ── Pedidos de fora / tirar da mesa ────────────────────────────────────
+
+    /** @return array<int, int> Rodadas que ainda podem sair da conta (sem item no caixa) */
+    public function idsRemoviveis(): array
+    {
+        return app(PedidosSessaoMesaService::class)->queryRemoviveis($this->sessao())->pluck('id')->all();
+    }
+
+    public function adicionarPedidoAction(): Action
+    {
+        return Action::make('adicionarPedido')
+            ->label('Trazer pedido existente')
+            ->modalHeading('Trazer pedido para esta mesa')
+            ->modalDescription('Pedidos ativos do balcão, do cardápio ou de outra mesa, ainda não lançados no caixa.')
+            ->modalSubmitActionLabel('Trazer selecionados')
+            ->visible(fn (): bool => $this->podeFecharMesa())
+            ->schema(function (): array {
+                $opcoes = app(PedidosSessaoMesaService::class)->opcoesParaAdicionar($this->sessao(), $this->usuario());
+
+                return [
+                    CheckboxList::make('pedidos')
+                        ->hiddenLabel()
+                        ->options($opcoes['opcoes'])
+                        ->descriptions($opcoes['descricoes'])
+                        ->searchable()
+                        ->noSearchResultsMessage('Nenhum pedido encontrado.')
+                        ->required()
+                        ->validationMessages(['required' => 'Selecione ao menos um pedido.']),
+                ];
+            })
+            ->action(fn (array $data) => $this->moverPedidos(
+                fn (PedidosSessaoMesaService $servico) => $servico->adicionar($this->sessao(), $data['pedidos'], $this->usuario()),
+                'trazido(s) para a mesa',
+            ));
+    }
+
+    public function removerPedidoAction(): Action
+    {
+        return Action::make('removerPedido')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading(fn (array $arguments): string => 'Tirar a rodada #'.($arguments['pedido'] ?? '').' da mesa?')
+            ->modalDescription('Ela sai desta conta e vai para Pedidos avulsos no caixa.')
+            ->modalSubmitActionLabel('Tirar da mesa')
+            ->visible(fn (): bool => $this->podeFecharMesa())
+            ->action(fn (array $arguments) => $this->moverPedidos(
+                fn (PedidosSessaoMesaService $servico) => $servico->remover($this->sessao(), [(int) ($arguments['pedido'] ?? 0)], $this->usuario()),
+                'tirado(s) da mesa',
+            ));
+    }
+
+    /** @param  callable(PedidosSessaoMesaService): int  $operacao */
+    private function moverPedidos(callable $operacao, string $sufixo): void
+    {
+        try {
+            $quantidade = $operacao(app(PedidosSessaoMesaService::class));
+        } catch (RuntimeException|AuthorizationException $e) {
+            Notification::make()->title($e->getMessage())->danger()->send();
+
+            return;
+        }
+
+        Notification::make()->title("{$quantidade} pedido(s) {$sufixo}.")->success()->send();
+        $this->prontasAvisadas = $this->rodadasProntasIds();
     }
 
     // ── Apoio ───────────────────────────────────────────────────────────────

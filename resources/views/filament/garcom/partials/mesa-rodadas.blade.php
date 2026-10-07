@@ -1,5 +1,16 @@
 {{-- Rodadas enviadas da mesa: aba Rodadas no celular e painel lateral no desktop. --}}
 <div class="space-y-3">
+    @php
+        $podeMoverPedidos = $this->podeFecharMesa();
+        $idsRemoviveis = $podeMoverPedidos ? $this->idsRemoviveis() : [];
+    @endphp
+    @if ($podeMoverPedidos)
+        <button type="button" wire:click="mountAction('adicionarPedido')"
+                class="w-full rounded-xl py-2.5 text-sm font-semibold text-primary-600 ring-1 ring-primary-200 active:scale-[.98] dark:text-primary-400 dark:ring-primary-500/30">
+            + Trazer pedido existente
+        </button>
+    @endif
+
     @forelse ($this->rodadas() as $rodada)
         @php $statusRodada = \App\Enums\StatusPedidoEnum::tryFrom($rodada->pedido_status); @endphp
         <div wire:key="rodada-{{ $rodada->id }}"
@@ -7,7 +18,13 @@
             <div class="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-white/10">
                 <div>
                     <span class="font-semibold text-gray-900 dark:text-white">Rodada #{{ $rodada->id }}</span>
-                    <span class="ml-2 text-xs text-gray-500">{{ $rodada->pedido_datahora_abertura ? \Illuminate\Support\Carbon::parse($rodada->pedido_datahora_abertura)->format('H:i') : '' }} · {{ $rodada->garcom?->name_first ?: $rodada->garcom?->name }}</span>
+                    <span class="ml-2 text-xs text-gray-500">{{ $rodada->pedido_datahora_abertura ? \Illuminate\Support\Carbon::parse($rodada->pedido_datahora_abertura)->format('H:i') : '' }} @if ($rodada->pedido_usuario_garcom_id) · {{ $rodada->garcom?->name_first ?: $rodada->garcom?->name }} @endif</span>
+                    @if (in_array($rodada->id, $idsRemoviveis, true))
+                        <button type="button" wire:click="mountAction('removerPedido', { pedido: {{ $rodada->id }} })"
+                                class="ml-2 text-xs font-semibold text-red-600 underline-offset-2 hover:underline dark:text-red-400">
+                            Tirar da mesa
+                        </button>
+                    @endif
                 </div>
                 <span @class([
                     'rounded-full px-2.5 py-1 text-xs font-semibold',

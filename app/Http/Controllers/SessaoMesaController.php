@@ -14,6 +14,7 @@ use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\SessaoMesaCliente;
 use App\Services\ClienteResolverService;
+use App\Services\PedidosSessaoMesaService;
 use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use App\Services\SessaoMesaService;
@@ -21,12 +22,14 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class SessaoMesaController extends Controller
 {
     public function __construct(
         private readonly SessaoMesaService $sessaoMesaService,
         private readonly ClienteResolverService $clienteResolver,
+        private readonly PedidosSessaoMesaService $pedidosSessaoMesa,
     ) {}
 
     /**
@@ -81,18 +84,12 @@ class SessaoMesaController extends Controller
             ->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO'])
             ->orderByDesc('id')->get();
 
-        $pedidosRemover = Pedido::with('produtosInseridosPedido', 'sessaoMesa')
-            ->where('pedido_sessao_mesa_id', $sessaoMesaId)
-            ->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO'])
-            ->orderByDesc('id')
+        $pedidosRemover = $this->pedidosSessaoMesa->queryRemoviveis($sessaoMesa)
+            ->with('produtosInseridosPedido')
             ->paginate(8, ['*'], 'page_RemoverPedidos');
 
-        $pedidosExistentes = Pedido::whereNotIn('pedido_status', ['INICIADO', 'FINALIZADO', 'CANCELADO'])
-            ->where(function ($query) use ($sessaoMesaId) {
-                $query->whereNot('pedido_sessao_mesa_id', $sessaoMesaId)
-                    ->orWhereNull('pedido_sessao_mesa_id');
-            })
-            ->orderByDesc('id')
+        $pedidosExistentes = $this->pedidosSessaoMesa->queryElegiveis($sessaoMesa)
+            ->with('produtosInseridosPedido')
             ->paginate(8, ['*'], 'page_PedidosExistentes');
 
         $sessaoMesaClientes = $sessaoMesa->clientes()
@@ -384,7 +381,7 @@ class SessaoMesaController extends Controller
 
         try {
             $this->sessaoMesaService->reabrir($sessaoMesa);
-        } catch (\RuntimeException $e) {
+        } catch (RuntimeException $e) {
             return redirect()->route('dashboard')->with('error', $e->getMessage());
         }
 
@@ -520,41 +517,39 @@ class SessaoMesaController extends Controller
     {
         $this->authorize('update', $sessaoMesa);
 
-        foreach ($request->input('pedidoExistente') as $pedidoId) {
-            $pedido = Pedido::find($pedidoId);
-
-            if ($pedido && ! in_array($pedido->pedido_status, ['INICIADO', 'FINALIZADO', 'CANCELADO'])) {
-                $pedido->update([
-                    'pedido_sessao_mesa_id' => $sessaoMesa->id,
-                ]);
-            }
-        }
-
-        return redirect()
-            ->route('sessaoMesa.pedidosMesa', ['mesa_id' => $sessaoMesa->sessao_mesa_mesa_id])
-            ->with('success', 'Pedidos incluídos!');
+        return $this->moverPedidos(
+            $sessaoMesa,
+            fn () => $this->pedidosSessaoMesa->adicionar($sessaoMesa, (array) $request->input('pedidoExistente', []), Auth::user()),
+            'Pedidos incluídos!',
+        );
     }
 
     /**
-     * Remove pedidos selecionados na tela da sessão da Mesa
+     * Remove pedidos selecionados na tela da sessão da Mesa — ficam sem mesa,
+     * em "Pedidos avulsos" no caixa.
      */
     public function updateRemoverPedidosSessaoMesa(SessaoMesa $sessaoMesa, Request $request)
     {
         $this->authorize('update', $sessaoMesa);
 
-        foreach ($request->input('pedidoExistente') as $pedidoId) {
-            $pedido = Pedido::find($pedidoId);
+        return $this->moverPedidos(
+            $sessaoMesa,
+            fn () => $this->pedidosSessaoMesa->remover($sessaoMesa, (array) $request->input('pedidoExistente', []), Auth::user()),
+            'Pedidos removidos!',
+        );
+    }
 
-            if ($pedido && ! in_array($pedido->pedido_status, ['INICIADO', 'FINALIZADO', 'CANCELADO'])) {
-                $pedido->update([
-                    'pedido_sessao_mesa_id' => null,
-                ]);
-            }
+    private function moverPedidos(SessaoMesa $sessaoMesa, callable $operacao, string $sucesso)
+    {
+        $redirect = redirect()->route('sessaoMesa.pedidosMesa', ['mesa_id' => $sessaoMesa->sessao_mesa_mesa_id]);
+
+        try {
+            $operacao();
+        } catch (RuntimeException $e) {
+            return $redirect->with('error', $e->getMessage());
         }
 
-        return redirect()
-            ->route('sessaoMesa.pedidosMesa', ['mesa_id' => $sessaoMesa->sessao_mesa_mesa_id])
-            ->with('success', 'Pedidos incluídos!');
+        return $redirect->with('success', $sucesso);
     }
 
     /**
