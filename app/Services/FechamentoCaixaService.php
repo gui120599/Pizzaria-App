@@ -23,7 +23,10 @@ class FechamentoCaixaService
      * venda que originou o título pode ter sido finalizada em outra sessão/dia,
      * então esse valor não aparece na query de pagamentos_vendas acima.
      *
-     * @return array{dinheiro: float, debito: float, credito: float, pix: float, outros: float}
+     * PIX CNPJ (forma marcada como Pix direto na conta, ou forma do financeiro
+     * pix_cnpj) é categoria própria, conferida pelo extrato do banco.
+     *
+     * @return array{dinheiro: float, debito: float, credito: float, pix: float, pix_cnpj: float, outros: float}
      */
     public function calcularEsperado(SessaoCaixa $sessao): array
     {
@@ -32,18 +35,18 @@ class FechamentoCaixaService
             ->leftJoin('opcoes_pagamentos', 'opcoes_pagamentos.id', '=', 'pagamentos_vendas.pg_venda_opcaopagamento_id')
             ->where('vendas.venda_sessao_caixa_id', $sessao->id)
             ->where('vendas.venda_status', 'FINALIZADA')
-            ->selectRaw('opcoes_pagamentos.opcaopag_desc_nfe as categoria_nfe, SUM(pagamentos_vendas.pg_venda_valor_pagamento) as total')
-            ->groupBy('categoria_nfe')
+            ->selectRaw('opcoes_pagamentos.opcaopag_desc_nfe as categoria_nfe, opcoes_pagamentos.opcaopag_pix_cnpj as pix_cnpj, SUM(pagamentos_vendas.pg_venda_valor_pagamento) as total')
+            ->groupBy('categoria_nfe', 'pix_cnpj')
             ->get();
 
-        $totais = ['dinheiro' => 0.0, 'debito' => 0.0, 'credito' => 0.0, 'pix' => 0.0, 'outros' => 0.0];
+        $totais = ['dinheiro' => 0.0, 'debito' => 0.0, 'credito' => 0.0, 'pix' => 0.0, 'pix_cnpj' => 0.0, 'outros' => 0.0];
 
         foreach ($linhas as $linha) {
             $categoria = match ($linha->categoria_nfe) {
                 'cash' => 'dinheiro',
                 'debitCard' => 'debito',
                 'creditCard' => 'credito',
-                'InstantPayment' => 'pix',
+                'InstantPayment' => $linha->pix_cnpj ? 'pix_cnpj' : 'pix',
                 default => 'outros',
             };
 
@@ -70,6 +73,7 @@ class FechamentoCaixaService
                 'cartao_debito' => 'debito',
                 'cartao_credito' => 'credito',
                 'pix' => 'pix',
+                'pix_cnpj' => 'pix_cnpj',
                 default => 'outros',
             };
 
@@ -98,6 +102,7 @@ class FechamentoCaixaService
                 'cartao_debito' => 'debito',
                 'cartao_credito' => 'credito',
                 'pix' => 'pix',
+                'pix_cnpj' => 'pix_cnpj',
                 default => 'outros',
             };
 
@@ -129,6 +134,7 @@ class FechamentoCaixaService
                 'cartao_debito' => 'debito',
                 'cartao_credito' => 'credito',
                 'pix' => 'pix',
+                'pix_cnpj' => 'pix_cnpj',
                 default => 'outros',
             };
 
@@ -189,6 +195,7 @@ class FechamentoCaixaService
             'total_esperado_debito' => $esperado['debito'],
             'total_esperado_credito' => $esperado['credito'],
             'total_esperado_pix' => $esperado['pix'],
+            'total_esperado_pix_cnpj' => $esperado['pix_cnpj'],
             'total_esperado_outros' => $esperado['outros'],
         ])->save();
 

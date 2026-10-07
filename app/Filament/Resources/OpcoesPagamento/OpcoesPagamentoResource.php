@@ -94,6 +94,7 @@ class OpcoesPagamentoResource extends Resource
                             'others' => 'Outros',
                         ])
                         ->nullable()
+                        ->live()
                         ->placeholder('Selecione o código NFe'),
 
                     Toggle::make('opcaopag_envio_automatico_nfe')
@@ -151,6 +152,24 @@ class OpcoesPagamentoResource extends Resource
                                 $fail('Formas integradas à Stone precisam de Código NF-e "Cartão de Crédito", "Cartão de Débito" ou "PIX".');
                             }
                         }),
+
+                    Toggle::make('opcaopag_pix_cnpj')
+                        ->label('Pix direto na conta (CNPJ)')
+                        ->default(false)
+                        ->inline()
+                        ->live()
+                        ->helperText('Pix na chave CNPJ da empresa, sem maquininha. No fechamento de caixa é conferido pelo extrato do banco, numa seção própria.')
+                        ->visible(fn (Get $get): bool => $get('opcaopag_desc_nfe') === 'InstantPayment'),
+
+                    TextInput::make('opcaopag_tarifa_percentual')
+                        ->label('Tarifa bancária do PIX CNPJ (%)')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->step(0.01)
+                        ->suffix('%')
+                        ->helperText('Abatida no Relatório de Fechamento de Caixa. Em branco = sem tarifa.')
+                        ->visible(fn (Get $get): bool => $get('opcaopag_desc_nfe') === 'InstantPayment' && (bool) $get('opcaopag_pix_cnpj')),
                 ]),
         ]);
     }

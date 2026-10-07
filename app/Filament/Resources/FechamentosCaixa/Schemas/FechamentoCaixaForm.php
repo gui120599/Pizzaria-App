@@ -86,17 +86,29 @@ class FechamentoCaixaForm
                         ->columnSpanFull(),
                 ]),
 
+            Section::make('PIX CNPJ')
+                ->columnSpanFull()
+                ->collapsed()
+                ->description('Pix recebido direto na chave CNPJ da empresa durante o turno — confira pelo extrato do banco. Não lance como maquininha.')
+                ->schema([
+                    Money::make('valor_pix_cnpj')
+                        ->label('Total recebido no extrato')
+                        ->minValue(0)
+                        ->default(0),
+                ]),
+
             Section::make('Conferência')
                 ->columnSpanFull()
-                ->description('Apurado (dinheiro contado + maquininhas já líquidas do carryover) × esperado (vendas da sessão) × diferença.')
+                ->description('Apurado (dinheiro contado + maquininhas já líquidas do carryover + extrato do PIX CNPJ) × esperado (vendas da sessão) × diferença.')
                 ->schema([
                     self::cardConferencia('Dinheiro', fn (FechamentoCaixa $r) => $r->totalDinheiroContado, fn (FechamentoCaixa $r) => (float) $r->total_esperado_dinheiro, fn (FechamentoCaixa $r) => $r->diferencaDinheiro),
                     self::cardConferencia('Débito', fn (FechamentoCaixa $r) => $r->totalDebito, fn (FechamentoCaixa $r) => (float) $r->total_esperado_debito, fn (FechamentoCaixa $r) => $r->diferencaDebito),
                     self::cardConferencia('Crédito', fn (FechamentoCaixa $r) => $r->totalCredito, fn (FechamentoCaixa $r) => (float) $r->total_esperado_credito, fn (FechamentoCaixa $r) => $r->diferencaCredito),
-                    self::cardConferencia('Pix', fn (FechamentoCaixa $r) => $r->totalPix, fn (FechamentoCaixa $r) => (float) $r->total_esperado_pix, fn (FechamentoCaixa $r) => $r->diferencaPix),
+                    self::cardConferencia('Pix (maquininhas)', fn (FechamentoCaixa $r) => $r->totalPix, fn (FechamentoCaixa $r) => (float) $r->total_esperado_pix, fn (FechamentoCaixa $r) => $r->diferencaPix),
+                    self::cardConferencia('PIX CNPJ', fn (FechamentoCaixa $r) => $r->totalPixCnpj, fn (FechamentoCaixa $r) => (float) $r->total_esperado_pix_cnpj, fn (FechamentoCaixa $r) => $r->diferencaPixCnpj),
                     self::cardConferencia('Total geral', fn (FechamentoCaixa $r) => $r->totalApurado, fn (FechamentoCaixa $r) => $r->totalEsperadoGeral, fn (FechamentoCaixa $r) => $r->diferencaGeral, destaque: true),
                 ])
-                ->columns(4)
+                ->columns(5)
                 ->visible(fn (?FechamentoCaixa $record): bool => $record?->exists ?? false),
 
             Section::make('Observações')

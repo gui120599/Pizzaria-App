@@ -24,6 +24,8 @@ class FechamentoCaixa extends Model
         'total_esperado_credito',
         'total_esperado_pix',
         'total_esperado_outros',
+        'total_esperado_pix_cnpj',
+        'valor_pix_cnpj',
         'confirmado_em',
         'observacoes',
     ];
@@ -37,6 +39,8 @@ class FechamentoCaixa extends Model
             'total_esperado_credito' => 'decimal:2',
             'total_esperado_pix' => 'decimal:2',
             'total_esperado_outros' => 'decimal:2',
+            'total_esperado_pix_cnpj' => 'decimal:2',
+            'valor_pix_cnpj' => 'decimal:2',
             'confirmado_em' => 'datetime',
         ];
     }
@@ -107,6 +111,14 @@ class FechamentoCaixa extends Model
         );
     }
 
+    /** PIX CNPJ apurado pelo extrato do banco — não é maquininha, não tem carryover. */
+    protected function totalPixCnpj(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => (float) $this->valor_pix_cnpj,
+        );
+    }
+
     /** Já líquido — a subtração do carryover acontece por categoria em totalPorCategoria(). */
     protected function totalMaquininhasLiquido(): Attribute
     {
@@ -118,7 +130,7 @@ class FechamentoCaixa extends Model
     protected function totalApurado(): Attribute
     {
         return Attribute::make(
-            get: fn (): float => $this->totalDinheiroContado + $this->totalMaquininhasLiquido,
+            get: fn (): float => $this->totalDinheiroContado + $this->totalMaquininhasLiquido + $this->totalPixCnpj,
         );
     }
 
@@ -129,6 +141,7 @@ class FechamentoCaixa extends Model
                 + (float) $this->total_esperado_debito
                 + (float) $this->total_esperado_credito
                 + (float) $this->total_esperado_pix
+                + (float) $this->total_esperado_pix_cnpj
                 + (float) $this->total_esperado_outros,
         );
     }
@@ -165,6 +178,13 @@ class FechamentoCaixa extends Model
     {
         return Attribute::make(
             get: fn (): float => round($this->totalPix - (float) $this->total_esperado_pix, 2),
+        );
+    }
+
+    protected function diferencaPixCnpj(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => round($this->totalPixCnpj - (float) $this->total_esperado_pix_cnpj, 2),
         );
     }
 }
