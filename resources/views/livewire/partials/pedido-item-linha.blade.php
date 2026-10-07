@@ -55,6 +55,9 @@
         @else
             <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ $itemNome }}</p>
         @endif
+        @foreach ($item['respostas_linhas'] ?? [] as $linhaResposta)
+            <p class="text-xs text-gray-600 dark:text-gray-300 truncate">{{ $linhaResposta }}</p>
+        @endforeach
         @if (!empty($item['adicionais']))
             <p class="text-xs text-gray-500 dark:text-gray-400 truncate">+ {{ collect($item['adicionais'])->pluck('nome')->join(', ') }}</p>
         @endif

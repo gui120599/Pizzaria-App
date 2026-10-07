@@ -3,17 +3,24 @@
 namespace App\Filament\Garcom\Pages;
 
 use App\Enums\AcaoAutorizadaEnum;
+use App\Enums\StatusAprovacaoPedidoEnum;
 use App\Enums\StatusPedidoEnum;
+use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
 use App\Filament\Garcom\Concerns\CarrinhoLateral;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
 use App\Models\Mesa;
+use App\Models\MesaChamado;
+use App\Models\MesaParticipante;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\User;
 use App\Services\Garcom\AtendimentoMesaService;
+use App\Services\MesaCliente\AprovacaoPedidoMesaService;
+use App\Services\MesaCliente\MesaChamadoService;
+use App\Services\MesaCliente\ParticipanteMesaService;
 use App\Services\PedidosSessaoMesaService;
 use App\Support\ContaMesa;
 use Filament\Actions\Action;
@@ -26,6 +33,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
@@ -33,7 +41,9 @@ use RuntimeException;
 
 /**
  * Atendimento de uma conta de mesa/comanda: lançar a rodada, acompanhar as
- * rodadas enviadas e fechar a conta (pré-conta, taxa, Stone).
+ * rodadas enviadas e fechar a conta (pré-conta, taxa, Stone). Também decide o
+ * que chegou pelo QR da mesa: aprovar, editar ou recusar o pedido do cliente,
+ * atender chamados e bloquear celular.
  */
 class AtenderMesa extends Page
 {
@@ -62,6 +72,16 @@ class AtenderMesa extends Page
     /** "Lançando para": pessoa da mesa que recebe os próximos itens (null = mesa geral). */
     public ?int $clientePadraoId = null;
 
+    /** Pedido do cliente (QR) aberto no seletor para o garçom ajustar antes de aprovar. */
+    public ?int $editandoPedidoId = null;
+
+    /**
+     * Pedidos do QR e chamados desta mesa já avisados neste aparelho.
+     *
+     * @var array<int, string>
+     */
+    public array $avisosMesa = [];
+
     public function mount(int|string $sessao): void
     {
         $sessaoMesa = SessaoMesa::find($sessao);
@@ -75,6 +95,7 @@ class AtenderMesa extends Page
         $this->sessaoId = $sessaoMesa->id;
         $this->rascunhoId = $this->servico()->rascunho($sessaoMesa, $this->usuario())->id;
         $this->prontasAvisadas = $this->rodadasProntasIds();
+        $this->avisosMesa = $this->chavesAvisosMesa();
     }
 
     public function getTitle(): string|Htmlable
@@ -105,6 +126,7 @@ class AtenderMesa extends Page
             ->where('pedido_status', '!=', StatusPedidoEnum::INICIADO->value)
             ->with([
                 'garcom:id,name,name_first',
+                'participante:id,mp_nome',
                 'item_pedido_pedido_id' => fn ($q) => $q->where('item_pedido_status', 'INSERIDO'),
                 'item_pedido_pedido_id.produto:id,produto_descricao',
                 'item_pedido_pedido_id.cliente:id,cliente_nome',
@@ -208,6 +230,154 @@ class AtenderMesa extends Page
         }
     }
 
+    // ── Pedido pelo QR da mesa ─────────────────────────────────────────────
+
+    /** @return Collection<int, Pedido> Pedidos do cliente esperando o garçom, mais antigos primeiro */
+    public function pedidosDoCliente(): Collection
+    {
+        return $this->queryPendentes()
+            ->with([
+                'participante:id,mp_nome',
+                'item_pedido_pedido_id' => fn ($q) => $q->where('item_pedido_status', 'INSERIDO'),
+                'item_pedido_pedido_id.produto:id,produto_descricao',
+                'item_pedido_pedido_id.adicionaisItemPedido.adicional:id,adicional_nome',
+            ])
+            ->oldest('id')
+            ->get();
+    }
+
+    /** @return Collection<int, MesaChamado> */
+    public function chamadosPendentes(): Collection
+    {
+        return MesaChamado::pendentes()
+            ->where('mc_sessao_mesa_id', $this->sessaoId)
+            ->with('participante:id,mp_nome')
+            ->oldest('id')
+            ->get();
+    }
+
+    /** @return Collection<int, MesaParticipante> Celulares que entraram na conta pelo QR */
+    public function participantes(): Collection
+    {
+        return MesaParticipante::where('mp_sessao_mesa_id', $this->sessaoId)->orderBy('id')->get();
+    }
+
+    public function aprovarPedido(int $pedidoId): void
+    {
+        $pedido = $this->queryPendentes()->find($pedidoId);
+
+        if (! $pedido) {
+            Notification::make()->title('Este pedido já foi decidido.')->warning()->send();
+
+            return;
+        }
+
+        try {
+            $aprovou = app(AprovacaoPedidoMesaService::class)->aprovar($pedido, $this->usuario());
+        } catch (EstoqueInsuficienteException $e) {
+            Notification::make()->title('Sem estoque: '.$e->getMessage())->danger()->send();
+
+            return;
+        } catch (RuntimeException $e) {
+            Notification::make()->title($e->getMessage())->warning()->send();
+
+            return;
+        }
+
+        if ($this->editandoPedidoId === $pedidoId) {
+            $this->cancelarEdicao();
+        }
+
+        Notification::make()
+            ->title($aprovou ? 'Pedido do cliente enviado para a cozinha.' : 'Este pedido já foi decidido.')
+            ->success()
+            ->send();
+    }
+
+    public function recusarPedidoAction(): Action
+    {
+        return Action::make('recusarPedido')
+            ->modalHeading('Recusar o pedido do cliente?')
+            ->modalDescription('O cliente vê o motivo no celular. Nada vai para a cozinha nem para a conta.')
+            ->modalSubmitActionLabel('Recusar pedido')
+            ->color('danger')
+            ->modalWidth('sm')
+            ->schema([
+                TextInput::make('motivo')->label('Motivo')->placeholder('Ex.: item acabou')->required()->maxLength(255),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                $pedido = $this->queryPendentes()->find($arguments['pedido'] ?? null);
+
+                if (! $pedido) {
+                    Notification::make()->title('Este pedido já foi decidido.')->warning()->send();
+
+                    return;
+                }
+
+                try {
+                    app(AprovacaoPedidoMesaService::class)->recusar($pedido, $this->usuario(), $data['motivo']);
+                } catch (RuntimeException $e) {
+                    Notification::make()->title($e->getMessage())->warning()->send();
+
+                    return;
+                }
+
+                if ($this->editandoPedidoId === $pedido->id) {
+                    $this->cancelarEdicao();
+                }
+
+                Notification::make()->title('Pedido recusado.')->success()->send();
+            });
+    }
+
+    /** Abre o pedido do cliente no seletor; o botão de enviar passa a aprovar. */
+    public function editarPedido(int $pedidoId): void
+    {
+        if (! $this->queryPendentes()->whereKey($pedidoId)->exists()) {
+            Notification::make()->title('Este pedido já foi decidido.')->warning()->send();
+
+            return;
+        }
+
+        $this->editandoPedidoId = $pedidoId;
+        $this->itensCarrinho = [];
+        $this->aba = 'pedir';
+        $this->abaPainel = 'rodada';
+    }
+
+    public function cancelarEdicao(): void
+    {
+        $this->editandoPedidoId = null;
+        $this->itensCarrinho = [];
+    }
+
+    public function atenderChamado(int $chamadoId): void
+    {
+        $chamado = MesaChamado::where('mc_sessao_mesa_id', $this->sessaoId)->find($chamadoId);
+
+        if ($chamado) {
+            app(MesaChamadoService::class)->atender($chamado, $this->usuario());
+        }
+
+        $this->avisosMesa = $this->chavesAvisosMesa();
+    }
+
+    public function bloquearParticipante(int $participanteId): void
+    {
+        $participante = MesaParticipante::where('mp_sessao_mesa_id', $this->sessaoId)->findOrFail($participanteId);
+        app(ParticipanteMesaService::class)->bloquear($participante, $this->usuario());
+
+        Notification::make()->title("{$participante->mp_nome} não pode mais pedir pelo celular nesta mesa.")->success()->send();
+    }
+
+    public function desbloquearParticipante(int $participanteId): void
+    {
+        $participante = MesaParticipante::where('mp_sessao_mesa_id', $this->sessaoId)->findOrFail($participanteId);
+        app(ParticipanteMesaService::class)->desbloquear($participante);
+
+        Notification::make()->title("{$participante->mp_nome} pode voltar a pedir pelo celular.")->success()->send();
+    }
+
     // ── Poll ────────────────────────────────────────────────────────────────
 
     public function atualizar(): void
@@ -221,6 +391,20 @@ class AtenderMesa extends Page
             $this->dispatch('garcom-pedido-pronto');
         }
 
+        $avisos = $this->chavesAvisosMesa();
+        $novosAvisos = array_diff($avisos, $this->avisosMesa);
+        $this->avisosMesa = $avisos;
+
+        if ($novosAvisos !== []) {
+            Notification::make()->title('O cliente chamou pelo celular.')->body('Veja o topo da tela.')->warning()->send();
+            $this->dispatch('garcom-pedido-pronto');
+        }
+
+        // O pedido em edição foi decidido em outro aparelho: volta à rodada.
+        if ($this->editandoPedidoId && ! $this->queryPendentes()->whereKey($this->editandoPedidoId)->exists()) {
+            $this->cancelarEdicao();
+        }
+
         if (SessaoMesa::whereKey($this->sessaoId)->value('sessao_mesa_status') !== 'ABERTA') {
             $this->voltarAoMapa('A conta desta mesa foi fechada.');
         }
@@ -231,6 +415,12 @@ class AtenderMesa extends Page
     /** Disparado pelo botão do PedidoProdutoSelector (requestSubmit de #pedido-form). */
     public function enviarRodada(): void
     {
+        if ($this->editandoPedidoId) {
+            $this->aprovarPedido($this->editandoPedidoId);
+
+            return;
+        }
+
         try {
             $enviada = $this->servico()->enviarRodada(Pedido::findOrFail($this->rascunhoId));
         } catch (RuntimeException $e) {
@@ -468,6 +658,24 @@ class AtenderMesa extends Page
     }
 
     // ── Apoio ───────────────────────────────────────────────────────────────
+
+    /** Pedidos do QR desta conta esperando o garçom. */
+    private function queryPendentes(): Builder
+    {
+        return Pedido::query()
+            ->where('pedido_sessao_mesa_id', $this->sessaoId)
+            ->where('pedido_status', StatusPedidoEnum::INICIADO->value)
+            ->where('pedido_aprovacao_status', StatusAprovacaoPedidoEnum::PENDENTE->value);
+    }
+
+    /** @return array<int, string> */
+    private function chavesAvisosMesa(): array
+    {
+        return [
+            ...$this->queryPendentes()->pluck('id')->map(fn ($id) => 'p'.$id)->all(),
+            ...MesaChamado::pendentes()->where('mc_sessao_mesa_id', $this->sessaoId)->pluck('id')->map(fn ($id) => 'c'.$id)->all(),
+        ];
+    }
 
     /** @return array<int, int> */
     private function rodadasProntasIds(): array

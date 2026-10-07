@@ -96,15 +96,27 @@ class PedidoProdutoSelectorPrecoTest extends TestCase
             ->assertSeeText('55,00');
     }
 
-    public function test_grade_do_balcao_exibe_preco_de_promocao_relampago(): void
+    public function test_grade_com_pedido_gravado_exibe_preco_de_promocao_relampago(): void
+    {
+        $marguerita = $this->produto('Marguerita', 55.00);
+        $this->promocao(produtos: [$marguerita]);
+
+        Livewire::test(PedidoProdutoSelector::class, ['pedidoId' => $this->pedido->id])
+            ->assertOk()
+            ->assertSeeText('RELÂMPAGO')
+            ->assertSeeText('39,90');
+    }
+
+    public function test_grade_da_previa_sem_pedido_exibe_o_preco_sem_relampago(): void
     {
         $marguerita = $this->produto('Marguerita', 55.00);
         $this->promocao(produtos: [$marguerita]);
 
         Livewire::test(PedidoProdutoSelector::class)
             ->assertOk()
-            ->assertSeeText('RELÂMPAGO')
-            ->assertSeeText('39,90');
+            ->assertDontSeeText('RELÂMPAGO')
+            ->assertDontSeeText('39,90')
+            ->assertSeeText('55,00');
     }
 
     public function test_confirmar_item_promocional_debita_o_contador_e_congela_o_preco(): void
@@ -208,5 +220,40 @@ class PedidoProdutoSelectorPrecoTest extends TestCase
         $this->assertSame($promocao->id, $item->item_pedido_promocao_id);
         $this->assertSame(55.00, (float) $item->item_pedido_valor_unitario);
         $this->assertSame(39.90, (float) $item->item_pedido_valor);
+    }
+
+    public function test_previa_sem_pedido_cobra_pizza_inteira_dos_sabores_sem_relampago(): void
+    {
+        $this->categoria->update(['categoria_permite_sabores' => true]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
+        $marguerita = $this->produto('Marguerita', 55.00);
+        $promocao = $this->promocao(produtos: [$marguerita]);
+
+        $componente = Livewire::test(PedidoProdutoSelector::class)
+            ->call('selecionarProduto', $marguerita->id)
+            ->call('confirmarSabores');
+
+        $this->assertSame(55.0, $componente->get('itens')[0]['valor']);
+        $this->assertNull($componente->get('itens')[0]['promocao_id']);
+        $this->assertSame(0, (int) $promocao->fresh()->promocao_qtd_vendida);
+    }
+
+    public function test_previa_sem_pedido_cobra_meia_a_meia_sem_relampago(): void
+    {
+        $this->categoria->update(['categoria_permite_sabores' => true]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
+        $calabresa = $this->produto('Calabresa', 50.00);
+        $marguerita = $this->produto('Marguerita', 60.00);
+        $this->promocao(produtos: [$calabresa, $marguerita]);
+
+        $componente = Livewire::test(PedidoProdutoSelector::class)
+            ->call('selecionarProduto', $calabresa->id)
+            ->call('setModoSabores', 2)
+            ->call('toggleSabor', $calabresa->id)
+            ->call('toggleSabor', $marguerita->id)
+            ->call('confirmarSabores');
+
+        $this->assertSame(55.0, $componente->get('itens')[0]['valor']);
+        $this->assertNull($componente->get('itens')[0]['promocao_id']);
     }
 }

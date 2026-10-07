@@ -45,6 +45,14 @@ class MapaMesas extends Page
      */
     public array $prontasAvisadas = [];
 
+    /**
+     * Pedidos do QR e chamados já avisados neste aparelho (chaves de
+     * MapaMesasService::avisosDoGarcom()).
+     *
+     * @var array<int, string>
+     */
+    public array $avisosDados = [];
+
     public static function getRoutePath(Panel $panel): string
     {
         return '/';
@@ -53,6 +61,7 @@ class MapaMesas extends Page
     public function mount(): void
     {
         $this->prontasAvisadas = array_column(app(MapaMesasService::class)->prontasDoGarcom((int) Auth::id()), 'id');
+        $this->avisosDados = array_column(app(MapaMesasService::class)->avisosDoGarcom((int) Auth::id()), 'chave');
     }
 
     /** @return Collection<string, Collection<int, array<string, mixed>>> */
@@ -98,6 +107,32 @@ class MapaMesas extends Page
             ->success()
             ->persistent()
             ->send();
+
+        $this->dispatch('garcom-pedido-pronto');
+    }
+
+    /** Chamado pelo wire:poll: rodadas prontas e o que chegou pelo QR da mesa. */
+    public function verificarAvisos(): void
+    {
+        $this->verificarProntas();
+
+        $avisos = app(MapaMesasService::class)->avisosDoGarcom((int) Auth::id());
+        $novos = array_filter($avisos, fn (array $a) => ! in_array($a['chave'], $this->avisosDados, true));
+
+        $this->avisosDados = array_column($avisos, 'chave');
+
+        if ($novos === []) {
+            return;
+        }
+
+        foreach (collect($novos)->groupBy('titulo') as $titulo => $doTipo) {
+            Notification::make()
+                ->title($titulo)
+                ->body($doTipo->pluck('mesa')->unique()->implode(', '))
+                ->warning()
+                ->persistent()
+                ->send();
+        }
 
         $this->dispatch('garcom-pedido-pronto');
     }

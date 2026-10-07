@@ -2,6 +2,7 @@
     Nome de um item (de pedido ou venda) nas telas: categoria como badge e,
     para pizza de vários sabores, um sabor por linha com a fração por
     extenso ("MEIA CALABRESA" / "MEIA MUSSARELA"). Item comum: o produto.
+    As respostas das perguntas ("Borda: Catupiry") vêm abaixo, uma por linha.
     A impressão tem a versão própria em impressao/nome-item.
 --}}
 @props(['item', 'categoria' => true])
@@ -22,4 +23,8 @@
     @else
         {{ $item->nomeProduto() }}
     @endif
+
+    @foreach ($item->linhasRespostas() as $resposta)
+        <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">{{ $resposta }}</span>
+    @endforeach
 </span>

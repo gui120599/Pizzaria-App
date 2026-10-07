@@ -45,6 +45,7 @@ class ConfirmacoesPedidosTotaisTest extends TestCase
 
         $this->categoria = Categoria::create([
             'categoria_nome' => 'Pizzas',
+            'categoria_cardapio' => true,
             'categoria_permite_sabores' => true,
         ]);
         $this->categoria->sincronizarQuantidadesSabores(2);

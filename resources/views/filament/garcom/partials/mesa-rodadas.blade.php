@@ -18,6 +18,9 @@
             <div class="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-white/10">
                 <div>
                     <span class="font-semibold text-gray-900 dark:text-white">Rodada #{{ $rodada->id }}</span>
+                    @if ($rodada->participante)
+                        <span class="ml-1 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-800 dark:bg-orange-500/15 dark:text-orange-300">Pelo cliente · {{ $rodada->participante->mp_nome }}</span>
+                    @endif
                     <span class="ml-2 text-xs text-gray-500">{{ $rodada->pedido_datahora_abertura ? \Illuminate\Support\Carbon::parse($rodada->pedido_datahora_abertura)->format('H:i') : '' }} @if ($rodada->pedido_usuario_garcom_id) · {{ $rodada->garcom?->name_first ?: $rodada->garcom?->name }} @endif</span>
                     @if (in_array($rodada->id, $idsRemoviveis, true))
                         <button type="button" wire:click="mountAction('removerPedido', { pedido: {{ $rodada->id }} })"
@@ -56,6 +59,9 @@
                             @if ($item->cliente)
                                 <p class="text-xs font-semibold text-primary-600 dark:text-primary-400">{{ $item->cliente->cliente_nome }}</p>
                             @endif
+                            @foreach ($item->linhasRespostas() as $resposta)
+                                <p class="text-xs text-gray-600 dark:text-gray-300">{{ $resposta }}</p>
+                            @endforeach
                             @if ($item->adicionaisItemPedido->isNotEmpty())
                                 <p class="text-xs text-gray-500">+ {{ $item->adicionaisItemPedido->map(fn ($a) => $a->adicional?->adicional_nome)->filter()->implode(', ') }}</p>
                             @endif

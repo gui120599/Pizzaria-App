@@ -197,7 +197,7 @@ class PainelPedidos extends Page implements HasActions
         return PedidoStatusActions::aceitar(fn (Pedido $pedido) => $this->dispatch(
             'imprimir-pedido',
             url: route('pedido.imprimir', ['id' => $pedido->id]),
-            mesa: in_array($pedido->pedido_origem, [PedidoOrigemEnum::MESA, PedidoOrigemEnum::GARCOM], true),
+            mesa: in_array($pedido->pedido_origem, [PedidoOrigemEnum::MESA, PedidoOrigemEnum::MESA_QR, PedidoOrigemEnum::GARCOM], true),
         ));
     }
 
@@ -299,8 +299,10 @@ class PainelPedidos extends Page implements HasActions
     private function despacharRodadasMesaParaImpressao(): void
     {
         $novas = Pedido::query()
-            // Rodadas de mesa e retiradas lançadas pelo Painel do Garçom.
-            ->whereIn('pedido_origem', [PedidoOrigemEnum::MESA->value, PedidoOrigemEnum::GARCOM->value])
+            // Rodadas de mesa e retiradas lançadas pelo Painel do Garçom, e as
+            // rodadas pedidas pelo cliente no QR da mesa (já aprovadas: a
+            // pendente fica INICIADO e só entra aqui quando o garçom aprova).
+            ->whereIn('pedido_origem', [PedidoOrigemEnum::MESA->value, PedidoOrigemEnum::MESA_QR->value, PedidoOrigemEnum::GARCOM->value])
             ->whereNotIn('pedido_status', [StatusPedidoEnum::INICIADO->value, StatusPedidoEnum::CANCELADO->value])
             ->where('pedido_datahora_abertura', '>=', $this->impressaoMesaDesde ?? Carbon::now()->toDateTimeString())
             ->whereNotIn('id', $this->rodadasMesaImpressas)

@@ -51,6 +51,9 @@ class AtendimentoMesaService
             ->where('pedido_sessao_mesa_id', $sessao->id)
             ->where('pedido_status', StatusPedidoEnum::INICIADO->value)
             ->where('pedido_usuario_garcom_id', $garcom->id)
+            // Pedido do QR esperando aprovação também é INICIADO e leva o
+            // garçom da mesa — não é o rascunho dele.
+            ->whereNull('pedido_mesa_participante_id')
             ->latest('id')
             ->first()
             ?? Pedido::create([
@@ -310,9 +313,12 @@ class AtendimentoMesaService
             $sessao = SessaoMesa::whereKey($sessao->getKey())->lockForUpdate()->firstOrFail();
             $this->garantirSessaoAberta($sessao);
 
+            // Só rascunhos de garçom: pedido do QR pendente é recusado no
+            // SessaoMesaService::fechar().
             $rascunhos = Pedido::query()
                 ->where('pedido_sessao_mesa_id', $sessao->id)
                 ->where('pedido_status', StatusPedidoEnum::INICIADO->value)
+                ->whereNull('pedido_mesa_participante_id')
                 ->withCount(['item_pedido_pedido_id as itens_ativos' => fn ($q) => $q->where('item_pedido_status', 'INSERIDO')])
                 ->with('garcom:id,name,name_first')
                 ->lockForUpdate()

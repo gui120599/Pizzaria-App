@@ -3,22 +3,26 @@
 namespace App\Services\Garcom;
 
 use App\Enums\PedidoOrigemEnum;
+use App\Enums\StatusAprovacaoPedidoEnum;
 use App\Enums\StatusMapaMesaEnum;
 use App\Enums\StatusPedidoEnum;
+use App\Enums\TipoChamadoMesaEnum;
 use App\Enums\TipoMesaEnum;
 use App\Models\Mesa;
+use App\Models\MesaChamado;
 use App\Models\Pedido;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Monta o mapa de mesas/comandas do Painel do Garçom em duas queries: as
- * mesas com a sessão atual e um agregado do status das rodadas por sessão.
+ * Monta o mapa de mesas/comandas do Painel do Garçom em poucas queries: as
+ * mesas com a sessão atual, um agregado do status das rodadas por sessão e
+ * o que veio do QR da mesa (pedidos esperando aprovação e chamados).
  */
 class MapaMesasService
 {
     /**
-     * @return Collection<int, array{id: int, nome: string, tipo: TipoMesaEnum, numero: ?int, area: string, capacidade: ?int, status: StatusMapaMesaEnum, sessao_id: ?int, garcom: ?string, pessoas: ?int, minutos_ocupada: ?int, parada: bool, total: float, prontas: int}>
+     * @return Collection<int, array{id: int, nome: string, tipo: TipoMesaEnum, numero: ?int, area: string, capacidade: ?int, status: StatusMapaMesaEnum, sessao_id: ?int, garcom: ?string, pessoas: ?int, minutos_ocupada: ?int, parada: bool, total: float, prontas: int, aprovar: int, querem_abrir: bool}>
      */
     public function mapa(?TipoMesaEnum $tipo = null): Collection
     {
@@ -32,13 +36,22 @@ class MapaMesasService
             ->orderBy('mesa_nome')
             ->get();
 
-        $rodadas = $this->rodadasPorSessao($mesas->pluck('mesa_sessao_atual_id')->filter()->all());
+        $sessaoIds = $mesas->pluck('mesa_sessao_atual_id')->filter()->all();
+        $rodadas = $this->rodadasPorSessao($sessaoIds);
+        $aprovar = $this->aguardandoAprovacaoPorSessao($sessaoIds);
+        $chamados = $this->chamadosPorMesa($mesas->pluck('id')->all());
         $limiteParada = (int) config('pizzaria.salao.alerta_mesa_parada_minutos');
 
-        return $mesas->map(function (Mesa $mesa) use ($rodadas, $limiteParada) {
+        return $mesas->map(function (Mesa $mesa) use ($rodadas, $aprovar, $chamados, $limiteParada) {
             $sessao = $mesa->sessaoAtual?->sessao_mesa_status === 'ABERTA' ? $mesa->sessaoAtual : null;
             $agregado = $sessao ? ($rodadas[$sessao->id] ?? null) : null;
-            $status = $this->status($mesa, $sessao !== null, (bool) $sessao?->sessao_mesa_conta_solicitada_em, $agregado);
+            $aguardando = $sessao ? ($aprovar[$sessao->id] ?? 0) : 0;
+            $chamadosDaMesa = $chamados[$mesa->id] ?? [];
+            $status = match (true) {
+                $sessao !== null && $aguardando > 0 => StatusMapaMesaEnum::APROVAR_PEDIDO,
+                $sessao !== null && in_array(TipoChamadoMesaEnum::CHAMAR_GARCOM->value, $chamadosDaMesa, true) => StatusMapaMesaEnum::CHAMOU_GARCOM,
+                default => $this->status($mesa, $sessao !== null, (bool) $sessao?->sessao_mesa_conta_solicitada_em, $agregado),
+            };
 
             $ultimaAtividade = $sessao
                 ? max($sessao->created_at, $agregado['ultima_rodada'] ?? $sessao->created_at)
@@ -61,6 +74,8 @@ class MapaMesasService
                     && $ultimaAtividade->diffInMinutes(Carbon::now()) >= $limiteParada,
                 'total' => (float) ($agregado['total'] ?? 0),
                 'prontas' => (int) ($agregado['prontas'] ?? 0),
+                'aprovar' => $aguardando,
+                'querem_abrir' => $sessao === null && in_array(TipoChamadoMesaEnum::ABRIR_MESA->value, $chamadosDaMesa, true),
             ];
         });
     }
@@ -87,6 +102,83 @@ class MapaMesasService
                     ? ($pedido->sessaoMesa?->mesa?->mesa_nome ?? 'Mesa')
                     : 'Retirada: '.($pedido->cliente?->cliente_nome ?? '#'.$pedido->id),
             ])
+            ->all();
+    }
+
+    /**
+     * O que pede o garçom agora: pedidos do QR esperando aprovação e chamados
+     * das mesas dele, e pedidos de abertura de qualquer mesa (ainda não têm
+     * garçom). A chave identifica o aviso para não repetir no próximo poll.
+     *
+     * @return list<array{chave: string, titulo: string, mesa: string}>
+     */
+    public function avisosDoGarcom(int $garcomId): array
+    {
+        $pendentes = Pedido::query()
+            ->where('pedido_status', StatusPedidoEnum::INICIADO->value)
+            ->where('pedido_aprovacao_status', StatusAprovacaoPedidoEnum::PENDENTE->value)
+            ->whereHas('sessaoMesa', fn ($q) => $q->where('sessao_mesa_status', 'ABERTA')->where('sessao_mesa_usuario_id', $garcomId))
+            ->with('sessaoMesa.mesa:id,mesa_nome')
+            ->get(['id', 'pedido_sessao_mesa_id'])
+            ->map(fn (Pedido $pedido) => [
+                'chave' => 'p'.$pedido->id,
+                'titulo' => 'Pedido do cliente para aprovar',
+                'mesa' => $pedido->sessaoMesa?->mesa?->mesa_nome ?? 'Mesa',
+            ]);
+
+        $chamados = MesaChamado::pendentes()
+            ->where(fn ($q) => $q
+                ->where('mc_tipo', TipoChamadoMesaEnum::ABRIR_MESA->value)
+                ->orWhereHas('sessaoMesa', fn ($s) => $s->where('sessao_mesa_usuario_id', $garcomId)))
+            ->with('mesa:id,mesa_nome')
+            ->get(['id', 'mc_mesa_id', 'mc_tipo'])
+            ->map(fn (MesaChamado $chamado) => [
+                'chave' => 'c'.$chamado->id,
+                'titulo' => $chamado->mc_tipo->label(),
+                'mesa' => $chamado->mesa?->mesa_nome ?? 'Mesa',
+            ]);
+
+        return $pendentes->concat($chamados)->values()->all();
+    }
+
+    /**
+     * @param  array<int, int>  $sessaoIds
+     * @return array<int, int> sessão => pedidos do QR esperando aprovação
+     */
+    private function aguardandoAprovacaoPorSessao(array $sessaoIds): array
+    {
+        if ($sessaoIds === []) {
+            return [];
+        }
+
+        return Pedido::query()
+            ->whereIn('pedido_sessao_mesa_id', $sessaoIds)
+            ->where('pedido_status', StatusPedidoEnum::INICIADO->value)
+            ->where('pedido_aprovacao_status', StatusAprovacaoPedidoEnum::PENDENTE->value)
+            ->selectRaw('pedido_sessao_mesa_id, COUNT(*) AS total')
+            ->groupBy('pedido_sessao_mesa_id')
+            ->toBase()
+            ->pluck('total', 'pedido_sessao_mesa_id')
+            ->map(fn ($total) => (int) $total)
+            ->all();
+    }
+
+    /**
+     * @param  array<int, int>  $mesaIds
+     * @return array<int, list<string>> mesa => tipos de chamado pendentes
+     */
+    private function chamadosPorMesa(array $mesaIds): array
+    {
+        if ($mesaIds === []) {
+            return [];
+        }
+
+        return MesaChamado::pendentes()
+            ->whereIn('mc_mesa_id', $mesaIds)
+            ->toBase()
+            ->get(['mc_mesa_id', 'mc_tipo'])
+            ->groupBy('mc_mesa_id')
+            ->map(fn ($linhas) => $linhas->pluck('mc_tipo')->unique()->values()->all())
             ->all();
     }
 

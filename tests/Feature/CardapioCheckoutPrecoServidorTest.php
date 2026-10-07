@@ -36,7 +36,7 @@ class CardapioCheckoutPrecoServidorTest extends TestCase
             'horario_fechamento' => '23:59:59',
         ]);
 
-        $categoria = Categoria::create(['categoria_nome' => 'Pizzas', 'categoria_permite_sabores' => true]);
+        $categoria = Categoria::create(['categoria_nome' => 'Pizzas', 'categoria_cardapio' => true, 'categoria_permite_sabores' => true]);
         $categoria->sincronizarQuantidadesSabores(2);
 
         $this->pizza = Produto::create([

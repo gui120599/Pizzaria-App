@@ -9,6 +9,8 @@ enum PedidoOrigemEnum: string
     case MESA = 'mesa';
     /** Retirada lançada pelo garçom no Painel do Garçom, fora de sessão de mesa. */
     case GARCOM = 'garcom';
+    /** Pedido feito pelo próprio cliente no QR da mesa, dentro da sessão da mesa. */
+    case MESA_QR = 'mesa_qr';
 
     public function label(): string
     {
@@ -17,6 +19,7 @@ enum PedidoOrigemEnum: string
             self::ATENDENTE => 'Atendente',
             self::MESA => 'Mesa',
             self::GARCOM => 'Garçom (retirada)',
+            self::MESA_QR => 'Mesa (QR do cliente)',
         };
     }
 }

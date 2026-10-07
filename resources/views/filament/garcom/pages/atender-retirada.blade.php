@@ -148,6 +148,9 @@
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">
                                         {{ \App\Support\FormatoQuantidade::item($item->item_pedido_quantidade) }}× {{ $item->nomeProduto() }}
                                     </p>
+                                    @foreach ($item->linhasRespostas() as $resposta)
+                                        <p class="text-xs text-gray-600 dark:text-gray-300">{{ $resposta }}</p>
+                                    @endforeach
                                     @if ($item->adicionaisItemPedido->isNotEmpty())
                                         <p class="text-xs text-gray-500">+ {{ $item->adicionaisItemPedido->map(fn ($a) => $a->adicional?->adicional_nome)->filter()->implode(', ') }}</p>
                                     @endif

@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\Mesa;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Mesa>
+ * @extends Factory<Mesa>
  */
 class MesaFactory extends Factory
 {
@@ -17,7 +18,9 @@ class MesaFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'mesa_nome' => 'Mesa '.fake()->unique()->numberBetween(1, 999),
+            'mesa_status' => 'LIBERADA',
+            'mesa_tipo' => 'MESA',
         ];
     }
 }

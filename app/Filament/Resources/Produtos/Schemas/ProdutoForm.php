@@ -148,6 +148,13 @@ class ProdutoForm
                             ->default(false)
                             ->inline(false)
                             ->columnSpan(1),
+
+                        Toggle::make('produto_requer_aprovacao_mesa')
+                            ->label('Pedido pelo QR da mesa passa pelo garçom')
+                            ->helperText('Ex.: bebida alcoólica. O garçom aprova antes de ir para a cozinha.')
+                            ->default(false)
+                            ->inline(false)
+                            ->columnSpan(1),
                     ]),
 
                 Fieldset::make('Nome exibido')

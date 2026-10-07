@@ -116,13 +116,15 @@ class PromocaoRelampagoRecorrenteTest extends TestCase
 
     public function test_janela_atravessando_meia_noite(): void
     {
+        // Relógio fixo antes de criar: o início da promoção é relativo a now().
+        Carbon::setTestNow(Carbon::parse('2026-07-14 23:30:00'));
+
         $promocao = $this->promocaoRecorrente([
             'promocao_dias_semana' => [2],
             'promocao_hora_inicio' => '22:00:00',
             'promocao_hora_fim' => '02:00:00',
         ]);
 
-        Carbon::setTestNow(Carbon::parse('2026-07-14 23:30:00'));
         $this->assertTrue($promocao->vigente());
 
         Carbon::setTestNow(Carbon::parse('2026-07-15 01:30:00'));

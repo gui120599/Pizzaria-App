@@ -26,7 +26,7 @@ class PDFController extends Controller
             ->where('item_pedido_pedido_id', $pedido_id)
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
-        $pedido = Pedido::with(['cliente', 'garcom', 'opcaoEntrega', 'sessaoMesa.mesa', 'pagamentosCombinados'])->find($pedido_id);
+        $pedido = Pedido::with(['cliente', 'garcom', 'opcaoEntrega', 'sessaoMesa.mesa', 'pagamentosCombinados', 'participante'])->find($pedido_id);
 
         return view('pedidoPDF', ['itens_inserido_pedido' => $itensInseridoPedido, 'pedido' => $pedido]);
     }
@@ -110,14 +110,14 @@ class PDFController extends Controller
     }
 
     /**
-     * Soma itens iguais — mesma categoria, nome (com sabores), adicionais e
-     * observação. A categoria entra na chave porque o mesmo sabor existe em
+     * Soma itens iguais — mesma categoria, nome (com sabores), respostas das
+     * perguntas, adicionais e observação. A categoria entra na chave porque o mesmo sabor existe em
      * tamanhos diferentes (Calabresa Grande × Broto). O primeiro item do grupo
      * vai junto para a linha imprimir o nome pelo mesmo componente das outras
      * impressões (badge da categoria + um sabor por linha).
      *
      * @param  Collection<int, ItensPedido>  $itens
-     * @return array<int, array{item: ItensPedido, categoria: ?int, nome: string, adicionais: string, observacao: string, quantidade: float, valor: float, desconto: float}>
+     * @return array<int, array{item: ItensPedido, categoria: ?int, nome: string, respostas: string, adicionais: string, observacao: string, quantidade: float, valor: float, desconto: float}>
      */
     private function agruparItensIguais(Collection $itens): array
     {
@@ -126,13 +126,14 @@ class PDFController extends Controller
                 'item' => $item,
                 'categoria' => $item->produto?->produto_categoria_id,
                 'nome' => $item->nomeProduto(),
+                'respostas' => $item->descricaoRespostas(),
                 'adicionais' => $item->adicionaisItemPedido->map(fn ($a) => $a->adicional?->adicional_nome)->filter()->sort()->implode(', '),
                 'observacao' => trim((string) $item->item_pedido_observacao),
                 'quantidade' => (float) $item->item_pedido_quantidade,
                 'valor' => (float) $item->item_pedido_valor,
                 'desconto' => (float) $item->item_pedido_desconto,
             ])
-            ->groupBy(fn (array $linha) => $linha['categoria'].'|'.$linha['nome'].'|'.$linha['adicionais'].'|'.$linha['observacao'])
+            ->groupBy(fn (array $linha) => $linha['categoria'].'|'.$linha['nome'].'|'.$linha['respostas'].'|'.$linha['adicionais'].'|'.$linha['observacao'])
             ->map(fn (Collection $iguais) => [
                 ...$iguais->first(),
                 'quantidade' => round($iguais->sum('quantidade'), 4),

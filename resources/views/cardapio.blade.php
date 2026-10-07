@@ -10,8 +10,13 @@
                 <x-primary-button
                     @click="$store.cart.drawerOpen = true"
                     class="w-full flex items-center justify-center gap-1">
-                    <i class='bx bxl-whatsapp'></i>
-                    <span>Realizar Pedido</span>
+                    @if ($mesaCliente)
+                        <i class='bx bx-cart'></i>
+                        <span>Meu Pedido</span>
+                    @else
+                        <i class='bx bxl-whatsapp'></i>
+                        <span>Realizar Pedido</span>
+                    @endif
                     <span x-show="$store.cart.count > 0"
                           x-text="$store.cart.count"
                           class="bg-white text-green-700 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none"
@@ -19,6 +24,9 @@
                 </x-primary-button>
             </div>
             <div class="col-span-1 flex items-center justify-center">
+                @if ($mesaCliente)
+                    @include('mesa-cliente.botao-painel')
+                @else
                 <div class="relative mt-2" x-data="{ menuOpen: false }" @keydown.escape.window="menuOpen = false">
                     <button type="button"
                         @click="menuOpen = !menuOpen"
@@ -43,6 +51,7 @@
                         </a>
                     </div>
                 </div>
+                @endif
             </div>
             <div class="col-span-full">
                 <hr class="h-px my-1 border-0 bg-gray-400">
@@ -96,6 +105,10 @@
              padding-top, sobrava uma fresta acima do cabeçalho fixo onde o
              conteúdo já rolado aparecia por trás. --}}
         <div class="h-[74%] overflow-y-auto px-2 pb-2">
+
+            @if ($mesaCliente)
+                @include('mesa-cliente.faixa')
+            @endif
 
             {{-- Seção informativa da promoção adicional ("leve outro produto por +R$X") --}}
             @if ($campanhasAdicionaisAtivas->isNotEmpty())
@@ -443,6 +456,14 @@
                 <div x-show="$store.cart.step === 'cart'" class="flex flex-col flex-1 min-h-0">
 
                     {{-- Banner de fechado (reativo — recalcula ao abrir o drawer) --}}
+                    @if ($mesaCliente)
+                    <template x-if="!$store.cart.estaAbertoAgora()">
+                        <div class="mx-4 mt-3 px-4 py-3 bg-red-900/60 border border-red-700 rounded-xl flex items-start gap-3">
+                            <i class='bx bx-lock-alt text-red-400 text-xl shrink-0 mt-0.5'></i>
+                            <p class="text-red-300 font-bold text-sm" x-text="$store.mesa.mensagemBloqueio()"></p>
+                        </div>
+                    </template>
+                    @else
                     <template x-if="!$store.cart.estaAbertoAgora()">
                         <div class="mx-4 mt-3 px-4 py-3 bg-red-900/60 border border-red-700 rounded-xl flex items-start gap-3">
                             <i class='bx bx-time-five text-red-400 text-xl shrink-0 mt-0.5'></i>
@@ -453,6 +474,7 @@
                             </div>
                         </div>
                     </template>
+                    @endif
 
                     <div class="overflow-y-auto flex-1 px-4 py-3 space-y-1">
                         <template x-if="$store.cart.items.length === 0">
@@ -476,6 +498,12 @@
                                     </div>
                                     <div class="flex-1 min-w-0">
                                         <span class="text-gray-200 text-sm leading-tight uppercase block" x-text="item.nome"></span>
+                                        <template x-for="linha in (item.respostasTexto ?? [])" :key="linha">
+                                            <span class="text-gray-400 text-[11px] leading-tight block" x-text="linha"></span>
+                                        </template>
+                                        <span x-show="(item.adicionaisTexto ?? []).length" style="display:none"
+                                              class="text-gray-400 text-[11px] leading-tight block"
+                                              x-text="'+ ' + (item.adicionaisTexto ?? []).join(', ')"></span>
                                         <span x-show="(item.precoOriginal ?? item.preco) > item.preco"
                                               class="text-orange-400 text-[10px] font-semibold"
                                               x-text="'PROMO — economize R$ ' + (((item.precoOriginal ?? item.preco) - item.preco) * item.qty).toFixed(2).replace('.', ',')"
@@ -535,6 +563,9 @@
                             <span class="text-green-400 text-2xl font-bold"
                                   x-text="'R$ ' + $store.cart.total.toFixed(2).replace('.', ',')"></span>
                         </div>
+                        @if ($mesaCliente)
+                            @include('mesa-cliente.enviar')
+                        @else
                         <button @click="$store.cart.step = 'checkout'"
                                 :disabled="$store.cart.items.length === 0 || !$store.cart.estaAbertoAgora()"
                                 class="w-full py-4 bg-green-500 hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl flex items-center justify-center gap-2 uppercase tracking-wide transition-colors text-sm">
@@ -545,6 +576,7 @@
                                 <span class="flex items-center gap-2">Continuar <i class='bx bx-chevron-right text-lg'></i></span>
                             </template>
                         </button>
+                        @endif
                         <button @click="$store.cart.clear()"
                                 x-show="$store.cart.items.length > 0"
                                 style="display:none"
@@ -1014,6 +1046,90 @@
     </div>
 
     {{-- ══════════════════════════════════════════════════ --}}
+    {{-- Modal: montagem do item (perguntas e adicionais) --}}
+    {{-- ══════════════════════════════════════════════════ --}}
+    <div x-show="$store.cart.montagemModal.open" x-cloak
+         class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center"
+         style="display:none">
+        <div class="absolute inset-0 bg-black/70" @click="$store.cart.cancelarMontagem()"></div>
+        <div x-show="$store.cart.montagemModal.open"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+             class="relative w-full max-w-sm max-h-[90vh] flex flex-col bg-gray-900 border border-gray-700 rounded-t-2xl sm:rounded-2xl z-10">
+            <div class="px-5 pt-5 pb-3 border-b border-gray-800 shrink-0">
+                <h3 class="text-white font-bold text-lg uppercase leading-tight" x-text="$store.cart.montagemModal.pending?.nome"></h3>
+                <p class="text-gray-400 text-xs mt-1">Escolha as opções do seu pedido</p>
+            </div>
+            <div class="px-5 py-4 space-y-5 overflow-y-auto">
+                <template x-for="pergunta in $store.cart.montagemModal.perguntas" :key="pergunta.id">
+                    <div>
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <span class="text-white text-sm font-semibold" x-text="pergunta.texto"></span>
+                            <span class="text-[10px] font-bold uppercase rounded px-1.5 py-0.5 shrink-0"
+                                  :class="pergunta.minimo > 0
+                                      ? ($store.cart.faltaResponder(pergunta) ? 'bg-red-500/20 text-red-300' : 'bg-green-500/20 text-green-300')
+                                      : 'bg-gray-700 text-gray-300'"
+                                  x-text="(pergunta.minimo > 0 ? 'Obrigatório' : 'Opcional') + (pergunta.maximo > 1 ? ' · até ' + pergunta.maximo : '')"></span>
+                        </div>
+                        <div class="space-y-2">
+                            <template x-for="opcao in pergunta.opcoes" :key="opcao.id">
+                                <button type="button" @click="$store.cart.alternarResposta(pergunta, opcao.id)"
+                                        class="w-full min-h-[48px] flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors"
+                                        :class="$store.cart.respostaMarcada(pergunta.id, opcao.id) ? 'border-green-500 bg-green-500/10' : 'border-gray-700 bg-black/30 hover:bg-black/50'">
+                                    <span class="flex items-center gap-3 min-w-0">
+                                        <span class="w-5 h-5 shrink-0 border-2 flex items-center justify-center"
+                                              :class="[pergunta.maximo <= 1 ? 'rounded-full' : 'rounded', $store.cart.respostaMarcada(pergunta.id, opcao.id) ? 'border-green-500 bg-green-500' : 'border-gray-500']">
+                                            <i x-show="$store.cart.respostaMarcada(pergunta.id, opcao.id)" class='bx bx-check text-white text-sm'></i>
+                                        </span>
+                                        <span class="text-white text-sm" x-text="opcao.nome"></span>
+                                    </span>
+                                    <span x-show="opcao.valor > 0" class="text-green-400 text-sm font-bold shrink-0"
+                                          x-text="'+R$ ' + opcao.valor.toFixed(2).replace('.', ',')"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="$store.cart.montagemModal.adicionais.length > 0" style="display:none">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <span class="text-white text-sm font-semibold">Adicionais</span>
+                        <span class="text-[10px] font-bold uppercase rounded px-1.5 py-0.5 bg-gray-700 text-gray-300">Opcional</span>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="adicional in $store.cart.montagemModal.adicionais" :key="adicional.id">
+                            <button type="button" @click="$store.cart.alternarAdicional(adicional.id)"
+                                    class="w-full min-h-[48px] flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors"
+                                    :class="$store.cart.adicionalMarcado(adicional.id) ? 'border-green-500 bg-green-500/10' : 'border-gray-700 bg-black/30 hover:bg-black/50'">
+                                <span class="flex items-center gap-3 min-w-0">
+                                    <span class="w-5 h-5 shrink-0 border-2 rounded flex items-center justify-center"
+                                          :class="$store.cart.adicionalMarcado(adicional.id) ? 'border-green-500 bg-green-500' : 'border-gray-500'">
+                                        <i x-show="$store.cart.adicionalMarcado(adicional.id)" class='bx bx-check text-white text-sm'></i>
+                                    </span>
+                                    <span class="text-white text-sm" x-text="adicional.nome"></span>
+                                </span>
+                                <span class="text-green-400 text-sm font-bold shrink-0"
+                                      x-text="'+R$ ' + adicional.valor.toFixed(2).replace('.', ',')"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            <div class="px-5 pt-3 pb-5 border-t border-gray-800 flex gap-3 shrink-0">
+                <button type="button" @click="$store.cart.cancelarMontagem()"
+                        class="flex-1 py-3 rounded-xl border border-gray-600 text-gray-300 text-sm font-semibold hover:bg-gray-800 transition-colors">
+                    Cancelar
+                </button>
+                <button type="button" @click="$store.cart.confirmarMontagem()"
+                        :disabled="!$store.cart.perguntasRespondidas"
+                        class="flex-[2] py-3 rounded-xl text-sm font-bold transition-colors"
+                        :class="$store.cart.perguntasRespondidas ? 'bg-green-500 hover:bg-green-400 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'"
+                        x-text="$store.cart.perguntasRespondidas
+                            ? 'Adicionar · R$ ' + (($store.cart.montagemModal.pending?.preco ?? 0) + $store.cart.acrescimoMontagem).toFixed(2).replace('.', ',')
+                            : 'Responda as obrigatórias'"></button>
+            </div>
+        </div>
+    </div>
+
+    {{-- ══════════════════════════════════════════════════ --}}
     {{-- Botão flutuante de avaliações (speed dial)        --}}
     {{-- ══════════════════════════════════════════════════ --}}
     <template x-if="_avaliacaoLinks.length > 0">
@@ -1054,9 +1170,13 @@
         </div>
     </template>
 
+    @if ($mesaCliente)
+        @include('mesa-cliente.modais')
+    @endif
+
     </div>{{-- /x-data --}}
 
-    @if(config('services.recaptcha.site_key'))
+    @if(! $mesaCliente && config('services.recaptcha.site_key'))
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     @endif
 
@@ -1073,11 +1193,21 @@
         const _avaliacaoLinks       = @js($avaliacaoLinks);
         // Promoção "leve outro produto por +R$X", indexada pelo produto gatilho.
         const _promocoesAdicionais  = @js($promocoesAdicionais);
+        // Perguntas do item (borda, ponto da carne): por produto (item comum e
+        // pizza inteira) e por categoria (pizza de sabores). O servidor revalida.
+        const _perguntasProdutos    = @js($perguntasProdutos);
+        const _perguntasCombos      = @js($perguntasCombos);
+        // Adicionais vinculados a cada produto (bacon, cheddar...).
+        const _adicionaisProdutos   = @js($adicionaisProdutos);
+        // Página do QR da mesa (null no delivery): o carrinho é deste celular
+        // nesta mesa e o envio vai para a conta da mesa, não para o WhatsApp.
+        const _mesaCliente          = @js($mesaCliente);
+        const _chaveCarrinho        = _mesaCliente ? 'mesa_cart_' + _mesaCliente.codigo : 'cardapio_cart';
 
         document.addEventListener('alpine:init', () => {
             Alpine.store('cart', {
                 // ── Estado do carrinho ──
-                items: JSON.parse(localStorage.getItem('cardapio_cart') || '[]').map(i => ({
+                items: JSON.parse(localStorage.getItem(_chaveCarrinho) || '[]').map(i => ({
                     cartKey: i.cartKey ?? String(i.id),
                     ...i,
                 })),
@@ -1095,6 +1225,11 @@
                 // empurrado pra items[] depois que o cliente escolhe uma opção
                 // (ou recusa) — nada é adicionado sozinho.
                 ofertaModal: { open: false, pending: null, ofertas: [] },
+
+                // ── Modal de montagem do item (perguntas e adicionais) ──
+                // pending é o item já montado; só entra no carrinho depois da
+                // montagem, seguindo para aposMontar (oferta ou direto).
+                montagemModal: { open: false, pending: null, perguntas: [], respostas: {}, adicionais: [], adicionaisMarcados: [], aposMontar: null },
 
                 // Nomes dos produtos cuja oferta foi removida automaticamente
                 // por causa da forma de pagamento escolhida (ver
@@ -1127,6 +1262,8 @@
 
                 // ── Verificação de horário (recalcula a cada chamada) ──
                 estaAbertoAgora() {
+                    // Na mesa vale a conta aberta, não o horário do delivery.
+                    if (_mesaCliente) return Alpine.store('mesa').podePedir;
                     if (!_horarios.length) return true;
                     const agora = new Date();
                     const dia   = agora.getDay();
@@ -1136,7 +1273,7 @@
                     return _horarios.some(h => h.dia === dia && h.abertura <= hora && h.fechamento >= hora);
                 },
                 proximoHorarioAgora() {
-                    if (!_horarios.length) return null;
+                    if (_mesaCliente || !_horarios.length) return null;
                     const agora = new Date();
                     const dias  = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
                     const hh    = agora.getHours().toString().padStart(2, '0');
@@ -1162,14 +1299,95 @@
                         this.drawerOpen = true;
                         return;
                     }
-                    const key = String(id);
-                    const idx = this.items.findIndex(i => i.cartKey === key);
+                    const itemData = { cartKey: String(id), id, nome, preco, precoOriginal: precoOriginal ?? preco, qty: 1, foto, obs: '' };
+                    // Produto com perguntas ou adicionais sempre abre a montagem:
+                    // cada combinação de escolhas é uma linha própria do carrinho.
+                    const perguntas  = _perguntasProdutos[id] ?? [];
+                    const adicionais = _adicionaisProdutos[id] ?? [];
+                    if (perguntas.length > 0 || adicionais.length > 0) {
+                        this.montar(itemData, perguntas, adicionais, (item) => this.adicionarOuOferecer(item));
+                        return;
+                    }
+                    const idx = this.items.findIndex(i => i.cartKey === itemData.cartKey);
                     if (idx >= 0) {
                         this.items[idx].qty++;
                         this.save();
                         return;
                     }
-                    this.adicionarOuOferecer({ cartKey: key, id, nome, preco, precoOriginal: precoOriginal ?? preco, qty: 1, foto, obs: '' });
+                    this.adicionarOuOferecer(itemData);
+                },
+                // ── Montagem do item (perguntas e adicionais) ──
+                montar(itemData, perguntas, adicionais, aposMontar) {
+                    this.montagemModal = { open: true, pending: itemData, perguntas, respostas: {}, adicionais, adicionaisMarcados: [], aposMontar };
+                },
+                respostaMarcada(perguntaId, opcaoId) {
+                    return (this.montagemModal.respostas[perguntaId] ?? []).includes(opcaoId);
+                },
+                /** Escolha única troca a opção; múltipla marca até o máximo da pergunta. */
+                alternarResposta(pergunta, opcaoId) {
+                    const marcadas = this.montagemModal.respostas[pergunta.id] ?? [];
+                    let novas = marcadas;
+                    if (marcadas.includes(opcaoId)) novas = marcadas.filter(id => id !== opcaoId);
+                    else if (pergunta.maximo <= 1) novas = [opcaoId];
+                    else if (marcadas.length < pergunta.maximo) novas = [...marcadas, opcaoId];
+                    this.montagemModal.respostas = { ...this.montagemModal.respostas, [pergunta.id]: novas };
+                },
+                faltaResponder(pergunta) {
+                    return (this.montagemModal.respostas[pergunta.id] ?? []).length < pergunta.minimo;
+                },
+                get perguntasRespondidas() {
+                    return this.montagemModal.perguntas.every(p => !this.faltaResponder(p));
+                },
+                adicionalMarcado(adicionalId) {
+                    return this.montagemModal.adicionaisMarcados.includes(adicionalId);
+                },
+                alternarAdicional(adicionalId) {
+                    const marcados = this.montagemModal.adicionaisMarcados;
+                    this.montagemModal.adicionaisMarcados = marcados.includes(adicionalId)
+                        ? marcados.filter(id => id !== adicionalId)
+                        : [...marcados, adicionalId];
+                },
+                /** Acréscimo das opções e adicionais marcados, por unidade — o servidor cobra o mesmo. */
+                get acrescimoMontagem() {
+                    const respostas = this.montagemModal.perguntas.reduce((total, p) => total + p.opcoes
+                        .filter(o => this.respostaMarcada(p.id, o.id))
+                        .reduce((s, o) => s + o.valor, 0), 0);
+                    const adicionais = this.montagemModal.adicionais
+                        .filter(a => this.adicionalMarcado(a.id))
+                        .reduce((s, a) => s + a.valor, 0);
+                    return respostas + adicionais;
+                },
+                confirmarMontagem() {
+                    if (!this.perguntasRespondidas) return;
+                    const { pending, perguntas, respostas, adicionais, aposMontar } = this.montagemModal;
+                    const acrescimo = this.acrescimoMontagem;
+                    const respondidas = perguntas
+                        .map(p => ({ pergunta: p, opcoes: p.opcoes.filter(o => (respostas[p.id] ?? []).includes(o.id)) }))
+                        .filter(r => r.opcoes.length > 0);
+                    const escolhidos = adicionais.filter(a => this.adicionalMarcado(a.id));
+                    const itemData = {
+                        ...pending,
+                        preco: Math.round((pending.preco + acrescimo) * 100) / 100,
+                        precoOriginal: Math.round(((pending.precoOriginal ?? pending.preco) + acrescimo) * 100) / 100,
+                        respostas: Object.fromEntries(respondidas.map(r => [r.pergunta.id, r.opcoes.map(o => o.id)])),
+                        respostasTexto: respondidas.map(r => r.pergunta.texto + ': ' + r.opcoes.map(o => o.nome).join(', ')),
+                        adicionais: escolhidos.map(a => a.id),
+                        adicionaisTexto: escolhidos.map(a => a.nome),
+                        cartKey: pending.cartKey
+                            + '|' + respondidas.map(r => r.pergunta.id + ':' + r.opcoes.map(o => o.id).join('.')).join(',')
+                            + '|' + escolhidos.map(a => a.id).sort((x, y) => x - y).join('.'),
+                    };
+                    this.cancelarMontagem();
+                    const existente = this.items.find(i => i.cartKey === itemData.cartKey);
+                    if (existente) {
+                        existente.qty++;
+                        this.save();
+                        return;
+                    }
+                    aposMontar(itemData);
+                },
+                cancelarMontagem() {
+                    this.montagemModal = { open: false, pending: null, perguntas: [], respostas: {}, adicionais: [], adicionaisMarcados: [], aposMontar: null };
                 },
                 /**
                  * Produto novo no carrinho (nunca um incremento de quantidade):
@@ -1247,7 +1465,10 @@
                     if (item) { item.qty++; this.save(); }
                 },
                 decrement(cartKey) {
-                    const idx = this.items.findIndex(i => i.cartKey === String(cartKey));
+                    let idx = this.items.findIndex(i => i.cartKey === String(cartKey));
+                    // Card do produto passa o id: com perguntas, as linhas têm
+                    // chave própria (id + respostas) — tira da última adicionada.
+                    if (idx < 0 && typeof cartKey === 'number') idx = this.items.findLastIndex(i => i.id === cartKey);
                     if (idx < 0) return;
                     this.items[idx].qty--;
                     if (this.items[idx].qty <= 0) this.items.splice(idx, 1);
@@ -1272,8 +1493,8 @@
                     return opcao.valor_frete;
                 },
                 get totalComFrete() { return this.total + this.valorFrete; },
-                save()  { localStorage.setItem('cardapio_cart', JSON.stringify(this.items)); },
-                clear() { this.items = []; this.avisoPagamentoRemovido = []; this.avisoPagamentoRestaurado = []; localStorage.removeItem('cardapio_cart'); },
+                save()  { localStorage.setItem(_chaveCarrinho, JSON.stringify(this.items)); },
+                clear() { this.items = []; this.avisoPagamentoRemovido = []; this.avisoPagamentoRestaurado = []; localStorage.removeItem(_chaveCarrinho); },
 
                 // ── Sabores (meia a meia / terços) ──
                 abrirSabores(categoriaId, categoriaNome, maxSabores, produtoId = null) {
@@ -1370,21 +1591,37 @@
                     const idx = this.items.findIndex(i => i.cartKey === cartKey);
                     const sabores = sel.length > 1 ? sel.map(s => ({ id: s.id, nome: s.nome, preco: s.preco, precoOriginal: s.precoOriginal ?? s.preco })) : null;
                     const foto = sel[0]?.foto ?? '';
+                    const itemData = { cartKey, id: sel[0].id, nome, preco, precoOriginal, qty: 1, foto, sabores, obs: '' };
+                    // Pizza inteira responde as perguntas do produto; pizza de
+                    // sabores, as da categoria — e só leva os adicionais
+                    // vinculados a todos os sabores (mesma regra do servidor).
+                    const perguntas = sel.length > 1
+                        ? (_perguntasCombos[this.saboresModal.categoriaId] ?? [])
+                        : (_perguntasProdutos[sel[0].id] ?? []);
+                    const adicionais = sel
+                        .map(s => _adicionaisProdutos[s.id] ?? [])
+                        .reduce((comuns, doSabor) => comuns.filter(a => doSabor.some(b => b.id === a.id)));
+                    // Só pizza inteira (1 sabor) participa da promoção adicional —
+                    // meia a meia/terços ficam fora do escopo (mesma regra do servidor).
+                    const seguir = (item) => {
+                        if (sel.length === 1) {
+                            this.adicionarOuOferecer(item);
+                        } else {
+                            this.items.push(item);
+                            this.save();
+                        }
+                    };
                     this.saboresModal.open = false;
+                    if (perguntas.length > 0 || adicionais.length > 0) {
+                        this.montar(itemData, perguntas, adicionais, seguir);
+                        return;
+                    }
                     if (idx >= 0) {
                         this.items[idx].qty++;
                         this.save();
                         return;
                     }
-                    const itemData = { cartKey, id: sel[0].id, nome, preco, precoOriginal, qty: 1, foto, sabores, obs: '' };
-                    // Só pizza inteira (1 sabor) participa da promoção adicional —
-                    // meia a meia/terços ficam fora do escopo (mesma regra do servidor).
-                    if (sel.length === 1) {
-                        this.adicionarOuOferecer(itemData);
-                    } else {
-                        this.items.push(itemData);
-                        this.save();
-                    }
+                    seguir(itemData);
                 },
 
                 // ── Máscara monetária para troco ──
@@ -1496,6 +1733,8 @@
                                     preco_original: i.precoOriginal ?? i.preco,
                                     observacao:     i.obs?.trim() || null,
                                     sabores:        i.sabores ?? null,
+                                    respostas:      i.respostas ?? null,
+                                    adicionais:     i.adicionais ?? null,
                                     // O servidor NUNCA usa o valor/regra daqui — só qual
                                     // produto foi escolhido. Ele revalida do zero (regra
                                     // vigente, saldo, forma de pagamento) via
@@ -1520,6 +1759,8 @@
                             const precoExib = (i.precoOriginal ?? i.preco);
                             const sub = (precoExib * i.qty).toFixed(2).replace('.', ',');
                             msg += `• ${i.qty}x ${i.nome} — R$${sub}\n`;
+                            (i.respostasTexto ?? []).forEach(r => { msg += `  ${r}\n`; });
+                            if ((i.adicionaisTexto ?? []).length) msg += `  + ${i.adicionaisTexto.join(', ')}\n`;
                             if (i.oferta) {
                                 const subOferta = i.oferta.valorAdicional.toFixed(2).replace('.', ',');
                                 msg += `  🎉 Promoção: ${i.oferta.nomeExibicao} — R$${subOferta}\n`;

@@ -8,6 +8,10 @@ namespace App\Enums;
  */
 enum StatusMapaMesaEnum: string
 {
+    /** Pedido do cliente pelo QR esperando o garçom aprovar. */
+    case APROVAR_PEDIDO = 'APROVAR_PEDIDO';
+    /** Cliente tocou em "Chamar garçom" no QR. */
+    case CHAMOU_GARCOM = 'CHAMOU_GARCOM';
     case CONTA_SOLICITADA = 'CONTA_SOLICITADA';
     case PRONTO = 'PRONTO';
     case EM_PREPARO = 'EM_PREPARO';
@@ -19,6 +23,8 @@ enum StatusMapaMesaEnum: string
     public function label(): string
     {
         return match ($this) {
+            self::APROVAR_PEDIDO => 'Aprovar pedido',
+            self::CHAMOU_GARCOM => 'Chamou o garçom',
             self::CONTA_SOLICITADA => 'Pediu a conta',
             self::PRONTO => 'Pedido pronto',
             self::EM_PREPARO => 'Em preparo',
@@ -33,6 +39,8 @@ enum StatusMapaMesaEnum: string
     public function classes(): string
     {
         return match ($this) {
+            self::APROVAR_PEDIDO => 'bg-orange-500 text-white ring-orange-600 animate-pulse',
+            self::CHAMOU_GARCOM => 'bg-yellow-300 text-yellow-950 ring-yellow-500 animate-pulse',
             self::CONTA_SOLICITADA => 'bg-violet-600 text-white ring-violet-700',
             self::PRONTO => 'bg-emerald-500 text-white ring-emerald-600 animate-pulse',
             self::EM_PREPARO => 'bg-amber-400 text-amber-950 ring-amber-500',

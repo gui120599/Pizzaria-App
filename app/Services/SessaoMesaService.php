@@ -6,6 +6,8 @@ use App\Exceptions\MesaIndisponivelException;
 use App\Models\Mesa;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
+use App\Services\MesaCliente\AprovacaoPedidoMesaService;
+use App\Services\MesaCliente\MesaChamadoService;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -57,6 +59,9 @@ class SessaoMesaService
                 'mesa_sessao_atual_id' => $sessaoMesa->id,
             ]);
 
+            // Quem leu o QR com a mesa fechada e pediu para abrir foi atendido.
+            app(MesaChamadoService::class)->atenderAberturaDaMesa($mesaId, $usuarioId);
+
             return $sessaoMesa;
         });
     }
@@ -69,9 +74,17 @@ class SessaoMesaService
             : 0.0;
     }
 
-    /** Fecha com pedidos ativos, ou cancela se não houver nenhum — sempre libera a mesa. */
+    /**
+     * Fecha com pedidos ativos, ou cancela se não houver nenhum — sempre libera
+     * a mesa. Antes, recusa os pedidos do QR que esperavam o garçom e tira da
+     * fila os chamados não atendidos; o token dos celulares morre junto com a
+     * conta (ParticipanteMesaService::resolver).
+     */
     public function fechar(SessaoMesa $sessaoMesa): SessaoMesa
     {
+        app(AprovacaoPedidoMesaService::class)->recusarPendentesDaSessao($sessaoMesa, auth()->user(), 'Mesa fechada.');
+        app(MesaChamadoService::class)->encerrarDaSessao($sessaoMesa);
+
         $temPedidosAtivos = Pedido::where('pedido_sessao_mesa_id', $sessaoMesa->id)
             ->where('pedido_status', '<>', 'CANCELADO')
             ->exists();

@@ -1,9 +1,10 @@
 {{--
     Mapa de mesas do Painel do Garçom. Um único wire:poll: re-renderiza o mapa
-    (2 queries agregadas, ver MapaMesasService) e avisa rodadas prontas.
+    (queries agregadas, ver MapaMesasService) e avisa rodadas prontas, pedidos
+    do QR para aprovar e chamados das mesas.
 --}}
 <x-filament-panels::page>
-    <div wire:poll.{{ (int) config('pizzaria.salao.polling_mapa_segundos') }}s="verificarProntas"
+    <div wire:poll.{{ (int) config('pizzaria.salao.polling_mapa_segundos') }}s="verificarAvisos"
          class="w-full space-y-5">
 
         @include('filament.garcom.partials.sem-conexao')
@@ -97,6 +98,12 @@
                                     'relative flex aspect-square flex-col items-center justify-center gap-0.5 rounded-2xl p-2 text-center ring-2 transition active:scale-95 lg:aspect-auto lg:h-36 lg:hover:brightness-95',
                                     $mesa['status']->classes(),
                                 ])>
+                            @if ($mesa['aprovar'] > 0)
+                                <span class="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs font-bold text-orange-600" title="Pedidos do cliente para aprovar">{{ $mesa['aprovar'] }}</span>
+                            @endif
+                            @if ($mesa['querem_abrir'])
+                                <span class="absolute inset-x-1 bottom-1 rounded-lg bg-yellow-300 px-1 py-0.5 text-[10px] font-bold uppercase text-yellow-950 animate-pulse">Querem abrir</span>
+                            @endif
                             @if ($mesa['parada'])
                                 <span class="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white" title="Mesa parada">!</span>
                             @endif
@@ -125,7 +132,7 @@
         @endif
 
         <div @class(['flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400', 'hidden' => $tipo === 'RETIRADA'])>
-            @foreach ([\App\Enums\StatusMapaMesaEnum::LIVRE, \App\Enums\StatusMapaMesaEnum::AGUARDANDO_PEDIDO, \App\Enums\StatusMapaMesaEnum::EM_PREPARO, \App\Enums\StatusMapaMesaEnum::PRONTO, \App\Enums\StatusMapaMesaEnum::ATENDIDA, \App\Enums\StatusMapaMesaEnum::CONTA_SOLICITADA] as $legenda)
+            @foreach ([\App\Enums\StatusMapaMesaEnum::APROVAR_PEDIDO, \App\Enums\StatusMapaMesaEnum::CHAMOU_GARCOM, \App\Enums\StatusMapaMesaEnum::LIVRE, \App\Enums\StatusMapaMesaEnum::AGUARDANDO_PEDIDO, \App\Enums\StatusMapaMesaEnum::EM_PREPARO, \App\Enums\StatusMapaMesaEnum::PRONTO, \App\Enums\StatusMapaMesaEnum::ATENDIDA, \App\Enums\StatusMapaMesaEnum::CONTA_SOLICITADA] as $legenda)
                 <span class="flex items-center gap-1.5">
                     <span @class(['h-3 w-3 rounded-full ring-1', $legenda->classes()])></span>
                     {{ $legenda->label() }}

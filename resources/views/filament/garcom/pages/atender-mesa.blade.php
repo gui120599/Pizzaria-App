@@ -19,6 +19,7 @@
         <div wire:poll.{{ (int) config('pizzaria.salao.polling_mesa_segundos') }}s="atualizar" class="w-full space-y-4">
             @include('filament.garcom.partials.sem-conexao')
             @include('filament.garcom.partials.alerta-pronto')
+            @include('filament.garcom.partials.mesa-qr')
 
             {{-- Cabeçalho da conta --}}
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
@@ -57,13 +58,20 @@
                     </div>
 
                     @php $pessoasMesa = $this->clientesDaMesa(); @endphp
+                    @if ($editandoPedidoId)
+                        <div class="flex items-center justify-between gap-2 rounded-xl bg-primary-50 px-4 py-2.5 text-sm text-primary-800 ring-1 ring-primary-200 dark:bg-primary-500/10 dark:text-primary-200 dark:ring-primary-500/30">
+                            <span>Editando o pedido do cliente. Ao enviar, ele é aprovado.</span>
+                            <button type="button" wire:click="cancelarEdicao" class="font-semibold underline">Parar</button>
+                        </div>
+                    @endif
+                    {{-- Editando o pedido do cliente (QR), o seletor grava nele em vez do rascunho. --}}
                     @livewire('pedido-produto-selector', [
-                        'pedidoId' => $rascunhoId,
-                        'saveButtonLabel' => 'Enviar para a cozinha',
+                        'pedidoId' => $editandoPedidoId ?? $rascunhoId,
+                        'saveButtonLabel' => $editandoPedidoId ? 'Aprovar e enviar' : 'Enviar para a cozinha',
                         'sessaoMesaClientes' => $pessoasMesa,
                         'clientePadraoId' => $clientePadraoId,
                         'layoutDesktop' => true,
-                    ], key('rodada-'.$rascunhoId.'-'.($clientePadraoId ?? 0).'-'.count($pessoasMesa)))
+                    ], key('rodada-'.($editandoPedidoId ? 'qr'.$editandoPedidoId : $rascunhoId).'-'.($clientePadraoId ?? 0).'-'.count($pessoasMesa)))
 
                     <form id="pedido-form" wire:submit="enviarRodada" class="hidden"></form>
                 </div>
@@ -86,7 +94,11 @@
                     @if ($abaPainel === 'rodada')
                         <div class="hidden space-y-4 lg:block">
                             @include('filament.garcom.partials.pessoas-mesa')
-                            @include('filament.garcom.partials.carrinho-lateral', ['acaoEnviar' => 'enviarRodada', 'tituloCarrinho' => 'Rodada atual'])
+                            @include('filament.garcom.partials.carrinho-lateral', [
+                                'acaoEnviar' => 'enviarRodada',
+                                'tituloCarrinho' => $editandoPedidoId ? 'Pedido do cliente' : 'Rodada atual',
+                                'rotuloEnviar' => $editandoPedidoId ? 'Aprovar e enviar' : null,
+                            ])
                         </div>
                     @endif
 

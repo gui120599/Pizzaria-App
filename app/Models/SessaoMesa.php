@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class SessaoMesa extends Model
@@ -57,6 +58,17 @@ class SessaoMesa extends Model
     public function clientes()
     {
         return $this->hasMany(SessaoMesaCliente::class, 'smc_sessao_mesa_id');
+    }
+
+    /** Celulares identificados nesta sessão pelo QR da mesa. */
+    public function participantes(): HasMany
+    {
+        return $this->hasMany(MesaParticipante::class, 'mp_sessao_mesa_id');
+    }
+
+    public function chamados(): HasMany
+    {
+        return $this->hasMany(MesaChamado::class, 'mc_sessao_mesa_id');
     }
 
     public function autorizacoes(): MorphMany

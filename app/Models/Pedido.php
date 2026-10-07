@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\MotivoAprovacaoMesaEnum;
 use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\PedidoOrigemEnum;
+use App\Enums\StatusAprovacaoPedidoEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Enums\TipoAtendimentoEnum;
+use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
@@ -17,6 +20,8 @@ class Pedido extends Model
     protected $fillable = [
         'pedido_cliente_id',
         'pedido_sessao_mesa_id',
+        'pedido_mesa_participante_id',
+        'pedido_chave_idempotencia',
         'pedido_usuario_garcom_id',
         'pedido_usuario_entrega_id',
         'pedido_opcaoentrega_id',
@@ -32,6 +37,11 @@ class Pedido extends Model
         'pedido_motivo_cancelamento',
         'pedido_usuario_cancelou_id',
         'pedido_origem',
+        'pedido_aprovacao_status',
+        'pedido_aprovacao_motivos',
+        'pedido_aprovado_por_id',
+        'pedido_aprovado_em',
+        'pedido_recusa_motivo',
         'pedido_datahora_abertura',
         'pedido_datahora_preparo',
         'pedido_datahora_pronto',
@@ -43,6 +53,9 @@ class Pedido extends Model
 
     protected $casts = [
         'pedido_origem' => PedidoOrigemEnum::class,
+        'pedido_aprovacao_status' => StatusAprovacaoPedidoEnum::class,
+        'pedido_aprovacao_motivos' => AsEnumCollection::class.':'.MotivoAprovacaoMesaEnum::class,
+        'pedido_aprovado_em' => 'datetime',
         'pedido_motivo_cancelamento' => MotivoCancelamentoEnum::class,
         'pedido_datahora_abertura' => 'datetime',
         'pedido_datahora_preparo' => 'datetime',
@@ -65,6 +78,24 @@ class Pedido extends Model
         return $this->belongsTo(SessaoMesa::class, 'pedido_sessao_mesa_id')->withDefault([
             'mesa_nome' => 'S/M',
         ]);
+    }
+
+    /** Celular que fez o pedido pelo QR da mesa. */
+    public function participante()
+    {
+        return $this->belongsTo(MesaParticipante::class, 'pedido_mesa_participante_id');
+    }
+
+    /** Garçom que aprovou ou recusou o pedido do QR. */
+    public function aprovador()
+    {
+        return $this->belongsTo(User::class, 'pedido_aprovado_por_id');
+    }
+
+    /** Pedido do QR parado esperando o garçom (ainda INICIADO, fora da conta e da cozinha). */
+    public function aguardandoAprovacao(): bool
+    {
+        return $this->pedido_aprovacao_status === StatusAprovacaoPedidoEnum::PENDENTE;
     }
 
     public function garcom()

@@ -21,6 +21,7 @@ use App\Models\Produto;
 use App\Models\StonePedido;
 use App\Services\ClienteResolverService;
 use App\Services\EstoqueService;
+use App\Services\LancamentoItemPedidoService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Support\TotaisPedido;
 use BackedEnum;
@@ -183,6 +184,8 @@ class AtenderPedido extends Page
                 'categoria_nome' => $item->produto?->categoria?->categoria_nome ?? '',
                 'produto_foto' => $item->produto?->getImagemUrl(),
                 'sabores_linhas' => $item->linhasSabores(),
+                'respostas' => $item->item_pedido_respostas,
+                'respostas_linhas' => $item->linhasRespostas(),
                 'cliente_nome' => null,
                 'quantidade' => (float) $item->item_pedido_quantidade,
                 'valor_unitario' => (float) $item->item_pedido_valor_unitario,
@@ -504,18 +507,11 @@ class AtenderPedido extends Page
                 'item_pedido_observacao' => ($item['observacao'] ?? '') !== '' ? $item['observacao'] : null,
                 // Pizza de sabores: uma linha com os sabores congelados.
                 'item_pedido_sabores' => $item['sabores'] ?? null,
+                'item_pedido_respostas' => $item['respostas'] ?? null,
                 'item_pedido_status' => 'INSERIDO',
             ]);
 
-            foreach ($item['adicionais'] ?? [] as $adicional) {
-                AdicionaisItemPedido::create([
-                    'aip_item_pedido_id' => $itemModel->id,
-                    'aip_adicional_id' => $adicional['id'],
-                    'aip_quantidade' => 1,
-                    'aip_valor_unitario' => $adicional['valor'],
-                    'aip_valor_total' => $adicional['valor'],
-                ]);
-            }
+            app(LancamentoItemPedidoService::class)->gravarAdicionais($itemModel, $item['adicionais'] ?? []);
         }
     }
 

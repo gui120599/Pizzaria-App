@@ -324,6 +324,7 @@ class NfeIoService
                 'description' => mb_substr(
                     $produto->categoria->categoria_nome.' '
                         .($item->ehMultiSabor() ? $item->descricaoSabores(ascii: true) : $produto->produto_descricao)
+                        .($item->respostas() !== [] ? ' '.$item->descricaoRespostas() : '')
                         .$descAdicionais,
                     0,
                     120,

@@ -50,7 +50,7 @@ class PizzaSaboresLinhaUnicaTest extends TestCase
             'horario_fechamento' => '23:59:59',
         ]);
 
-        $this->categoria = Categoria::create(['categoria_nome' => 'Pizza Grande', 'categoria_permite_sabores' => true]);
+        $this->categoria = Categoria::create(['categoria_nome' => 'Pizza Grande', 'categoria_cardapio' => true, 'categoria_permite_sabores' => true]);
         $this->categoria->sincronizarQuantidadesSabores(2);
 
         $this->calabresa = $this->produto('Calabresa', 50.00);
@@ -146,7 +146,7 @@ class PizzaSaboresLinhaUnicaTest extends TestCase
 
     public function test_checkout_recusa_sabores_de_categorias_diferentes(): void
     {
-        $outra = Categoria::create(['categoria_nome' => 'Pizza Broto', 'categoria_permite_sabores' => true]);
+        $outra = Categoria::create(['categoria_nome' => 'Pizza Broto', 'categoria_cardapio' => true, 'categoria_permite_sabores' => true]);
         $outra->sincronizarQuantidadesSabores(2);
         $broto = Produto::create([
             'produto_descricao' => 'Broto Frango',
@@ -168,6 +168,7 @@ class PizzaSaboresLinhaUnicaTest extends TestCase
         $this->categoria->sincronizarQuantidadesSabores(3);
         $especiais = Categoria::create([
             'categoria_nome' => 'Especiais',
+            'categoria_cardapio' => true,
             'categoria_pai_id' => $this->categoria->id,
             'categoria_permite_sabores' => true,
             'categoria_herda_sabores' => true,
