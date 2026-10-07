@@ -219,7 +219,7 @@ class RelatorioTaxaServicoService
 
         $vendas = DB::table('vendas')
             ->whereIn('id', $vendaIds)
-            ->get(['id', 'venda_valor_total', 'venda_status_nfe', 'venda_imposto_taxa_servico_percentual'])
+            ->get(['id', 'venda_valor_total', 'venda_status_nfe', 'venda_imposto_nfe_percentual'])
             ->keyBy('id');
 
         $taxas = app(TaxaMaquininhaService::class);
@@ -233,7 +233,7 @@ class RelatorioTaxaServicoService
                     : ($taxas->calcular($pagamento)['valor'] ?? 0)
             )));
 
-        $impostoAtual = (float) (Empresa::query()->value('empresa_percentual_imposto_taxa_servico') ?? 0);
+        $impostoAtual = (float) (Empresa::query()->value('empresa_percentual_imposto_nfe') ?? 0);
 
         return $linhas
             ->groupBy('venda_id')
@@ -248,7 +248,7 @@ class RelatorioTaxaServicoService
                     : 0;
 
                 $percentualImposto = $venda->venda_status_nfe === NfEmissao::STATUS_AUTORIZADA
-                    ? (float) ($venda->venda_imposto_taxa_servico_percentual ?? $impostoAtual)
+                    ? (float) ($venda->venda_imposto_nfe_percentual ?? $impostoAtual)
                     : 0.0;
                 $impostoCents = (int) round($taxaVendaCents * $percentualImposto / 100);
 

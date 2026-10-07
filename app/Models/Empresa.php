@@ -17,7 +17,7 @@ class Empresa extends Model
         'empresa_nome_fantasia',
         'empresa_cnpj',
         'empresa_regime_tributario',
-        'empresa_percentual_imposto_taxa_servico',
+        'empresa_percentual_imposto_nfe',
         'empresa_endereco_uf_estado',
         'empresa_endereco_cidade_id_ibge',
         'empresa_endereco_rua',
@@ -47,7 +47,7 @@ class Empresa extends Model
 
     protected $casts = [
         'empresa_regime_tributario' => 'string',
-        'empresa_percentual_imposto_taxa_servico' => 'decimal:2',
+        'empresa_percentual_imposto_nfe' => 'decimal:2',
         'empresa_status' => 'string',
         'empresa_certificado_senha' => 'encrypted',
         'empresa_certificado_validade' => 'date',

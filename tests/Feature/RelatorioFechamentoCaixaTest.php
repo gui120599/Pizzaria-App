@@ -17,6 +17,7 @@ use App\Filament\Widgets\FechamentoCaixaStatsOverview;
 use App\Models\Caixa;
 use App\Models\CartoesPagamento;
 use App\Models\Categoria;
+use App\Models\Empresa;
 use App\Models\FechamentoCaixa;
 use App\Models\FechamentoCaixaMaquininha;
 use App\Models\ItensVenda;
@@ -24,6 +25,7 @@ use App\Models\Lancamento;
 use App\Models\Maquininha;
 use App\Models\MaquininhaTaxa;
 use App\Models\MovimentacoesSessaoCaixa;
+use App\Models\NfEmissao;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
 use App\Models\Produto;
@@ -293,6 +295,38 @@ class RelatorioFechamentoCaixaTest extends TestCase
         $this->assertSame(100.0, $resumo['cobertura_custo']);
         $this->assertSame(1, $resumo['canceladas']);
         $this->assertSame(40.0, $resumo['valor_cancelado']);
+    }
+
+    public function test_imposto_da_nfce_so_nas_vendas_com_nota_autorizada_pelo_percentual_gravado_na_autorizacao(): void
+    {
+        $empresa = Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_nfe' => 6]);
+        $this->venda(100.00)->update(['venda_status_nfe' => NfEmissao::STATUS_AUTORIZADA]);
+        $empresa->update(['empresa_percentual_imposto_nfe' => 10]);
+        $this->venda(50.00)->update(['venda_status_nfe' => NfEmissao::STATUS_AUTORIZADA]);
+        $this->venda(200.00)->update(['venda_status_nfe' => 'Error']);
+
+        $relatorio = $this->relatorio();
+        $resumo = $relatorio->resumo();
+
+        $this->assertSame(11.0, $resumo['imposto_nfe']);
+        $this->assertSame(150.0, $resumo['faturamento_nfe']);
+        $this->assertSame(200.0, $resumo['faturamento_sem_nfe']);
+        $this->assertSame(2, $resumo['vendas_nfe']);
+        $this->assertSame(-11.0, $relatorio->dre()->pluck('valor', 'key')['imposto_nfe']);
+        $this->assertSame(339.0, $resumo['margem_contribuicao']);
+    }
+
+    public function test_nota_autorizada_sem_percentual_cadastrado_usa_o_que_a_empresa_cadastrar_depois(): void
+    {
+        $empresa = Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_nfe' => 0]);
+        $venda = $this->venda(100.00);
+        $venda->update(['venda_status_nfe' => NfEmissao::STATUS_AUTORIZADA]);
+        $empresa->update(['empresa_percentual_imposto_nfe' => 6]);
+
+        $imposto = $this->relatorio()->resumo()['imposto_nfe'];
+
+        $this->assertNull($venda->fresh()->venda_imposto_nfe_percentual);
+        $this->assertSame(6.0, $imposto);
     }
 
     public function test_fluxo_de_caixa_separa_as_origens_e_bate_com_o_esperado_do_fechamento(): void

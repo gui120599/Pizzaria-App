@@ -38,8 +38,15 @@ class FechamentoCaixaStatsOverview extends BaseWidget
                 ->color('primary'),
 
             Stat::make('Taxas das maquininhas', $this->brl($resumo['mdr']))
-                ->description("MDR efetivo {$this->pct($resumo['mdr_efetivo'])} sobre {$this->brl($resumo['volume_maquininha'])}")
-                ->descriptionIcon('heroicon-m-credit-card')
+                ->description($resumo['sem_taxa'] > 0
+                    ? "{$resumo['sem_taxa']} pagamento(s) sem taxa cadastrada"
+                    : "MDR efetivo {$this->pct($resumo['mdr_efetivo'])} sobre {$this->brl($resumo['volume_maquininha'])}")
+                ->descriptionIcon($resumo['sem_taxa'] > 0 ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-credit-card')
+                ->color($resumo['sem_taxa'] > 0 ? 'warning' : 'danger'),
+
+            Stat::make('Imposto da NFC-e', $this->brl($resumo['imposto_nfe']))
+                ->description("{$this->pct($resumo['imposto_efetivo'])} sobre {$this->brl($resumo['faturamento_nfe'])} com nota · {$this->brl($resumo['faturamento_sem_nfe'])} sem nota autorizada")
+                ->descriptionIcon('heroicon-m-document-text')
                 ->color('danger'),
 
             Stat::make('Margem de contribuição', $this->brl($resumo['margem_contribuicao']))
@@ -65,11 +72,6 @@ class FechamentoCaixaStatsOverview extends BaseWidget
                 ->description("{$this->brl($resumo['valor_cancelado'])} · {$this->pct($resumo['taxa_cancelamento'])} das vendas")
                 ->descriptionIcon('heroicon-m-x-circle')
                 ->color($resumo['canceladas'] > 0 ? 'warning' : 'gray'),
-
-            Stat::make('Pagamentos sem taxa', (string) $resumo['sem_taxa'])
-                ->description($resumo['sem_taxa'] > 0 ? 'Cadastre a taxa da maquininha/bandeira' : 'Todas as taxas cadastradas')
-                ->descriptionIcon('heroicon-m-exclamation-triangle')
-                ->color($resumo['sem_taxa'] > 0 ? 'warning' : 'success'),
         ];
     }
 }

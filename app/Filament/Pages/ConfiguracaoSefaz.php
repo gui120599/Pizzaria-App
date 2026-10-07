@@ -53,7 +53,7 @@ class ConfiguracaoSefaz extends Page
         $this->form->fill([
             'empresa_sefaz_ambiente' => $empresa->empresa_sefaz_ambiente,
             'empresa_sefaz_auto_importacao_ativa' => $empresa->empresa_sefaz_auto_importacao_ativa,
-            'empresa_percentual_imposto_taxa_servico' => $empresa->empresa_percentual_imposto_taxa_servico,
+            'empresa_percentual_imposto_nfe' => $empresa->empresa_percentual_imposto_nfe,
         ]);
     }
 
@@ -99,18 +99,18 @@ class ConfiguracaoSefaz extends Page
                             ->helperText('Consulta a SEFAZ a cada hora e importa como rascunho de compra as notas novas emitidas contra o CNPJ da empresa.'),
                     ]),
 
-                Section::make('Imposto sobre a taxa de serviço')
+                Section::make('Imposto da NFC-e')
                     ->columns(1)
                     ->schema([
-                        TextInput::make('empresa_percentual_imposto_taxa_servico')
-                            ->label('Percentual de imposto (%)')
+                        TextInput::make('empresa_percentual_imposto_nfe')
+                            ->label('Imposto da NFC-e (%)')
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(100)
                             ->step(0.01)
                             ->suffix('%')
                             ->required()
-                            ->helperText('Descontado da taxa de serviço dos garçons nas vendas com NFC-e autorizada (relatório de taxa de serviço). Cada venda guarda o percentual vigente quando a nota é autorizada.'),
+                            ->helperText('Alíquota efetiva paga sobre as vendas com NFC-e autorizada (ex.: DAS do Simples). Descontada das vendas no relatório de fechamento de caixa e da taxa de serviço no relatório dos garçons. Cada venda guarda o percentual vigente quando a nota é autorizada.'),
                     ]),
             ])
             ->statePath('data');
@@ -124,7 +124,7 @@ class ConfiguracaoSefaz extends Page
         $atualizacoes = [
             'empresa_sefaz_ambiente' => $state['empresa_sefaz_ambiente'],
             'empresa_sefaz_auto_importacao_ativa' => (bool) $state['empresa_sefaz_auto_importacao_ativa'],
-            'empresa_percentual_imposto_taxa_servico' => (float) $state['empresa_percentual_imposto_taxa_servico'],
+            'empresa_percentual_imposto_nfe' => (float) $state['empresa_percentual_imposto_nfe'],
         ];
 
         $novoArquivo = $state['novo_certificado'] ?? null;
@@ -196,7 +196,7 @@ class ConfiguracaoSefaz extends Page
         $this->form->fill([
             'empresa_sefaz_ambiente' => $atualizacoes['empresa_sefaz_ambiente'],
             'empresa_sefaz_auto_importacao_ativa' => $atualizacoes['empresa_sefaz_auto_importacao_ativa'],
-            'empresa_percentual_imposto_taxa_servico' => $atualizacoes['empresa_percentual_imposto_taxa_servico'],
+            'empresa_percentual_imposto_nfe' => $atualizacoes['empresa_percentual_imposto_nfe'],
         ]);
     }
 

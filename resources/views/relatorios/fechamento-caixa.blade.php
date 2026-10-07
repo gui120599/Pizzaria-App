@@ -71,6 +71,14 @@
                     <p class="text-[10px] uppercase text-gray-500">Taxas das maquininhas</p>
                     <p class="text-base font-bold">{{ $brl($resumo['mdr']) }}</p>
                     <p class="text-[10px] text-gray-500">MDR efetivo {{ $pct($resumo['mdr_efetivo']) }} sobre {{ $brl($resumo['volume_maquininha']) }}</p>
+                    @if ($resumo['sem_taxa'] > 0)
+                        <p class="text-[10px] text-amber-700">{{ $resumo['sem_taxa'] }} pagamento(s) sem taxa cadastrada</p>
+                    @endif
+                </div>
+                <div class="card border border-gray-300 rounded-md p-3">
+                    <p class="text-[10px] uppercase text-gray-500">Imposto da NFC-e</p>
+                    <p class="text-base font-bold">{{ $brl($resumo['imposto_nfe']) }}</p>
+                    <p class="text-[10px] text-gray-500">{{ $pct($resumo['imposto_efetivo']) }} sobre {{ $brl($resumo['faturamento_nfe']) }} com nota · {{ $brl($resumo['faturamento_sem_nfe']) }} sem nota autorizada</p>
                 </div>
                 <div class="card border border-gray-300 rounded-md p-3">
                     <p class="text-[10px] uppercase text-gray-500">Margem de contribuição</p>
@@ -91,11 +99,6 @@
                     <p class="text-[10px] uppercase text-gray-500">Cancelamentos</p>
                     <p class="text-base font-bold">{{ $resumo['canceladas'] }}</p>
                     <p class="text-[10px] text-gray-500">{{ $brl($resumo['valor_cancelado']) }} · {{ $pct($resumo['taxa_cancelamento'], 1) }} das vendas</p>
-                </div>
-                <div class="card border border-gray-300 rounded-md p-3">
-                    <p class="text-[10px] uppercase text-gray-500">Pagamentos sem taxa cadastrada</p>
-                    <p class="text-base font-bold {{ $resumo['sem_taxa'] > 0 ? 'text-amber-700' : '' }}">{{ $resumo['sem_taxa'] }}</p>
-                    <p class="text-[10px] text-gray-500">Entram no relatório com taxa 0</p>
                 </div>
             </div>
         </div>

@@ -6,7 +6,9 @@ use App\Enums\FormaPagamento;
 use App\Enums\MotivoSaidaCaixa;
 use App\Enums\TipoPagamentoMaquininhaEnum;
 use App\Models\CartoesPagamento;
+use App\Models\Empresa;
 use App\Models\Maquininha;
+use App\Models\NfEmissao;
 use App\Models\PagamentosVenda;
 use App\Models\SessaoCaixa;
 use Illuminate\Database\Query\Builder;
@@ -23,6 +25,9 @@ use Illuminate\Support\Facades\DB;
  * opcionalmente de um caixa; com sessões selecionadas, valem só as vendas
  * delas e o período é ignorado. Fluxo, movimentações e conferência são por
  * sessão: as selecionadas ou as abertas no período.
+ *
+ * Imposto da NFC-e: só nas vendas com nota autorizada, pelo percentual
+ * gravado na venda quando a nota foi autorizada (sem ele, o atual da empresa).
  *
  * Taxa da maquininha: o retrato gravado no pagamento; sem retrato, a taxa
  * atual (TaxaMaquininhaService); sem taxa cadastrada, entra como 0 e conta
@@ -284,7 +289,7 @@ class RelatorioFechamentoCaixaService
     // ── Resumo e DRE ─────────────────────────────────────────────────────────
 
     /**
-     * @return array{vendas: int, produtos: float, descontos: float, frete: float, taxa_servico: float, faturamento: float, receita_operacional: float, ticket_medio: float, recebido: float, fiado: float, troco: float, volume_maquininha: float, mdr: float, mdr_efetivo: float, participacao_maquininha: float, sem_taxa: int, cmv: float, cmv_percentual: float, cobertura_custo: float, margem_contribuicao: float, margem_percentual: float, canceladas: int, valor_cancelado: float, taxa_cancelamento: float}
+     * @return array{vendas: int, produtos: float, descontos: float, frete: float, taxa_servico: float, faturamento: float, receita_operacional: float, ticket_medio: float, recebido: float, fiado: float, troco: float, volume_maquininha: float, mdr: float, mdr_efetivo: float, participacao_maquininha: float, sem_taxa: int, vendas_nfe: int, faturamento_nfe: float, faturamento_sem_nfe: float, cobertura_nfe: float, imposto_nfe: float, imposto_efetivo: float, cmv: float, cmv_percentual: float, cobertura_custo: float, margem_contribuicao: float, margem_percentual: float, canceladas: int, valor_cancelado: float, taxa_cancelamento: float}
      */
     public function resumo(): array
     {
@@ -298,6 +303,12 @@ class RelatorioFechamentoCaixaService
             ->selectRaw('COUNT(*) AS qtd, SUM(venda_valor_itens) AS produtos, SUM(venda_valor_desconto) AS descontos,
                 SUM(venda_valor_frete) AS frete, SUM(venda_valor_taxa_servico) AS taxa_servico,
                 SUM(venda_valor_total) AS faturamento, SUM(venda_valor_troco) AS troco')
+            ->first();
+
+        $nfe = $this->vendasQuery()
+            ->where('vendas.venda_status_nfe', NfEmissao::STATUS_AUTORIZADA)
+            ->selectRaw('COUNT(*) AS qtd, SUM(venda_valor_total) AS total,
+                SUM(venda_valor_total * COALESCE(venda_imposto_nfe_percentual, ?) / 100) AS imposto', [$this->percentualImpostoAtual()])
             ->first();
 
         $canceladas = $this->vendasQuery('CANCELADA')
@@ -317,8 +328,10 @@ class RelatorioFechamentoCaixaService
         $volumeMaquininha = round($maquininha->sum('valor'), 2);
         $recebido = round($this->pagamentos()->sum('valor'), 2);
         $mdr = round($maquininha->sum('taxa'), 2);
+        $faturamentoNfe = round((float) $nfe->total, 2);
+        $impostoNfe = round((float) $nfe->imposto, 2);
         $cmv = $this->cmv();
-        $margem = round($receitaOperacional - $mdr - $cmv['cmv'], 2);
+        $margem = round($receitaOperacional - $mdr - $impostoNfe - $cmv['cmv'], 2);
         $qtdCanceladas = (int) $canceladas->qtd;
 
         return [
@@ -338,6 +351,12 @@ class RelatorioFechamentoCaixaService
             'mdr_efetivo' => self::percentual($mdr, $volumeMaquininha),
             'participacao_maquininha' => self::percentual($volumeMaquininha, $recebido),
             'sem_taxa' => $maquininha->where('sem_taxa', true)->count(),
+            'vendas_nfe' => (int) $nfe->qtd,
+            'faturamento_nfe' => $faturamentoNfe,
+            'faturamento_sem_nfe' => round($faturamento - $faturamentoNfe, 2),
+            'cobertura_nfe' => self::percentual($faturamentoNfe, $faturamento),
+            'imposto_nfe' => $impostoNfe,
+            'imposto_efetivo' => self::percentual($impostoNfe, $faturamentoNfe),
             'cmv' => $cmv['cmv'],
             'cmv_percentual' => $cmv['percentual'],
             'cobertura_custo' => $cmv['cobertura'],
@@ -347,6 +366,15 @@ class RelatorioFechamentoCaixaService
             'valor_cancelado' => round((float) $canceladas->total, 2),
             'taxa_cancelamento' => self::percentual($qtdCanceladas, $qtd + $qtdCanceladas),
         ];
+    }
+
+    /**
+     * Percentual de imposto da NFC-e da empresa, usado quando a venda não tem
+     * o retrato (autorizada antes de existir o campo).
+     */
+    private function percentualImpostoAtual(): float
+    {
+        return $this->cache['imposto_atual'] ??= (float) (Empresa::query()->value('empresa_percentual_imposto_nfe') ?? 0);
     }
 
     /**
@@ -397,6 +425,7 @@ class RelatorioFechamentoCaixaService
             ['faturamento', '= Faturamento total', $resumo['faturamento'], true],
             ['repasse', '(−) Taxa de serviço (repasse aos garçons)', -$resumo['taxa_servico'], false],
             ['receita_operacional', '= Receita operacional', $resumo['receita_operacional'], true],
+            ['imposto_nfe', '(−) Imposto da NFC-e (vendas com nota autorizada)', -$resumo['imposto_nfe'], false],
             ['mdr', '(−) Taxas das maquininhas (MDR)', -$resumo['mdr'], false],
             ['cmv', '(−) CMV (custo das mercadorias vendidas)', -$resumo['cmv'], false],
             ['margem', '= Margem de contribuição', $resumo['margem_contribuicao'], true],

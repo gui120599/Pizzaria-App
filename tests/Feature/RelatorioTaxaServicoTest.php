@@ -234,7 +234,7 @@ class RelatorioTaxaServicoTest extends TestCase
 
     public function test_desconta_maquininha_proporcional_e_imposto_da_nfce_da_taxa(): void
     {
-        Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_taxa_servico' => 6]);
+        Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_nfe' => 6]);
 
         $sessao = $this->sessao($this->ana, 'Mesa 1');
         $this->rodada($sessao, $this->ana, 60.00);
@@ -264,7 +264,7 @@ class RelatorioTaxaServicoTest extends TestCase
 
     public function test_venda_sem_nfce_autorizada_nao_desconta_imposto(): void
     {
-        Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_taxa_servico' => 6]);
+        Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_nfe' => 6]);
 
         $sessao = $this->sessao($this->ana, 'Mesa 1');
         $this->rodada($sessao, $this->ana, 100.00);
@@ -278,15 +278,15 @@ class RelatorioTaxaServicoTest extends TestCase
 
     public function test_imposto_usa_o_percentual_gravado_na_autorizacao_da_nota(): void
     {
-        $empresa = Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_taxa_servico' => 6]);
+        $empresa = Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_cnpj' => '11222333000181', 'empresa_percentual_imposto_nfe' => 6]);
 
         $sessao = $this->sessao($this->ana, 'Mesa 1');
         $this->rodada($sessao, $this->ana, 100.00);
         $venda = $this->vendaFinalizada($sessao);
         $venda->update(['venda_status_nfe' => 'Issued']);
-        $empresa->update(['empresa_percentual_imposto_taxa_servico' => 10]);
+        $empresa->update(['empresa_percentual_imposto_nfe' => 10]);
 
-        $this->assertEquals(6.00, $venda->fresh()->venda_imposto_taxa_servico_percentual);
+        $this->assertEquals(6.00, $venda->fresh()->venda_imposto_nfe_percentual);
         $this->assertEquals(0.60, (new RelatorioTaxaServicoService)->totais()['desconto_imposto']);
     }
 
