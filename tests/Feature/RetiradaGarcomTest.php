@@ -164,6 +164,46 @@ class RetiradaGarcomTest extends TestCase
         $this->assertEquals(50.00, $pedido->fresh()->pedido_valor_total);
     }
 
+    public function test_retirada_nao_cai_em_comer_no_local_cadastrado_primeiro(): void
+    {
+        OpcoesEntregas::query()->forceDelete();
+        $local = OpcoesEntregas::create(['opcaoentrega_nome' => 'Comer no Local', 'opcaoentrega_valor_frete' => 0, 'opcaoentrega_min_valor_frete' => 0, 'opcaoentrega_requer_endereco' => false]);
+        $retirada = OpcoesEntregas::create(['opcaoentrega_nome' => 'Retirada na loja', 'opcaoentrega_valor_frete' => 0, 'opcaoentrega_min_valor_frete' => 0, 'opcaoentrega_requer_endereco' => false]);
+
+        $this->assertSame($retirada->id, $this->retiradaEnviada()->pedido_opcaoentrega_id);
+
+        // O garçom escolhe outra opção sem endereço; com endereço é recusada.
+        $rascunho = $this->service->rascunho($this->garcom);
+        $this->item($rascunho);
+        $this->service->enviar($rascunho, 'Ana', '(64) 98888-0000', $local->id);
+        $this->assertSame($local->id, $rascunho->fresh()->pedido_opcaoentrega_id);
+
+        $delivery = OpcoesEntregas::create(['opcaoentrega_nome' => 'Delivery', 'opcaoentrega_valor_frete' => 8, 'opcaoentrega_min_valor_frete' => 0, 'opcaoentrega_requer_endereco' => true]);
+        $rascunho = $this->service->rascunho($this->garcom);
+        $this->item($rascunho);
+        $this->expectExceptionMessage('opção de retirada');
+        $this->service->enviar($rascunho, 'Ana', '(64) 98888-0000', $delivery->id);
+    }
+
+    public function test_tela_de_retirada_grava_a_opcao_escolhida(): void
+    {
+        $balcao = OpcoesEntregas::create(['opcaoentrega_nome' => 'Balcão', 'opcaoentrega_valor_frete' => 0, 'opcaoentrega_min_valor_frete' => 0, 'opcaoentrega_requer_endereco' => false]);
+        $this->actingAs($this->garcom);
+
+        $tela = Livewire::test(AtenderRetirada::class)
+            ->assertSet('opcaoRetiradaId', $this->retirada->id)
+            ->assertSee('Balcão')
+            ->call('usarOpcaoRetirada', $balcao->id)
+            ->set('celular', '(64) 98888-7777')
+            ->set('nome', 'Maria');
+        $rascunho = Pedido::findOrFail($tela->get('rascunhoId'));
+        $this->item($rascunho);
+
+        $tela->call('enviar');
+
+        $this->assertSame($balcao->id, $rascunho->fresh()->pedido_opcaoentrega_id);
+    }
+
     public function test_tela_nova_retirada_envia_e_vai_para_o_acompanhamento(): void
     {
         $this->actingAs($this->garcom);

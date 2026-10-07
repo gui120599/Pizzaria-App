@@ -7,6 +7,7 @@ use App\Enums\ProdutoTipoEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Filament\Garcom\Pages\AtenderRetirada;
 use App\Filament\Garcom\Pages\MapaMesas;
+use App\Livewire\EntregaPagamentoPicker;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
@@ -135,6 +136,16 @@ class EntregaGarcomTest extends TestCase
             'pg_pedido_valor' => 58.00,
             'pg_pedido_valor_troco_para' => 100.00,
         ]);
+    }
+
+    public function test_entrega_do_garcom_so_lista_opcoes_com_endereco(): void
+    {
+        Livewire::test(EntregaPagamentoPicker::class, ['somenteComEndereco' => true])
+            ->assertSee('Delivery')
+            ->assertDontSee('Retirada');
+
+        // Fora do garçom (AtenderPedido) continua listando todas.
+        Livewire::test(EntregaPagamentoPicker::class)->assertSee('Retirada');
     }
 
     public function test_tela_de_entrega_envia_e_aparece_na_aba_viagem_sem_cobranca_do_garcom(): void

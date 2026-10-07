@@ -10,6 +10,11 @@
                 <option value="{{ $opcao->id }}" @selected($opcaoEntregaId == $opcao->id)>{{ $opcao->opcaoentrega_nome }}</option>
             @endforeach
         </select>
+        @if ($somenteComEndereco && $opcoesEntrega->isEmpty())
+            <p class="mt-1 text-xs text-red-600 dark:text-red-400">
+                Nenhuma opção de entrega com endereço. Marque "Requer endereço" no cadastro de Opções de Entrega.
+            </p>
+        @endif
     </div>
 
     <div class="space-y-2">

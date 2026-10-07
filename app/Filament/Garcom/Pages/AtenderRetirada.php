@@ -21,6 +21,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use RuntimeException;
@@ -59,6 +60,9 @@ class AtenderRetirada extends Page
     /** 'retirada' | 'entrega' — só no modo de montagem. */
     public string $tipo = 'retirada';
 
+    /** Opção sem endereço gravada na retirada (padrão: RetiradaService::opcaoEntregaRetirada). */
+    public ?int $opcaoRetiradaId = null;
+
     /** Estado do ClientePicker (entrega), recebido por evento. */
     public array $clienteData = [];
 
@@ -70,6 +74,7 @@ class AtenderRetirada extends Page
         if ($pedido === null || $pedido === '') {
             // Itens do carrinho chegam do seletor (layoutDesktop notifica no mount).
             $this->rascunhoId = app(RetiradaService::class)->rascunho($this->usuario())->id;
+            $this->opcaoRetiradaId = app(RetiradaService::class)->opcoesRetirada()->first()?->id;
 
             return;
         }
@@ -137,6 +142,19 @@ class AtenderRetirada extends Page
         }
     }
 
+    /** @return Collection<int, OpcoesEntregas> */
+    public function opcoesRetirada(): Collection
+    {
+        return app(RetiradaService::class)->opcoesRetirada();
+    }
+
+    public function usarOpcaoRetirada(int $opcaoId): void
+    {
+        if ($this->opcoesRetirada()->contains('id', $opcaoId)) {
+            $this->opcaoRetiradaId = $opcaoId;
+        }
+    }
+
     public function usarTipo(string $tipo): void
     {
         $this->tipo = $tipo === 'entrega' ? 'entrega' : 'retirada';
@@ -179,7 +197,7 @@ class AtenderRetirada extends Page
             $rascunho = Pedido::findOrFail($this->rascunhoId);
             $enviada = $this->tipo === 'entrega'
                 ? app(RetiradaService::class)->enviarEntrega($rascunho, $this->clienteData, $this->entregaPagamentoData)
-                : app(RetiradaService::class)->enviar($rascunho, $this->nome, $this->celular);
+                : app(RetiradaService::class)->enviar($rascunho, $this->nome, $this->celular, $this->opcaoRetiradaId);
         } catch (RuntimeException $e) {
             Notification::make()->title($e->getMessage())->warning()->send();
 

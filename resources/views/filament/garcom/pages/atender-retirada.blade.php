@@ -30,6 +30,23 @@
             </div>
 
             @if ($tipo === 'retirada')
+            {{-- Como o cliente leva: só aparece com mais de uma opção sem endereço --}}
+            @php $opcoesRetirada = $this->opcoesRetirada(); @endphp
+            @if ($opcoesRetirada->count() > 1)
+                <div class="flex flex-wrap gap-2">
+                    @foreach ($opcoesRetirada as $opcaoRetirada)
+                        <button type="button" wire:click="usarOpcaoRetirada({{ $opcaoRetirada->id }})"
+                                @class([
+                                    'rounded-full px-4 py-2 text-sm font-semibold ring-1 transition',
+                                    'bg-primary-600 text-white ring-primary-600' => $opcaoRetiradaId === $opcaoRetirada->id,
+                                    'bg-white text-gray-700 ring-gray-300 dark:bg-gray-900 dark:text-gray-200 dark:ring-white/10' => $opcaoRetiradaId !== $opcaoRetirada->id,
+                                ])>
+                            {{ $opcaoRetirada->opcaoentrega_nome }}
+                        </button>
+                    @endforeach
+                </div>
+            @endif
+
             {{-- Cliente --}}
             <div class="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cliente</h2>
@@ -57,7 +74,7 @@
                      endereço/CEP e opção de entrega + forma combinada). --}}
                 @livewire('cliente-picker', ['inicial' => $clienteData], key('entrega-cliente-'.$rascunhoId))
 
-                @livewire('entrega-pagamento-picker', ['inicial' => $entregaPagamentoData, 'total' => $this->totaisEntrega()['total']], key('entrega-pagamento-'.$rascunhoId))
+                @livewire('entrega-pagamento-picker', ['inicial' => $entregaPagamentoData, 'total' => $this->totaisEntrega()['total'], 'somenteComEndereco' => true], key('entrega-pagamento-'.$rascunhoId))
 
                 @php $totaisEntrega = $this->totaisEntrega(); @endphp
                 <p class="text-right text-sm text-gray-600 dark:text-gray-300">
