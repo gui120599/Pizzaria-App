@@ -89,10 +89,10 @@ class OperarVendaPendentesTest extends TestCase
         $component = Livewire::test(OperarVenda::class, ['venda' => $venda])
             ->set('abaAtiva', 'pendentes');
 
-        $pendentes = $component->get('pendentes');
+        $debitos = $component->get('debitosPendentes');
 
-        $this->assertCount(1, $pendentes);
-        $this->assertSame($lancamentoDaVenda->id, $pendentes->first()->id);
+        $this->assertCount(1, $debitos);
+        $this->assertSame([$lancamentoDaVenda->id], $debitos->first()['titulos']->pluck('lancamento.id')->all());
     }
 
     /** Aba Pendentes mostra os pedidos vinculados à venda e a data em que ela foi criada — ajuda a identificar do que se trata a pendência. */
@@ -155,13 +155,13 @@ class OperarVendaPendentesTest extends TestCase
 
         $venda = Venda::create(['venda_status' => 'INICIADA', 'venda_sessao_caixa_id' => $this->sessaoCaixa->id]);
 
-        $pendentes = Livewire::test(OperarVenda::class, ['venda' => $venda])
+        $debitos = Livewire::test(OperarVenda::class, ['venda' => $venda])
             ->set('abaAtiva', 'pendentes')
             ->set('buscaPendentes', 'Maria')
-            ->get('pendentes');
+            ->get('debitosPendentes');
 
-        $this->assertCount(1, $pendentes);
-        $this->assertSame($outroCliente->id, $pendentes->first()->cliente_id);
+        $this->assertCount(1, $debitos);
+        $this->assertSame($outroCliente->id, $debitos->first()['cliente']->id);
     }
 
     public function test_busca_filtra_pendentes_por_numero_da_venda(): void
@@ -169,13 +169,12 @@ class OperarVendaPendentesTest extends TestCase
         $lancamento = $this->lancamentoFiado();
         $venda = Venda::create(['venda_status' => 'INICIADA', 'venda_sessao_caixa_id' => $this->sessaoCaixa->id]);
 
-        $pendentes = Livewire::test(OperarVenda::class, ['venda' => $venda])
+        $debitos = Livewire::test(OperarVenda::class, ['venda' => $venda])
             ->set('abaAtiva', 'pendentes')
             ->set('buscaPendentes', (string) $this->venda->id)
-            ->get('pendentes');
+            ->get('debitosPendentes');
 
-        $this->assertCount(1, $pendentes);
-        $this->assertSame($lancamento->id, $pendentes->first()->id);
+        $this->assertSame([$lancamento->id], $debitos->first()['titulos']->pluck('lancamento.id')->all());
     }
 
     public function test_modal_de_recebimento_lista_pagamentos_ja_registrados(): void
