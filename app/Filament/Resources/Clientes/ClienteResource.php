@@ -9,6 +9,7 @@ use App\Filament\Resources\Clientes\RelationManagers\PedidosRelationManager;
 use App\Filament\Resources\Clientes\RelationManagers\VendasRelationManager;
 use App\Filament\Resources\Clientes\Schemas\ClienteForm;
 use App\Filament\Resources\Clientes\Tables\ClientesTable;
+use App\Filament\Resources\Clientes\Widgets\DebitosClienteWidget;
 use App\Models\Cliente;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -48,6 +49,13 @@ class ClienteResource extends Resource
         return [
             VendasRelationManager::class,
             PedidosRelationManager::class,
+        ];
+    }
+
+    public static function getWidgets(): array
+    {
+        return [
+            DebitosClienteWidget::class,
         ];
     }
 

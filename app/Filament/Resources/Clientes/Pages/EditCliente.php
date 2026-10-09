@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Clientes\Pages;
 
 use App\Filament\Resources\Clientes\ClienteResource;
+use App\Filament\Resources\Clientes\Widgets\DebitosClienteWidget;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
@@ -18,6 +19,13 @@ class EditCliente extends EditRecord
             DeleteAction::make(),
             ForceDeleteAction::make(),
             RestoreAction::make(),
+        ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            DebitosClienteWidget::class,
         ];
     }
 }

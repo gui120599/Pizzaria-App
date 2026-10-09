@@ -28,6 +28,7 @@ use App\Models\SessaoCaixa;
 use App\Models\SessaoMesa;
 use App\Models\StonePedido;
 use App\Models\Venda;
+use App\Services\DebitosClienteService;
 use App\Services\DivisaoItemPedidoService;
 use App\Services\EstoqueService;
 use App\Services\FinalizacaoVendaService;
@@ -1997,24 +1998,33 @@ class OperarVenda extends Page
 
     // ── Aba Pendentes (vendas fiado/parcial em aberto) ──────────────────────
 
-    /** Títulos a receber (Pendente/Parcial) originados de vendas do PDV — atalho de cobrança no balcão. */
+    /**
+     * Títulos a receber (Pendente/Parcial) originados de vendas do PDV,
+     * agrupados por cliente e abertos por pedido — atalho de cobrança no balcão.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
     #[Computed]
-    public function pendentes()
+    public function debitosPendentes(): Collection
     {
-        return Lancamento::receber()
-            ->pendentes()
-            ->whereNotNull('venda_id')
-            ->when($this->buscaPendentes, function ($query) {
-                $termo = $this->buscaPendentes;
-                $query->where(function ($q) use ($termo) {
-                    $q->whereHas('cliente', fn ($q2) => $q2->where('cliente_nome', 'like', "%{$termo}%"))
-                        ->orWhere('venda_id', 'like', "%{$termo}%");
-                });
-            })
-            ->with(['venda.pedidos', 'cliente'])
-            ->withSum('pagamentos', 'valor')
-            ->orderBy('vencimento')
-            ->get();
+        return (new DebitosClienteService([
+            'somente_vendas' => true,
+            'busca' => $this->buscaPendentes,
+        ]))->porCliente();
+    }
+
+    /** Saldo em aberto (todos os títulos a receber) do cliente da venda atual — aviso no card do cliente. */
+    #[Computed]
+    public function saldoDevedorDoCliente(): float
+    {
+        return $this->venda?->cliente?->saldoDevedor() ?? 0.0;
+    }
+
+    /** Leva o caixa à aba Pendentes já filtrada pelo cliente da venda. */
+    public function verDebitosDoCliente(): void
+    {
+        $this->buscaPendentes = (string) $this->venda?->cliente?->cliente_nome;
+        $this->abaAtiva = 'pendentes';
     }
 
     /** Pagamentos já registrados do título em recebimento no modal — histórico exibido ao caixa. */
@@ -2079,7 +2089,7 @@ class OperarVenda extends Page
         );
 
         $this->fecharModalRecebimento();
-        unset($this->pendentes);
+        unset($this->debitosPendentes, $this->saldoDevedorDoCliente);
     }
 
     public function abrirModalCancelar(): void

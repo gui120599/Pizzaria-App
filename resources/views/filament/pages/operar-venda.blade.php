@@ -260,42 +260,25 @@
                         wire:model.live.debounce.300ms="buscaPendentes"
                         type="text"
                         data-busca-input
-                        placeholder="Buscar por número da venda ou cliente..."
+                        placeholder="Buscar por cliente, nº da venda ou do pedido..."
                         class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-xl bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                 </div>
+                @php $debitosPendentes = $this->debitosPendentes; @endphp
+                @if ($debitosPendentes->isNotEmpty())
+                    <div class="flex items-center justify-between px-1 text-xs text-gray-500 dark:text-gray-400">
+                        <span>{{ $debitosPendentes->count() }} {{ $debitosPendentes->count() === 1 ? 'cliente' : 'clientes' }} devendo</span>
+                        <span>Total em aberto <strong class="text-gray-800 dark:text-gray-200">R$ {{ number_format($debitosPendentes->sum('total'), 2, ',', '.') }}</strong></span>
+                    </div>
+                @endif
                 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/10 divide-y divide-gray-100 dark:divide-white/10 overflow-y-auto" style="max-height: clamp(20rem, 65vh, 52rem)">
-                    @forelse ($this->pendentes as $lancamento)
-                        <div wire:key="pendente-{{ $lancamento->id }}" class="p-4 flex items-center justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{{ $lancamento->cliente?->cliente_nome ?? '—' }}</p>
-                                <p class="text-xs text-gray-400 dark:text-gray-500">
-                                    Venda #{{ $lancamento->venda_id }} ·
-                                    Criada em {{ $lancamento->venda?->created_at?->format('d/m/Y H:i') }} ·
-                                    Vencimento {{ $lancamento->vencimento?->format('d/m/Y') }}
-                                    @if ($lancamento->esta_vencido)
-                                        <span class="text-red-600 dark:text-red-400 font-semibold">· vencido</span>
-                                    @endif
-                                </p>
-                                @if ($lancamento->venda?->pedidos->isNotEmpty())
-                                    <p class="text-xs text-gray-400 dark:text-gray-500">
-                                        Pedido{{ $lancamento->venda->pedidos->count() > 1 ? 's' : '' }} #{{ $lancamento->venda->pedidos->pluck('id')->implode(', #') }}
-                                    </p>
-                                @endif
-                            </div>
-                            <div class="flex items-center gap-3 shrink-0">
-                                <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">R$ {{ number_format($lancamento->valor_restante, 2, ',', '.') }}</span>
-                                <button type="button"
-                                    onclick="window.open('{{ route('lancamento.imprimir_fiado', ['id' => $lancamento->id]) }}', '_blank', 'width=600,height=600')"
-                                    title="Imprimir comprovante"
-                                    class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
-                                    <x-filament::icon icon="heroicon-o-printer" class="h-4 w-4" />
-                                </button>
-                                <button wire:click="abrirModalRecebimento({{ $lancamento->id }})" type="button" class="text-xs font-semibold text-primary-700 dark:text-primary-400 hover:underline">
-                                    Receber
-                                </button>
-                            </div>
-                        </div>
+                    @forelse ($debitosPendentes as $debito)
+                        <x-debitos-cliente
+                            wire:key="pendente-cliente-{{ $debito['cliente']?->id ?? 0 }}"
+                            :debito="$debito"
+                            :receber="true"
+                            :somente-vendas="true"
+                            :aberto="$debitosPendentes->count() === 1" />
                     @empty
                         <div class="p-10 text-center text-sm text-gray-400 dark:text-gray-500">Nenhuma venda fiado pendente de recebimento.</div>
                     @endforelse
@@ -371,6 +354,11 @@
                     <div class="min-w-0">
                         <p class="text-xs text-gray-400 dark:text-gray-500">Cliente</p>
                         <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{{ $this->venda->cliente->cliente_nome }}</p>
+                        @if ($this->saldoDevedorDoCliente > 0)
+                            <button wire:click="verDebitosDoCliente" type="button" title="Total a receber do cliente, inclusive títulos lançados no Financeiro (a aba Pendentes mostra só os de vendas)" class="text-xs font-medium text-danger-600 dark:text-danger-400 hover:underline">
+                                Deve R$ {{ number_format($this->saldoDevedorDoCliente, 2, ',', '.') }} · ver pedidos
+                            </button>
+                        @endif
                     </div>
                     <div class="flex gap-2 shrink-0">
                         <button wire:click="abrirModalCliente" type="button" class="text-xs text-primary-700 dark:text-primary-400 hover:underline">Trocar</button>
