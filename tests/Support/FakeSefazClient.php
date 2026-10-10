@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Exceptions\SefazConsumoIndevidoException;
 use App\Exceptions\SefazDocumentoNaoLocalizadoException;
 use App\Exceptions\SefazIndisponivelException;
 use App\Exceptions\SefazManifestacaoForaDoPrazoException;
@@ -37,6 +38,12 @@ class FakeSefazClient implements SefazClient
     public array $chavesConfirmadas = [];
 
     private bool $indisponivel = false;
+
+    /** Quantas consultas (por chave + por NSU) aceitar antes de responder cStat 656; null = nunca. */
+    private ?int $consumoIndevidoAposConsultas = null;
+
+    /** Total de chamadas ao NFeDistribuicaoDFe (consultarPorChave + consultarPorNsu). */
+    public int $consultas = 0;
 
     public function comDocumentoCompleto(string $chave, string $xml): static
     {
@@ -83,6 +90,14 @@ class FakeSefazClient implements SefazClient
         return $this;
     }
 
+    /** Simula o bloqueio por Consumo Indevido (cStat 656) a partir da consulta N+1. */
+    public function comConsumoIndevidoApos(int $consultas): static
+    {
+        $this->consumoIndevidoAposConsultas = $consultas;
+
+        return $this;
+    }
+
     public function lancarIndisponivel(): static
     {
         $this->indisponivel = true;
@@ -92,6 +107,8 @@ class FakeSefazClient implements SefazClient
 
     public function consultarPorChave(string $chave): SefazResumoDocumento|SefazDocumentoCompleto
     {
+        $this->contarConsulta();
+
         if ($this->indisponivel) {
             throw new SefazIndisponivelException('Indisponível (fake).');
         }
@@ -111,6 +128,8 @@ class FakeSefazClient implements SefazClient
 
     public function consultarPorNsu(int $ultNsu): SefazLoteDistribuicao
     {
+        $this->contarConsulta();
+
         if ($this->indisponivel) {
             throw new SefazIndisponivelException('Indisponível (fake).');
         }
@@ -140,6 +159,15 @@ class FakeSefazClient implements SefazClient
 
         $this->chavesConfirmadas[] = $chave;
         $this->liberarSeManifestada($chave);
+    }
+
+    private function contarConsulta(): void
+    {
+        $this->consultas++;
+
+        if ($this->consumoIndevidoAposConsultas !== null && $this->consultas > $this->consumoIndevidoAposConsultas) {
+            throw new SefazConsumoIndevidoException('Rejeição: Consumo Indevido (fake).');
+        }
     }
 
     private function liberarSeManifestada(string $chave): void

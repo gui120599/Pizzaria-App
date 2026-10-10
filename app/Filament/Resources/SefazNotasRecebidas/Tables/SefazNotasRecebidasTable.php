@@ -6,6 +6,7 @@ use App\Enums\SefazNotaRecebidaStatusEnum;
 use App\Exceptions\DanfeGeracaoException;
 use App\Exceptions\NfeXmlInvalidoException;
 use App\Exceptions\SefazAutenticacaoException;
+use App\Exceptions\SefazConsultaEmEsperaException;
 use App\Exceptions\SefazDocumentoAindaNaoDisponivelException;
 use App\Exceptions\SefazIndisponivelException;
 use App\Exceptions\SefazManifestacaoForaDoPrazoException;
@@ -118,7 +119,7 @@ class SefazNotasRecebidasTable
             ->modalContent(function (SefazNotaRecebida $record, SefazDistribuicaoService $service): HtmlString {
                 try {
                     $nfe = $service->visualizarNota($record);
-                } catch (SefazDocumentoAindaNaoDisponivelException|SefazManifestacaoForaDoPrazoException $e) {
+                } catch (SefazDocumentoAindaNaoDisponivelException|SefazManifestacaoForaDoPrazoException|SefazConsultaEmEsperaException $e) {
                     return new HtmlString(self::mensagemModal($e->getMessage(), 'warning'));
                 } catch (SefazAutenticacaoException|SefazIndisponivelException $e) {
                     return new HtmlString(self::mensagemModal($e->getMessage(), 'danger'));
@@ -142,6 +143,14 @@ class SefazNotasRecebidasTable
                 } catch (SefazDocumentoAindaNaoDisponivelException $e) {
                     Notification::make()
                         ->title('Nota manifestada, aguardando liberação')
+                        ->body($e->getMessage())
+                        ->warning()
+                        ->persistent()
+                        ->send();
+
+                } catch (SefazConsultaEmEsperaException $e) {
+                    Notification::make()
+                        ->title('Consulta à SEFAZ em espera')
                         ->body($e->getMessage())
                         ->warning()
                         ->persistent()
@@ -312,6 +321,14 @@ class SefazNotasRecebidasTable
                         ->danger()
                         ->send();
 
+                } catch (SefazConsultaEmEsperaException $e) {
+                    Notification::make()
+                        ->title('Consulta à SEFAZ em espera')
+                        ->body($e->getMessage())
+                        ->warning()
+                        ->persistent()
+                        ->send();
+
                     return;
                 } catch (SefazManifestacaoForaDoPrazoException $e) {
                     Notification::make()
@@ -399,11 +416,24 @@ class SefazNotasRecebidasTable
                 $pendentes = 0;
                 $foraDoPrazo = 0;
                 $erros = 0;
+                $bloqueio = null;
+                $naoProcessadas = 0;
+                $selecionadas = $records->where('snr_status', SefazNotaRecebidaStatusEnum::PENDENTE)->values();
 
-                foreach ($records->where('snr_status', SefazNotaRecebidaStatusEnum::PENDENTE) as $record) {
+                foreach ($selecionadas as $indice => $record) {
                     try {
                         $service->importarNota($record, auth()->id(), $confirmarOperacao);
                         $importadas++;
+                    } catch (SefazConsultaEmEsperaException $e) {
+                        if ($e->bloqueioGeral) {
+                            // CNPJ bloqueado: qualquer nova consulta só reinicia o
+                            // bloqueio na SEFAZ — para o lote aqui.
+                            $bloqueio = $e;
+                            $naoProcessadas = $selecionadas->count() - $indice;
+
+                            break;
+                        }
+                        $pendentes++;
                     } catch (SefazDocumentoAindaNaoDisponivelException) {
                         $pendentes++;
                     } catch (SefazManifestacaoForaDoPrazoException) {
@@ -418,6 +448,17 @@ class SefazNotasRecebidasTable
                     $resumo .= $confirmarOperacao
                         ? " {$foraDoPrazo} passaram de 90 dias — peça o XML ao fornecedor e use \"Importar XML\"."
                         : " {$foraDoPrazo} com mais de 10 dias — use \"Confirmar recebimento e importar\".";
+                }
+
+                if ($bloqueio !== null) {
+                    Notification::make()
+                        ->title('Importação interrompida: SEFAZ bloqueou as consultas')
+                        ->body("{$resumo} {$naoProcessadas} nota(s) não processada(s). ".$bloqueio->getMessage())
+                        ->warning()
+                        ->persistent()
+                        ->send();
+
+                    return;
                 }
 
                 Notification::make()

@@ -113,7 +113,9 @@ class SefazNfephpClient implements SefazClient
     {
         try {
             $resposta = $chamada();
-            Log::channel('sefaz')->info("SEFAZ {$operacao}: ok");
+            // Primeiro cStat do envelope = status do retorno (retDistDFeInt/retEnvEvento).
+            $status = preg_match('/<cStat>(\d+)<\/cStat>\s*<xMotivo>([^<]*)<\/xMotivo>/', $resposta, $m) ? "cStat {$m[1]} — {$m[2]}" : 'sem cStat';
+            Log::channel('sefaz')->info("SEFAZ {$operacao}: {$status}");
 
             return $resposta;
         } catch (Throwable $e) {

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\SefazNotasRecebidas\Pages;
 
 use App\Exceptions\SefazAutenticacaoException;
+use App\Exceptions\SefazConsultaEmEsperaException;
 use App\Exceptions\SefazIndisponivelException;
 use App\Filament\Resources\SefazNotasRecebidas\SefazNotaRecebidaResource;
 use App\Services\Sefaz\SefazDistribuicaoService;
@@ -24,6 +25,14 @@ class ManageSefazNotasRecebidas extends ManageRecords
                 ->action(function (SefazDistribuicaoService $service): void {
                     try {
                         $resultado = $service->sincronizarNotasRecebidas();
+                    } catch (SefazConsultaEmEsperaException $e) {
+                        Notification::make()
+                            ->title('Consulta à SEFAZ em espera')
+                            ->body($e->getMessage())
+                            ->warning()
+                            ->send();
+
+                        return;
                     } catch (SefazAutenticacaoException|SefazIndisponivelException $e) {
                         Notification::make()
                             ->title('Não foi possível consultar a SEFAZ')

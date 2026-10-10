@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\SefazConsultaEmEsperaException;
 use App\Exceptions\SefazDocumentoAindaNaoDisponivelException;
 use App\Exceptions\SefazManifestacaoForaDoPrazoException;
 use App\Models\Compra;
@@ -234,5 +235,74 @@ class SefazDistribuicaoServiceTest extends TestCase
         $this->assertSame(1, $resultado->erros);
         $this->assertSame(1, $resultado->importadas);
         $this->assertSame(2, Empresa::first()->empresa_sefaz_ultimo_nsu);
+    }
+
+    public function test_consumo_indevido_bloqueia_sem_manifestar_e_nao_consulta_de_novo_durante_o_bloqueio(): void
+    {
+        $fake = $this->fake()
+            ->comDocumentoAposManifestacao(self::CHAVE, $this->xmlExemplo())
+            ->comConsumoIndevidoApos(0);
+        $service = app(SefazDistribuicaoService::class);
+
+        foreach ([1, 2] as $tentativa) {
+            try {
+                $service->buscarPorChave(self::CHAVE);
+                $this->fail('Esperava SefazConsultaEmEsperaException.');
+            } catch (SefazConsultaEmEsperaException $e) {
+                $this->assertTrue($e->bloqueioGeral);
+                $this->assertTrue($e->liberadaEm->isFuture());
+            }
+        }
+
+        // Só a primeira tentativa chegou na SEFAZ; a segunda parou no bloqueio
+        // local (tentar de novo reiniciaria a hora de bloqueio). E nada de
+        // manifestar uma nota que nem foi consultada de verdade.
+        $this->assertSame(1, $fake->consultas);
+        $this->assertSame([], $fake->chavesManifestadas);
+    }
+
+    public function test_polling_interrompe_no_consumo_indevido_sem_avancar_o_nsu(): void
+    {
+        $fake = $this->fake()
+            ->comDocumentoAposManifestacao(self::CHAVE, $this->xmlExemplo())
+            ->comConsumoIndevidoApos(1)
+            ->comLote(new SefazLoteDistribuicao(
+                itens: [
+                    new SefazResumoDocumento(nsu: 5, chaveAcesso: self::CHAVE, isEvento: false),
+                    new SefazResumoDocumento(nsu: 6, chaveAcesso: '35260114200166000166550010000000471123456780', isEvento: false),
+                ],
+                ultNsuRetornado: 6,
+                maxNsu: 6,
+                cStat: '138',
+            ));
+
+        try {
+            app(SefazDistribuicaoService::class)->executarPolling();
+            $this->fail('Esperava SefazConsultaEmEsperaException.');
+        } catch (SefazConsultaEmEsperaException) {
+            // O lote não foi processado inteiro: o cursor fica onde estava.
+            $this->assertSame(0, Empresa::first()->empresa_sefaz_ultimo_nsu);
+            $this->assertSame(2, $fake->consultas); // NSU + primeira chave; a segunda chave nem é consultada
+        }
+    }
+
+    public function test_para_de_consultar_a_mesma_chave_ao_atingir_o_limite_da_hora(): void
+    {
+        config(['sefaz.limite_consultas_por_chave_hora' => 2, 'sefaz.intervalo_pos_manifestacao' => [0]]);
+        $fake = $this->fake()->comResumoPendente(self::CHAVE);
+        $service = app(SefazDistribuicaoService::class);
+
+        try {
+            $service->buscarPorChave(self::CHAVE); // consulta + 1 retry = 2 consultas
+        } catch (SefazDocumentoAindaNaoDisponivelException) {
+        }
+
+        try {
+            $service->buscarPorChave(self::CHAVE);
+            $this->fail('Esperava SefazConsultaEmEsperaException.');
+        } catch (SefazConsultaEmEsperaException $e) {
+            $this->assertFalse($e->bloqueioGeral);
+            $this->assertSame(2, $fake->consultas);
+        }
     }
 }

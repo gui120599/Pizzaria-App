@@ -262,4 +262,27 @@ class SefazNotasRecebidasFilamentSmokeTest extends TestCase
         $this->assertSame(SefazNotaRecebidaStatusEnum::IMPORTADA, $nota1->fresh()->snr_status);
         $this->assertSame(SefazNotaRecebidaStatusEnum::PENDENTE, $nota2->fresh()->snr_status);
     }
+
+    public function test_bulk_action_para_no_bloqueio_da_sefaz_sem_consultar_as_demais(): void
+    {
+        $nota1 = $this->notaPendente();
+        $nota2 = SefazNotaRecebida::create([
+            'snr_chave_acesso' => '35260114200166000166550010000000471123456780',
+            'snr_nsu' => 6,
+            'snr_status' => SefazNotaRecebidaStatusEnum::PENDENTE,
+            'snr_encontrada_em' => now(),
+        ]);
+        $fake = $this->fake()
+            ->comDocumentoCompleto($nota1->snr_chave_acesso, $this->xmlExemplo())
+            ->comDocumentoCompleto($nota2->snr_chave_acesso, $this->xmlExemplo())
+            ->comConsumoIndevidoApos(0);
+
+        Livewire::test(ManageSefazNotasRecebidas::class)
+            ->callTableBulkAction('importarSelecionadas', [$nota1, $nota2])
+            ->assertNotified('Importação interrompida: SEFAZ bloqueou as consultas');
+
+        $this->assertSame(1, $fake->consultas);
+        $this->assertSame(SefazNotaRecebidaStatusEnum::PENDENTE, $nota1->fresh()->snr_status);
+        $this->assertSame(SefazNotaRecebidaStatusEnum::PENDENTE, $nota2->fresh()->snr_status);
+    }
 }

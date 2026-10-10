@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\SefazNotaRecebidaStatusEnum;
+use App\Exceptions\SefazConsultaEmEsperaException;
 use App\Models\Compra;
 use App\Models\Empresa;
 use App\Models\SefazNotaRecebida;
@@ -251,5 +252,25 @@ class SefazSincronizacaoServiceTest extends TestCase
         $nota->refresh();
         $this->assertSame(SefazNotaRecebidaStatusEnum::IGNORADA, $nota->snr_status);
         $this->assertSame([], $fake->chavesManifestadas);
+    }
+
+    public function test_sincronizar_espera_1_hora_depois_de_uma_consulta_sem_novidades(): void
+    {
+        $fake = $this->fake(); // lote vazio: ultNSU = maxNSU
+        $service = app(SefazDistribuicaoService::class);
+
+        $service->sincronizarNotasRecebidas();
+
+        try {
+            $service->sincronizarNotasRecebidas();
+            $this->fail('Esperava SefazConsultaEmEsperaException.');
+        } catch (SefazConsultaEmEsperaException $e) {
+            $this->assertFalse($e->bloqueioGeral);
+            $this->assertSame(1, $fake->consultas);
+        }
+
+        $this->travel(62)->minutes();
+        $service->sincronizarNotasRecebidas();
+        $this->assertSame(2, $fake->consultas);
     }
 }

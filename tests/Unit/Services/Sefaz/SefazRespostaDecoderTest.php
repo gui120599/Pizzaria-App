@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Services\Sefaz;
 
+use App\Exceptions\SefazConsumoIndevidoException;
 use App\Exceptions\SefazDocumentoNaoLocalizadoException;
 use App\Exceptions\SefazIndisponivelException;
 use App\Services\Sefaz\Dto\SefazDocumentoCompleto;
@@ -253,5 +254,40 @@ class SefazRespostaDecoderTest extends TestCase
 
         $this->assertInstanceOf(SefazDocumentoCompleto::class, $resultado);
         $this->assertSame(self::CHAVE, $resultado->chaveAcesso);
+    }
+
+    private function respostaConsumoIndevido(): string
+    {
+        return $this->envelopeSoap(<<<'XML'
+        <retDistDFeInt versao="1.01" xmlns="http://www.portalfiscal.inf.br/nfe">
+          <tpAmb>1</tpAmb>
+          <verAplic>1.7.6</verAplic>
+          <cStat>656</cStat>
+          <xMotivo>Rejeicao: Consumo Indevido (Deve ser aguardado 1 hora para efetuar nova solicitacao)</xMotivo>
+          <dhResp>2026-10-10T10:00:00-03:00</dhResp>
+          <ultNSU>000000000000000</ultNSU>
+          <maxNSU>000000000000000</maxNSU>
+        </retDistDFeInt>
+        XML);
+    }
+
+    /**
+     * Regressão: o 656 vinha sem docZip e era lido como "nenhum documento"
+     * (cStat 137), disparando manifestação + novas tentativas que só
+     * reiniciavam o bloqueio de 1 hora na SEFAZ.
+     */
+    public function test_decode_consulta_chave_com_consumo_indevido_nao_e_tratado_como_nao_localizado(): void
+    {
+        $this->expectException(SefazConsumoIndevidoException::class);
+
+        (new SefazRespostaDecoder)->decodeConsultaChave($this->respostaConsumoIndevido());
+    }
+
+    /** O 656 traz ultNSU zerado — usar esse cursor resetaria o NSU da empresa. */
+    public function test_decode_lote_com_consumo_indevido_lanca_excecao_em_vez_de_devolver_cursor_zerado(): void
+    {
+        $this->expectException(SefazConsumoIndevidoException::class);
+
+        (new SefazRespostaDecoder)->decodeLote($this->respostaConsumoIndevido());
     }
 }

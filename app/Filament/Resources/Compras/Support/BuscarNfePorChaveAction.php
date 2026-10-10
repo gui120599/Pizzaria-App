@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Compras\Support;
 
 use App\Exceptions\SefazAutenticacaoException;
+use App\Exceptions\SefazConsultaEmEsperaException;
 use App\Exceptions\SefazDocumentoAindaNaoDisponivelException;
 use App\Exceptions\SefazIndisponivelException;
 use App\Exceptions\SefazManifestacaoForaDoPrazoException;
@@ -67,6 +68,14 @@ class BuscarNfePorChaveAction
                         ->title('Falha de autenticação com a SEFAZ')
                         ->body($e->getMessage())
                         ->danger()
+                        ->send();
+
+                } catch (SefazConsultaEmEsperaException $e) {
+                    Notification::make()
+                        ->title('Consulta à SEFAZ em espera')
+                        ->body($e->getMessage())
+                        ->warning()
+                        ->persistent()
                         ->send();
 
                     return;
