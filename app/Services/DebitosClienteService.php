@@ -79,6 +79,27 @@ class DebitosClienteService
     }
 
     /**
+     * Títulos de um cliente agrupados pelo mês da compra (data da venda; título
+     * lançado à mão usa a data em que foi criado), do mais antigo ao mais novo.
+     *
+     * @param  Collection<int, Titulo>  $titulos
+     * @return Collection<string, array{mes: string, total: float, titulos: Collection<int, Titulo>}>
+     */
+    public static function agruparPorMes(Collection $titulos): Collection
+    {
+        $dataDoTitulo = fn (array $titulo) => $titulo['venda']?->created_at ?? $titulo['lancamento']->created_at;
+
+        return $titulos
+            ->sortBy(fn (array $titulo): string => (string) $dataDoTitulo($titulo)?->format('Y-m-d H:i:s'))
+            ->groupBy(fn (array $titulo): string => (string) $dataDoTitulo($titulo)?->format('Y-m'))
+            ->map(fn (Collection $doMes): array => [
+                'mes' => ucfirst((string) $dataDoTitulo($doMes->first())?->translatedFormat('F \\d\\e Y')) ?: 'Sem data',
+                'total' => round($doMes->sum('restante'), 2),
+                'titulos' => $doMes->values(),
+            ]);
+    }
+
+    /**
      * @return Collection<int, Lancamento>
      */
     private function lancamentos(): Collection

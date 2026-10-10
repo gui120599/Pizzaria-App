@@ -28,11 +28,15 @@
             <x-filament::input.checkbox wire:model.live="somenteVencidos" />
             Somente vencidos
         </label>
+        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <x-filament::input.checkbox wire:model.live="agruparPorMes" />
+            Agrupar por mês
+        </label>
     </div>
 
     <div class="divide-y divide-gray-100 overflow-hidden rounded-xl shadow-sm ring-1 ring-gray-950/5 dark:divide-white/10 dark:ring-white/10">
         @forelse ($this->relatorio->porCliente() as $debito)
-            <x-debitos-cliente wire:key="debito-cliente-{{ $debito['cliente']?->id ?? 0 }}" :debito="$debito" />
+            <x-debitos-cliente wire:key="debito-cliente-{{ $debito['cliente']?->id ?? 0 }}-{{ $agruparPorMes ? 'mes' : 'lista' }}" :debito="$debito" :por-mes="$agruparPorMes" :aberto="$agruparPorMes" />
         @empty
             <div class="bg-white p-10 text-center text-sm text-gray-400 dark:bg-gray-900 dark:text-gray-500">Nenhum cliente com débito em aberto.</div>
         @endforelse
