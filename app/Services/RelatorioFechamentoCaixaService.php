@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\FormaPagamento;
 use App\Enums\MotivoSaidaCaixa;
+use App\Enums\PrazoRecebimentoMaquininhaEnum;
 use App\Enums\TipoPagamentoMaquininhaEnum;
 use App\Models\CartoesPagamento;
 use App\Models\Empresa;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Relatório de Fechamento de Caixa: DRE das vendas, fluxo de caixa por forma
  * de pagamento, o que passou em cada maquininha por bandeira com a taxa (MDR)
- * abatida, previsão de recebimento (D+N), movimentações e conferência.
+ * abatida, previsão de recebimento, movimentações e conferência.
  *
  * Recorte: vendas FINALIZADAS no período (por venda_datahora_finalizada),
  * opcionalmente de um caixa; com sessões selecionadas, valem só as vendas
@@ -32,7 +33,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Taxa da maquininha: o retrato gravado no pagamento; sem retrato, a taxa
  * atual (TaxaMaquininhaService); sem taxa cadastrada, entra como 0 e conta
- * em "sem taxa". O prazo D+N é sempre o da parametrização atual.
+ * em "sem taxa". O prazo de recebimento é sempre o da parametrização atual.
  *
  * Filtros (mesmo shape da página RelatorioFechamentoCaixa): inicio, fim,
  * caixa_id, sessoes.
@@ -142,7 +143,7 @@ class RelatorioFechamentoCaixaService
      * Um item por pagamento das vendas do recorte e por recebimento de fiado
      * que entrou no caixa (origem "fiado").
      *
-     * @return Collection<int, array{id: int, origem: string, venda_id: ?int, sessao_id: ?int, finalizada_em: Carbon, opcao_id: ?int, forma: string, categoria: string, tipo: ?TipoPagamentoMaquininhaEnum, pix_cnpj: bool, maquininha_id: ?int, maquininha: string, operadora: string, bandeira: string, valor: float, taxa_percentual: ?float, taxa: float, sem_taxa: bool, prazo_dias: ?int}>
+     * @return Collection<int, array{id: int, origem: string, venda_id: ?int, sessao_id: ?int, finalizada_em: Carbon, opcao_id: ?int, forma: string, categoria: string, tipo: ?TipoPagamentoMaquininhaEnum, pix_cnpj: bool, maquininha_id: ?int, maquininha: string, operadora: string, bandeira: string, valor: float, taxa_percentual: ?float, taxa: float, sem_taxa: bool, prazo: ?PrazoRecebimentoMaquininhaEnum}>
      */
     public function pagamentos(): Collection
     {
@@ -266,7 +267,7 @@ class RelatorioFechamentoCaixaService
                     'taxa_percentual' => $percentual,
                     'taxa' => $taxa,
                     'sem_taxa' => $tipo !== null && $percentual === null,
-                    'prazo_dias' => $tipo ? $taxas->taxa($maquininhaId, $pagamento->pg_venda_cartao_id, $tipo)?->mt_prazo_recebimento_dias : null,
+                    'prazo' => $tipo ? $taxas->taxa($maquininhaId, $pagamento->pg_venda_cartao_id, $tipo)?->mt_prazo_recebimento : null,
                 ];
             });
     }
@@ -314,7 +315,7 @@ class RelatorioFechamentoCaixaService
                     'taxa_percentual' => $percentual,
                     'taxa' => $taxa,
                     'sem_taxa' => $tipo !== null && $percentual === null,
-                    'prazo_dias' => $tipo ? $taxas->taxa($maquininhaId, $recebimento->cartao_id, $tipo)?->mt_prazo_recebimento_dias : null,
+                    'prazo' => $tipo ? $taxas->taxa($maquininhaId, $recebimento->cartao_id, $tipo)?->mt_prazo_recebimento : null,
                 ];
             });
     }
@@ -600,7 +601,7 @@ class RelatorioFechamentoCaixaService
             ->groupBy(fn (array $pagamento): string => $pagamento['maquininha'].'|'.$pagamento['tipo']->value.'|'.$pagamento['bandeira'])
             ->map(function (Collection $pagamentos, string $key): array {
                 $primeiro = $pagamentos->first();
-                $prazos = $pagamentos->pluck('prazo_dias')->unique()->values();
+                $prazos = $pagamentos->pluck('prazo')->unique()->values();
 
                 return [
                     'key' => $key,
@@ -610,7 +611,7 @@ class RelatorioFechamentoCaixaService
                     'transacoes' => $pagamentos->count(),
                     ...self::somas($pagamentos),
                     'ticket_medio' => round($pagamentos->sum('valor') / $pagamentos->count(), 2),
-                    'prazo' => $prazos->count() === 1 && $prazos->first() !== null ? 'D+'.$prazos->first() : ($prazos->filter(fn ($prazo) => $prazo !== null)->isEmpty() ? '—' : 'Vários'),
+                    'prazo' => $prazos->count() === 1 && $prazos->first() !== null ? $prazos->first()->getLabel() : ($prazos->filter(fn ($prazo) => $prazo !== null)->isEmpty() ? '—' : 'Vários'),
                     'sem_taxa' => $pagamentos->where('sem_taxa', true)->count(),
                 ];
             })
@@ -687,8 +688,9 @@ class RelatorioFechamentoCaixaService
     }
 
     /**
-     * Quando o líquido das maquininhas cai na conta: data da venda + D+N
-     * (dias corridos) do cadastro de taxas. Sem prazo cadastrado, data nula.
+     * Quando o líquido das maquininhas cai na conta, pelo prazo de recebimento
+     * do cadastro de taxas (na hora, mesmo dia até 22h ou próximo dia útil).
+     * Sem prazo cadastrado, data nula.
      *
      * @return Collection<int, array{key: string, data: ?Carbon, maquininha: string, transacoes: int, bruto: float, taxa_percentual: float, taxa: float, liquido: float}>
      */
@@ -697,9 +699,7 @@ class RelatorioFechamentoCaixaService
         return $this->pagamentosMaquininha()
             ->map(fn (array $pagamento): array => [
                 ...$pagamento,
-                'data_prevista' => $pagamento['prazo_dias'] !== null
-                    ? $pagamento['finalizada_em']->copy()->startOfDay()->addDays($pagamento['prazo_dias'])
-                    : null,
+                'data_prevista' => $pagamento['prazo']?->dataPrevista($pagamento['finalizada_em']),
             ])
             ->groupBy(fn (array $pagamento): string => ($pagamento['data_prevista']?->format('Y-m-d') ?? 'sem-prazo').'|'.$pagamento['maquininha'])
             ->map(fn (Collection $pagamentos, string $key): array => [

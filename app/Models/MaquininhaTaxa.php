@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PrazoRecebimentoMaquininhaEnum;
 use App\Enums\TipoPagamentoMaquininhaEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,7 +20,7 @@ class MaquininhaTaxa extends Model
         'mt_cartao_id',
         'mt_tipo',
         'mt_percentual',
-        'mt_prazo_recebimento_dias',
+        'mt_prazo_recebimento',
     ];
 
     protected function casts(): array
@@ -27,7 +28,7 @@ class MaquininhaTaxa extends Model
         return [
             'mt_tipo' => TipoPagamentoMaquininhaEnum::class,
             'mt_percentual' => 'decimal:2',
-            'mt_prazo_recebimento_dias' => 'integer',
+            'mt_prazo_recebimento' => PrazoRecebimentoMaquininhaEnum::class,
         ];
     }
 

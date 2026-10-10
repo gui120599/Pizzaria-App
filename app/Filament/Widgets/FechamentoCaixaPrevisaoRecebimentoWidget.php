@@ -10,7 +10,7 @@ use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Support\Carbon;
 
-/** Quando o líquido das maquininhas cai na conta (D+N do cadastro de taxas). */
+/** Quando o líquido das maquininhas cai na conta (prazo de recebimento do cadastro de taxas). */
 class FechamentoCaixaPrevisaoRecebimentoWidget extends BaseWidget
 {
     use HasWidgetShield;
@@ -22,7 +22,7 @@ class FechamentoCaixaPrevisaoRecebimentoWidget extends BaseWidget
     {
         return $table
             ->heading('Previsão de recebimento das maquininhas')
-            ->description('Data da venda + prazo D+N (dias corridos) cadastrado nas taxas da maquininha.')
+            ->description('Pelo prazo de recebimento cadastrado nas taxas da maquininha: na hora, mesmo dia (vendas até 22h) ou próximo dia útil.')
             ->records(fn (): array => (new RelatorioFechamentoCaixaService($this->pageFilters ?? []))
                 ->previsaoRecebimento()
                 ->keyBy('key')

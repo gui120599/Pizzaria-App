@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\FormaPagamento;
 use App\Enums\MotivoSaidaCaixa;
 use App\Enums\OperadoraMaquininha;
+use App\Enums\PrazoRecebimentoMaquininhaEnum;
 use App\Enums\ProdutoTipoEnum;
 use App\Enums\StatusFechamentoCaixa;
 use App\Enums\StatusLancamento;
@@ -83,14 +84,14 @@ class RelatorioFechamentoCaixaTest extends TestCase
         ]);
     }
 
-    private function taxa(string $tipo, float $percentual, ?CartoesPagamento $bandeira = null, ?int $prazo = null, ?Maquininha $maquininha = null): MaquininhaTaxa
+    private function taxa(string $tipo, float $percentual, ?CartoesPagamento $bandeira = null, ?PrazoRecebimentoMaquininhaEnum $prazo = null, ?Maquininha $maquininha = null): MaquininhaTaxa
     {
         return MaquininhaTaxa::create([
             'mt_maquininha_id' => ($maquininha ?? $this->stone)->id,
             'mt_cartao_id' => $bandeira?->id,
             'mt_tipo' => $tipo,
             'mt_percentual' => $percentual,
-            'mt_prazo_recebimento_dias' => $prazo,
+            'mt_prazo_recebimento' => $prazo,
         ]);
     }
 
@@ -242,21 +243,24 @@ class RelatorioFechamentoCaixaTest extends TestCase
         $this->assertSame(66.67, $marcas['Stone']['participacao']);
     }
 
-    public function test_previsao_de_recebimento_soma_o_prazo_a_data_da_venda(): void
+    public function test_previsao_de_recebimento_segue_o_prazo_configurado_na_maquininha(): void
     {
-        $this->travelTo('2026-10-05 21:30:00');
-        $this->taxa('credito', 3.00, prazo: 30);
-        $this->taxa('pix', 0.00, prazo: 0);
-        $this->taxa('debito', 1.00);
-        $venda = $this->venda(300.00);
-        $this->pagar($venda, 'creditCard', 100.00, $this->visa, $this->stone);
+        // Sexta 09/10/2026 às 22:30: depois do corte das 22h, e segunda 12/10 é feriado.
+        $this->travelTo('2026-10-09 22:30:00');
+        $this->taxa('pix', 0.00, prazo: PrazoRecebimentoMaquininhaEnum::NaHora);
+        $this->taxa('debito', 1.00, prazo: PrazoRecebimentoMaquininhaEnum::MesmoDia);
+        $this->taxa('credito', 3.00, prazo: PrazoRecebimentoMaquininhaEnum::ProximoDiaUtil);
+        $this->taxa('credito', 2.00, $this->master);
+        $venda = $this->venda(400.00);
         $this->pagar($venda, 'InstantPayment', 100.00, null, $this->stone);
         $this->pagar($venda, 'debitCard', 100.00, $this->visa, $this->stone);
+        $this->pagar($venda, 'creditCard', 100.00, $this->visa, $this->stone);
+        $this->pagar($venda, 'creditCard', 100.00, $this->master, $this->stone);
 
         $previsao = $this->relatorio()->previsaoRecebimento();
 
-        $this->assertSame(['05/10/2026', '04/11/2026', null], $previsao->map(fn (array $linha): ?string => $linha['data']?->format('d/m/Y'))->all());
-        $this->assertSame([100.0, 97.0, 99.0], $previsao->pluck('liquido')->all());
+        $this->assertSame(['09/10/2026', '10/10/2026', '13/10/2026', null], $previsao->map(fn (array $linha): ?string => $linha['data']?->format('d/m/Y'))->all());
+        $this->assertSame([100.0, 99.0, 97.0, 98.0], $previsao->pluck('liquido')->all());
     }
 
     public function test_filtro_por_sessao_ignora_o_periodo_e_filtro_por_caixa_restringe_as_vendas(): void
@@ -474,12 +478,12 @@ class RelatorioFechamentoCaixaTest extends TestCase
         $destino = Maquininha::create(['nome' => 'Stone 2', 'operadora' => OperadoraMaquininha::Stone]);
 
         Livewire::test(TaxasRelationManager::class, ['ownerRecord' => $this->stone, 'pageClass' => EditMaquininha::class])
-            ->callAction(TestAction::make('create')->table(), ['mt_tipo' => 'credito', 'mt_percentual' => 3.19, 'mt_prazo_recebimento_dias' => 30])
+            ->callAction(TestAction::make('create')->table(), ['mt_tipo' => 'credito', 'mt_percentual' => 3.19, 'mt_prazo_recebimento' => 'proximo_dia_util'])
             ->assertHasNoFormErrors();
         $destino->copiarTaxasDe($this->stone);
 
-        $this->assertSame(30, $this->stone->taxas()->sole()->mt_prazo_recebimento_dias);
-        $this->assertSame(30, $destino->taxas()->sole()->mt_prazo_recebimento_dias);
+        $this->assertSame(PrazoRecebimentoMaquininhaEnum::ProximoDiaUtil, $this->stone->taxas()->sole()->mt_prazo_recebimento);
+        $this->assertSame(PrazoRecebimentoMaquininhaEnum::ProximoDiaUtil, $destino->taxas()->sole()->mt_prazo_recebimento);
     }
 
     public function test_pagina_e_widgets_renderizam_para_o_gerente_e_a_impressao_para_o_admin(): void

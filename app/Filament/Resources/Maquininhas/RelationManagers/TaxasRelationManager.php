@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Maquininhas\RelationManagers;
 
+use App\Enums\PrazoRecebimentoMaquininhaEnum;
 use App\Enums\TipoPagamentoMaquininhaEnum;
 use App\Models\CartoesPagamento;
 use App\Models\MaquininhaTaxa;
@@ -73,13 +74,11 @@ class TaxasRelationManager extends RelationManager
                     ->step(0.01)
                     ->suffix('%')
                     ->required(),
-                TextInput::make('mt_prazo_recebimento_dias')
-                    ->label('Recebimento em D+')
-                    ->integer()
-                    ->minValue(0)
-                    ->maxValue(365)
-                    ->suffix('dias')
-                    ->helperText('Dias corridos até o valor cair na conta. Ex.: Pix D+0, Débito D+1, Crédito D+30.'),
+                Select::make('mt_prazo_recebimento')
+                    ->label('Recebimento')
+                    ->options(PrazoRecebimentoMaquininhaEnum::class)
+                    ->placeholder('Não informado')
+                    ->helperText('Como está configurado no aplicativo da maquininha. "Mesmo dia": vendas depois das 22h caem no dia seguinte.'),
             ]);
     }
 
@@ -99,9 +98,8 @@ class TaxasRelationManager extends RelationManager
                 TextColumn::make('mt_percentual')
                     ->label('Taxa')
                     ->suffix('%'),
-                TextColumn::make('mt_prazo_recebimento_dias')
+                TextColumn::make('mt_prazo_recebimento')
                     ->label('Recebimento')
-                    ->prefix('D+')
                     ->placeholder('Não informado'),
             ])
             ->headerActions([
