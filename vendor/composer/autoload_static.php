@@ -977,6 +977,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Exceptions\\SefazDocumentoAindaNaoDisponivelException' => __DIR__ . '/../..' . '/app/Exceptions/SefazDocumentoAindaNaoDisponivelException.php',
         'App\\Exceptions\\SefazDocumentoNaoLocalizadoException' => __DIR__ . '/../..' . '/app/Exceptions/SefazDocumentoNaoLocalizadoException.php',
         'App\\Exceptions\\SefazIndisponivelException' => __DIR__ . '/../..' . '/app/Exceptions/SefazIndisponivelException.php',
+        'App\\Exceptions\\SefazManifestacaoForaDoPrazoException' => __DIR__ . '/../..' . '/app/Exceptions/SefazManifestacaoForaDoPrazoException.php',
         'App\\Exceptions\\StoneConnectException' => __DIR__ . '/../..' . '/app/Exceptions/StoneConnectException.php',
         'App\\Exceptions\\TransicaoPedidoInvalidaException' => __DIR__ . '/../..' . '/app/Exceptions/TransicaoPedidoInvalidaException.php',
         'App\\Exceptions\\VendaNaoFinalizavelException' => __DIR__ . '/../..' . '/app/Exceptions/VendaNaoFinalizavelException.php',

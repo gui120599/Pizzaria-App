@@ -7,6 +7,7 @@ use App\Exceptions\NfeXmlInvalidoException;
 use App\Exceptions\SefazDocumentoAindaNaoDisponivelException;
 use App\Exceptions\SefazDocumentoNaoLocalizadoException;
 use App\Exceptions\SefazIndisponivelException;
+use App\Exceptions\SefazManifestacaoForaDoPrazoException;
 use App\Models\Compra;
 use App\Models\Empresa;
 use App\Models\SefazDocumentoPendente;
@@ -41,22 +42,29 @@ class SefazDistribuicaoService
 
     /**
      * @throws SefazDocumentoAindaNaoDisponivelException se a SEFAZ não liberar o XML completo a tempo
+     * @throws SefazManifestacaoForaDoPrazoException se a nota já passou do prazo do evento usado
      * @throws SefazIndisponivelException
      */
-    public function buscarPorChave(string $chave, ?int $userId = null): Compra
+    public function buscarPorChave(string $chave, ?int $userId = null, bool $confirmarOperacao = false): Compra
     {
-        return $this->importador->importar($this->obterXmlCompleto($chave), $userId);
+        return $this->importador->importar($this->obterXmlCompleto($chave, $confirmarOperacao), $userId);
     }
 
     /**
-     * Manifesta ciência (se necessário) e retorna o XML completo — núcleo
+     * Manifesta (se necessário) e retorna o XML completo — núcleo
      * compartilhado por buscarPorChave() e visualizarNota(). Não persiste
      * nada; quem decide o que fazer com o XML é o chamador.
      *
+     * Por padrão manifesta Ciência da Operação, que a SEFAZ só aceita até 10
+     * dias da autorização. Com $confirmarOperacao, registra a Confirmação da
+     * Operação (conclusiva, até 90 dias) — só por decisão explícita do
+     * usuário, porque declara ao Fisco que a mercadoria foi recebida.
+     *
      * @throws SefazDocumentoAindaNaoDisponivelException se a SEFAZ não liberar o XML completo a tempo
+     * @throws SefazManifestacaoForaDoPrazoException se a nota já passou do prazo do evento usado
      * @throws SefazIndisponivelException
      */
-    private function obterXmlCompleto(string $chave): string
+    private function obterXmlCompleto(string $chave, bool $confirmarOperacao = false): string
     {
         $resultado = $this->tentarConsultar($chave);
 
@@ -66,9 +74,13 @@ class SefazDistribuicaoService
 
         // Resumo sem XML completo, ou "nenhum documento localizado" (cStat
         // 137 — típico de nota nunca manifestada por este CNPJ): manifesta
-        // ciência e tenta de novo com retry curto (ação síncrona disparada
-        // por usuário — aceitável aguardar um pouco).
-        $this->client->manifestarCiencia($chave);
+        // e tenta de novo com retry curto (ação síncrona disparada por
+        // usuário — aceitável aguardar um pouco).
+        if ($confirmarOperacao) {
+            $this->client->confirmarOperacao($chave);
+        } else {
+            $this->client->manifestarCiencia($chave);
+        }
 
         foreach ($this->intervalosRetry() as $segundos) {
             sleep($segundos);
@@ -100,11 +112,12 @@ class SefazDistribuicaoService
      * a pré-visualização antes — evita manifestar/consultar a SEFAZ de novo.
      *
      * @throws SefazDocumentoAindaNaoDisponivelException se a SEFAZ não liberar o XML completo a tempo
+     * @throws SefazManifestacaoForaDoPrazoException se a nota já passou do prazo do evento usado
      * @throws SefazIndisponivelException
      */
-    public function importarNota(SefazNotaRecebida $nota, ?int $userId = null): Compra
+    public function importarNota(SefazNotaRecebida $nota, ?int $userId = null, bool $confirmarOperacao = false): Compra
     {
-        $compra = $this->importador->importar($this->obterXmlDaNota($nota), $userId);
+        $compra = $this->importador->importar($this->obterXmlDaNota($nota, $confirmarOperacao), $userId);
 
         $nota->forceFill([
             'snr_status' => SefazNotaRecebidaStatusEnum::IMPORTADA,
@@ -142,9 +155,10 @@ class SefazDistribuicaoService
      * (seja outra prévia, seja a importação em seguida).
      *
      * @throws SefazDocumentoAindaNaoDisponivelException se a SEFAZ não liberar o XML completo a tempo
+     * @throws SefazManifestacaoForaDoPrazoException se a nota já passou do prazo do evento usado
      * @throws SefazIndisponivelException
      */
-    public function obterXmlDaNota(SefazNotaRecebida $nota): string
+    public function obterXmlDaNota(SefazNotaRecebida $nota, bool $confirmarOperacao = false): string
     {
         if ($nota->snr_status === SefazNotaRecebidaStatusEnum::IMPORTADA) {
             $xmlCompra = $nota->compra?->compra_xml_path
@@ -159,7 +173,7 @@ class SefazDistribuicaoService
         $xml = $this->xmlEmCache($nota);
 
         if ($xml === null) {
-            $xml = $this->obterXmlCompleto($nota->snr_chave_acesso);
+            $xml = $this->obterXmlCompleto($nota->snr_chave_acesso, $confirmarOperacao);
             $nota->forceFill(['snr_xml_path' => $this->armazenarXmlPreview($xml, $nota->snr_chave_acesso)])->save();
         }
 

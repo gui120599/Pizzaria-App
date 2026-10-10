@@ -4,6 +4,7 @@ namespace App\Services\Sefaz\Contracts;
 
 use App\Exceptions\SefazAutenticacaoException;
 use App\Exceptions\SefazIndisponivelException;
+use App\Exceptions\SefazManifestacaoForaDoPrazoException;
 use App\Services\Sefaz\Dto\SefazDocumentoCompleto;
 use App\Services\Sefaz\Dto\SefazLoteDistribuicao;
 use App\Services\Sefaz\Dto\SefazResumoDocumento;
@@ -34,7 +35,19 @@ interface SefazClient
      * Evento de Ciência da Operação (210210). Idempotente: se a SEFAZ já
      * registrou esse evento antes, não deve lançar erro.
      *
+     * @throws SefazManifestacaoForaDoPrazoException se a nota tiver mais de 10 dias de autorização
      * @throws SefazAutenticacaoException|SefazIndisponivelException
      */
     public function manifestarCiencia(string $chave): void;
+
+    /**
+     * Evento de Confirmação da Operação (210200) — conclusivo, declara ao
+     * Fisco que a mercadoria foi recebida. Libera o XML de notas que já
+     * passaram do prazo da Ciência (até 90 dias da autorização). Só deve
+     * ser chamado por decisão explícita do usuário, nunca automaticamente.
+     *
+     * @throws SefazManifestacaoForaDoPrazoException se a nota tiver mais de 90 dias de autorização
+     * @throws SefazAutenticacaoException|SefazIndisponivelException
+     */
+    public function confirmarOperacao(string $chave): void;
 }

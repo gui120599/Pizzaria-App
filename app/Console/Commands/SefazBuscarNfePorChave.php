@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Exceptions\SefazAutenticacaoException;
 use App\Exceptions\SefazDocumentoAindaNaoDisponivelException;
 use App\Exceptions\SefazIndisponivelException;
+use App\Exceptions\SefazManifestacaoForaDoPrazoException;
 use App\Models\Empresa;
 use App\Services\Sefaz\SefazDistribuicaoService;
 use Illuminate\Console\Command;
@@ -17,7 +18,9 @@ use Illuminate\Validation\ValidationException;
  */
 class SefazBuscarNfePorChave extends Command
 {
-    protected $signature = 'sefaz:buscar-chave {chave : Chave de acesso de 44 dígitos}';
+    protected $signature = 'sefaz:buscar-chave
+        {chave : Chave de acesso de 44 dígitos}
+        {--confirmar : Registra a Confirmação da Operação (declara recebimento da mercadoria) em vez da ciência — necessário para notas com mais de 10 dias}';
 
     protected $description = 'Busca uma NF-e na SEFAZ pela chave de acesso e importa como rascunho de compra';
 
@@ -43,9 +46,15 @@ class SefazBuscarNfePorChave extends Command
         }
 
         try {
-            $compra = app(SefazDistribuicaoService::class)->buscarPorChave($chave);
+            $compra = app(SefazDistribuicaoService::class)->buscarPorChave($chave, confirmarOperacao: (bool) $this->option('confirmar'));
         } catch (SefazDocumentoAindaNaoDisponivelException $e) {
             $this->warn($e->getMessage());
+
+            return self::FAILURE;
+        } catch (SefazManifestacaoForaDoPrazoException $e) {
+            $this->error($this->option('confirmar')
+                ? $e->getMessage()
+                : 'A nota tem mais de 10 dias e a SEFAZ não aceita mais a ciência da operação. Se recebeu a mercadoria, rode de novo com --confirmar.');
 
             return self::FAILURE;
         } catch (SefazAutenticacaoException|SefazIndisponivelException $e) {

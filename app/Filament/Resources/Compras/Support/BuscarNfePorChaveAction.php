@@ -5,11 +5,13 @@ namespace App\Filament\Resources\Compras\Support;
 use App\Exceptions\SefazAutenticacaoException;
 use App\Exceptions\SefazDocumentoAindaNaoDisponivelException;
 use App\Exceptions\SefazIndisponivelException;
+use App\Exceptions\SefazManifestacaoForaDoPrazoException;
 use App\Filament\Resources\Compras\CompraResource;
 use App\Models\Empresa;
 use App\Services\Sefaz\SefazDistribuicaoService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +22,8 @@ use Livewire\Component;
  * Manifesta ciência da operação se necessário (exigência da SEFAZ pra
  * liberar o XML completo) e importa como rascunho de compra pelo mesmo
  * NfeImportService do upload manual (via SefazDistribuicaoService).
+ * Notas com mais de 10 dias exigem marcar "Confirmar recebimento" — registra
+ * a Confirmação da Operação no lugar da ciência (ver SefazClient::confirmarOperacao()).
  */
 class BuscarNfePorChaveAction
 {
@@ -40,12 +44,15 @@ class BuscarNfePorChaveAction
                     ->maxLength(44)
                     ->rule('digits:44')
                     ->helperText('44 dígitos, sem espaços ou pontuação.'),
+                Toggle::make('confirmar_operacao')
+                    ->label('Confirmar recebimento da mercadoria')
+                    ->helperText('Necessário para notas com mais de 10 dias. Registra na SEFAZ a Confirmação da Operação — evento definitivo que declara ao Fisco que a mercadoria foi recebida. Marque apenas se você recebeu a mercadoria.'),
             ])
             ->action(function (array $data, SefazDistribuicaoService $service, Component $livewire): void {
                 $chave = preg_replace('/\D/', '', (string) $data['chave']) ?? '';
 
                 try {
-                    $compra = $service->buscarPorChave($chave, auth()->id());
+                    $compra = $service->buscarPorChave($chave, auth()->id(), (bool) ($data['confirmar_operacao'] ?? false));
                 } catch (SefazDocumentoAindaNaoDisponivelException $e) {
                     Notification::make()
                         ->title('Nota manifestada, aguardando liberação')
@@ -60,6 +67,17 @@ class BuscarNfePorChaveAction
                         ->title('Falha de autenticação com a SEFAZ')
                         ->body($e->getMessage())
                         ->danger()
+                        ->send();
+
+                    return;
+                } catch (SefazManifestacaoForaDoPrazoException $e) {
+                    Notification::make()
+                        ->title('Nota fora do prazo de manifestação')
+                        ->body(($data['confirmar_operacao'] ?? false)
+                            ? $e->getMessage()
+                            : 'A nota tem mais de 10 dias e a SEFAZ não aceita mais a ciência da operação. Marque "Confirmar recebimento da mercadoria" e busque de novo.')
+                        ->warning()
+                        ->persistent()
                         ->send();
 
                     return;

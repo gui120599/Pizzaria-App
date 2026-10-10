@@ -87,6 +87,7 @@ return array(
     'App\\Exceptions\\SefazDocumentoAindaNaoDisponivelException' => $baseDir . '/app/Exceptions/SefazDocumentoAindaNaoDisponivelException.php',
     'App\\Exceptions\\SefazDocumentoNaoLocalizadoException' => $baseDir . '/app/Exceptions/SefazDocumentoNaoLocalizadoException.php',
     'App\\Exceptions\\SefazIndisponivelException' => $baseDir . '/app/Exceptions/SefazIndisponivelException.php',
+    'App\\Exceptions\\SefazManifestacaoForaDoPrazoException' => $baseDir . '/app/Exceptions/SefazManifestacaoForaDoPrazoException.php',
     'App\\Exceptions\\StoneConnectException' => $baseDir . '/app/Exceptions/StoneConnectException.php',
     'App\\Exceptions\\TransicaoPedidoInvalidaException' => $baseDir . '/app/Exceptions/TransicaoPedidoInvalidaException.php',
     'App\\Exceptions\\VendaNaoFinalizavelException' => $baseDir . '/app/Exceptions/VendaNaoFinalizavelException.php',
