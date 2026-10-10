@@ -74,6 +74,15 @@ class PainelGarcomTest extends TestCase
         $this->get('/admin')->assertForbidden();
     }
 
+    public function test_admin_tem_atalho_para_o_painel_do_garcom_so_para_quem_acessa(): void
+    {
+        $this->actingAs(User::factory()->gerente()->create(['name_first' => 'Gil']));
+        $this->get('/admin')->assertOk()->assertSee('Painel do Garçom')->assertSee(url('/garcom'));
+
+        $this->actingAs(User::factory()->caixa()->create(['name_first' => 'Cris']));
+        $this->get('/admin')->assertOk()->assertDontSee('Painel do Garçom');
+    }
+
     public function test_entregador_nao_acessa_o_salao(): void
     {
         $this->actingAs(User::factory()->entregador()->create(['name_first' => 'Beto']));
