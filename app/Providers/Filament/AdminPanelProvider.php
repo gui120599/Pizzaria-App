@@ -3,7 +3,9 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
+use App\Models\User;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -48,6 +50,12 @@ class AdminPanelProvider extends PanelProvider
                     ->url(fn (): string => route('dashboard'))
                     ->icon(Heroicon::OutlinedComputerDesktop)
                     ->sort(-1),
+                NavigationItem::make('Painel do Garçom')
+                    ->url(fn (): string => Filament::getPanel('garcom')->getUrl())
+                    ->icon(Heroicon::OutlinedDevicePhoneMobile)
+                    ->group('Salão')
+                    ->sort(-1)
+                    ->visible(fn (): bool => (bool) auth()->user()?->hasAnyRole(User::GARCOM_PANEL_ROLES)),
             ])
             ->topbar(false)
             ->sidebarCollapsibleOnDesktop()
