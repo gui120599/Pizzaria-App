@@ -108,6 +108,20 @@ class OperarVendaPendentesTest extends TestCase
             ->assertSee($this->venda->created_at->format('d/m/Y'));
     }
 
+    public function test_aba_pendentes_agrupa_por_mes_quando_marcado(): void
+    {
+        $this->lancamentoFiado();
+        $venda = Venda::create(['venda_status' => 'INICIADA', 'venda_sessao_caixa_id' => $this->sessaoCaixa->id]);
+        $mes = ucfirst($this->venda->created_at->translatedFormat('F \\d\\e Y'));
+
+        Livewire::test(OperarVenda::class, ['venda' => $venda])
+            ->set('abaAtiva', 'pendentes')
+            ->assertSee('Agrupar por mês')
+            ->assertDontSee($mes)
+            ->set('pendentesPorMes', true)
+            ->assertSee($mes);
+    }
+
     public function test_registrar_recebimento_quita_o_titulo_e_reflete_na_lista(): void
     {
         $lancamento = $this->lancamentoFiado(60);
