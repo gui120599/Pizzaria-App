@@ -187,6 +187,69 @@
         </div>
 
         <div class="secao mb-6">
+            <h2 class="text-sm font-bold border-b border-gray-300 pb-1 mb-3">Por marca da maquininha</h2>
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border p-1 text-left">Marca</th>
+                        <th class="border p-1 text-right">Qtd.</th>
+                        <th class="border p-1 text-right">Vendas</th>
+                        <th class="border p-1 text-right">Fiado recebido</th>
+                        <th class="border p-1 text-right">Débito</th>
+                        <th class="border p-1 text-right">Crédito</th>
+                        <th class="border p-1 text-right">Pix</th>
+                        <th class="border p-1 text-right">Bruto</th>
+                        <th class="border p-1 text-right">Part.</th>
+                        <th class="border p-1 text-right">Taxa média</th>
+                        <th class="border p-1 text-right">Taxa</th>
+                        <th class="border p-1 text-right">Líquido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($porOperadora as $linha)
+                        <tr>
+                            <td class="border p-1">
+                                <span class="font-semibold">{{ $linha['operadora'] }}</span>
+                                <span class="block text-[10px] text-gray-500">{{ $linha['maquininhas'] }}</span>
+                            </td>
+                            <td class="border p-1 text-right">{{ $linha['transacoes'] }}</td>
+                            <td class="border p-1 text-right">{{ $brl($linha['vendas']) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($linha['fiado']) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($linha['debito']) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($linha['credito']) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($linha['pix']) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($linha['bruto']) }}</td>
+                            <td class="border p-1 text-right">{{ $pct($linha['participacao'], 1) }}</td>
+                            <td class="border p-1 text-right">{{ $pct($linha['taxa_percentual']) }}</td>
+                            <td class="border p-1 text-right text-red-700">{{ $brl($linha['taxa']) }}</td>
+                            <td class="border p-1 text-right font-semibold">{{ $brl($linha['liquido']) }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="12" class="border p-2 text-center italic">Nenhum pagamento em maquininha no recorte.</td></tr>
+                    @endforelse
+                </tbody>
+                @if ($porOperadora->isNotEmpty())
+                    <tfoot>
+                        <tr class="bg-gray-100 font-bold">
+                            <td class="border p-1">Total</td>
+                            <td class="border p-1 text-right">{{ $porOperadora->sum('transacoes') }}</td>
+                            <td class="border p-1 text-right">{{ $brl($porOperadora->sum('vendas')) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($porOperadora->sum('fiado')) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($porOperadora->sum('debito')) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($porOperadora->sum('credito')) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($porOperadora->sum('pix')) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($resumo['volume_maquininha']) }}</td>
+                            <td class="border p-1 text-right">{{ $pct(100, 1) }}</td>
+                            <td class="border p-1 text-right">{{ $pct($resumo['mdr_efetivo']) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($resumo['mdr']) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($resumo['volume_maquininha'] - $resumo['mdr']) }}</td>
+                        </tr>
+                    </tfoot>
+                @endif
+            </table>
+        </div>
+
+        <div class="secao mb-6">
             <h2 class="text-sm font-bold border-b border-gray-300 pb-1 mb-3">Por maquininha</h2>
             <table class="w-full border-collapse">
                 <thead>

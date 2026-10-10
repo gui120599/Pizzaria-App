@@ -59,7 +59,7 @@ class PermissionSeeder extends Seeder
             'view:relatorio_fechamento_caixa', 'view:fechamento_caixa_stats_overview',
             'view:fechamento_caixa_dre_widget', 'view:fechamento_caixa_fluxo_caixa_widget',
             'view:fechamento_caixa_formas_pagamento_widget',
-            'view:fechamento_caixa_por_maquininha_widget', 'view:fechamento_caixa_maquininhas_widget',
+            'view:fechamento_caixa_por_operadora_widget', 'view:fechamento_caixa_por_maquininha_widget', 'view:fechamento_caixa_maquininhas_widget',
             'view:fechamento_caixa_bandeiras_widget', 'view:fechamento_caixa_previsao_recebimento_widget',
             'view:fechamento_caixa_movimentacoes_widget', 'view:fechamento_caixa_conferencia_widget',
             'view:fechamento_caixa_conferencia_maquininhas_widget',

@@ -27,6 +27,7 @@ class RelatorioFechamentoCaixaController extends Controller
             'dre' => $service->dre(),
             'fluxo' => $service->fluxoCaixa(),
             'formas' => $service->porFormaPagamento(),
+            'porOperadora' => $service->porOperadora(),
             'porMaquininha' => $service->porMaquininha(),
             'maquininhas' => $service->maquininhas(),
             'bandeiras' => $service->porBandeira(),

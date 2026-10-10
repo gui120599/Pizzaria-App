@@ -13,6 +13,7 @@ use App\Filament\Pages\RelatorioFechamentoCaixa;
 use App\Filament\Resources\Maquininhas\Pages\EditMaquininha;
 use App\Filament\Resources\Maquininhas\RelationManagers\TaxasRelationManager;
 use App\Filament\Widgets\FechamentoCaixaMaquininhasWidget;
+use App\Filament\Widgets\FechamentoCaixaPorOperadoraWidget;
 use App\Filament\Widgets\FechamentoCaixaStatsOverview;
 use App\Models\Caixa;
 use App\Models\CartoesPagamento;
@@ -211,6 +212,34 @@ class RelatorioFechamentoCaixaTest extends TestCase
         $this->assertSame(7.0, $visa['taxa']);
         $this->assertSame(293.0, $visa['liquido']);
         $this->assertSame(100.0, $visa['participacao']);
+    }
+
+    public function test_por_marca_soma_as_maquininhas_da_operadora_e_separa_venda_de_fiado(): void
+    {
+        $stone2 = Maquininha::create(['nome' => 'Stone 2', 'operadora' => OperadoraMaquininha::Stone]);
+        $cielo = Maquininha::create(['nome' => 'Cielo 1', 'operadora' => OperadoraMaquininha::Cielo]);
+        $this->taxa('credito', 3.00);
+        $this->taxa('credito', 3.00, maquininha: $stone2);
+        $this->taxa('debito', 1.00, maquininha: $cielo);
+        $venda = $this->venda(400.00);
+        $this->pagar($venda, 'creditCard', 100.00, $this->visa, $this->stone);
+        $this->pagar($venda, 'creditCard', 200.00, $this->master, $stone2);
+        $this->pagar($venda, 'debitCard', 100.00, $this->visa, $cielo);
+        Lancamento::create([
+            'tipo' => TipoLancamento::Receber,
+            'descricao' => 'Fiado',
+            'valor' => 50,
+            'vencimento' => now()->addDays(7),
+            'status' => StatusLancamento::Pendente,
+        ])->registrarPagamento(50, forma: FormaPagamento::CartaoDebito, sessaoCaixaId: $this->sessao->id, cartaoId: $this->visa->id, maquininhaId: $cielo->id);
+
+        $marcas = $this->relatorio(['sessoes' => [$this->sessao->id]])->porOperadora()->keyBy('operadora');
+
+        $this->assertSame(['Stone', 'Cielo'], $marcas->keys()->all());
+        $this->assertSame('Stone 1, Stone 2', $marcas['Stone']['maquininhas']);
+        $this->assertSame([2, 300.0, 0.0, 9.0, 291.0], [$marcas['Stone']['transacoes'], $marcas['Stone']['vendas'], $marcas['Stone']['fiado'], $marcas['Stone']['taxa'], $marcas['Stone']['liquido']]);
+        $this->assertSame([100.0, 50.0, 150.0, 1.5], [$marcas['Cielo']['vendas'], $marcas['Cielo']['fiado'], $marcas['Cielo']['debito'], $marcas['Cielo']['taxa']]);
+        $this->assertSame(66.67, $marcas['Stone']['participacao']);
     }
 
     public function test_previsao_de_recebimento_soma_o_prazo_a_data_da_venda(): void
@@ -462,10 +491,12 @@ class RelatorioFechamentoCaixaTest extends TestCase
         Livewire::test(RelatorioFechamentoCaixa::class)->assertOk();
         Livewire::test(FechamentoCaixaStatsOverview::class)->assertSeeText('R$ 3,00');
         Livewire::test(FechamentoCaixaMaquininhasWidget::class)->assertSeeText('Stone 1')->assertSeeText('Visa');
+        Livewire::test(FechamentoCaixaPorOperadoraWidget::class)->assertSeeText('Stone 1')->assertSeeText('97,00');
         $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']))
             ->get(route('relatorios.fechamento_caixa.imprimir', ['filters' => ['sessoes' => [$this->sessao->id]]]))
             ->assertOk()
             ->assertSeeText('Maquininhas por bandeira')
+            ->assertSeeText('Por marca da maquininha')
             ->assertSeeText('R$ 97,00');
     }
 
