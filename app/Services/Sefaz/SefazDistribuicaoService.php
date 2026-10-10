@@ -4,6 +4,8 @@ namespace App\Services\Sefaz;
 
 use App\Enums\SefazNotaRecebidaStatusEnum;
 use App\Exceptions\NfeXmlInvalidoException;
+use App\Exceptions\SefazConsultaEmEsperaException;
+use App\Exceptions\SefazConsumoIndevidoException;
 use App\Exceptions\SefazDocumentoAindaNaoDisponivelException;
 use App\Exceptions\SefazDocumentoNaoLocalizadoException;
 use App\Exceptions\SefazIndisponivelException;
@@ -17,6 +19,7 @@ use App\Services\Nfe\NfeImportService;
 use App\Services\Nfe\NfeXmlParser;
 use App\Services\Sefaz\Contracts\SefazClient;
 use App\Services\Sefaz\Dto\SefazDocumentoCompleto;
+use App\Services\Sefaz\Dto\SefazLoteDistribuicao;
 use App\Services\Sefaz\Dto\SefazPollingResultado;
 use App\Services\Sefaz\Dto\SefazResumoDocumento;
 use App\Services\Sefaz\Dto\SefazSincronizacaoResultado;
@@ -38,6 +41,7 @@ class SefazDistribuicaoService
         private SefazClient $client,
         private NfeImportService $importador,
         private NfeXmlParser $parser,
+        private SefazControleConsumo $controle,
     ) {}
 
     /**
@@ -100,9 +104,41 @@ class SefazDistribuicaoService
     private function tentarConsultar(string $chave): SefazResumoDocumento|SefazDocumentoCompleto|null
     {
         try {
-            return $this->client->consultarPorChave($chave);
+            return $this->consultarChave($chave);
         } catch (SefazDocumentoNaoLocalizadoException) {
             return null;
+        }
+    }
+
+    /**
+     * Toda consulta por chave passa por aqui: respeita bloqueio do CNPJ e o
+     * limite por chave antes de chamar, e registra o bloqueio se a SEFAZ
+     * responder Consumo Indevido (cStat 656).
+     *
+     * @throws SefazConsultaEmEsperaException
+     */
+    private function consultarChave(string $chave): SefazResumoDocumento|SefazDocumentoCompleto
+    {
+        $this->controle->garantirLiberado();
+        $this->controle->garantirChaveLiberada($chave);
+        $this->controle->registrarConsultaChave($chave);
+
+        try {
+            return $this->client->consultarPorChave($chave);
+        } catch (SefazConsumoIndevidoException $e) {
+            throw SefazConsultaEmEsperaException::bloqueioSefaz($this->controle->registrarBloqueio(), $e);
+        }
+    }
+
+    /** @throws SefazConsultaEmEsperaException */
+    private function consultarNsu(int $ultNsu): SefazLoteDistribuicao
+    {
+        $this->controle->garantirLiberado();
+
+        try {
+            return $this->client->consultarPorNsu($ultNsu);
+        } catch (SefazConsumoIndevidoException $e) {
+            throw SefazConsultaEmEsperaException::bloqueioSefaz($this->controle->registrarBloqueio(), $e);
         }
     }
 
@@ -197,7 +233,12 @@ class SefazDistribuicaoService
         return $path;
     }
 
-    /** Polling agendado: reprocessa pendências, depois consulta novidades por NSU. */
+    /**
+     * Polling agendado: reprocessa pendências, depois consulta novidades por
+     * NSU (pulado enquanto a SEFAZ pede 1 hora de espera após "sem novidades").
+     *
+     * @throws SefazConsultaEmEsperaException se o CNPJ estiver bloqueado pela SEFAZ — interrompe tudo
+     */
     public function executarPolling(?int $userId = null): SefazPollingResultado
     {
         $empresa = Empresa::firstOrFail();
@@ -213,30 +254,60 @@ class SefazDistribuicaoService
             $processados++;
         }
 
+        if ($processados >= $cap || $this->controle->nsuLiberadoEm() !== null) {
+            return $resultado;
+        }
+
         $ultNsu = (int) $empresa->empresa_sefaz_ultimo_nsu;
 
+        try {
+            $this->percorrerNsu($ultNsu, $cap - $processados, function (SefazResumoDocumento $item) use ($userId, &$resultado): void {
+                $resultado = $this->processarResumo($item, $userId, $resultado);
+            });
+        } finally {
+            // Só avança o cursor até o último lote processado inteiro — um
+            // bloqueio/erro no meio do caminho não perde NSU.
+            $empresa->forceFill([
+                'empresa_sefaz_ultimo_nsu' => $ultNsu,
+                'empresa_sefaz_ultima_consulta_em' => now(),
+            ])->save();
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Percorre o stream de NSU a partir de $ultNsu, processando até $limite
+     * itens. $ultNsu (por referência) sempre fica no cursor do último lote
+     * processado por inteiro — mesmo se uma exceção interromper no meio. Ao
+     * chegar ao fim (ultNSU = maxNSU), registra a espera de 1 hora exigida
+     * pela SEFAZ antes da próxima consulta por NSU.
+     *
+     * @param  callable(SefazResumoDocumento): void  $processar
+     *
+     * @throws SefazConsultaEmEsperaException
+     */
+    private function percorrerNsu(int &$ultNsu, int $limite, callable $processar): void
+    {
+        $processados = 0;
+
         do {
-            $lote = $this->client->consultarPorNsu($ultNsu);
+            $lote = $this->consultarNsu($ultNsu);
 
             foreach ($lote->itens as $item) {
-                if ($processados >= $cap) {
-                    break 2;
+                if ($processados >= $limite) {
+                    return;
                 }
-                $resultado = $this->processarResumo($item, $userId, $resultado);
+                $processar($item);
                 $processados++;
             }
 
             $ultNsu = $lote->ultNsuRetornado;
-        } while ($lote->temMais() && $processados < $cap);
+        } while ($lote->temMais() && $processados < $limite);
 
-        // Só avança o cursor depois de processar o lote inteiro sem exceção
-        // fatal — um erro de infraestrutura no meio do caminho não perde NSU.
-        $empresa->forceFill([
-            'empresa_sefaz_ultimo_nsu' => $ultNsu,
-            'empresa_sefaz_ultima_consulta_em' => now(),
-        ])->save();
-
-        return $resultado;
+        if (! $lote->temMais()) {
+            $this->controle->registrarNsuSemNovidades();
+        }
     }
 
     private function processarResumo(SefazResumoDocumento $item, ?int $userId, SefazPollingResultado $resultado): SefazPollingResultado
@@ -250,13 +321,22 @@ class SefazDistribuicaoService
         }
 
         try {
+            $this->controle->garantirLiberado();
             $this->client->manifestarCiencia($item->chaveAcesso);
-            $completo = $this->client->consultarPorChave($item->chaveAcesso);
+            $completo = $this->tentarConsultar($item->chaveAcesso);
 
             if ($completo instanceof SefazDocumentoCompleto) {
                 $this->importador->importar($completo->xmlCompleto, $userId);
 
                 return $resultado->comIncremento('importadas');
+            }
+
+            $this->registrarPendente($item->chaveAcesso, $item->cnpjEmitente);
+
+            return $resultado->comIncremento('pendentes');
+        } catch (SefazConsultaEmEsperaException $e) {
+            if ($e->bloqueioGeral) {
+                throw $e;
             }
 
             $this->registrarPendente($item->chaveAcesso, $item->cnpjEmitente);
@@ -276,7 +356,7 @@ class SefazDistribuicaoService
     private function reprocessarPendente(SefazDocumentoPendente $pendente, ?int $userId, SefazPollingResultado $resultado): SefazPollingResultado
     {
         try {
-            $completo = $this->client->consultarPorChave($pendente->sdp_chave_acesso);
+            $completo = $this->tentarConsultar($pendente->sdp_chave_acesso);
 
             if ($completo instanceof SefazDocumentoCompleto) {
                 $this->importador->importar($completo->xmlCompleto, $userId);
@@ -291,6 +371,12 @@ class SefazDistribuicaoService
             ])->save();
 
             return $resultado->comIncremento('pendentes');
+        } catch (SefazConsultaEmEsperaException $e) {
+            if ($e->bloqueioGeral) {
+                throw $e;
+            }
+
+            return $resultado->comIncremento('pendentes');
         } catch (SefazIndisponivelException|NfeXmlInvalidoException|ValidationException $e) {
             Log::channel('sefaz')->warning("Polling: erro reprocessando pendente {$pendente->sdp_chave_acesso} — {$e->getMessage()}");
 
@@ -303,35 +389,32 @@ class SefazDistribuicaoService
      * manual do usuário — nunca manifesta ciência nem importa nada sozinho.
      * Usa um cursor de NSU próprio (empresa_sefaz_ultimo_nsu_revisao),
      * independente do cursor do polling automático: os dois andam sobre o
-     * mesmo stream de NSU da SEFAZ, cada um com seu bookmark, sem risco de
-     * um atrapalhar o outro.
+     * mesmo stream de NSU da SEFAZ, cada um com seu bookmark. A espera de 1
+     * hora após "sem novidades" é por CNPJ, então vale pros dois.
+     *
+     * @throws SefazConsultaEmEsperaException se o CNPJ estiver bloqueado ou ainda na espera de 1 hora
      */
     public function sincronizarNotasRecebidas(): SefazSincronizacaoResultado
     {
+        $liberadoEm = $this->controle->nsuLiberadoEm();
+        if ($liberadoEm !== null) {
+            throw SefazConsultaEmEsperaException::semNovidades($liberadoEm);
+        }
+
         $empresa = Empresa::firstOrFail();
         $resultado = new SefazSincronizacaoResultado;
-        $cap = (int) config('sefaz.max_documentos_por_execucao', 50);
-        $processados = 0;
         $ultNsu = (int) $empresa->empresa_sefaz_ultimo_nsu_revisao;
 
-        do {
-            $lote = $this->client->consultarPorNsu($ultNsu);
-
-            foreach ($lote->itens as $item) {
-                if ($processados >= $cap) {
-                    break 2;
-                }
+        try {
+            $this->percorrerNsu($ultNsu, (int) config('sefaz.max_documentos_por_execucao', 50), function (SefazResumoDocumento $item) use (&$resultado): void {
                 $resultado = $this->registrarResumo($item, $resultado);
-                $processados++;
-            }
-
-            $ultNsu = $lote->ultNsuRetornado;
-        } while ($lote->temMais() && $processados < $cap);
-
-        $empresa->forceFill([
-            'empresa_sefaz_ultimo_nsu_revisao' => $ultNsu,
-            'empresa_sefaz_ultima_revisao_em' => now(),
-        ])->save();
+            });
+        } finally {
+            $empresa->forceFill([
+                'empresa_sefaz_ultimo_nsu_revisao' => $ultNsu,
+                'empresa_sefaz_ultima_revisao_em' => now(),
+            ])->save();
+        }
 
         return $resultado;
     }

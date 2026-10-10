@@ -2,6 +2,7 @@
 
 namespace App\Services\Sefaz;
 
+use App\Exceptions\SefazConsumoIndevidoException;
 use App\Exceptions\SefazDocumentoNaoLocalizadoException;
 use App\Exceptions\SefazIndisponivelException;
 use App\Services\Sefaz\Dto\SefazDocumentoCompleto;
@@ -30,6 +31,7 @@ class SefazRespostaDecoder
     public function decodeLote(string $xmlResposta): SefazLoteDistribuicao
     {
         $xml = $this->carregar($xmlResposta);
+        $this->conferirStatus($xml);
 
         $itens = [];
         foreach ($xml->xpath('//retDistDFeInt/loteDistDFeInt/docZip') ?: [] as $docZip) {
@@ -48,7 +50,7 @@ class SefazRespostaDecoder
             itens: $itens,
             ultNsuRetornado: (int) ($xml->xpath('//retDistDFeInt/ultNSU')[0] ?? 0),
             maxNsu: (int) ($xml->xpath('//retDistDFeInt/maxNSU')[0] ?? 0),
-            cStat: trim((string) ($xml->xpath('//retDistDFeInt/cStat')[0] ?? '')),
+            cStat: $this->status($xml)[0],
         );
     }
 
@@ -58,14 +60,18 @@ class SefazRespostaDecoder
      *
      * @throws SefazDocumentoNaoLocalizadoException se a SEFAZ não localizar nenhum documento pra chave
      *                                              (cStat 137 — comum quando a nota ainda não foi manifestada)
+     * @throws SefazConsumoIndevidoException se a SEFAZ bloqueou o CNPJ por excesso de consultas (cStat 656)
      */
     public function decodeConsultaChave(string $xmlResposta): SefazResumoDocumento|SefazDocumentoCompleto
     {
         $xml = $this->carregar($xmlResposta);
+        $this->conferirStatus($xml);
 
         $docZips = $xml->xpath('//retDistDFeInt/loteDistDFeInt/docZip') ?: [];
         if (empty($docZips)) {
-            throw new SefazDocumentoNaoLocalizadoException('Nenhum documento localizado na SEFAZ para a chave informada.');
+            [$cStat, $xMotivo] = $this->status($xml);
+
+            throw new SefazDocumentoNaoLocalizadoException("Nenhum documento localizado na SEFAZ para a chave informada ({$cStat} — {$xMotivo}).");
         }
 
         $docZip = $docZips[0];
@@ -82,6 +88,37 @@ class SefazRespostaDecoder
         }
 
         return $resumo;
+    }
+
+    /**
+     * Rejeições que não são "documento não encontrado" não podem cair no
+     * fluxo de manifestar-e-tentar-de-novo: o 656 (Consumo Indevido) bloqueia
+     * o CNPJ por 1 hora e cada nova tentativa reinicia o bloqueio; 108/109 é
+     * serviço paralisado. Sem esta checagem, ambos pareciam "nota ainda não
+     * liberada" e o sistema seguia martelando a SEFAZ.
+     *
+     * @throws SefazConsumoIndevidoException|SefazIndisponivelException
+     */
+    private function conferirStatus(SimpleXMLElement $xml): void
+    {
+        [$cStat, $xMotivo] = $this->status($xml);
+
+        if ($cStat === '656') {
+            throw new SefazConsumoIndevidoException("SEFAZ: {$xMotivo} (cStat 656).");
+        }
+
+        if (in_array($cStat, ['108', '109'], true)) {
+            throw new SefazIndisponivelException("SEFAZ fora do ar: {$xMotivo} (cStat {$cStat}).");
+        }
+    }
+
+    /** @return array{0: string, 1: string} cStat e xMotivo do retDistDFeInt */
+    private function status(SimpleXMLElement $xml): array
+    {
+        return [
+            trim((string) ($xml->xpath('//retDistDFeInt/cStat')[0] ?? '')),
+            trim((string) ($xml->xpath('//retDistDFeInt/xMotivo')[0] ?? '')),
+        ];
     }
 
     private function paraResumo(string $conteudo, string $schema, int $nsu): ?SefazResumoDocumento
