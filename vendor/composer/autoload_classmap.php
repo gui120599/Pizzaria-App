@@ -150,6 +150,7 @@ return array(
     'App\\Filament\\Resources\\Compras\\Schemas\\CompraForm' => $baseDir . '/app/Filament/Resources/Compras/Schemas/CompraForm.php',
     'App\\Filament\\Resources\\Compras\\Support\\BuscarNfePorChaveAction' => $baseDir . '/app/Filament/Resources/Compras/Support/BuscarNfePorChaveAction.php',
     'App\\Filament\\Resources\\Compras\\Support\\ConfirmarCompraAction' => $baseDir . '/app/Filament/Resources/Compras/Support/ConfirmarCompraAction.php',
+    'App\\Filament\\Resources\\Compras\\Support\\CorrigirDataEntradaAction' => $baseDir . '/app/Filament/Resources/Compras/Support/CorrigirDataEntradaAction.php',
     'App\\Filament\\Resources\\Compras\\Support\\ImportarXmlAction' => $baseDir . '/app/Filament/Resources/Compras/Support/ImportarXmlAction.php',
     'App\\Filament\\Resources\\Compras\\Support\\ImprimirDanfeAction' => $baseDir . '/app/Filament/Resources/Compras/Support/ImprimirDanfeAction.php',
     'App\\Filament\\Resources\\Compras\\Support\\RegistrarDevolucaoAction' => $baseDir . '/app/Filament/Resources/Compras/Support/RegistrarDevolucaoAction.php',

@@ -9,10 +9,15 @@ use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Models\Compra;
 use App\Models\CompraItem;
+use App\Models\EstoqueLote;
 use App\Models\FornecedorProduto;
 use App\Models\Lancamento;
 use App\Models\LancamentoDespesa;
 use App\Models\PrestadorCredito;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -35,14 +40,23 @@ class CompraService
     /**
      * Confirma a compra: rateia acréscimos, gera as entradas de estoque
      * (recalculando o custo médio) e atualiza o de-para de fornecedor.
+     *
+     * $dataEntrada, quando informada, substitui a compra_data_entrada antes de
+     * gerar as movimentações — o importador de NF-e preenche com o dia da
+     * importação, que nem sempre é o dia em que a mercadoria entrou.
      */
-    public function confirmar(Compra $compra): Compra
+    public function confirmar(Compra $compra, ?Carbon $dataEntrada = null): Compra
     {
-        return DB::transaction(function () use ($compra) {
+        return DB::transaction(function () use ($compra, $dataEntrada) {
             $compra->loadMissing('itens.insumo');
 
             if (! $compra->isRascunho()) {
                 throw ValidationException::withMessages(['compra' => 'A compra não está em rascunho.']);
+            }
+
+            if ($dataEntrada !== null) {
+                $this->validarDataEntrada($compra, $dataEntrada);
+                $compra->forceFill(['compra_data_entrada' => $dataEntrada->toDateString()])->save();
             }
 
             $itens = $compra->itens;
@@ -95,6 +109,121 @@ class CompraService
 
             return $compra->refresh();
         });
+    }
+
+    /**
+     * Corrige a data de entrada de uma compra já confirmada: a própria compra,
+     * as movimentações de entrada e os lotes gerados por ela (preservando o
+     * horário original) e desloca os vencimentos dos títulos em aberto pela
+     * mesma diferença de dias — títulos pagos/cancelados não mudam.
+     *
+     * Não mexe em saldo nem custo médio: o WAC e o mov_saldo_apos seguem a
+     * ordem de inserção (id), não mov_data — a data é só data de negócio.
+     *
+     * @return array{movimentacoes: int, lotes: int, titulos: int, dias: int}
+     */
+    public function corrigirDataEntrada(Compra $compra, Carbon $novaData, ?string $responsavel = null): array
+    {
+        return DB::transaction(function () use ($compra, $novaData, $responsavel) {
+            /** @var Compra $compra */
+            $compra = Compra::lockForUpdate()->findOrFail($compra->id);
+
+            if ($compra->compra_status !== CompraStatusEnum::CONFIRMADA) {
+                throw ValidationException::withMessages(['compra' => 'Só é possível corrigir a data de entrada de uma compra confirmada.']);
+            }
+
+            $dataAnterior = $compra->compra_data_entrada?->copy()->startOfDay();
+            $novaData = $novaData->copy()->startOfDay();
+
+            if ($dataAnterior?->equalTo($novaData)) {
+                throw ValidationException::withMessages(['data_entrada' => 'A nova data é igual à data de entrada atual.']);
+            }
+
+            $this->validarDataEntrada($compra, $novaData);
+
+            $primeiraDevolucao = $compra->devolucoes()->min('created_at');
+            if ($primeiraDevolucao !== null && $novaData->greaterThan(Carbon::parse($primeiraDevolucao)->startOfDay())) {
+                throw ValidationException::withMessages(['data_entrada' => 'A data de entrada não pode ser posterior à devolução já registrada ('.Carbon::parse($primeiraDevolucao)->format('d/m/Y').').']);
+            }
+
+            $dias = $dataAnterior ? (int) $dataAnterior->diffInDays($novaData, false) : 0;
+
+            $movimentacoes = $this->movimentacoesDeEntrada($compra)->get();
+            foreach ($movimentacoes as $movimentacao) {
+                $movimentacao->forceFill(['mov_data' => $movimentacao->mov_data->copy()->setDateFrom($novaData)])->save();
+            }
+
+            $lotes = $this->lotesDaCompra($compra)->get();
+            foreach ($lotes as $lote) {
+                $lote->forceFill(['lote_data_entrada' => ($lote->lote_data_entrada ?? $novaData)->copy()->setDateFrom($novaData)])->save();
+            }
+
+            $titulos = $dias !== 0 ? $this->titulosEmAberto($compra)->get() : new Collection;
+            foreach ($titulos as $titulo) {
+                $titulo->forceFill(['vencimento' => $titulo->vencimento->copy()->addDays($dias)])->save();
+            }
+
+            $registro = sprintf(
+                'Data de entrada corrigida de %s para %s%s em %s.',
+                $dataAnterior?->format('d/m/Y') ?? '—',
+                $novaData->format('d/m/Y'),
+                $responsavel ? " por {$responsavel}" : '',
+                now()->format('d/m/Y H:i'),
+            );
+
+            $compra->forceFill([
+                'compra_data_entrada' => $novaData->toDateString(),
+                'compra_observacao' => trim(($compra->compra_observacao ? $compra->compra_observacao."\n" : '').$registro),
+            ])->save();
+
+            return [
+                'movimentacoes' => $movimentacoes->count(),
+                'lotes' => $lotes->count(),
+                'titulos' => $titulos->count(),
+                'dias' => $dias,
+            ];
+        });
+    }
+
+    /**
+     * Prévia do que corrigirDataEntrada() vai ajustar — pra mostrar no modal antes de aplicar.
+     *
+     * @return array{movimentacoes: int, lotes: int, titulos: int}
+     */
+    public function previaCorrecaoDataEntrada(Compra $compra): array
+    {
+        return [
+            'movimentacoes' => $this->movimentacoesDeEntrada($compra)->count(),
+            'lotes' => $this->lotesDaCompra($compra)->count(),
+            'titulos' => $this->titulosEmAberto($compra)->count(),
+        ];
+    }
+
+    /** Entrada no estoque não pode ser futura nem anterior à emissão da nota. */
+    private function validarDataEntrada(Compra $compra, Carbon $data): void
+    {
+        if ($data->copy()->startOfDay()->greaterThan(today())) {
+            throw ValidationException::withMessages(['data_entrada' => 'A data de entrada não pode ser futura.']);
+        }
+
+        if ($compra->compra_data_emissao && $data->copy()->startOfDay()->lessThan($compra->compra_data_emissao->copy()->startOfDay())) {
+            throw ValidationException::withMessages(['data_entrada' => 'A data de entrada não pode ser anterior à emissão da nota ('.$compra->compra_data_emissao->format('d/m/Y').').']);
+        }
+    }
+
+    private function movimentacoesDeEntrada(Compra $compra): MorphMany
+    {
+        return $compra->movimentacoes()->where('mov_origem', MovimentacaoOrigemEnum::COMPRA);
+    }
+
+    private function lotesDaCompra(Compra $compra): Builder
+    {
+        return EstoqueLote::query()->whereIn('lote_compra_item_id', $compra->itens()->select('id'));
+    }
+
+    private function titulosEmAberto(Compra $compra): HasMany
+    {
+        return $compra->lancamentos()->whereIn('status', [StatusLancamento::Pendente, StatusLancamento::Parcial]);
     }
 
     /**

@@ -1040,6 +1040,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Filament\\Resources\\Compras\\Schemas\\CompraForm' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Schemas/CompraForm.php',
         'App\\Filament\\Resources\\Compras\\Support\\BuscarNfePorChaveAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Support/BuscarNfePorChaveAction.php',
         'App\\Filament\\Resources\\Compras\\Support\\ConfirmarCompraAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Support/ConfirmarCompraAction.php',
+        'App\\Filament\\Resources\\Compras\\Support\\CorrigirDataEntradaAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Support/CorrigirDataEntradaAction.php',
         'App\\Filament\\Resources\\Compras\\Support\\ImportarXmlAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Support/ImportarXmlAction.php',
         'App\\Filament\\Resources\\Compras\\Support\\ImprimirDanfeAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Support/ImprimirDanfeAction.php',
         'App\\Filament\\Resources\\Compras\\Support\\RegistrarDevolucaoAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Compras/Support/RegistrarDevolucaoAction.php',

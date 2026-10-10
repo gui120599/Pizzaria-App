@@ -22,6 +22,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Leandrocfe\FilamentPtbrFormFields\Money;
@@ -58,6 +59,13 @@ class ConfirmarCompraAction
                 $schema?->fill();
             })
             ->schema([
+                self::campoDataEntrada()
+                    ->label('Data de entrada no estoque')
+                    ->default(fn (Compra $record) => $record->compra_data_entrada ?? now())
+                    ->helperText('Data registrada nas movimentações e lotes. Notas importadas vêm com o dia da importação — confira se é o dia em que a mercadoria realmente entrou.')
+                    ->live()
+                    ->afterStateUpdated(fn (?string $state, Set $set) => $set('data_base', $state)),
+                self::avisoDataEntrada(),
                 Toggle::make('gerar_conta_pagar')
                     ->label('Gerar conta a pagar')
                     ->helperText('Cria um título a pagar por parcela para o fornecedor, rateado pelos planos de despesa dos produtos.')
@@ -187,7 +195,7 @@ class ConfirmarCompraAction
 
                 try {
                     DB::transaction(function () use ($record, $data, $service, $gerar): void {
-                        $service->confirmar($record);
+                        $service->confirmar($record, Carbon::parse($data['data_entrada']));
 
                         if ($gerar) {
                             $parcelas = collect($data['parcelas'] ?? [])
@@ -224,6 +232,42 @@ class ConfirmarCompraAction
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * DatePicker de data de entrada no estoque — não futura, não anterior à
+     * emissão da nota. Reaproveitado por CorrigirDataEntradaAction.
+     */
+    public static function campoDataEntrada(): DatePicker
+    {
+        return DatePicker::make('data_entrada')
+            ->native(false)
+            ->displayFormat('d/m/Y')
+            ->required()
+            ->maxDate(today())
+            ->minDate(fn (Compra $record) => $record->compra_data_emissao);
+    }
+
+    /** Destaca quando a data de entrada escolhida não é hoje — o caso que passa despercebido. */
+    public static function avisoDataEntrada(): Placeholder
+    {
+        return Placeholder::make('aviso_data_entrada')
+            ->hiddenLabel()
+            ->visible(function (Get $get): bool {
+                $data = self::parseData($get('data_entrada'));
+
+                return $data !== null && ! $data->isToday();
+            })
+            ->content(function (Get $get): HtmlString {
+                $data = self::parseData($get('data_entrada'));
+                $dias = (int) $data?->copy()->startOfDay()->diffInDays(today());
+                $quando = $dias === 1 ? 'há 1 dia' : "há {$dias} dias";
+
+                return new HtmlString('<div class="rounded-lg bg-warning-50 p-3 text-sm font-medium text-warning-700 dark:bg-warning-400/10 dark:text-warning-400">'
+                    .'⚠️ A entrada no estoque será registrada em <strong>'.e($data?->format('d/m/Y')).'</strong> ('.e($quando).'). '
+                    .'Confira se é a data real em que a mercadoria entrou no estoque.</div>');
+            })
+            ->columnSpanFull();
     }
 
     /**
