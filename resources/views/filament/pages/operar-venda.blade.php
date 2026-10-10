@@ -266,19 +266,24 @@
                 </div>
                 @php $debitosPendentes = $this->debitosPendentes; @endphp
                 @if ($debitosPendentes->isNotEmpty())
-                    <div class="flex items-center justify-between px-1 text-xs text-gray-500 dark:text-gray-400">
+                    <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-gray-500 dark:text-gray-400">
                         <span>{{ $debitosPendentes->count() }} {{ $debitosPendentes->count() === 1 ? 'cliente' : 'clientes' }} devendo</span>
+                        <label class="flex items-center gap-1.5">
+                            <input type="checkbox" wire:model.live="pendentesPorMes" class="h-3.5 w-3.5 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-primary-600 focus:ring-primary-500" />
+                            Agrupar por mês
+                        </label>
                         <span>Total em aberto <strong class="text-gray-800 dark:text-gray-200">R$ {{ number_format($debitosPendentes->sum('total'), 2, ',', '.') }}</strong></span>
                     </div>
                 @endif
                 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/10 divide-y divide-gray-100 dark:divide-white/10 overflow-y-auto" style="max-height: clamp(20rem, 65vh, 52rem)">
                     @forelse ($debitosPendentes as $debito)
                         <x-debitos-cliente
-                            wire:key="pendente-cliente-{{ $debito['cliente']?->id ?? 0 }}"
+                            wire:key="pendente-cliente-{{ $debito['cliente']?->id ?? 0 }}-{{ $pendentesPorMes ? 'mes' : 'lista' }}"
                             :debito="$debito"
                             :receber="true"
                             :somente-vendas="true"
-                            :aberto="$debitosPendentes->count() === 1" />
+                            :por-mes="$pendentesPorMes"
+                            :aberto="$pendentesPorMes || $debitosPendentes->count() === 1" />
                     @empty
                         <div class="p-10 text-center text-sm text-gray-400 dark:text-gray-500">Nenhuma venda fiado pendente de recebimento.</div>
                     @endforelse

@@ -95,6 +95,9 @@ class OperarVenda extends Page
 
     public string $buscaPendentes = '';
 
+    /** Aba Pendentes: separa os títulos de cada cliente pelo mês da compra. */
+    public bool $pendentesPorMes = false;
+
     /**
      * Padrão inicial de expandido/recolhido dos cards de mesa/pedido —
      * persistido em sessão, mesmo mecanismo que o Filament usa em
