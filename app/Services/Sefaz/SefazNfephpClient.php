@@ -4,6 +4,7 @@ namespace App\Services\Sefaz;
 
 use App\Exceptions\SefazAutenticacaoException;
 use App\Exceptions\SefazIndisponivelException;
+use App\Exceptions\SefazManifestacaoForaDoPrazoException;
 use App\Models\Empresa;
 use App\Services\Sefaz\Contracts\SefazClient;
 use App\Services\Sefaz\Dto\SefazDocumentoCompleto;
@@ -56,7 +57,17 @@ class SefazNfephpClient implements SefazClient
             "manifestarCiencia({$chave})",
         );
 
-        $this->conferirManifestacao($resposta, $chave);
+        $this->conferirManifestacao($resposta, $chave, Tools::EVT_CIENCIA);
+    }
+
+    public function confirmarOperacao(string $chave): void
+    {
+        $resposta = $this->chamar(
+            fn () => $this->tools()->sefazManifesta($chave, Tools::EVT_CONFIRMACAO),
+            "confirmarOperacao({$chave})",
+        );
+
+        $this->conferirManifestacao($resposta, $chave, Tools::EVT_CONFIRMACAO);
     }
 
     /** @throws SefazAutenticacaoException se o certificado não abrir com a senha salva */
@@ -122,8 +133,13 @@ class SefazNfephpClient implements SefazClient
      * o XPath usa "//" em vez de caminho relativo à raiz. Como fallback,
      * confere também o cStat do lote (retEnvEvento), caso a SEFAZ rejeite
      * o lote inteiro antes de processar o evento individual.
+     *
+     * cStat 596 (evento após o prazo) vira SefazManifestacaoForaDoPrazoException
+     * com orientação específica: Ciência só vale até 10 dias da autorização
+     * (aí cabe a Confirmação da Operação); Confirmação só até 90 dias (aí só
+     * resta o upload manual do XML).
      */
-    private function conferirManifestacao(string $resposta, string $chave): void
+    private function conferirManifestacao(string $resposta, string $chave, int $tpEvento): void
     {
         $semNamespace = preg_replace('/xmlns="[^"]*"/', '', $resposta);
         libxml_use_internal_errors(true);
@@ -135,10 +151,18 @@ class SefazNfephpClient implements SefazClient
 
         $sucesso = in_array($cStat, ['135', '136', '155', '573'], true);
 
-        Log::channel('sefaz')->info("Manifestação de ciência ({$chave}): cStat {$cStat} — {$xMotivo}");
+        $evento = $tpEvento === Tools::EVT_CONFIRMACAO ? 'Confirmação da operação' : 'Manifestação de ciência';
+
+        Log::channel('sefaz')->info("{$evento} ({$chave}): cStat {$cStat} — {$xMotivo}");
+
+        if ($cStat === '596') {
+            throw new SefazManifestacaoForaDoPrazoException($tpEvento === Tools::EVT_CONFIRMACAO
+                ? 'A nota passou do prazo de 90 dias para manifestação na SEFAZ. Peça o XML ao fornecedor e use "Importar XML".'
+                : 'A nota tem mais de 10 dias e a SEFAZ não aceita mais a ciência da operação. Use "Confirmar recebimento e importar".');
+        }
 
         if (! $sucesso) {
-            throw new SefazIndisponivelException("Falha ao manifestar ciência da nota: {$xMotivo} (cStat {$cStat}).");
+            throw new SefazIndisponivelException("Falha ao registrar {$evento} da nota: {$xMotivo} (cStat {$cStat}).");
         }
     }
 }

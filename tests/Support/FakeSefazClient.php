@@ -4,6 +4,7 @@ namespace Tests\Support;
 
 use App\Exceptions\SefazDocumentoNaoLocalizadoException;
 use App\Exceptions\SefazIndisponivelException;
+use App\Exceptions\SefazManifestacaoForaDoPrazoException;
 use App\Services\Sefaz\Contracts\SefazClient;
 use App\Services\Sefaz\Dto\SefazDocumentoCompleto;
 use App\Services\Sefaz\Dto\SefazLoteDistribuicao;
@@ -26,8 +27,14 @@ class FakeSefazClient implements SefazClient
 
     private ?SefazLoteDistribuicao $lote = null;
 
+    /** @var array<string, true> */
+    private array $cienciaForaDoPrazo = [];
+
     /** @var string[] */
     public array $chavesManifestadas = [];
+
+    /** @var string[] */
+    public array $chavesConfirmadas = [];
 
     private bool $indisponivel = false;
 
@@ -57,6 +64,14 @@ class FakeSefazClient implements SefazClient
     public function comNaoLocalizado(string $chave): static
     {
         $this->naoLocalizadas[$chave] = true;
+
+        return $this;
+    }
+
+    /** Simula cStat 596: a SEFAZ recusa a ciência (nota com mais de 10 dias), mas aceita a confirmação. */
+    public function comCienciaForaDoPrazo(string $chave): static
+    {
+        $this->cienciaForaDoPrazo[$chave] = true;
 
         return $this;
     }
@@ -109,8 +124,26 @@ class FakeSefazClient implements SefazClient
             throw new SefazIndisponivelException('Indisponível (fake).');
         }
 
-        $this->chavesManifestadas[] = $chave;
+        if (isset($this->cienciaForaDoPrazo[$chave])) {
+            throw new SefazManifestacaoForaDoPrazoException('Ciência fora do prazo (fake).');
+        }
 
+        $this->chavesManifestadas[] = $chave;
+        $this->liberarSeManifestada($chave);
+    }
+
+    public function confirmarOperacao(string $chave): void
+    {
+        if ($this->indisponivel) {
+            throw new SefazIndisponivelException('Indisponível (fake).');
+        }
+
+        $this->chavesConfirmadas[] = $chave;
+        $this->liberarSeManifestada($chave);
+    }
+
+    private function liberarSeManifestada(string $chave): void
+    {
         if (isset($this->liberarAposManifestar[$chave])) {
             $this->porChave[$chave] = $this->liberarAposManifestar[$chave];
         }

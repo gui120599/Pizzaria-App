@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Exceptions\SefazDocumentoAindaNaoDisponivelException;
+use App\Exceptions\SefazManifestacaoForaDoPrazoException;
 use App\Models\Compra;
 use App\Models\Empresa;
 use App\Models\SefazDocumentoPendente;
@@ -101,6 +102,34 @@ class SefazDistribuicaoServiceTest extends TestCase
         }
     }
 
+    public function test_buscar_por_chave_com_ciencia_fora_do_prazo_lanca_excecao_sem_importar(): void
+    {
+        $fake = $this->fake()
+            ->comDocumentoAposManifestacao(self::CHAVE, $this->xmlExemplo())
+            ->comCienciaForaDoPrazo(self::CHAVE);
+
+        try {
+            app(SefazDistribuicaoService::class)->buscarPorChave(self::CHAVE);
+            $this->fail('Esperava SefazManifestacaoForaDoPrazoException.');
+        } catch (SefazManifestacaoForaDoPrazoException) {
+            $this->assertSame([], $fake->chavesConfirmadas);
+            $this->assertDatabaseCount('compras', 0);
+        }
+    }
+
+    public function test_buscar_por_chave_confirmando_operacao_registra_confirmacao_no_lugar_da_ciencia(): void
+    {
+        $fake = $this->fake()
+            ->comDocumentoAposManifestacao(self::CHAVE, $this->xmlExemplo())
+            ->comCienciaForaDoPrazo(self::CHAVE);
+
+        $compra = app(SefazDistribuicaoService::class)->buscarPorChave(self::CHAVE, confirmarOperacao: true);
+
+        $this->assertSame(self::CHAVE, $compra->compra_chave_nfe);
+        $this->assertSame([self::CHAVE], $fake->chavesConfirmadas);
+        $this->assertSame([], $fake->chavesManifestadas);
+    }
+
     public function test_polling_importa_novo_e_pula_ja_existente_e_evento(): void
     {
         $chaveJaImportada = '35260114200166000166550010000000471123456780';
@@ -161,6 +190,25 @@ class SefazDistribuicaoServiceTest extends TestCase
         $this->assertSame(1, $resultado->importadas);
         $this->assertDatabaseMissing('sefaz_documentos_pendentes', ['sdp_chave_acesso' => self::CHAVE]);
         $this->assertDatabaseHas('compras', ['compra_chave_nfe' => self::CHAVE]);
+    }
+
+    public function test_polling_com_ciencia_fora_do_prazo_conta_erro_e_nunca_confirma_sozinho(): void
+    {
+        $fake = $this->fake()
+            ->comDocumentoAposManifestacao(self::CHAVE, $this->xmlExemplo())
+            ->comCienciaForaDoPrazo(self::CHAVE)
+            ->comLote(new SefazLoteDistribuicao(
+                itens: [new SefazResumoDocumento(nsu: 5, chaveAcesso: self::CHAVE, isEvento: false)],
+                ultNsuRetornado: 5,
+                maxNsu: 5,
+                cStat: '138',
+            ));
+
+        $resultado = app(SefazDistribuicaoService::class)->executarPolling();
+
+        $this->assertSame(1, $resultado->erros);
+        $this->assertSame([], $fake->chavesConfirmadas);
+        $this->assertDatabaseCount('compras', 0);
     }
 
     public function test_polling_erro_pontual_nao_interrompe_o_lote(): void

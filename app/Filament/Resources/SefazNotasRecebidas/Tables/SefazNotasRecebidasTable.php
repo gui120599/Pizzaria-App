@@ -8,6 +8,7 @@ use App\Exceptions\NfeXmlInvalidoException;
 use App\Exceptions\SefazAutenticacaoException;
 use App\Exceptions\SefazDocumentoAindaNaoDisponivelException;
 use App\Exceptions\SefazIndisponivelException;
+use App\Exceptions\SefazManifestacaoForaDoPrazoException;
 use App\Filament\Resources\Compras\CompraResource;
 use App\Models\SefazNotaRecebida;
 use App\Services\Nfe\DanfeService;
@@ -86,6 +87,7 @@ class SefazNotasRecebidasTable
                 self::verDetalhesAction(),
                 self::imprimirDanfeAction(),
                 self::importarAction(),
+                self::confirmarEImportarAction(),
                 self::ignorarAction(),
                 Action::make('verCompra')
                     ->label('Ver compra')
@@ -97,6 +99,7 @@ class SefazNotasRecebidasTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     self::importarSelecionadasAction(),
+                    self::confirmarEImportarSelecionadasAction(),
                 ]),
             ]);
     }
@@ -115,7 +118,7 @@ class SefazNotasRecebidasTable
             ->modalContent(function (SefazNotaRecebida $record, SefazDistribuicaoService $service): HtmlString {
                 try {
                     $nfe = $service->visualizarNota($record);
-                } catch (SefazDocumentoAindaNaoDisponivelException $e) {
+                } catch (SefazDocumentoAindaNaoDisponivelException|SefazManifestacaoForaDoPrazoException $e) {
                     return new HtmlString(self::mensagemModal($e->getMessage(), 'warning'));
                 } catch (SefazAutenticacaoException|SefazIndisponivelException $e) {
                     return new HtmlString(self::mensagemModal($e->getMessage(), 'danger'));
@@ -139,6 +142,15 @@ class SefazNotasRecebidasTable
                 } catch (SefazDocumentoAindaNaoDisponivelException $e) {
                     Notification::make()
                         ->title('Nota manifestada, aguardando liberação')
+                        ->body($e->getMessage())
+                        ->warning()
+                        ->persistent()
+                        ->send();
+
+                    return null;
+                } catch (SefazManifestacaoForaDoPrazoException $e) {
+                    Notification::make()
+                        ->title('Nota fora do prazo de manifestação')
                         ->body($e->getMessage())
                         ->warning()
                         ->persistent()
@@ -250,18 +262,40 @@ class SefazNotasRecebidasTable
         return 'R$ '.number_format($valor, 2, ',', '.');
     }
 
+    private const AVISO_CONFIRMACAO = 'Registra na SEFAZ a Confirmação da Operação — evento definitivo que declara ao Fisco que a mercadoria foi recebida. Use apenas se você recebeu a mercadoria. Necessário para notas com mais de 10 dias, que a SEFAZ não aceita mais só com ciência.';
+
     private static function importarAction(): Action
     {
-        return Action::make('importar')
+        return self::acaoImportar('importar', confirmarOperacao: false)
             ->label('Importar')
             ->icon('heroicon-o-arrow-down-tray')
             ->color('success')
+            ->modalDescription('Consulta a SEFAZ, manifesta ciência se necessário, e importa como rascunho de compra.');
+    }
+
+    private static function confirmarEImportarAction(): Action
+    {
+        return self::acaoImportar('confirmarEImportar', confirmarOperacao: true)
+            ->label('Confirmar recebimento e importar')
+            ->icon('heroicon-o-check-badge')
+            ->color('warning')
+            ->modalHeading('Confirmar recebimento da mercadoria?')
+            ->modalDescription(self::AVISO_CONFIRMACAO)
+            ->modalSubmitActionLabel('Sim, recebi a mercadoria');
+    }
+
+    /**
+     * Corpo comum de "Importar" e "Confirmar recebimento e importar" — só
+     * muda o evento de manifestação registrado na SEFAZ.
+     */
+    private static function acaoImportar(string $name, bool $confirmarOperacao): Action
+    {
+        return Action::make($name)
             ->requiresConfirmation()
-            ->modalDescription('Consulta a SEFAZ, manifesta ciência se necessário, e importa como rascunho de compra.')
             ->visible(fn (SefazNotaRecebida $record): bool => $record->snr_status === SefazNotaRecebidaStatusEnum::PENDENTE)
-            ->action(function (SefazNotaRecebida $record, SefazDistribuicaoService $service, Component $livewire): void {
+            ->action(function (SefazNotaRecebida $record, SefazDistribuicaoService $service, Component $livewire) use ($confirmarOperacao): void {
                 try {
-                    $compra = $service->importarNota($record, auth()->id());
+                    $compra = $service->importarNota($record, auth()->id(), $confirmarOperacao);
                 } catch (SefazDocumentoAindaNaoDisponivelException $e) {
                     Notification::make()
                         ->title('Nota manifestada, aguardando liberação')
@@ -276,6 +310,15 @@ class SefazNotasRecebidasTable
                         ->title('Falha de autenticação com a SEFAZ')
                         ->body($e->getMessage())
                         ->danger()
+                        ->send();
+
+                    return;
+                } catch (SefazManifestacaoForaDoPrazoException $e) {
+                    Notification::make()
+                        ->title('Nota fora do prazo de manifestação')
+                        ->body($e->getMessage())
+                        ->warning()
+                        ->persistent()
                         ->send();
 
                     return;
@@ -328,32 +371,58 @@ class SefazNotasRecebidasTable
 
     private static function importarSelecionadasAction(): BulkAction
     {
-        return BulkAction::make('importarSelecionadas')
+        return self::acaoImportarSelecionadas('importarSelecionadas', confirmarOperacao: false)
             ->label('Importar selecionadas')
             ->icon('heroicon-o-arrow-down-tray')
-            ->color('success')
+            ->color('success');
+    }
+
+    private static function confirmarEImportarSelecionadasAction(): BulkAction
+    {
+        return self::acaoImportarSelecionadas('confirmarEImportarSelecionadas', confirmarOperacao: true)
+            ->label('Confirmar recebimento e importar selecionadas')
+            ->icon('heroicon-o-check-badge')
+            ->color('warning')
+            ->modalHeading('Confirmar recebimento das mercadorias?')
+            ->modalDescription(self::AVISO_CONFIRMACAO)
+            ->modalSubmitActionLabel('Sim, recebi as mercadorias');
+    }
+
+    private static function acaoImportarSelecionadas(string $name, bool $confirmarOperacao): BulkAction
+    {
+        return BulkAction::make($name)
             ->requiresConfirmation()
             ->modalWidth('md')
             ->deselectRecordsAfterCompletion()
-            ->action(function (Collection $records, SefazDistribuicaoService $service): void {
+            ->action(function (Collection $records, SefazDistribuicaoService $service) use ($confirmarOperacao): void {
                 $importadas = 0;
                 $pendentes = 0;
+                $foraDoPrazo = 0;
                 $erros = 0;
 
                 foreach ($records->where('snr_status', SefazNotaRecebidaStatusEnum::PENDENTE) as $record) {
                     try {
-                        $service->importarNota($record, auth()->id());
+                        $service->importarNota($record, auth()->id(), $confirmarOperacao);
                         $importadas++;
                     } catch (SefazDocumentoAindaNaoDisponivelException) {
                         $pendentes++;
+                    } catch (SefazManifestacaoForaDoPrazoException) {
+                        $foraDoPrazo++;
                     } catch (SefazAutenticacaoException|SefazIndisponivelException|ValidationException) {
                         $erros++;
                     }
                 }
 
+                $resumo = "{$importadas} importada(s), {$pendentes} ainda não liberada(s), {$erros} com erro.";
+                if ($foraDoPrazo > 0) {
+                    $resumo .= $confirmarOperacao
+                        ? " {$foraDoPrazo} passaram de 90 dias — peça o XML ao fornecedor e use \"Importar XML\"."
+                        : " {$foraDoPrazo} com mais de 10 dias — use \"Confirmar recebimento e importar\".";
+                }
+
                 Notification::make()
                     ->title('Importação em lote concluída')
-                    ->body("{$importadas} importada(s), {$pendentes} ainda não liberada(s), {$erros} com erro.")
+                    ->body($resumo)
                     ->success()
                     ->send();
             });

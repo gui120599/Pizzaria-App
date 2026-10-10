@@ -196,6 +196,38 @@ class SefazNotasRecebidasFilamentSmokeTest extends TestCase
         $this->assertDatabaseHas('compras', ['compra_chave_nfe' => self::CHAVE]);
     }
 
+    public function test_acao_confirmar_e_importar_registra_confirmacao_e_importa_nota_fora_do_prazo_de_ciencia(): void
+    {
+        config(['sefaz.intervalo_pos_manifestacao' => [0]]);
+        $nota = $this->notaPendente();
+        $fake = $this->fake()
+            ->comDocumentoAposManifestacao(self::CHAVE, $this->xmlExemplo())
+            ->comCienciaForaDoPrazo(self::CHAVE);
+
+        Livewire::test(ManageSefazNotasRecebidas::class)
+            ->callTableAction('confirmarEImportar', $nota)
+            ->assertHasNoTableActionErrors();
+
+        $this->assertSame([self::CHAVE], $fake->chavesConfirmadas);
+        $this->assertSame(SefazNotaRecebidaStatusEnum::IMPORTADA, $nota->fresh()->snr_status);
+        $this->assertDatabaseHas('compras', ['compra_chave_nfe' => self::CHAVE]);
+    }
+
+    public function test_acao_importar_com_ciencia_fora_do_prazo_avisa_e_mantem_pendente(): void
+    {
+        $nota = $this->notaPendente();
+        $fake = $this->fake()
+            ->comDocumentoAposManifestacao(self::CHAVE, $this->xmlExemplo())
+            ->comCienciaForaDoPrazo(self::CHAVE);
+
+        Livewire::test(ManageSefazNotasRecebidas::class)
+            ->callTableAction('importar', $nota)
+            ->assertNotified('Nota fora do prazo de manifestação');
+
+        $this->assertSame([], $fake->chavesConfirmadas);
+        $this->assertSame(SefazNotaRecebidaStatusEnum::PENDENTE, $nota->fresh()->snr_status);
+    }
+
     public function test_acao_ignorar_marca_ignorada(): void
     {
         $nota = $this->notaPendente();
