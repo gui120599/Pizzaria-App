@@ -11,16 +11,23 @@ use App\Models\User;
 use App\Services\ClienteResolverService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use RuntimeException;
 
 /**
  * Identificação do celular que lê o QR da mesa: entra na conta aberta com nome
  * e celular, recebe um token (guardado no cookie) e é reconhecido por ele
- * enquanto a conta estiver aberta. Quem fotografou o QR e volta depois cai
- * numa conta nova e precisa se identificar de novo.
+ * enquanto a conta estiver aberta. Para entrar é preciso o PIN da conta, que o
+ * garçom passa a quem está na mesa: quem fotografou o QR e volta depois cai
+ * numa conta nova, com outro PIN.
  */
 class ParticipanteMesaService
 {
+    /** Erros de PIN por celular (IP) e conta antes de esperar. */
+    public const TENTATIVAS_PIN = 5;
+
+    public const ESPERA_PIN_SEGUNDOS = 600;
+
     public function __construct(private ClienteResolverService $clientes) {}
 
     /** Conta aberta da mesa agora, se houver. */
@@ -39,16 +46,23 @@ class ParticipanteMesaService
             && $mesa->mesa_status !== 'INATIVA';
     }
 
+    /** A identificação pede o PIN da conta? (config pizzaria.mesa_cliente.exigir_pin) */
+    public function exigePin(): bool
+    {
+        return (bool) config('pizzaria.mesa_cliente.exigir_pin');
+    }
+
     /**
-     * Identifica o celular na conta aberta da mesa. O cliente é cadastrado (ou
-     * encontrado) pelo celular e entra nas pessoas da mesa, como os chips do
-     * garçom — assim a conta por pessoa e o caixa funcionam sem mudança.
+     * Identifica o celular na conta aberta da mesa, conferindo o PIN da conta.
+     * O cliente é cadastrado (ou encontrado) pelo celular e entra nas pessoas
+     * da mesa, como os chips do garçom — assim a conta por pessoa e o caixa
+     * funcionam sem mudança.
      *
      * @return array{participante: MesaParticipante, token: string} o token só existe aqui, em texto
      *
      * @throws RuntimeException
      */
-    public function entrar(Mesa $mesa, string $nome, string $celular, ?string $ip = null, ?string $userAgent = null): array
+    public function entrar(Mesa $mesa, string $nome, string $celular, ?string $pin, ?string $ip = null, ?string $userAgent = null): array
     {
         $nome = trim($nome);
         $celular = (string) preg_replace('/\D/', '', $celular);
@@ -65,11 +79,15 @@ class ParticipanteMesaService
             throw new RuntimeException('O pedido pelo celular está desligado nesta mesa. Chame o garçom.');
         }
 
-        return DB::transaction(function () use ($mesa, $nome, $celular, $ip, $userAgent) {
+        return DB::transaction(function () use ($mesa, $nome, $celular, $pin, $ip, $userAgent) {
             $sessao = $this->sessaoAberta($mesa->fresh());
 
             if (! $sessao) {
                 throw new RuntimeException('Esta mesa ainda não está aberta. Chame o garçom.');
+            }
+
+            if ($this->exigePin()) {
+                $this->conferirPin($sessao, (string) $pin, $ip);
             }
 
             $cliente = $this->clientes->resolverOuCriar(['nome' => $nome, 'celular' => $celular]);
@@ -93,6 +111,36 @@ class ParticipanteMesaService
 
             return ['participante' => $participante, 'token' => $token];
         });
+    }
+
+    /**
+     * PIN errado conta tentativa por celular (IP) e conta: 4 dígitos não
+     * resistem a chute sem limite.
+     *
+     * @throws RuntimeException
+     */
+    private function conferirPin(SessaoMesa $sessao, string $pin, ?string $ip): void
+    {
+        $pin = trim($pin);
+        $chave = 'mesa-pin:'.$sessao->id.':'.($ip ?? 'sem-ip');
+
+        if ($pin === '') {
+            throw new RuntimeException('Informe o PIN da mesa. Peça ao garçom.');
+        }
+
+        if (RateLimiter::tooManyAttempts($chave, self::TENTATIVAS_PIN)) {
+            $minutos = (int) ceil(RateLimiter::availableIn($chave) / 60);
+
+            throw new RuntimeException("Muitas tentativas com o PIN errado. Tente de novo em {$minutos} min ou chame o garçom.");
+        }
+
+        if (! filled($sessao->sessao_mesa_pin) || ! hash_equals((string) $sessao->sessao_mesa_pin, $pin)) {
+            RateLimiter::hit($chave, self::ESPERA_PIN_SEGUNDOS);
+
+            throw new RuntimeException('PIN incorreto. Confira com o garçom.');
+        }
+
+        RateLimiter::clear($chave);
     }
 
     /**

@@ -91,6 +91,7 @@ class EstadoMesaCliente
                 ->where('mc_mesa_id', $mesa->id)
                 ->where('mc_tipo', TipoChamadoMesaEnum::ABRIR_MESA->value)
                 ->exists(),
+            'pede_pin' => $this->participantes->exigePin(),
             'participante' => $participante ? ['nome' => $participante->mp_nome] : null,
             'rodadas' => $participante ? $this->rodadas($participante) : [],
             'chamados' => $participante ? $this->chamadosPendentes($participante) : [],

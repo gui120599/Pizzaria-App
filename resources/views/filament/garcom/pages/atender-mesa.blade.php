@@ -33,6 +33,17 @@
                     <x-filament::icon icon="heroicon-o-qr-code" class="h-4 w-4" />
                     QR da mesa
                 </button>
+                @if (config('pizzaria.mesa_cliente.exigir_pin') && $sessao->sessao_mesa_pin)
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-900 py-1 pl-3 pr-1 text-xs font-semibold text-white dark:bg-white dark:text-gray-900"
+                          title="Informe este PIN a quem está na mesa para pedir pelo celular">
+                        PIN <span class="font-mono text-sm tracking-widest">{{ $sessao->sessao_mesa_pin }}</span>
+                        <button type="button" wire:click="gerarNovoPin"
+                                wire:confirm="Gerar um novo PIN? Quem já entrou pelo celular continua na conta."
+                                class="rounded-full p-1 hover:bg-white/20 dark:hover:bg-gray-900/10" title="Gerar novo PIN">
+                            <x-filament::icon icon="heroicon-o-arrow-path" class="h-3.5 w-3.5" />
+                        </button>
+                    </span>
+                @endif
                 @if ($sessao->contaSolicitada())
                     <span class="rounded-full bg-violet-600 px-2 py-0.5 text-xs font-semibold text-white">Pediu a conta</span>
                 @endif

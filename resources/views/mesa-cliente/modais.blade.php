@@ -22,6 +22,14 @@
                    @input="$store.mesa.mascararCelular($event)" placeholder="(64) 9 9999-9999" autocomplete="tel"
                    class="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-green-500">
         </div>
+        <div x-show="$store.mesa.estado.pede_pin">
+            <label for="mesa-pin" class="text-gray-300 text-xs font-semibold uppercase tracking-wide block mb-1">PIN da mesa</label>
+            <input id="mesa-pin" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" x-model="$store.mesa.form.pin"
+                   @input="$store.mesa.form.pin = $event.target.value = $event.target.value.replace(/\D/g, '').slice(0, 4)"
+                   placeholder="0000" autocomplete="off"
+                   class="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-3 text-center text-2xl font-bold tracking-[0.5em] focus:outline-none focus:border-green-500">
+            <p class="text-gray-400 text-xs mt-1">Peça o PIN de 4 números ao garçom.</p>
+        </div>
         <p x-show="$store.mesa.erroIdentificacao" style="display:none" class="text-red-300 text-xs" x-text="$store.mesa.erroIdentificacao"></p>
         <button type="submit" :disabled="$store.mesa.ocupado"
                 class="w-full py-3.5 rounded-xl bg-green-500 hover:bg-green-400 disabled:opacity-60 text-white font-bold text-sm uppercase tracking-wide">
@@ -133,7 +141,7 @@
             estado: mesa.estado,
             identOpen: false,
             painelOpen: false,
-            form: { nome: '', celular: '' },
+            form: { nome: '', celular: '', pin: '' },
             erroIdentificacao: '',
             erro: '',
             aviso: '',
@@ -160,7 +168,7 @@
             legenda() {
                 return {
                     pedindo: 'Escolha os itens e envie: vai direto para a conta da mesa.',
-                    identificar: 'Monte seu pedido. Pedimos seu nome ao enviar.',
+                    identificar: 'Monte seu pedido. Ao enviar, pedimos seu nome e o PIN da mesa (o garçom informa).',
                     fechada: this.estado.abertura_solicitada ? 'Avisamos o garçom. Assim que ele abrir a mesa, você pode pedir.' : 'Mesa fechada: veja o cardápio e chame o garçom para abrir.',
                 }[this.estado.estado] ?? (this.estado.mensagem ?? '');
             },
@@ -224,11 +232,13 @@
             async entrar() {
                 if (!this.form.nome.trim()) { this.erroIdentificacao = 'Informe seu nome.'; return; }
                 if (![10, 11].includes(this.form.celular.replace(/\D/g, '').length)) { this.erroIdentificacao = 'Informe o celular com DDD.'; return; }
+                if (this.estado.pede_pin && this.form.pin.length !== 4) { this.erroIdentificacao = 'Informe o PIN de 4 números. Peça ao garçom.'; return; }
                 this.ocupado = true;
                 try {
-                    const { ok, data } = await this.post(mesa.rotas.entrar, { nome: this.form.nome.trim(), celular: this.form.celular });
+                    const { ok, data } = await this.post(mesa.rotas.entrar, { nome: this.form.nome.trim(), celular: this.form.celular, pin: this.form.pin });
                     if (!ok) { this.erroIdentificacao = data.message ?? 'Não foi possível entrar. Tente de novo.'; this.atualizar(); return; }
                     this.aplicar(data);
+                    this.form.pin = '';
                     this.identOpen = false;
                     const seguir = this.aposEntrar;
                     this.aposEntrar = null;

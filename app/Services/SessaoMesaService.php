@@ -111,7 +111,11 @@ class SessaoMesaService
             throw new RuntimeException("Sessão não pode ser reaberta, pois já existe uma nova sessão aberta para a {$mesa->mesa_nome}.");
         }
 
-        $sessaoMesa->update(['sessao_mesa_status' => 'ABERTA']);
+        // Conta de antes do PIN existir volta com um, senão ninguém entra pelo QR.
+        $sessaoMesa->update([
+            'sessao_mesa_status' => 'ABERTA',
+            'sessao_mesa_pin' => $sessaoMesa->sessao_mesa_pin ?? SessaoMesa::novoPin(),
+        ]);
         $mesa->update([
             'mesa_status' => 'OCUPADA',
             'mesa_sessao_atual_id' => $sessaoMesa->id,
