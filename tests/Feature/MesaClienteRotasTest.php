@@ -53,7 +53,7 @@ class MesaClienteRotasTest extends TestCase
     {
         $mesa = $this->mesaAberta();
 
-        $resposta = $this->postJson(route('mesa-cliente.entrar', $mesa->mesa_codigo_qr), ['nome' => 'Ana', 'celular' => '(64) 99999-1234']);
+        $resposta = $this->postJson(route('mesa-cliente.entrar', $mesa->mesa_codigo_qr), ['nome' => 'Ana', 'celular' => '(64) 99999-1234', 'pin' => $mesa->sessaoAtual->sessao_mesa_pin]);
 
         $resposta->assertOk()
             ->assertJsonPath('estado', 'pedindo')
@@ -70,6 +70,18 @@ class MesaClienteRotasTest extends TestCase
         $this->postJson(route('mesa-cliente.entrar', $mesa->mesa_codigo_qr), ['nome' => 'Ana', 'celular' => '99999-1234'])
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Informe o celular com DDD.');
+
+        $this->assertSame(0, MesaParticipante::count());
+    }
+
+    public function test_entrar_com_pin_errado_e_recusado(): void
+    {
+        $mesa = $this->mesaAberta();
+        $mesa->sessaoAtual->update(['sessao_mesa_pin' => '1234']);
+
+        $this->postJson(route('mesa-cliente.entrar', $mesa->mesa_codigo_qr), ['nome' => 'Ana', 'celular' => '64999991234', 'pin' => '9999'])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'PIN incorreto. Confira com o garçom.');
 
         $this->assertSame(0, MesaParticipante::count());
     }
@@ -229,7 +241,7 @@ class MesaClienteRotasTest extends TestCase
     /** @return array{participante: MesaParticipante, token: string} */
     private function entrar(Mesa $mesa, string $nome = 'Ana', string $celular = '64999991234'): array
     {
-        return app(ParticipanteMesaService::class)->entrar($mesa, $nome, $celular);
+        return app(ParticipanteMesaService::class)->entrar($mesa, $nome, $celular, $mesa->sessaoAtual?->sessao_mesa_pin);
     }
 
     private function produto(float $preco = 30.00): Produto

@@ -101,6 +101,6 @@ class MesaChamadoServiceTest extends TestCase
         $mesa = Mesa::factory()->create();
         app(SessaoMesaService::class)->abrir($mesa->id, $this->garcom()->id);
 
-        return app(ParticipanteMesaService::class)->entrar($mesa->fresh(), 'Ana', '64999991234')['participante'];
+        return app(ParticipanteMesaService::class)->entrar($mesa = $mesa->fresh(), 'Ana', '64999991234', $mesa->sessaoAtual?->sessao_mesa_pin)['participante'];
     }
 }

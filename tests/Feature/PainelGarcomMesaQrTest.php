@@ -56,7 +56,7 @@ class PainelGarcomMesaQrTest extends TestCase
         $this->garcom = User::factory()->garcom()->create(['name_first' => 'Bruno']);
         $this->mesa = Mesa::create(['mesa_nome' => 'Mesa 1', 'mesa_status' => 'LIBERADA', 'mesa_numero' => 1]);
         $this->sessao = app(SessaoMesaService::class)->abrir($this->mesa->id, $this->garcom->id);
-        $this->participante = app(ParticipanteMesaService::class)->entrar($this->mesa->fresh(), 'Ana', '64999991234')['participante'];
+        $this->participante = app(ParticipanteMesaService::class)->entrar($this->mesa->fresh(), 'Ana', '64999991234', $this->mesa->fresh()->sessaoAtual?->sessao_mesa_pin)['participante'];
         $this->actingAs($this->garcom);
     }
 
@@ -160,7 +160,7 @@ class PainelGarcomMesaQrTest extends TestCase
     {
         $outraMesa = Mesa::create(['mesa_nome' => 'Mesa 2', 'mesa_status' => 'LIBERADA', 'mesa_numero' => 2]);
         app(SessaoMesaService::class)->abrir($outraMesa->id, $this->garcom->id);
-        $deOutraMesa = app(ParticipanteMesaService::class)->entrar($outraMesa->fresh(), 'João', '64988887777')['participante'];
+        $deOutraMesa = app(ParticipanteMesaService::class)->entrar($outraMesa->fresh(), 'João', '64988887777', $outraMesa->fresh()->sessaoAtual?->sessao_mesa_pin)['participante'];
         $tela = Livewire::test(AtenderMesa::class, ['sessao' => $this->sessao->id]);
 
         $tela->call('bloquearParticipante', $this->participante->id);
@@ -168,6 +168,18 @@ class PainelGarcomMesaQrTest extends TestCase
 
         $this->expectException(ModelNotFoundException::class);
         $tela->call('bloquearParticipante', $deOutraMesa->id);
+    }
+
+    public function test_garcom_ve_o_pin_da_conta_e_gera_outro(): void
+    {
+        $pinAntigo = $this->sessao->fresh()->sessao_mesa_pin;
+        $tela = Livewire::test(AtenderMesa::class, ['sessao' => $this->sessao->id])->assertSee($pinAntigo);
+
+        $tela->call('gerarNovoPin');
+
+        $novo = $this->sessao->fresh()->sessao_mesa_pin;
+        $this->assertNotSame($pinAntigo, $novo);
+        $tela->assertNotified("Novo PIN da mesa: {$novo}")->assertSee($novo);
     }
 
     public function test_rodada_do_cliente_aparece_com_o_nome_de_quem_pediu(): void

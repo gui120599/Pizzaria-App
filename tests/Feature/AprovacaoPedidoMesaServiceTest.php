@@ -129,7 +129,7 @@ class AprovacaoPedidoMesaServiceTest extends TestCase
         $mesa = Mesa::factory()->create();
         app(SessaoMesaService::class)->abrir($mesa->id, $this->garcom->id, pessoas: 2);
         /** @var MesaParticipante $participante */
-        $participante = app(ParticipanteMesaService::class)->entrar($mesa->fresh(), 'Ana', '64999991234')['participante'];
+        $participante = app(ParticipanteMesaService::class)->entrar($mesa = $mesa->fresh(), 'Ana', '64999991234', $mesa->sessaoAtual?->sessao_mesa_pin)['participante'];
         $refrigerante = Produto::create([
             'produto_descricao' => 'Refrigerante',
             'produto_categoria_id' => Categoria::create(['categoria_nome' => 'Bebidas', 'categoria_cardapio' => true])->id,

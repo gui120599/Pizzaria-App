@@ -77,6 +77,7 @@ class MesaClienteController extends Controller
                 $mesa,
                 $request->validated('nome'),
                 $request->validated('celular'),
+                $request->validated('pin'),
                 $request->ip(),
                 $request->userAgent(),
             );

@@ -49,7 +49,7 @@ class PainelPedidosMesaQrTest extends TestCase
 
         $mesa = Mesa::factory()->create(['mesa_nome' => 'Mesa 3']);
         app(SessaoMesaService::class)->abrir($mesa->id, $this->gerente->id);
-        $this->participante = app(ParticipanteMesaService::class)->entrar($mesa->fresh(), 'Ana', '64999991234')['participante'];
+        $this->participante = app(ParticipanteMesaService::class)->entrar($mesa = $mesa->fresh(), 'Ana', '64999991234', $mesa->sessaoAtual?->sessao_mesa_pin)['participante'];
     }
 
     protected function tearDown(): void

@@ -95,7 +95,7 @@ class PedidoMesaClienteServiceTest extends TestCase
         $ana = $this->participante();
         $refrigerante = $this->produto('Refrigerante', 8.00);
         app(AprovacaoPedidoMesaService::class)->aprovar($this->enviar($ana, [new ItemSolicitado($refrigerante->id)]), $this->garcom);
-        ['participante' => $joao] = app(ParticipanteMesaService::class)->entrar($ana->sessaoMesa->mesa, 'João', '64988887777');
+        ['participante' => $joao] = app(ParticipanteMesaService::class)->entrar($ana->sessaoMesa->mesa, 'João', '64988887777', $ana->sessaoMesa->mesa->sessaoAtual?->sessao_mesa_pin);
 
         $doJoao = $this->enviar($joao, [new ItemSolicitado($refrigerante->id)]);
 
@@ -214,7 +214,7 @@ class PedidoMesaClienteServiceTest extends TestCase
         $mesa = Mesa::factory()->create();
         app(SessaoMesaService::class)->abrir($mesa->id, $this->garcom->id, pessoas: 2);
 
-        return app(ParticipanteMesaService::class)->entrar($mesa->fresh(), 'Ana', '64999991234')['participante'];
+        return app(ParticipanteMesaService::class)->entrar($mesa = $mesa->fresh(), 'Ana', '64999991234', $mesa->sessaoAtual?->sessao_mesa_pin)['participante'];
     }
 
     private function categoria(): Categoria

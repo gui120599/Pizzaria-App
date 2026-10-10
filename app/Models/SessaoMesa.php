@@ -16,6 +16,7 @@ class SessaoMesa extends Model
         'sessao_mesa_cliente_id',
         'sessao_mesa_usuario_id',
         'sessao_mesa_status',
+        'sessao_mesa_pin',
         'sessao_mesa_motivo_cancelamento',
         'sessao_mesa_pessoas',
         'sessao_mesa_taxa_servico_percentual',
@@ -30,6 +31,32 @@ class SessaoMesa extends Model
         'sessao_mesa_conta_solicitada_em' => 'datetime',
         'sessao_mesa_versao' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        // Toda conta nasce com o PIN que o garçom passa para quem está na mesa.
+        static::creating(function (SessaoMesa $sessao): void {
+            $sessao->sessao_mesa_pin ??= self::novoPin();
+        });
+    }
+
+    /** PIN de 4 dígitos para o celular entrar na conta pelo QR. */
+    public static function novoPin(): string
+    {
+        return str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+    }
+
+    /** Troca o PIN (ex.: alguém de fora ouviu): quem já entrou continua na conta. */
+    public function gerarNovoPin(): self
+    {
+        do {
+            $pin = self::novoPin();
+        } while ($pin === $this->sessao_mesa_pin);
+
+        $this->update(['sessao_mesa_pin' => $pin]);
+
+        return $this;
+    }
 
     public function mesa()
     {

@@ -371,6 +371,14 @@ class AtenderMesa extends Page
         Notification::make()->title("{$participante->mp_nome} não pode mais pedir pelo celular nesta mesa.")->success()->send();
     }
 
+    /** Novo PIN da conta (ex.: alguém de fora ouviu); quem já entrou continua. */
+    public function gerarNovoPin(): void
+    {
+        $sessao = SessaoMesa::findOrFail($this->sessaoId)->gerarNovoPin();
+
+        Notification::make()->title("Novo PIN da mesa: {$sessao->sessao_mesa_pin}")->success()->send();
+    }
+
     public function desbloquearParticipante(int $participanteId): void
     {
         $participante = MesaParticipante::where('mp_sessao_mesa_id', $this->sessaoId)->findOrFail($participanteId);

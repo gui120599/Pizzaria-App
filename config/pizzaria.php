@@ -158,6 +158,10 @@ return [
         // QR mostra só o cardápio). Por mesa: mesas.mesa_pedido_cliente_ativo.
         'ativo' => (bool) env('PIZZARIA_MESA_CLIENTE_ATIVO', true),
 
+        // O celular só entra na conta com o PIN de 4 dígitos que o garçom
+        // informa a quem está na mesa (aparece na tela da mesa no /garcom).
+        'exigir_pin' => (bool) env('PIZZARIA_MESA_CLIENTE_EXIGIR_PIN', true),
+
         // Primeiro pedido pelo QR passa pelo garçom: 'mesa' = o primeiro da
         // conta; 'participante' = o primeiro de cada celular (mais seguro
         // contra quem fotografou o QR); 'off' = nunca.

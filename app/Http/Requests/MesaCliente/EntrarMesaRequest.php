@@ -4,7 +4,7 @@ namespace App\Http\Requests\MesaCliente;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-/** Identificação do celular na mesa: nome e celular com DDD (sem verificação por SMS). */
+/** Identificação do celular na mesa: nome, celular com DDD (sem verificação por SMS) e PIN da conta. */
 class EntrarMesaRequest extends FormRequest
 {
     public function authorize(): bool
@@ -18,6 +18,7 @@ class EntrarMesaRequest extends FormRequest
         return [
             'nome' => ['required', 'string', 'max:120'],
             'celular' => ['required', 'string', 'max:20'],
+            'pin' => ['nullable', 'string', 'max:10'],
         ];
     }
 
