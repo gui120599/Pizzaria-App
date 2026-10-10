@@ -4,9 +4,10 @@
     ele cobra — valor do pedido na venda e quanto dele ainda falta receber.
     Usado no relatório de débitos, na edição do cliente e na aba Pendentes do
     PDV (receber=true mostra o botão que abre o modal de recebimento;
-    somenteVendas=true imprime o extrato só com os títulos de venda, como a aba).
+    somenteVendas=true imprime o extrato só com os títulos de venda, como a aba;
+    porMes=true separa os títulos pelo mês da compra, com subtotal).
 --}}
-@props(['debito', 'receber' => false, 'aberto' => false, 'imprimir' => true, 'somenteVendas' => false])
+@props(['debito', 'receber' => false, 'aberto' => false, 'imprimir' => true, 'somenteVendas' => false, 'porMes' => false])
 
 @php
     $cliente = $debito['cliente'];
@@ -41,7 +42,7 @@
             @endif
             <span class="text-sm font-bold text-gray-800 dark:text-gray-100">{{ $brl($debito['total']) }}</span>
             @if ($imprimir && $cliente)
-                <a href="{{ route('relatorios.debitos_clientes.imprimir', ['filters' => array_filter(['cliente_id' => $cliente->id, 'somente_vendas' => $somenteVendas ? 1 : null])]) }}" target="_blank"
+                <a href="{{ route('relatorios.debitos_clientes.imprimir', ['filters' => array_filter(['cliente_id' => $cliente->id, 'somente_vendas' => $somenteVendas ? 1 : null, 'agrupar_mes' => $porMes ? 1 : null])]) }}" target="_blank"
                     title="Imprimir extrato do cliente"
                     class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
                     <x-filament::icon icon="heroicon-o-printer" class="h-4 w-4" />
@@ -51,7 +52,20 @@
     </div>
 
     <div x-show="aberto" x-cloak class="space-y-3 px-4 pb-4">
-        @foreach ($debito['titulos'] as $titulo)
+        @php
+            // Sem agrupar: um grupo só, sem cabeçalho de mês.
+            $grupos = $porMes
+                ? \App\Services\DebitosClienteService::agruparPorMes($debito['titulos'])
+                : collect([['mes' => null, 'total' => $debito['total'], 'titulos' => $debito['titulos']]]);
+        @endphp
+        @foreach ($grupos as $grupo)
+        @if ($grupo['mes'])
+            <div class="flex items-center justify-between border-b border-gray-200 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-white/10 dark:text-gray-400">
+                <span>{{ $grupo['mes'] }}</span>
+                <span>R$ {{ number_format($grupo['total'], 2, ',', '.') }}</span>
+            </div>
+        @endif
+        @foreach ($grupo['titulos'] as $titulo)
             @php
                 /** @var \App\Models\Lancamento $lancamento */
                 $lancamento = $titulo['lancamento'];
@@ -145,6 +159,7 @@
                     @endif
                 </div>
             </div>
+        @endforeach
         @endforeach
     </div>
 </div>

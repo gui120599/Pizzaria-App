@@ -37,6 +37,9 @@ class RelatorioDebitosClientes extends Page
 
     public bool $somenteVencidos = false;
 
+    /** Separa os títulos de cada cliente pelo mês da compra, com subtotal. */
+    public bool $agruparPorMes = false;
+
     public static function canAccess(): bool
     {
         return Auth::user()?->can('viewAny', Cliente::class) ?? false;
@@ -61,10 +64,10 @@ class RelatorioDebitosClientes extends Page
     }
 
     /**
-     * @return array{busca: string, somente_vencidos: bool}
+     * @return array{busca: string, somente_vencidos: bool, agrupar_mes: bool}
      */
     private function filtros(): array
     {
-        return ['busca' => $this->busca, 'somente_vencidos' => $this->somenteVencidos];
+        return ['busca' => $this->busca, 'somente_vencidos' => $this->somenteVencidos, 'agrupar_mes' => $this->agruparPorMes];
     }
 }

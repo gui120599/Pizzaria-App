@@ -41,6 +41,9 @@
                         @if ($somenteVencidos)
                             — somente vencidos
                         @endif
+                        @if ($agruparPorMes)
+                            — agrupado por mês
+                        @endif
                         @if ($busca !== '')
                             — busca "{{ $busca }}"
                         @endif
@@ -101,7 +104,21 @@
                             <th class="border p-1 text-right w-24">Em aberto</th>
                         </tr>
                     </thead>
-                    @foreach ($debito['titulos'] as $titulo)
+                    @php
+                        $grupos = $agruparPorMes
+                            ? \App\Services\DebitosClienteService::agruparPorMes($debito['titulos'])
+                            : collect([['mes' => null, 'total' => $debito['total'], 'titulos' => $debito['titulos']]]);
+                    @endphp
+                    @foreach ($grupos as $grupo)
+                    @if ($grupo['mes'])
+                        <tbody>
+                            <tr class="bg-gray-200 font-bold uppercase">
+                                <td class="border p-1" colspan="2">{{ $grupo['mes'] }}</td>
+                                <td class="border p-1 text-right">{{ $brl($grupo['total']) }}</td>
+                            </tr>
+                        </tbody>
+                    @endif
+                    @foreach ($grupo['titulos'] as $titulo)
                         <tbody>
                             <tr class="bg-gray-50">
                                 <td class="border p-1 font-semibold">
@@ -149,6 +166,7 @@
                                 </tr>
                             @endif
                         </tbody>
+                    @endforeach
                     @endforeach
                 </table>
             </div>

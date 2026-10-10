@@ -253,6 +253,34 @@ class DebitosClienteTest extends TestCase
         $this->assertFalse(RelatorioDebitosClientes::canAccess());
     }
 
+    public function test_agrupa_os_titulos_pelo_mes_da_compra_com_subtotal(): void
+    {
+        $this->travelTo(now()->setDate(2026, 8, 20));
+        $this->vendaFiado($this->ana, [30]);
+        $this->travelTo(now()->setDate(2026, 9, 5));
+        $this->vendaFiado($this->ana, [50]);
+        $this->vendaFiado($this->ana, [20]);
+        $this->travelBack();
+
+        $meses = DebitosClienteService::agruparPorMes((new DebitosClienteService)->porCliente()->sole()['titulos']);
+
+        $this->assertSame(
+            [['Agosto de 2026', 30.0, 1], ['Setembro de 2026', 70.0, 2]],
+            $meses->map(fn (array $mes): array => [$mes['mes'], $mes['total'], $mes['titulos']->count()])->values()->all(),
+        );
+
+        Livewire::test(RelatorioDebitosClientes::class)
+            ->assertDontSee('Agosto de 2026')
+            ->set('agruparPorMes', true)
+            ->assertSee('Agosto de 2026')
+            ->assertSee('Setembro de 2026');
+
+        $this->get(route('relatorios.debitos_clientes.imprimir', ['filters' => ['agrupar_mes' => 1]]))
+            ->assertOk()
+            ->assertSee('agrupado por mês')
+            ->assertSee('Setembro de 2026');
+    }
+
     public function test_edicao_do_cliente_mostra_os_debitos_dele(): void
     {
         ['pedidos' => [$pedido]] = $this->vendaFiado($this->ana, [30]);

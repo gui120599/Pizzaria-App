@@ -29,6 +29,7 @@ class RelatorioDebitosClientesController extends Controller
             'totais' => $service->totais(),
             'clienteFiltrado' => ! empty($filtros['cliente_id']) ? Cliente::find($filtros['cliente_id'])?->cliente_nome : null,
             'somenteVencidos' => filter_var($filtros['somente_vencidos'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'agruparPorMes' => filter_var($filtros['agrupar_mes'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'busca' => trim((string) ($filtros['busca'] ?? '')),
             'geradoEm' => now(),
             'geradoPor' => $user->name ?? 'Sistema',
