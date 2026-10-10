@@ -28,6 +28,11 @@
                 <span>{{ $sessao->sessao_mesa_pessoas }} pessoa(s)</span>
                 <span>Aberta há {{ (int) $sessao->created_at->diffInMinutes(now()) }} min</span>
                 <span>Garçom: {{ $sessao->garcom?->name_first ?: $sessao->garcom?->name }}</span>
+                <button type="button" wire:click="mountAction('verQr')"
+                        class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 active:scale-95 dark:text-gray-200 dark:ring-white/20">
+                    <x-filament::icon icon="heroicon-o-qr-code" class="h-4 w-4" />
+                    QR da mesa
+                </button>
                 @if ($sessao->contaSolicitada())
                     <span class="rounded-full bg-violet-600 px-2 py-0.5 text-xs font-semibold text-white">Pediu a conta</span>
                 @endif

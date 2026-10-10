@@ -128,6 +128,19 @@ class PainelGarcomTest extends TestCase
         $this->assertSame($this->garcom->id, $sessao->sessao_mesa_usuario_id);
     }
 
+    public function test_garcom_mostra_o_qr_da_mesa_na_tela(): void
+    {
+        $this->actingAs($this->garcom);
+        $sessao = $this->sessaoAberta();
+
+        Livewire::test(AtenderMesa::class, ['sessao' => $sessao->id])
+            ->assertSee('QR da mesa')
+            ->mountAction('verQr')
+            ->assertActionMounted('verQr')
+            ->assertMountedActionModalSee('/mesa/'.$this->mesa->fresh()->mesa_codigo_qr)
+            ->assertMountedActionModalSeeHtml('data:image/png;base64');
+    }
+
     public function test_enviar_rodada_pela_tela_da_mesa(): void
     {
         $this->actingAs($this->garcom);
