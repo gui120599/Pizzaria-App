@@ -21,6 +21,7 @@ use App\Services\Garcom\AtendimentoMesaService;
 use App\Services\MesaCliente\AprovacaoPedidoMesaService;
 use App\Services\MesaCliente\MesaChamadoService;
 use App\Services\MesaCliente\ParticipanteMesaService;
+use App\Services\MesaCliente\QrCodeMesaService;
 use App\Services\PedidosSessaoMesaService;
 use App\Support\ContaMesa;
 use Filament\Actions\Action;
@@ -565,6 +566,25 @@ class AtenderMesa extends Page
 
                 Notification::make()->title('Mesa liberada. A conta segue pendente no caixa.')->success()->send();
                 $this->redirect(MapaMesas::getUrl(), navigate: true);
+            });
+    }
+
+    /** QR da mesa (/mesa/{codigo}) na tela — para o cliente ler quando o impresso sumiu ou estragou. */
+    public function verQrAction(): Action
+    {
+        return Action::make('verQr')
+            ->modalHeading(fn (): string => 'QR da '.($this->sessao()->mesa?->mesa_nome ?? 'mesa'))
+            ->modalWidth('sm')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Fechar')
+            ->modalContent(function () {
+                $mesa = $this->sessao()->mesa;
+
+                return view('mesa-cliente.qr-modal', [
+                    'mesa' => $mesa,
+                    'qr' => app(QrCodeMesaService::class)->png($mesa),
+                    'url' => app(QrCodeMesaService::class)->url($mesa),
+                ]);
             });
     }
 
