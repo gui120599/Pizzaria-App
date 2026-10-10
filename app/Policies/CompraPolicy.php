@@ -89,4 +89,13 @@ class CompraPolicy
     {
         return $authUser->can('registrar:devolucao_compra');
     }
+
+    /**
+     * Corrigir a data de entrada de uma compra confirmada mexe em movimentações
+     * de estoque, lotes e vencimentos de contas a pagar.
+     */
+    public function corrigirDataEntrada(AuthUser $authUser, Compra $compra): bool
+    {
+        return $authUser->can('corrigir:data_entrada_compra');
+    }
 }

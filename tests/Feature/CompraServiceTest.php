@@ -10,7 +10,9 @@ use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Models\Categoria;
 use App\Models\Compra;
+use App\Models\CompraDevolucao;
 use App\Models\CompraItem;
+use App\Models\EstoqueLote;
 use App\Models\FornecedorProduto;
 use App\Models\Marca;
 use App\Models\PlanoDespesa;
@@ -20,6 +22,7 @@ use App\Models\Produto;
 use App\Models\User;
 use App\Services\CompraService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -687,5 +690,124 @@ class CompraServiceTest extends TestCase
         ]);
 
         $this->assertEqualsWithDelta(100.0, (float) $lancamentos->first()->valor, 0.01);
+    }
+
+    /**
+     * Compra confirmada em 01/10 (emitida 28/09) com lote e dois títulos:
+     * um pendente (vence 31/10) e um já pago. "Hoje" fixo em 10/10.
+     */
+    private function compraConfirmadaComTitulos(): Compra
+    {
+        $this->travelTo(Carbon::parse('2026-10-10 15:00:00'));
+
+        $insumo = $this->insumo('Queijo', ['produto_controla_lote' => true]);
+        $compra = Compra::create([
+            'compra_prestador_id' => $this->fornecedor()->id,
+            'compra_data_emissao' => '2026-09-28',
+            'compra_data_entrada' => '2026-10-01',
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 10, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 5,
+            'ci_lote_codigo' => 'L1',
+        ]);
+
+        $this->service->confirmar($compra->fresh('itens'));
+        $this->service->gerarContaPagar($compra->fresh(), ['parcelas' => [
+            ['vencimento' => '2026-10-31', 'valor' => 25],
+            ['vencimento' => '2026-10-01', 'valor' => 25, 'forma_pagamento' => FormaPagamento::Pix->value, 'ja_pago' => true],
+        ]]);
+
+        return $compra->fresh();
+    }
+
+    public function test_confirmar_com_data_informada_substitui_a_data_de_entrada(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-10 15:00:00'));
+        $insumo = $this->insumo('Farinha', ['produto_controla_lote' => true]);
+        $compra = Compra::create([
+            'compra_prestador_id' => $this->fornecedor()->id,
+            'compra_data_entrada' => '2026-10-01',
+            'compra_user_id' => $this->userId,
+        ]);
+        CompraItem::create([
+            'ci_compra_id' => $compra->id, 'ci_produto_id' => $insumo->id,
+            'ci_quantidade_compra' => 1, 'ci_fator_conversao' => 1, 'ci_custo_unitario_compra' => 5,
+        ]);
+
+        $this->service->confirmar($compra->fresh('itens'), Carbon::parse('2026-10-08'));
+
+        $compra->refresh();
+        $this->assertSame('2026-10-08', $compra->compra_data_entrada->toDateString());
+        $this->assertSame('2026-10-08 15:00:00', $compra->movimentacoes()->first()->mov_data->toDateTimeString());
+        $this->assertSame('2026-10-08', EstoqueLote::where('lote_produto_id', $insumo->id)->first()->lote_data_entrada->toDateString());
+    }
+
+    public function test_corrigir_data_entrada_ajusta_movimentacoes_lotes_e_desloca_so_titulos_em_aberto(): void
+    {
+        $compra = $this->compraConfirmadaComTitulos();
+        $produto = Produto::first();
+        $saldoAntes = (string) $produto->produto_saldo_estoque;
+        $custoAntes = (string) $produto->produto_custo_medio;
+
+        $resultado = $this->service->corrigirDataEntrada($compra, Carbon::parse('2026-10-06'), 'Gerente');
+
+        $this->assertSame(['movimentacoes' => 1, 'lotes' => 1, 'titulos' => 1, 'dias' => 5], $resultado);
+
+        $compra->refresh();
+        $this->assertSame('2026-10-06', $compra->compra_data_entrada->toDateString());
+        $this->assertStringContainsString('Data de entrada corrigida de 01/10/2026 para 06/10/2026 por Gerente', $compra->compra_observacao);
+        // Data muda, horário original da confirmação é preservado.
+        $this->assertSame('2026-10-06 15:00:00', $compra->movimentacoes()->first()->mov_data->toDateTimeString());
+        $this->assertSame('2026-10-06 15:00:00', EstoqueLote::first()->lote_data_entrada->toDateTimeString());
+
+        $pendente = $compra->lancamentos()->where('status', StatusLancamento::Pendente)->first();
+        $pago = $compra->lancamentos()->where('status', StatusLancamento::Pago)->first();
+        $this->assertSame('2026-11-05', $pendente->vencimento->toDateString());
+        $this->assertSame('2026-10-01', $pago->vencimento->toDateString());
+
+        // Saldo e custo médio não mudam — só a data de negócio.
+        $produto->refresh();
+        $this->assertSame($saldoAntes, (string) $produto->produto_saldo_estoque);
+        $this->assertSame($custoAntes, (string) $produto->produto_custo_medio);
+    }
+
+    public function test_corrigir_data_entrada_rejeita_data_futura_ou_anterior_a_emissao(): void
+    {
+        $compra = $this->compraConfirmadaComTitulos();
+
+        foreach (['2026-10-11', '2026-09-27'] as $dataInvalida) {
+            try {
+                $this->service->corrigirDataEntrada($compra, Carbon::parse($dataInvalida));
+                $this->fail("Esperava rejeitar {$dataInvalida}.");
+            } catch (ValidationException) {
+                $this->assertSame('2026-10-01', $compra->fresh()->compra_data_entrada->toDateString());
+            }
+        }
+    }
+
+    public function test_corrigir_data_entrada_rejeita_data_posterior_a_devolucao(): void
+    {
+        $compra = $this->compraConfirmadaComTitulos();
+        $devolucao = CompraDevolucao::create(['compra_id' => $compra->id, 'motivo' => 'Avaria', 'valor_total' => 5, 'user_id' => $this->userId]);
+        $devolucao->forceFill(['created_at' => '2026-10-04 10:00:00'])->save();
+
+        $this->expectException(ValidationException::class);
+
+        $this->service->corrigirDataEntrada($compra, Carbon::parse('2026-10-06'));
+    }
+
+    public function test_corrigir_data_entrada_rejeita_compra_em_rascunho(): void
+    {
+        $compra = Compra::create([
+            'compra_prestador_id' => $this->fornecedor()->id,
+            'compra_data_entrada' => now()->toDateString(),
+            'compra_user_id' => $this->userId,
+        ]);
+
+        $this->expectException(ValidationException::class);
+
+        $this->service->corrigirDataEntrada($compra, now()->subDay());
     }
 }

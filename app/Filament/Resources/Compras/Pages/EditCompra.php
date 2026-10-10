@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Compras\Pages;
 
 use App\Filament\Resources\Compras\CompraResource;
 use App\Filament\Resources\Compras\Support\ConfirmarCompraAction;
+use App\Filament\Resources\Compras\Support\CorrigirDataEntradaAction;
 use App\Filament\Resources\Compras\Support\ImprimirDanfeAction;
 use App\Filament\Resources\Compras\Support\RegistrarDevolucaoAction;
 use App\Models\Compra;
@@ -23,6 +24,8 @@ class EditCompra extends EditRecord
                     $this->redirect(static::getResource()::getUrl('index'));
                 }),
             RegistrarDevolucaoAction::make(),
+            CorrigirDataEntradaAction::make()
+                ->after(fn () => $this->refreshFormData(['compra_data_entrada', 'compra_observacao'])),
             ImprimirDanfeAction::make(),
             DeleteAction::make()
                 ->visible(fn (): bool => $this->record instanceof Compra && $this->record->isRascunho()),

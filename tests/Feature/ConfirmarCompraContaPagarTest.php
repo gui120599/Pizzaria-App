@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Services\CompraService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class ConfirmarCompraContaPagarTest extends TestCase
@@ -445,5 +446,53 @@ class ConfirmarCompraContaPagarTest extends TestCase
             ->assertHasFormComponentActionErrors();
 
         $this->assertDatabaseMissing('prazos_pagamento', ['prazo_pagamento_nome' => '7/14/21 sem percentual (rápido)']);
+    }
+
+    public function test_acao_confirmar_grava_a_data_de_entrada_informada_no_modal(): void
+    {
+        $compra = $this->compraComItem();
+
+        Livewire::test(ListCompras::class)
+            ->callTableAction('confirmar', $compra, data: [
+                'data_entrada' => '2026-07-20',
+                'gerar_conta_pagar' => false,
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $compra->refresh();
+        $this->assertSame('2026-07-20', $compra->compra_data_entrada->toDateString());
+        $this->assertSame('2026-07-20', $compra->movimentacoes()->first()->mov_data->toDateString());
+    }
+
+    public function test_acao_corrigir_data_de_entrada_ajusta_compra_confirmada(): void
+    {
+        $compra = $this->compraComItem();
+        app(CompraService::class)->confirmar($compra->fresh('itens'));
+
+        Livewire::test(EditCompra::class, ['record' => $compra->getKey()])
+            ->callAction('corrigirDataEntrada', data: ['data_entrada' => '2026-07-15'])
+            ->assertHasNoActionErrors()
+            ->assertSchemaStateSet(['compra_data_entrada' => '2026-07-15']);
+
+        $compra->refresh();
+        $this->assertSame('2026-07-15', $compra->compra_data_entrada->toDateString());
+        $this->assertSame('2026-07-15', $compra->movimentacoes()->first()->mov_data->toDateString());
+    }
+
+    public function test_acao_corrigir_data_de_entrada_oculta_sem_permissao_e_em_rascunho(): void
+    {
+        $rascunho = $this->compraComItem();
+
+        Livewire::test(ListCompras::class)
+            ->assertTableActionHidden('corrigirDataEntrada', $rascunho);
+
+        app(CompraService::class)->confirmar($rascunho->fresh('itens'));
+
+        $semPermissao = User::factory()->create(['name_first' => 'Operador']);
+        $semPermissao->givePermissionTo(Permission::findOrCreate('view_any:compra'));
+        $this->actingAs($semPermissao);
+
+        Livewire::test(ListCompras::class)
+            ->assertTableActionHidden('corrigirDataEntrada', $rascunho);
     }
 }
