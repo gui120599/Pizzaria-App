@@ -142,7 +142,7 @@ class RelatorioFechamentoCaixaService
      * Um item por pagamento das vendas do recorte e por recebimento de fiado
      * que entrou no caixa (origem "fiado").
      *
-     * @return Collection<int, array{id: int, origem: string, venda_id: ?int, sessao_id: ?int, finalizada_em: Carbon, opcao_id: ?int, forma: string, categoria: string, tipo: ?TipoPagamentoMaquininhaEnum, pix_cnpj: bool, maquininha_id: ?int, maquininha: string, bandeira: string, valor: float, taxa_percentual: ?float, taxa: float, sem_taxa: bool, prazo_dias: ?int}>
+     * @return Collection<int, array{id: int, origem: string, venda_id: ?int, sessao_id: ?int, finalizada_em: Carbon, opcao_id: ?int, forma: string, categoria: string, tipo: ?TipoPagamentoMaquininhaEnum, pix_cnpj: bool, maquininha_id: ?int, maquininha: string, operadora: string, bandeira: string, valor: float, taxa_percentual: ?float, taxa: float, sem_taxa: bool, prazo_dias: ?int}>
      */
     public function pagamentos(): Collection
     {
@@ -260,6 +260,7 @@ class RelatorioFechamentoCaixaService
                     'pix_cnpj' => $pixCnpj,
                     'maquininha_id' => $maquininhaId,
                     'maquininha' => self::nomeMaquininha($maquininhas->get($maquininhaId), padraoUsada: $tipo && ! $pagamento->pg_venda_maquininha_id),
+                    'operadora' => self::nomeOperadora($maquininhas->get($maquininhaId)),
                     'bandeira' => self::nomeBandeira($pagamento->cartao, $tipo),
                     'valor' => (float) $pagamento->pg_venda_valor_pagamento,
                     'taxa_percentual' => $percentual,
@@ -307,6 +308,7 @@ class RelatorioFechamentoCaixaService
                     'pix_cnpj' => $forma === FormaPagamento::PixCnpj,
                     'maquininha_id' => $maquininhaId,
                     'maquininha' => self::nomeMaquininha($maquininhas->get($maquininhaId), padraoUsada: $tipo && ! $recebimento->maquininha_id),
+                    'operadora' => self::nomeOperadora($maquininhas->get($maquininhaId)),
                     'bandeira' => self::nomeBandeira($recebimento->cartao, $tipo),
                     'valor' => (float) $recebimento->valor,
                     'taxa_percentual' => $percentual,
@@ -365,6 +367,11 @@ class RelatorioFechamentoCaixaService
         }
 
         return $padraoUsada ? "{$maquininha->nome} (padrão)" : $maquininha->nome;
+    }
+
+    private static function nomeOperadora(?Maquininha $maquininha): string
+    {
+        return $maquininha?->operadora?->getLabel() ?? 'Não informada';
     }
 
     private static function nomeBandeira(?CartoesPagamento $cartao, ?TipoPagamentoMaquininhaEnum $tipo): string
@@ -624,6 +631,33 @@ class RelatorioFechamentoCaixaService
                 'transacoes' => $pagamentos->count(),
                 ...self::porTipo($pagamentos),
                 ...self::somas($pagamentos),
+            ])
+            ->sortByDesc('bruto')
+            ->values();
+    }
+
+    /**
+     * Recebimentos por marca (operadora) da maquininha — Stone, Cielo... —
+     * somando as maquininhas de cada uma e separando venda de fiado recebido.
+     *
+     * @return Collection<int, array{key: string, operadora: string, maquininhas: string, transacoes: int, vendas: float, fiado: float, debito: float, credito: float, pix: float, bruto: float, participacao: float, taxa_percentual: float, taxa: float, liquido: float}>
+     */
+    public function porOperadora(): Collection
+    {
+        $total = $this->pagamentosMaquininha()->sum('valor');
+
+        return $this->pagamentosMaquininha()
+            ->groupBy('operadora')
+            ->map(fn (Collection $pagamentos, string $operadora): array => [
+                'key' => $operadora,
+                'operadora' => $operadora,
+                'maquininhas' => $pagamentos->pluck('maquininha')->unique()->sort()->implode(', '),
+                'transacoes' => $pagamentos->count(),
+                'vendas' => round($pagamentos->where('origem', 'venda')->sum('valor'), 2),
+                'fiado' => round($pagamentos->where('origem', 'fiado')->sum('valor'), 2),
+                ...self::porTipo($pagamentos),
+                ...self::somas($pagamentos),
+                'participacao' => self::percentual($pagamentos->sum('valor'), $total),
             ])
             ->sortByDesc('bruto')
             ->values();

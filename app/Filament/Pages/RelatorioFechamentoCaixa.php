@@ -11,6 +11,7 @@ use App\Filament\Widgets\FechamentoCaixaFormasPagamentoWidget;
 use App\Filament\Widgets\FechamentoCaixaMaquininhasWidget;
 use App\Filament\Widgets\FechamentoCaixaMovimentacoesWidget;
 use App\Filament\Widgets\FechamentoCaixaPorMaquininhaWidget;
+use App\Filament\Widgets\FechamentoCaixaPorOperadoraWidget;
 use App\Filament\Widgets\FechamentoCaixaPrevisaoRecebimentoWidget;
 use App\Filament\Widgets\FechamentoCaixaStatsOverview;
 use App\Models\Caixa;
@@ -144,6 +145,7 @@ class RelatorioFechamentoCaixa extends BaseDashboard
             FechamentoCaixaDreWidget::class,
             FechamentoCaixaFluxoCaixaWidget::class,
             FechamentoCaixaFormasPagamentoWidget::class,
+            FechamentoCaixaPorOperadoraWidget::class,
             FechamentoCaixaPorMaquininhaWidget::class,
             FechamentoCaixaMaquininhasWidget::class,
             FechamentoCaixaBandeirasWidget::class,

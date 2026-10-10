@@ -1217,6 +1217,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Filament\\Widgets\\FechamentoCaixaMaquininhasWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/FechamentoCaixaMaquininhasWidget.php',
         'App\\Filament\\Widgets\\FechamentoCaixaMovimentacoesWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/FechamentoCaixaMovimentacoesWidget.php',
         'App\\Filament\\Widgets\\FechamentoCaixaPorMaquininhaWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/FechamentoCaixaPorMaquininhaWidget.php',
+        'App\\Filament\\Widgets\\FechamentoCaixaPorOperadoraWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/FechamentoCaixaPorOperadoraWidget.php',
         'App\\Filament\\Widgets\\FechamentoCaixaPrevisaoRecebimentoWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/FechamentoCaixaPrevisaoRecebimentoWidget.php',
         'App\\Filament\\Widgets\\FechamentoCaixaStatsOverview' => __DIR__ . '/../..' . '/app/Filament/Widgets/FechamentoCaixaStatsOverview.php',
         'App\\Filament\\Widgets\\FinanceiroStatsOverview' => __DIR__ . '/../..' . '/app/Filament/Widgets/FinanceiroStatsOverview.php',

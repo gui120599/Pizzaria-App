@@ -327,6 +327,7 @@ return array(
     'App\\Filament\\Widgets\\FechamentoCaixaMaquininhasWidget' => $baseDir . '/app/Filament/Widgets/FechamentoCaixaMaquininhasWidget.php',
     'App\\Filament\\Widgets\\FechamentoCaixaMovimentacoesWidget' => $baseDir . '/app/Filament/Widgets/FechamentoCaixaMovimentacoesWidget.php',
     'App\\Filament\\Widgets\\FechamentoCaixaPorMaquininhaWidget' => $baseDir . '/app/Filament/Widgets/FechamentoCaixaPorMaquininhaWidget.php',
+    'App\\Filament\\Widgets\\FechamentoCaixaPorOperadoraWidget' => $baseDir . '/app/Filament/Widgets/FechamentoCaixaPorOperadoraWidget.php',
     'App\\Filament\\Widgets\\FechamentoCaixaPrevisaoRecebimentoWidget' => $baseDir . '/app/Filament/Widgets/FechamentoCaixaPrevisaoRecebimentoWidget.php',
     'App\\Filament\\Widgets\\FechamentoCaixaStatsOverview' => $baseDir . '/app/Filament/Widgets/FechamentoCaixaStatsOverview.php',
     'App\\Filament\\Widgets\\FinanceiroStatsOverview' => $baseDir . '/app/Filament/Widgets/FinanceiroStatsOverview.php',
