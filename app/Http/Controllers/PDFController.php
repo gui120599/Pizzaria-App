@@ -5,13 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
 use App\Models\Lancamento;
+use App\Models\LancamentoPagamento;
 use App\Models\MovimentacoesSessaoCaixa;
-use App\Models\OpcoesPagamento;
-use App\Models\PagamentosVenda;
 use App\Models\Pedido;
 use App\Models\SessaoCaixa;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
+use App\Services\FechamentoCaixaService;
 use App\Support\ContaMesa;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -253,18 +253,27 @@ class PDFController extends Controller
 
         $vendas = Venda::where('venda_sessao_caixa_id', $sessaoCaixaId)
             ->where('venda_status', 'FINALIZADA')
-            ->with('pagamentos')
+            ->with(['pagamentos.opcaoPagamento' => fn ($query) => $query->withTrashed(), 'pedidos', 'lancamentos'])
             ->get();
 
-        $pagamentos = PagamentosVenda::whereHas('venda', function ($query) use ($sessaoCaixaId) {
-            $query->where('venda_sessao_caixa_id', $sessaoCaixaId)->where('venda_status', 'FINALIZADA');
-        })->with('opcaoPagamento')->get();
+        $pagamentos = $vendas->flatMap->pagamentos;
 
-        $opcoesPagamentos = OpcoesPagamento::whereHas('pagamentosVenda', function ($query) use ($sessaoCaixaId) {
-            $query->whereHas('venda', function ($subQuery) use ($sessaoCaixaId) {
-                $subQuery->where('venda_sessao_caixa_id', $sessaoCaixaId);
-            });
-        })->get();
+        $opcoesPagamentos = $pagamentos->pluck('opcaoPagamento')->filter()->unique('id')->values();
+
+        // Recebimentos de fiado feitos nesta sessão (a venda de origem pode ser de outro dia).
+        $fiadoRecebido = LancamentoPagamento::query()
+            ->where('sessao_caixa_id', $sessaoCaixaId)
+            ->whereHas('lancamento', fn ($query) => $query->where('tipo', 'receber'))
+            ->get()
+            ->groupBy(fn (LancamentoPagamento $recebimento): string => $recebimento->forma_pagamento?->value ?? '')
+            ->map(fn (Collection $recebimentos): array => [
+                'forma' => $recebimentos->first()->forma_pagamento?->getLabel() ?? 'Não informada',
+                'entra_no_caixa' => $recebimentos->first()->forma_pagamento?->entraNoCaixa() ?? true,
+                'total' => (float) $recebimentos->sum('valor'),
+            ])
+            ->values();
+
+        $movimentosManuais = MovimentacoesSessaoCaixa::where('mov_sessaocaixa_id', $sessaoCaixaId)->manuais()->get();
 
         return view('sessaoCaixaPDF', [
             'sessao_caixa' => $sessaoCaixa,
@@ -272,6 +281,13 @@ class PDFController extends Controller
             'pagamentos' => $pagamentos,
             'opcoes_pagamentos' => $opcoesPagamentos,
             'saidas' => $movSaidas,
+            // Saldo final = esperado do fechamento (fonte única): vendas pelo
+            // valor entregue − troco + fiado recebido + abertura + suprimentos − saídas manuais.
+            'esperado' => app(FechamentoCaixaService::class)->calcularEsperado($sessaoCaixa),
+            'fiado_gerado' => (float) $vendas->sum(fn (Venda $venda): float => (float) $venda->lancamentos->sum('valor')),
+            'fiado_recebido' => $fiadoRecebido,
+            'suprimentos' => (float) $movimentosManuais->where('mov_tipo', 'ENTRADA')->sum('mov_valor'),
+            'saidas_manuais' => (float) $movimentosManuais->where('mov_tipo', 'SAIDA')->sum('mov_valor'),
         ]);
         // dd($movSaidas);
     }

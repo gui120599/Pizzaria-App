@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\OpcoesPagamento;
 
+use App\Enums\FormaTrocoEnum;
 use App\Filament\Resources\OpcoesPagamento\Pages\ManageOpcoesPagamento;
 use App\Models\OpcoesPagamento;
 use BackedEnum;
@@ -18,6 +19,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section as SchemaSection;
 use Filament\Schemas\Components\Utilities\Get;
@@ -160,6 +162,14 @@ class OpcoesPagamentoResource extends Resource
                         ->live()
                         ->helperText('Pix na chave CNPJ da empresa, sem maquininha. No fechamento de caixa é conferido pelo extrato do banco, numa seção própria.')
                         ->visible(fn (Get $get): bool => $get('opcaopag_desc_nfe') === 'InstantPayment'),
+
+                    ToggleButtons::make('opcaopag_troco_padrao')
+                        ->label('Troco padrão')
+                        ->options(FormaTrocoEnum::class)
+                        ->default(FormaTrocoEnum::Dinheiro)
+                        ->required()
+                        ->inline()
+                        ->helperText('De onde sai o troco quando o cliente entrega mais que o valor. O operador pode trocar no PDV; Pix sai da conta do PIX CNPJ.'),
 
                     Toggle::make('opcaopag_confirmavel_no_pedido')
                         ->label('Pode ser confirmada no pedido')

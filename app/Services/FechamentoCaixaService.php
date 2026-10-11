@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\FormaPagamento;
+use App\Enums\FormaTrocoEnum;
 use App\Enums\StatusFechamentoCaixa;
 use App\Models\FechamentoCaixa;
 use App\Models\NotaMoeda;
@@ -26,6 +27,13 @@ class FechamentoCaixaService
      * PIX CNPJ (forma marcada como Pix direto na conta, ou forma do financeiro
      * pix_cnpj) é categoria própria, conferida pelo extrato do banco.
      *
+     * Troco: cada pagamento entra na sua forma pelo que o cliente entregou
+     * (valor + troco) e o troco sai da forma em que foi devolvido — gaveta ou
+     * Pix da conta PIX CNPJ (FormaTrocoEnum; nulo/legado = dinheiro). Em
+     * dinheiro com troco em dinheiro o efeito é o valor líquido de sempre; um
+     * PIX de 100 numa conta de 95,70 com troco na gaveta espera 100 no extrato
+     * e 4,30 a menos no dinheiro.
+     *
      * @return array{dinheiro: float, debito: float, credito: float, pix: float, pix_cnpj: float, outros: float}
      */
     public function calcularEsperado(SessaoCaixa $sessao): array
@@ -35,7 +43,7 @@ class FechamentoCaixaService
             ->leftJoin('opcoes_pagamentos', 'opcoes_pagamentos.id', '=', 'pagamentos_vendas.pg_venda_opcaopagamento_id')
             ->where('vendas.venda_sessao_caixa_id', $sessao->id)
             ->where('vendas.venda_status', 'FINALIZADA')
-            ->selectRaw('opcoes_pagamentos.opcaopag_desc_nfe as categoria_nfe, opcoes_pagamentos.opcaopag_pix_cnpj as pix_cnpj, SUM(pagamentos_vendas.pg_venda_valor_pagamento) as total')
+            ->selectRaw('opcoes_pagamentos.opcaopag_desc_nfe as categoria_nfe, opcoes_pagamentos.opcaopag_pix_cnpj as pix_cnpj, SUM(pagamentos_vendas.pg_venda_valor_pagamento + pagamentos_vendas.pg_venda_valor_troco) as total')
             ->groupBy('categoria_nfe', 'pix_cnpj')
             ->get();
 
@@ -51,6 +59,20 @@ class FechamentoCaixaService
             };
 
             $totais[$categoria] += (float) $linha->total;
+        }
+
+        $trocos = DB::table('pagamentos_vendas')
+            ->join('vendas', 'vendas.id', '=', 'pagamentos_vendas.pg_venda_venda_id')
+            ->where('vendas.venda_sessao_caixa_id', $sessao->id)
+            ->where('vendas.venda_status', 'FINALIZADA')
+            ->where('pagamentos_vendas.pg_venda_valor_troco', '>', 0)
+            ->selectRaw("COALESCE(pagamentos_vendas.pg_venda_forma_troco, 'dinheiro') as forma, SUM(pagamentos_vendas.pg_venda_valor_troco) as total")
+            ->groupBy('forma')
+            ->get();
+
+        foreach ($trocos as $linha) {
+            $categoria = (FormaTrocoEnum::tryFrom((string) $linha->forma) ?? FormaTrocoEnum::Dinheiro)->categoriaFechamento();
+            $totais[$categoria] -= (float) $linha->total;
         }
 
         $recebimentosFiado = DB::table('lancamento_pagamentos')

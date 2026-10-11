@@ -63,6 +63,10 @@ class PermissionSeeder extends Seeder
             'view:fechamento_caixa_bandeiras_widget', 'view:fechamento_caixa_previsao_recebimento_widget',
             'view:fechamento_caixa_movimentacoes_widget', 'view:fechamento_caixa_conferencia_widget',
             'view:fechamento_caixa_conferencia_maquininhas_widget',
+            // Relatório de Sessão de Caixa (página + widgets do Shield) e correção de lançamentos.
+            'view:relatorio_sessao_caixa', 'view:sessao_caixa_stats_overview',
+            'view:sessao_caixa_vendas_widget', 'view:sessao_caixa_fiado_widget',
+            'corrigir:pagamento_venda',
         ],
         'Atendente' => [
             'cancel:pedido', 'accept:pedido', 'reject:pedido', 'advance:pedido',

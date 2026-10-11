@@ -4,6 +4,7 @@ namespace App\Filament\Resources\FechamentosCaixa\Tables;
 
 use App\Enums\StatusFechamentoCaixa;
 use App\Filament\Pages\RelatorioFechamentoCaixa;
+use App\Filament\Pages\RelatorioSessaoCaixa;
 use App\Filament\Resources\FechamentosCaixa\Support\ConfirmarFechamentoAction;
 use App\Filament\Resources\FechamentosCaixa\Support\EstornarImportacaoReceberAction;
 use App\Filament\Resources\FechamentosCaixa\Support\ImportarReceberAction;
@@ -84,6 +85,12 @@ class FechamentosCaixaTable
                     ->color('gray')
                     ->url(fn (FechamentoCaixa $record): string => RelatorioFechamentoCaixa::getUrl(['filters' => ['sessoes' => [$record->sessao_caixa_id]]]))
                     ->visible(fn (): bool => RelatorioFechamentoCaixa::canAccess()),
+                Action::make('vendasDaSessao')
+                    ->label('Vendas da sessão')
+                    ->icon(Heroicon::OutlinedClipboardDocumentCheck)
+                    ->color('gray')
+                    ->url(fn (FechamentoCaixa $record): string => RelatorioSessaoCaixa::getUrl(['filters' => ['sessoes' => [$record->sessao_caixa_id]]]))
+                    ->visible(fn (): bool => RelatorioSessaoCaixa::canAccess()),
                 ConfirmarFechamentoAction::make(),
                 ReabrirFechamentoAction::make(),
                 ImportarReceberAction::make(),

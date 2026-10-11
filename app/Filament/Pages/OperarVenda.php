@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\AcaoAutorizadaEnum;
 use App\Enums\FormaPagamento;
+use App\Enums\FormaTrocoEnum;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\EstoqueInsuficienteException;
@@ -149,6 +150,9 @@ class OperarVenda extends Page
     public float $valorPagamento = 0;
 
     public float $valorPagoPeloCliente = 0;
+
+    /** De onde sai o troco (FormaTrocoEnum) — vem do padrão da forma escolhida, o operador pode trocar. */
+    public ?string $formaTroco = null;
 
     /** Setado quando o modal está editando um pagamento já lançado (em vez de criar um novo). */
     public ?int $pagamentoEmEdicaoId = null;
@@ -1461,6 +1465,20 @@ class OperarVenda extends Page
         }
 
         $this->maquininhaPagamentoId ??= Maquininha::padrao()?->id;
+        $this->formaTroco ??= $this->trocoPadraoDaOpcao();
+    }
+
+    /** Trocar a forma no modal volta o troco para o padrão da forma nova. */
+    public function updatedOpcaoPagamentoSelecionadaId(): void
+    {
+        $this->formaTroco = $this->trocoPadraoDaOpcao();
+    }
+
+    private function trocoPadraoDaOpcao(): string
+    {
+        $opcao = $this->opcaoPagamentoSelecionadaId ? OpcoesPagamento::find($this->opcaoPagamentoSelecionadaId) : null;
+
+        return ($opcao?->opcaopag_troco_padrao ?? FormaTrocoEnum::Dinheiro)->value;
     }
 
     public function fecharModalPagamento(): void
@@ -1472,6 +1490,7 @@ class OperarVenda extends Page
         $this->numeroAutorizacaoCartao = null;
         $this->valorPagamento = 0;
         $this->valorPagoPeloCliente = 0;
+        $this->formaTroco = null;
         $this->pagamentoEmEdicaoId = null;
         $this->stoneMaquininhaId = null;
     }
@@ -1680,6 +1699,7 @@ class OperarVenda extends Page
         $this->numeroAutorizacaoCartao = $pagamento->pg_venda_numero_autorizacao_cartao;
         $this->valorPagamento = (float) $pagamento->pg_venda_valor_pagamento;
         $this->valorPagoPeloCliente = (float) $pagamento->pg_venda_valor_pago_pelo_cliente;
+        $this->formaTroco = $pagamento->pg_venda_forma_troco?->value ?? $this->trocoPadraoDaOpcao();
         $this->modalPagamentoAberta = true;
         $this->resetErrorBag('valorPagamento');
     }
@@ -1739,7 +1759,7 @@ class OperarVenda extends Page
             $venda->refresh();
         }
 
-        $this->gravarPagamento($venda, $opcaoPagamento, $valorRecebido, $valorPagoPeloCliente, [
+        $this->gravarPagamento($venda, $opcaoPagamento, $valorRecebido, $valorPagoPeloCliente, FormaTrocoEnum::tryFrom((string) $this->formaTroco), [
             'pg_venda_cartao_id' => $this->cartaoId ?: null,
             'pg_venda_maquininha_id' => $opcaoPagamento->tipoMaquininha() ? ($this->maquininhaPagamentoId ?: null) : null,
             'pg_venda_numero_autorizacao_cartao' => $this->numeroAutorizacaoCartao ?: null,
@@ -1757,9 +1777,12 @@ class OperarVenda extends Page
      * (ver docblock de registrarPagamento). Usado pelo modal e pelas formas
      * combinadas no pedido (lancarPagamentosDosPedidos).
      *
+     * Com troco, grava de onde ele saiu: o escolhido no modal ou, sem
+     * escolha, o padrão da forma (FormaTrocoEnum).
+     *
      * @param  array<string, mixed>  $extras  Colunas adicionais do PagamentosVenda (cartão, maquininha, vínculo com o pedido)
      */
-    private function gravarPagamento(Venda $venda, OpcoesPagamento $opcaoPagamento, float $valorRecebido, float $valorPagoPeloCliente, array $extras = []): PagamentosVenda
+    private function gravarPagamento(Venda $venda, OpcoesPagamento $opcaoPagamento, float $valorRecebido, float $valorPagoPeloCliente, ?FormaTrocoEnum $formaTroco = null, array $extras = []): PagamentosVenda
     {
         $valorAcrescimo = 0.0;
         $valorDesconto = 0.0;
@@ -1779,6 +1802,7 @@ class OperarVenda extends Page
             'pg_venda_valor_recebido' => $valorRecebido,
             'pg_venda_valor_pago_pelo_cliente' => $valorPagoPeloCliente,
             'pg_venda_valor_troco' => $valorTroco,
+            'pg_venda_forma_troco' => $valorTroco > 0 ? ($formaTroco ?? $opcaoPagamento->opcaopag_troco_padrao ?? FormaTrocoEnum::Dinheiro) : null,
             'pg_venda_valor_acrescimo' => $valorAcrescimo,
             'pg_venda_valor_desconto' => $valorDesconto,
         ]);
@@ -1845,7 +1869,7 @@ class OperarVenda extends Page
                     continue;
                 }
 
-                $this->gravarPagamento($venda, $opcao, $valor, max($valor, (float) $combinado->pg_pedido_valor_troco_para), [
+                $this->gravarPagamento($venda, $opcao, $valor, max($valor, (float) $combinado->pg_pedido_valor_troco_para), extras: [
                     'pg_venda_pagamento_pedido_id' => $combinado->id,
                     'pg_venda_maquininha_id' => $opcao->tipoMaquininha() ? Maquininha::padrao()?->id : null,
                 ]);
