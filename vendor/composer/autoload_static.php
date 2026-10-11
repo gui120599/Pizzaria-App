@@ -1528,6 +1528,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Services\\Nfe\\NfNumeracaoService' => __DIR__ . '/../..' . '/app/Services/Nfe/NfNumeracaoService.php',
         'App\\Services\\Nfe\\NfeImportService' => __DIR__ . '/../..' . '/app/Services/Nfe/NfeImportService.php',
         'App\\Services\\Nfe\\NfeXmlParser' => __DIR__ . '/../..' . '/app/Services/Nfe/NfeXmlParser.php',
+        'App\\Services\\PagamentosCombinadosService' => __DIR__ . '/../..' . '/app/Services/PagamentosCombinadosService.php',
         'App\\Services\\PedidoStatusService' => __DIR__ . '/../..' . '/app/Services/PedidoStatusService.php',
         'App\\Services\\PedidosSessaoMesaService' => __DIR__ . '/../..' . '/app/Services/PedidosSessaoMesaService.php',
         'App\\Services\\PrecificadorService' => __DIR__ . '/../..' . '/app/Services/PrecificadorService.php',

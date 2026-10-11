@@ -638,6 +638,7 @@ return array(
     'App\\Services\\Nfe\\NfNumeracaoService' => $baseDir . '/app/Services/Nfe/NfNumeracaoService.php',
     'App\\Services\\Nfe\\NfeImportService' => $baseDir . '/app/Services/Nfe/NfeImportService.php',
     'App\\Services\\Nfe\\NfeXmlParser' => $baseDir . '/app/Services/Nfe/NfeXmlParser.php',
+    'App\\Services\\PagamentosCombinadosService' => $baseDir . '/app/Services/PagamentosCombinadosService.php',
     'App\\Services\\PedidoStatusService' => $baseDir . '/app/Services/PedidoStatusService.php',
     'App\\Services\\PedidosSessaoMesaService' => $baseDir . '/app/Services/PedidosSessaoMesaService.php',
     'App\\Services\\PrecificadorService' => $baseDir . '/app/Services/PrecificadorService.php',
