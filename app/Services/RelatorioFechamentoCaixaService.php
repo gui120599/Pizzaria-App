@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\FormaPagamento;
+use App\Enums\FormaTrocoEnum;
 use App\Enums\MotivoSaidaCaixa;
 use App\Enums\PrazoRecebimentoMaquininhaEnum;
 use App\Enums\TipoPagamentoMaquininhaEnum;
@@ -143,7 +144,7 @@ class RelatorioFechamentoCaixaService
      * Um item por pagamento das vendas do recorte e por recebimento de fiado
      * que entrou no caixa (origem "fiado").
      *
-     * @return Collection<int, array{id: int, origem: string, venda_id: ?int, sessao_id: ?int, finalizada_em: Carbon, opcao_id: ?int, forma: string, categoria: string, tipo: ?TipoPagamentoMaquininhaEnum, pix_cnpj: bool, maquininha_id: ?int, maquininha: string, operadora: string, bandeira: string, valor: float, taxa_percentual: ?float, taxa: float, sem_taxa: bool, prazo: ?PrazoRecebimentoMaquininhaEnum}>
+     * @return Collection<int, array{id: int, origem: string, venda_id: ?int, sessao_id: ?int, finalizada_em: Carbon, opcao_id: ?int, forma: string, categoria: string, tipo: ?TipoPagamentoMaquininhaEnum, pix_cnpj: bool, maquininha_id: ?int, maquininha: string, operadora: string, bandeira: string, valor: float, troco: float, forma_troco: ?FormaTrocoEnum, entrada: float, taxa_percentual: ?float, taxa: float, sem_taxa: bool, prazo: ?PrazoRecebimentoMaquininhaEnum}>
      */
     public function pagamentos(): Collection
     {
@@ -264,6 +265,9 @@ class RelatorioFechamentoCaixaService
                     'operadora' => self::nomeOperadora($maquininhas->get($maquininhaId)),
                     'bandeira' => self::nomeBandeira($pagamento->cartao, $tipo),
                     'valor' => (float) $pagamento->pg_venda_valor_pagamento,
+                    'troco' => (float) $pagamento->pg_venda_valor_troco,
+                    'forma_troco' => $pagamento->pg_venda_forma_troco ?? FormaTrocoEnum::Dinheiro,
+                    'entrada' => round((float) $pagamento->pg_venda_valor_pagamento + (float) $pagamento->pg_venda_valor_troco, 2),
                     'taxa_percentual' => $percentual,
                     'taxa' => $taxa,
                     'sem_taxa' => $tipo !== null && $percentual === null,
@@ -312,6 +316,9 @@ class RelatorioFechamentoCaixaService
                     'operadora' => self::nomeOperadora($maquininhas->get($maquininhaId)),
                     'bandeira' => self::nomeBandeira($recebimento->cartao, $tipo),
                     'valor' => (float) $recebimento->valor,
+                    'troco' => 0.0,
+                    'forma_troco' => null,
+                    'entrada' => (float) $recebimento->valor,
                     'taxa_percentual' => $percentual,
                     'taxa' => $taxa,
                     'sem_taxa' => $tipo !== null && $percentual === null,
@@ -728,7 +735,7 @@ class RelatorioFechamentoCaixaService
         }
 
         $ids = $this->sessoes()->modelKeys();
-        $vazio = ['abertura' => 0.0, 'vendas' => 0.0, 'fiado' => 0.0, 'suprimentos' => 0.0, 'saidas' => 0.0];
+        $vazio = ['abertura' => 0.0, 'vendas' => 0.0, 'fiado' => 0.0, 'suprimentos' => 0.0, 'saidas' => 0.0, 'troco' => 0.0];
         $componentes = [];
 
         foreach ($ids as $id) {
@@ -737,7 +744,12 @@ class RelatorioFechamentoCaixaService
 
         foreach ($this->pagamentosDasSessoes()->where('origem', 'venda') as $pagamento) {
             if (isset($componentes[$pagamento['sessao_id']])) {
-                $componentes[$pagamento['sessao_id']][$pagamento['categoria']]['vendas'] += $pagamento['valor'];
+                // Entra o que o cliente entregou; o troco sai da forma em que foi devolvido.
+                $componentes[$pagamento['sessao_id']][$pagamento['categoria']]['vendas'] += $pagamento['entrada'];
+
+                if ($pagamento['troco'] > 0) {
+                    $componentes[$pagamento['sessao_id']][$pagamento['forma_troco']->categoriaFechamento()]['troco'] += $pagamento['troco'];
+                }
             }
         }
 
@@ -818,11 +830,12 @@ class RelatorioFechamentoCaixaService
     }
 
     /**
-     * Fluxo de caixa por categoria somando as sessões do recorte: abertura +
-     * vendas + fiado recebido + suprimentos − saídas = esperado. O apurado e a
+     * Fluxo de caixa por categoria somando as sessões do recorte (vendas pelo
+     * valor entregue, troco na forma em que foi devolvido): abertura +
+     * vendas + fiado recebido + suprimentos − saídas − troco = esperado. O apurado e a
      * diferença consideram só as sessões que já têm fechamento.
      *
-     * @return Collection<int, array{key: string, categoria: string, abertura: float, vendas: float, fiado: float, suprimentos: float, saidas: float, esperado: float, apurado: ?float, diferenca: ?float}>
+     * @return Collection<int, array{key: string, categoria: string, abertura: float, vendas: float, fiado: float, suprimentos: float, saidas: float, troco: float, esperado: float, apurado: ?float, diferenca: ?float}>
      */
     public function fluxoCaixa(): Collection
     {
@@ -830,7 +843,7 @@ class RelatorioFechamentoCaixaService
         $sessoes = $this->sessoes()->keyBy('id');
 
         $linhas = collect(self::CATEGORIAS)->map(function (string $rotulo, string $categoria) use ($componentes, $sessoes): array {
-            $linha = ['abertura' => 0.0, 'vendas' => 0.0, 'fiado' => 0.0, 'suprimentos' => 0.0, 'saidas' => 0.0];
+            $linha = ['abertura' => 0.0, 'vendas' => 0.0, 'fiado' => 0.0, 'suprimentos' => 0.0, 'saidas' => 0.0, 'troco' => 0.0];
             $apurado = null;
             $esperadoConferido = 0.0;
 
@@ -869,7 +882,7 @@ class RelatorioFechamentoCaixaService
     /** @param  array<string, float>  $componentes */
     private static function esperado(array $componentes): float
     {
-        return $componentes['abertura'] + $componentes['vendas'] + $componentes['fiado'] + $componentes['suprimentos'] - $componentes['saidas'];
+        return $componentes['abertura'] + $componentes['vendas'] + $componentes['fiado'] + $componentes['suprimentos'] - $componentes['saidas'] - $componentes['troco'];
     }
 
     /**
@@ -1006,7 +1019,7 @@ class RelatorioFechamentoCaixaService
 
                 return $maquininhaIds->map(function (int $maquininhaId) use ($sessao, $sistema, $carryover, $leituras, $nomes): array {
                     $pagamentos = $sistema->get($sessao->id.'|'.$maquininhaId, collect());
-                    $porTipoSistema = self::porTipo($pagamentos);
+                    $porTipoSistema = self::porTipo($pagamentos, 'entrada');
                     $porTipoLeitura = [];
 
                     foreach (['debito', 'credito', 'pix'] as $tipo) {
@@ -1034,16 +1047,19 @@ class RelatorioFechamentoCaixaService
     }
 
     /**
-     * Linha "PIX CNPJ" da conferência: vendas + fiado em PIX CNPJ da sessão ×
-     * valor do extrato informado no fechamento. Nula se não houve nenhum dos dois.
+     * Linha "PIX CNPJ" da conferência: vendas (valor entregue) + fiado em PIX
+     * CNPJ da sessão − troco devolvido por Pix × valor do extrato informado no
+     * fechamento. Nula se não houve nenhum dos dois.
      *
      * @return array<string, mixed>|null
      */
     private function conferenciaPixCnpj(SessaoCaixa $sessao): ?array
     {
-        $sistema = round($this->pagamentosDasSessoes()
-            ->filter(fn (array $pagamento): bool => $pagamento['pix_cnpj'] && $pagamento['sessao_id'] === $sessao->id)
-            ->sum('valor'), 2);
+        $pagamentosSessao = $this->pagamentosDasSessoes()->where('sessao_id', $sessao->id);
+        $trocoPorPix = $pagamentosSessao->sum(fn (array $pagamento): float => $pagamento['forma_troco'] === FormaTrocoEnum::Pix ? $pagamento['troco'] : 0.0);
+        $sistema = round($pagamentosSessao
+            ->filter(fn (array $pagamento): bool => $pagamento['pix_cnpj'])
+            ->sum('entrada') - $trocoPorPix, 2);
         $extrato = round($sessao->fechamentoCaixa->totalPixCnpj, 2);
 
         if ($sistema == 0.0 && $extrato == 0.0) {
@@ -1084,12 +1100,13 @@ class RelatorioFechamentoCaixaService
 
     /**
      * @param  Collection<int, array<string, mixed>>  $pagamentos
+     * @param  'valor'|'entrada'  $campo  entrada = o que passou na maquininha (valor + troco), usado na conferência
      * @return array{debito: float, credito: float, pix: float}
      */
-    private static function porTipo(Collection $pagamentos): array
+    private static function porTipo(Collection $pagamentos, string $campo = 'valor'): array
     {
         $soma = fn (TipoPagamentoMaquininhaEnum $tipo): float => round(
-            $pagamentos->filter(fn (array $pagamento): bool => $pagamento['tipo'] === $tipo)->sum('valor'),
+            $pagamentos->filter(fn (array $pagamento): bool => $pagamento['tipo'] === $tipo)->sum($campo),
             2,
         );
 

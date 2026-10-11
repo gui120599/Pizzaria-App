@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FormaTrocoEnum;
 use App\Enums\TipoPagamentoMaquininhaEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,7 @@ class OpcoesPagamento extends Model
         'opcaopag_requer_autorizacao',
         'opcaopag_stone_integrada',
         'opcaopag_pix_cnpj',
+        'opcaopag_troco_padrao',
         'opcaopag_confirmavel_no_pedido',
         'opcaopag_tarifa_percentual',
     ];
@@ -40,6 +42,7 @@ class OpcoesPagamento extends Model
         'opcaopag_requer_autorizacao' => 'boolean',
         'opcaopag_stone_integrada' => 'boolean',
         'opcaopag_pix_cnpj' => 'boolean',
+        'opcaopag_troco_padrao' => FormaTrocoEnum::class,
         'opcaopag_confirmavel_no_pedido' => 'boolean',
         'opcaopag_tarifa_percentual' => 'decimal:2',
     ];

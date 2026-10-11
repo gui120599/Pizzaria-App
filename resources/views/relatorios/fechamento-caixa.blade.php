@@ -162,6 +162,7 @@
                         <th class="border p-1 text-right">Fiado recebido</th>
                         <th class="border p-1 text-right">Suprimentos</th>
                         <th class="border p-1 text-right">Saídas</th>
+                        <th class="border p-1 text-right">Troco</th>
                         <th class="border p-1 text-right">Esperado</th>
                         <th class="border p-1 text-right">Apurado</th>
                         <th class="border p-1 text-right">Diferença</th>
@@ -176,6 +177,7 @@
                             <td class="border p-1 text-right">{{ $brl($linha['fiado']) }}</td>
                             <td class="border p-1 text-right">{{ $brl($linha['suprimentos']) }}</td>
                             <td class="border p-1 text-right text-red-700">{{ $brl($linha['saidas']) }}</td>
+                            <td class="border p-1 text-right text-red-700">{{ $brl($linha['troco']) }}</td>
                             <td class="border p-1 text-right font-semibold">{{ $brl($linha['esperado']) }}</td>
                             <td class="border p-1 text-right">{{ $brl($linha['apurado']) }}</td>
                             <td class="border p-1 text-right font-semibold {{ $corDiferenca($linha['diferenca']) }}">{{ $brl($linha['diferenca']) }}</td>
@@ -183,7 +185,7 @@
                     @endforeach
                 </tbody>
             </table>
-            <p class="mt-1 text-[10px] text-gray-500">Apurado e diferença consideram só as sessões que já têm fechamento.</p>
+            <p class="mt-1 text-[10px] text-gray-500">Vendas pelo valor que o cliente entregou; troco na forma em que foi devolvido. Apurado e diferença consideram só as sessões que já têm fechamento.</p>
         </div>
 
         <div class="secao mb-6">

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\FormaPagamento;
+use App\Enums\FormaTrocoEnum;
 use App\Enums\MotivoSaidaCaixa;
 use App\Enums\OperadoraMaquininha;
 use App\Enums\PrazoRecebimentoMaquininhaEnum;
@@ -471,6 +472,39 @@ class RelatorioFechamentoCaixaTest extends TestCase
         $this->assertSame(-1.0, $relatorio->dre()->pluck('valor', 'key')['mdr']);
         $this->assertSame([200.0, 195.0, -5.0], [$fluxo['pix_cnpj']['esperado'], $fluxo['pix_cnpj']['apurado'], $fluxo['pix_cnpj']['diferenca']]);
         $this->assertSame([200.0, 195.0, -5.0], [$extrato['sistema'], $extrato['leitura'], $extrato['diferenca']]);
+    }
+
+    public function test_fluxo_e_conferencia_usam_o_valor_entregue_e_tiram_o_troco_da_forma_em_que_saiu(): void
+    {
+        $venda = $this->venda(170.00);
+        PagamentosVenda::create([
+            'pg_venda_venda_id' => $venda->id,
+            'pg_venda_opcaopagamento_id' => $this->opcao('debitCard')->id,
+            'pg_venda_maquininha_id' => $this->stone->id,
+            'pg_venda_valor_pagamento' => 95.00,
+            'pg_venda_valor_troco' => 5.00,
+            'pg_venda_forma_troco' => FormaTrocoEnum::Dinheiro,
+        ]);
+        PagamentosVenda::create([
+            'pg_venda_venda_id' => $venda->id,
+            'pg_venda_opcaopagamento_id' => $this->opcao('cash')->id,
+            'pg_venda_valor_pagamento' => 75.00,
+            'pg_venda_valor_troco' => 25.00,
+            'pg_venda_forma_troco' => FormaTrocoEnum::Pix,
+        ]);
+        $fechamento = FechamentoCaixa::create(['sessao_caixa_id' => $this->sessao->id, 'user_id' => auth()->id(), 'status' => StatusFechamentoCaixa::Rascunho, 'valor_pix_cnpj' => 0]);
+        FechamentoCaixaMaquininha::create(['fechamento_caixa_id' => $fechamento->id, 'maquininha_id' => $this->stone->id, 'valor_debito' => 100, 'valor_credito' => 0, 'valor_pix' => 0]);
+
+        $relatorio = $this->relatorio(['sessoes' => [$this->sessao->id]]);
+        $fluxo = $relatorio->fluxoCaixa()->keyBy('key');
+        $esperadoDoFechamento = app(FechamentoCaixaService::class)->calcularEsperado($this->sessao);
+
+        $this->assertSame([100.0, 5.0, 95.0], [$fluxo['dinheiro']['vendas'], $fluxo['dinheiro']['troco'], $fluxo['dinheiro']['esperado']]);
+        $this->assertSame([25.0, -25.0], [$fluxo['pix_cnpj']['troco'], $fluxo['pix_cnpj']['esperado']]);
+        $this->assertEqualsWithDelta($esperadoDoFechamento['dinheiro'], $fluxo['dinheiro']['esperado'], 0.001);
+        $this->assertEqualsWithDelta($esperadoDoFechamento['pix_cnpj'], $fluxo['pix_cnpj']['esperado'], 0.001);
+        $this->assertSame(0.0, $relatorio->conferenciaMaquininhas()->firstWhere('maquininha', 'Stone 1')['diferenca']);
+        $this->assertSame(-25.0, $relatorio->conferenciaMaquininhas()->firstWhere('maquininha', 'PIX CNPJ (extrato)')['sistema']);
     }
 
     public function test_cadastro_de_taxa_grava_o_prazo_de_recebimento_e_copiar_taxas_leva_o_prazo(): void

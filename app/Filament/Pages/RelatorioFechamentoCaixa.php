@@ -113,7 +113,7 @@ class RelatorioFechamentoCaixa extends BaseDashboard
      * @param  Builder<SessaoCaixa>  $query
      * @return array<int, string>
      */
-    private static function opcoesSessoes(Builder $query): array
+    public static function opcoesSessoes(Builder $query): array
     {
         return $query
             ->with(['caixa' => fn ($query) => $query->withTrashed(), 'user'])

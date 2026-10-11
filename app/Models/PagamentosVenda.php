@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FormaTrocoEnum;
 use App\Services\TaxaMaquininhaService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -24,6 +25,7 @@ class PagamentosVenda extends Model
         'pg_venda_valor_recebido',
         'pg_venda_valor_pago_pelo_cliente',
         'pg_venda_valor_troco',
+        'pg_venda_forma_troco',
         'pg_venda_valor_acrescimo',
         'pg_venda_valor_desconto',
         'pg_venda_taxa_maquininha_percentual',
@@ -35,6 +37,7 @@ class PagamentosVenda extends Model
         'pg_venda_valor_recebido' => 'decimal:2',
         'pg_venda_valor_pago_pelo_cliente' => 'decimal:2',
         'pg_venda_valor_troco' => 'decimal:2',
+        'pg_venda_forma_troco' => FormaTrocoEnum::class,
         'pg_venda_valor_acrescimo' => 'decimal:2',
         'pg_venda_valor_desconto' => 'decimal:2',
         'pg_venda_taxa_maquininha_percentual' => 'decimal:2',

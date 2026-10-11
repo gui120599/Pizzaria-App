@@ -49,6 +49,11 @@ class FechamentoCaixaFluxoCaixaWidget extends BaseWidget
                     ->label('Saídas')
                     ->money('BRL')
                     ->color('danger'),
+                TextColumn::make('troco')
+                    ->label('Troco')
+                    ->money('BRL')
+                    ->color('danger')
+                    ->tooltip('Troco devolvido nesta forma (gaveta ou Pix da conta PIX CNPJ). As vendas entram pelo valor que o cliente entregou.'),
                 TextColumn::make('esperado')
                     ->label('Esperado')
                     ->money('BRL')

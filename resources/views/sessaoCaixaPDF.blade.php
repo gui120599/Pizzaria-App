@@ -40,6 +40,13 @@
         </div>
         <p class="text-center text-[8px]" colspan="3">
             ------------------------------------------------------------------------------</p>
+        @php
+            $brl = fn ($valor) => 'R$ ' . number_format((float) $valor, 2, ',', '.');
+            $totalPagamentos = (float) $pagamentos->sum('pg_venda_valor_pagamento');
+            $totalTroco = (float) $pagamentos->sum('pg_venda_valor_troco');
+            $totalEntregue = $totalPagamentos + $totalTroco;
+            $fiadoRecebidoCaixa = (float) $fiado_recebido->where('entra_no_caixa', true)->sum('total');
+        @endphp
         <p class="font-bold">*Vendas</p>
         <div id="Tabela">
             @if (count($vendas) > 0)
@@ -71,7 +78,11 @@
                                 <td class="text-[9px] font-bold text-center">R$
                                     {{ number_format($venda->venda_valor_troco, 2, ',', '.') }}</td>
                                 <td class="text-[9px] font-bold text-end">R$
-                                    {{ number_format($venda->venda_valor_total, 2, ',', '.') }}</td>
+                                    {{ number_format($venda->venda_valor_total, 2, ',', '.') }}
+                                    @if ($venda->lancamentos->sum('valor') > 0)
+                                        <br><span class="text-[8px] font-normal">a prazo: R$ {{ number_format($venda->lancamentos->sum('valor'), 2, ',', '.') }}</span>
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
 
@@ -82,11 +93,15 @@
                         <label>Qtd. Vendas</label><br>
                         <label>Total Desconto</label><br>
                         <label>Total Vendas</label><br>
+                        <label>(-) A prazo / fiado</label><br>
+                        <label>Recebido em vendas</label><br>
                     </div>
                     <div id="dados-valores" class="text-right font-bold">
                         <label>{{ count($vendas) }}</label><br>
-                        <label>R$ {{ number_format($vendas->sum('venda_valor_desconto'), 2, ',', '.') }}</label><br>
-                        <label>R$ {{ number_format($vendas->sum('venda_valor_total'), 2, ',', '.') }}</label><br>
+                        <label>{{ $brl($vendas->sum('venda_valor_desconto')) }}</label><br>
+                        <label>{{ $brl($vendas->sum('venda_valor_total')) }}</label><br>
+                        <label>{{ $brl($fiado_gerado) }}</label><br>
+                        <label>{{ $brl($totalPagamentos) }}</label><br>
                     </div>
                 </div>
                 <p class="text-center text-[8px] font-bold" colspan="3">
@@ -102,24 +117,10 @@
                         </thead>
                         <tbody>
                             @foreach ($opcoes_pagamentos as $op_pg)
-                                @php
-                                    $totalPorOpcaoPagamento = 0; // Inicializa o total por opção de pagamento
-                                @endphp
-                                @foreach ($pagamentos as $pg)
-                                    @if ($pg->opcaoPagamento->id == $op_pg->id)
-                                        @php
-                                            // Apenas soma os pagamentos relacionados à sessão de caixa
-                                            $totalPorOpcaoPagamento +=
-                                                $pg->venda->venda_sessao_caixa_id == $sessao_caixa->id
-                                                    ? $pg->pg_venda_valor_pagamento
-                                                    : 0;
-                                        @endphp
-                                    @endif
-                                @endforeach
                                 <tr class="border-y">
                                     <td class="text-xs font-bold text-start">{{ $op_pg->opcaopag_nome }}</td>
-                                    <td class="text-[9px] font-bold text-end">R$
-                                        {{ number_format($totalPorOpcaoPagamento, 2, ',', '.') }}</td>
+                                    <td class="text-[9px] font-bold text-end">
+                                        {{ $brl($pagamentos->where('pg_venda_opcaopagamento_id', $op_pg->id)->sum('pg_venda_valor_pagamento')) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -128,21 +129,21 @@
             @else
                 <p class="text-[8px] text-center uppercase">Nenhuma Entrada.</p>
             @endif
-            <div class="flex justify-between text-xs">
-                <div id="valores" class="text-left">
-                    <label>Valor Recebido(+)</label><br>
-                    <label>Valor Saldo Inicial(+)</label><br>
-                    
-                    <label>Valor Troco(-)</label><br>
-                    <label>Valor Total<span style="font-size: 6px;">(Valor Recebido + Saldo Inicial - Valor Troco)</span></label><br>
-                </div>
-                <div id="dados-valores" class="text-right font-bold">
-                    <label>R$ {{ number_format($pagamentos->sum('pg_venda_valor_pagamento'), 2, ',', '.') }}</label><br>
-                    <label>R$ {{ number_format($sessao_caixa->sessaocaixa_saldo_inicial, 2, ',', '.')  }}</label><br>
-                    <label>R$ {{ number_format($vendas->sum('venda_valor_troco'), 2, ',', '.') }}</label><br>
-                    <label>R$ {{ number_format($pagamentos->sum('pg_venda_valor_pagamento') - $vendas->sum('venda_valor_troco') + $sessao_caixa->sessaocaixa_saldo_inicial, 2, ',', '.') }}</label><br>
-                </div>
-            </div>
+            @if ($fiado_recebido->isNotEmpty())
+                <p class="text-center text-[8px]" colspan="3">
+                    ------------------------------------------------------------------------------</p>
+                <p class="font-bold">*Fiado recebido nesta sessão</p>
+                <table class="w-full">
+                    <tbody>
+                        @foreach ($fiado_recebido as $recebimento)
+                            <tr class="border-y">
+                                <td class="text-xs font-bold text-start">{{ $recebimento['forma'] }}{{ $recebimento['entra_no_caixa'] ? '' : ' (fora do caixa)' }}</td>
+                                <td class="text-[9px] font-bold text-end">{{ $brl($recebimento['total']) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
             <p class="text-center text-[8px]" colspan="3">
                 ------------------------------------------------------------------------------</p>
             <p class="font-bold">*Saídas</p>
@@ -160,9 +161,13 @@
                             @foreach ($saidas as $saida)
                                 <tr class="border-y">
                                     <td class="text-xs font-bold text-start">{{ $saida->id }}</td>
-                                    <td class="text-xs font-bold text-start">{{ $saida->mov_descricao }}</td>
-                                    <td class="text-[9px] font-bold text-end">R$
-                                        {{ number_format($saida->mov_valor, 2, ',', '.') }}</td>
+                                    <td class="text-xs font-bold text-start">
+                                        {{ $saida->mov_descricao }}
+                                        @if ($saida->mov_motivo === null && $saida->mov_venda_id)
+                                            <span class="text-[8px] font-normal">(estorno, já abatido da venda)</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-[9px] font-bold text-end">{{ $brl($saida->mov_valor) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -176,16 +181,47 @@
             <p class="font-bold">*Totais/Saldos</p>
             <div class="flex justify-between text-xs">
                 <div id="valores" class="text-left">
-                    <label>Total Entradas</label><br>
-                    <label>Total Saídas</label><br>
-                    <label>Total Saldo Inicial</label><br>
-                    <label>Total Saldo Final</label><br>
+                    <label>Entregue pelos clientes(+)</label><br>
+                    <label>Troco devolvido(-)</label><br>
+                    <label>Fiado recebido(+)</label><br>
+                    <label>Saldo Inicial(+)</label><br>
+                    <label>Suprimentos(+)</label><br>
+                    <label>Saídas(-)</label><br>
+                    <label class="font-bold">Saldo Final Esperado</label><br>
                 </div>
                 <div id="dados-valores" class="text-right font-bold">
-                    <label>R$ {{ number_format($vendas->sum('venda_valor_total'), 2, ',', '.') }}</label><br>
-                    <label>R$ {{ number_format($saidas->sum('mov_valor'), 2, ',', '.') }}</label><br>
-                    <label>R$ {{ number_format($sessao_caixa->sessaocaixa_saldo_inicial, 2, ',', '.') }}</label><br>
-                    <label>R$ {{ number_format($vendas->sum('venda_valor_total')-$saidas->sum('mov_valor')+$sessao_caixa->sessaocaixa_saldo_inicial, 2, ',', '.') }}</label><br>
+                    <label>{{ $brl($totalEntregue) }}</label><br>
+                    <label>{{ $brl($totalTroco) }}</label><br>
+                    <label>{{ $brl($fiadoRecebidoCaixa) }}</label><br>
+                    <label>{{ $brl($sessao_caixa->sessaocaixa_saldo_inicial) }}</label><br>
+                    <label>{{ $brl($suprimentos) }}</label><br>
+                    <label>{{ $brl($saidas_manuais) }}</label><br>
+                    <label>{{ $brl(array_sum($esperado)) }}</label><br>
+                </div>
+            </div>
+            <p class="text-center text-[8px]" colspan="3">
+                ------------------------------------------------------------------------------</p>
+            <p class="font-bold">*Esperado por forma</p>
+            <div class="flex justify-between text-xs">
+                <div id="valores" class="text-left">
+                    <label>Dinheiro</label><br>
+                    <label>Débito</label><br>
+                    <label>Crédito</label><br>
+                    <label>Pix (maquininhas)</label><br>
+                    <label>PIX CNPJ</label><br>
+                    @if (abs($esperado['outros']) >= 0.01)
+                        <label>Outros</label><br>
+                    @endif
+                </div>
+                <div id="dados-valores" class="text-right font-bold">
+                    <label>{{ $brl($esperado['dinheiro']) }}</label><br>
+                    <label>{{ $brl($esperado['debito']) }}</label><br>
+                    <label>{{ $brl($esperado['credito']) }}</label><br>
+                    <label>{{ $brl($esperado['pix']) }}</label><br>
+                    <label>{{ $brl($esperado['pix_cnpj']) }}</label><br>
+                    @if (abs($esperado['outros']) >= 0.01)
+                        <label>{{ $brl($esperado['outros']) }}</label><br>
+                    @endif
                 </div>
             </div>
             <p class="text-center text-[8px]" colspan="3">

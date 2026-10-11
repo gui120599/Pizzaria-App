@@ -28,6 +28,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RelatorioContasPagarReceberController;
 use App\Http\Controllers\RelatorioDebitosClientesController;
 use App\Http\Controllers\RelatorioFechamentoCaixaController;
+use App\Http\Controllers\RelatorioSessaoCaixaController;
 use App\Http\Controllers\RelatorioTaxaServicoController;
 use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
@@ -105,6 +106,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/relatorios/contas-pagar-receber/imprimir', [RelatorioContasPagarReceberController::class, 'imprimir'])->name('relatorios.contas_pagar_receber.imprimir')->middleware('permission:view:relatorio_financeiro');
     Route::get('/relatorios/taxa-servico/imprimir', [RelatorioTaxaServicoController::class, 'imprimir'])->name('relatorios.taxa_servico.imprimir')->middleware('permission:view:relatorio_financeiro');
     Route::get('/relatorios/fechamento-caixa/imprimir', [RelatorioFechamentoCaixaController::class, 'imprimir'])->name('relatorios.fechamento_caixa.imprimir')->middleware('permission:view:relatorio_financeiro');
+    Route::get('/relatorios/sessao-caixa/imprimir', [RelatorioSessaoCaixaController::class, 'imprimir'])->name('relatorios.sessao_caixa.imprimir')->middleware('permission:view:relatorio_financeiro');
     // Autorização no controller: quem vê clientes OU opera o PDV (aba Pendentes).
     Route::get('/relatorios/debitos-clientes/imprimir', [RelatorioDebitosClientesController::class, 'imprimir'])->name('relatorios.debitos_clientes.imprimir');
 

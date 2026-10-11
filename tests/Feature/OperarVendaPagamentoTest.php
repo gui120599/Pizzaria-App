@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\FormaTrocoEnum;
 use App\Enums\OperadoraMaquininha;
 use App\Enums\ProdutoTipoEnum;
 use App\Filament\Pages\OperarVenda;
@@ -102,6 +103,46 @@ class OperarVendaPagamentoTest extends TestCase
         $pagamento = PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->firstOrFail();
         $this->assertSame(30.00, (float) $pagamento->pg_venda_valor_troco);
         $this->assertSame(30.00, (float) $this->venda->fresh()->venda_valor_troco);
+    }
+
+    public function test_troco_sai_pela_forma_padrao_da_opcao_de_pagamento(): void
+    {
+        $pixCnpj = OpcoesPagamento::create(['opcaopag_nome' => 'PIX CNPJ', 'opcaopag_desc_nfe' => 'InstantPayment', 'opcaopag_pix_cnpj' => true, 'opcaopag_troco_padrao' => FormaTrocoEnum::Pix, 'opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0]);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('opcaoPagamentoSelecionadaId', $pixCnpj->id)
+            ->assertSet('formaTroco', FormaTrocoEnum::Pix->value)
+            ->set('valorPagamento', 20.00)
+            ->set('valorPagoPeloCliente', 25.00)
+            ->call('registrarPagamento');
+
+        $this->assertSame(FormaTrocoEnum::Pix, PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->sole()->pg_venda_forma_troco);
+    }
+
+    public function test_operador_troca_a_forma_do_troco_no_pagamento(): void
+    {
+        $pixCnpj = OpcoesPagamento::create(['opcaopag_nome' => 'PIX CNPJ', 'opcaopag_desc_nfe' => 'InstantPayment', 'opcaopag_pix_cnpj' => true, 'opcaopag_troco_padrao' => FormaTrocoEnum::Pix, 'opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0]);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('opcaoPagamentoSelecionadaId', $pixCnpj->id)
+            ->set('formaTroco', FormaTrocoEnum::Dinheiro->value)
+            ->set('valorPagamento', 20.00)
+            ->set('valorPagoPeloCliente', 25.00)
+            ->call('registrarPagamento');
+
+        $this->assertSame(FormaTrocoEnum::Dinheiro, PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->sole()->pg_venda_forma_troco);
+    }
+
+    public function test_pagamento_sem_troco_nao_grava_forma_do_troco(): void
+    {
+        $dinheiro = OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_desc_nfe' => 'cash', 'opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0]);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('opcaoPagamentoSelecionadaId', $dinheiro->id)
+            ->set('valorPagamento', 20.00)
+            ->call('registrarPagamento');
+
+        $this->assertNull(PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->sole()->pg_venda_forma_troco);
     }
 
     public function test_registrar_pagamento_com_acrescimo_de_cartao_aumenta_total(): void

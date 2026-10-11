@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\FormaTrocoEnum;
 use App\Http\Requests\StorePagamentosVendaRequest;
 use App\Http\Requests\UpdatePagamentosVendaRequest;
 use App\Models\OpcoesPagamento;
@@ -71,6 +72,8 @@ class PagamentosVendaController extends Controller
             'pg_venda_valor_recebido' => $valor_recebido,
             'pg_venda_valor_pago_pelo_cliente' => $valor_pago_cliente,
             'pg_venda_valor_troco' => $valor_troco,
+            // A tela legada não pergunta: o troco sai pelo padrão da forma.
+            'pg_venda_forma_troco' => $valor_troco > 0 ? ($opcao_pagamento->opcaopag_troco_padrao ?? FormaTrocoEnum::Dinheiro) : null,
             'pg_venda_valor_acrescimo' => $acrescimo,
             'pg_venda_valor_desconto' => $desconto,
         ]);

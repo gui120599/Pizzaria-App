@@ -122,6 +122,12 @@ class Venda extends Model
         return $this->hasMany(Lancamento::class, 'venda_id');
     }
 
+    /** Correções de lançamento feitas depois de finalizada (Relatório de Sessão de Caixa). */
+    public function correcoesPagamento()
+    {
+        return $this->hasMany(CorrecaoPagamento::class, 'venda_id');
+    }
+
     /** Números de NF reservados para esta venda (normalmente um; mais de um só se a nota anterior foi cancelada). */
     public function nfEmissoes()
     {

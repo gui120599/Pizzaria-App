@@ -911,6 +911,22 @@
                                 <span class="text-gray-500 dark:text-gray-400">Troco: <strong class="text-green-600 dark:text-green-400" x-text="'R$ ' + troco.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})"></strong></span>
                             @endunless
                         </div>
+                        @unless ($ehStone)
+                            <div class="col-span-2 flex items-center gap-2 text-xs px-1" x-show="troco > 0" x-cloak>
+                                <span class="text-gray-500 dark:text-gray-400">Troco em:</span>
+                                @foreach (\App\Enums\FormaTrocoEnum::cases() as $formaTrocoOpcao)
+                                    <button
+                                        type="button"
+                                        wire:click="$set('formaTroco', '{{ $formaTrocoOpcao->value }}')"
+                                        @class([
+                                            'px-2 py-1 rounded-md border font-medium',
+                                            'bg-primary-600 border-primary-600 text-white' => $this->formaTroco === $formaTrocoOpcao->value,
+                                            'border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5' => $this->formaTroco !== $formaTrocoOpcao->value,
+                                        ])
+                                    >{{ $formaTrocoOpcao->getLabel() }}</button>
+                                @endforeach
+                            </div>
+                        @endunless
                     </div>
 
                     @error('valorPagamento')

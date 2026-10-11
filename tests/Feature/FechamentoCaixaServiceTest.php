@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\FormaPagamento;
+use App\Enums\FormaTrocoEnum;
 use App\Enums\MotivoSaidaCaixa;
 use App\Enums\StatusFechamentoCaixa;
 use App\Enums\StatusLancamento;
@@ -70,6 +71,18 @@ class FechamentoCaixaServiceTest extends TestCase
             'pg_venda_venda_id' => $venda->id,
             'pg_venda_opcaopagamento_id' => $opcao->id,
             'pg_venda_valor_pagamento' => $valor,
+        ]);
+    }
+
+    private function pagamentoComTroco(Venda $venda, OpcoesPagamento $opcao, float $valor, float $troco, ?FormaTrocoEnum $formaTroco): PagamentosVenda
+    {
+        return PagamentosVenda::create([
+            'pg_venda_venda_id' => $venda->id,
+            'pg_venda_opcaopagamento_id' => $opcao->id,
+            'pg_venda_valor_pagamento' => $valor,
+            'pg_venda_valor_pago_pelo_cliente' => $valor + $troco,
+            'pg_venda_valor_troco' => $troco,
+            'pg_venda_forma_troco' => $formaTroco,
         ]);
     }
 
@@ -348,5 +361,45 @@ class FechamentoCaixaServiceTest extends TestCase
         $this->service->reabrir($fechamento);
         $this->assertSame(StatusFechamentoCaixa::Rascunho, $fechamento->fresh()->status);
         $this->assertNull($fechamento->fresh()->confirmado_em);
+    }
+
+    public function test_troco_em_dinheiro_de_pix_cnpj_entra_no_extrato_e_sai_da_gaveta(): void
+    {
+        $pixCnpj = OpcoesPagamento::create(['opcaopag_nome' => 'PIX CNPJ', 'opcaopag_desc_nfe' => 'InstantPayment', 'opcaopag_pix_cnpj' => true]);
+        $this->pagamentoComTroco($this->venda(), $pixCnpj, 95.70, 4.30, FormaTrocoEnum::Dinheiro);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(100.0, $esperado['pix_cnpj'], 0.01);
+        $this->assertEqualsWithDelta(-4.30, $esperado['dinheiro'], 0.01);
+    }
+
+    public function test_troco_por_pix_sai_do_pix_cnpj(): void
+    {
+        $this->pagamentoComTroco($this->venda(), $this->opcao('cash'), 80.0, 20.0, FormaTrocoEnum::Pix);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(100.0, $esperado['dinheiro'], 0.01);
+        $this->assertEqualsWithDelta(-20.0, $esperado['pix_cnpj'], 0.01);
+    }
+
+    public function test_troco_em_dinheiro_de_pagamento_em_dinheiro_mantem_o_valor_liquido(): void
+    {
+        $this->pagamentoComTroco($this->venda(), $this->opcao('cash'), 69.90, 30.10, FormaTrocoEnum::Dinheiro);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(69.90, $esperado['dinheiro'], 0.01);
+    }
+
+    public function test_troco_legado_sem_forma_sai_da_gaveta(): void
+    {
+        $this->pagamentoComTroco($this->venda(), $this->opcao('debitCard'), 45.0, 5.0, null);
+
+        $esperado = $this->service->calcularEsperado($this->sessao);
+
+        $this->assertEqualsWithDelta(50.0, $esperado['debito'], 0.01);
+        $this->assertEqualsWithDelta(-5.0, $esperado['dinheiro'], 0.01);
     }
 }
