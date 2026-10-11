@@ -5,11 +5,10 @@ namespace App\Services\Garcom;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Models\OpcoesEntregas;
-use App\Models\OpcoesPagamento;
-use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\User;
 use App\Services\ClienteResolverService;
+use App\Services\PagamentosCombinadosService;
 use App\Services\PedidoStatusService;
 use App\Support\JanelaOperacional;
 use App\Support\TotaisPedido;
@@ -160,7 +159,7 @@ class RetiradaService
             }
 
             $totais = TotaisPedido::paraItens($itens, $opcao);
-            $somaPagamentos = collect($pagamentos)->sum(fn (array $p): float => self::valorDigitado($p['valor']));
+            $somaPagamentos = collect($pagamentos)->sum(fn (array $p): float => PagamentosCombinadosService::valorDigitado($p['valor']));
 
             if (abs($somaPagamentos - $totais['total']) > 0.01) {
                 throw new RuntimeException(sprintf(
@@ -197,31 +196,13 @@ class RetiradaService
                 'pedido_datahora_abertura' => Carbon::now(),
             ])->save();
 
-            $pedido->pagamentosCombinados()->delete();
-
-            foreach ($pagamentos as $ordem => $linha) {
-                $forma = OpcoesPagamento::find($linha['opcaoPagamentoId']);
-
-                PagamentosPedido::create([
-                    'pg_pedido_pedido_id' => $pedido->id,
-                    'pg_pedido_opcaopagamento_id' => $forma?->id,
-                    'pg_pedido_opcaopagamento_nome' => $forma?->opcaopag_nome,
-                    'pg_pedido_valor' => self::valorDigitado($linha['valor']),
-                    'pg_pedido_valor_troco_para' => filled($linha['trocoPara'] ?? null) ? self::valorDigitado($linha['trocoPara']) : null,
-                    'pg_pedido_ordem' => $ordem,
-                ]);
-            }
+            // Preserva "pagamento já efetuado" (ex.: PIX CNPJ conferido pelo garçom).
+            app(PagamentosCombinadosService::class)->sincronizar($pedido, $pagamentos);
 
             $this->status->confirmar($pedido);
 
             return true;
         });
-    }
-
-    /** Valor mascarado do EntregaPagamentoPicker ("1.234,50") em reais — mesma regra do AtenderPedido. */
-    private static function valorDigitado(mixed $valor): float
-    {
-        return ((int) str_replace(['.', ','], '', (string) ($valor ?? '0'))) / 100;
     }
 
     /** Retirada pronta entregue ao cliente (PRONTO → ENTREGUE, ou FINALIZADO se já paga). */

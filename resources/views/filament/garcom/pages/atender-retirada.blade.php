@@ -186,6 +186,9 @@
                                 @if ($combinado->pg_pedido_valor_troco_para)
                                     (troco para R$ {{ number_format((float) $combinado->pg_pedido_valor_troco_para, 2, ',', '.') }})
                                 @endif
+                                @if ($combinado->pg_pedido_pago)
+                                    <span class="ml-1 inline-flex rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">pago</span>
+                                @endif
                             </p>
                         @endforeach
                         <p class="pt-1 text-xs text-gray-500">O entregador leva e cobra pelo Painel do Entregador.</p>

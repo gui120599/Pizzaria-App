@@ -22,6 +22,7 @@ use App\Models\StonePedido;
 use App\Services\ClienteResolverService;
 use App\Services\EstoqueService;
 use App\Services\LancamentoItemPedidoService;
+use App\Services\PagamentosCombinadosService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Support\TotaisPedido;
 use BackedEnum;
@@ -517,48 +518,15 @@ class AtenderPedido extends Page
         }
     }
 
-    /**
-     * Grava as formas combinadas atualizando as linhas existentes pela ordem
-     * (em vez de apagar e recriar): o id da linha é o vínculo com o pagamento
-     * que o Nova Venda criou a partir dela (pg_venda_pagamento_pedido_id).
-     * "Pagamento já efetuado" só vale em forma confirmável no pedido e guarda
-     * quem confirmou e quando; reconfirmar a mesma forma mantém o registro.
-     */
+    /** Formas combinadas: ver PagamentosCombinadosService (também usado na entrega do garçom). */
     private function sincronizarPagamentos(Pedido $pedido, array $pagamentos): void
     {
-        $existentes = $pedido->pagamentosCombinados()->orderBy('pg_pedido_ordem')->orderBy('id')->get()->values();
-        $nomes = [];
-
-        foreach (array_values($pagamentos) as $ordem => $linha) {
-            $opcao = ($linha['opcaoPagamentoId'] ?? null) ? OpcoesPagamento::find($linha['opcaoPagamentoId']) : null;
-            $nomes[] = $opcao?->opcaopag_nome;
-
-            /** @var PagamentosPedido|null $anterior */
-            $anterior = $existentes->get($ordem);
-            $pago = (bool) ($linha['pago'] ?? false) && (bool) $opcao?->opcaopag_confirmavel_no_pedido;
-            $jaConfirmada = $pago && $anterior?->pg_pedido_pago && $anterior->pg_pedido_opcaopagamento_id === $opcao?->id;
-
-            $dados = [
-                'pg_pedido_pedido_id' => $pedido->id,
-                'pg_pedido_opcaopagamento_id' => $opcao?->id,
-                'pg_pedido_opcaopagamento_nome' => $opcao?->opcaopag_nome,
-                'pg_pedido_valor' => $this->parseValor($linha['valor'] ?? '0'),
-                'pg_pedido_valor_troco_para' => filled($linha['trocoPara'] ?? null) ? $this->parseValor($linha['trocoPara']) : null,
-                'pg_pedido_ordem' => $ordem,
-                'pg_pedido_pago' => $pago,
-                'pg_pedido_pago_em' => $pago ? ($jaConfirmada ? $anterior->pg_pedido_pago_em : now()) : null,
-                'pg_pedido_pago_usuario_id' => $pago ? ($jaConfirmada ? $anterior->pg_pedido_pago_usuario_id : Auth::id()) : null,
-            ];
-
-            $anterior ? $anterior->update($dados) : PagamentosPedido::create($dados);
-        }
-
-        $existentes->slice(count($pagamentos))->each->delete();
+        $nomes = app(PagamentosCombinadosService::class)->sincronizar($pedido, $pagamentos);
 
         // Texto legado, no mesmo formato da tela antiga ("Pix, Dinheiro"):
         // ainda é o que a sugestão de pagamento do PDV (OperarVenda) e as
         // telas legadas leem.
-        $pedido->update(['pedido_descricao_pagamento' => implode(', ', array_filter($nomes)) ?: null]);
+        $pedido->update(['pedido_descricao_pagamento' => implode(', ', $nomes) ?: null]);
     }
 
     /** "confirmado por Ana às 14:32" — exibido ao lado do "Pagamento já efetuado". */

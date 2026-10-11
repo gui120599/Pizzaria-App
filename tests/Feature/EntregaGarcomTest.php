@@ -92,6 +92,28 @@ class EntregaGarcomTest extends TestCase
         ];
     }
 
+    public function test_garcom_marca_pix_cnpj_como_ja_pago_na_entrega(): void
+    {
+        $this->actingAs($this->garcom);
+        $pix = OpcoesPagamento::create(['opcaopag_nome' => 'PIX CNPJ', 'opcaopag_desc_nfe' => 'InstantPayment', 'opcaopag_pix_cnpj' => true, 'opcaopag_confirmavel_no_pedido' => true]);
+        $rascunho = $this->rascunhoComItem();
+
+        $this->service->enviarEntrega($rascunho, $this->cliente(), [
+            'opcaoEntregaId' => $this->delivery->id,
+            'pagamentos' => [
+                ['opcaoPagamentoId' => $pix->id, 'valor' => '40,00', 'trocoPara' => null, 'pago' => true],
+                ['opcaoPagamentoId' => $this->dinheiro->id, 'valor' => '18,00', 'trocoPara' => null, 'pago' => true],
+            ],
+        ]);
+
+        [$linhaPix, $linhaDinheiro] = $rascunho->pagamentosCombinados()->orderBy('pg_pedido_ordem')->get()->all();
+        $this->assertTrue($linhaPix->pg_pedido_pago);
+        $this->assertSame($this->garcom->id, $linhaPix->pg_pedido_pago_usuario_id);
+        $this->assertFalse($linhaDinheiro->pg_pedido_pago, 'Dinheiro não pode ser confirmado no pedido.');
+
+        Livewire::test(AtenderRetirada::class, ['pedido' => $rascunho->id])->assertSeeHtml('">pago</span>');
+    }
+
     public function test_entrega_exige_endereco(): void
     {
         $rascunho = $this->rascunhoComItem();
