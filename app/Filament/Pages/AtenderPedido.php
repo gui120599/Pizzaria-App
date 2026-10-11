@@ -131,7 +131,7 @@ class AtenderPedido extends Page
 
         abort_unless(Auth::user()?->can('update', $pedido), 403);
 
-        $pedido->loadMissing(['cliente', 'opcaoEntrega', 'pagamentosCombinados']);
+        $pedido->loadMissing(['cliente', 'opcaoEntrega', 'pagamentosCombinados.usuarioPagou']);
 
         $this->pedidoId = $pedido->id;
         $this->statusSelecionado = $pedido->pedido_status;
@@ -161,6 +161,8 @@ class AtenderPedido extends Page
                 'opcaoPagamentoId' => $p->pg_pedido_opcaopagamento_id,
                 'valor' => number_format((float) $p->pg_pedido_valor, 2, ',', '.'),
                 'trocoPara' => $p->pg_pedido_valor_troco_para !== null ? number_format((float) $p->pg_pedido_valor_troco_para, 2, ',', '.') : null,
+                'pago' => $p->pg_pedido_pago,
+                'pagoInfo' => $p->pg_pedido_pago ? $this->descreverConfirmacao($p) : null,
             ])->all(),
         ];
     }
@@ -515,29 +517,57 @@ class AtenderPedido extends Page
         }
     }
 
+    /**
+     * Grava as formas combinadas atualizando as linhas existentes pela ordem
+     * (em vez de apagar e recriar): o id da linha é o vínculo com o pagamento
+     * que o Nova Venda criou a partir dela (pg_venda_pagamento_pedido_id).
+     * "Pagamento já efetuado" só vale em forma confirmável no pedido e guarda
+     * quem confirmou e quando; reconfirmar a mesma forma mantém o registro.
+     */
     private function sincronizarPagamentos(Pedido $pedido, array $pagamentos): void
     {
-        $pedido->pagamentosCombinados()->delete();
+        $existentes = $pedido->pagamentosCombinados()->orderBy('pg_pedido_ordem')->orderBy('id')->get()->values();
         $nomes = [];
 
         foreach (array_values($pagamentos) as $ordem => $linha) {
             $opcao = ($linha['opcaoPagamentoId'] ?? null) ? OpcoesPagamento::find($linha['opcaoPagamentoId']) : null;
             $nomes[] = $opcao?->opcaopag_nome;
 
-            PagamentosPedido::create([
+            /** @var PagamentosPedido|null $anterior */
+            $anterior = $existentes->get($ordem);
+            $pago = (bool) ($linha['pago'] ?? false) && (bool) $opcao?->opcaopag_confirmavel_no_pedido;
+            $jaConfirmada = $pago && $anterior?->pg_pedido_pago && $anterior->pg_pedido_opcaopagamento_id === $opcao?->id;
+
+            $dados = [
                 'pg_pedido_pedido_id' => $pedido->id,
                 'pg_pedido_opcaopagamento_id' => $opcao?->id,
                 'pg_pedido_opcaopagamento_nome' => $opcao?->opcaopag_nome,
                 'pg_pedido_valor' => $this->parseValor($linha['valor'] ?? '0'),
                 'pg_pedido_valor_troco_para' => filled($linha['trocoPara'] ?? null) ? $this->parseValor($linha['trocoPara']) : null,
                 'pg_pedido_ordem' => $ordem,
-            ]);
+                'pg_pedido_pago' => $pago,
+                'pg_pedido_pago_em' => $pago ? ($jaConfirmada ? $anterior->pg_pedido_pago_em : now()) : null,
+                'pg_pedido_pago_usuario_id' => $pago ? ($jaConfirmada ? $anterior->pg_pedido_pago_usuario_id : Auth::id()) : null,
+            ];
+
+            $anterior ? $anterior->update($dados) : PagamentosPedido::create($dados);
         }
+
+        $existentes->slice(count($pagamentos))->each->delete();
 
         // Texto legado, no mesmo formato da tela antiga ("Pix, Dinheiro"):
         // ainda é o que a sugestão de pagamento do PDV (OperarVenda) e as
         // telas legadas leem.
         $pedido->update(['pedido_descricao_pagamento' => implode(', ', array_filter($nomes)) ?: null]);
+    }
+
+    /** "confirmado por Ana às 14:32" — exibido ao lado do "Pagamento já efetuado". */
+    private function descreverConfirmacao(PagamentosPedido $pagamento): string
+    {
+        $quem = $pagamento->usuarioPagou?->name;
+        $quando = $pagamento->pg_pedido_pago_em?->format($pagamento->pg_pedido_pago_em->isToday() ? 'H:i' : 'd/m H:i');
+
+        return trim('confirmado'.($quem ? " por {$quem}" : '').($quando ? " às {$quando}" : ''));
     }
 
     private function parseValor(mixed $valor): float

@@ -23,7 +23,12 @@ class EntregaPagamentoPicker extends Component
 {
     public ?int $opcaoEntregaId = null;
 
-    /** @var array<int, array{opcaoPagamentoId: ?int, valor: string, trocoPara: ?string}> */
+    /**
+     * pago: "pagamento já efetuado" (só em forma com opcaopag_confirmavel_no_pedido);
+     * pagoInfo: quem/quando confirmou, só exibição.
+     *
+     * @var array<int, array{opcaoPagamentoId: ?int, valor: string, trocoPara: ?string, pago?: bool, pagoInfo?: ?string}>
+     */
     public array $pagamentos = [];
 
     #[Reactive]
@@ -49,7 +54,7 @@ class EntregaPagamentoPicker extends Component
 
     private function linhaEmBranco(): array
     {
-        return ['opcaoPagamentoId' => null, 'valor' => '0,00', 'trocoPara' => null];
+        return ['opcaoPagamentoId' => null, 'valor' => '0,00', 'trocoPara' => null, 'pago' => false, 'pagoInfo' => null];
     }
 
     public function adicionarLinhaPagamento(): void
@@ -76,9 +81,28 @@ class EntregaPagamentoPicker extends Component
         $this->emitirMudanca();
     }
 
-    public function updatedPagamentos(): void
+    public function updatedPagamentos(mixed $valor = null, ?string $chave = null): void
     {
+        $indice = $chave !== null ? (int) strtok($chave, '.') : null;
+
+        // Trocar para uma forma que não pode ser confirmada no pedido desfaz o "já pago".
+        if ($indice !== null && str_ends_with($chave, '.opcaoPagamentoId') && ! $this->linhaConfirmavel($indice)) {
+            $this->pagamentos[$indice]['pago'] = false;
+        }
+
+        if ($indice !== null && ! ($this->pagamentos[$indice]['pago'] ?? false)) {
+            $this->pagamentos[$indice]['pagoInfo'] = null;
+        }
+
         $this->emitirMudanca();
+    }
+
+    /** A forma da linha aceita "pagamento já efetuado" (ex.: PIX CNPJ conferido na hora). */
+    public function linhaConfirmavel(int $indice): bool
+    {
+        $id = $this->pagamentos[$indice]['opcaoPagamentoId'] ?? null;
+
+        return $id ? (bool) OpcoesPagamento::find($id)?->opcaopag_confirmavel_no_pedido : false;
     }
 
     public function linhaEhDinheiro(int $indice): bool

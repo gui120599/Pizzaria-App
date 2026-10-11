@@ -134,6 +134,9 @@
                     @if ($pedido->pagamentosCombinados->count() > 1)
                         ({{ Number::currency((float) $pagamento->pg_pedido_valor, 'BRL', 'pt_BR') }})
                     @endif
+                    @if ($pagamento->pg_pedido_pago)
+                        <span class="ml-1 inline-flex rounded bg-success-50 px-1.5 py-0.5 text-[11px] font-medium text-success-700 dark:bg-success-500/10 dark:text-success-400">pago</span>
+                    @endif
                     @if ($pagamento->pg_pedido_valor_troco_para)
                         &middot; Troco para {{ Number::currency((float) $pagamento->pg_pedido_valor_troco_para, 'BRL', 'pt_BR') }}
                     @endif

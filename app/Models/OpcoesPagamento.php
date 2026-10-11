@@ -26,6 +26,7 @@ class OpcoesPagamento extends Model
         'opcaopag_requer_autorizacao',
         'opcaopag_stone_integrada',
         'opcaopag_pix_cnpj',
+        'opcaopag_confirmavel_no_pedido',
         'opcaopag_tarifa_percentual',
     ];
 
@@ -39,6 +40,7 @@ class OpcoesPagamento extends Model
         'opcaopag_requer_autorizacao' => 'boolean',
         'opcaopag_stone_integrada' => 'boolean',
         'opcaopag_pix_cnpj' => 'boolean',
+        'opcaopag_confirmavel_no_pedido' => 'boolean',
         'opcaopag_tarifa_percentual' => 'decimal:2',
     ];
 
