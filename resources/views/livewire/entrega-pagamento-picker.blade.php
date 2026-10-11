@@ -27,6 +27,7 @@
         </div>
 
         @foreach ($pagamentos as $indice => $linha)
+            <div wire:key="pagamento-linha-{{ $indice }}" class="space-y-1">
             <div class="flex items-start gap-2">
                 <select wire:change="$set('pagamentos.{{ $indice }}.opcaoPagamentoId', $event.target.value)"
                     class="flex-1 px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
@@ -58,6 +59,18 @@
                         <x-heroicon-o-x-mark class="h-4 w-4" />
                     </button>
                 @endif
+            </div>
+
+            @if ($this->linhaConfirmavel($indice))
+                <label class="flex items-center gap-1.5 pl-1 text-xs text-gray-600 dark:text-gray-300">
+                    <input type="checkbox" wire:model.live="pagamentos.{{ $indice }}.pago"
+                        class="h-3.5 w-3.5 rounded border-gray-300 text-success-600 focus:ring-success-500 dark:border-white/20 dark:bg-gray-900" />
+                    Pagamento já efetuado
+                    @if (($linha['pago'] ?? false) && ($linha['pagoInfo'] ?? null))
+                        <span class="text-gray-400 dark:text-gray-500">· {{ $linha['pagoInfo'] }}</span>
+                    @endif
+                </label>
+            @endif
             </div>
         @endforeach
     </div>

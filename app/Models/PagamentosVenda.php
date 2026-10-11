@@ -14,6 +14,7 @@ class PagamentosVenda extends Model
 
     protected $fillable = [
         'pg_venda_venda_id',
+        'pg_venda_pagamento_pedido_id',
         'pg_venda_opcaopagamento_id',
         'pg_venda_cartao_id',
         'pg_venda_maquininha_id',
@@ -51,6 +52,12 @@ class PagamentosVenda extends Model
                 app(TaxaMaquininhaService::class)->gravarRetrato($pagamento);
             }
         });
+    }
+
+    /** Forma combinada no pedido que originou este pagamento (lançada pelo Nova Venda). */
+    public function pagamentoPedido()
+    {
+        return $this->belongsTo(PagamentosPedido::class, 'pg_venda_pagamento_pedido_id');
     }
 
     public function venda()

@@ -161,6 +161,12 @@ class OpcoesPagamentoResource extends Resource
                         ->helperText('Pix na chave CNPJ da empresa, sem maquininha. No fechamento de caixa é conferido pelo extrato do banco, numa seção própria.')
                         ->visible(fn (Get $get): bool => $get('opcaopag_desc_nfe') === 'InstantPayment'),
 
+                    Toggle::make('opcaopag_confirmavel_no_pedido')
+                        ->label('Pode ser confirmada no pedido')
+                        ->default(false)
+                        ->inline()
+                        ->helperText('O atendente pode marcar no pedido que o pagamento já foi recebido (ex.: PIX conferido na hora). A comanda sai como PAGO.'),
+
                     TextInput::make('opcaopag_tarifa_percentual')
                         ->label('Tarifa bancária do PIX CNPJ (%)')
                         ->numeric()

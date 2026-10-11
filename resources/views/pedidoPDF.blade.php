@@ -178,19 +178,23 @@
                 {{-- Pagamentos combinados (Atender Pedido) mandam; o texto livre
                      pedido_descricao_pagamento fica de fallback para pedidos
                      das telas legadas e do cardápio. --}}
-                <label>{{ $pedido->pagamentosCombinados->pluck('pg_pedido_opcaopagamento_nome')->filter()->implode(', ') ?: ($pedido->pedido_descricao_pagamento ?? '—') }}</label><br>
+                <label>{{ $pedido->pagamentosCombinados->map(fn ($pg) => $pg->pg_pedido_opcaopagamento_nome ? $pg->pg_pedido_opcaopagamento_nome.($pg->pg_pedido_pago ? ' (PAGO)' : '') : null)->filter()->implode(', ') ?: ($pedido->pedido_descricao_pagamento ?? '—') }}</label><br>
             </div>
         </div>
         @php
             $pagamentosCombinados = $pedido->pagamentosCombinados;
             $detalharPagamentos = $pagamentosCombinados->count() > 1
-                || $pagamentosCombinados->contains(fn ($pg) => $pg->pg_pedido_valor_troco_para > 0);
+                || $pagamentosCombinados->contains(fn ($pg) => $pg->pg_pedido_valor_troco_para > 0)
+                || $pagamentosCombinados->contains('pg_pedido_pago', true);
         @endphp
         @if ($detalharPagamentos)
             <div id="pagamentos" class="text-left text-xs font-bold">
                 @foreach ($pagamentosCombinados as $pg)
                     <label>
                         {{ $pg->pg_pedido_opcaopagamento_nome }}: R$ {{ number_format((float) $pg->pg_pedido_valor, 2, ',', '.') }}
+                        @if ($pg->pg_pedido_pago)
+                            &middot; PAGO — não cobrar
+                        @endif
                         @if ($pg->pg_pedido_valor_troco_para > 0)
                             &middot; Troco para R$ {{ number_format((float) $pg->pg_pedido_valor_troco_para, 2, ',', '.') }}
                             (levar R$ {{ number_format(max(0, (float) $pg->pg_pedido_valor_troco_para - (float) $pg->pg_pedido_valor), 2, ',', '.') }})

@@ -459,7 +459,15 @@
                 <div class="divide-y divide-gray-100 dark:divide-white/10">
                     @forelse ($this->pagamentosLancados as $pagamento)
                         <div wire:key="pagamento-{{ $pagamento->id }}" class="px-4 py-2 flex items-center justify-between gap-2">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ $pagamento->opcaoPagamento?->opcaopag_nome }}</span>
+                            <span class="min-w-0 text-sm text-gray-700 dark:text-gray-300">
+                                {{ $pagamento->opcaoPagamento?->opcaopag_nome }}
+                                @if ($pagamento->pagamentoPedido)
+                                    <span class="ml-1 inline-flex rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">pedido #{{ $pagamento->pagamentoPedido->pg_pedido_pedido_id }}</span>
+                                    @if ($pagamento->pagamentoPedido->pg_pedido_pago)
+                                        <span class="ml-1 inline-flex rounded bg-success-50 px-1.5 py-0.5 text-[10px] font-medium text-success-700 dark:bg-success-500/10 dark:text-success-400">pago no pedido</span>
+                                    @endif
+                                @endif
+                            </span>
                             <div class="flex items-center gap-3">
                                 <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">R$ {{ number_format((float) $pagamento->pg_venda_valor_pagamento, 2, ',', '.') }}</span>
                                 <button wire:click="editarPagamento({{ $pagamento->id }})" type="button" class="text-gray-400 dark:text-gray-500 hover:text-primary-600 dark:hover:text-primary-400">

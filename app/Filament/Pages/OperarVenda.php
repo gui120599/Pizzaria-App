@@ -524,7 +524,9 @@ class OperarVenda extends Page
         // A linha pode ter vindo de mesa/pedido: os itens de origem voltam a
         // ficar livres (senão ficariam presos à venda, gerando taxa de serviço
         // e contando como quitados sem estar na venda).
-        ItensPedido::whereIn('id', $this->itensPedidoDaLinha($itemVenda))
+        $itensPedidoIds = $this->itensPedidoDaLinha($itemVenda);
+        $this->apagarPagamentosDosPedidos(ItensPedido::whereIn('id', $itensPedidoIds)->distinct()->pluck('item_pedido_pedido_id'));
+        ItensPedido::whereIn('id', $itensPedidoIds)
             ->update(['item_pedido_venda_id' => null, 'item_pedido_item_venda_id' => null]);
 
         $itemVenda->adicionaisItemVenda()->delete();
@@ -918,6 +920,7 @@ class OperarVenda extends Page
         );
 
         app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
+        $this->lancarPagamentosDosPedidos($itens->pluck('item_pedido_pedido_id')->unique());
         $this->limparCachesDoCarrinho();
 
         return $itens->count();
@@ -949,6 +952,8 @@ class OperarVenda extends Page
 
             ItensPedido::whereIn('id', $itens->pluck('id'))
                 ->update(['item_pedido_venda_id' => null, 'item_pedido_item_venda_id' => null]);
+
+            $this->apagarPagamentosDosPedidos($itens->pluck('item_pedido_pedido_id')->unique());
         });
 
         app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
@@ -1365,7 +1370,7 @@ class OperarVenda extends Page
             return collect();
         }
 
-        return PagamentosVenda::with(['opcaoPagamento', 'cartao'])
+        return PagamentosVenda::with(['opcaoPagamento', 'cartao', 'pagamentoPedido'])
             ->where('pg_venda_venda_id', $this->vendaId)
             ->get();
     }
@@ -1405,7 +1410,13 @@ class OperarVenda extends Page
     #[Computed]
     public function sugestaoPagamentoPedido(): ?array
     {
+        // Pedido cujas formas combinadas já viraram pagamentos (lancarPagamentosDosPedidos) não sugere de novo.
+        $pedidosComPagamentoLancado = PagamentosVenda::where('pg_venda_venda_id', $this->vendaId)
+            ->join('pagamentos_pedidos', 'pagamentos_pedidos.id', '=', 'pagamentos_vendas.pg_venda_pagamento_pedido_id')
+            ->pluck('pagamentos_pedidos.pg_pedido_pedido_id');
+
         $descricoes = $this->pedidosLancadosNestaVenda
+            ->whereNotIn('id', $pedidosComPagamentoLancado)
             ->pluck('pedido_descricao_pagamento')
             ->filter()
             ->map(fn ($d) => trim($d))
@@ -1720,6 +1731,7 @@ class OperarVenda extends Page
             return;
         }
 
+        $pagamentoAntigo = null;
         if ($this->pagamentoEmEdicaoId) {
             $pagamentoAntigo = PagamentosVenda::find($this->pagamentoEmEdicaoId);
             $pagamentoAntigo?->delete();
@@ -1727,6 +1739,28 @@ class OperarVenda extends Page
             $venda->refresh();
         }
 
+        $this->gravarPagamento($venda, $opcaoPagamento, $valorRecebido, $valorPagoPeloCliente, [
+            'pg_venda_cartao_id' => $this->cartaoId ?: null,
+            'pg_venda_maquininha_id' => $opcaoPagamento->tipoMaquininha() ? ($this->maquininhaPagamentoId ?: null) : null,
+            'pg_venda_numero_autorizacao_cartao' => $this->numeroAutorizacaoCartao ?: null,
+            // Corrigir um pagamento que veio do pedido mantém o vínculo (retirar o pedido o desfaz).
+            'pg_venda_pagamento_pedido_id' => $pagamentoAntigo?->pg_venda_pagamento_pedido_id,
+        ]);
+
+        $this->fecharModalPagamento();
+        $this->recarregarPagamentos();
+    }
+
+    /**
+     * Grava um pagamento na venda com a taxa da forma (ACRESCENTAR/DESCONTAR)
+     * e o troco, mutando os totais da venda do mesmo jeito que o legado
+     * (ver docblock de registrarPagamento). Usado pelo modal e pelas formas
+     * combinadas no pedido (lancarPagamentosDosPedidos).
+     *
+     * @param  array<string, mixed>  $extras  Colunas adicionais do PagamentosVenda (cartão, maquininha, vínculo com o pedido)
+     */
+    private function gravarPagamento(Venda $venda, OpcoesPagamento $opcaoPagamento, float $valorRecebido, float $valorPagoPeloCliente, array $extras = []): PagamentosVenda
+    {
         $valorAcrescimo = 0.0;
         $valorDesconto = 0.0;
         $valorTroco = max(0, round($valorPagoPeloCliente - $valorRecebido, 2));
@@ -1738,12 +1772,9 @@ class OperarVenda extends Page
             $valorDesconto = round($valorRecebido * (float) $opcaoPagamento->opcaopag_valor_percentual_taxa / 100, 2);
         }
 
-        PagamentosVenda::create([
+        $pagamento = PagamentosVenda::create($extras + [
             'pg_venda_venda_id' => $venda->id,
             'pg_venda_opcaopagamento_id' => $opcaoPagamento->id,
-            'pg_venda_cartao_id' => $this->cartaoId ?: null,
-            'pg_venda_maquininha_id' => $opcaoPagamento->tipoMaquininha() ? ($this->maquininhaPagamentoId ?: null) : null,
-            'pg_venda_numero_autorizacao_cartao' => $this->numeroAutorizacaoCartao ?: null,
             'pg_venda_valor_pagamento' => $valorRecebido,
             'pg_venda_valor_recebido' => $valorRecebido,
             'pg_venda_valor_pago_pelo_cliente' => $valorPagoPeloCliente,
@@ -1759,8 +1790,109 @@ class OperarVenda extends Page
         $venda->venda_valor_troco += $valorTroco;
         $venda->save();
 
-        $this->fecharModalPagamento();
-        $this->recarregarPagamentos();
+        return $pagamento;
+    }
+
+    /**
+     * Formas de pagamento combinadas no pedido (Atender Pedido) viram
+     * pagamentos da venda assim que o pedido inteiro entra nela. Lançamento
+     * parcial (item a item, "Dividir") não cria nada: os valores combinados
+     * são do pedido todo. Forma integrada à Stone fica de fora — a cobrança
+     * precisa ir para a maquininha. Cada pagamento guarda o vínculo
+     * (pg_venda_pagamento_pedido_id), então lançar de novo não duplica e
+     * retirar o pedido desfaz (apagarPagamentosDosPedidos).
+     *
+     * @param  Collection<int, int>  $pedidoIds
+     */
+    private function lancarPagamentosDosPedidos(Collection $pedidoIds): void
+    {
+        $venda = Venda::find($this->vendaId);
+        if (! $venda || $pedidoIds->isEmpty()) {
+            return;
+        }
+
+        $pedidos = Pedido::whereIn('id', $pedidoIds)
+            ->whereHas('pagamentosCombinados')
+            ->whereDoesntHave('item_pedido_pedido_id', fn ($query) => $query
+                ->where('item_pedido_status', 'INSERIDO')
+                ->where(fn ($q) => $q->whereNull('item_pedido_venda_id')->orWhere('item_pedido_venda_id', '!=', $venda->id)))
+            ->with('pagamentosCombinados.opcaoPagamento')
+            ->orderBy('id')
+            ->get();
+
+        $lancados = [];
+        $naMaquininha = [];
+
+        foreach ($pedidos as $pedido) {
+            foreach ($pedido->pagamentosCombinados->sortBy('pg_pedido_ordem') as $combinado) {
+                $opcao = $combinado->opcaoPagamento;
+                $jaLancado = PagamentosVenda::where('pg_venda_venda_id', $venda->id)
+                    ->where('pg_venda_pagamento_pedido_id', $combinado->id)
+                    ->exists();
+
+                if (! $opcao || (float) $combinado->pg_pedido_valor <= 0 || $jaLancado) {
+                    continue;
+                }
+
+                if ($opcao->ehIntegracaoStone()) {
+                    $naMaquininha[] = $opcao->opcaopag_nome;
+
+                    continue;
+                }
+
+                $valor = min((float) $combinado->pg_pedido_valor, round((float) $venda->venda_valor_total - (float) $venda->venda_valor_pago, 2));
+                if ($valor <= 0) {
+                    continue;
+                }
+
+                $this->gravarPagamento($venda, $opcao, $valor, max($valor, (float) $combinado->pg_pedido_valor_troco_para), [
+                    'pg_venda_pagamento_pedido_id' => $combinado->id,
+                    'pg_venda_maquininha_id' => $opcao->tipoMaquininha() ? Maquininha::padrao()?->id : null,
+                ]);
+
+                $lancados[] = $opcao->opcaopag_nome.' R$ '.number_format($valor, 2, ',', '.').($combinado->pg_pedido_pago ? ' (pago no pedido)' : '');
+            }
+        }
+
+        if ($lancados !== []) {
+            Notification::make()
+                ->title('Pagamentos do pedido lançados')
+                ->body(implode(' · ', $lancados))
+                ->success()
+                ->send();
+            $this->recarregarPagamentos();
+        }
+
+        if ($naMaquininha !== []) {
+            Notification::make()
+                ->title('Cobrar na maquininha')
+                ->body('O pedido combinou '.implode(', ', array_unique($naMaquininha)).': lance o pagamento para enviar a cobrança à maquininha.')
+                ->warning()
+                ->send();
+        }
+    }
+
+    /**
+     * Apaga desta venda os pagamentos criados a partir das formas combinadas
+     * dos pedidos informados (o pedido saiu da venda). Quem chama recalcula
+     * os totais com VendaService::atualizarValoresdaVenda.
+     *
+     * @param  Collection<int, int>  $pedidoIds
+     */
+    private function apagarPagamentosDosPedidos(Collection $pedidoIds): void
+    {
+        if ($this->vendaId === null || $pedidoIds->isEmpty()) {
+            return;
+        }
+
+        $apagados = PagamentosVenda::where('pg_venda_venda_id', $this->vendaId)
+            ->whereHas('pagamentoPedido', fn ($query) => $query->whereIn('pg_pedido_pedido_id', $pedidoIds))
+            ->get()
+            ->each->delete();
+
+        if ($apagados->isNotEmpty()) {
+            $this->recarregarPagamentos();
+        }
     }
 
     public function removerPagamento(int $pagamentoId): void
