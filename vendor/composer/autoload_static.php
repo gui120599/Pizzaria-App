@@ -582,8 +582,8 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         ),
         'Nette\\' => 
         array (
-            0 => __DIR__ . '/..' . '/nette/utils/src',
-            1 => __DIR__ . '/..' . '/nette/schema/src',
+            0 => __DIR__ . '/..' . '/nette/schema/src',
+            1 => __DIR__ . '/..' . '/nette/utils/src',
             2 => __DIR__ . '/..' . '/nette/php-generator/src',
         ),
         'NFePHP\\NFe\\' => 
