@@ -5,12 +5,14 @@ namespace App\Services\Nfe;
 use App\Enums\CompraStatusEnum;
 use App\Enums\PrestadorCategoriaEnum;
 use App\Enums\PrestadorTipoEnum;
+use App\Enums\SefazNotaRecebidaStatusEnum;
 use App\Exceptions\NfeXmlInvalidoException;
 use App\Models\Compra;
 use App\Models\CompraItem;
 use App\Models\FornecedorProduto;
 use App\Models\Prestador;
 use App\Models\Produto;
+use App\Models\SefazNotaRecebida;
 use App\Services\CompraService;
 use App\Services\Nfe\Dto\NfeItem;
 use App\Services\Nfe\Dto\NfeParseada;
@@ -81,8 +83,25 @@ class NfeImportService
 
             $this->compras->recalcularTotais($compra->fresh('itens'));
 
+            $this->marcarNotaSefazComoImportada($nfe->chaveAcesso, $compra->id);
+
             return $compra->refresh();
         });
+    }
+
+    /**
+     * Quando a chave de acesso importada corresponde a uma nota pendente na
+     * caixa de entrada da SEFAZ, marca-a como importada — cobre o upload
+     * manual de XML, que não passa por SefazDistribuicaoService::importarNota().
+     */
+    private function marcarNotaSefazComoImportada(string $chaveAcesso, int $compraId): void
+    {
+        SefazNotaRecebida::where('snr_chave_acesso', $chaveAcesso)
+            ->where('snr_status', SefazNotaRecebidaStatusEnum::PENDENTE)
+            ->update([
+                'snr_status' => SefazNotaRecebidaStatusEnum::IMPORTADA,
+                'snr_compra_id' => $compraId,
+            ]);
     }
 
     private function garantirNaoDuplicada(string $chave): void

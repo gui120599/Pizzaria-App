@@ -67,7 +67,7 @@ return array(
     'PhpOption\\' => array($vendorDir . '/phpoption/phpoption/src/PhpOption'),
     'ParagonIE\\ConstantTime\\' => array($vendorDir . '/paragonie/constant_time_encoding/src'),
     'OpenSpout\\' => array($vendorDir . '/openspout/openspout/src'),
-    'Nette\\' => array($vendorDir . '/nette/schema/src', $vendorDir . '/nette/utils/src', $vendorDir . '/nette/php-generator/src'),
+    'Nette\\' => array($vendorDir . '/nette/utils/src', $vendorDir . '/nette/schema/src', $vendorDir . '/nette/php-generator/src'),
     'NFePHP\\NFe\\' => array($vendorDir . '/nfephp-org/sped-nfe/src'),
     'NFePHP\\Gtin\\' => array($vendorDir . '/nfephp-org/sped-gtin/src'),
     'NFePHP\\DA\\' => array($vendorDir . '/nfephp-org/sped-da/src'),
