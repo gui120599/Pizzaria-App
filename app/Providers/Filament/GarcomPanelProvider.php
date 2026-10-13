@@ -5,7 +5,10 @@ namespace App\Providers\Filament;
 use App\Filament\Garcom\Pages\AtenderMesa;
 use App\Filament\Garcom\Pages\AtenderRetirada;
 use App\Filament\Garcom\Pages\Auth\LoginGarcom;
+use App\Filament\Garcom\Pages\ChecklistsDoDia;
+use App\Filament\Garcom\Pages\ExecutarChecklist;
 use App\Filament\Garcom\Pages\MapaMesas;
+use App\Filament\Garcom\Resources\ChecklistExecucoes\ChecklistExecucaoResource;
 use Filament\Actions\Action;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -45,12 +48,18 @@ class GarcomPanelProvider extends PanelProvider
             ->spa()
             ->topNavigation()
             ->maxContentWidth(Width::Full)
-            ->homeUrl(fn (): string => MapaMesas::getUrl())
+            // Cozinha/Caixa entram só para checklists (User::CHECKLIST_PANEL_ROLES).
+            ->homeUrl(fn (): string => auth()->user()?->atendeSalao() === false ? ChecklistsDoDia::getUrl() : MapaMesas::getUrl())
             // Sem discoverPages(): só as telas do salão, registradas aqui.
             ->pages([
                 MapaMesas::class,
                 AtenderMesa::class,
                 AtenderRetirada::class,
+                ChecklistsDoDia::class,
+                ExecutarChecklist::class,
+            ])
+            ->resources([
+                ChecklistExecucaoResource::class,
             ])
             ->userMenuItems([
                 'logout' => fn (Action $action) => $action

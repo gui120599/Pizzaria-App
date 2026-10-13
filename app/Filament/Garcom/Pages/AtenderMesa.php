@@ -9,6 +9,7 @@ use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
 use App\Filament\Garcom\Concerns\CarrinhoLateral;
+use App\Filament\Garcom\Concerns\RestritoAoSalao;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
 use App\Models\Mesa;
@@ -50,6 +51,7 @@ class AtenderMesa extends Page
 {
     use AutorizaComPinDeGerente;
     use CarrinhoLateral;
+    use RestritoAoSalao;
 
     protected string $view = 'filament.garcom.pages.atender-mesa';
 

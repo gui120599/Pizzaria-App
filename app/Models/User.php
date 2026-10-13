@@ -30,13 +30,22 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     /** Roles que operam o salão pelo Painel do Garçom (/garcom). */
     public const GARCOM_PANEL_ROLES = ['Admin', 'Gerente', 'Atendente', 'Garcom'];
 
+    /** Roles que entram no /garcom só para executar checklists, sem as telas de mesa. */
+    public const CHECKLIST_PANEL_ROLES = ['Cozinha', 'Caixa'];
+
     public function canAccessPanel(Panel $panel): bool
     {
         if ($panel->getId() === 'garcom') {
-            return $this->hasAnyRole(self::GARCOM_PANEL_ROLES);
+            return $this->hasAnyRole([...self::GARCOM_PANEL_ROLES, ...self::CHECKLIST_PANEL_ROLES]);
         }
 
         return $this->hasAnyRole(self::PANEL_ROLES);
+    }
+
+    /** Opera mesas/comandas/retiradas no /garcom (e não só checklists). */
+    public function atendeSalao(): bool
+    {
+        return $this->hasAnyRole(self::GARCOM_PANEL_ROLES);
     }
 
     public function temPin(): bool

@@ -45,7 +45,7 @@ class LoginGarcom extends Login
     {
         return User::query()
             ->whereNotNull('user_pin')
-            ->role(User::GARCOM_PANEL_ROLES)
+            ->role([...User::GARCOM_PANEL_ROLES, ...User::CHECKLIST_PANEL_ROLES])
             ->orderBy('name_first')
             ->get(['id', 'name', 'name_first', 'avatar'])
             ->map(fn (User $user) => [

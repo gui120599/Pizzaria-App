@@ -58,8 +58,20 @@ class MapaMesas extends Page
         return '/';
     }
 
+    /** Quem entra só para checklists (Cozinha/Caixa) não vê as mesas. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return (bool) auth()->user()?->atendeSalao();
+    }
+
     public function mount(): void
     {
+        if (! Auth::user()?->atendeSalao()) {
+            $this->redirect(ChecklistsDoDia::getUrl());
+
+            return;
+        }
+
         $this->prontasAvisadas = array_column(app(MapaMesasService::class)->prontasDoGarcom((int) Auth::id()), 'id');
         $this->avisosDados = array_column(app(MapaMesasService::class)->avisosDoGarcom((int) Auth::id()), 'chave');
     }
