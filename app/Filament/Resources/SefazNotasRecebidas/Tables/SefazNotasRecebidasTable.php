@@ -36,7 +36,7 @@ class SefazNotasRecebidasTable
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->with('compra'))
-            ->defaultSort('snr_data_emissao', 'desc')
+            ->defaultSort('snr_data_emissao', 'asc')
             ->columns([
                 TextColumn::make('snr_nome_emitente')
                     ->label('Emitente')
@@ -48,7 +48,6 @@ class SefazNotasRecebidasTable
                     ->label('Chave de acesso')
                     ->copyable()
                     ->fontFamily('mono')
-                    ->limit(20)
                     ->searchable(),
 
                 TextColumn::make('snr_valor')
