@@ -77,6 +77,11 @@ class UserFactory extends Factory
         return $this->afterCreating(fn ($user) => $user->assignRole('Garcom'));
     }
 
+    public function cozinha(): static
+    {
+        return $this->afterCreating(fn ($user) => $user->assignRole('Cozinha'));
+    }
+
     public function comPin(string $pin): static
     {
         return $this->state(fn (array $attributes) => ['user_pin' => $pin]);

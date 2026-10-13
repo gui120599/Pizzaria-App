@@ -57,6 +57,8 @@ class AdminPanelProvider extends PanelProvider
                     ->sort(-1)
                     ->visible(fn (): bool => (bool) auth()->user()?->hasAnyRole(User::GARCOM_PANEL_ROLES)),
             ])
+            // Sino de notificações (itens críticos, checklists não realizados/aguardando aprovação).
+            ->databaseNotifications()
             ->topbar(false)
             ->sidebarCollapsibleOnDesktop()
             ->navigationGroups([
@@ -65,6 +67,8 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Comercial')
                     ->collapsible(),
                 NavigationGroup::make('Salão')
+                    ->collapsible(),
+                NavigationGroup::make('Operação')
                     ->collapsible(),
                 NavigationGroup::make('Cardápio')
                     ->collapsible(),

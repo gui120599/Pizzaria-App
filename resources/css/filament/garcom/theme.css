@@ -3,6 +3,8 @@
 
 @source '../../../../app/Filament/Garcom/**/*';
 @source '../../../../resources/views/filament/garcom/**/*';
+/* Itens da execução de checklist (histórico), view compartilhada com o /admin. */
+@source '../../../../resources/views/filament/checklists/**/*';
 @source '../../../../app/Enums/StatusMapaMesaEnum.php';
 
 /*

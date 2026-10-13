@@ -67,6 +67,14 @@ class PermissionSeeder extends Seeder
             'view:relatorio_sessao_caixa', 'view:sessao_caixa_stats_overview',
             'view:sessao_caixa_vendas_widget', 'view:sessao_caixa_fiado_widget',
             'corrigir:pagamento_venda',
+            // Módulo de checklists (executar depende do papel atribuído ao modelo, não de permission).
+            'view_any:checklist_modelo', 'view:checklist_modelo', 'create:checklist_modelo',
+            'update:checklist_modelo', 'delete:checklist_modelo', 'delete_any:checklist_modelo',
+            'restore:checklist_modelo', 'restore_any:checklist_modelo',
+            'view_any:checklist_execucao', 'view:checklist_execucao', 'aprovar:checklist_execucao',
+            'view_any:checklist_nao_conformidade', 'view:checklist_nao_conformidade', 'update:checklist_nao_conformidade',
+            'view:checklists_dashboard', 'view:checklists_hoje_widget',
+            'view:checklist_conformidade_stats_overview', 'view:checklist_itens_mais_falham_widget',
         ],
         'Atendente' => [
             'cancel:pedido', 'accept:pedido', 'reject:pedido', 'advance:pedido',

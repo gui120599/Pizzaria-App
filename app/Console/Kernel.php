@@ -4,6 +4,7 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use Illuminate\Support\Carbon;
 
 class Kernel extends ConsoleKernel
 {
@@ -49,6 +50,20 @@ class Kernel extends ConsoleKernel
         // perdidos (ver App\Console\Commands\StoneConciliarPedidos).
         $schedule->command('stone:conciliar-pedidos')
             ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // Execuções pendentes de checklist do dia operacional — logo após a
+        // virada do dia (config checklists.virada_dia), não à meia-noite: o
+        // fechamento feito de madrugada ainda pertence ao dia anterior.
+        $schedule->command('checklists:gerar-pendentes')
+            ->dailyAt(Carbon::parse((string) config('checklists.virada_dia'))->addMinutes(5)->format('H:i'))
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // Checklists que passaram do fim da janela + tolerância viram "não realizado".
+        $schedule->command('checklists:expirar')
+            ->everyFifteenMinutes()
             ->withoutOverlapping()
             ->onOneServer();
     }
