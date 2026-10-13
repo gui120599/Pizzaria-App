@@ -78,14 +78,21 @@ class ProdutoForm
                     ->required()
                     ->native(false)
                     ->columnSpan(3)
+                    // Sem isso o modal herda o model do form externo (Produto, ou CompraItem
+                    // quando a ProdutoForm está embutida nos itens da compra) e os Repeaters
+                    // ->relationship() da categoria (perguntas, quantidadesSabores) resolvem nele.
+                    ->actionSchemaModel(Categoria::class)
                     ->createOptionForm(fn (Schema $schema) => CategoriaResource::form($schema))
                     ->createOptionAction(
                         fn (Action $action) => $action
                             ->modalHeading('Cadastrar nova categoria')
                             ->modalWidth('2xl')
                     )
-                    ->createOptionUsing(function (array $data): int {
-                        return Categoria::create($data)->getKey();
+                    ->createOptionUsing(function (array $data, Schema $schema): int {
+                        $categoria = Categoria::create($data);
+                        $schema->model($categoria)->saveRelationships();
+
+                        return $categoria->getKey();
                     }),
 
                 Select::make('produto_tipo')
