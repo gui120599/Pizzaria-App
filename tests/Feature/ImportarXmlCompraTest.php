@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\PrestadorCategoriaEnum;
+use App\Enums\SefazNotaRecebidaStatusEnum;
 use App\Models\Categoria;
 use App\Models\Compra;
 use App\Models\FornecedorProduto;
 use App\Models\MovimentacaoProduto;
 use App\Models\Prestador;
 use App\Models\Produto;
+use App\Models\SefazNotaRecebida;
 use App\Models\User;
 use App\Services\CompraService;
 use App\Services\Nfe\NfeImportService;
@@ -111,6 +113,46 @@ class ImportarXmlCompraTest extends TestCase
         $this->assertSame($existente->id, $compra->compra_prestador_id);
         // Não sobrescreve o cadastro existente com o que veio no XML.
         $this->assertSame('Fornecedor Já Cadastrado', $existente->fresh()->razao_social);
+    }
+
+    public function test_importa_marca_nota_sefaz_pendente_com_mesma_chave_como_importada(): void
+    {
+        $nota = SefazNotaRecebida::create([
+            'snr_chave_acesso' => '35260114200166000166550010000000461123456789',
+            'snr_nsu' => '000000000000001',
+            'snr_cnpj_emitente' => self::CNPJ_EMITENTE,
+            'snr_nome_emitente' => 'Distribuidora Exemplo',
+            'snr_valor' => 95,
+            'snr_data_emissao' => now()->toDateString(),
+            'snr_status' => SefazNotaRecebidaStatusEnum::PENDENTE,
+            'snr_encontrada_em' => now(),
+        ]);
+
+        $compra = app(NfeImportService::class)->importar($this->xmlExemplo());
+
+        $nota->refresh();
+        $this->assertTrue($nota->snr_status === SefazNotaRecebidaStatusEnum::IMPORTADA);
+        $this->assertSame($compra->id, $nota->snr_compra_id);
+    }
+
+    public function test_importa_nao_altera_nota_sefaz_com_chave_diferente(): void
+    {
+        $nota = SefazNotaRecebida::create([
+            'snr_chave_acesso' => '35260114200166000166550010000000471123456789',
+            'snr_nsu' => '000000000000002',
+            'snr_cnpj_emitente' => self::CNPJ_EMITENTE,
+            'snr_nome_emitente' => 'Distribuidora Exemplo',
+            'snr_valor' => 95,
+            'snr_data_emissao' => now()->toDateString(),
+            'snr_status' => SefazNotaRecebidaStatusEnum::PENDENTE,
+            'snr_encontrada_em' => now(),
+        ]);
+
+        app(NfeImportService::class)->importar($this->xmlExemplo());
+
+        $nota->refresh();
+        $this->assertTrue($nota->snr_status === SefazNotaRecebidaStatusEnum::PENDENTE);
+        $this->assertNull($nota->snr_compra_id);
     }
 
     public function test_bloqueia_reimportacao_da_mesma_chave_de_acesso(): void
