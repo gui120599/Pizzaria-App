@@ -9,6 +9,9 @@ use App\Enums\TipoLancamento;
 use App\Models\CartoesPagamento;
 use App\Models\Lancamento;
 use App\Models\Maquininha;
+use App\Models\PlanoDespesa;
+use App\Models\PlanoReceita;
+use App\Models\Prestador;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -20,17 +23,21 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\BaseFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Leandrocfe\FilamentPtbrFormFields\Money;
@@ -47,6 +54,7 @@ class LancamentosTable
                 ->withSum('pagamentos', 'valor'))
             ->defaultSort('vencimento', 'asc')
             ->groups([
+                self::grupoFavorecido(),
                 Group::make('compra_id')
                     ->label('Compra')
                     ->getTitleFromRecordUsing(fn (Lancamento $record): string => $record->compra
@@ -120,34 +128,12 @@ class LancamentosTable
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                SelectFilter::make('tipo')
-                    ->label('Tipo')
-                    ->options(TipoLancamento::class),
-                SelectFilter::make('status')
-                    ->label('Status')
-                    ->options(StatusLancamento::class),
-                SelectFilter::make('comportamento')
-                    ->label('Comportamento')
-                    ->options(Comportamento::class),
-                Filter::make('vencimento')
-                    ->label('Vencimento')
-                    ->form([
-                        DatePicker::make('de')
-                            ->label('De')
-                            ->native(false)
-                            ->displayFormat('d/m/Y'),
-                        DatePicker::make('ate')
-                            ->label('Até')
-                            ->native(false)
-                            ->displayFormat('d/m/Y'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when($data['de'] ?? null, fn (Builder $q, $valor) => $q->whereDate('vencimento', '>=', $valor))
-                            ->when($data['ate'] ?? null, fn (Builder $q, $valor) => $q->whereDate('vencimento', '<=', $valor));
-                    }),
-            ])
+            ->filters(self::filtros(), layout: FiltersLayout::AboveContentCollapsible)
+            ->filtersFormSchema(self::secoesDosFiltros(...))
+            ->deferFilters(false)
+            ->persistFiltersInSession()
+            ->persistSortInSession()
+            ->persistSearchInSession()
             ->recordActions([
                 self::acaoMarcarComoPago(),
                 self::acaoEstornarPagamento(),
@@ -162,6 +148,303 @@ class LancamentosTable
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * Favorecido mora em duas colunas — fornecedor (favorecido_id) no Pagar e
+     * cliente (cliente_id) no Receber — então a chave do grupo junta as duas
+     * com prefixo ("f12"/"c34"). Chave, groupBy do subtotal e escopo por chave
+     * precisam produzir exatamente a mesma string.
+     */
+    protected static function grupoFavorecido(): Group
+    {
+        return Group::make('favorecido')
+            ->label('Favorecido')
+            ->getKeyFromRecordUsing(fn (Lancamento $record): ?string => match (true) {
+                $record->tipo === TipoLancamento::Pagar && $record->favorecido_id => 'f'.$record->favorecido_id,
+                $record->tipo === TipoLancamento::Receber && $record->cliente_id => 'c'.$record->cliente_id,
+                default => null,
+            })
+            ->getTitleFromRecordUsing(fn (Lancamento $record): string => $record->nomeFavorecido ?? 'Sem favorecido')
+            ->getDescriptionFromRecordUsing(fn (Lancamento $record): ?string => match (true) {
+                $record->nomeFavorecido === null => null,
+                $record->tipo === TipoLancamento::Pagar => 'Fornecedor',
+                default => 'Cliente',
+            })
+            ->groupQueryUsing(fn (QueryBuilder $query): QueryBuilder => $query->groupByRaw(
+                "CASE WHEN tipo = 'pagar' THEN CONCAT('f', favorecido_id) ELSE CONCAT('c', cliente_id) END"
+            ))
+            ->orderQueryUsing(fn (Builder $query, string $direction): Builder => $query
+                ->orderByRaw(
+                    'COALESCE('
+                    ."(SELECT COALESCE(p.nome_fantasia, p.razao_social, p.nome) FROM prestadores p WHERE p.id = lancamentos.favorecido_id AND lancamentos.tipo = 'pagar'), "
+                    ."(SELECT c.cliente_nome FROM clientes c WHERE c.id = lancamentos.cliente_id AND lancamentos.tipo = 'receber')"
+                    .') '.($direction === 'desc' ? 'desc' : 'asc')
+                )
+                // Desempate: homônimos não se intercalam na listagem agrupada.
+                ->orderBy('lancamentos.tipo')
+                ->orderBy('lancamentos.favorecido_id')
+                ->orderBy('lancamentos.cliente_id'))
+            ->scopeQueryByKeyUsing(fn (Builder $query, ?string $key): Builder => match (true) {
+                blank($key) => $query->where(fn (Builder $q) => $q
+                    ->where(fn (Builder $p) => $p->where('tipo', TipoLancamento::Pagar)->whereNull('favorecido_id'))
+                    ->orWhere(fn (Builder $r) => $r->where('tipo', TipoLancamento::Receber)->whereNull('cliente_id'))),
+                str_starts_with($key, 'f') => $query->where('tipo', TipoLancamento::Pagar)->where('favorecido_id', (int) substr($key, 1)),
+                default => $query->where('tipo', TipoLancamento::Receber)->where('cliente_id', (int) substr($key, 1)),
+            })
+            ->collapsible();
+    }
+
+    /** @return array<int, BaseFilter> */
+    protected static function filtros(): array
+    {
+        return [
+            Filter::make('codigo')
+                ->label('Código')
+                ->schema([
+                    TextInput::make('codigo')
+                        ->label('Código (ID)')
+                        ->numeric()
+                        ->placeholder('Nº do lançamento'),
+                ])
+                ->query(fn (Builder $query, array $data): Builder => $query->when(
+                    $data['codigo'] ?? null,
+                    fn (Builder $q, $id) => $q->whereKey($id),
+                ))
+                ->indicateUsing(fn (array $data): ?string => filled($data['codigo'] ?? null) ? "Código: {$data['codigo']}" : null),
+
+            Filter::make('texto')
+                ->label('Descrição / documento')
+                ->schema([
+                    TextInput::make('texto')
+                        ->label('Descrição ou nº do documento')
+                        ->placeholder('Digite parte do texto'),
+                ])
+                ->query(fn (Builder $query, array $data): Builder => $query->when(
+                    $data['texto'] ?? null,
+                    fn (Builder $q, $texto) => $q->where(fn (Builder $w) => $w
+                        ->where('descricao', 'like', "%{$texto}%")
+                        ->orWhere('numero_documento', 'like', "%{$texto}%")),
+                ))
+                ->indicateUsing(fn (array $data): ?string => filled($data['texto'] ?? null) ? "Texto: {$data['texto']}" : null),
+
+            SelectFilter::make('tipo')
+                ->label('Tipo')
+                ->options(TipoLancamento::class),
+
+            SelectFilter::make('status')
+                ->label('Status')
+                ->options(StatusLancamento::class)
+                ->multiple(),
+
+            SelectFilter::make('comportamento')
+                ->label('Comportamento')
+                ->options(Comportamento::class),
+
+            // Título de compra rateado em vários planos tem o cabeçalho nulo —
+            // o plano fica nas linhas de lancamento_despesas.
+            SelectFilter::make('plano_despesa')
+                ->label('Plano de despesa')
+                ->options(fn (): array => PlanoDespesa::orderBy('nome')->pluck('nome', 'id')->all())
+                ->multiple()
+                ->searchable()
+                ->query(fn (Builder $query, array $data): Builder => $query->when(
+                    $data['values'] ?? [],
+                    fn (Builder $q, array $ids) => $q->where(fn (Builder $w) => $w
+                        ->whereIn('plano_despesa_id', $ids)
+                        ->orWhereHas('despesas', fn (Builder $d) => $d->whereIn('plano_despesa_id', $ids))),
+                )),
+
+            SelectFilter::make('plano_receita_id')
+                ->label('Plano de receita')
+                ->options(fn (): array => PlanoReceita::orderBy('nome')->pluck('nome', 'id')->all())
+                ->multiple()
+                ->searchable(),
+
+            // options() em vez de relationship(): fornecedor PJ pode ter `nome`
+            // nulo, e label nulo quebra o Select — nome_exibicao nunca é nulo.
+            SelectFilter::make('favorecido_id')
+                ->label('Fornecedor')
+                ->options(fn (): array => Prestador::fornecedores()->get()
+                    ->mapWithKeys(fn (Prestador $p): array => [$p->id => $p->nome_exibicao])
+                    ->sort()
+                    ->all())
+                ->multiple()
+                ->searchable(),
+
+            SelectFilter::make('cliente_id')
+                ->label('Cliente')
+                ->relationship('cliente', 'cliente_nome')
+                ->multiple()
+                ->searchable(),
+
+            self::filtroPeriodo('vencimento', 'Vencimento'),
+            self::filtroPeriodo('data_pagamento', 'Pagamento'),
+            self::filtroPeriodo('competencia', 'Competência'),
+
+            Filter::make('valor')
+                ->label('Valor')
+                ->schema([
+                    Money::make('valor_min')->label('Valor mínimo'),
+                    Money::make('valor_max')->label('Valor máximo'),
+                ])
+                // O Money nasce com "0,00": zero conta como "sem limite".
+                ->query(fn (Builder $query, array $data): Builder => $query
+                    ->when(self::normalizeMoney($data['valor_min'] ?? null), fn (Builder $q, float $minimo) => $q->where('valor', '>=', $minimo))
+                    ->when(self::normalizeMoney($data['valor_max'] ?? null), fn (Builder $q, float $maximo) => $q->where('valor', '<=', $maximo)))
+                ->indicateUsing(function (array $data): array {
+                    $indicadores = [];
+
+                    if ($minimo = self::normalizeMoney($data['valor_min'] ?? null)) {
+                        $indicadores[] = 'Valor a partir de R$ '.number_format($minimo, 2, ',', '.');
+                    }
+                    if ($maximo = self::normalizeMoney($data['valor_max'] ?? null)) {
+                        $indicadores[] = 'Valor até R$ '.number_format($maximo, 2, ',', '.');
+                    }
+
+                    return $indicadores;
+                }),
+
+            SelectFilter::make('origem')
+                ->label('Origem')
+                ->options([
+                    'compra' => 'Compra',
+                    'contrato' => 'Contrato',
+                    'venda' => 'Venda',
+                    'sessao_caixa' => 'Sessão de caixa',
+                    'manual' => 'Lançamento manual',
+                ])
+                ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
+                    'compra' => $query->whereNotNull('compra_id'),
+                    'contrato' => $query->whereNotNull('contrato_id'),
+                    'venda' => $query->whereNotNull('venda_id'),
+                    'sessao_caixa' => $query->whereNotNull('sessao_caixa_id'),
+                    'manual' => $query->whereNull('compra_id')->whereNull('contrato_id')->whereNull('venda_id')->whereNull('sessao_caixa_id'),
+                    default => $query,
+                }),
+
+            SelectFilter::make('forma_pagamento')
+                ->label('Forma de pagamento')
+                ->options(FormaPagamento::class)
+                ->multiple()
+                ->query(fn (Builder $query, array $data): Builder => $query->when(
+                    $data['values'] ?? [],
+                    fn (Builder $q, array $formas) => $q->whereHas('pagamentos', fn (Builder $p) => $p->whereIn('forma_pagamento', $formas)),
+                )),
+
+            Filter::make('vencidos')
+                ->label('Somente vencidos')
+                ->query(fn (Builder $query): Builder => $query->vencidos())
+                ->toggle(),
+
+            Filter::make('vence_7_dias')
+                ->label('Vence nos próximos 7 dias')
+                ->query(fn (Builder $query): Builder => $query
+                    ->whereIn('status', [StatusLancamento::Pendente, StatusLancamento::Parcial])
+                    ->whereBetween('vencimento', [today()->toDateString(), today()->addDays(7)->toDateString()]))
+                ->toggle(),
+        ];
+    }
+
+    /**
+     * Painel acima da tabela, em seções (mesmo padrão da ProdutosTable). Todo
+     * filtro de filtros() TEM que aparecer aqui: filtro fora do form fica com
+     * isActive=true por padrão e esvazia a tabela em silêncio.
+     *
+     * @param  array<string, BaseFilter>  $filters
+     * @return array<int, Section>
+     */
+    protected static function secoesDosFiltros(array $filters): array
+    {
+        return [
+            Section::make('Busca')
+                ->icon(Heroicon::OutlinedMagnifyingGlass)
+                ->columnSpanFull()
+                ->columns(2)
+                ->schema([
+                    $filters['codigo'],
+                    $filters['texto'],
+                ]),
+
+            Section::make('Classificação')
+                ->icon(Heroicon::OutlinedTag)
+                ->collapsed()
+                ->columnSpanFull()
+                ->columns(3)
+                ->schema([
+                    $filters['tipo'],
+                    $filters['status'],
+                    $filters['comportamento'],
+                    $filters['plano_despesa'],
+                    $filters['plano_receita_id'],
+                    $filters['origem'],
+                ]),
+
+            Section::make('Favorecido')
+                ->icon(Heroicon::OutlinedUserGroup)
+                ->collapsed()
+                ->columnSpanFull()
+                ->columns(2)
+                ->schema([
+                    $filters['favorecido_id'],
+                    $filters['cliente_id'],
+                ]),
+
+            Section::make('Datas')
+                ->icon(Heroicon::OutlinedCalendarDays)
+                ->collapsed()
+                ->columnSpanFull()
+                ->columns(3)
+                ->schema([
+                    $filters['vencimento'],
+                    $filters['data_pagamento'],
+                    $filters['competencia'],
+                ]),
+
+            Section::make('Valores e situação')
+                ->icon(Heroicon::OutlinedCurrencyDollar)
+                ->collapsed()
+                ->columnSpanFull()
+                ->columns(3)
+                ->schema([
+                    $filters['valor'],
+                    $filters['forma_pagamento'],
+                    $filters['vencidos'],
+                    $filters['vence_7_dias'],
+                ]),
+        ];
+    }
+
+    protected static function filtroPeriodo(string $coluna, string $rotulo): Filter
+    {
+        return Filter::make($coluna)
+            ->label($rotulo)
+            ->schema([
+                DatePicker::make('de')
+                    ->label("{$rotulo} de")
+                    ->native(false)
+                    ->displayFormat('d/m/Y'),
+                DatePicker::make('ate')
+                    ->label("{$rotulo} até")
+                    ->native(false)
+                    ->displayFormat('d/m/Y'),
+            ])
+            ->columns(2)
+            ->query(fn (Builder $query, array $data): Builder => $query
+                ->when($data['de'] ?? null, fn (Builder $q, $valor) => $q->whereDate($coluna, '>=', $valor))
+                ->when($data['ate'] ?? null, fn (Builder $q, $valor) => $q->whereDate($coluna, '<=', $valor)))
+            ->indicateUsing(function (array $data) use ($rotulo): array {
+                $indicadores = [];
+
+                if ($data['de'] ?? null) {
+                    $indicadores[] = "{$rotulo} a partir de ".Carbon::parse($data['de'])->format('d/m/Y');
+                }
+                if ($data['ate'] ?? null) {
+                    $indicadores[] = "{$rotulo} até ".Carbon::parse($data['ate'])->format('d/m/Y');
+                }
+
+                return $indicadores;
+            });
     }
 
     /**
