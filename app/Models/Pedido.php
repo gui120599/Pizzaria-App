@@ -2,17 +2,22 @@
 
 namespace App\Models;
 
+use App\Enums\Cozinha\PrioridadeProducao;
+use App\Enums\Cozinha\StatusProducaoPedido;
 use App\Enums\MotivoAprovacaoMesaEnum;
 use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusAprovacaoPedidoEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Enums\TipoAtendimentoEnum;
+use App\Observers\PedidoProducaoObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
 
+#[ObservedBy([PedidoProducaoObserver::class])]
 class Pedido extends Model
 {
     use HasFactory;
@@ -49,6 +54,10 @@ class Pedido extends Model
         'pedido_datahora_entrega',
         'pedido_datahora_finalizado',
         'pedido_datahora_cancelado',
+        'pedido_producao_status',
+        'pedido_prioridade_producao',
+        'pedido_producao_iniciada_em',
+        'pedido_producao_concluida_em',
     ];
 
     protected $casts = [
@@ -64,6 +73,10 @@ class Pedido extends Model
         'pedido_datahora_entrega' => 'datetime',
         'pedido_datahora_finalizado' => 'datetime',
         'pedido_datahora_cancelado' => 'datetime',
+        'pedido_producao_status' => StatusProducaoPedido::class,
+        'pedido_prioridade_producao' => PrioridadeProducao::class,
+        'pedido_producao_iniciada_em' => 'datetime',
+        'pedido_producao_concluida_em' => 'datetime',
     ];
 
     public function cliente()
@@ -182,6 +195,12 @@ class Pedido extends Model
     public function linkScanEntrega(): string
     {
         return URL::signedRoute('entregador.scan', ['pedido' => $this->id]);
+    }
+
+    /** Itens de produção da cozinha (todas as etapas, unidades e gerações). */
+    public function producaoItens()
+    {
+        return $this->hasMany(ProducaoItem::class, 'pedido_id');
     }
 
     /** Timeline de transições de status — ver HistoricoStatusPedido. */

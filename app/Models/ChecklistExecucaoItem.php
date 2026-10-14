@@ -42,6 +42,8 @@ class ChecklistExecucaoItem extends Model
         'respondido_por',
         'respondido_em',
         'ordem',
+        'operador_id',
+        'operador_nome',
     ];
 
     protected function casts(): array
@@ -75,6 +77,12 @@ class ChecklistExecucaoItem extends Model
     public function naoConformidade(): HasOne
     {
         return $this->hasOne(ChecklistNaoConformidade::class, 'checklist_execucao_item_id');
+    }
+
+    /** Pessoa que respondeu no tablet compartilhado (módulo de cozinha). */
+    public function operador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'operador_id');
     }
 
     public function respondidoPor(): BelongsTo

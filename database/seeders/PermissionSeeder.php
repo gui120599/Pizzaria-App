@@ -75,7 +75,21 @@ class PermissionSeeder extends Seeder
             'view_any:checklist_nao_conformidade', 'view:checklist_nao_conformidade', 'update:checklist_nao_conformidade',
             'view:checklists_dashboard', 'view:checklists_hoje_widget',
             'view:checklist_conformidade_stats_overview', 'view:checklist_itens_mais_falham_widget',
+            // Módulo de cozinha (mesmo conjunto de 2026_10_14_100013_seed_cozinha_roles_and_permissions).
+            'view_any:setor_producao', 'view:setor_producao', 'create:setor_producao', 'update:setor_producao',
+            'delete:setor_producao', 'delete_any:setor_producao', 'restore:setor_producao', 'restore_any:setor_producao', 'reorder:setor_producao',
+            'view_any:ficha_tecnica', 'view:ficha_tecnica', 'create:ficha_tecnica', 'update:ficha_tecnica',
+            'delete:ficha_tecnica', 'delete_any:ficha_tecnica', 'restore:ficha_tecnica', 'restore_any:ficha_tecnica',
+            'view_any:dispositivo_cozinha', 'view:dispositivo_cozinha', 'create:dispositivo_cozinha', 'update:dispositivo_cozinha',
+            'delete:dispositivo_cozinha', 'delete_any:dispositivo_cozinha', 'parear:dispositivo_cozinha',
+            'view_any:producao_item', 'produzir:producao_item', 'despachar:producao_item', 'refazer:producao_item',
+            'priorizar:producao_item', 'forcar:producao_item', 'liberar_sem_abertura:producao_item',
+            'view:relatorio_producao',
         ],
+        'Cozinha' => ['view_any:ficha_tecnica', 'view:ficha_tecnica', 'produzir:producao_item'],
+        'Expedicao' => ['view_any:ficha_tecnica', 'view:ficha_tecnica', 'produzir:producao_item', 'despachar:producao_item', 'refazer:producao_item'],
+        // view:checklist_execucao: sem operador, o tablet abre o checklist só para leitura.
+        'EstacaoCozinha' => ['view_any:ficha_tecnica', 'view:ficha_tecnica', 'produzir:producao_item', 'view:checklist_execucao'],
         'Atendente' => [
             'cancel:pedido', 'accept:pedido', 'reject:pedido', 'advance:pedido',
             'create:pedido', 'update:pedido', 'view:sessao_mesa',

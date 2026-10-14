@@ -245,7 +245,8 @@ class ItensPedidoController extends Controller
                 $idsOferta = app(PromocaoAdicionalService::class)->estornarItensDoGatilho($itemPedido);
 
                 if ($idsOferta !== []) {
-                    ItensPedido::whereIn('id', $idsOferta)->update(['item_pedido_status' => 'REMOVIDO']);
+                    // Um a um (não update em massa): o observer da cozinha cancela a produção da oferta.
+                    ItensPedido::whereIn('id', $idsOferta)->get()->each->update(['item_pedido_status' => 'REMOVIDO']);
                 }
             } elseif ($itemPedido->item_pedido_promocao_adicional_regra_id) {
                 // O próprio item sendo removido é a linha de oferta.

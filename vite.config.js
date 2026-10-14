@@ -11,6 +11,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/css/filament/admin/theme.css',
                 'resources/css/filament/garcom/theme.css',
+                'resources/css/filament/cozinha/theme.css',
             ],
             refresh: true,
         }),

@@ -226,4 +226,10 @@ class Categoria extends Model
     {
         return $this->belongsToMany(LinhaProducao::class, 'categoria_linha_producao', 'categoria_id', 'linha_producao_id');
     }
+
+    /** Rota de produção padrão da categoria, herdada pelas descendentes sem rota própria. */
+    public function rotasProducao(): HasMany
+    {
+        return $this->hasMany(RotaProducao::class, 'categoria_id')->orderBy('etapa');
+    }
 }

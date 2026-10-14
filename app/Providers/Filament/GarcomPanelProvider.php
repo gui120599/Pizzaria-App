@@ -48,6 +48,9 @@ class GarcomPanelProvider extends PanelProvider
             ->spa()
             ->topNavigation()
             ->maxContentWidth(Width::Full)
+            // Sino com o "pedido pronto" da cozinha (ProducaoProntaNotification).
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             // Cozinha/Caixa entram só para checklists (User::CHECKLIST_PANEL_ROLES).
             ->homeUrl(fn (): string => auth()->user()?->atendeSalao() === false ? ChecklistsDoDia::getUrl() : MapaMesas::getUrl())
             // Sem discoverPages(): só as telas do salão, registradas aqui.

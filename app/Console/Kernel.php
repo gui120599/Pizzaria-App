@@ -66,6 +66,18 @@ class Kernel extends ConsoleKernel
             ->everyFifteenMinutes()
             ->withoutOverlapping()
             ->onOneServer();
+
+        // Cozinha: libera os itens segurados pelo disparo por tempo de preparo (no-op se desligado).
+        $schedule->command('cozinha:liberar-itens')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // Cozinha: avisa o gerente sobre itens muito atrasados (uma vez por item).
+        $schedule->command('cozinha:alertar-atrasos')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
     }
 
     /**

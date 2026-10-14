@@ -6,7 +6,9 @@ use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Models\Pedido;
+use App\Models\ProducaoItem;
 use App\Models\User;
+use App\Services\Cozinha\ProducaoService;
 use App\Services\PedidoStatusService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -14,6 +16,7 @@ use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Js;
 
 /**
@@ -37,14 +40,14 @@ class PedidoStatusActions
      */
     public static function avancar(): Action
     {
-        return Action::make('avancar')
+        return self::confirmarSeForcarCozinha(Action::make('avancar')
             ->label('Avançar')
             ->icon(Heroicon::OutlinedArrowRight)
             ->color('primary')
-            ->action(fn (array $arguments) => self::executar(
+            ->action(fn (array $arguments) => self::podeForcarCozinha($arguments) && self::executar(
                 $arguments,
                 fn (PedidoStatusService $s, Pedido $p, ?User $ator) => $s->avancar($p, $ator),
-            ));
+            )));
     }
 
     /**
@@ -92,7 +95,7 @@ class PedidoStatusActions
      */
     public static function despachar(): Action
     {
-        return Action::make('despachar')
+        return self::confirmarSeForcarCozinha(Action::make('despachar')
             ->label('Despachar')
             ->icon(Heroicon::OutlinedTruck)
             ->color('info')
@@ -103,14 +106,14 @@ class PedidoStatusActions
                     ->searchable()
                     ->required(),
             ] : [])
-            ->action(fn (array $arguments, array $data) => self::executar(
+            ->action(fn (array $arguments, array $data) => self::podeForcarCozinha($arguments) && self::executar(
                 $arguments,
                 fn (PedidoStatusService $s, Pedido $p, ?User $ator) => $s->despachar(
                     $p,
                     $ator,
                     isset($data['entregador']) ? User::find($data['entregador']) : null,
                 ),
-            ));
+            )));
     }
 
     /**
@@ -316,6 +319,64 @@ class PedidoStatusActions
 
                 Notification::make()->title('Entregador atualizado')->success()->send();
             });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Cozinha — marcar pronto/saída com itens ainda em produção (spec §5.5)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Itens da cozinha que o avanço vai marcar como prontos à força: só conta
+     * do preparo em diante (aceitar um pedido ABERTO não força nada).
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    public static function itensForcadosNaCozinha(array $arguments): int
+    {
+        $pedido = Pedido::find($arguments['pedido'] ?? null);
+
+        if (! $pedido || ! in_array($pedido->status(), [StatusPedidoEnum::PREPARANDO, StatusPedidoEnum::PRONTO, StatusPedidoEnum::EM_TRANSPORTE], true)) {
+            return 0;
+        }
+
+        return app(ProducaoService::class)->pendentesDoPedido($pedido);
+    }
+
+    /** Confirmação extra quando o avanço passa por cima da cozinha. */
+    private static function confirmarSeForcarCozinha(Action $action): Action
+    {
+        return $action
+            ->requiresConfirmation(fn (array $arguments): bool => self::itensForcadosNaCozinha($arguments) > 0)
+            ->modalHeading(fn (array $arguments): ?string => self::itensForcadosNaCozinha($arguments) > 0 ? 'Itens ainda na cozinha' : null)
+            ->modalDescription(function (array $arguments): ?string {
+                $pendentes = self::itensForcadosNaCozinha($arguments);
+
+                return $pendentes > 0
+                    ? "{$pendentes} item(ns) do pedido #{$arguments['pedido']} ainda não ficaram prontos na cozinha. Continuar marca todos como prontos e o tablet deixa de mostrá-los."
+                    : null;
+            })
+            ->modalSubmitActionLabel(fn (array $arguments): ?string => self::itensForcadosNaCozinha($arguments) > 0 ? 'Marcar mesmo assim' : null);
+    }
+
+    /**
+     * Forçar a cozinha exige a permissão própria (forcar:producao_item); sem
+     * itens pendentes, o avanço segue a regra de sempre.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    private static function podeForcarCozinha(array $arguments): bool
+    {
+        if (self::itensForcadosNaCozinha($arguments) === 0 || Gate::allows('forcar', ProducaoItem::class)) {
+            return true;
+        }
+
+        Notification::make()
+            ->title('A cozinha ainda não terminou este pedido')
+            ->body('Só quem tem permissão para forçar a produção pode marcar pronto antes da cozinha.')
+            ->danger()
+            ->send();
+
+        return false;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

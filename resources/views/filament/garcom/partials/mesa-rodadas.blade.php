@@ -55,6 +55,14 @@
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-medium text-gray-900 dark:text-white">
                                 {{ \App\Support\FormatoQuantidade::item($item->item_pedido_quantidade) }}× {{ $item->nomeProduto() }}
+                                {{-- Andamento na cozinha (módulo de cozinha): na fila, preparando, pronto, entregue. --}}
+                                @if ($item->item_pedido_producao_status && $item->item_pedido_producao_status !== \App\Enums\Cozinha\StatusItemProducao::Aguardando)
+                                    <x-cozinha.status-chip
+                                        class="ml-1 align-middle"
+                                        :rotulo="$item->item_pedido_producao_status === \App\Enums\Cozinha\StatusItemProducao::Expedido ? 'Entregue' : $item->item_pedido_producao_status->getLabel()"
+                                        :cor="$item->item_pedido_producao_status->getColor()"
+                                    />
+                                @endif
                             </p>
                             @if ($item->cliente)
                                 <p class="text-xs font-semibold text-primary-600 dark:text-primary-400">{{ $item->cliente->cliente_nome }}</p>

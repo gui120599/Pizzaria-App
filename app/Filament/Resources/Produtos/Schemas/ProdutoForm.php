@@ -6,20 +6,25 @@ use App\Enums\EstoqueModoControleEnum;
 use App\Enums\ProdutoTipoEnum;
 use App\Enums\UnidadeProdutoEnum;
 use App\Filament\Resources\Categorias\CategoriaResource;
+use App\Filament\Resources\FichasTecnicas\FichaTecnicaResource;
+use App\Filament\Support\Cozinha\RotasProducaoRepeater;
 use App\Models\Categoria;
 use App\Models\PlanoDespesa;
+use App\Models\Produto;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class ProdutoForm
@@ -36,6 +41,8 @@ class ProdutoForm
                         ->visible(fn (Get $get): bool => ! self::naoVendidoDireto($get)),
                     self::abaPrecificacao(),
                     self::abaEstoque(),
+                    self::abaProducao()
+                        ->visible(fn (Get $get): bool => ! self::naoVendidoDireto($get)),
                     self::abaPromocao()
                         ->visible(fn (Get $get): bool => ! self::naoVendidoDireto($get)),
                     self::abaFiscal(),
@@ -426,6 +433,37 @@ class ProdutoForm
                             ->columnSpan(1)
                             ->helperText('Quanto a receita produz (ex.: 1 un, ou 5000 ml de molho por batelada)'),
                     ]),
+            ]);
+    }
+
+    /** Módulo de cozinha: se gera item de produção, por quais setores passa e a ficha de preparo. */
+    private static function abaProducao(): Tab
+    {
+        return Tab::make('Produção')
+            ->icon('heroicon-o-fire')
+            ->columns(1)
+            ->schema([
+                Toggle::make('produto_dispensa_producao')
+                    ->label('Não passa pela cozinha')
+                    ->helperText('Refrigerante, água, sobremesa pronta: não gera item de produção nem segura o pedido.')
+                    ->live()
+                    ->inline(false),
+
+                RotasProducaoRepeater::make('Sem etapas, vale a rota da categoria (ou da categoria pai). A ordem é a sequência: ex.: Pizzaria → Forno.')
+                    ->visible(fn (Get $get): bool => ! $get('produto_dispensa_producao')),
+
+                Actions::make([
+                    Action::make('abrirFichaTecnica')
+                        ->label(fn (?Produto $record): string => $record?->fichaTecnica ? 'Abrir ficha técnica de preparo' : 'Criar ficha técnica de preparo')
+                        ->icon(Heroicon::OutlinedBookOpen)
+                        ->color('gray')
+                        ->url(fn (?Produto $record): ?string => match (true) {
+                            $record === null => null,
+                            $record->fichaTecnica !== null => FichaTecnicaResource::getUrl('edit', ['record' => $record->fichaTecnica]),
+                            default => FichaTecnicaResource::getUrl('create', ['produto' => $record->id]),
+                        })
+                        ->visible(fn (?Produto $record): bool => $record?->exists === true && FichaTecnicaResource::canViewAny()),
+                ])->visible(fn (string $operation): bool => $operation === 'edit'),
             ]);
     }
 

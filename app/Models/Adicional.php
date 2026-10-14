@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\UploadedFile;
@@ -19,6 +20,10 @@ class Adicional extends Model
         'adicional_nome',
         'adicional_foto',
         'adicional_valor',
+        'adicional_quantidade_porcao',
+        'adicional_unidade_porcao',
+        'adicional_instrucao_preparo',
+        'adicional_insumo_id',
     ];
 
     protected $dates = [
@@ -34,6 +39,7 @@ class Adicional extends Model
     {
         return [
             'adicional_valor' => 'decimal:2',
+            'adicional_quantidade_porcao' => 'decimal:3',
         ];
     }
 
@@ -84,5 +90,11 @@ class Adicional extends Model
     public function getAdicionalFotoUrlAttribute(): string
     {
         return $this->getImagemUrl();
+    }
+
+    /** Insumo da porção do adicional (para a ficha técnica viva). */
+    public function insumo(): BelongsTo
+    {
+        return $this->belongsTo(Produto::class, 'adicional_insumo_id');
     }
 }

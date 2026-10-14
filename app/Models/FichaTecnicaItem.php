@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Enums\Cozinha\EscopoIngrediente;
+use App\Observers\FichaTecnicaVersaoObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+#[ObservedBy([FichaTecnicaVersaoObserver::class])]
 class FichaTecnicaItem extends Model
 {
     use HasFactory;
@@ -20,6 +24,11 @@ class FichaTecnicaItem extends Model
         'fti_quantidade',
         'fti_unidade',
         'fti_percentual_perda',
+        'fti_escopo',
+        'fti_opcional_ref',
+        'fti_foto_porcao',
+        'fti_observacao',
+        'fti_ordem',
     ];
 
     protected function casts(): array
@@ -27,6 +36,8 @@ class FichaTecnicaItem extends Model
         return [
             'fti_quantidade' => 'decimal:4',
             'fti_percentual_perda' => 'decimal:2',
+            'fti_escopo' => EscopoIngrediente::class,
+            'fti_ordem' => 'integer',
         ];
     }
 

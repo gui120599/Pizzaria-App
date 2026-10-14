@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Enums\Cozinha\StatusItemProducao;
 use App\Models\Concerns\TemRespostas;
 use App\Models\Concerns\TemSabores;
+use App\Observers\ItemPedidoProducaoObserver;
 use App\Services\PrecificadorService;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+#[ObservedBy([ItemPedidoProducaoObserver::class])]
 class ItensPedido extends Model
 {
     use HasFactory;
@@ -35,6 +39,7 @@ class ItensPedido extends Model
         'item_pedido_respostas',
         'item_pedido_status',
         'item_pedido_usuario_removeu',
+        'item_pedido_producao_status',
     ];
 
     protected function casts(): array
@@ -42,6 +47,7 @@ class ItensPedido extends Model
         return [
             'item_pedido_sabores' => 'array',
             'item_pedido_respostas' => 'array',
+            'item_pedido_producao_status' => StatusItemProducao::class,
         ];
     }
 
@@ -124,6 +130,12 @@ class ItensPedido extends Model
     public function usuarioRemoveu()
     {
         return $this->belongsTo(User::class, 'item_pedido_usuario_removeu');
+    }
+
+    /** Itens de produção gerados a partir desta linha do pedido. */
+    public function producaoItens()
+    {
+        return $this->hasMany(ProducaoItem::class, 'item_pedido_id');
     }
 
     public function adicionaisItemPedido()

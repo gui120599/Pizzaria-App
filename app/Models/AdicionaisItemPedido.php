@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Observers\ItemPedidoProducaoObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+#[ObservedBy([ItemPedidoProducaoObserver::class])]
 class AdicionaisItemPedido extends Model
 {
     use HasFactory;

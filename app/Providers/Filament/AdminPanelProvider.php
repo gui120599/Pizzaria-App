@@ -70,6 +70,8 @@ class AdminPanelProvider extends PanelProvider
                     ->collapsible(),
                 NavigationGroup::make('Operação')
                     ->collapsible(),
+                NavigationGroup::make('Cozinha')
+                    ->collapsible(),
                 NavigationGroup::make('Cardápio')
                     ->collapsible(),
                 NavigationGroup::make('Estoque')

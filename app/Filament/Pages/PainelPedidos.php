@@ -2,13 +2,16 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\Cozinha\StatusItemProducao;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Enums\UrgenciaPedidoEnum;
 use App\Filament\Support\PedidoStatusActions;
+use App\Filament\Support\ProducaoPedidoActions;
 use App\Models\LinhaProducao;
 use App\Models\Pedido;
 use App\Models\User;
+use App\Services\Cozinha\CozinhaTempoReal;
 use App\Support\JanelaOperacional;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -236,6 +239,21 @@ class PainelPedidos extends Page implements HasActions
         return PedidoStatusActions::trocarEntregador();
     }
 
+    public function verProducaoAction(): Action
+    {
+        return ProducaoPedidoActions::verProducao();
+    }
+
+    public function priorizarAction(): Action
+    {
+        return ProducaoPedidoActions::priorizar();
+    }
+
+    public function liberarProducaoAction(): Action
+    {
+        return ProducaoPedidoActions::liberarAgora();
+    }
+
     /** @return array<int, Action> */
     protected function getHeaderActions(): array
     {
@@ -344,6 +362,9 @@ class PainelPedidos extends Page implements HasActions
             $status[] = 'CANCELADO';
         }
 
+        // A cozinha grava o andamento por query builder (sem updated_at): o
+        // contador do CozinhaTempoReal, que sobe a cada transição de item,
+        // entra na assinatura para o card refletir "3/5 prontos" no próximo poll.
         return Pedido::query()
             ->whereIn('pedido_status', $status)
             ->selectRaw('pedido_status, COUNT(*) AS total, COALESCE(MAX(updated_at), 0) AS ultimo')
@@ -351,6 +372,7 @@ class PainelPedidos extends Page implements HasActions
             ->orderBy('pedido_status')
             ->get()
             ->map(fn ($linha) => "{$linha->pedido_status}:{$linha->total}:{$linha->ultimo}")
+            ->push('cozinha:'.app(CozinhaTempoReal::class)->versaoPedidos())
             ->implode('|');
     }
 
@@ -708,8 +730,24 @@ class PainelPedidos extends Page implements HasActions
                 'pedido_datahora_entrega',
                 'pedido_datahora_finalizado',
                 'pedido_datahora_cancelado',
+                'pedido_producao_status',
+                'pedido_prioridade_producao',
+                'pedido_producao_iniciada_em',
                 'created_at',
                 'updated_at',
+            ])
+            // "3/5 prontos" no card: só as linhas da última etapa contam (a
+            // pizza que saiu da montagem e foi pro forno ainda não está pronta).
+            ->withCount([
+                'producaoItens as producao_total' => fn (Builder $q) => $q
+                    ->where('status', '!=', StatusItemProducao::Cancelado->value)
+                    ->whereColumn('etapa', 'etapa_total'),
+                'producaoItens as producao_prontos' => fn (Builder $q) => $q
+                    ->whereIn('status', [StatusItemProducao::Pronto->value, StatusItemProducao::Expedido->value])
+                    ->whereColumn('etapa', 'etapa_total'),
+                'producaoItens as producao_segurados' => fn (Builder $q) => $q
+                    ->where('status', StatusItemProducao::Aguardando->value)
+                    ->where('etapa', 1),
             ])
             ->with([
                 'opcaoEntrega:id,opcaoentrega_nome,opcaoentrega_requer_endereco',
@@ -731,6 +769,7 @@ class PainelPedidos extends Page implements HasActions
                         'item_pedido_valor',
                         'item_pedido_observacao',
                         'item_pedido_sabores',
+                        'item_pedido_producao_status',
                     ])
                     ->with([
                         'produto:id,produto_descricao,produto_categoria_id',

@@ -2,6 +2,7 @@
 
 namespace App\Services\Garcom;
 
+use App\Enums\Cozinha\StatusProducaoPedido;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusAprovacaoPedidoEnum;
 use App\Enums\StatusMapaMesaEnum;
@@ -11,6 +12,7 @@ use App\Enums\TipoMesaEnum;
 use App\Models\Mesa;
 use App\Models\MesaChamado;
 use App\Models\Pedido;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -80,6 +82,24 @@ class MapaMesasService
         });
     }
 
+    /** Despachado pela Expedição há menos disso ainda conta como "pronto para servir". */
+    public const MINUTOS_DESPACHO_RECENTE = 15;
+
+    /**
+     * Rodada pronta para o garçom levar: PRONTO e, com o módulo de cozinha
+     * usando Expedição, a rodada de mesa que o passe acabou de despachar (ela
+     * vai direto a ENTREGUE, sem parar em PRONTO).
+     */
+    public static function prontosParaServir(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $q) => $q
+            ->where('pedido_status', StatusPedidoEnum::PRONTO->value)
+            ->orWhere(fn (Builder $despachado) => $despachado
+                ->where('pedido_status', StatusPedidoEnum::ENTREGUE->value)
+                ->where('pedido_producao_status', StatusProducaoPedido::Expedido->value)
+                ->where('pedido_datahora_entrega', '>=', now()->subMinutes(self::MINUTOS_DESPACHO_RECENTE))));
+    }
+
     /**
      * Rodadas de mesa e retiradas PRONTO deste garçom — alimenta o aviso de
      * "pedido pronto".
@@ -89,7 +109,7 @@ class MapaMesasService
     public function prontasDoGarcom(int $garcomId): array
     {
         return Pedido::query()
-            ->where('pedido_status', StatusPedidoEnum::PRONTO->value)
+            ->tap(fn (Builder $q) => self::prontosParaServir($q))
             ->where('pedido_usuario_garcom_id', $garcomId)
             ->where(fn ($q) => $q
                 ->whereNotNull('pedido_sessao_mesa_id')

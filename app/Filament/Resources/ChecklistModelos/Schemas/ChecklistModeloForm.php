@@ -7,6 +7,7 @@ use App\Enums\Checklist\ChecklistTipo;
 use App\Enums\Checklist\ExigenciaFoto;
 use App\Enums\Checklist\TipoResposta;
 use App\Models\ChecklistModelo;
+use App\Models\SetorProducao;
 use Closure;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Hidden;
@@ -48,7 +49,25 @@ class ChecklistModeloForm
                         ->label('Setor')
                         ->options(ChecklistSetor::class)
                         ->default(ChecklistSetor::Geral)
+                        ->live()
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            if (! in_array($state instanceof ChecklistSetor ? $state->value : (string) $state, ChecklistModelo::setoresDaCozinha(), true)) {
+                                $set('setor_producao_id', null);
+                            }
+                        })
                         ->required(),
+                    Select::make('setor_producao_id')
+                        ->label('Tablet / setor de produção')
+                        ->options(fn (): array => SetorProducao::ativos()->ordenados()->pluck('nome', 'id')->all())
+                        ->placeholder('Todos os tablets da cozinha')
+                        ->helperText('Vazio = aparece em todos os tablets da cozinha. Escolhido, só nos tablets desse setor.')
+                        ->visible(fn (Get $get): bool => in_array(
+                            $get('setor') instanceof ChecklistSetor ? $get('setor')->value : (string) $get('setor'),
+                            ChecklistModelo::setoresDaCozinha(),
+                            true,
+                        ))
+                        // Escondido (setor fora da cozinha) grava null: senão o setor antigo continuaria mandando o modelo para o tablet.
+                        ->dehydratedWhenHidden(),
                     Textarea::make('descricao')
                         ->label('Descrição')
                         ->rows(2)

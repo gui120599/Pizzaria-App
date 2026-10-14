@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -74,6 +75,7 @@ class Produto extends Model
         'produto_quantidade_maxima',
         'produto_qtd_vendas',
         'produto_destaque_mais_vendidos',
+        'produto_dispensa_producao',
     ];
 
     protected $casts = [
@@ -90,6 +92,7 @@ class Produto extends Model
         'produto_custo_medio' => 'decimal:8',
         'produto_saldo_estoque' => 'decimal:3',
         'produto_ficha_rendimento' => 'decimal:3',
+        'produto_dispensa_producao' => 'boolean',
     ];
 
     /**
@@ -301,6 +304,18 @@ class Produto extends Model
     public function fichaItens()
     {
         return $this->hasMany(FichaTecnicaItem::class, 'fti_produto_id');
+    }
+
+    /** Cabeçalho de preparo da ficha (passos, fotos, alérgenos) — módulo de cozinha. */
+    public function fichaTecnica(): HasOne
+    {
+        return $this->hasOne(FichaTecnica::class, 'produto_id');
+    }
+
+    /** Rota de produção própria do produto (sobrepõe a da categoria). */
+    public function rotasProducao(): HasMany
+    {
+        return $this->hasMany(RotaProducao::class, 'produto_id')->orderBy('etapa');
     }
 
     // Linhas de ficha onde este produto é usado como insumo de outros
