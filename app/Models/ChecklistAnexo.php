@@ -20,6 +20,8 @@ class ChecklistAnexo extends Model
         'caminho',
         'tamanho_bytes',
         'enviado_por',
+        'operador_id',
+        'operador_nome',
     ];
 
     protected function casts(): array

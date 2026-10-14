@@ -435,7 +435,8 @@ class SessaoMesaController extends Controller
                     $pedidoValorItens -= $valorOfertas;
                     $pedidoValorTotal -= $valorOfertas;
 
-                    ItensPedido::whereIn('id', $idsOferta)->update([
+                    // Um a um (não update em massa): o observer da cozinha cancela a produção da oferta.
+                    ItensPedido::whereIn('id', $idsOferta)->get()->each->update([
                         'item_pedido_status' => 'REMOVIDO',
                         'item_pedido_usuario_removeu' => Auth::user()->id,
                     ]);

@@ -19,6 +19,7 @@ use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\User;
 use App\Services\Garcom\AtendimentoMesaService;
+use App\Services\Garcom\MapaMesasService;
 use App\Services\MesaCliente\AprovacaoPedidoMesaService;
 use App\Services\MesaCliente\MesaChamadoService;
 use App\Services\MesaCliente\ParticipanteMesaService;
@@ -711,7 +712,7 @@ class AtenderMesa extends Page
     private function rodadasProntasIds(): array
     {
         return Pedido::where('pedido_sessao_mesa_id', $this->sessaoId)
-            ->where('pedido_status', StatusPedidoEnum::PRONTO->value)
+            ->tap(fn ($q) => MapaMesasService::prontosParaServir($q))
             ->pluck('id')
             ->all();
     }

@@ -14,6 +14,7 @@ use App\Models\ChecklistAnexo;
 use App\Models\ChecklistExecucao;
 use App\Models\ChecklistExecucaoItem;
 use App\Models\ChecklistModelo;
+use App\Models\DispositivoCozinha;
 use App\Models\SessaoCaixa;
 use App\Models\User;
 use App\Notifications\Checklist\ChecklistAguardandoAprovacaoNotification;
@@ -83,7 +84,7 @@ class ChecklistExecucaoService
      * de uma execução por dia: reaproveita a do dia em qualquer status. Modelo
      * de várias execuções: reaproveita uma pendente do dia ou cria outra.
      */
-    public function iniciar(ChecklistModelo $modelo, User $user, ?Operador $operador = null): ChecklistExecucao
+    public function iniciar(ChecklistModelo $modelo, User $user, ?Operador $operador = null, ?DispositivoCozinha $dispositivo = null): ChecklistExecucao
     {
         $this->garantirExecutor($modelo, $user, $operador);
 
@@ -93,7 +94,7 @@ class ChecklistExecucaoService
 
         $dia = ChecklistExecucao::dataOperacional();
 
-        return DB::transaction(function () use ($modelo, $user, $dia): ChecklistExecucao {
+        return DB::transaction(function () use ($modelo, $user, $dia, $operador, $dispositivo): ChecklistExecucao {
             $modelo = ChecklistModelo::whereKey($modelo->id)->lockForUpdate()->firstOrFail();
 
             $existente = $modelo->permite_multiplas_execucoes_dia
@@ -113,11 +114,11 @@ class ChecklistExecucaoService
             }
 
             if ($existente === null) {
-                return $this->criarExecucao($modelo, $dia, ExecucaoStatus::EmAndamento, $user);
+                return $this->criarExecucao($modelo, $dia, ExecucaoStatus::EmAndamento, $user, $operador, $dispositivo);
             }
 
             if ($existente->status === ExecucaoStatus::Pendente) {
-                $this->marcarIniciada($existente, $user);
+                $this->marcarIniciada($existente, $user, $operador, $dispositivo);
                 $existente->save();
             }
 
@@ -150,10 +151,11 @@ class ChecklistExecucaoService
                 $item->observacao = $this->normalizarObservacao($dados['observacao']);
             }
 
+            $this->registrarOperador($item, $operador);
             $item->conforme = $this->avaliador->avaliar($item);
             $item->save();
 
-            $this->atualizarExecucao($execucao, $user);
+            $this->atualizarExecucao($execucao, $user, $operador);
 
             $virouCriticoNaoConforme = $item->critico() && $item->conforme === false && $conformeAntes !== false;
 
@@ -195,16 +197,19 @@ class ChecklistExecucaoService
                     'caminho' => $caminho,
                     'tamanho_bytes' => (int) $arquivo->getSize(),
                     'enviado_por' => $user->id,
+                    'operador_id' => $operador?->userId,
+                    'operador_nome' => $operador?->nome,
                 ]);
 
                 if ($item->tipo_resposta === TipoResposta::Foto) {
                     $item->respondido_por = $user->id;
                     $item->respondido_em = now();
+                    $this->registrarOperador($item, $operador);
                     $item->conforme = $this->avaliador->avaliar($item);
                     $item->save();
                 }
 
-                $this->atualizarExecucao($execucao, $user);
+                $this->atualizarExecucao($execucao, $user, $operador);
 
                 return $anexo;
             });
@@ -466,7 +471,7 @@ class ChecklistExecucaoService
         });
     }
 
-    private function criarExecucao(ChecklistModelo $modelo, CarbonImmutable $dia, ExecucaoStatus $status, ?User $user = null): ChecklistExecucao
+    private function criarExecucao(ChecklistModelo $modelo, CarbonImmutable $dia, ExecucaoStatus $status, ?User $user = null, ?Operador $operador = null, ?DispositivoCozinha $dispositivo = null): ChecklistExecucao
     {
         $execucao = new ChecklistExecucao([
             'checklist_modelo_id' => $modelo->id,
@@ -480,7 +485,7 @@ class ChecklistExecucaoService
         ]);
 
         if ($user !== null) {
-            $this->marcarIniciada($execucao, $user);
+            $this->marcarIniciada($execucao, $user, $operador, $dispositivo);
         }
 
         $execucao->save();
@@ -503,7 +508,7 @@ class ChecklistExecucaoService
     }
 
     /** Pendente → em andamento, com quem iniciou e a sessão de caixa aberta dele (se houver). */
-    private function marcarIniciada(ChecklistExecucao $execucao, User $user): void
+    private function marcarIniciada(ChecklistExecucao $execucao, User $user, ?Operador $operador = null, ?DispositivoCozinha $dispositivo = null): void
     {
         if ($execucao->status === ExecucaoStatus::Pendente || $execucao->status === null) {
             $execucao->status = ExecucaoStatus::EmAndamento;
@@ -514,15 +519,23 @@ class ChecklistExecucaoService
             $execucao->iniciado_em = now();
         }
 
+        // Tablet da cozinha: a pessoa (operador) e o aparelho de quem começou.
+        if ($operador !== null && $execucao->operador_id === null && $execucao->operador_nome === null) {
+            $execucao->operador_id = $operador->userId;
+            $execucao->operador_nome = $operador->nome;
+        }
+
+        $execucao->dispositivo_cozinha_id ??= $dispositivo?->id;
+
         $execucao->sessao_caixa_id ??= SessaoCaixa::where('sessaocaixa_user_id', $user->id)
             ->where('sessaocaixa_status', 'ABERTA')
             ->latest('id')
             ->value('id');
     }
 
-    private function atualizarExecucao(ChecklistExecucao $execucao, User $user): void
+    private function atualizarExecucao(ChecklistExecucao $execucao, User $user, ?Operador $operador = null): void
     {
-        $this->marcarIniciada($execucao, $user);
+        $this->marcarIniciada($execucao, $user, $operador);
         $execucao->recalcularTotais();
         $execucao->save();
     }
@@ -707,5 +720,16 @@ class ChecklistExecucaoService
     private function gestores(): Collection
     {
         return User::whereHas('roles', fn ($roles) => $roles->whereIn('name', ChecklistModelo::PAPEIS_GESTORES))->get();
+    }
+
+    /** Quem respondeu no tablet compartilhado: cada resposta fica com o operador ativo naquele momento. */
+    private function registrarOperador(ChecklistExecucaoItem $item, ?Operador $operador): void
+    {
+        if ($operador === null) {
+            return;
+        }
+
+        $item->operador_id = $operador->userId;
+        $item->operador_nome = $operador->nome;
     }
 }

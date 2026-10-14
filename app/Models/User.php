@@ -33,8 +33,15 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     /** Roles que entram no /garcom só para executar checklists, sem as telas de mesa. */
     public const CHECKLIST_PANEL_ROLES = ['Cozinha', 'Caixa'];
 
+    /** Roles do painel da cozinha (/cozinha): tablets (EstacaoCozinha) e quem produz/despacha. */
+    public const COZINHA_PANEL_ROLES = ['Admin', 'Gerente', 'Cozinha', 'Expedicao', 'EstacaoCozinha'];
+
     public function canAccessPanel(Panel $panel): bool
     {
+        if ($panel->getId() === 'cozinha') {
+            return $this->hasAnyRole(self::COZINHA_PANEL_ROLES);
+        }
+
         if ($panel->getId() === 'garcom') {
             return $this->hasAnyRole([...self::GARCOM_PANEL_ROLES, ...self::CHECKLIST_PANEL_ROLES]);
         }

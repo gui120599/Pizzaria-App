@@ -49,6 +49,7 @@ class ChecklistModelo extends Model
         'versao',
         'ativo',
         'criado_por',
+        'setor_producao_id',
     ];
 
     /** Painéis onde um checklist pode ser executado ou consultado (ver scopeParaPainel). */
@@ -84,14 +85,22 @@ class ChecklistModelo extends Model
         return [self::PAINEL_GARCOM => 'Garçom', self::PAINEL_COZINHA => 'Cozinha'];
     }
 
-    /** "Garçom", "Cozinha" ou "Cozinha e Garçom" (coluna Painel do admin). */
+    /** "Garçom", "Cozinha", "Cozinha — Bar" ou "… e Garçom" (coluna Painel do admin). */
     public function painelDescricao(): string
     {
-        if (! in_array($this->setor->value, self::setoresDaCozinha(), true)) {
+        if (! $this->ehDaCozinha()) {
             return 'Garçom';
         }
 
-        return self::cozinhaTambemNoGarcom() ? 'Cozinha e Garçom' : 'Cozinha';
+        $cozinha = $this->setor_producao_id === null ? 'Cozinha' : 'Cozinha — '.($this->setorProducao?->nome ?? '?');
+
+        return self::cozinhaTambemNoGarcom() ? "{$cozinha} e Garçom" : $cozinha;
+    }
+
+    /** Executado nos tablets: setor da cozinha ou direcionado a um setor de produção. */
+    public function ehDaCozinha(): bool
+    {
+        return $this->setor_producao_id !== null || in_array($this->setor->value, self::setoresDaCozinha(), true);
     }
 
     /** Rótulos curtos dos dias ISO (1=seg … 7=dom). */
@@ -159,26 +168,44 @@ class ChecklistModelo extends Model
         return $this->belongsTo(User::class, 'criado_por');
     }
 
+    /** Tablet de destino (módulo de cozinha); null = todos os tablets da cozinha. */
+    public function setorProducao(): BelongsTo
+    {
+        return $this->belongsTo(SetorProducao::class, 'setor_producao_id');
+    }
+
     public function scopeAtivos(Builder $query): Builder
     {
         return $query->where('ativo', true);
     }
 
     /**
-     * Onde o modelo é executado: no admin todos; nos tablets da cozinha os
-     * dos setores da cozinha; no garçom os demais (os da cozinha só com
-     * `cozinha.checklists.exibir_tambem_no_garcom`). O filtro por setor de
-     * produção do tablet ($dispositivo) entra com o módulo de cozinha, junto
-     * com a coluna `setor_producao_id`.
+     * Onde o modelo é executado (docs/modulo-cozinha.md §5.10):
+     * - admin: todos;
+     * - cozinha: os direcionados a um setor do tablet ($dispositivo) e os
+     *   sem setor de produção cujo `setor` é da cozinha (todos os tablets).
+     *   Sem dispositivo, todos os da cozinha;
+     * - garçom: os demais; os da cozinha só com
+     *   `cozinha.checklists.exibir_tambem_no_garcom`.
      */
     public function scopeParaPainel(Builder $query, string $painel, ?Model $dispositivo = null): Builder
     {
+        $setores = self::setoresDaCozinha();
+
         return match ($painel) {
             self::PAINEL_ADMIN => $query,
-            self::PAINEL_COZINHA => $query->whereIn('setor', self::setoresDaCozinha()),
+            self::PAINEL_COZINHA => $query->where(function (Builder $q) use ($setores, $dispositivo): void {
+                $q->where(fn (Builder $geral) => $geral->whereNull('setor_producao_id')->whereIn('setor', $setores));
+
+                if ($dispositivo instanceof DispositivoCozinha) {
+                    $q->orWhereIn('setor_producao_id', $dispositivo->setorIds());
+                } elseif ($dispositivo === null) {
+                    $q->orWhereNotNull('setor_producao_id');
+                }
+            }),
             self::PAINEL_GARCOM => self::cozinhaTambemNoGarcom()
                 ? $query
-                : $query->whereNotIn('setor', self::setoresDaCozinha()),
+                : $query->whereNull('setor_producao_id')->whereNotIn('setor', $setores),
             default => throw new InvalidArgumentException("Painel de checklist desconhecido: {$painel}."),
         };
     }

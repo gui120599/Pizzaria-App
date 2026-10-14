@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Categorias;
 use App\Enums\RegraPrecoSaboresEnum;
 use App\Filament\Resources\Categorias\Pages\ManageCategorias;
 use App\Filament\Resources\Categorias\Schemas\QuantidadesSaboresRepeater;
+use App\Filament\Support\Cozinha\RotasProducaoRepeater;
 use App\Filament\Support\PerguntasSchema;
 use App\Models\Categoria;
 use App\Models\ProdutoPrecoHistorico;
@@ -172,6 +173,16 @@ class CategoriaResource extends Resource
                             ->addActionLabel('Adicionar pergunta')
                             ->itemLabel(fn (array $state): ?string => $state['pergunta_texto'] ?? null)
                             ->collapsible(),
+                    ]),
+
+                SchemaSection::make('Produção na cozinha')
+                    ->description('Setores por onde passam os produtos desta categoria e das filhas, quando o produto não tem rota própria.')
+                    ->icon('heroicon-o-fire')
+                    ->collapsible()
+                    ->collapsed(fn ($record): bool => ! ($record instanceof Categoria && $record->rotasProducao()->exists()))
+                    ->schema([
+                        RotasProducaoRepeater::make('Sem etapas aqui, vale a rota da categoria pai e, por último, o setor padrão.')
+                            ->hiddenLabel(),
                     ]),
 
                 SchemaSection::make('Estatísticas')

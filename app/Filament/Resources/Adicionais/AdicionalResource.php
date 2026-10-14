@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Adicionais;
 
+use App\Enums\ProdutoTipoEnum;
 use App\Filament\Resources\Adicionais\Pages\ManageAdicionais;
 use App\Models\Adicional;
 use BackedEnum;
@@ -13,8 +14,10 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\ImageColumn;
@@ -74,6 +77,33 @@ class AdicionalResource extends Resource
                     ->fetchFileInformation(false)
                     ->columnSpanFull()
                     ->helperText('JPG ou PNG, quadrada (1:1).'),
+
+                Section::make('Na cozinha')
+                    ->description('Porção mostrada na ficha técnica do tablet quando o adicional entra no item.')
+                    ->columns(3)
+                    ->columnSpanFull()
+                    ->collapsible()
+                    ->schema([
+                        TextInput::make('adicional_quantidade_porcao')
+                            ->label('Porção')
+                            ->numeric()
+                            ->minValue(0)
+                            ->step(0.001)
+                            ->placeholder('Ex.: 0,04'),
+                        TextInput::make('adicional_unidade_porcao')
+                            ->label('Unidade')
+                            ->maxLength(10)
+                            ->placeholder('KG, L, UN'),
+                        Select::make('adicional_insumo_id')
+                            ->label('Insumo')
+                            ->relationship('insumo', 'produto_descricao', fn (Builder $query) => $query->where('produto_tipo', '!=', ProdutoTipoEnum::PRODUZIDO->value))
+                            ->searchable(),
+                        TextInput::make('adicional_instrucao_preparo')
+                            ->label('Instrução de preparo')
+                            ->placeholder('Ex.: espalhar depois do forno')
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+                    ]),
             ]);
     }
 

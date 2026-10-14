@@ -4,6 +4,7 @@ namespace App\Livewire\Checklists;
 
 use App\Exceptions\ChecklistException;
 use App\Models\ChecklistModelo;
+use App\Models\DispositivoCozinha;
 use App\Services\Checklist\ChecklistExecucaoService;
 use App\Services\Checklist\ChecklistsDoDiaService;
 use App\Support\Cozinha\Operador;
@@ -80,7 +81,12 @@ class ChecklistsDoDia extends Component
         $modelo = ChecklistModelo::query()->paraPainel($this->painel, $this->dispositivo)->findOrFail($modeloId);
 
         try {
-            $execucao = app(ChecklistExecucaoService::class)->iniciar($modelo, Auth::user(), $this->operador);
+            $execucao = app(ChecklistExecucaoService::class)->iniciar(
+                $modelo,
+                Auth::user(),
+                $this->operador,
+                $this->dispositivo instanceof DispositivoCozinha ? $this->dispositivo : null,
+            );
         } catch (ChecklistException $e) {
             Notification::make()->title($e->getMessage())->danger()->send();
 

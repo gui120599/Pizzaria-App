@@ -51,6 +51,9 @@ class ChecklistExecucao extends Model
         'itens_nao_conformes',
         'percentual_conformidade',
         'sessao_caixa_id',
+        'operador_id',
+        'operador_nome',
+        'dispositivo_cozinha_id',
     ];
 
     protected function casts(): array
@@ -113,6 +116,17 @@ class ChecklistExecucao extends Model
             'checklist_execucao_id',
             'checklist_execucao_item_id',
         );
+    }
+
+    /** Pessoa que operava o tablet ao iniciar (módulo de cozinha); a conta logada fica em iniciado_por. */
+    public function operador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'operador_id');
+    }
+
+    public function dispositivo(): BelongsTo
+    {
+        return $this->belongsTo(DispositivoCozinha::class, 'dispositivo_cozinha_id')->withTrashed();
     }
 
     public function iniciadoPor(): BelongsTo

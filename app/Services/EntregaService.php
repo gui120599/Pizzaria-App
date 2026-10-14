@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\HistoricoStatusPedido;
 use App\Models\Pedido;
 use App\Models\User;
+use App\Observers\PedidoProducaoObserver;
 use Illuminate\Support\Carbon;
 
 class EntregaService
@@ -61,6 +62,8 @@ class EntregaService
         // — grava aqui pra timeline não ter buraco no claim de entrega.
         if ($claimed > 0) {
             HistoricoStatusPedido::registrar($pedidoId, 'PRONTO', 'EM TRANSPORTE', $entregador->id);
+            // Idem para a cozinha: itens prontos ainda não despachados viram expedidos.
+            PedidoProducaoObserver::reagirAoStatus(Pedido::findOrFail($pedidoId));
         }
 
         return $claimed > 0;

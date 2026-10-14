@@ -28,6 +28,10 @@
     $tipoAtendimento = $pedido->tipoAtendimento();
     $podeLinkEntrega = PedidoStatusActions::podeLinkEntrega($pedido);
     $podeTrocarEntregador = PedidoStatusActions::podeTrocarEntregador($pedido);
+    $temProducao = (int) ($pedido->producao_total ?? 0) > 0;
+    $podeVerProducao = $temProducao && auth()->user()?->can('viewAny', \App\Models\ProducaoItem::class);
+    $podePriorizar = $temProducao && $pedido->pedido_producao_status?->aindaNaCozinha() && auth()->user()?->can('priorizar', \App\Models\ProducaoItem::class);
+    $podeLiberar = (int) ($pedido->producao_segurados ?? 0) > 0 && auth()->user()?->can('priorizar', \App\Models\ProducaoItem::class);
 @endphp
 
 <div
@@ -106,6 +110,9 @@
         </div>
     @endif
 
+    {{-- Andamento na cozinha (módulo de cozinha) --}}
+    <x-pedido.producao :pedido="$pedido" />
+
     {{-- Itens --}}
     <ul class="mt-2 divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/5 dark:border-white/5">
         @foreach ($itens as $item)
@@ -121,6 +128,14 @@
                             <span title="Oferta de promoção adicional">🎁</span>
                         @endif
                     </span>
+
+                    @if ($item->item_pedido_producao_status)
+                        <x-cozinha.status-chip
+                            class="ml-1 align-middle"
+                            :rotulo="$item->item_pedido_producao_status->getLabel()"
+                            :cor="$item->item_pedido_producao_status->getColor()"
+                        />
+                    @endif
 
                     @foreach ($item->adicionaisItemPedido as $adicional)
                         <div class="text-xs text-gray-500 dark:text-gray-400">
@@ -206,6 +221,39 @@
                 >
                     Abrir no atendimento
                 </a>
+
+                @if ($podeVerProducao)
+                    <button
+                        type="button"
+                        wire:click="mountAction('verProducao', { pedido: {{ $pedido->id }} })"
+                        x-on:click="open = false"
+                        class="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                    >
+                        Ver produção
+                    </button>
+                @endif
+
+                @if ($podePriorizar)
+                    <button
+                        type="button"
+                        wire:click="mountAction('priorizar', { pedido: {{ $pedido->id }} })"
+                        x-on:click="open = false"
+                        class="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                    >
+                        Priorizar na cozinha
+                    </button>
+                @endif
+
+                @if ($podeLiberar)
+                    <button
+                        type="button"
+                        wire:click="mountAction('liberarProducao', { pedido: {{ $pedido->id }} })"
+                        x-on:click="open = false"
+                        class="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                    >
+                        Liberar produção agora
+                    </button>
+                @endif
 
                 @if ($podeLinkEntrega)
                     <button

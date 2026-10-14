@@ -1,0 +1,11 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/Cozinha/**/*';
+@source '../../../../resources/views/filament/cozinha/**/*';
+@source '../../../../resources/views/cozinha/**/*';
+/* Ficha técnica, chips e checklists compartilhados com o admin e o garçom. */
+@source '../../../../resources/views/components/**/*';
+@source '../../../../resources/views/filament/checklists/**/*';
+@source '../../../../app/Livewire/**/*';
+@source '../../../../resources/views/livewire/**/*';
+@source '../../../../app/Enums/Cozinha/**/*';

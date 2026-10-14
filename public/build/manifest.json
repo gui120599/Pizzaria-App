@@ -29,6 +29,11 @@
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
+  "resources/css/filament/cozinha/theme.css": {
+    "file": "assets/theme-B2klwI_p.css",
+    "src": "resources/css/filament/cozinha/theme.css",
+    "isEntry": true
+  },
   "resources/css/filament/garcom/theme.css": {
     "file": "assets/theme-DSL6NAMs.css",
     "src": "resources/css/filament/garcom/theme.css",
