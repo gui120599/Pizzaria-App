@@ -3,16 +3,20 @@
 namespace Tests\Feature;
 
 use App\Enums\Checklist\ExecucaoStatus;
+use App\Filament\Garcom\Pages\ChecklistsDoDia;
 use App\Filament\Garcom\Pages\ExecutarChecklist;
+use App\Livewire\Checklists\ExecucaoChecklist;
 use App\Models\ChecklistExecucao;
 use App\Models\ChecklistModelo;
 use App\Models\ChecklistModeloItem;
 use App\Models\User;
 use App\Services\Checklist\ChecklistExecucaoService;
+use App\Support\Cozinha\Operador;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -34,7 +38,7 @@ class ExecutarChecklistTest extends TestCase
         $item = $execucao->itens()->sole();
         $this->actingAs($cozinheira);
 
-        Livewire::test(ExecutarChecklist::class, ['execucao' => $execucao->id])
+        $this->tela($execucao)
             ->call('responder', $item->id, true)
             ->assertHasNoErrors();
 
@@ -54,7 +58,7 @@ class ExecutarChecklistTest extends TestCase
         $item = $execucao->itens()->sole();
         $this->actingAs($cozinheira);
 
-        Livewire::test(ExecutarChecklist::class, ['execucao' => $execucao->id])
+        $this->tela($execucao)
             ->set("respostas.{$item->id}", '-12')
             ->assertHasNoErrors()
             ->assertSeeText('descreva o problema');
@@ -74,7 +78,7 @@ class ExecutarChecklistTest extends TestCase
         $item = $execucao->itens()->sole();
         $this->actingAs($cozinheira);
 
-        Livewire::test(ExecutarChecklist::class, ['execucao' => $execucao->id])
+        $this->tela($execucao)
             ->call('responder', $item->id, 'quebrada')
             ->assertHasErrors(["respostas.{$item->id}"]);
 
@@ -89,7 +93,7 @@ class ExecutarChecklistTest extends TestCase
         $item = $execucao->itens()->sole();
         $this->actingAs($cozinheira);
 
-        Livewire::test(ExecutarChecklist::class, ['execucao' => $execucao->id])
+        $this->tela($execucao)
             ->set("observacoes.{$item->id}", 'Bancada com mancha.');
 
         $this->assertSame('Bancada com mancha.', $item->fresh()->observacao);
@@ -106,7 +110,7 @@ class ExecutarChecklistTest extends TestCase
         $item = $execucao->itens()->sole();
         $this->actingAs($cozinheira);
 
-        Livewire::test(ExecutarChecklist::class, ['execucao' => $execucao->id])
+        $this->tela($execucao)
             ->set("fotos.{$item->id}", UploadedFile::fake()->image('bancada.jpg', 1600, 1200))
             ->assertHasNoErrors()
             ->assertSet('fotos', []);
@@ -124,7 +128,7 @@ class ExecutarChecklistTest extends TestCase
         $item = $execucao->itens()->sole();
         $this->actingAs($cozinheira);
 
-        Livewire::test(ExecutarChecklist::class, ['execucao' => $execucao->id])
+        $this->tela($execucao)
             ->call('finalizar')
             ->assertSet('erros', [$item->id => ['Responda este item.']])
             ->assertDispatched('checklist-rolar-para', itemId: $item->id)
@@ -141,7 +145,7 @@ class ExecutarChecklistTest extends TestCase
         $item = $execucao->itens()->sole();
         $this->actingAs($cozinheira);
 
-        Livewire::test(ExecutarChecklist::class, ['execucao' => $execucao->id])
+        $this->tela($execucao)
             ->call('responder', $item->id, true)
             ->set('observacaoGeral', 'Tudo em ordem.')
             ->call('finalizar')
@@ -165,7 +169,7 @@ class ExecutarChecklistTest extends TestCase
         $servico->reprovar($execucao, User::factory()->gerente()->create(['name_first' => 'Gerente']), 'Bancada ainda suja.');
         $this->actingAs($cozinheira);
 
-        Livewire::test(ExecutarChecklist::class, ['execucao' => $execucao->id])
+        $this->tela($execucao)
             ->assertSeeText('Bancada ainda suja.')
             ->call('reabrir')
             ->assertSeeText('Finalizar checklist');
@@ -180,6 +184,56 @@ class ExecutarChecklistTest extends TestCase
         $this->actingAs(User::factory()->garcom()->create(['name_first' => 'Bruno']));
 
         $this->get(ExecutarChecklist::getUrl(['execucao' => $execucao->id]))->assertForbidden();
+    }
+
+    public function test_pagina_do_garcom_hospeda_a_execucao_no_layout_celular(): void
+    {
+        $this->travelTo('2026-10-13 16:10:00');
+        $cozinheira = $this->cozinheira();
+        $execucao = $this->execucao($cozinheira);
+        $this->actingAs($cozinheira);
+
+        $this->get(ExecutarChecklist::getUrl(['execucao' => $execucao->id]))
+            ->assertOk()
+            ->assertSeeLivewire(ExecucaoChecklist::class)
+            ->assertSeeText('Finalizar checklist')
+            ->assertDontSee('Seções do checklist');
+    }
+
+    public function test_layout_tablet_mostra_as_secoes_e_responde_em_nome_do_operador(): void
+    {
+        $this->travelTo('2026-10-13 16:10:00');
+        $estacao = User::factory()->create(['name_first' => 'Tablet Cozinha']);
+        $ana = Operador::doUsuario($this->cozinheira());
+        $execucao = app(ChecklistExecucaoService::class)->iniciar(
+            ChecklistModelo::factory()->comItens(1)->paraPapeis(['Cozinha'])->create(), $estacao, $ana);
+        $item = $execucao->itens()->sole();
+        $this->actingAs($estacao);
+
+        Livewire::test(ExecucaoChecklist::class, ['execucaoId' => $execucao->id, 'urlLista' => '/cozinha/checklists', 'layout' => 'tablet', 'operador' => $ana])
+            ->assertSee('Seções do checklist')
+            ->assertSeeText('Operador:')
+            ->assertSeeText('Ana')
+            ->call('responder', $item->id, true)
+            ->assertHasNoErrors();
+
+        $this->assertTrue($item->fresh()->conforme);
+    }
+
+    public function test_conta_da_estacao_sem_operador_so_le_o_checklist(): void
+    {
+        $this->travelTo('2026-10-13 16:10:00');
+        $execucao = $this->execucao($this->cozinheira());
+        $estacao = User::factory()->gerente()->create(['name_first' => 'Tablet Cozinha']);
+        $this->actingAs($estacao);
+
+        Livewire::test(ExecucaoChecklist::class, ['execucaoId' => $execucao->id, 'urlLista' => '/cozinha/checklists', 'layout' => 'tablet', 'operador' => new Operador(null, 3, 'Marcos')])
+            ->assertDontSeeText('Finalizar checklist');
+    }
+
+    private function tela(ChecklistExecucao $execucao): Testable
+    {
+        return Livewire::test(ExecucaoChecklist::class, ['execucaoId' => $execucao->id, 'urlLista' => ChecklistsDoDia::getUrl()]);
     }
 
     private function cozinheira(): User

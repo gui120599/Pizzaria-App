@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Checklist\ChecklistSetor;
 use App\Enums\Checklist\ChecklistTipo;
 use App\Enums\Checklist\ExecucaoStatus;
 use App\Enums\Checklist\ExigenciaFoto;
@@ -19,6 +20,7 @@ use App\Notifications\Checklist\ChecklistAguardandoAprovacaoNotification;
 use App\Notifications\Checklist\ChecklistItemCriticoNotification;
 use App\Notifications\Checklist\ChecklistNaoRealizadoNotification;
 use App\Services\Checklist\ChecklistExecucaoService;
+use App\Support\Cozinha\Operador;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -113,6 +115,48 @@ class ChecklistExecucaoServiceTest extends TestCase
         $this->expectExceptionObject(new ChecklistException('Você não está atribuído a este checklist.'));
 
         $this->servico()->iniciar($this->modeloCozinha(), $garcom);
+    }
+
+    public function test_no_tablet_compartilhado_valem_os_papeis_do_operador_e_nao_os_da_conta_da_estacao(): void
+    {
+        $this->travelTo('2026-10-13 16:10:00');
+        $estacao = User::factory()->create(['name_first' => 'Tablet Cozinha']);
+        $ana = Operador::doUsuario($this->cozinheira());
+
+        $execucao = $this->servico()->iniciar($this->modeloCozinha(), $estacao, $ana);
+        $item = $this->servico()->responder($execucao->itens()->sole(), ['valor' => true], $estacao, $ana);
+
+        $this->assertSame($estacao->id, $item->respondido_por);
+        $this->expectExceptionObject(new ChecklistException('Você não está atribuído a este checklist.'));
+        $this->servico()->finalizar($execucao, $estacao, null, Operador::doUsuario(User::factory()->garcom()->create(['name_first' => 'Bruno'])));
+    }
+
+    public function test_operador_sem_usuario_vinculado_nao_executa(): void
+    {
+        $this->travelTo('2026-10-13 16:10:00');
+
+        $this->expectExceptionObject(new ChecklistException('O operador não tem usuário vinculado para executar checklists.'));
+
+        $this->servico()->iniciar($this->modeloCozinha(), User::factory()->gerente()->create(['name_first' => 'Gerente']), new Operador(null, 7, 'Marcos'));
+    }
+
+    public function test_abertura_concluida_so_depois_de_finalizar_a_abertura_agendada_do_setor(): void
+    {
+        $this->travelTo('2026-10-13 16:10:00');
+        $dia = ChecklistExecucao::dataOperacional();
+        $this->assertTrue($this->servico()->aberturaConcluida(ChecklistSetor::Cozinha, $dia), 'Sem abertura agendada, não bloqueia.');
+        ChecklistModelo::factory()->tipo(ChecklistTipo::Fechamento)->comItens(1)->paraPapeis(['Cozinha'])->create();
+        ChecklistModelo::factory()->setor(ChecklistSetor::Salao)->comItens(1)->create();
+        $abertura = $this->modeloCozinha();
+        $cozinheira = $this->cozinheira();
+
+        $execucao = $this->servico()->iniciar($abertura, $cozinheira);
+        $this->assertFalse($this->servico()->aberturaConcluida(ChecklistSetor::Cozinha, $dia));
+
+        $this->servico()->responder($execucao->itens()->sole(), ['valor' => true], $cozinheira);
+        $this->servico()->finalizar($execucao, $cozinheira);
+        $this->assertTrue($this->servico()->aberturaConcluida(ChecklistSetor::Cozinha, $dia));
+        $this->assertFalse($this->servico()->aberturaConcluida(ChecklistSetor::Salao, $dia));
     }
 
     public function test_fechamento_feito_depois_da_meia_noite_pertence_ao_dia_anterior(): void

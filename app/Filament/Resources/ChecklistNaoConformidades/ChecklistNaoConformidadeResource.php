@@ -27,7 +27,7 @@ class ChecklistNaoConformidadeResource extends Resource
 
     protected static ?string $modelLabel = 'não conformidade';
 
-    protected static ?string $pluralModelLabel = 'não conformidades';
+    protected static ?string $pluralModelLabel = 'Não conformidades';
 
     protected static bool $hasTitleCaseModelLabel = false;
 

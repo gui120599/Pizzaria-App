@@ -42,6 +42,11 @@ class ChecklistModelosTable
                     ->label('Setor')
                     ->badge()
                     ->sortable(),
+                TextColumn::make('painel')
+                    ->label('Painel')
+                    ->badge()
+                    ->color('gray')
+                    ->state(fn (ChecklistModelo $record): string => $record->painelDescricao()),
                 TextColumn::make('dias_semana')
                     ->label('Dias')
                     ->state(fn (ChecklistModelo $record): string => $record->diasSemanaDescricao()),
@@ -73,6 +78,12 @@ class ChecklistModelosTable
                 SelectFilter::make('setor')
                     ->label('Setor')
                     ->options(ChecklistSetor::class),
+                SelectFilter::make('painel')
+                    ->label('Painel')
+                    ->options(ChecklistModelo::opcoesDePainel())
+                    ->query(fn (Builder $query, array $data): Builder => filled($data['value'])
+                        ? $query->paraPainel($data['value'])
+                        : $query),
                 TernaryFilter::make('ativo')
                     ->label('Ativo'),
                 TrashedFilter::make(),

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Checklist\ChecklistSetor;
 use App\Models\ChecklistModelo;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,5 +40,29 @@ class ChecklistModeloTest extends TestCase
 
         $this->assertSame([$cozinha->id], $daCozinheira);
         $this->assertSame([$cozinha->id, $salao->id], $doGerente);
+    }
+
+    public function test_sem_o_modulo_de_cozinha_o_garcom_continua_vendo_os_checklists_da_cozinha(): void
+    {
+        $cozinha = ChecklistModelo::factory()->setor(ChecklistSetor::Cozinha)->create();
+        $salao = ChecklistModelo::factory()->setor(ChecklistSetor::Salao)->create();
+
+        $this->assertEqualsCanonicalizing([$cozinha->id, $salao->id], ChecklistModelo::paraPainel(ChecklistModelo::PAINEL_GARCOM)->pluck('id')->all());
+        $this->assertSame([$cozinha->id], ChecklistModelo::paraPainel(ChecklistModelo::PAINEL_COZINHA)->pluck('id')->all());
+        $this->assertSame('Cozinha e Garçom', $cozinha->painelDescricao());
+    }
+
+    public function test_com_o_painel_cozinha_os_checklists_da_cozinha_saem_do_garcom(): void
+    {
+        config(['cozinha.checklists.exibir_tambem_no_garcom' => false, 'cozinha.checklists.setores_checklist' => ['cozinha', 'delivery']]);
+        $cozinha = ChecklistModelo::factory()->setor(ChecklistSetor::Cozinha)->create();
+        $delivery = ChecklistModelo::factory()->setor(ChecklistSetor::Delivery)->create();
+        $salao = ChecklistModelo::factory()->setor(ChecklistSetor::Salao)->create();
+
+        $this->assertSame([$salao->id], ChecklistModelo::paraPainel(ChecklistModelo::PAINEL_GARCOM)->pluck('id')->all());
+        $this->assertEqualsCanonicalizing([$cozinha->id, $delivery->id], ChecklistModelo::paraPainel(ChecklistModelo::PAINEL_COZINHA)->pluck('id')->all());
+        $this->assertSame(3, ChecklistModelo::paraPainel(ChecklistModelo::PAINEL_ADMIN)->count());
+        $this->assertSame('Cozinha', $cozinha->painelDescricao());
+        $this->assertSame('Garçom', $salao->painelDescricao());
     }
 }

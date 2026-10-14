@@ -2,20 +2,16 @@
 
 namespace App\Filament\Garcom\Pages;
 
-use App\Exceptions\ChecklistException;
 use App\Models\ChecklistModelo;
-use App\Services\Checklist\ChecklistExecucaoService;
 use App\Services\Checklist\ChecklistsDoDiaService;
 use BackedEnum;
-use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Attributes\Computed;
 
 /**
- * Checklists do dia operacional para os papéis do usuário: em andamento →
- * pendentes na janela → futuros → encerrados; sob demanda em "Outros".
+ * Checklists do dia no /garcom. A lista é o componente compartilhado
+ * App\Livewire\Checklists\ChecklistsDoDia, no escopo do painel garçom.
  */
 class ChecklistsDoDia extends Page
 {
@@ -39,7 +35,7 @@ class ChecklistsDoDia extends Page
             return null;
         }
 
-        $pendentes = app(ChecklistsDoDiaService::class)->pendentesNaJanela($user);
+        $pendentes = app(ChecklistsDoDiaService::class)->pendentesNaJanela($user, ChecklistModelo::PAINEL_GARCOM);
 
         return $pendentes > 0 ? (string) $pendentes : null;
     }
@@ -47,27 +43,5 @@ class ChecklistsDoDia extends Page
     public static function getNavigationBadgeColor(): ?string
     {
         return 'warning';
-    }
-
-    /** @return array{hoje: list<array<string, mixed>>, outros: list<ChecklistModelo>} */
-    #[Computed]
-    public function checklists(): array
-    {
-        return app(ChecklistsDoDiaService::class)->para(Auth::user());
-    }
-
-    public function iniciar(int $modeloId): void
-    {
-        $modelo = ChecklistModelo::findOrFail($modeloId);
-
-        try {
-            $execucao = app(ChecklistExecucaoService::class)->iniciar($modelo, Auth::user());
-        } catch (ChecklistException $e) {
-            Notification::make()->title($e->getMessage())->danger()->send();
-
-            return;
-        }
-
-        $this->redirect(ExecutarChecklist::getUrl(['execucao' => $execucao->id]), navigate: true);
     }
 }

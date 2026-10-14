@@ -7,12 +7,14 @@ use App\Enums\Checklist\ChecklistTipo;
 use App\Enums\Checklist\ExecucaoStatus;
 use App\Filament\Garcom\Pages\ChecklistsDoDia;
 use App\Filament\Garcom\Pages\ExecutarChecklist;
+use App\Livewire\Checklists\ChecklistsDoDia as ListaDeChecklists;
 use App\Models\ChecklistExecucao;
 use App\Models\ChecklistModelo;
 use App\Models\User;
 use App\Services\Checklist\ChecklistExecucaoService;
 use App\Services\Checklist\ChecklistsDoDiaService;
 use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -86,7 +88,7 @@ class ChecklistsDoDiaTest extends TestCase
         $modelo = $this->modelo('Abertura cozinha', '16:30:00', '18:30:00');
         $this->actingAs($cozinheira);
 
-        $pagina = Livewire::test(ChecklistsDoDia::class)->call('iniciar', $modelo->id);
+        $pagina = Livewire::test(ListaDeChecklists::class, ['paginaExecucao' => ExecutarChecklist::class])->call('iniciar', $modelo->id);
 
         $execucao = ChecklistExecucao::sole();
         $pagina->assertRedirect(ExecutarChecklist::getUrl(['execucao' => $execucao->id]));
@@ -100,7 +102,7 @@ class ChecklistsDoDiaTest extends TestCase
         $modelo = $this->modelo('Abertura salão', '16:30:00', '18:30:00', ['Garcom']);
         $this->actingAs($this->cozinheira());
 
-        Livewire::test(ChecklistsDoDia::class)
+        Livewire::test(ListaDeChecklists::class, ['paginaExecucao' => ExecutarChecklist::class])
             ->call('iniciar', $modelo->id)
             ->assertNotified('Você não está atribuído a este checklist.')
             ->assertNoRedirect();
@@ -144,6 +146,36 @@ class ChecklistsDoDiaTest extends TestCase
         $pendencias = app(ChecklistsDoDiaService::class)->pendenciasDoUltimoFechamento($abertura);
 
         $this->assertNull($pendencias['fechamento']);
+    }
+
+    public function test_com_o_painel_cozinha_ligado_a_lista_do_garcom_esconde_os_checklists_da_cozinha(): void
+    {
+        $this->travelTo('2026-10-13 17:00:00');
+        config(['cozinha.checklists.exibir_tambem_no_garcom' => false]);
+        $gerente = User::factory()->gerente()->create(['name_first' => 'Gerente']);
+        $cozinha = ChecklistModelo::factory()->setor(ChecklistSetor::Cozinha)->comItens(1)->create(['nome' => 'Abertura cozinha']);
+        ChecklistModelo::factory()->setor(ChecklistSetor::Salao)->comItens(1)->create(['nome' => 'Abertura salão']);
+        $this->actingAs($gerente);
+
+        $lista = Livewire::test(ListaDeChecklists::class, ['paginaExecucao' => ExecutarChecklist::class])
+            ->assertSeeText('Abertura salão')
+            ->assertDontSeeText('Abertura cozinha');
+
+        $this->expectException(ModelNotFoundException::class);
+        $lista->call('iniciar', $cozinha->id);
+    }
+
+    public function test_pagina_do_garcom_hospeda_a_lista_com_o_historico(): void
+    {
+        $this->travelTo('2026-10-13 17:00:00');
+        $this->modelo('Abertura cozinha', '16:30:00', '18:30:00');
+        $this->actingAs($this->cozinheira());
+
+        $this->get(ChecklistsDoDia::getUrl())
+            ->assertOk()
+            ->assertSeeLivewire(ListaDeChecklists::class)
+            ->assertSeeText('Abertura cozinha')
+            ->assertSeeText('Meu histórico de checklists');
     }
 
     private function cozinheira(): User

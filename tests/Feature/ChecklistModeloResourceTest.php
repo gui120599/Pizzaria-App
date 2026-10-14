@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Checklist\ChecklistSetor;
 use App\Enums\Checklist\TipoResposta;
 use App\Filament\Resources\ChecklistModelos\ChecklistModeloResource;
 use App\Filament\Resources\ChecklistModelos\Pages\CreateChecklistModelo;
@@ -142,6 +143,20 @@ class ChecklistModeloResourceTest extends TestCase
         $this->actingAs(User::factory()->atendente()->create(['name_first' => 'Carla']));
 
         $this->get(ChecklistModeloResource::getUrl('index'))->assertForbidden();
+    }
+
+    public function test_filtro_de_painel_separa_os_checklists_da_cozinha(): void
+    {
+        config(['cozinha.checklists.exibir_tambem_no_garcom' => false]);
+        $cozinha = ChecklistModelo::factory()->setor(ChecklistSetor::Cozinha)->create();
+        $salao = ChecklistModelo::factory()->setor(ChecklistSetor::Salao)->create();
+        $this->actingAs($this->gerente());
+
+        Livewire::test(ListChecklistModelos::class)
+            ->assertTableColumnStateSet('painel', 'Cozinha', $cozinha)
+            ->filterTable('painel', ChecklistModelo::PAINEL_GARCOM)
+            ->assertCanSeeTableRecords([$salao])
+            ->assertCanNotSeeTableRecords([$cozinha]);
     }
 
     private function gerente(): User

@@ -29,7 +29,7 @@ class ChecklistModeloResource extends Resource
 
     protected static ?string $modelLabel = 'modelo de checklist';
 
-    protected static ?string $pluralModelLabel = 'modelos de checklist';
+    protected static ?string $pluralModelLabel = 'Modelos de checklist';
 
     protected static bool $hasTitleCaseModelLabel = false;
 
