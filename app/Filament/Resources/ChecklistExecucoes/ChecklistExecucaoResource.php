@@ -27,7 +27,7 @@ class ChecklistExecucaoResource extends Resource
 
     protected static ?string $modelLabel = 'execução de checklist';
 
-    protected static ?string $pluralModelLabel = 'execuções de checklist';
+    protected static ?string $pluralModelLabel = 'Execuções de checklist';
 
     protected static bool $hasTitleCaseModelLabel = false;
 

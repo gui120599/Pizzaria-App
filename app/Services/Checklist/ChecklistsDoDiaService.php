@@ -13,6 +13,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Leitura do /garcom: os checklists do dia operacional para o usuário e as
@@ -33,17 +34,19 @@ class ChecklistsDoDiaService
     /**
      * Cartões do dia (execuções de hoje + modelos agendados que ainda não têm
      * execução) e os modelos que podem ser iniciados a qualquer momento (sob
-     * demanda ou com várias execuções por dia).
+     * demanda ou com várias execuções por dia), no escopo do painel
+     * (ChecklistModelo::paraPainel).
      *
      * @return array{hoje: list<array{chave: string, modelo_id: int, execucao_id: ?int, nome: string, tipo: ChecklistTipo, setor: ChecklistSetor, janela: ?string, status: ExecucaoStatus, respondidos: int, total: int, situacao: string}>, outros: list<ChecklistModelo>}
      */
-    public function para(User $user, ?CarbonInterface $agora = null): array
+    public function para(User $user, string $painel = ChecklistModelo::PAINEL_GARCOM, ?Model $dispositivo = null, ?CarbonInterface $agora = null): array
     {
         $agora = CarbonImmutable::instance($agora ?? now());
         $dia = ChecklistExecucao::dataOperacional($agora);
 
         $modelos = ChecklistModelo::query()
             ->ativos()
+            ->paraPainel($painel, $dispositivo)
             ->disponiveisPara($user)
             ->withCount('itens')
             ->with(['execucoes' => fn ($execucoes) => $execucoes->doDia($dia)->orderBy('id')])
@@ -74,9 +77,9 @@ class ChecklistsDoDiaService
     }
 
     /** Checklists pendentes cuja janela está aberta agora (badge da navegação). */
-    public function pendentesNaJanela(User $user, ?CarbonInterface $agora = null): int
+    public function pendentesNaJanela(User $user, string $painel = ChecklistModelo::PAINEL_GARCOM, ?Model $dispositivo = null, ?CarbonInterface $agora = null): int
     {
-        return collect($this->para($user, $agora)['hoje'])
+        return collect($this->para($user, $painel, $dispositivo, $agora)['hoje'])
             ->where('situacao', self::NA_JANELA)
             ->count();
     }

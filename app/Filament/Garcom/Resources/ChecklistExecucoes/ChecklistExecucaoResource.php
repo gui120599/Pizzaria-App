@@ -30,7 +30,7 @@ class ChecklistExecucaoResource extends Resource
 
     protected static ?string $modelLabel = 'checklist';
 
-    protected static ?string $pluralModelLabel = 'meus checklists';
+    protected static ?string $pluralModelLabel = 'Meus checklists';
 
     protected static bool $hasTitleCaseModelLabel = false;
 

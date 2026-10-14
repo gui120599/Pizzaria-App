@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Spatie\Permission\Models\Role;
 
 /**
@@ -49,6 +50,49 @@ class ChecklistModelo extends Model
         'ativo',
         'criado_por',
     ];
+
+    /** Painéis onde um checklist pode ser executado ou consultado (ver scopeParaPainel). */
+    public const PAINEL_ADMIN = 'admin';
+
+    public const PAINEL_GARCOM = 'garcom';
+
+    public const PAINEL_COZINHA = 'cozinha';
+
+    /**
+     * Setores executados nos tablets da cozinha. Enquanto o módulo de cozinha
+     * (config/cozinha.php) não existir, vale o padrão do spec.
+     *
+     * @return list<string>
+     */
+    public static function setoresDaCozinha(): array
+    {
+        return array_values((array) config('cozinha.checklists.setores_checklist', [ChecklistSetor::Cozinha->value]));
+    }
+
+    /**
+     * Sem o painel cozinha instalado, os checklists da cozinha continuam no
+     * /garcom (padrão true); o config do módulo de cozinha desliga.
+     */
+    public static function cozinhaTambemNoGarcom(): bool
+    {
+        return (bool) config('cozinha.checklists.exibir_tambem_no_garcom', true);
+    }
+
+    /** @return array<string, string> painéis de execução, para filtros do admin */
+    public static function opcoesDePainel(): array
+    {
+        return [self::PAINEL_GARCOM => 'Garçom', self::PAINEL_COZINHA => 'Cozinha'];
+    }
+
+    /** "Garçom", "Cozinha" ou "Cozinha e Garçom" (coluna Painel do admin). */
+    public function painelDescricao(): string
+    {
+        if (! in_array($this->setor->value, self::setoresDaCozinha(), true)) {
+            return 'Garçom';
+        }
+
+        return self::cozinhaTambemNoGarcom() ? 'Cozinha e Garçom' : 'Cozinha';
+    }
 
     /** Rótulos curtos dos dias ISO (1=seg … 7=dom). */
     public const DIAS_SEMANA = [1 => 'Seg', 2 => 'Ter', 3 => 'Qua', 4 => 'Qui', 5 => 'Sex', 6 => 'Sáb', 7 => 'Dom'];
@@ -118,6 +162,25 @@ class ChecklistModelo extends Model
     public function scopeAtivos(Builder $query): Builder
     {
         return $query->where('ativo', true);
+    }
+
+    /**
+     * Onde o modelo é executado: no admin todos; nos tablets da cozinha os
+     * dos setores da cozinha; no garçom os demais (os da cozinha só com
+     * `cozinha.checklists.exibir_tambem_no_garcom`). O filtro por setor de
+     * produção do tablet ($dispositivo) entra com o módulo de cozinha, junto
+     * com a coluna `setor_producao_id`.
+     */
+    public function scopeParaPainel(Builder $query, string $painel, ?Model $dispositivo = null): Builder
+    {
+        return match ($painel) {
+            self::PAINEL_ADMIN => $query,
+            self::PAINEL_COZINHA => $query->whereIn('setor', self::setoresDaCozinha()),
+            self::PAINEL_GARCOM => self::cozinhaTambemNoGarcom()
+                ? $query
+                : $query->whereNotIn('setor', self::setoresDaCozinha()),
+            default => throw new InvalidArgumentException("Painel de checklist desconhecido: {$painel}."),
+        };
     }
 
     /** Modelos que o usuário pode executar: gestores veem todos; os demais, só os atribuídos às suas roles. */

@@ -7,6 +7,7 @@ use App\Models\ChecklistExecucao;
 use App\Models\ChecklistModelo;
 use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
@@ -63,6 +64,14 @@ class ChecklistsHojeWidget extends TableWidget
                     ->label('Iniciado por')
                     ->state(fn (ChecklistModelo $record): ?string => $record->execucoes->first()?->iniciadoPor?->name)
                     ->placeholder('—'),
+            ])
+            ->filters([
+                SelectFilter::make('painel')
+                    ->label('Painel')
+                    ->options(ChecklistModelo::opcoesDePainel())
+                    ->query(fn (Builder $query, array $data): Builder => filled($data['value'])
+                        ? $query->paraPainel($data['value'])
+                        : $query),
             ]);
     }
 }

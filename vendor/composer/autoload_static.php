@@ -628,8 +628,8 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         ),
         'League\\Uri\\' => 
         array (
-            0 => __DIR__ . '/..' . '/league/uri',
-            1 => __DIR__ . '/..' . '/league/uri-interfaces',
+            0 => __DIR__ . '/..' . '/league/uri-interfaces',
+            1 => __DIR__ . '/..' . '/league/uri',
             2 => __DIR__ . '/..' . '/league/uri-components',
         ),
         'League\\MimeTypeDetection\\' => 
@@ -1401,6 +1401,8 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Http\\Requests\\UpdateVendaRequest' => __DIR__ . '/../..' . '/app/Http/Requests/UpdateVendaRequest.php',
         'App\\Jobs\\EmitirNfeAutomaticaJob' => __DIR__ . '/../..' . '/app/Jobs/EmitirNfeAutomaticaJob.php',
         'App\\Livewire\\AcompanhamentoPedido' => __DIR__ . '/../..' . '/app/Livewire/AcompanhamentoPedido.php',
+        'App\\Livewire\\Checklists\\ChecklistsDoDia' => __DIR__ . '/../..' . '/app/Livewire/Checklists/ChecklistsDoDia.php',
+        'App\\Livewire\\Checklists\\ExecucaoChecklist' => __DIR__ . '/../..' . '/app/Livewire/Checklists/ExecucaoChecklist.php',
         'App\\Livewire\\ClientePicker' => __DIR__ . '/../..' . '/app/Livewire/ClientePicker.php',
         'App\\Livewire\\ConfirmacoesPedidos' => __DIR__ . '/../..' . '/app/Livewire/ConfirmacoesPedidos.php',
         'App\\Livewire\\EntregaPagamentoPicker' => __DIR__ . '/../..' . '/app/Livewire/EntregaPagamentoPicker.php',
@@ -1632,6 +1634,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Services\\TaxaServicoVendaService' => __DIR__ . '/../..' . '/app/Services/TaxaServicoVendaService.php',
         'App\\Services\\VendaService' => __DIR__ . '/../..' . '/app/Services/VendaService.php',
         'App\\Support\\ContaMesa' => __DIR__ . '/../..' . '/app/Support/ContaMesa.php',
+        'App\\Support\\Cozinha\\Operador' => __DIR__ . '/../..' . '/app/Support/Cozinha/Operador.php',
         'App\\Support\\CustoUnitarioFormatter' => __DIR__ . '/../..' . '/app/Support/CustoUnitarioFormatter.php',
         'App\\Support\\DiasUteis' => __DIR__ . '/../..' . '/app/Support/DiasUteis.php',
         'App\\Support\\ExpansaoSabores' => __DIR__ . '/../..' . '/app/Support/ExpansaoSabores.php',

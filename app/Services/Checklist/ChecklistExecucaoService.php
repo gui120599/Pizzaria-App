@@ -2,6 +2,8 @@
 
 namespace App\Services\Checklist;
 
+use App\Enums\Checklist\ChecklistSetor;
+use App\Enums\Checklist\ChecklistTipo;
 use App\Enums\Checklist\ExecucaoStatus;
 use App\Enums\Checklist\ExigenciaFoto;
 use App\Enums\Checklist\NaoConformidadeStatus;
@@ -17,6 +19,7 @@ use App\Models\User;
 use App\Notifications\Checklist\ChecklistAguardandoAprovacaoNotification;
 use App\Notifications\Checklist\ChecklistItemCriticoNotification;
 use App\Notifications\Checklist\ChecklistNaoRealizadoNotification;
+use App\Support\Cozinha\Operador;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
@@ -80,9 +83,9 @@ class ChecklistExecucaoService
      * de uma execução por dia: reaproveita a do dia em qualquer status. Modelo
      * de várias execuções: reaproveita uma pendente do dia ou cria outra.
      */
-    public function iniciar(ChecklistModelo $modelo, User $user): ChecklistExecucao
+    public function iniciar(ChecklistModelo $modelo, User $user, ?Operador $operador = null): ChecklistExecucao
     {
-        $this->garantirExecutor($modelo, $user);
+        $this->garantirExecutor($modelo, $user, $operador);
 
         if (! $modelo->ativo) {
             throw new ChecklistException('Este checklist está desativado.');
@@ -128,13 +131,13 @@ class ChecklistExecucaoService
      *
      * @param  array{valor?: mixed, observacao?: ?string}  $dados
      */
-    public function responder(ChecklistExecucaoItem $item, array $dados, User $user): ChecklistExecucaoItem
+    public function responder(ChecklistExecucaoItem $item, array $dados, User $user, ?Operador $operador = null): ChecklistExecucaoItem
     {
         $virouCriticoNaoConforme = false;
 
-        $item = DB::transaction(function () use ($item, $dados, $user, &$virouCriticoNaoConforme): ChecklistExecucaoItem {
+        $item = DB::transaction(function () use ($item, $dados, $user, $operador, &$virouCriticoNaoConforme): ChecklistExecucaoItem {
             $execucao = $this->travarExecucao($item->checklist_execucao_id);
-            $this->garantirAceitaRespostas($execucao, $user);
+            $this->garantirAceitaRespostas($execucao, $user, $operador);
 
             $item = $execucao->itens()->whereKey($item->id)->firstOrFail();
             $conformeAntes = $item->conforme;
@@ -164,7 +167,7 @@ class ChecklistExecucaoService
         return $item;
     }
 
-    public function anexarFoto(ChecklistExecucaoItem $item, UploadedFile $arquivo, User $user): ChecklistAnexo
+    public function anexarFoto(ChecklistExecucaoItem $item, UploadedFile $arquivo, User $user, ?Operador $operador = null): ChecklistAnexo
     {
         Validator::make(
             ['foto' => $arquivo],
@@ -175,15 +178,15 @@ class ChecklistExecucaoService
             ],
         )->validate();
 
-        $this->garantirAceitaRespostas($item->execucao, $user);
+        $this->garantirAceitaRespostas($item->execucao, $user, $operador);
 
         $disco = (string) config('checklists.disco');
         $caminho = $arquivo->store('checklists/'.$item->checklist_execucao_id, $disco);
 
         try {
-            return DB::transaction(function () use ($item, $arquivo, $user, $disco, $caminho): ChecklistAnexo {
+            return DB::transaction(function () use ($item, $arquivo, $user, $operador, $disco, $caminho): ChecklistAnexo {
                 $execucao = $this->travarExecucao($item->checklist_execucao_id);
-                $this->garantirAceitaRespostas($execucao, $user);
+                $this->garantirAceitaRespostas($execucao, $user, $operador);
 
                 $item = $execucao->itens()->whereKey($item->id)->firstOrFail();
 
@@ -212,12 +215,12 @@ class ChecklistExecucaoService
         }
     }
 
-    public function removerAnexo(ChecklistAnexo $anexo, User $user): void
+    public function removerAnexo(ChecklistAnexo $anexo, User $user, ?Operador $operador = null): void
     {
-        DB::transaction(function () use ($anexo, $user): void {
+        DB::transaction(function () use ($anexo, $user, $operador): void {
             $item = $anexo->execucaoItem;
             $execucao = $this->travarExecucao($item->checklist_execucao_id);
-            $this->garantirAceitaRespostas($execucao, $user);
+            $this->garantirAceitaRespostas($execucao, $user, $operador);
 
             $anexo->delete();
 
@@ -273,11 +276,11 @@ class ChecklistExecucaoService
     /**
      * @throws ChecklistFinalizacaoException quando há pendências nos itens
      */
-    public function finalizar(ChecklistExecucao $execucao, User $user, ?string $observacaoGeral = null): ChecklistExecucao
+    public function finalizar(ChecklistExecucao $execucao, User $user, ?string $observacaoGeral = null, ?Operador $operador = null): ChecklistExecucao
     {
-        $execucao = DB::transaction(function () use ($execucao, $user, $observacaoGeral): ChecklistExecucao {
+        $execucao = DB::transaction(function () use ($execucao, $user, $observacaoGeral, $operador): ChecklistExecucao {
             $execucao = $this->travarExecucao($execucao->id);
-            $this->garantirAceitaRespostas($execucao, $user);
+            $this->garantirAceitaRespostas($execucao, $user, $operador);
 
             $erros = $this->validarFinalizacao($execucao);
 
@@ -342,11 +345,11 @@ class ChecklistExecucaoService
     }
 
     /** Execução reprovada volta a aceitar respostas (o motivo continua registrado). */
-    public function reabrir(ChecklistExecucao $execucao, User $user): ChecklistExecucao
+    public function reabrir(ChecklistExecucao $execucao, User $user, ?Operador $operador = null): ChecklistExecucao
     {
-        return DB::transaction(function () use ($execucao, $user): ChecklistExecucao {
+        return DB::transaction(function () use ($execucao, $user, $operador): ChecklistExecucao {
             $execucao = $this->travarExecucao($execucao->id);
-            $this->garantirExecutor($execucao->modelo, $user);
+            $this->garantirExecutor($execucao->modelo, $user, $operador);
 
             if ($execucao->status !== ExecucaoStatus::Reprovado) {
                 throw new ChecklistException('Só é possível reabrir um checklist reprovado.');
@@ -411,6 +414,28 @@ class ChecklistExecucaoService
         }
 
         return $expiradas->count();
+    }
+
+    /**
+     * A abertura do setor no dia operacional já foi feita? Cada modelo de
+     * abertura ativo e agendado para o dia precisa de uma execução concluída
+     * (com ou sem pendências) ou aprovada. Setor sem abertura agendada não
+     * bloqueia nada. Consultado pelo módulo de cozinha antes de iniciar a
+     * produção, quando o bloqueio estiver ligado.
+     */
+    public function aberturaConcluida(ChecklistSetor $setor, CarbonInterface $dia): bool
+    {
+        $dia = CarbonImmutable::instance($dia)->startOfDay();
+
+        return ChecklistModelo::query()
+            ->ativos()
+            ->agendadosPara($dia)
+            ->where('tipo', ChecklistTipo::Abertura)
+            ->where('setor', $setor)
+            ->whereDoesntHave('execucoes', fn ($execucoes) => $execucoes
+                ->doDia($dia)
+                ->whereIn('status', [ExecucaoStatus::Concluido, ExecucaoStatus::ConcluidoComPendencias, ExecucaoStatus::Aprovado]))
+            ->doesntExist();
     }
 
     /**
@@ -639,16 +664,26 @@ class ChecklistExecucaoService
         return ChecklistExecucao::whereKey($id)->lockForUpdate()->firstOrFail();
     }
 
-    private function garantirExecutor(ChecklistModelo $modelo, User $user): void
+    /**
+     * Com operador (tablet compartilhado), valem os papéis da pessoa, não os
+     * da conta da estação.
+     */
+    private function garantirExecutor(ChecklistModelo $modelo, User $user, ?Operador $operador = null): void
     {
-        if (! $modelo->podeSerExecutadoPor($user)) {
+        $executor = $operador === null ? $user : $operador->usuario();
+
+        if ($executor === null) {
+            throw new ChecklistException('O operador não tem usuário vinculado para executar checklists.');
+        }
+
+        if (! $modelo->podeSerExecutadoPor($executor)) {
             throw new ChecklistException('Você não está atribuído a este checklist.');
         }
     }
 
-    private function garantirAceitaRespostas(ChecklistExecucao $execucao, User $user): void
+    private function garantirAceitaRespostas(ChecklistExecucao $execucao, User $user, ?Operador $operador = null): void
     {
-        $this->garantirExecutor($execucao->modelo, $user);
+        $this->garantirExecutor($execucao->modelo, $user, $operador);
 
         if ($execucao->status->aceitaRespostas()) {
             return;
