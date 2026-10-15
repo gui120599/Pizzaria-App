@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\AdicionaisItemPedido;
 use App\Models\ItensPedido;
 use App\Services\Cozinha\RoteadorProducao;
+use App\Support\Cozinha\ModuloCozinha;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -53,7 +54,7 @@ class ItemPedidoProducaoObserver
     {
         $itemId = $model instanceof AdicionaisItemPedido ? $model->aip_item_pedido_id : $model->getKey();
 
-        if ($itemId === null) {
+        if ($itemId === null || ! ModuloCozinha::ativo()) {
             return;
         }
 

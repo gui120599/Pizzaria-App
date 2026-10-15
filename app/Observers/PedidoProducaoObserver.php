@@ -6,6 +6,7 @@ use App\Models\Pedido;
 use App\Services\Cozinha\PedidoStatusGateway;
 use App\Services\Cozinha\ProducaoService;
 use App\Services\Cozinha\RoteadorProducao;
+use App\Support\Cozinha\ModuloCozinha;
 use App\Support\Cozinha\SincronizacaoContexto;
 use Illuminate\Support\Facades\DB;
 
@@ -22,7 +23,7 @@ class PedidoProducaoObserver
 
     public function created(Pedido $pedido): void
     {
-        if (! SincronizacaoContexto::ativo() && $this->gateway->liberaProducao($pedido)) {
+        if (ModuloCozinha::ativo() && ! SincronizacaoContexto::ativo() && $this->gateway->liberaProducao($pedido)) {
             $this->depoisDoCommit(fn () => app(RoteadorProducao::class)->gerarParaPedido($pedido));
         }
     }
@@ -44,8 +45,11 @@ class PedidoProducaoObserver
     {
         $gateway = app(PedidoStatusGateway::class);
 
+        // Módulo desligado: não gera nada novo, mas segue encerrando os itens
+        // que já existiam, para não reaparecerem quando a cozinha for ligada.
         $acao = match (true) {
             $gateway->estaCancelado($pedido) => fn () => app(RoteadorProducao::class)->cancelarPedido($pedido),
+            ! ModuloCozinha::ativo() && $gateway->liberaProducao($pedido) => null,
             $gateway->liberaProducao($pedido) => fn () => app(RoteadorProducao::class)->gerarParaPedido($pedido),
             $gateway->jaSaiuDaCozinha($pedido) => fn () => app(ProducaoService::class)->forcarPeloPainel($pedido, expedir: true),
             $gateway->estaPronto($pedido) => fn () => app(ProducaoService::class)->forcarPeloPainel($pedido, expedir: false),

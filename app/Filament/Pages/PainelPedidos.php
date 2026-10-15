@@ -12,6 +12,7 @@ use App\Models\LinhaProducao;
 use App\Models\Pedido;
 use App\Models\User;
 use App\Services\Cozinha\CozinhaTempoReal;
+use App\Support\Cozinha\ModuloCozinha;
 use App\Support\JanelaOperacional;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -738,7 +739,7 @@ class PainelPedidos extends Page implements HasActions
             ])
             // "3/5 prontos" no card: só as linhas da última etapa contam (a
             // pizza que saiu da montagem e foi pro forno ainda não está pronta).
-            ->withCount([
+            ->when(ModuloCozinha::ativo(), fn (Builder $q) => $q->withCount([
                 'producaoItens as producao_total' => fn (Builder $q) => $q
                     ->where('status', '!=', StatusItemProducao::Cancelado->value)
                     ->whereColumn('etapa', 'etapa_total'),
@@ -748,7 +749,7 @@ class PainelPedidos extends Page implements HasActions
                 'producaoItens as producao_segurados' => fn (Builder $q) => $q
                     ->where('status', StatusItemProducao::Aguardando->value)
                     ->where('etapa', 1),
-            ])
+            ]))
             ->with([
                 'opcaoEntrega:id,opcaoentrega_nome,opcaoentrega_requer_endereco',
                 'sessaoMesa:id,sessao_mesa_mesa_id',

@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
+use App\Support\Cozinha\ModuloCozinha;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
@@ -40,7 +41,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     public function canAccessPanel(Panel $panel): bool
     {
         if ($panel->getId() === 'cozinha') {
-            return $this->hasAnyRole(self::COZINHA_PANEL_ROLES);
+            return ModuloCozinha::ativo() && $this->hasAnyRole(self::COZINHA_PANEL_ROLES);
         }
 
         if ($panel->getId() === 'garcom') {

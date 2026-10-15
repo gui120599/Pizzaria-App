@@ -4,6 +4,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Módulo ligado
+    |--------------------------------------------------------------------------
+    |
+    | false (padrão): a loja trabalha como antes do módulo — pedido não gera
+    | item de produção, o Painel de Pedidos não pergunta por itens na cozinha
+    | nem mostra a faixa de produção, o garçom não vê os chips e o /cozinha
+    | fica fechado. Cadastros (setores, rotas, fichas) continuam no admin para
+    | preparar a virada. Itens que já existiam só são encerrados/cancelados
+    | quando o pedido anda (nada novo é gerado).
+    |
+    | Ligar com COZINHA_ATIVO=true quando os tablets estiverem pareados.
+    |
+    */
+
+    'ativo' => env('COZINHA_ATIVO', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Mapeamento para o status real do pedido
     |--------------------------------------------------------------------------
     |

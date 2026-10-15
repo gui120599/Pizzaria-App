@@ -12,6 +12,7 @@ use App\Models\Produto;
 use App\Models\SetorProducao;
 use App\Models\User;
 use App\Services\Cozinha\RelatorioProducaoService;
+use App\Support\Cozinha\ModuloCozinha;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -50,7 +51,7 @@ class RelatorioProducao extends BaseDashboard
 
     public static function canAccess(): bool
     {
-        return Gate::allows('verRelatorio', ProducaoItem::class);
+        return ModuloCozinha::ativo() && Gate::allows('verRelatorio', ProducaoItem::class);
     }
 
     public function filtersForm(Schema $schema): Schema

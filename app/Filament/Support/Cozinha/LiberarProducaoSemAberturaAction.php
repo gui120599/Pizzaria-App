@@ -25,7 +25,7 @@ class LiberarProducaoSemAberturaAction
             ->label('Liberar produção sem abertura')
             ->icon(Heroicon::OutlinedLockOpen)
             ->color('warning')
-            ->visible(fn (): bool => (bool) config('cozinha.checklists.bloquear_producao_sem_abertura')
+            ->visible(fn (): bool => (bool) config('cozinha.ativo') && (bool) config('cozinha.checklists.bloquear_producao_sem_abertura')
                 && Gate::allows('liberarSemAbertura', ProducaoItem::class))
             ->modalDescription('Libera o "Iniciar" no tablet do setor hoje, sem o checklist de abertura concluído.')
             ->schema([
