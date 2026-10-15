@@ -19,6 +19,14 @@ trait PreparaLancamento
      */
     protected function prepararDados(array $data, ?Lancamento $record = null): array
     {
+        // Título de repasse/vale do ponto: tipo, favorecido e valor vêm da origem
+        // (campos desabilitados no form; o model também recusa a mudança).
+        if ($record !== null && ($record->repasse_id !== null || $record->adiantamento_id !== null)) {
+            $data['tipo'] = $record->tipo;
+            $data['favorecido_id'] = $record->favorecido_id;
+            $data['valor'] = (string) $record->valor;
+        }
+
         // Normaliza o tipo para o valor escalar (required_if/prohibited comparam com string).
         $tipo = $data['tipo'] ?? null;
 

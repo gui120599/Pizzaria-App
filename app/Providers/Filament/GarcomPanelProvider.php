@@ -5,9 +5,12 @@ namespace App\Providers\Filament;
 use App\Filament\Garcom\Pages\AtenderMesa;
 use App\Filament\Garcom\Pages\AtenderRetirada;
 use App\Filament\Garcom\Pages\Auth\LoginGarcom;
+use App\Filament\Garcom\Pages\BaterPonto;
 use App\Filament\Garcom\Pages\ChecklistsDoDia;
 use App\Filament\Garcom\Pages\ExecutarChecklist;
 use App\Filament\Garcom\Pages\MapaMesas;
+use App\Filament\Garcom\Pages\MeuEspelho;
+use App\Filament\Garcom\Pages\MeusRepasses;
 use App\Filament\Garcom\Resources\ChecklistExecucoes\ChecklistExecucaoResource;
 use Filament\Actions\Action;
 use Filament\Http\Middleware\Authenticate;
@@ -51,8 +54,13 @@ class GarcomPanelProvider extends PanelProvider
             // Sino com o "pedido pronto" da cozinha (ProducaoProntaNotification).
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
-            // Cozinha/Caixa entram só para checklists (User::CHECKLIST_PANEL_ROLES).
-            ->homeUrl(fn (): string => auth()->user()?->atendeSalao() === false ? ChecklistsDoDia::getUrl() : MapaMesas::getUrl())
+            // Cozinha/Caixa entram só para checklists (User::CHECKLIST_PANEL_ROLES);
+            // colaborador sem papel do salão entra só para o ponto.
+            ->homeUrl(fn (): string => match (true) {
+                auth()->user()?->atendeSalao() !== false => MapaMesas::getUrl(),
+                auth()->user()->soBatePonto() => BaterPonto::getUrl(),
+                default => ChecklistsDoDia::getUrl(),
+            })
             // Sem discoverPages(): só as telas do salão, registradas aqui.
             ->pages([
                 MapaMesas::class,
@@ -60,6 +68,10 @@ class GarcomPanelProvider extends PanelProvider
                 AtenderRetirada::class,
                 ChecklistsDoDia::class,
                 ExecutarChecklist::class,
+                // Folha de ponto: só aparecem para quem tem cadastro de colaborador.
+                BaterPonto::class,
+                MeuEspelho::class,
+                MeusRepasses::class,
             ])
             ->resources([
                 ChecklistExecucaoResource::class,

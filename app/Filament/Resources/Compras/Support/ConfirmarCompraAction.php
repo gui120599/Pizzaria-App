@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\Compras\Support;
 
 use App\Enums\FormaPagamento;
+use App\Exceptions\FinanceiroException;
+use App\Filament\Components\ContaFinanceiraSelect;
 use App\Filament\Resources\PrazosPagamento\Schemas\PrazoPagamentoForm;
 use App\Models\Compra;
 use App\Models\PrazoPagamento;
@@ -151,6 +153,12 @@ class ConfirmarCompraAction
                             ->helperText('O título nasce com o pagamento já registrado.')
                             ->default(false)
                             ->live(),
+                        // Já pago: de onde saiu o dinheiro (gera a movimentação na conta).
+                        ContaFinanceiraSelect::make()
+                            ->sugerirForma()
+                            ->visible(fn (Get $get): bool => (bool) $get('ja_pago'))
+                            ->required(fn (Get $get): bool => (bool) $get('ja_pago')),
+                        ContaFinanceiraSelect::sessaoCaixa(),
                     ])
                     ->columns(4)
                     ->default(fn (Compra $record): array => [
@@ -204,6 +212,8 @@ class ConfirmarCompraAction
                                     'valor' => $parcela['valor'] ?? 0,
                                     'forma_pagamento' => $parcela['forma_pagamento'] ?? null,
                                     'ja_pago' => (bool) ($parcela['ja_pago'] ?? false),
+                                    'conta_financeira_id' => $parcela['conta_financeira_id'] ?? null,
+                                    'sessao_caixa_id' => $parcela['sessao_caixa_id'] ?? null,
                                 ])
                                 ->all();
 
@@ -213,10 +223,10 @@ class ConfirmarCompraAction
                             ]);
                         }
                     });
-                } catch (ValidationException $e) {
+                } catch (ValidationException|FinanceiroException $e) {
                     Notification::make()
                         ->title('Não foi possível confirmar')
-                        ->body(collect($e->errors())->flatten()->first())
+                        ->body($e instanceof ValidationException ? collect($e->errors())->flatten()->first() : $e->getMessage())
                         ->danger()
                         ->send();
 

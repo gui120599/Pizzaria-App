@@ -27,6 +27,7 @@ class MovimentacoesSessaoCaixa extends Model
         'mov_user_id',
         'mov_valor',
         'mov_observacoes',
+        'movimentacao_financeira_id',
     ];
 
     protected function casts(): array
@@ -47,6 +48,15 @@ class MovimentacoesSessaoCaixa extends Model
     public function venda()
     {
         return $this->belongsTo(Venda::class, 'mov_venda_id');
+    }
+
+    /**
+     * Movimentação financeira que originou esta retirada/suprimento (CaixaPdvBridge).
+     * Preenchida = a despesa já existe no financeiro; nunca gerar lançamento a partir desta linha.
+     */
+    public function movimentacaoFinanceira()
+    {
+        return $this->belongsTo(MovimentacaoFinanceira::class, 'movimentacao_financeira_id');
     }
 
     /** Quem registrou a sangria/suprimento. */

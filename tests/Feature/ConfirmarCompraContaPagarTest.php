@@ -10,6 +10,7 @@ use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Filament\Resources\Compras\Pages\EditCompra;
 use App\Filament\Resources\Compras\Pages\ListCompras;
+use App\Models\ContaFinanceira;
 use App\Models\Categoria;
 use App\Models\Compra;
 use App\Models\CompraItem;
@@ -175,7 +176,7 @@ class ConfirmarCompraContaPagarTest extends TestCase
                 'gerar_conta_pagar' => true,
                 'data_base' => '2026-08-07',
                 'parcelas' => [
-                    ['vencimento' => '2026-08-07', 'valor' => '100.00', 'forma_pagamento' => FormaPagamento::Pix->value, 'ja_pago' => true],
+                    ['vencimento' => '2026-08-07', 'valor' => '100.00', 'forma_pagamento' => FormaPagamento::Pix->value, 'ja_pago' => true, 'conta_financeira_id' => $this->contaParaBaixa()->id],
                 ],
             ])
             ->assertHasNoTableActionErrors();
@@ -218,7 +219,7 @@ class ConfirmarCompraContaPagarTest extends TestCase
                 'gerar_conta_pagar' => true,
                 'data_base' => '2026-08-07',
                 'parcelas' => [
-                    ['vencimento' => '2026-08-07', 'valor' => '60.00', 'forma_pagamento' => FormaPagamento::Pix->value, 'ja_pago' => true],
+                    ['vencimento' => '2026-08-07', 'valor' => '60.00', 'forma_pagamento' => FormaPagamento::Pix->value, 'ja_pago' => true, 'conta_financeira_id' => $this->contaParaBaixa()->id],
                     ['vencimento' => '2026-08-22', 'valor' => '40.00', 'forma_pagamento' => null, 'ja_pago' => false],
                 ],
             ])
@@ -494,5 +495,12 @@ class ConfirmarCompraContaPagarTest extends TestCase
 
         Livewire::test(ListCompras::class)
             ->assertTableActionHidden('corrigirDataEntrada', $rascunho);
+    }
+
+    /** Desde as contas financeiras, toda baixa pela tela informa a conta de origem/destino. */
+    private function contaParaBaixa(): ContaFinanceira
+    {
+        return ContaFinanceira::query()->where('nome', 'Banco teste')->first()
+            ?? ContaFinanceira::factory()->banco()->permiteNegativo()->create(['nome' => 'Banco teste']);
     }
 }

@@ -6,6 +6,8 @@ use App\Enums\Comportamento;
 use App\Enums\FormaPagamento;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
+use App\Exceptions\FinanceiroException;
+use App\Filament\Components\ContaFinanceiraSelect;
 use App\Models\CartoesPagamento;
 use App\Models\Lancamento;
 use App\Models\Maquininha;
@@ -484,6 +486,15 @@ class LancamentosTable
                             ->label('Forma')
                             ->options(FormaPagamento::class)
                             ->live(),
+                        // De onde saiu (ou para onde foi) o dinheiro: gera a
+                        // movimentação na conta (ver BaixaFinanceira).
+                        // Compensação não move dinheiro e dispensa a conta.
+                        ContaFinanceiraSelect::make()
+                            ->label(fn (Lancamento $record): string => $record->tipo === TipoLancamento::Receber ? 'Conta de destino' : 'Conta de origem')
+                            ->sugerirForma()
+                            ->required(fn (Get $get): bool => self::forma($get('forma_pagamento')) !== FormaPagamento::Compensacao)
+                            ->visible(fn (Get $get): bool => self::forma($get('forma_pagamento')) !== FormaPagamento::Compensacao),
+                        ContaFinanceiraSelect::sessaoCaixa(),
                         TextInput::make('observacoes')
                             ->label('Observações')
                             ->maxLength(255),
@@ -546,22 +557,33 @@ class LancamentosTable
                     })
                     ->columnSpanFull(),
             ])
-            ->action(function (Lancamento $record, array $data): void {
-                foreach ($data['pagamentos'] as $item) {
-                    // Select::options(FormaPagamento::class) já entrega o state como
-                    // instância do enum (Filament casta automaticamente) — nada de
-                    // ::from() aqui, ou dá TypeError passando enum pra ::from().
-                    $forma = self::forma($item['forma_pagamento'] ?? null);
-                    $ehCartao = in_array($forma, [FormaPagamento::CartaoCredito, FormaPagamento::CartaoDebito], true);
+            ->action(function (Lancamento $record, array $data, Action $action): void {
+                try {
+                    // Tudo ou nada: se a conta de um dos pagamentos recusar (saldo,
+                    // sessão de caixa fechada), nenhum pagamento fica gravado.
+                    DB::transaction(function () use ($record, $data): void {
+                        foreach ($data['pagamentos'] as $item) {
+                            // Select::options(FormaPagamento::class) já entrega o state como
+                            // instância do enum (Filament casta automaticamente) — nada de
+                            // ::from() aqui, ou dá TypeError passando enum pra ::from().
+                            $forma = self::forma($item['forma_pagamento'] ?? null);
+                            $ehCartao = in_array($forma, [FormaPagamento::CartaoCredito, FormaPagamento::CartaoDebito], true);
 
-                    $record->registrarPagamento(
-                        self::normalizeMoney($item['valor'] ?? null),
-                        ! empty($item['data_pagamento']) ? Carbon::parse($item['data_pagamento']) : null,
-                        $forma,
-                        $item['observacoes'] ?? null,
-                        cartaoId: $ehCartao && ! empty($item['cartao_id']) ? (int) $item['cartao_id'] : null,
-                        maquininhaId: ! empty($item['maquininha_id']) ? (int) $item['maquininha_id'] : null,
-                    );
+                            $record->registrarPagamento(
+                                self::normalizeMoney($item['valor'] ?? null),
+                                ! empty($item['data_pagamento']) ? Carbon::parse($item['data_pagamento']) : null,
+                                $forma,
+                                $item['observacoes'] ?? null,
+                                sessaoCaixaId: ! empty($item['sessao_caixa_id']) ? (int) $item['sessao_caixa_id'] : null,
+                                cartaoId: $ehCartao && ! empty($item['cartao_id']) ? (int) $item['cartao_id'] : null,
+                                maquininhaId: ! empty($item['maquininha_id']) ? (int) $item['maquininha_id'] : null,
+                                contaFinanceiraId: ! empty($item['conta_financeira_id']) ? (int) $item['conta_financeira_id'] : null,
+                            );
+                        }
+                    });
+                } catch (FinanceiroException $e) {
+                    Notification::make()->title('Pagamento não registrado')->body($e->getMessage())->danger()->send();
+                    $action->halt();
                 }
 
                 Notification::make()
@@ -612,10 +634,16 @@ class LancamentosTable
                 && auth()->user()->can('reversePayment', $record))
             ->requiresConfirmation()
             ->modalHeading('Estornar pagamentos')
-            ->modalDescription('Todos os pagamentos deste título são apagados e ele volta para Pendente.')
+            ->modalDescription('Todos os pagamentos deste título são apagados e ele volta para Pendente. O dinheiro volta para a conta de onde saiu.')
             ->modalSubmitActionLabel('Confirmar estorno')
             ->action(function (Lancamento $record): void {
-                $record->estornarPagamento();
+                try {
+                    $record->estornarPagamento('Estorno no contas a pagar/receber');
+                } catch (FinanceiroException $e) {
+                    Notification::make()->title('Estorno não feito')->body($e->getMessage())->danger()->send();
+
+                    return;
+                }
 
                 Notification::make()
                     ->title('Pagamento estornado com sucesso!')

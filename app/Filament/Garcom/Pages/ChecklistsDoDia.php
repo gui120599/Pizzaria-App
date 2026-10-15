@@ -27,6 +27,12 @@ class ChecklistsDoDia extends Page
 
     protected static ?int $navigationSort = 2;
 
+    /** Quem entra só para bater ponto não executa checklists. */
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->soBatePonto() === false;
+    }
+
     public static function getNavigationBadge(): ?string
     {
         $user = Auth::user();

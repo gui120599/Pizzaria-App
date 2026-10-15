@@ -52,10 +52,13 @@ class LancamentoRequest extends FormRequest
             'descricao' => ['required', 'string', 'max:255'],
 
             // Favorecido segue a mesma direção do tipo: fornecedor no pagar, cliente no receber.
+            // Colaborador do ponto entra pelo Prestador espelho (colaborador_id preenchido).
             'favorecido_id' => [
                 'nullable',
                 'prohibited_unless:tipo,'.TipoLancamento::Pagar->value,
-                Rule::exists('prestadores', 'id')->where('categoria', 'fornecedor'),
+                Rule::exists('prestadores', 'id')->where(fn ($query) => $query
+                    ->where('categoria', 'fornecedor')
+                    ->orWhereNotNull('colaborador_id')),
             ],
             'cliente_id' => [
                 'nullable',

@@ -10,6 +10,7 @@ use App\Enums\TipoLancamento;
 use App\Filament\Pages\OperarVenda;
 use App\Filament\Resources\FechamentosCaixa\Pages\EditFechamentoCaixa;
 use App\Filament\Resources\Lancamentos\Pages\ListLancamentos;
+use App\Models\ContaFinanceira;
 use App\Models\Caixa;
 use App\Models\CartoesPagamento;
 use App\Models\FechamentoCaixa;
@@ -200,6 +201,7 @@ class PixCnpjEFiadoNaMaquininhaTest extends TestCase
                     'forma_pagamento' => FormaPagamento::CartaoCredito->value,
                     'maquininha_id' => $this->stone->id,
                     'cartao_id' => $visa->id,
+                    'conta_financeira_id' => $this->contaParaBaixa()->id,
                 ]],
             ])
             ->assertHasNoTableActionErrors();
@@ -234,5 +236,12 @@ class PixCnpjEFiadoNaMaquininhaTest extends TestCase
         $this->assertSame($antes, $fechamento->diferencaGeral);
         $this->assertSame(1, $fechamento->maquininhas()->count());
         $this->assertSoftDeleted($falsa);
+    }
+
+    /** Desde as contas financeiras, toda baixa pela tela informa a conta de origem/destino. */
+    private function contaParaBaixa(): ContaFinanceira
+    {
+        return ContaFinanceira::query()->where('nome', 'Banco teste')->first()
+            ?? ContaFinanceira::factory()->banco()->permiteNegativo()->create(['nome' => 'Banco teste']);
     }
 }

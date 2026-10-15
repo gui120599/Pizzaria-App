@@ -10,6 +10,7 @@ use App\Enums\TipoLancamento;
 use App\Filament\Resources\Lancamentos\LancamentoResource;
 use App\Filament\Resources\Lancamentos\Pages\CreateLancamento;
 use App\Filament\Resources\Lancamentos\Pages\EditLancamento;
+use App\Models\ContaFinanceira;
 use App\Models\Cliente;
 use App\Models\Lancamento;
 use App\Models\PlanoDespesa;
@@ -141,7 +142,7 @@ class LancamentoPagamentoTest extends TestCase
                 'pagamentos' => [
                     // Money::dehydrateStateUsing() espera o valor já em formato BR
                     // (vírgula decimal) — ver feedback_filament_ptbr_form_fields.
-                    ['data_pagamento' => '2026-07-06', 'valor' => '250,00', 'forma_pagamento' => 'pix'],
+                    ['data_pagamento' => '2026-07-06', 'valor' => '250,00', 'forma_pagamento' => 'pix', 'conta_financeira_id' => $this->contaParaBaixa()->id],
                 ],
             ])
             ->call('save')
@@ -176,7 +177,7 @@ class LancamentoPagamentoTest extends TestCase
         Livewire::test(EditLancamento::class, ['record' => $lancamento->getKey()])
             ->fillForm([
                 'pagamentos' => [
-                    ['data_pagamento' => '2026-07-10', 'valor' => '1000,00', 'forma_pagamento' => 'pix'],
+                    ['data_pagamento' => '2026-07-10', 'valor' => '1000,00', 'forma_pagamento' => 'pix', 'conta_financeira_id' => $this->contaParaBaixa()->id],
                 ],
             ])
             ->call('save')
@@ -195,7 +196,7 @@ class LancamentoPagamentoTest extends TestCase
         Livewire::test(EditLancamento::class, ['record' => $lancamento->getKey()])
             ->fillForm([
                 'pagamentos' => [
-                    ['data_pagamento' => '2026-07-10', 'valor' => '1500,00', 'forma_pagamento' => 'pix'],
+                    ['data_pagamento' => '2026-07-10', 'valor' => '1500,00', 'forma_pagamento' => 'pix', 'conta_financeira_id' => $this->contaParaBaixa()->id],
                 ],
             ])
             ->call('save')
@@ -225,7 +226,7 @@ class LancamentoPagamentoTest extends TestCase
                 'vencimento' => '2026-07-20',
                 'status' => 'pendente',
                 'pagamentos' => [
-                    ['data_pagamento' => '2026-07-20', 'valor' => '500,00', 'forma_pagamento' => 'dinheiro'],
+                    ['data_pagamento' => '2026-07-20', 'valor' => '500,00', 'forma_pagamento' => 'dinheiro', 'conta_financeira_id' => $this->contaParaBaixa()->id],
                 ],
             ])
             ->call('create')
@@ -237,5 +238,12 @@ class LancamentoPagamentoTest extends TestCase
         $this->assertSame(500.0, $lancamento->valorPago);
         $this->assertSame(StatusLancamento::Pago, $lancamento->status);
         $this->assertSame(FormaPagamento::Dinheiro, $lancamento->forma_pagamento);
+    }
+
+    /** Desde as contas financeiras, toda baixa pela tela informa a conta de origem/destino. */
+    private function contaParaBaixa(): ContaFinanceira
+    {
+        return ContaFinanceira::query()->where('nome', 'Banco teste')->first()
+            ?? ContaFinanceira::factory()->banco()->permiteNegativo()->create(['nome' => 'Banco teste']);
     }
 }

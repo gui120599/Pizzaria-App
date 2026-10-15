@@ -67,6 +67,30 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // Ponto: reapura o dia operacional que acabou de virar (config operacao.virada_dia).
+        $schedule->command('ponto:apurar')
+            ->dailyAt(Carbon::parse((string) config('operacao.virada_dia'))->addMinutes(15)->format('H:i'))
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // Ponto: entrada não marcada (gestores) e marcação sem saída após o turno (colaborador).
+        $schedule->command('ponto:alertar-faltantes')
+            ->everyThirtyMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // Ponto: garante o período atual e o próximo de cada periodicidade em uso.
+        $schedule->command('ponto:abrir-periodos')
+            ->dailyAt('00:10')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // Ponto: apaga selfies além da retenção (LGPD); a marcação continua.
+        $schedule->command('ponto:limpar-selfies')
+            ->dailyAt('03:30')
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // Cozinha: libera os itens segurados pelo disparo por tempo de preparo (no-op se desligado).
         $schedule->command('cozinha:liberar-itens')
             ->everyMinute()
@@ -76,6 +100,12 @@ class Kernel extends ConsoleKernel
         // Cozinha: avisa o gerente sobre itens muito atrasados (uma vez por item).
         $schedule->command('cozinha:alertar-atrasos')
             ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // Ponto: confere a cadeia de hash das marcações.
+        $schedule->command('ponto:verificar-integridade')
+            ->weeklyOn(1, '04:00')
             ->withoutOverlapping()
             ->onOneServer();
     }

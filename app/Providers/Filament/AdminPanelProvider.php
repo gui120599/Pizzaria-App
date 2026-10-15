@@ -80,6 +80,8 @@ class AdminPanelProvider extends PanelProvider
                     ->collapsible(),
                 NavigationGroup::make('Pessoas')
                     ->collapsible(),
+                NavigationGroup::make('Ponto e Repasses')
+                    ->collapsible(),
                 NavigationGroup::make('Configurações')
                     ->collapsible(),
             ])

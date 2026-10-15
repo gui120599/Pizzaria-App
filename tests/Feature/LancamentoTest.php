@@ -9,6 +9,7 @@ use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Filament\Resources\Lancamentos\Pages\ListLancamentos;
 use App\Http\Requests\LancamentoRequest;
+use App\Models\ContaFinanceira;
 use App\Models\Compra;
 use App\Models\Lancamento;
 use App\Models\PlanoDespesa;
@@ -129,7 +130,7 @@ class LancamentoTest extends TestCase
         Livewire::test(ListLancamentos::class)
             ->callTableAction('marcarComoPago', $lancamento, data: [
                 'pagamentos' => [
-                    ['valor' => '150,00', 'data_pagamento' => '2026-07-08', 'forma_pagamento' => FormaPagamento::Pix->value],
+                    ['valor' => '150,00', 'data_pagamento' => '2026-07-08', 'forma_pagamento' => FormaPagamento::Pix->value, 'conta_financeira_id' => $this->contaParaBaixa()->id],
                 ],
             ])
             ->assertHasNoTableActionErrors();
@@ -162,6 +163,7 @@ class LancamentoTest extends TestCase
                         'valor' => '300,00',
                         'data_pagamento' => '2026-07-06',
                         'forma_pagamento' => FormaPagamento::Pix->value,
+                        'conta_financeira_id' => $this->contaParaBaixa()->id,
                     ],
                 ],
             ])
@@ -191,8 +193,8 @@ class LancamentoTest extends TestCase
         Livewire::test(ListLancamentos::class)
             ->callTableAction('marcarComoPago', $lancamento, data: [
                 'pagamentos' => [
-                    ['valor' => '400,00', 'data_pagamento' => '2026-07-06', 'forma_pagamento' => FormaPagamento::Pix->value],
-                    ['valor' => '600,00', 'data_pagamento' => '2026-07-08', 'forma_pagamento' => FormaPagamento::Boleto->value],
+                    ['valor' => '400,00', 'data_pagamento' => '2026-07-06', 'forma_pagamento' => FormaPagamento::Pix->value, 'conta_financeira_id' => $this->contaParaBaixa()->id],
+                    ['valor' => '600,00', 'data_pagamento' => '2026-07-08', 'forma_pagamento' => FormaPagamento::Boleto->value, 'conta_financeira_id' => $this->contaParaBaixa()->id],
                 ],
             ])
             ->assertHasNoTableActionErrors();
@@ -219,7 +221,7 @@ class LancamentoTest extends TestCase
         Livewire::test(ListLancamentos::class)
             ->callTableAction('marcarComoPago', $lancamento, data: [
                 'pagamentos' => [
-                    ['valor' => '1500,00', 'data_pagamento' => '2026-07-06', 'forma_pagamento' => FormaPagamento::Pix->value],
+                    ['valor' => '1500,00', 'data_pagamento' => '2026-07-06', 'forma_pagamento' => FormaPagamento::Pix->value, 'conta_financeira_id' => $this->contaParaBaixa()->id],
                 ],
             ])
             ->assertHasTableActionErrors();
@@ -328,5 +330,12 @@ class LancamentoTest extends TestCase
             ->assertOk()
             ->assertSee('Compra Nº 9009 — Distribuidora Y')
             ->assertSee('Sem compra vinculada');
+    }
+
+    /** Desde as contas financeiras, toda baixa pela tela informa a conta de origem/destino. */
+    private function contaParaBaixa(): ContaFinanceira
+    {
+        return ContaFinanceira::query()->where('nome', 'Banco teste')->first()
+            ?? ContaFinanceira::factory()->banco()->permiteNegativo()->create(['nome' => 'Banco teste']);
     }
 }
