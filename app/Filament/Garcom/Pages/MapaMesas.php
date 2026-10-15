@@ -67,7 +67,7 @@ class MapaMesas extends Page
     public function mount(): void
     {
         if (! Auth::user()?->atendeSalao()) {
-            $this->redirect(ChecklistsDoDia::getUrl());
+            $this->redirect(filament()->getHomeUrl());
 
             return;
         }

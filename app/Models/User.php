@@ -8,6 +8,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -43,7 +44,9 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         }
 
         if ($panel->getId() === 'garcom') {
-            return $this->hasAnyRole([...self::GARCOM_PANEL_ROLES, ...self::CHECKLIST_PANEL_ROLES]);
+            // Colaborador da folha entra para bater ponto, ver espelho e repasses, mesmo sem papel do salão.
+            return $this->hasAnyRole([...self::GARCOM_PANEL_ROLES, ...self::CHECKLIST_PANEL_ROLES])
+                || $this->colaborador()->exists();
         }
 
         return $this->hasAnyRole(self::PANEL_ROLES);
@@ -53,6 +56,12 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     public function atendeSalao(): bool
     {
         return $this->hasAnyRole(self::GARCOM_PANEL_ROLES);
+    }
+
+    /** Entra no /garcom só como colaborador da folha (ponto, espelho, repasses). */
+    public function soBatePonto(): bool
+    {
+        return ! $this->hasAnyRole([...self::GARCOM_PANEL_ROLES, ...self::CHECKLIST_PANEL_ROLES]);
     }
 
     public function temPin(): bool
@@ -116,5 +125,11 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     public function balancos()
     {
         return $this->hasMany(MovimentacaoBalanco::class, 'mbal_usuario_id');
+    }
+
+    /** Cadastro de colaborador da folha de ponto vinculado a este login. */
+    public function colaborador(): HasOne
+    {
+        return $this->hasOne(Colaborador::class, 'user_id');
     }
 }

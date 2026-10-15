@@ -6,16 +6,33 @@ use App\Enums\Comportamento;
 use App\Enums\FormaPagamento;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
+use App\Exceptions\FinanceiroException;
+use App\Observers\LancamentoRepasseObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
+/**
+ * Evento de model próprio `statusAlterado`: disparado sempre que o status
+ * muda, inclusive no recálculo silencioso de recalcularStatus() (que salva
+ * com saveQuietly e por isso não passa por `updated`). É o que o módulo de
+ * ponto observa para marcar o repasse como pago.
+ */
+#[ObservedBy([LancamentoRepasseObserver::class])]
 class Lancamento extends Model
 {
     protected $table = 'lancamentos';
+
+    /** @var array<int, string> */
+    protected $observables = ['statusAlterado'];
+
+    /** Campos que o título de repasse/vale não muda no financeiro: vêm do módulo de ponto. */
+    private const CAMPOS_DA_ORIGEM_PONTO = ['tipo', 'valor', 'favorecido_id', 'repasse_id', 'adiantamento_id'];
 
     protected $fillable = [
         'tipo',
@@ -33,6 +50,8 @@ class Lancamento extends Model
         'cliente_id',
         'venda_id',
         'sessao_caixa_id',
+        'repasse_id',
+        'adiantamento_id',
         'numero_documento',
         'valor',
         'vencimento',
@@ -87,6 +106,25 @@ class Lancamento extends Model
         static::saved(function (Lancamento $lancamento): void {
             if ($lancamento->wasChanged('valor') && $lancamento->pagamentos()->exists()) {
                 $lancamento->recalcularStatus();
+            }
+
+            if ($lancamento->wasChanged('status')) {
+                $lancamento->fireModelEvent('statusAlterado', false);
+            }
+        });
+
+        static::updating(function (Lancamento $lancamento): void {
+            $origemPonto = $lancamento->getOriginal('repasse_id') ?? $lancamento->getOriginal('adiantamento_id');
+
+            if ($origemPonto !== null && $lancamento->isDirty(self::CAMPOS_DA_ORIGEM_PONTO)) {
+                throw new FinanceiroException('Este título veio do módulo de ponto: valor e favorecido só mudam pelo repasse ou adiantamento.');
+            }
+        });
+
+        // A FK de movimentacoes_financeiras.lancamento_id é restrict; aqui a mensagem fica legível.
+        static::deleting(function (Lancamento $lancamento): void {
+            if ($lancamento->movimentacoesFinanceiras()->exists()) {
+                throw new FinanceiroException('Este lançamento já movimentou uma conta financeira e não pode ser excluído. Cancele-o.');
             }
         });
     }
@@ -145,6 +183,24 @@ class Lancamento extends Model
     public function sessaoCaixa(): BelongsTo
     {
         return $this->belongsTo(SessaoCaixa::class, 'sessao_caixa_id');
+    }
+
+    /** Repasse do módulo de ponto que gerou este título (ver RepasseService::aprovar). */
+    public function repasse(): BelongsTo
+    {
+        return $this->belongsTo(Repasse::class, 'repasse_id')->withTrashed();
+    }
+
+    /** Adiantamento/vale do módulo de ponto que gerou este título (nasce pago). */
+    public function adiantamento(): BelongsTo
+    {
+        return $this->belongsTo(Adiantamento::class, 'adiantamento_id')->withTrashed();
+    }
+
+    /** Movimentações financeiras (saída/entrada real numa conta) das baixas deste título. */
+    public function movimentacoesFinanceiras(): HasMany
+    {
+        return $this->hasMany(MovimentacaoFinanceira::class, 'lancamento_id');
     }
 
     /** Rateio do título entre planos de despesa (1 lançamento -> N despesas). */
@@ -273,8 +329,11 @@ class Lancamento extends Model
         ?int $cartaoId = null,
         ?string $numeroAutorizacaoCartao = null,
         ?int $maquininhaId = null,
+        ?int $contaFinanceiraId = null,
     ): LancamentoPagamento {
-        return $this->pagamentos()->create([
+        // Em transação: o evento do pagamento gera a movimentação na conta
+        // financeira, e uma falha nela não pode deixar o pagamento gravado.
+        return DB::transaction(fn (): LancamentoPagamento => $this->pagamentos()->create([
             'valor' => $valor,
             'data_pagamento' => $data ?? now(),
             'forma_pagamento' => $forma,
@@ -283,7 +342,8 @@ class Lancamento extends Model
             'cartao_id' => $cartaoId,
             'numero_autorizacao_cartao' => $numeroAutorizacaoCartao,
             'maquininha_id' => $forma?->tipoMaquininha() ? $maquininhaId : null,
-        ]);
+            'conta_financeira_id' => $contaFinanceiraId,
+        ]));
     }
 
     /**
@@ -302,11 +362,18 @@ class Lancamento extends Model
      * corrigir um lançamento Pago, já que ele fica travado para edição/exclusão
      * direta (ver LancamentoResource::canEdit/canDelete).
      */
-    public function estornarPagamento(): bool
+    public function estornarPagamento(?string $motivo = null): bool
     {
-        $this->pagamentos()->delete();
+        // Um a um (não delete() em massa): o evento de cada pagamento estorna
+        // a movimentação dele na conta financeira.
+        return DB::transaction(function () use ($motivo): bool {
+            $this->pagamentos()->get()->each(function (LancamentoPagamento $pagamento) use ($motivo): void {
+                $pagamento->motivoEstorno = $motivo;
+                $pagamento->delete();
+            });
 
-        return $this->recalcularStatus();
+            return $this->recalcularStatus();
+        });
     }
 
     /**
@@ -333,6 +400,7 @@ class Lancamento extends Model
         };
         $this->data_pagamento = $ultimo?->data_pagamento;
         $this->forma_pagamento = $ultimo?->forma_pagamento;
+        $statusMudou = $this->isDirty('status');
 
         // saveQuietly() (não save()): o listener `saved` desta classe (acima)
         // dispara recalcularStatus() de novo quando `valor` muda — e o synchronize
@@ -342,6 +410,12 @@ class Lancamento extends Model
         // (segfault, sem Error catável) sempre que o valor do título muda com
         // pagamento(s) já registrado(s). Este save é só a persistência derivada
         // do recálculo — não precisa dos eventos do próprio Lancamento.
-        return $this->saveQuietly();
+        $salvo = $this->saveQuietly();
+
+        if ($statusMudou) {
+            $this->fireModelEvent('statusAlterado', false);
+        }
+
+        return $salvo;
     }
 }

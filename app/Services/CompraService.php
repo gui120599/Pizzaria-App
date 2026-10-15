@@ -242,7 +242,7 @@ class CompraService
      *
      * @param  array{
      *     prazo_pagamento_id?: int|null,
-     *     parcelas: array<int, array{vencimento: string|\DateTimeInterface, valor: float|string, forma_pagamento?: FormaPagamento|string|null, ja_pago?: bool}>,
+     *     parcelas: array<int, array{vencimento: string|\DateTimeInterface, valor: float|string, forma_pagamento?: FormaPagamento|string|null, ja_pago?: bool, conta_financeira_id?: int|string|null, sessao_caixa_id?: int|string|null}>,
      * }  $dados
      * @return Collection<int, Lancamento>
      */
@@ -353,6 +353,8 @@ class CompraService
                         valor: $valorParcela,
                         data: $lancamento->vencimento,
                         forma: $formaPagamento,
+                        sessaoCaixaId: filled($parcela['sessao_caixa_id'] ?? null) ? (int) $parcela['sessao_caixa_id'] : null,
+                        contaFinanceiraId: filled($parcela['conta_financeira_id'] ?? null) ? (int) $parcela['conta_financeira_id'] : null,
                     );
                 }
 

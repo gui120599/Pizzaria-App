@@ -38,10 +38,13 @@ class ChecklistExecucaoResource extends Resource
 
     protected static ?int $navigationSort = 3;
 
-    /** A listagem já vem filtrada pelo usuário; a policy viewAny (gestão) não se aplica aqui. */
+    /**
+     * A listagem já vem filtrada pelo usuário; a policy viewAny (gestão) não
+     * se aplica aqui. Quem entra no /garcom só para bater ponto não vê.
+     */
     public static function canViewAny(): bool
     {
-        return auth()->check();
+        return auth()->user()?->soBatePonto() === false;
     }
 
     public static function getEloquentQuery(): Builder

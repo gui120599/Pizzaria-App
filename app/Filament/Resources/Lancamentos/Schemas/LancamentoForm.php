@@ -5,7 +5,9 @@ namespace App\Filament\Resources\Lancamentos\Schemas;
 use App\Enums\FormaPagamento;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
+use App\Filament\Components\ContaFinanceiraSelect;
 use App\Models\Lancamento;
+use App\Models\LancamentoPagamento;
 use App\Models\Prestador;
 use Closure;
 use Filament\Forms\Components\DatePicker;
@@ -34,6 +36,7 @@ class LancamentoForm
                         ->grouped()
                         ->options(TipoLancamento::class)
                         ->required()
+                        ->disabled(fn (?Lancamento $record): bool => self::origemPonto($record))
                         ->live(),
                     Select::make('status')
                         ->label('Status')
@@ -83,16 +86,21 @@ class LancamentoForm
                         ->maxLength(255)
                         ->columnSpanFull(),
                     Select::make('favorecido_id')
-                        ->label('Fornecedor')
+                        ->label('Fornecedor / colaborador')
                         // Usa o accessor nome_exibicao (nome_fantasia ?? razao_social ?? nome ?? '—'):
                         // fornecedor PJ pode ter a coluna `nome` nula, o que quebra o titleAttribute do relationship.
-                        ->options(fn (): array => Prestador::fornecedores()
+                        // Colaborador do ponto entra pelo Prestador espelho, com "(Colaborador)" no rótulo.
+                        ->options(fn (): array => Prestador::favorecidos()
                             ->orderBy('nome')
                             ->get()
-                            ->mapWithKeys(fn (Prestador $p): array => [$p->id => $p->nome_exibicao])
+                            ->mapWithKeys(fn (Prestador $p): array => [$p->id => $p->rotuloFavorecido()])
                             ->toArray())
                         ->searchable()
                         ->native(false)
+                        ->disabled(fn (?Lancamento $record): bool => self::origemPonto($record))
+                        ->helperText(fn (?Lancamento $record): ?string => self::origemPonto($record)
+                            ? 'Título gerado pelo módulo de ponto: favorecido e valor vêm do repasse/adiantamento.'
+                            : null)
                         ->visible(fn (Get $get): bool => self::ehTipo($get, TipoLancamento::Pagar)),
                     Select::make('cliente_id')
                         ->label('Cliente')
@@ -107,8 +115,8 @@ class LancamentoForm
                         ->label('Valor')
                         ->minValue(0)
                         ->required()
-                        ->disabled(fn (?Lancamento $record): bool => self::temRateio($record))
-                        ->dehydrated(fn (?Lancamento $record): bool => ! self::temRateio($record))
+                        ->disabled(fn (?Lancamento $record): bool => self::temRateio($record) || self::origemPonto($record))
+                        ->dehydrated(fn (?Lancamento $record): bool => ! self::temRateio($record) && ! self::origemPonto($record))
                         ->helperText(fn (?Lancamento $record): ?string => self::temRateio($record)
                             ? 'Valor do título rateado — ajuste pela compra de origem.'
                             : null),
@@ -161,21 +169,37 @@ class LancamentoForm
                                 }
                             };
                         })
+                        // Pagamento que já movimentou uma conta financeira fica com data,
+                        // valor e conta travados: para mudar, exclua a linha (estorna) e
+                        // lance de novo (ver BaixaFinanceira).
                         ->schema([
                             DatePicker::make('data_pagamento')
                                 ->label('Data')
                                 ->native(false)
                                 ->displayFormat('d/m/Y')
                                 ->default(now())
+                                ->disabled(fn (?LancamentoPagamento $record): bool => self::movimentouConta($record))
                                 ->required(),
                             Money::make('valor')
                                 ->label('Valor')
                                 ->minValue(0.01)
                                 ->live(onBlur: true)
+                                ->disabled(fn (?LancamentoPagamento $record): bool => self::movimentouConta($record))
                                 ->required(),
                             Select::make('forma_pagamento')
                                 ->label('Forma')
-                                ->options(FormaPagamento::class),
+                                ->options(FormaPagamento::class)
+                                ->live(),
+                            ContaFinanceiraSelect::make()
+                                ->label(fn (Get $get): string => self::ehTipo($get, TipoLancamento::Receber, '../../') ? 'Conta de destino' : 'Conta de origem')
+                                ->sugerirForma()
+                                // Conta só se escolhe ao lançar: pagamentos antigos ficam sem.
+                                ->disabled(fn (?LancamentoPagamento $record): bool => $record !== null)
+                                ->placeholder(fn (?LancamentoPagamento $record): ?string => $record !== null ? 'Sem conta (anterior às contas financeiras)' : null)
+                                ->required(fn (Get $get, ?LancamentoPagamento $record): bool => $record === null
+                                    && self::forma($get('forma_pagamento')) !== FormaPagamento::Compensacao),
+                            ContaFinanceiraSelect::sessaoCaixa()
+                                ->disabled(fn (?LancamentoPagamento $record): bool => $record !== null),
                             TextInput::make('observacoes')
                                 ->label('Observações')
                                 ->maxLength(255),
@@ -204,9 +228,9 @@ class LancamentoForm
      * $get('tipo') devolve a INSTÂNCIA do enum (não a string). Comparar direto com
      * ->value falha silenciosamente. Aqui normalizamos ambos os casos (enum ou string).
      */
-    private static function ehTipo(Get $get, TipoLancamento $tipo): bool
+    private static function ehTipo(Get $get, TipoLancamento $tipo, string $prefixo = ''): bool
     {
-        $atual = $get('tipo');
+        $atual = $get($prefixo.'tipo');
 
         return $atual instanceof TipoLancamento
             ? $atual === $tipo
@@ -220,6 +244,23 @@ class LancamentoForm
      * e valor para não colapsar o rateio numa única conta nem descolar do total rateado
      * em lancamento_despesas.
      */
+    /** Título de repasse/vale do módulo de ponto: tipo, favorecido e valor não mudam aqui. */
+    private static function origemPonto(?Lancamento $record): bool
+    {
+        return $record !== null && ($record->repasse_id !== null || $record->adiantamento_id !== null);
+    }
+
+    private static function movimentouConta(?LancamentoPagamento $record): bool
+    {
+        return $record?->movimentacaoFinanceira()->exists() ?? false;
+    }
+
+    /** O Select entrega o enum, mas durante o preenchimento o estado pode vir como string. */
+    private static function forma(mixed $estado): ?FormaPagamento
+    {
+        return $estado instanceof FormaPagamento ? $estado : FormaPagamento::tryFrom((string) $estado);
+    }
+
     private static function temRateio(?Lancamento $record): bool
     {
         return $record !== null

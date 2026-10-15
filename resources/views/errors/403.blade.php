@@ -14,6 +14,14 @@
         title="Acesso negado"
         message="Você não tem permissão para acessar esta página."
     />
+@elseif (auth()->guest())
+    {{-- Visitante (ex.: tablet do quiosque não pareado): o layout do site exige usuário logado. --}}
+    <x-guest-layout>
+        <div class="text-center">
+            <h1 class="text-5xl font-bold text-red-600">403</h1>
+            <p class="text-lg mt-4">{{ $exception->getMessage() ?: 'Você não tem permissão para acessar esta página.' }}</p>
+        </div>
+    </x-guest-layout>
 @else
     <x-app-layout>
         <x-slot name="header">

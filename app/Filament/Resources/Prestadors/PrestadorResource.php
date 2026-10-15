@@ -269,6 +269,13 @@ class PrestadorResource extends Resource
                 TextColumn::make('tipo')
                     ->badge()
                     ->searchable(),
+                // Espelho do colaborador do ponto: somente leitura aqui (edita-se pelo colaborador).
+                TextColumn::make('colaborador_id')
+                    ->label('Origem')
+                    ->state(fn (Prestador $record): ?string => $record->ehEspelhoDeColaborador() ? 'Colaborador' : null)
+                    ->badge()
+                    ->color('info')
+                    ->placeholder('—'),
                 TextColumn::make('categoria')
                     ->badge()
                     ->searchable(),
@@ -320,11 +327,12 @@ class PrestadorResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
-                ForceDeleteAction::make(),
-                RestoreAction::make(),
+                EditAction::make()->hidden(fn (Prestador $record): bool => $record->ehEspelhoDeColaborador()),
+                DeleteAction::make()->hidden(fn (Prestador $record): bool => $record->ehEspelhoDeColaborador()),
+                ForceDeleteAction::make()->hidden(fn (Prestador $record): bool => $record->ehEspelhoDeColaborador()),
+                RestoreAction::make()->hidden(fn (Prestador $record): bool => $record->ehEspelhoDeColaborador()),
             ])
+            ->checkIfRecordIsSelectableUsing(fn (Prestador $record): bool => ! $record->ehEspelhoDeColaborador())
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
