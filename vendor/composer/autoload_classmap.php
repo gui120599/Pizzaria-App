@@ -994,6 +994,7 @@ return array(
     'App\\Support\\ContaMesa' => $baseDir . '/app/Support/ContaMesa.php',
     'App\\Support\\Cozinha\\FichaTecnicaView' => $baseDir . '/app/Support/Cozinha/FichaTecnicaView.php',
     'App\\Support\\Cozinha\\IngredienteFicha' => $baseDir . '/app/Support/Cozinha/IngredienteFicha.php',
+    'App\\Support\\Cozinha\\ModuloCozinha' => $baseDir . '/app/Support/Cozinha/ModuloCozinha.php',
     'App\\Support\\Cozinha\\Operador' => $baseDir . '/app/Support/Cozinha/Operador.php',
     'App\\Support\\Cozinha\\PassoFicha' => $baseDir . '/app/Support/Cozinha/PassoFicha.php',
     'App\\Support\\Cozinha\\SincronizacaoContexto' => $baseDir . '/app/Support/Cozinha/SincronizacaoContexto.php',

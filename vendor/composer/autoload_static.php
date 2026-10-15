@@ -1884,6 +1884,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Support\\ContaMesa' => __DIR__ . '/../..' . '/app/Support/ContaMesa.php',
         'App\\Support\\Cozinha\\FichaTecnicaView' => __DIR__ . '/../..' . '/app/Support/Cozinha/FichaTecnicaView.php',
         'App\\Support\\Cozinha\\IngredienteFicha' => __DIR__ . '/../..' . '/app/Support/Cozinha/IngredienteFicha.php',
+        'App\\Support\\Cozinha\\ModuloCozinha' => __DIR__ . '/../..' . '/app/Support/Cozinha/ModuloCozinha.php',
         'App\\Support\\Cozinha\\Operador' => __DIR__ . '/../..' . '/app/Support/Cozinha/Operador.php',
         'App\\Support\\Cozinha\\PassoFicha' => __DIR__ . '/../..' . '/app/Support/Cozinha/PassoFicha.php',
         'App\\Support\\Cozinha\\SincronizacaoContexto' => __DIR__ . '/../..' . '/app/Support/Cozinha/SincronizacaoContexto.php',

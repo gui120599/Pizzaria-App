@@ -19,6 +19,10 @@ class CozinhaAlertarAtrasos extends Command
 
     public function handle(): int
     {
+        if (! config('cozinha.ativo')) {
+            return self::SUCCESS;
+        }
+
         $multiplicador = (int) config('cozinha.alerta_atraso_multiplicador', 2);
         $gestores = ProducaoService::gestores();
         $alertados = 0;

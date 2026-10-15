@@ -71,12 +71,13 @@ class ChecklistModelo extends Model
     }
 
     /**
-     * Sem o painel cozinha instalado, os checklists da cozinha continuam no
-     * /garcom (padrão true); o config do módulo de cozinha desliga.
+     * Sem o painel cozinha instalado ou com o módulo desligado
+     * (cozinha.ativo), os checklists da cozinha continuam no /garcom; com o
+     * módulo ligado, o config do módulo de cozinha decide.
      */
     public static function cozinhaTambemNoGarcom(): bool
     {
-        return (bool) config('cozinha.checklists.exibir_tambem_no_garcom', true);
+        return ! config('cozinha.ativo', false) || (bool) config('cozinha.checklists.exibir_tambem_no_garcom', true);
     }
 
     /** @return array<string, string> painéis de execução, para filtros do admin */

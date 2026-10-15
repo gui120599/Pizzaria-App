@@ -6,6 +6,7 @@ use App\Filament\Resources\DispositivosCozinha\Pages\ManageDispositivosCozinha;
 use App\Filament\Resources\DispositivosCozinha\Schemas\DispositivoCozinhaForm;
 use App\Filament\Resources\DispositivosCozinha\Tables\DispositivosCozinhaTable;
 use App\Models\DispositivoCozinha;
+use App\Support\Cozinha\ModuloCozinha;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -37,6 +38,12 @@ class DispositivoCozinhaResource extends Resource
     protected static ?string $recordTitleAttribute = 'nome';
 
     protected static ?string $slug = 'tablets-cozinha';
+
+    /** Parear tablet só faz sentido com o módulo ligado (cozinha.ativo). */
+    public static function canAccess(): bool
+    {
+        return ModuloCozinha::ativo() && parent::canAccess();
+    }
 
     public static function form(Schema $schema): Schema
     {

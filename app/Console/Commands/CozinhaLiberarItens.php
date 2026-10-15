@@ -14,7 +14,7 @@ class CozinhaLiberarItens extends Command
 
     public function handle(ProducaoService $producao): int
     {
-        if (! config('cozinha.disparo_por_tempo_preparo')) {
+        if (! config('cozinha.ativo') || ! config('cozinha.disparo_por_tempo_preparo')) {
             return self::SUCCESS;
         }
 

@@ -10,6 +10,7 @@ use App\Models\ProducaoItem;
 use App\Models\User;
 use App\Services\Cozinha\ProducaoService;
 use App\Services\PedidoStatusService;
+use App\Support\Cozinha\ModuloCozinha;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
@@ -333,6 +334,10 @@ class PedidoStatusActions
      */
     public static function itensForcadosNaCozinha(array $arguments): int
     {
+        if (! ModuloCozinha::ativo()) {
+            return 0;
+        }
+
         $pedido = Pedido::find($arguments['pedido'] ?? null);
 
         if (! $pedido || ! in_array($pedido->status(), [StatusPedidoEnum::PREPARANDO, StatusPedidoEnum::PRONTO, StatusPedidoEnum::EM_TRANSPORTE], true)) {
