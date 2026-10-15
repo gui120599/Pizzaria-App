@@ -145,6 +145,18 @@ class CozinhaRoteadorTest extends TestCase
         $this->assertSame('Mesa 7', ProducaoItem::sole()->referencia);
     }
 
+    public function test_referencia_nao_repete_mesa_quando_o_nome_ja_tem_o_prefixo(): void
+    {
+        $pizzas = $this->categoria('Pizzas');
+        $this->rotaCategoria($pizzas, $this->pizzaria);
+        $pedido = $this->pedidoMesa();
+        $pedido->sessaoMesa->mesa->update(['mesa_nome' => 'Mesa 01']);
+        $this->item($pedido, $this->produto('Calabresa', $pizzas));
+        $this->abrir($pedido);
+
+        $this->assertSame('Mesa 01', ProducaoItem::sole()->referencia);
+    }
+
     public function test_item_adicionado_depois_ganha_selo_e_reabre_a_producao_do_pedido(): void
     {
         $pizzas = $this->categoria('Pizzas');

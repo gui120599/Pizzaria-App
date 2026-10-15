@@ -549,8 +549,11 @@ class RoteadorProducao
         $pedido->loadMissing(['sessaoMesa.mesa', 'cliente', 'opcaoEntrega']);
         $cliente = $pedido->pedido_cliente_id ? Str::limit((string) $pedido->cliente->cliente_nome, 30, '') : null;
 
+        $mesa = (string) ($pedido->sessaoMesa?->mesa?->mesa_nome ?? '?');
+
         $referencia = match ($pedido->tipoAtendimento()) {
-            TipoAtendimentoEnum::MESA => 'Mesa '.($pedido->sessaoMesa?->mesa?->mesa_nome ?? '?'),
+            // As mesas da casa já se chamam "Mesa 01": não repetir o prefixo.
+            TipoAtendimentoEnum::MESA => Str::startsWith(Str::lower($mesa), 'mesa') ? $mesa : 'Mesa '.$mesa,
             TipoAtendimentoEnum::DELIVERY => "Delivery #{$pedido->id}".($cliente ? " — {$cliente}" : ''),
             TipoAtendimentoEnum::RETIRADA => "Retirada #{$pedido->id}".($cliente ? " — {$cliente}" : ''),
         };
