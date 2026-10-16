@@ -14,6 +14,11 @@ class Caixa extends Model
 
     protected $fillable = [
         'caixa_nome',
+        'caixa_fechamento_obrigatorio',
+    ];
+
+    protected $casts = [
+        'caixa_fechamento_obrigatorio' => 'boolean',
     ];
 
     protected $dates = [
