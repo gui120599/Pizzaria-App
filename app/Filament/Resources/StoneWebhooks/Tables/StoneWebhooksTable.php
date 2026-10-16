@@ -45,6 +45,22 @@ class StoneWebhooksTable
                     ->default('—')
                     ->searchable(),
 
+                TextColumn::make('stw_order_id')
+                    ->label('Order ID')
+                    ->fontFamily('mono')
+                    ->copyable()
+                    ->default('—')
+                    ->searchable()
+                    ->toggleable(),
+
+                TextColumn::make('stw_charge_id')
+                    ->label('Charge ID')
+                    ->fontFamily('mono')
+                    ->copyable()
+                    ->default('—')
+                    ->searchable()
+                    ->toggleable(),
+
                 TextColumn::make('venda.id')
                     ->label('Venda')
                     ->formatStateUsing(fn (?string $state): string => $state ? "#{$state}" : '—'),
