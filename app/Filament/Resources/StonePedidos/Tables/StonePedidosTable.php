@@ -82,6 +82,22 @@ class StonePedidosTable
                     ->default('—')
                     ->searchable(),
 
+                TextColumn::make('stp_order_id')
+                    ->label('Order ID')
+                    ->fontFamily('mono')
+                    ->copyable()
+                    ->default('—')
+                    ->searchable()
+                    ->toggleable(),
+
+                TextColumn::make('stp_charge_id')
+                    ->label('Charge ID')
+                    ->fontFamily('mono')
+                    ->copyable()
+                    ->default('—')
+                    ->searchable()
+                    ->toggleable(),
+
                 TextColumn::make('stp_fechado_em')
                     ->label('Fechado na Stone')
                     ->dateTime('d/m/Y H:i')
