@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\FormaPagamento;
 use App\Enums\StatusFechamentoCaixa;
+use App\Models\Caixa;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\SessaoCaixa;
 use App\Models\Venda;
@@ -19,9 +20,14 @@ class SessaoCaixaService
      * auditoria) da sua última sessão FECHADA for confirmado — evita pular a
      * conferência de um turno pra abrir o próximo. Usado tanto pelo fluxo legado
      * (SessaoCaixaController::store) quanto pelo Resource Filament (SessaoCaixaForm).
+     * Caixa com `caixa_fechamento_obrigatorio` desligado reabre sem a conferência.
      */
     public function motivoBloqueioAbertura(int $caixaId): ?string
     {
+        if (Caixa::whereKey($caixaId)->value('caixa_fechamento_obrigatorio') === false) {
+            return null;
+        }
+
         $ultimaFechada = SessaoCaixa::query()
             ->where('sessaocaixa_caixa_id', $caixaId)
             ->where('sessaocaixa_status', 'FECHADA')
