@@ -81,6 +81,7 @@ class PedidosTable
 
                 PedidoStatusActions::copiarLinkAcompanhamento(),
                 PedidoStatusActions::cancelarDaTabela(),
+                PedidoStatusActions::cancelarEntregueDaTabela(),
                 self::enviarStoneAction(),
                 self::cancelarStoneAction(),
             ])

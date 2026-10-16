@@ -2,10 +2,12 @@
 
 namespace App\Services\Stone;
 
+use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\OperadoraMaquininha;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoOrigem;
 use App\Enums\StonePedidoStatus;
+use App\Exceptions\NfeIoException;
 use App\Exceptions\StoneConnectException;
 use App\Models\ItensPedido;
 use App\Models\Maquininha;
@@ -17,6 +19,7 @@ use App\Models\SessaoMesa;
 use App\Models\StonePedido;
 use App\Models\StoneWebhook;
 use App\Models\Venda;
+use App\Services\CancelamentoVendaService;
 use App\Services\MovimentacaoCaixaService;
 use App\Services\VendaService;
 use Illuminate\Support\Facades\Auth;
@@ -376,8 +379,9 @@ class StoneRecebimentoService
             ->first();
 
         $valor = round((float) ($charge['canceled_amount'] ?? $charge['amount'] ?? 0) / 100, 2);
+        $vendaCancelada = null;
 
-        DB::transaction(function () use ($webhook, $pedido, $original, $valor) {
+        DB::transaction(function () use ($webhook, $pedido, $original, $valor, &$vendaCancelada) {
             $pedido = StonePedido::whereKey($pedido->id)->lockForUpdate()->first();
             $pagamento = $original?->stw_pagamento_venda_id
                 ? PagamentosVenda::find($original->stw_pagamento_venda_id)
@@ -399,8 +403,13 @@ class StoneRecebimentoService
                 if ($vendaFinalizada && $venda) {
                     $this->reverterEfeitosNoCaixa($venda, $valorEstorno);
 
-                    if (filled($venda->venda_id_nfe)) {
-                        Log::channel('stone')->error('Estorno Stone recebido, mas a NFC-e já foi emitida — avaliar cancelamento manual', [
+                    // Estorno total (nada mais pago na venda): a venda é desfeita.
+                    // Parcial: segue finalizada com saldo em aberto, para o caixa tratar.
+                    if ((float) $venda->fresh()->venda_valor_pago <= 0.005) {
+                        $vendaCancelada = app(CancelamentoVendaService::class)
+                            ->cancelarFinalizada($venda, MotivoCancelamentoEnum::PROBLEMA_PAGAMENTO, $pedido->stp_usuario_id);
+                    } elseif (filled($venda->venda_id_nfe)) {
+                        Log::channel('stone')->error('Estorno Stone parcial em venda com NFC-e emitida — avaliar cancelamento manual', [
                             'venda_id' => $venda->id, 'venda_id_nfe' => $venda->venda_id_nfe,
                         ]);
                     }
@@ -419,6 +428,22 @@ class StoneRecebimentoService
                 'pagamento_removido' => $pagamentoId,
             ]);
         });
+
+        if ($vendaCancelada) {
+            $this->cancelarNfeDaVendaEstornada($vendaCancelada);
+        }
+    }
+
+    /** Fora da transação: chamada HTTP à NFe.io. Recusa fica no log para cancelamento manual. */
+    private function cancelarNfeDaVendaEstornada(Venda $venda): void
+    {
+        try {
+            app(CancelamentoVendaService::class)->solicitarCancelamentoNfe($venda);
+        } catch (NfeIoException $e) {
+            Log::channel('stone')->error('Venda cancelada por estorno Stone, mas a NFC-e não pôde ser cancelada — cancelar manualmente', [
+                'venda_id' => $venda->id, 'venda_id_nfe' => $venda->venda_id_nfe, 'erro' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

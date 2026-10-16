@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Exceptions\TransicaoPedidoInvalidaException;
+use App\Models\HistoricoStatusPedido;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\User;
@@ -159,7 +160,62 @@ class PedidoStatusService
         return $this->cancelamento($pedido, $ator, $motivo, 'cancel', comGuards: true);
     }
 
+    /**
+     * Cancela um pedido ENTREGUE que ficou sem pagamento (ex.: venda desfeita
+     * por estorno na maquininha). Só Admin/Gerente. O estoque NÃO volta — o
+     * produto já saiu — por isso grava sem disparar o PedidoObserver, que
+     * estornaria a baixa.
+     */
+    public function cancelarEntregue(Pedido $pedido, ?User $ator, MotivoCancelamentoEnum $motivo): Pedido
+    {
+        $this->autorizar('cancelarEntregue', $pedido, $ator);
+
+        return DB::transaction(function () use ($pedido, $ator, $motivo) {
+            $fresco = Pedido::whereKey($pedido->getKey())->lockForUpdate()->firstOrFail();
+            $atual = $this->statusDe($fresco);
+
+            if ($atual !== StatusPedidoEnum::ENTREGUE) {
+                throw TransicaoPedidoInvalidaException::naoPodeSerCancelado($fresco, $atual);
+            }
+
+            if ($fresco->pedido_venda_id !== null || $fresco->item_pedido_pedido_id()->whereNotNull('item_pedido_venda_id')->exists()) {
+                throw TransicaoPedidoInvalidaException::jaPago($fresco);
+            }
+
+            $fresco->updateQuietly([
+                'pedido_status' => StatusPedidoEnum::CANCELADO->value,
+                'pedido_motivo_cancelamento' => $motivo->value,
+                'pedido_usuario_cancelou_id' => $ator?->id ?? auth()->id(),
+                'pedido_datahora_cancelado' => Carbon::now(),
+            ]);
+
+            HistoricoStatusPedido::registrar($fresco->id, $atual->value, StatusPedidoEnum::CANCELADO->value, $ator?->id ?? auth()->id());
+
+            $this->encerrarSessaoMesaSemPendencias($fresco);
+
+            return $fresco;
+        });
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
+
+    /** Mesa já fechada cujo último pedido em aberto foi cancelado sai da lista do caixa. */
+    private function encerrarSessaoMesaSemPendencias(Pedido $pedido): void
+    {
+        if ($pedido->pedido_sessao_mesa_id === null) {
+            return;
+        }
+
+        $pendentes = Pedido::where('pedido_sessao_mesa_id', $pedido->pedido_sessao_mesa_id)
+            ->whereNotIn('pedido_status', ['CANCELADO', 'FINALIZADO'])
+            ->exists();
+
+        if (! $pendentes) {
+            SessaoMesa::whereKey($pedido->pedido_sessao_mesa_id)
+                ->where('sessao_mesa_status', 'FECHADA')
+                ->update(['sessao_mesa_status' => 'FINALIZADA']);
+        }
+    }
 
     /**
      * @param  array<string, mixed>  $extras
