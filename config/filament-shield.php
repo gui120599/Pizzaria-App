@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\Manuais;
 use App\Filament\Pages\PainelPedidos;
 use App\Filament\Resources\Roles\RoleResource;
 use App\Filament\Widgets\AcessoRapidoWidget;
@@ -239,6 +240,8 @@ return [
             // permission `view:PainelPedidos` separada só poluiria a tela de
             // roles e daria dois lugares para liberar o mesmo acesso.
             PainelPedidos::class,
+            // Manuais da equipe: aberta a todo usuário do painel.
+            Manuais::class,
         ],
     ],
 
