@@ -1616,6 +1616,17 @@ class OperarVenda extends Page
             $this->stoneStatusModal = 'pago';
             $this->recarregarPagamentos();
 
+            // Maquininha quitou a venda: finaliza pelo mesmo caminho do botão
+            // Finalizar (NFC-e automática e próxima venda). Pagamento parcial
+            // fica no modal para o caixa receber o restante.
+            if ($this->vendaQuitada()) {
+                $this->modalStoneAberta = false;
+                $this->stoneStatusModal = null;
+                $this->stonePedidoId = null;
+
+                $this->finalizarVenda();
+            }
+
             return;
         }
 
@@ -1666,6 +1677,15 @@ class OperarVenda extends Page
         if ($pago) {
             $this->redirect(static::getUrl());
         }
+    }
+
+    private function vendaQuitada(): bool
+    {
+        $venda = Venda::find($this->vendaId);
+
+        return $venda !== null
+            && $venda->venda_status === 'INICIADA'
+            && round((float) $venda->venda_valor_total - (float) $venda->venda_valor_pago, 2) <= 0;
     }
 
     private function definirErroStone(string $mensagem): void

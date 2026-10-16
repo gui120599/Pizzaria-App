@@ -205,9 +205,40 @@ class OperarVendaStonePagamentoTest extends TestCase
         ])->assertOk();
 
         $component->call('verificarStatusStone')
-            ->assertSet('stoneStatusModal', 'pago');
+            ->assertSet('modalStoneAberta', false)
+            ->assertRedirect(OperarVenda::getUrl());
 
         $this->assertSame(1, PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->count());
+        $this->assertSame('FINALIZADA', $this->venda->fresh()->venda_status);
+    }
+
+    public function test_pagamento_parcial_na_maquininha_nao_finaliza_a_venda(): void
+    {
+        $this->fakeStoneOk();
+
+        $component = Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('opcaoPagamentoSelecionadaId', $this->opcao->id)
+            ->set('stoneMaquininhaId', $this->maquininha->id)
+            ->set('valorPagamento', 5.00)
+            ->call('registrarPagamento');
+
+        $pedido = StonePedido::sole();
+
+        $this->postJson('/api/webhook/stone-connect', [
+            'id' => 'hook_2',
+            'type' => 'charge.paid',
+            'data' => [
+                'id' => 'ch_2', 'code' => '998', 'amount' => 500, 'paid_amount' => 500, 'status' => 'paid',
+                'order' => ['id' => $pedido->stp_order_id, 'code' => $pedido->stp_order_code],
+                'metadata' => ['authorization_code' => 'A2'],
+            ],
+        ])->assertOk();
+
+        $component->call('verificarStatusStone')
+            ->assertSet('stoneStatusModal', 'pago')
+            ->assertNoRedirect();
+
+        $this->assertSame('INICIADA', $this->venda->fresh()->venda_status);
     }
 
     public function test_cancelar_cobranca_stone_marca_pedido_como_cancelado(): void
