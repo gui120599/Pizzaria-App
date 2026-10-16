@@ -1770,6 +1770,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Providers\\Filament\\GarcomPanelProvider' => __DIR__ . '/../..' . '/app/Providers/Filament/GarcomPanelProvider.php',
         'App\\Providers\\RouteServiceProvider' => __DIR__ . '/../..' . '/app/Providers/RouteServiceProvider.php',
         'App\\Services\\BalancoEstoqueService' => __DIR__ . '/../..' . '/app/Services/BalancoEstoqueService.php',
+        'App\\Services\\CancelamentoVendaService' => __DIR__ . '/../..' . '/app/Services/CancelamentoVendaService.php',
         'App\\Services\\CardapioService' => __DIR__ . '/../..' . '/app/Services/CardapioService.php',
         'App\\Services\\Checklist\\ChecklistExecucaoService' => __DIR__ . '/../..' . '/app/Services/Checklist/ChecklistExecucaoService.php',
         'App\\Services\\Checklist\\ChecklistModeloService' => __DIR__ . '/../..' . '/app/Services/Checklist/ChecklistModeloService.php',

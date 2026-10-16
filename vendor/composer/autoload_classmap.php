@@ -880,6 +880,7 @@ return array(
     'App\\Providers\\Filament\\GarcomPanelProvider' => $baseDir . '/app/Providers/Filament/GarcomPanelProvider.php',
     'App\\Providers\\RouteServiceProvider' => $baseDir . '/app/Providers/RouteServiceProvider.php',
     'App\\Services\\BalancoEstoqueService' => $baseDir . '/app/Services/BalancoEstoqueService.php',
+    'App\\Services\\CancelamentoVendaService' => $baseDir . '/app/Services/CancelamentoVendaService.php',
     'App\\Services\\CardapioService' => $baseDir . '/app/Services/CardapioService.php',
     'App\\Services\\Checklist\\ChecklistExecucaoService' => $baseDir . '/app/Services/Checklist/ChecklistExecucaoService.php',
     'App\\Services\\Checklist\\ChecklistModeloService' => $baseDir . '/app/Services/Checklist/ChecklistModeloService.php',

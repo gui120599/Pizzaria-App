@@ -100,6 +100,15 @@ class PedidoPolicy
     }
 
     /**
+     * Pedido ENTREGUE sem pagamento (venda desfeita por estorno): só Admin e
+     * Gerente, porque fecha um pedido que já saiu sem receber.
+     */
+    public function cancelarEntregue(AuthUser $authUser, Pedido $pedido): bool
+    {
+        return $authUser->can('cancel:pedido') && $authUser->hasAnyRole(['Admin', 'Gerente']);
+    }
+
+    /**
      * Mesma regra de cancel: restaurar um pedido cancelado usa a mesma
      * permission (cancel:pedido, ver routes/web.php) e a mesma ownership.
      */

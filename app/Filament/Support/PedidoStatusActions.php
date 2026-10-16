@@ -172,6 +172,35 @@ class PedidoStatusActions
     }
 
     /**
+     * Pedido entregue que voltou a ficar sem pagamento (venda desfeita por
+     * estorno) e não vai ser cobrado de novo. Só Admin/Gerente.
+     */
+    public static function cancelarEntregueDaTabela(): Action
+    {
+        return Action::make('cancelarPedidoEntregue')
+            ->label('Cancelar pedido entregue')
+            ->icon(Heroicon::OutlinedXCircle)
+            ->color('danger')
+            ->visible(fn (Pedido $record): bool => self::podeCancelarEntregue($record))
+            ->requiresConfirmation()
+            ->modalHeading(fn (Pedido $record): string => 'Cancelar pedido entregue #'.$record->id)
+            ->modalDescription('O pedido sai da lista de recebimento do caixa. O estoque não é devolvido, porque o produto já foi entregue.')
+            ->modalSubmitActionLabel('Cancelar pedido')
+            ->schema(self::camposMotivo())
+            ->action(fn (Pedido $record, array $data) => self::executar(
+                ['pedido' => $record->id],
+                fn (PedidoStatusService $s, Pedido $p, ?User $ator) => $s->cancelarEntregue($p, $ator, MotivoCancelamentoEnum::from($data['motivo'])),
+            ));
+    }
+
+    public static function podeCancelarEntregue(Pedido $pedido): bool
+    {
+        return $pedido->status() === StatusPedidoEnum::ENTREGUE
+            && $pedido->pedido_venda_id === null
+            && (Auth::user()?->can('cancelarEntregue', $pedido) ?? false);
+    }
+
+    /**
      * Copia o link público de acompanhamento (o mesmo que o cardápio manda ao
      * cliente) para o atendente colar no WhatsApp.
      */
