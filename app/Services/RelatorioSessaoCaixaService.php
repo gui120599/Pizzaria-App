@@ -2,9 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\AcaoAutorizadaEnum;
 use App\Enums\FormaTrocoEnum;
 use App\Enums\PedidoOrigemEnum;
+use App\Models\AutorizacaoGerente;
 use App\Models\CorrecaoPagamento;
+use App\Models\ItensPedido;
+use App\Models\ItensVenda;
 use App\Models\LancamentoPagamento;
 use App\Models\Maquininha;
 use App\Models\PagamentosVenda;
@@ -279,7 +283,7 @@ class RelatorioSessaoCaixaService
     }
 
     /**
-     * @return array{vendas: int, total: float, recebido: float, fiado_gerado: float, fiado_recebido: float, troco_fora_dinheiro: float, com_aviso: int}
+     * @return array{vendas: int, total: float, recebido: float, fiado_gerado: float, fiado_recebido: float, troco_fora_dinheiro: float, com_aviso: int, cortesias: int, cortesias_valor: float, cortesias_custo: float}
      */
     public function resumo(): array
     {
@@ -287,6 +291,7 @@ class RelatorioSessaoCaixaService
 
         return [
             'vendas' => $vendas->count(),
+        $cortesias = $this->cortesias();
             'total' => round($vendas->sum('total'), 2),
             'recebido' => round($vendas->sum('pago'), 2),
             'fiado_gerado' => round($vendas->sum('fiado'), 2),
@@ -298,9 +303,75 @@ class RelatorioSessaoCaixaService
         ];
     }
 
+            'cortesias' => $cortesias->count(),
+            'cortesias_valor' => round($cortesias->sum('valor_tabela'), 2),
+            'cortesias_custo' => round($cortesias->sum('custo'), 2),
     /**
      * Fiado gerado: um título por venda do recorte (com os filtros).
      *
+    /**
+     * Cortesias das vendas do recorte (com os filtros): uma linha por linha de
+     * venda marcada como cortesia, a preço de tabela e ao custo médio atual do
+     * produto. Não entram em "vendido", nem no recebido, nem na NFC-e.
+     *
+     * @return Collection<int, array{key: string, venda_id: int, finalizada_em: ?Carbon, produto: string, quantidade: float, valor_tabela: float, custo: float, motivo: ?string, autorizador: ?string}>
+     */
+    public function cortesias(): Collection
+    {
+        return $this->cache['cortesias'] ??= $this->montarCortesias();
+    }
+
+    /**
+     * @return Collection<int, array{key: string, venda_id: int, finalizada_em: ?Carbon, produto: string, quantidade: float, valor_tabela: float, custo: float, motivo: ?string, autorizador: ?string}>
+     */
+    private function montarCortesias(): Collection
+    {
+        $vendas = $this->vendas()->keyBy('venda_id');
+
+        if ($vendas->isEmpty()) {
+            return collect();
+        }
+
+        $linhas = ItensVenda::whereIn('item_venda_venda_id', $vendas->keys())
+            ->where('item_venda_cortesia', true)
+            ->with('produto')
+            ->orderBy('item_venda_venda_id')
+            ->orderBy('id')
+            ->get();
+
+        // Motivo e autorizador: do item do pedido que originou a linha ou, na
+        // linha lançada à mão no caixa, da autorização de gerente gravada nela.
+        $itensPedido = ItensPedido::whereIn('item_pedido_item_venda_id', $linhas->pluck('id'))
+            ->with('usuarioCortesia')
+            ->get()
+            ->groupBy('item_pedido_item_venda_id');
+
+        $autorizacoes = AutorizacaoGerente::where('autorizacao_acao', AcaoAutorizadaEnum::CONCEDER_CORTESIA)
+            ->where('autorizacao_auditavel_type', (new ItensVenda)->getMorphClass())
+            ->whereIn('autorizacao_auditavel_id', $linhas->pluck('id'))
+            ->with('autorizador')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('autorizacao_auditavel_id');
+
+        return $linhas->map(function (ItensVenda $linha) use ($vendas, $itensPedido, $autorizacoes): array {
+            $deItem = $itensPedido->get($linha->id)?->first();
+            $autorizacao = $autorizacoes->get($linha->id)?->last();
+
+            return [
+                'key' => 'cortesia-'.$linha->id,
+                'venda_id' => (int) $linha->item_venda_venda_id,
+                'finalizada_em' => $vendas[$linha->item_venda_venda_id]['finalizada_em'],
+                'produto' => $linha->produto?->produto_descricao ?? '—',
+                'quantidade' => (float) $linha->item_venda_quantidade,
+                'valor_tabela' => round((float) $linha->item_venda_valor_tabela, 2),
+                'custo' => round((float) $linha->produto?->produto_custo_medio * (float) $linha->item_venda_quantidade, 2),
+                'motivo' => $deItem?->item_pedido_cortesia_motivo ?? $autorizacao?->autorizacao_motivo,
+                'autorizador' => $deItem?->usuarioCortesia?->name ?? $autorizacao?->autorizador?->name,
+            ];
+        })->values();
+    }
+
      * @return Collection<int, array{key: string, lancamento_id: int, venda_id: int, finalizada_em: ?Carbon, cliente: string, valor: float, recebido: float, status: string}>
      */
     public function fiadoGerado(): Collection

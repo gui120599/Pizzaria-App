@@ -543,6 +543,7 @@ return array(
     'App\\Filament\\Widgets\\ProdutosVendidosPorPeriodoChart' => $baseDir . '/app/Filament/Widgets/ProdutosVendidosPorPeriodoChart.php',
     'App\\Filament\\Widgets\\ResumoOperacionalWidget' => $baseDir . '/app/Filament/Widgets/ResumoOperacionalWidget.php',
     'App\\Filament\\Widgets\\SaldosContasWidget' => $baseDir . '/app/Filament/Widgets/SaldosContasWidget.php',
+    'App\\Filament\\Widgets\\SessaoCaixaCortesiasWidget' => $baseDir . '/app/Filament/Widgets/SessaoCaixaCortesiasWidget.php',
     'App\\Filament\\Widgets\\SessaoCaixaFiadoWidget' => $baseDir . '/app/Filament/Widgets/SessaoCaixaFiadoWidget.php',
     'App\\Filament\\Widgets\\SessaoCaixaStatsOverview' => $baseDir . '/app/Filament/Widgets/SessaoCaixaStatsOverview.php',
     'App\\Filament\\Widgets\\SessaoCaixaVendasWidget' => $baseDir . '/app/Filament/Widgets/SessaoCaixaVendasWidget.php',

@@ -1433,6 +1433,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Filament\\Widgets\\ProdutosVendidosPorPeriodoChart' => __DIR__ . '/../..' . '/app/Filament/Widgets/ProdutosVendidosPorPeriodoChart.php',
         'App\\Filament\\Widgets\\ResumoOperacionalWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/ResumoOperacionalWidget.php',
         'App\\Filament\\Widgets\\SaldosContasWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/SaldosContasWidget.php',
+        'App\\Filament\\Widgets\\SessaoCaixaCortesiasWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/SessaoCaixaCortesiasWidget.php',
         'App\\Filament\\Widgets\\SessaoCaixaFiadoWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/SessaoCaixaFiadoWidget.php',
         'App\\Filament\\Widgets\\SessaoCaixaStatsOverview' => __DIR__ . '/../..' . '/app/Filament/Widgets/SessaoCaixaStatsOverview.php',
         'App\\Filament\\Widgets\\SessaoCaixaVendasWidget' => __DIR__ . '/../..' . '/app/Filament/Widgets/SessaoCaixaVendasWidget.php',

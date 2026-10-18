@@ -65,7 +65,7 @@ class PermissionSeeder extends Seeder
             'view:fechamento_caixa_conferencia_maquininhas_widget',
             // Relatório de Sessão de Caixa (página + widgets do Shield) e correção de lançamentos.
             'view:relatorio_sessao_caixa', 'view:sessao_caixa_stats_overview',
-            'view:sessao_caixa_vendas_widget', 'view:sessao_caixa_fiado_widget',
+            'view:sessao_caixa_vendas_widget', 'view:sessao_caixa_fiado_widget', 'view:sessao_caixa_cortesias_widget',
             'corrigir:pagamento_venda',
             // Módulo de checklists (executar depende do papel atribuído ao modelo, não de permission).
             'view_any:checklist_modelo', 'view:checklist_modelo', 'create:checklist_modelo',
