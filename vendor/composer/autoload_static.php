@@ -913,6 +913,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Console\\Commands\\CozinhaLiberarItens' => __DIR__ . '/../..' . '/app/Console/Commands/CozinhaLiberarItens.php',
         'App\\Console\\Commands\\CozinhaRecalcularStatus' => __DIR__ . '/../..' . '/app/Console/Commands/CozinhaRecalcularStatus.php',
         'App\\Console\\Commands\\CozinhaReconstruir' => __DIR__ . '/../..' . '/app/Console/Commands/CozinhaReconstruir.php',
+        'App\\Console\\Commands\\DiagnosticarFiadoComPagamentoDePedido' => __DIR__ . '/../..' . '/app/Console/Commands/DiagnosticarFiadoComPagamentoDePedido.php',
         'App\\Console\\Commands\\FinanceiroRecalcularSaldos' => __DIR__ . '/../..' . '/app/Console/Commands/FinanceiroRecalcularSaldos.php',
         'App\\Console\\Commands\\MigrarTaxaEntregaAdicionais' => __DIR__ . '/../..' . '/app/Console/Commands/MigrarTaxaEntregaAdicionais.php',
         'App\\Console\\Commands\\NfeNumeracaoDefinir' => __DIR__ . '/../..' . '/app/Console/Commands/NfeNumeracaoDefinir.php',

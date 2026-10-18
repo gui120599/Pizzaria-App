@@ -69,6 +69,10 @@
                 </div>
             </div>
 
+            {{-- Pagamento opcional: sem forma escolhida, o cliente paga no caixa. --}}
+            @livewire('entrega-pagamento-picker', ['inicial' => $entregaPagamentoData, 'total' => $this->totaisRetirada()['total'], 'semOpcaoEntrega' => true], key('retirada-pagamento-'.$rascunhoId))
+            <p class="-mt-2 px-1 text-xs text-gray-500 dark:text-gray-400">Opcional: sem forma escolhida, o cliente paga no caixa.</p>
+
             @else
                 {{-- Entrega: mesmos componentes do AtenderPedido (cliente com
                      endereço/CEP e opção de entrega + forma combinada). --}}
@@ -192,6 +196,24 @@
                             </p>
                         @endforeach
                         <p class="pt-1 text-xs text-gray-500">O entregador leva e cobra pelo Painel do Entregador.</p>
+                    </div>
+                @endif
+
+                @if (! $retirada->exigeEntrega() && $retirada->pagamentosCombinados->isNotEmpty())
+                    <div class="space-y-1 rounded-2xl bg-white p-4 text-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
+                        <p class="font-semibold text-gray-900 dark:text-white">Pagamento combinado</p>
+                        @foreach ($retirada->pagamentosCombinados as $combinado)
+                            <p class="text-gray-600 dark:text-gray-300">
+                                {{ $combinado->pg_pedido_opcaopagamento_nome }}: R$ {{ number_format((float) $combinado->pg_pedido_valor, 2, ',', '.') }}
+                                @if ($combinado->pg_pedido_valor_troco_para)
+                                    (troco para R$ {{ number_format((float) $combinado->pg_pedido_valor_troco_para, 2, ',', '.') }})
+                                @endif
+                                @if ($combinado->pg_pedido_pago)
+                                    <span class="ml-1 inline-flex rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">pago</span>
+                                @endif
+                            </p>
+                        @endforeach
+                        <p class="pt-1 text-xs text-gray-500">O caixa lança essas formas ao fechar a venda do pedido.</p>
                     </div>
                 @endif
 

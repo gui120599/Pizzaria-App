@@ -508,6 +508,9 @@
                                     Crédito disponível do cliente: R$ {{ number_format($limiteDisponivel, 2, ',', '.') }}
                                 @endif
                             </p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">
+                                Pagamentos combinados no pedido não entram na venda fiado (ficam salvos no pedido e voltam se desmarcar). Só o que foi marcado como já efetuado permanece.
+                            </p>
                         </div>
                     @endif
                 </div>

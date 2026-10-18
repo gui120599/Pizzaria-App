@@ -23,6 +23,7 @@ return array(
     'App\\Console\\Commands\\CozinhaLiberarItens' => $baseDir . '/app/Console/Commands/CozinhaLiberarItens.php',
     'App\\Console\\Commands\\CozinhaRecalcularStatus' => $baseDir . '/app/Console/Commands/CozinhaRecalcularStatus.php',
     'App\\Console\\Commands\\CozinhaReconstruir' => $baseDir . '/app/Console/Commands/CozinhaReconstruir.php',
+    'App\\Console\\Commands\\DiagnosticarFiadoComPagamentoDePedido' => $baseDir . '/app/Console/Commands/DiagnosticarFiadoComPagamentoDePedido.php',
     'App\\Console\\Commands\\FinanceiroRecalcularSaldos' => $baseDir . '/app/Console/Commands/FinanceiroRecalcularSaldos.php',
     'App\\Console\\Commands\\MigrarTaxaEntregaAdicionais' => $baseDir . '/app/Console/Commands/MigrarTaxaEntregaAdicionais.php',
     'App\\Console\\Commands\\NfeNumeracaoDefinir' => $baseDir . '/app/Console/Commands/NfeNumeracaoDefinir.php',

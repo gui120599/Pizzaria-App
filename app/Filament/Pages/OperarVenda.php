@@ -1878,6 +1878,11 @@ class OperarVenda extends Page
                     continue;
                 }
 
+                // Venda fiado: só entra o que já foi recebido de verdade no pedido.
+                if ($this->vendaFiado && ! $combinado->pg_pedido_pago) {
+                    continue;
+                }
+
                 if ($opcao->ehIntegracaoStone()) {
                     $naMaquininha[] = $opcao->opcaopag_nome;
 
@@ -1918,25 +1923,75 @@ class OperarVenda extends Page
 
     /**
      * Apaga desta venda os pagamentos criados a partir das formas combinadas
-     * dos pedidos informados (o pedido saiu da venda). Quem chama recalcula
-     * os totais com VendaService::atualizarValoresdaVenda.
+     * dos pedidos informados (o pedido saiu da venda, ou virou fiado — aí
+     * $somenteNaoConfirmados preserva o que já foi recebido no pedido). As
+     * formas combinadas continuam no pedido. Quem chama recalcula os totais
+     * com VendaService::atualizarValoresdaVenda.
      *
      * @param  Collection<int, int>  $pedidoIds
+     * @return Collection<int, PagamentosVenda>
      */
-    private function apagarPagamentosDosPedidos(Collection $pedidoIds): void
+    private function apagarPagamentosDosPedidos(Collection $pedidoIds, bool $somenteNaoConfirmados = false): Collection
     {
         if ($this->vendaId === null || $pedidoIds->isEmpty()) {
-            return;
+            return collect();
         }
 
         $apagados = PagamentosVenda::where('pg_venda_venda_id', $this->vendaId)
-            ->whereHas('pagamentoPedido', fn ($query) => $query->whereIn('pg_pedido_pedido_id', $pedidoIds))
+            ->whereHas('pagamentoPedido', fn ($query) => $query
+                ->whereIn('pg_pedido_pedido_id', $pedidoIds)
+                ->when($somenteNaoConfirmados, fn ($q) => $q->where('pg_pedido_pago', false)))
+            ->with('pagamentoPedido')
             ->get()
             ->each->delete();
 
         if ($apagados->isNotEmpty()) {
             $this->recarregarPagamentos();
         }
+
+        return $apagados;
+    }
+
+    /** Pedidos com itens lançados nesta venda. @return Collection<int, int> */
+    private function pedidosDaVenda(): Collection
+    {
+        return ItensPedido::where('item_pedido_venda_id', $this->vendaId)
+            ->whereNotNull('item_pedido_pedido_id')
+            ->distinct()
+            ->pluck('item_pedido_pedido_id');
+    }
+
+    /**
+     * Marcar fiado: as formas combinadas no pedido que ainda não foram
+     * recebidas saem da venda (não entraram no caixa) e continuam salvas no
+     * pedido; desmarcar traz de volta. As confirmadas ("pagamento já
+     * efetuado") ficam: o saldo do fiado é só o que falta.
+     */
+    public function updatedVendaFiado(bool $fiado): void
+    {
+        if ($this->vendaId === null) {
+            return;
+        }
+
+        $fiado ? $this->desfazerPagamentosDoPedidoParaFiado() : $this->lancarPagamentosDosPedidos($this->pedidosDaVenda());
+    }
+
+    private function desfazerPagamentosDoPedidoParaFiado(): void
+    {
+        $apagados = $this->apagarPagamentosDosPedidos($this->pedidosDaVenda(), somenteNaoConfirmados: true);
+
+        if ($apagados->isEmpty()) {
+            return;
+        }
+
+        app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
+        $this->recarregarPagamentos();
+
+        Notification::make()
+            ->title('Fiado: pagamentos do pedido não entram na venda')
+            ->body('Voltaram para o pedido: '.$apagados->map(fn (PagamentosVenda $pagamento): string => 'R$ '.number_format((float) $pagamento->pg_venda_valor_pagamento, 2, ',', '.'))->implode(' · ').'. Se desmarcar o fiado, são lançados de novo.')
+            ->warning()
+            ->send();
     }
 
     public function removerPagamento(int $pagamentoId): void
@@ -2078,6 +2133,11 @@ class OperarVenda extends Page
         $pedidosVinculados = Pedido::whereIn('id', $pedidoIds)->get();
         $idSessaoMesa = $pedidosVinculados->pluck('pedido_sessao_mesa_id')->filter()->unique()->values()->all();
         $idPedido = $pedidosVinculados->whereNull('pedido_sessao_mesa_id')->pluck('id')->all();
+
+        if ($this->vendaFiado) {
+            $this->desfazerPagamentosDoPedidoParaFiado();
+            $venda->refresh();
+        }
 
         $fiadoVencimento = $this->vendaFiado && $this->fiadoVencimento
             ? Carbon::parse($this->fiadoVencimento)
