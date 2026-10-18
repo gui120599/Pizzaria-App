@@ -135,6 +135,51 @@ class RetiradaGarcomTest extends TestCase
         $this->assertFalse($pedido->exigeEntrega());
     }
 
+    public function test_retirada_grava_pagamento_combinado_com_pix_ja_pago(): void
+    {
+        $this->actingAs($this->garcom);
+        $pix = OpcoesPagamento::create(['opcaopag_nome' => 'PIX CNPJ', 'opcaopag_desc_nfe' => 'InstantPayment', 'opcaopag_pix_cnpj' => true, 'opcaopag_confirmavel_no_pedido' => true]);
+        $dinheiro = OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_desc_nfe' => 'cash']);
+        $rascunho = $this->service->rascunho($this->garcom);
+        $this->item($rascunho, 50.00);
+
+        $this->service->enviar($rascunho, 'João Silva', '(64) 99999-1234', null, [
+            ['opcaoPagamentoId' => $pix->id, 'valor' => '30,00', 'trocoPara' => null, 'pago' => true],
+            ['opcaoPagamentoId' => $dinheiro->id, 'valor' => '20,00', 'trocoPara' => '50,00'],
+        ]);
+
+        [$linhaPix, $linhaDinheiro] = $rascunho->pagamentosCombinados()->orderBy('pg_pedido_ordem')->get()->all();
+        $this->assertTrue($linhaPix->pg_pedido_pago);
+        $this->assertSame($this->garcom->id, $linhaPix->pg_pedido_pago_usuario_id);
+        $this->assertEquals(50.00, $linhaDinheiro->pg_pedido_valor_troco_para);
+
+        Livewire::test(AtenderRetirada::class, ['pedido' => $rascunho->id])
+            ->assertSee('Pagamento combinado')
+            ->assertSeeHtml('">pago</span>');
+    }
+
+    public function test_retirada_sem_forma_escolhida_segue_sem_pagamento_e_soma_errada_e_recusada(): void
+    {
+        $dinheiro = OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_desc_nfe' => 'cash']);
+        $rascunho = $this->service->rascunho($this->garcom);
+        $this->item($rascunho, 50.00);
+
+        try {
+            $this->service->enviar($rascunho, 'João Silva', '(64) 99999-1234', null, [
+                ['opcaoPagamentoId' => $dinheiro->id, 'valor' => '40,00'],
+            ]);
+            $this->fail('Soma diferente do total deveria ser recusada.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('R$ 50,00', $e->getMessage());
+        }
+
+        // Linha do picker sem forma (valor já preenchido): paga no caixa.
+        $this->assertTrue($this->service->enviar($rascunho, 'João Silva', '(64) 99999-1234', null, [
+            ['opcaoPagamentoId' => null, 'valor' => '50,00'],
+        ]));
+        $this->assertSame(0, $rascunho->pagamentosCombinados()->count());
+    }
+
     public function test_entregar_ao_cliente_e_finalizado_se_ja_pago(): void
     {
         $this->actingAs($this->garcom);

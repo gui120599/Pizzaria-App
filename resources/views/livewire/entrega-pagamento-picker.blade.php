@@ -1,6 +1,7 @@
 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/10 p-4 space-y-3">
-    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Entrega e pagamento</h3>
+    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $semOpcaoEntrega ? 'Pagamento' : 'Entrega e pagamento' }}</h3>
 
+    @if (! $semOpcaoEntrega)
     <div>
         <label class="text-xs text-gray-500 dark:text-gray-400">Opção de entrega</label>
         <select wire:model.live="opcaoEntregaId"
@@ -16,6 +17,7 @@
             </p>
         @endif
     </div>
+    @endif
 
     <div class="space-y-2">
         <div class="flex items-center justify-between">

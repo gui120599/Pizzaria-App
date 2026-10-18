@@ -51,14 +51,16 @@ class RetiradaService
 
     /**
      * Envia a retirada para a cozinha (INICIADO → ABERTO), vinculando o cliente.
-     *
+     * Pagamento opcional: sem nenhuma forma escolhida o cliente paga no
+     * caixa; com forma, a soma precisa bater com o total.
      *
      * @param  ?int  $opcaoEntregaId  opção sem endereço escolhida pelo garçom (null = padrão de retirada)
+     * @param  array<int, array{opcaoPagamentoId?: ?int, valor?: ?string, trocoPara?: ?string, pago?: bool}>  $pagamentos
      * @return bool false quando a retirada já tinha sido enviada (reenvio)
      *
-     * @throws RuntimeException quando faltam itens, nome/celular ou opção de retirada
+     * @throws RuntimeException quando faltam itens, nome/celular ou opção de retirada, ou o pagamento não bate
      */
-    public function enviar(Pedido $rascunho, string $nome, string $celular, ?int $opcaoEntregaId = null): bool
+    public function enviar(Pedido $rascunho, string $nome, string $celular, ?int $opcaoEntregaId = null, array $pagamentos = []): bool
     {
         $nome = trim($nome);
         $digitosCelular = preg_replace('/\D/', '', $celular);
@@ -71,7 +73,14 @@ class RetiradaService
             throw new RuntimeException('Informe o celular do cliente com DDD.');
         }
 
-        return DB::transaction(function () use ($rascunho, $nome, $digitosCelular, $opcaoEntregaId) {
+        $pagamentos = array_values($pagamentos);
+        $informouPagamento = collect($pagamentos)->contains(fn (array $p): bool => filled($p['opcaoPagamentoId'] ?? null));
+
+        if ($informouPagamento && collect($pagamentos)->contains(fn (array $p): bool => blank($p['opcaoPagamentoId'] ?? null) || blank($p['valor'] ?? null))) {
+            throw new RuntimeException('Escolha a forma e informe o valor de cada pagamento (ou deixe sem forma para pagar no caixa).');
+        }
+
+        return DB::transaction(function () use ($rascunho, $nome, $digitosCelular, $opcaoEntregaId, $pagamentos, $informouPagamento) {
             $pedido = Pedido::whereKey($rascunho->getKey())->lockForUpdate()->firstOrFail();
 
             if ($pedido->pedido_status !== StatusPedidoEnum::INICIADO->value) {
@@ -88,6 +97,10 @@ class RetiradaService
             $cliente = $this->clientes->resolverOuCriar(['nome' => $nome, 'celular' => $digitosCelular]);
             $totais = TotaisPedido::paraItens($itens, $opcao);
 
+            if ($informouPagamento) {
+                $this->exigirSomaDoTotal($pagamentos, $totais['total']);
+            }
+
             $pedido->fill([
                 'pedido_cliente_id' => $cliente->id,
                 'pedido_opcaoentrega_id' => $opcao->id,
@@ -98,10 +111,32 @@ class RetiradaService
                 'pedido_datahora_abertura' => Carbon::now(),
             ])->save();
 
+            if ($informouPagamento) {
+                app(PagamentosCombinadosService::class)->sincronizar($pedido, $pagamentos);
+            }
+
             $this->status->confirmar($pedido);
 
             return true;
         });
+    }
+
+    /**
+     * @param  array<int, array{valor?: ?string}>  $pagamentos
+     *
+     * @throws RuntimeException
+     */
+    private function exigirSomaDoTotal(array $pagamentos, float $total): void
+    {
+        $somaPagamentos = collect($pagamentos)->sum(fn (array $p): float => PagamentosCombinadosService::valorDigitado($p['valor']));
+
+        if (abs($somaPagamentos - $total) > 0.01) {
+            throw new RuntimeException(sprintf(
+                'A soma das formas de pagamento (R$ %s) precisa bater com o total do pedido (R$ %s).',
+                number_format($somaPagamentos, 2, ',', '.'),
+                number_format($total, 2, ',', '.'),
+            ));
+        }
     }
 
     /**

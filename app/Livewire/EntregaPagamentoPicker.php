@@ -39,9 +39,13 @@ class EntregaPagamentoPicker extends Component
     /** Lista só opções que exigem endereço (entrega do Painel do Garçom). */
     public bool $somenteComEndereco = false;
 
-    public function mount(array $inicial = [], float $total = 0, bool $somenteComEndereco = false): void
+    /** Só as formas de pagamento, sem a opção de entrega (retirada do garçom, que escolhe a opção à parte). */
+    public bool $semOpcaoEntrega = false;
+
+    public function mount(array $inicial = [], float $total = 0, bool $somenteComEndereco = false, bool $semOpcaoEntrega = false): void
     {
         $this->somenteComEndereco = $somenteComEndereco;
+        $this->semOpcaoEntrega = $semOpcaoEntrega;
         $this->opcaoEntregaId = $inicial['opcaoEntregaId'] ?? null;
         $this->pagamentos = $inicial['pagamentos'] ?? [];
         $this->total = $total;

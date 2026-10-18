@@ -68,7 +68,7 @@ class AtenderRetirada extends Page
     /** Estado do ClientePicker (entrega), recebido por evento. */
     public array $clienteData = [];
 
-    /** Estado do EntregaPagamentoPicker (entrega), recebido por evento. */
+    /** Estado do EntregaPagamentoPicker (entrega e retirada), recebido por evento. */
     public array $entregaPagamentoData = ['opcaoEntregaId' => null, 'pagamentos' => []];
 
     public function mount(int|string|null $pedido = null): void
@@ -192,6 +192,22 @@ class AtenderRetirada extends Page
         );
     }
 
+    /**
+     * Total da retirada (opção sem endereço escolhida), para o pagamento opcional.
+     *
+     * @return array{itens: float, desconto: float, frete: float, total: float}
+     */
+    public function totaisRetirada(): array
+    {
+        return TotaisPedido::paraItens(
+            collect($this->itensCarrinho)->map(fn (array $item): ItensPedido => new ItensPedido([
+                'item_pedido_valor' => $item['valor'] ?? 0,
+                'item_pedido_desconto' => $item['desconto'] ?? 0,
+            ])),
+            $this->opcaoRetiradaId ? OpcoesEntregas::find($this->opcaoRetiradaId) : null,
+        );
+    }
+
     /** Disparado pelo botão do PedidoProdutoSelector (requestSubmit de #pedido-form). */
     public function enviar(): void
     {
@@ -199,7 +215,7 @@ class AtenderRetirada extends Page
             $rascunho = Pedido::findOrFail($this->rascunhoId);
             $enviada = $this->tipo === 'entrega'
                 ? app(RetiradaService::class)->enviarEntrega($rascunho, $this->clienteData, $this->entregaPagamentoData)
-                : app(RetiradaService::class)->enviar($rascunho, $this->nome, $this->celular, $this->opcaoRetiradaId);
+                : app(RetiradaService::class)->enviar($rascunho, $this->nome, $this->celular, $this->opcaoRetiradaId, $this->entregaPagamentoData['pagamentos'] ?? []);
         } catch (RuntimeException $e) {
             Notification::make()->title($e->getMessage())->warning()->send();
 
