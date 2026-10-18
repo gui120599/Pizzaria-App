@@ -6,11 +6,16 @@
 --}}
 @php
     use App\Support\FormatoQuantidade;
-    use App\Support\TotaisPedido;
 
     $status = $pedido->status();
     $itens = $pedido->item_pedido_pedido_id;
-    $totais = TotaisPedido::paraItens($itens, $pedido->opcaoEntrega, (float) ($pedido->pedido_valor_desconto ?? 0));
+    // Valores gravados no pedido (mantidos em dia a cada alteração de item).
+    $totais = [
+        'itens' => (float) $pedido->pedido_valor_itens,
+        'desconto' => (float) $pedido->pedido_valor_desconto,
+        'frete' => (float) $pedido->pedido_valor_frete,
+        'total' => (float) $pedido->pedido_valor_total,
+    ];
 @endphp
 
 <div class="space-y-5 text-sm">

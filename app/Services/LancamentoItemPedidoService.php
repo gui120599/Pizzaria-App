@@ -42,6 +42,7 @@ class LancamentoItemPedidoService
         private EstoqueService $estoque,
         private PromocaoRelampagoService $relampago,
         private PromocaoAdicionalService $promocoesAdicionais,
+        private TotaisPedidoService $totais,
     ) {}
 
     /**
@@ -252,6 +253,8 @@ class LancamentoItemPedidoService
     public function gravar(int $pedidoId, LinhaPrecificada $linha): ItensPedido
     {
         return DB::transaction(function () use ($pedidoId, $linha) {
+            $this->totais->travar($pedidoId);
+
             $item = ItensPedido::create(['item_pedido_pedido_id' => $pedidoId] + $linha->atributos);
 
             $this->gravarAdicionais($item, $linha->adicionais);
@@ -259,6 +262,8 @@ class LancamentoItemPedidoService
             if ($item->item_pedido_promocao_id) {
                 $this->relampago->consumir($item);
             }
+
+            $this->totais->recalcular($pedidoId);
 
             return $item;
         });
@@ -278,6 +283,8 @@ class LancamentoItemPedidoService
         }
 
         return DB::transaction(function () use ($pedidoId, $gatilho, $linha) {
+            $this->totais->travar($pedidoId);
+
             $regra = $linha->regraOferta;
             $oferta = $linha->oferta;
 
@@ -304,6 +311,8 @@ class LancamentoItemPedidoService
 
             $this->promocoesAdicionais->consumir($item);
 
+            $this->totais->recalcular($pedidoId);
+
             return $item;
         });
     }
@@ -324,6 +333,8 @@ class LancamentoItemPedidoService
         $adicionais = $this->adicionaisPermitidos($produtos, $adicionaisIds);
 
         return DB::transaction(function () use ($item, $adicionais) {
+            $this->totais->travar($item->item_pedido_pedido_id);
+
             $baseSemAdicionais = round((float) $item->item_pedido_valor - (float) $item->item_pedido_valor_adicionais, 2);
             $valorAdicionais = round(
                 $this->valorDosAdicionais($adicionais, (float) $item->item_pedido_quantidade)
@@ -338,6 +349,8 @@ class LancamentoItemPedidoService
 
             $this->gravarAdicionais($item, $adicionais);
 
+            $this->totais->recalcular($item->item_pedido_pedido_id);
+
             return $item;
         });
     }
@@ -349,6 +362,8 @@ class LancamentoItemPedidoService
     public function atualizarQuantidade(ItensPedido $item, float $quantidade): ItensPedido
     {
         return DB::transaction(function () use ($item, $quantidade) {
+            $this->totais->travar($item->item_pedido_pedido_id);
+
             $quantidadeAnterior = (float) $item->item_pedido_quantidade;
             $descontoUnitario = $item->item_pedido_desconto_unitario !== null
                 ? (float) $item->item_pedido_desconto_unitario
@@ -376,7 +391,43 @@ class LancamentoItemPedidoService
                 'item_pedido_valor' => $linha['valor'],
             ]);
 
+            $this->totais->recalcular($item->item_pedido_pedido_id);
+
             return $item;
+        });
+    }
+
+    /**
+     * Remove o item (e as ofertas vinculadas, em cascata), estornando o
+     * consumo de promoções, e recalcula o total do pedido na mesma transação.
+     *
+     * @return list<int> ids das linhas de oferta removidas junto com o item
+     */
+    public function remover(ItensPedido $item): array
+    {
+        return DB::transaction(function () use ($item) {
+            $this->totais->travar($item->item_pedido_pedido_id);
+
+            $idsOfertaRemovidos = [];
+
+            if ($item->item_pedido_promocao_id) {
+                $this->relampago->estornarItem($item);
+            }
+
+            // Este item é um gatilho com oferta(s) vinculada(s)?
+            if (! $item->item_pedido_origem_id) {
+                $idsOfertaRemovidos = $this->promocoesAdicionais->estornarItensDoGatilho($item);
+                ItensPedido::whereIn('id', $idsOfertaRemovidos)->delete();
+            } elseif ($item->item_pedido_promocao_adicional_regra_id) {
+                // A própria linha de oferta removida isoladamente (o gatilho continua).
+                $this->promocoesAdicionais->estornarItemOferta($item);
+            }
+
+            $item->delete();
+
+            $this->totais->recalcular($item->item_pedido_pedido_id);
+
+            return $idsOfertaRemovidos;
         });
     }
 

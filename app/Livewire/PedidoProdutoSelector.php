@@ -17,9 +17,6 @@ use App\Services\ItemSolicitado;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
 use App\Services\PrecificadorService;
-use App\Services\PromocaoAdicionalService;
-use App\Services\PromocaoRelampagoService;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -868,28 +865,9 @@ class PedidoProdutoSelector extends Component
         $idsOfertaRemovidos = [];
 
         if ($this->pedidoId && is_numeric($itemId)) {
-            DB::transaction(function () use ($itemId, &$idsOfertaRemovidos) {
-                $item = ItensPedido::find($itemId);
-                if (! $item) {
-                    return;
-                }
-
-                if ($item->item_pedido_promocao_id) {
-                    app(PromocaoRelampagoService::class)->estornarItem($item);
-                }
-
-                // Este item é um gatilho com oferta(s) vinculada(s)?
-                if (! $item->item_pedido_origem_id) {
-                    $idsOfertaRemovidos = app(PromocaoAdicionalService::class)->estornarItensDoGatilho($item);
-                    ItensPedido::whereIn('id', $idsOfertaRemovidos)->delete();
-                } elseif ($item->item_pedido_promocao_adicional_regra_id) {
-                    // Este item é a própria linha de oferta sendo removida
-                    // isoladamente (o gatilho continua no pedido).
-                    app(PromocaoAdicionalService::class)->estornarItemOferta($item);
-                }
-
-                $item->delete();
-            });
+            if ($item = ItensPedido::find($itemId)) {
+                $idsOfertaRemovidos = app(LancamentoItemPedidoService::class)->remover($item);
+            }
         }
 
         $idsRemovidos = array_merge([$itemId], array_map('strval', $idsOfertaRemovidos));

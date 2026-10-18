@@ -6,6 +6,13 @@
         </div>
     @endif
 
+    @if ($this->pagamentoDivergente)
+        <div class="flex items-start gap-2 px-4 py-3 mb-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl text-amber-700 dark:text-amber-400 text-sm">
+            <x-heroicon-o-exclamation-triangle class="h-5 w-5 shrink-0" />
+            <span>Forma de pagamento combinada não bate com o total — revise e salve.</span>
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 xl:grid-cols-5 gap-4" @if ($somenteLeitura) style="opacity: .6; pointer-events: none;" @endif>
         <div class="xl:col-span-3">
             @livewire('pedido-produto-selector', ['pedidoId' => $pedidoId, 'itensIniciais' => $itensCarrinho, 'carrinhoTopo' => true], key('selector-'.($pedidoId ?? 'novo')))
