@@ -3,12 +3,16 @@
 namespace Tests\Feature;
 
 use App\Enums\ProdutoTipoEnum;
+use App\Enums\StatusLancamento;
+use App\Enums\TipoLancamento;
 use App\Filament\Pages\AtenderPedido;
 use App\Filament\Pages\OperarVenda;
 use App\Livewire\EntregaPagamentoPicker;
 use App\Models\Caixa;
 use App\Models\Categoria;
+use App\Models\Cliente;
 use App\Models\ItensPedido;
+use App\Models\Lancamento;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosPedido;
 use App\Models\PagamentosVenda;
@@ -17,6 +21,7 @@ use App\Models\Produto;
 use App\Models\SessaoCaixa;
 use App\Models\User;
 use App\Models\Venda;
+use App\Services\VendaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -249,5 +254,129 @@ class PagamentosDoPedidoNaVendaTest extends TestCase
             ->assertOk()
             ->assertSee('PIX CNPJ (PAGO)')
             ->assertSee('PAGO — não cobrar', false);
+    }
+
+    private function comClienteFiado(): void
+    {
+        $cliente = Cliente::create(['cliente_nome' => 'João', 'cliente_tipo' => 'PF', 'cliente_limite_credito' => 500]);
+        $this->venda->update(['venda_cliente_id' => $cliente->id]);
+    }
+
+    private function pagamentosDaVenda(): int
+    {
+        return PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->count();
+    }
+
+    public function test_marcar_fiado_tira_os_pagamentos_do_pedido_e_desmarcar_traz_de_volta(): void
+    {
+        $this->comClienteFiado();
+        $pedido = $this->pedido([[$this->pixCnpj, 50], [$this->dinheiro, 30, 50]]);
+
+        $pdv = $this->pdv()->call('lancarPedidoAvulso', $pedido->id);
+        $this->assertSame(2, $this->pagamentosDaVenda());
+
+        $pdv->set('vendaFiado', true);
+        $this->assertSame(0, $this->pagamentosDaVenda());
+        $this->assertSame(2, PagamentosPedido::where('pg_pedido_pedido_id', $pedido->id)->count());
+        $venda = $this->venda->fresh();
+        $this->assertEqualsWithDelta(0.0, (float) $venda->venda_valor_pago, 0.001);
+        $this->assertEqualsWithDelta(0.0, (float) $venda->venda_valor_troco, 0.001);
+
+        $pdv->set('vendaFiado', false);
+        $this->assertSame(2, $this->pagamentosDaVenda());
+        $this->assertEqualsWithDelta(80.0, (float) $this->venda->fresh()->venda_valor_pago, 0.001);
+
+        $pdv->set('vendaFiado', true)->set('vendaFiado', false);
+        $this->assertSame(2, $this->pagamentosDaVenda());
+    }
+
+    public function test_fiado_parcial_mantem_so_o_confirmado_e_o_titulo_cobra_o_saldo(): void
+    {
+        $this->comClienteFiado();
+        $pedido = $this->pedido([[$this->pixCnpj, 50, null, true], [$this->dinheiro, 30]]);
+
+        $this->pdv()
+            ->call('lancarPedidoAvulso', $pedido->id)
+            ->set('vendaFiado', true)
+            ->call('finalizarVenda')
+            ->assertHasNoErrors();
+
+        $pagamentos = PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->get();
+        $this->assertSame([$this->pixCnpj->id], $pagamentos->pluck('pg_venda_opcaopagamento_id')->all());
+
+        $venda = $this->venda->fresh();
+        $this->assertSame('FINALIZADA', $venda->venda_status);
+        $this->assertEqualsWithDelta(50.0, (float) $venda->venda_valor_pago, 0.001);
+        $this->assertEqualsWithDelta(30.0, (float) Lancamento::where('venda_id', $venda->id)->value('valor'), 0.001);
+    }
+
+    public function test_pedido_selecionado_com_fiado_ja_marcado_so_lanca_o_confirmado(): void
+    {
+        $this->comClienteFiado();
+        $pedido = $this->pedido([[$this->pixCnpj, 50, null, true], [$this->dinheiro, 30]]);
+
+        $this->pdv()->set('vendaFiado', true)->call('lancarPedidoAvulso', $pedido->id);
+
+        $this->assertSame([$this->pixCnpj->id], PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->pluck('pg_venda_opcaopagamento_id')->all());
+    }
+
+    public function test_pagamento_manual_do_caixa_sobrevive_ao_liga_desliga_do_fiado(): void
+    {
+        $this->comClienteFiado();
+        $pedido = $this->pedido([[$this->dinheiro, 30]]);
+
+        $pdv = $this->pdv()->call('lancarPedidoAvulso', $pedido->id);
+        $manual = PagamentosVenda::create([
+            'pg_venda_venda_id' => $this->venda->id,
+            'pg_venda_opcaopagamento_id' => $this->dinheiro->id,
+            'pg_venda_valor_pagamento' => 10,
+            'pg_venda_valor_recebido' => 10,
+            'pg_venda_valor_pago_pelo_cliente' => 10,
+            'pg_venda_valor_troco' => 0,
+            'pg_venda_valor_acrescimo' => 0,
+            'pg_venda_valor_desconto' => 0,
+        ]);
+        app(VendaService::class)->atualizarValoresdaVenda($this->venda->id);
+
+        $pdv->set('vendaFiado', true);
+
+        $this->assertSame([$manual->id], PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->pluck('id')->all());
+        $this->assertEqualsWithDelta(10.0, (float) $this->venda->fresh()->venda_valor_pago, 0.001);
+    }
+
+    public function test_finalizar_fiado_com_pagamento_do_pedido_dessincronizado_nao_deixa_pagamento_fantasma(): void
+    {
+        $this->comClienteFiado();
+        $pedido = $this->pedido([[$this->dinheiro, 80]]);
+
+        $pdv = $this->pdv()->set('vendaFiado', true);
+        // Estado dessincronizado: o pagamento do pedido entra na venda com o fiado já marcado.
+        $pdv->set('vendaFiado', false)->call('lancarPedidoAvulso', $pedido->id);
+        $this->assertSame(1, $this->pagamentosDaVenda());
+
+        $pdv->set('vendaFiado', true)->call('finalizarVenda')->assertHasNoErrors();
+
+        $this->assertSame(0, $this->pagamentosDaVenda());
+        $this->assertEqualsWithDelta(80.0, (float) Lancamento::where('venda_id', $this->venda->id)->value('valor'), 0.001);
+    }
+
+    public function test_comando_de_diagnostico_lista_fiado_com_pagamento_de_pedido_sem_alterar_nada(): void
+    {
+        $this->comClienteFiado();
+        $pedido = $this->pedido([[$this->dinheiro, 30]]);
+        $pdv = $this->pdv()->call('lancarPedidoAvulso', $pedido->id);
+
+        // Fluxo antigo: título fiado criado com o pagamento do pedido ainda na venda.
+        Lancamento::create([
+            'tipo' => TipoLancamento::Receber, 'venda_id' => $this->venda->id,
+            'cliente_id' => $this->venda->venda_cliente_id, 'descricao' => 'fiado', 'valor' => 50,
+            'vencimento' => now()->addWeek(), 'status' => StatusLancamento::Pendente,
+        ]);
+
+        $this->artisan('vendas:diagnosticar-fiado-pagamentos')
+            ->expectsOutputToContain('30.00')
+            ->assertSuccessful();
+
+        $this->assertSame(1, $this->pagamentosDaVenda());
     }
 }
