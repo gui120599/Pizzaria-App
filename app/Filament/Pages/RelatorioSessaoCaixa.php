@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Widgets\FechamentoCaixaConferenciaMaquininhasWidget;
 use App\Filament\Widgets\FechamentoCaixaConferenciaWidget;
 use App\Filament\Widgets\FechamentoCaixaFluxoCaixaWidget;
+use App\Filament\Widgets\SessaoCaixaCortesiasWidget;
 use App\Filament\Widgets\SessaoCaixaFiadoWidget;
 use App\Filament\Widgets\SessaoCaixaStatsOverview;
 use App\Filament\Widgets\SessaoCaixaVendasWidget;
@@ -167,6 +168,7 @@ class RelatorioSessaoCaixa extends BaseDashboard
             SessaoCaixaStatsOverview::class,
             SessaoCaixaVendasWidget::class,
             SessaoCaixaFiadoWidget::class,
+            SessaoCaixaCortesiasWidget::class,
             FechamentoCaixaFluxoCaixaWidget::class,
             FechamentoCaixaConferenciaWidget::class,
             FechamentoCaixaConferenciaMaquininhasWidget::class,

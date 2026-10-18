@@ -28,6 +28,7 @@ class RelatorioSessaoCaixaController extends Controller
             'vendas' => $service->vendas(),
             'fiadoGerado' => $service->fiadoGerado(),
             'fiadoRecebido' => $service->fiadoRecebido(),
+            'cortesias' => $service->cortesias(),
             'fluxo' => $fechamento->fluxoCaixa(),
             'conferenciaMaquininhas' => $fechamento->conferenciaMaquininhas(),
             'geradoEm' => now(),

@@ -48,6 +48,11 @@ class SessaoCaixaStatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-arrow-uturn-left')
                 ->color($resumo['troco_fora_dinheiro'] > 0 ? 'warning' : 'gray'),
 
+            Stat::make('Cortesias', $this->brl($resumo['cortesias_valor']))
+                ->description("{$resumo['cortesias']} itens a preço de tabela · custo {$this->brl($resumo['cortesias_custo'])}")
+                ->descriptionIcon('heroicon-m-gift')
+                ->color($resumo['cortesias'] > 0 ? 'warning' : 'gray'),
+
             Stat::make('Vendas com aviso', (string) $resumo['com_aviso'])
                 ->description('Forma diferente do pedido, troco fora do dinheiro ou fiado de pedido pago')
                 ->descriptionIcon('heroicon-m-exclamation-triangle')

@@ -170,6 +170,45 @@
             </div>
         @endif
 
+        @if ($cortesias->isNotEmpty())
+            <div class="secao mb-6">
+                <h2 class="text-sm font-bold border-b border-gray-300 pb-1 mb-3">Cortesias</h2>
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="border p-1 text-left">Venda</th>
+                            <th class="border p-1 text-left">Produto</th>
+                            <th class="border p-1 text-right">Qtd.</th>
+                            <th class="border p-1 text-right">Tabela</th>
+                            <th class="border p-1 text-right">Custo</th>
+                            <th class="border p-1 text-left">Motivo</th>
+                            <th class="border p-1 text-left">Autorizou</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($cortesias as $linha)
+                            <tr>
+                                <td class="border p-1">#{{ $linha['venda_id'] }}</td>
+                                <td class="border p-1">{{ $linha['produto'] }}</td>
+                                <td class="border p-1 text-right">{{ rtrim(rtrim(number_format($linha['quantidade'], 3, ',', '.'), '0'), ',') }}</td>
+                                <td class="border p-1 text-right">{{ $brl($linha['valor_tabela']) }}</td>
+                                <td class="border p-1 text-right">{{ $brl($linha['custo']) }}</td>
+                                <td class="border p-1">{{ $linha['motivo'] ?? '—' }}</td>
+                                <td class="border p-1">{{ $linha['autorizador'] ?? '—' }}</td>
+                            </tr>
+                        @endforeach
+                        <tr class="font-bold">
+                            <td class="border p-1 text-right" colspan="3">Total</td>
+                            <td class="border p-1 text-right">{{ $brl($resumo['cortesias_valor']) }}</td>
+                            <td class="border p-1 text-right">{{ $brl($resumo['cortesias_custo']) }}</td>
+                            <td class="border p-1" colspan="2"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="mt-1 text-[10px] text-gray-500">Cortesia não é venda: não entra em vendido, recebido nem na NFC-e. Custo pelo custo médio atual.</p>
+            </div>
+        @endif
+
         <div class="secao mb-6">
             <h2 class="text-sm font-bold border-b border-gray-300 pb-1 mb-3">Fluxo de caixa por forma de pagamento</h2>
             <table class="w-full border-collapse">
