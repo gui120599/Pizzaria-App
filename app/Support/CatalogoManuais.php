@@ -20,6 +20,7 @@ class CatalogoManuais
         'Manual-Ponto-Gerencia.pdf' => ['titulo' => 'Folha de Ponto — Gerência', 'descricao' => 'Espelho de ponto, correções e repasses.'],
         'Instrucoes-Integracao-Stone.pdf' => ['titulo' => 'Integração Connect Stone', 'descricao' => 'Cobrança na maquininha, estorno, cancelamento e conferência.'],
         'Roteiro-Video-Demo-Stone.pdf' => ['titulo' => 'Roteiro do vídeo — Stone Connect', 'descricao' => 'Cenas e narração do vídeo de demonstração para a homologação Stone.'],
+        'Roteiro-Testes-Homologacao-Stone.pdf' => ['titulo' => 'Roteiro de testes — Stone Connect', 'descricao' => 'Testes 001 a 006 da homologação Stone, com execução e campos de evidência.'],
     ];
 
     /**
