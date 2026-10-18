@@ -24,6 +24,7 @@ use App\Services\EstoqueService;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\PagamentosCombinadosService;
 use App\Services\Stone\StoneRecebimentoService;
+use App\Services\TotaisPedidoService;
 use App\Support\TotaisPedido;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -281,6 +282,23 @@ class AtenderPedido extends Page
         );
     }
 
+    /**
+     * Em edição: a soma das formas de pagamento da tela não bate com o total
+     * atual do pedido (ex.: itens incluídos depois de combinado o pagamento).
+     */
+    #[Computed]
+    public function pagamentoDivergente(): bool
+    {
+        if (! $this->pedidoId || $this->somenteLeitura) {
+            return false;
+        }
+
+        $soma = collect($this->entregaPagamentoData['pagamentos'] ?? [])
+            ->sum(fn (array $p): float => $this->parseValor($p['valor'] ?? '0'));
+
+        return abs($soma - $this->totalPreview) > 0.01;
+    }
+
     #[Computed]
     public function totalPreview(): float
     {
@@ -387,18 +405,22 @@ class AtenderPedido extends Page
 
             $this->sincronizarItens($pedido, $souNovo);
 
-            $linhas = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
-                ->where('item_pedido_status', 'INSERIDO')
-                ->get();
+            if ($souNovo) {
+                $linhas = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+                    ->where('item_pedido_status', 'INSERIDO')
+                    ->get();
 
-            $totais = TotaisPedido::paraItens($linhas, $opcaoEntrega);
+                $totais = TotaisPedido::paraItens($linhas, $opcaoEntrega);
 
-            $pedido->update([
-                'pedido_valor_itens' => $totais['itens'],
-                'pedido_valor_desconto' => $totais['desconto'],
-                'pedido_valor_frete' => $totais['frete'],
-                'pedido_valor_total' => $totais['total'],
-            ]);
+                $pedido->update([
+                    'pedido_valor_itens' => $totais['itens'],
+                    'pedido_valor_desconto' => $totais['desconto'],
+                    'pedido_valor_frete' => $totais['frete'],
+                    'pedido_valor_total' => $totais['total'],
+                ]);
+            } else {
+                app(TotaisPedidoService::class)->recalcular($pedido);
+            }
 
             $this->sincronizarPagamentos($pedido, $pagamentos);
 
