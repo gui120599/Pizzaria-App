@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Checklist\ExigenciaFoto;
 use App\Enums\Checklist\TipoResposta;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +23,7 @@ class ChecklistModeloItem extends Model
         'checklist_modelo_secao_id',
         'titulo',
         'instrucao',
+        'criterio',
         'tipo_resposta',
         'opcoes',
         'resposta_esperada',
@@ -31,9 +33,11 @@ class ChecklistModeloItem extends Model
         'obrigatorio',
         'critico',
         'exige_foto',
+        'exige_foto_estoque',
         'exige_observacao_nao_conforme',
         'condicao',
         'ordem',
+        'dias_semana',
     ];
 
     /**
@@ -51,6 +55,12 @@ class ChecklistModeloItem extends Model
         });
 
         static::saving(function (self $item): void {
+            if (is_array($item->dias_semana)) {
+                $dias = array_values(array_unique(array_map('intval', $item->dias_semana)));
+                sort($dias);
+                $item->dias_semana = $dias === [] ? null : $dias;
+            }
+
             if (! is_array($item->opcoes)) {
                 return;
             }
@@ -73,9 +83,11 @@ class ChecklistModeloItem extends Model
             'obrigatorio' => 'boolean',
             'critico' => 'boolean',
             'exige_foto' => ExigenciaFoto::class,
+            'exige_foto_estoque' => 'boolean',
             'exige_observacao_nao_conforme' => 'boolean',
             'condicao' => 'array',
             'ordem' => 'integer',
+            'dias_semana' => 'array',
         ];
     }
 
@@ -119,7 +131,17 @@ class ChecklistModeloItem extends Model
                 'critico' => $this->critico,
                 'exige_foto' => $this->exige_foto->value,
                 'exige_observacao_nao_conforme' => $this->exige_observacao_nao_conforme,
+                'criterio' => $this->criterio,
+                'exige_foto_estoque' => $this->exige_foto_estoque,
+                'dias_semana' => $this->dias_semana,
             ],
         ];
+    }
+
+    /** Sem `dias_semana`, o item vale em todos os dias do checklist. */
+    public function agendadoPara(CarbonInterface $dia): bool
+    {
+        return empty($this->dias_semana)
+            || in_array($dia->dayOfWeekIso, array_map('intval', $this->dias_semana), true);
     }
 }

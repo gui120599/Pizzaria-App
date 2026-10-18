@@ -48,6 +48,45 @@ class ExecutarChecklistTest extends TestCase
         $this->assertSame($cozinheira->id, $item->respondido_por);
     }
 
+    public function test_item_de_producao_mostra_o_criterio_e_salva_as_tres_respostas(): void
+    {
+        $this->travelTo('2026-10-13 16:10:00');
+        $cozinheira = $this->cozinheira();
+        $modelo = ChecklistModelo::factory()->paraPapeis(['Cozinha'])->create();
+        ChecklistModeloItem::factory()->for($modelo, 'modelo')->producao('menos de 10 sacos')->create(['instrucao' => "Linha um\nLinha dois"]);
+        $execucao = app(ChecklistExecucaoService::class)->iniciar($modelo, $cozinheira);
+        $item = $execucao->itens()->sole();
+        $this->actingAs($cozinheira);
+
+        $tela = $this->tela($execucao)
+            ->assertSee('Fazer quando:')
+            ->assertSee('menos de 10 sacos')
+            ->assertSee('Tinha estoque')
+            ->assertSee('Linha um');
+
+        foreach (['feito' => true, 'tinha_estoque' => true, 'nao_feito' => false] as $valor => $conforme) {
+            $tela->call('responder', $item->id, $valor)->assertHasNoErrors();
+            $this->assertSame($valor, $item->fresh()->valor_opcao);
+            $this->assertSame($conforme, $item->fresh()->conforme);
+        }
+    }
+
+    public function test_tinha_estoque_com_foto_exigida_mostra_o_envio_de_foto(): void
+    {
+        $this->travelTo('2026-10-13 16:10:00');
+        $cozinheira = $this->cozinheira();
+        $modelo = ChecklistModelo::factory()->paraPapeis(['Cozinha'])->create();
+        ChecklistModeloItem::factory()->for($modelo, 'modelo')->producao(exigeFotoEstoque: true)->create();
+        $execucao = app(ChecklistExecucaoService::class)->iniciar($modelo, $cozinheira);
+        $item = $execucao->itens()->sole();
+        $this->actingAs($cozinheira);
+
+        $this->tela($execucao)
+            ->assertDontSee('Tirar foto')
+            ->call('responder', $item->id, 'tinha_estoque')
+            ->assertSee('Tirar foto');
+    }
+
     public function test_temperatura_digitada_fora_da_faixa_fica_nao_conforme(): void
     {
         $this->travelTo('2026-10-13 16:10:00');

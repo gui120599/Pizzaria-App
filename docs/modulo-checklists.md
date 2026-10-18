@@ -532,7 +532,8 @@ Todas as tabelas: `timestamps()` + `softDeletes()`. Colunas marcadas "módulo co
 |---|---|
 | `ChecklistTipo` | `abertura`, `fechamento`, `turno`, `limpeza`, `outro` |
 | `ChecklistSetor` | `salao`, `cozinha`, `caixa`, `delivery`, `geral` (confirmar setores reais do projeto) |
-| `TipoResposta` | `check` (feito/não feito), `sim_nao`, `numero`, `temperatura`, `texto`, `selecao`, `foto` |
+| `TipoResposta` | `check` (feito/não feito), `sim_nao`, `numero`, `temperatura`, `texto`, `selecao`, `foto`, `producao` ("Fazer se precisar (conferir estoque)") |
+| `RespostaProducao` | `feito`, `tinha_estoque`, `nao_feito` — respostas fixas do tipo `producao`; só `nao_feito` é não conforme |
 | `ExigenciaFoto` | `nunca`, `sempre`, `se_nao_conforme` |
 | `ExecucaoStatus` | `pendente`, `em_andamento`, `concluido`, `concluido_com_pendencias`, `aprovado`, `reprovado`, `nao_realizado` |
 | `NaoConformidadeStatus` | `aberta`, `em_andamento`, `resolvida`, `cancelada` |
@@ -561,6 +562,8 @@ Colunas de enum gravadas como `string(30)` (não `enum` do MySQL), com cast para
 - `valor_minimo`, `valor_maximo` decimal(10,2) nullable; `unidade` string(10) nullable (`°C`, `kg`, `un`, `%`)
 - `obrigatorio` bool default true; `critico` bool default false
 - `exige_foto` string(20) default `nunca`; `exige_observacao_nao_conforme` bool default true
+- `criterio` string(200) nullable ("Quando fazer", só `producao`); `exige_foto_estoque` bool default false (pede foto quando a resposta é `tinha_estoque`)
+- `dias_semana` json nullable — dias ISO 1–7 em que o item entra na execução (`null` = todos os dias do modelo); item fora do dia não entra no snapshot
 - `condicao` json nullable (reservado para perguntas condicionais — **não implementar agora**)
 - `ordem` unsignedSmallInteger; index (`checklist_modelo_id`, `ordem`)
 
@@ -581,7 +584,7 @@ Colunas de enum gravadas como `string(30)` (não `enum` do MySQL), com cast para
 
 **`checklist_execucao_itens`**
 - FK execução cascadeOnDelete; FK item do modelo nullable nullOnDelete (histórico sobrevive à exclusão do item)
-- snapshot: `secao_titulo`, `titulo`, `instrucao`, `tipo_resposta`, `config` json (`opcoes`, `resposta_esperada`, `valor_minimo`, `valor_maximo`, `unidade`, `obrigatorio`, `critico`, `exige_foto`, `exige_observacao_nao_conforme`)
+- snapshot: `secao_titulo`, `titulo`, `instrucao`, `tipo_resposta`, `config` json (`opcoes`, `resposta_esperada`, `valor_minimo`, `valor_maximo`, `unidade`, `obrigatorio`, `critico`, `exige_foto`, `exige_observacao_nao_conforme`, `criterio`, `exige_foto_estoque`, `dias_semana`)
 - respostas: `valor_booleano` bool nullable, `valor_numero` decimal(10,2) nullable, `valor_texto` text nullable, `valor_opcao` string(50) nullable
 - `conforme` bool nullable (null = não respondido / não avaliável)
 - `observacao` text nullable; `respondido_por` FK users nullable; `respondido_em` datetime nullable
@@ -615,6 +618,7 @@ Colunas de enum gravadas como `string(30)` (não `enum` do MySQL), com cast para
 | `selecao` | `valor_opcao` | opção escolhida tem `conforme: true` |
 | `texto` | `valor_texto` | preenchido → `true` (não avalia conteúdo) |
 | `foto` | anexo | ≥1 anexo → `true` |
+| `producao` | `valor_opcao` | `feito` ou `tinha_estoque` → `true`; `nao_feito` → `false` |
 
 Sem resposta → `conforme = null`.
 
@@ -622,7 +626,8 @@ Sem resposta → `conforme = null`.
 Retorna lista de erros por item; bloqueia se:
 1. item `obrigatorio` sem resposta;
 2. `exige_foto = sempre` sem anexo, ou `se_nao_conforme` + `conforme = false` sem anexo;
-3. `conforme = false` + `exige_observacao_nao_conforme` sem `observacao`.
+3. `conforme = false` + `exige_observacao_nao_conforme` sem `observacao`;
+4. tipo `producao` respondido `tinha_estoque` com `exige_foto_estoque` e sem anexo ("Tire uma foto do estoque."). "Tinha estoque" é conforme: não pede observação, não gera NC nem notificação de item crítico, e `exige_foto = se_nao_conforme` só vale para "Não feito".
 
 ### 5.3 Ao finalizar (dentro de `DB::transaction` + `lockForUpdate` na execução)
 - Recalcula contadores e `percentual_conformidade = conformes / avaliados × 100`.
@@ -677,6 +682,8 @@ Estrutura v4: `app/Filament/Admin/Resources/ChecklistModelos/{Pages,Schemas,Tabl
     - `valor_minimo`/`valor_maximo`/`unidade` → `->visible(fn (Get $get) => in_array($get('tipo_resposta'), ['numero','temperatura']))`
     - `resposta_esperada` (Radio sim/não) → visível só em `sim_nao`
     - `opcoes` (Repeater simples: valor, rótulo, conforme) → visível só em `selecao`
+    - `criterio` ("Quando fazer") e `exige_foto_estoque` → visíveis só em `producao`
+    - `dias_semana` (`CheckboxList`, "Só nestes dias", vazio = todos; o rótulo do item no repeater mostra "só Seg, Qua")
     - obrigatorio, critico, exige_foto (Select), exige_observacao_nao_conforme
   - Itens do repeater interno devem receber também o `checklist_modelo_id` ao salvar (`mutateRelationshipDataBeforeCreateUsing`).
 - Usar `Filament\Schemas\Components\Section` e `Filament\Schemas\Components\Utilities\Get`.
@@ -694,6 +701,7 @@ Estrutura v4: `app/Filament/Admin/Resources/ChecklistModelos/{Pages,Schemas,Tabl
 ### 6.3 `ChecklistNaoConformidadeResource`
 - Table: criada em, checklist/item, valor registrado, crítica (ícone), responsável, prazo (vermelho se vencido), status. Filtros: status (padrão: aberta + em_andamento), crítica, vencidas.
 - Edit: responsável, prazo, ação corretiva, status, observação de resolução.
+- **Bulk action "Cancelar selecionadas"**: motivo obrigatório; para cada registro só cancela NC pendente que o usuário pode `update` pela policy (autorização explícita) e notifica "X canceladas, Y ignoradas".
 - Action **Abrir chamado**: cria registro no módulo `chamados` pré-preenchido e grava `chamado_id` (somente se o módulo existir).
 - Badge de navegação com o nº de NCs abertas (`getNavigationBadge`).
 
@@ -701,6 +709,7 @@ Estrutura v4: `app/Filament/Admin/Resources/ChecklistModelos/{Pages,Schemas,Tabl
 - `ChecklistsHojeWidget` (tabela/cards): cada modelo esperado hoje × status atual, com filtro por painel.
 - `ConformidadeStatsWidget`: % conformidade médio 7/30 dias, nº de não realizados no mês, NCs abertas.
 - `ItensMaisFalhamWidget`: top 10 `titulo` com mais `conforme = false` nos últimos 30 dias.
+- `ChecklistItensMaisDispensadosWidget`: top 10 itens `producao` com mais respostas "Tinha estoque" nos últimos 30 dias ("dispensado X de Y execuções"); serve para reduzir a frequência (`dias_semana`) ou rever o critério. Permission `view:checklist_itens_mais_dispensados_widget`.
 
 ---
 
@@ -724,6 +733,7 @@ Não usar Resource com form padrão para executar — usar **páginas customizad
   - `check`/`sim_nao`: dois botões grandes (✓ / ✗ ou Sim / Não).
   - `numero`/`temperatura`: `<input type="number" inputmode="decimal" step="0.1">` + unidade + faixa esperada como dica.
   - `selecao`: botões/chips.
+  - `producao`: três botões (Feito / Tinha estoque / Não feito) e, se houver, a linha "Fazer quando: …"; "Tinha estoque" usa anel azul para diferenciar de "fiz". A instrução é exibida com quebras de linha e recolhida em 2 linhas ("Ver instrução completa").
   - `texto`: textarea.
   - foto: `<input type="file" accept="image/*" capture="environment">` com `WithFileUploads`; compressão no client via canvas (Alpine) antes do envio.
 - **Autosave**: cada resposta chama `responder()` no Service (`wire:model.blur` / `wire:click`), feedback visual imediato (verde/vermelho) e campos de observação/foto aparecem quando o item fica não conforme.

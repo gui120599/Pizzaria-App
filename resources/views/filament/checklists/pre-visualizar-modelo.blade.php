@@ -28,7 +28,7 @@
                         </div>
 
                         @if ($item->instrucao)
-                            <p class="text-sm text-gray-600 dark:text-gray-300">{{ $item->instrucao }}</p>
+                            <x-checklist-instrucao :texto="$item->instrucao" />
                         @endif
 
                         @if ($item->tipo_resposta->usaFaixa() && ($item->valor_minimo !== null || $item->valor_maximo !== null))
@@ -43,6 +43,24 @@
 
                         @if ($item->tipo_resposta === TipoResposta::SimNao && $item->resposta_esperada)
                             <p class="text-sm text-gray-600 dark:text-gray-300">Resposta esperada: {{ $item->resposta_esperada === 'sim' ? 'Sim' : 'Não' }}</p>
+                        @endif
+
+                        @if ($item->dias_semana)
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Só em: {{ collect($item->dias_semana)->map(fn ($dia) => \App\Models\ChecklistModelo::DIAS_SEMANA[(int) $dia] ?? $dia)->implode(', ') }}</p>
+                        @endif
+
+                        @if ($item->tipo_resposta === TipoResposta::Producao)
+                            @if ($item->criterio)
+                                <p class="text-sm text-gray-600 dark:text-gray-300"><span class="font-semibold">Fazer quando:</span> {{ $item->criterio }}</p>
+                            @endif
+                            <div class="flex flex-wrap gap-1">
+                                @foreach (\App\Enums\Checklist\RespostaProducao::cases() as $resposta)
+                                    <x-filament::badge :color="$resposta->getColor()" :icon="$resposta->getIcon()" size="sm">{{ $resposta->getLabel() }}</x-filament::badge>
+                                @endforeach
+                            </div>
+                            @if ($item->exige_foto_estoque)
+                                <x-filament::badge color="info" size="sm">Foto do estoque</x-filament::badge>
+                            @endif
                         @endif
 
                         @if ($item->tipo_resposta === TipoResposta::Selecao)

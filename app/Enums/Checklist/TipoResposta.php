@@ -15,6 +15,7 @@ enum TipoResposta: string implements HasIcon, HasLabel
     case Texto = 'texto';
     case Selecao = 'selecao';
     case Foto = 'foto';
+    case Producao = 'producao';
 
     public function getLabel(): string
     {
@@ -26,6 +27,7 @@ enum TipoResposta: string implements HasIcon, HasLabel
             self::Texto => 'Texto livre',
             self::Selecao => 'Seleção',
             self::Foto => 'Foto',
+            self::Producao => 'Fazer se precisar (conferir estoque)',
         };
     }
 
@@ -39,6 +41,7 @@ enum TipoResposta: string implements HasIcon, HasLabel
             self::Texto => Heroicon::OutlinedPencilSquare,
             self::Selecao => Heroicon::OutlinedListBullet,
             self::Foto => Heroicon::OutlinedCamera,
+            self::Producao => Heroicon::OutlinedArchiveBox,
         };
     }
 
@@ -52,7 +55,7 @@ enum TipoResposta: string implements HasIcon, HasLabel
             self::Check, self::SimNao => 'valor_booleano',
             self::Numero, self::Temperatura => 'valor_numero',
             self::Texto => 'valor_texto',
-            self::Selecao => 'valor_opcao',
+            self::Selecao, self::Producao => 'valor_opcao',
             self::Foto => null,
         };
     }

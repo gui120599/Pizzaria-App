@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\ChecklistsDashboard;
 use App\Filament\Widgets\ChecklistConformidadeStatsOverview;
+use App\Filament\Widgets\ChecklistItensMaisDispensadosWidget;
 use App\Filament\Widgets\ChecklistItensMaisFalhamWidget;
 use App\Filament\Widgets\ChecklistsHojeWidget;
 use App\Models\ChecklistModelo;
@@ -66,6 +67,34 @@ class ChecklistsDashboardTest extends TestCase
 
         Livewire::test(ChecklistItensMaisFalhamWidget::class)
             ->assertSeeTextInOrder(['Freezer', '2 falhas', 'Câmara fria', '1 falha']);
+    }
+
+    public function test_itens_mais_dispensados_conta_so_tinha_estoque_do_periodo(): void
+    {
+        $this->travelTo('2026-10-13 16:10:00');
+        $gerente = $this->gerente();
+        $servico = app(ChecklistExecucaoService::class);
+        $modelo = ChecklistModelo::factory()->create(['nome' => 'Abertura Cozinha']);
+        ChecklistModeloItem::factory()->for($modelo, 'modelo')->producao()->create(['titulo' => 'Fatiar presunto', 'ordem' => 1]);
+        ChecklistModeloItem::factory()->for($modelo, 'modelo')->producao()->create(['titulo' => 'Fazer brigadeiro', 'ordem' => 2]);
+        ChecklistModeloItem::factory()->for($modelo, 'modelo')->create(['titulo' => 'Ralar mussarela', 'ordem' => 3]);
+
+        foreach (['2026-08-01' => 'tinha_estoque', '2026-10-12' => 'tinha_estoque', '2026-10-13' => 'feito'] as $dia => $resposta) {
+            $this->travelTo("{$dia} 16:10:00");
+            $execucao = $servico->iniciar($modelo, $gerente);
+            [$presunto, $brigadeiro, $mussarela] = $execucao->itens()->get()->all();
+            $servico->responder($presunto, ['valor' => $resposta], $gerente);
+            $servico->responder($brigadeiro, ['valor' => 'feito'], $gerente);
+            $servico->responder($mussarela, ['valor' => true], $gerente);
+        }
+        $this->travelTo('2026-10-13 18:00:00');
+        $this->actingAs($gerente);
+
+        Livewire::test(ChecklistItensMaisDispensadosWidget::class)
+            ->assertSeeText('Fatiar presunto')
+            ->assertSeeText('dispensado 1 de 2 execuções')
+            ->assertDontSeeText('Fazer brigadeiro')
+            ->assertDontSeeText('Ralar mussarela');
     }
 
     public function test_indicadores_mostram_media_de_conformidade_e_ncs_abertas(): void

@@ -184,7 +184,20 @@ class ChecklistModeloForm
                 ->options(ExigenciaFoto::class)
                 ->default(ExigenciaFoto::Nunca)
                 ->required()
+                ->helperText(fn (Get $get): ?string => self::tipo($get('tipo_resposta')) === TipoResposta::Producao
+                    ? '"Só se não conforme" vale para a resposta "Não feito".'
+                    : null)
                 ->visible(fn (Get $get): bool => self::tipo($get('tipo_resposta')) !== TipoResposta::Foto),
+            TextInput::make('criterio')
+                ->label('Quando fazer')
+                ->maxLength(200)
+                ->placeholder('Ex.: quando tiver menos de 10 sacos')
+                ->visible(fn (Get $get): bool => self::tipo($get('tipo_resposta')) === TipoResposta::Producao),
+            Toggle::make('exige_foto_estoque')
+                ->label("Pedir foto quando marcar 'Tinha estoque'")
+                ->default(false)
+                ->inline(false)
+                ->visible(fn (Get $get): bool => self::tipo($get('tipo_resposta')) === TipoResposta::Producao),
             TextInput::make('valor_minimo')
                 ->label('Valor mínimo')
                 ->numeric()
@@ -236,12 +249,18 @@ class ChecklistModeloForm
                 ->label('Instrução')
                 ->rows(2)
                 ->columnSpanFull(),
+            CheckboxList::make('dias_semana')
+                ->label('Só nestes dias')
+                ->options(ChecklistModelo::DIAS_SEMANA)
+                ->columns(7)
+                ->helperText('Vazio = todos os dias do checklist.')
+                ->columnSpanFull(),
             Toggle::make('obrigatorio')
                 ->label('Obrigatório')
                 ->default(true),
             Toggle::make('critico')
                 ->label('Crítico')
-                ->helperText('Avisa a gerência na hora se ficar não conforme.')
+                ->helperText('Avisa a gerência na hora se ficar não conforme. Use só quando a falha impede a venda ou põe a segurança em risco.')
                 ->default(false),
             Toggle::make('exige_observacao_nao_conforme')
                 ->label('Exige observação quando não conforme')
@@ -264,8 +283,25 @@ class ChecklistModeloForm
         $marcas = array_filter([
             self::tipo($estado['tipo_resposta'] ?? null)?->getLabel(),
             ($estado['critico'] ?? false) ? 'crítico' : null,
+            self::descricaoDosDias($estado['dias_semana'] ?? null),
         ]);
 
         return $marcas === [] ? $titulo : $titulo.' ('.implode(', ', $marcas).')';
+    }
+
+    /** @param  mixed  $dias  dias ISO marcados no item ("só Seg, Qua") */
+    private static function descricaoDosDias(mixed $dias): ?string
+    {
+        if (! is_array($dias) || $dias === []) {
+            return null;
+        }
+
+        $rotulos = collect($dias)
+            ->map(fn (mixed $dia): int => (int) $dia)
+            ->sort()
+            ->map(fn (int $dia): ?string => ChecklistModelo::DIAS_SEMANA[$dia] ?? null)
+            ->filter();
+
+        return 'só '.$rotulos->implode(', ');
     }
 }

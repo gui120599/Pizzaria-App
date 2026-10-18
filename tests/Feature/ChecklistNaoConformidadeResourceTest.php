@@ -7,6 +7,8 @@ use App\Filament\Resources\ChecklistNaoConformidades\Pages\EditChecklistNaoConfo
 use App\Filament\Resources\ChecklistNaoConformidades\Pages\ListChecklistNaoConformidades;
 use App\Models\ChecklistNaoConformidade;
 use App\Models\User;
+use Filament\Actions\Testing\TestAction;
+use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -74,6 +76,63 @@ class ChecklistNaoConformidadeResourceTest extends TestCase
         Livewire::test(ListChecklistNaoConformidades::class)
             ->assertCanSeeTableRecords([$aberta])
             ->assertCanNotSeeTableRecords([$resolvida]);
+    }
+
+    public function test_cancelar_em_massa_cancela_so_as_pendentes_e_grava_motivo_e_autor(): void
+    {
+        $this->travelTo('2026-10-18 10:00:00');
+        $gerente = $this->gerente();
+        $aberta = ChecklistNaoConformidade::factory()->create();
+        $emAndamento = ChecklistNaoConformidade::factory()->create(['status' => NaoConformidadeStatus::EmAndamento]);
+        $resolvida = ChecklistNaoConformidade::factory()->resolvida()->create(['observacao_resolucao' => 'Resolvida de verdade.']);
+        $this->actingAs($gerente);
+
+        Livewire::test(ListChecklistNaoConformidades::class)
+            ->filterTable('status', [])
+            ->selectTableRecords([$aberta->id, $emAndamento->id, $resolvida->id])
+            ->callAction(TestAction::make('cancelar')->table()->bulk(), [
+                'observacao_resolucao' => 'Falso positivo: havia estoque.',
+            ])
+            ->assertNotified(Notification::make()->title('2 canceladas, 1 ignorada')->color('success'));
+
+        foreach ([$aberta, $emAndamento] as $nc) {
+            $nc->refresh();
+            $this->assertSame(NaoConformidadeStatus::Cancelada, $nc->status);
+            $this->assertSame('Falso positivo: havia estoque.', $nc->observacao_resolucao);
+            $this->assertSame($gerente->id, $nc->resolvida_por);
+            $this->assertNotNull($nc->resolvida_em);
+        }
+        $resolvida->refresh();
+        $this->assertSame(NaoConformidadeStatus::Resolvida, $resolvida->status);
+        $this->assertSame('Resolvida de verdade.', $resolvida->observacao_resolucao);
+    }
+
+    public function test_cancelar_em_massa_exige_o_motivo(): void
+    {
+        $nc = ChecklistNaoConformidade::factory()->create();
+        $this->actingAs($this->gerente());
+
+        Livewire::test(ListChecklistNaoConformidades::class)
+            ->selectTableRecords([$nc->id])
+            ->callAction(TestAction::make('cancelar')->table()->bulk(), ['observacao_resolucao' => ''])
+            ->assertHasActionErrors(['observacao_resolucao' => 'required']);
+
+        $this->assertSame(NaoConformidadeStatus::Aberta, $nc->fresh()->status);
+    }
+
+    public function test_cancelar_em_massa_ignora_registro_que_o_usuario_nao_pode_atualizar(): void
+    {
+        $nc = ChecklistNaoConformidade::factory()->create();
+        $leitor = User::factory()->create(['name_first' => 'Leitor']);
+        $leitor->givePermissionTo(['view_any:checklist_nao_conformidade', 'view:checklist_nao_conformidade']);
+        $this->actingAs($leitor);
+
+        Livewire::test(ListChecklistNaoConformidades::class)
+            ->selectTableRecords([$nc->id])
+            ->callAction(TestAction::make('cancelar')->table()->bulk(), ['observacao_resolucao' => 'Tentativa.'])
+            ->assertNotified(Notification::make()->title('0 canceladas, 1 ignorada')->color('warning'));
+
+        $this->assertSame(NaoConformidadeStatus::Aberta, $nc->fresh()->status);
     }
 
     private function gerente(): User

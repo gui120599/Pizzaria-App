@@ -26,6 +26,7 @@ class ConformidadeAvaliador
             TipoResposta::SimNao => $this->avaliarSimNao($item),
             TipoResposta::Numero, TipoResposta::Temperatura => $this->avaliarFaixa($item),
             TipoResposta::Selecao => $this->avaliarSelecao($item),
+            TipoResposta::Producao => $item->respostaProducao()?->conforme(),
             TipoResposta::Texto => trim((string) $item->valor_texto) !== '' ? true : null,
         };
     }

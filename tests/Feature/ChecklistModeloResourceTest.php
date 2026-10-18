@@ -10,6 +10,7 @@ use App\Filament\Resources\ChecklistModelos\Pages\EditChecklistModelo;
 use App\Filament\Resources\ChecklistModelos\Pages\ListChecklistModelos;
 use App\Models\ChecklistModelo;
 use App\Models\ChecklistModeloItem;
+use App\Models\ChecklistModeloSecao;
 use App\Models\User;
 use App\Services\Checklist\ChecklistExecucaoService;
 use Filament\Actions\Testing\TestAction;
@@ -66,6 +67,56 @@ class ChecklistModeloResourceTest extends TestCase
             [['valor' => 'ok', 'rotulo' => 'OK', 'conforme' => true], ['valor' => 'sem_sinal', 'rotulo' => 'Sem sinal', 'conforme' => false]],
             ChecklistModeloItem::where('titulo', 'Máquina de cartão')->sole()->opcoes,
         );
+    }
+
+    public function test_cria_item_de_producao_com_criterio_foto_do_estoque_e_dias_da_semana(): void
+    {
+        $this->actingAs($this->gerente());
+        $desfazerFake = Repeater::fake();
+
+        Livewire::test(CreateChecklistModelo::class)
+            ->fillForm([
+                'nome' => 'Abertura Cozinha',
+                'tipo' => 'abertura',
+                'setor' => 'cozinha',
+                'secoes' => [[
+                    'titulo' => 'Geral',
+                    'itens' => [
+                        $this->item([
+                            'titulo' => 'Fazer brigadeiro',
+                            'tipo_resposta' => 'producao',
+                            'criterio' => 'quando tiver menos de 10 potes',
+                            'exige_foto_estoque' => true,
+                            'dias_semana' => ['5', '3'],
+                        ]),
+                    ],
+                ]],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $desfazerFake();
+        $item = ChecklistModeloItem::where('titulo', 'Fazer brigadeiro')->sole();
+        $this->assertSame(TipoResposta::Producao, $item->tipo_resposta);
+        $this->assertSame('quando tiver menos de 10 potes', $item->criterio);
+        $this->assertTrue($item->exige_foto_estoque);
+        $this->assertSame([3, 5], $item->dias_semana);
+    }
+
+    public function test_criterio_e_foto_do_estoque_so_aparecem_no_tipo_producao(): void
+    {
+        $this->actingAs($this->gerente());
+        $modelo = ChecklistModelo::factory()->create();
+        $secao = ChecklistModeloSecao::factory()->for($modelo, 'modelo')->create();
+        $check = ChecklistModeloItem::factory()->for($modelo, 'modelo')->create(['checklist_modelo_secao_id' => $secao->id]);
+        $producao = ChecklistModeloItem::factory()->for($modelo, 'modelo')->producao()->create(['checklist_modelo_secao_id' => $secao->id, 'ordem' => 2]);
+        $caminho = fn (ChecklistModeloItem $item): string => "secoes.record-{$item->checklist_modelo_secao_id}.itens.record-{$item->id}";
+
+        Livewire::test(EditChecklistModelo::class, ['record' => $modelo->id])
+            ->assertFormFieldVisible($caminho($producao).'.criterio')
+            ->assertFormFieldVisible($caminho($producao).'.exige_foto_estoque')
+            ->assertFormFieldHidden($caminho($check).'.criterio')
+            ->assertFormFieldHidden($caminho($check).'.exige_foto_estoque');
     }
 
     public function test_minimo_maior_que_o_maximo_e_recusado(): void
@@ -136,6 +187,17 @@ class ChecklistModeloResourceTest extends TestCase
             ->mountAction(TestAction::make('preVisualizar')->table($modelo))
             ->assertMountedActionModalSee('Freezer')
             ->assertMountedActionModalSee('-25,0');
+    }
+
+    public function test_pre_visualizar_mostra_criterio_e_respostas_do_item_de_producao(): void
+    {
+        $this->actingAs($this->gerente());
+        $modelo = ChecklistModelo::factory()->create();
+        ChecklistModeloItem::factory()->for($modelo, 'modelo')->producao('menos de 10 sacos')->create(['titulo' => 'Fatiar presunto']);
+
+        Livewire::test(ListChecklistModelos::class)
+            ->mountAction(TestAction::make('preVisualizar')->table($modelo))
+            ->assertMountedActionModalSee(['Fatiar presunto', 'menos de 10 sacos', 'Tinha estoque']);
     }
 
     public function test_atendente_sem_permissao_nao_acessa_os_modelos(): void

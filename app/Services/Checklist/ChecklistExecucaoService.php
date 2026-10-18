@@ -7,6 +7,7 @@ use App\Enums\Checklist\ChecklistTipo;
 use App\Enums\Checklist\ExecucaoStatus;
 use App\Enums\Checklist\ExigenciaFoto;
 use App\Enums\Checklist\NaoConformidadeStatus;
+use App\Enums\Checklist\RespostaProducao;
 use App\Enums\Checklist\TipoResposta;
 use App\Exceptions\ChecklistException;
 use App\Exceptions\ChecklistFinalizacaoException;
@@ -266,6 +267,10 @@ class ChecklistExecucaoService
                 }
             }
 
+            if ($item->foiDispensado() && $item->exigeFotoEstoque() && $item->anexos_count === 0) {
+                $mensagens[] = 'Tire uma foto do estoque.';
+            }
+
             if ($item->conforme === false && $item->exigeObservacaoNaoConforme() && blank($item->observacao)) {
                 $mensagens[] = 'Descreva o problema na observação.';
             }
@@ -499,7 +504,13 @@ class ChecklistExecucaoService
 
     private function copiarItens(ChecklistModelo $modelo, ChecklistExecucao $execucao): void
     {
-        foreach ($modelo->itensOrdenados()->values() as $indice => $item) {
+        $dia = CarbonImmutable::instance($execucao->data_referencia);
+
+        $itens = $modelo->itensOrdenados()
+            ->filter(fn ($item): bool => $item->agendadoPara($dia))
+            ->values();
+
+        foreach ($itens as $indice => $item) {
             $execucao->itens()->create([
                 ...$item->toSnapshot(),
                 'ordem' => $indice + 1,
@@ -563,6 +574,7 @@ class ChecklistExecucaoService
             TipoResposta::Numero, TipoResposta::Temperatura => $this->normalizarNumero($valor),
             TipoResposta::Texto => $this->normalizarTexto($valor),
             TipoResposta::Selecao => $this->normalizarOpcao($item, $valor),
+            TipoResposta::Producao => $this->normalizarRespostaProducao($valor),
         };
         $item->respondido_por = $user->id;
         $item->respondido_em = now();
@@ -614,6 +626,17 @@ class ChecklistExecucaoService
         }
 
         return (string) $valor;
+    }
+
+    private function normalizarRespostaProducao(mixed $valor): string
+    {
+        $resposta = is_string($valor) ? RespostaProducao::tryFrom($valor) : null;
+
+        if ($resposta === null) {
+            throw ValidationException::withMessages(['valor' => 'Resposta inválida.']);
+        }
+
+        return $resposta->value;
     }
 
     private function normalizarObservacao(?string $observacao): ?string
