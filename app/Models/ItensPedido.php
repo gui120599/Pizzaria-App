@@ -40,6 +40,10 @@ class ItensPedido extends Model
         'item_pedido_status',
         'item_pedido_usuario_removeu',
         'item_pedido_producao_status',
+        'item_pedido_cortesia',
+        'item_pedido_cortesia_motivo',
+        'item_pedido_cortesia_user_id',
+        'item_pedido_cortesia_em',
     ];
 
     protected function casts(): array
@@ -48,6 +52,8 @@ class ItensPedido extends Model
             'item_pedido_sabores' => 'array',
             'item_pedido_respostas' => 'array',
             'item_pedido_producao_status' => StatusItemProducao::class,
+            'item_pedido_cortesia' => 'boolean',
+            'item_pedido_cortesia_em' => 'datetime',
         ];
     }
 
@@ -151,6 +157,12 @@ class ItensPedido extends Model
     public function venda()
     {
         return $this->belongsTo(Venda::class, 'item_pedido_venda_id');
+    }
+
+    /** Quem autorizou a cortesia do item. */
+    public function usuarioCortesia()
+    {
+        return $this->belongsTo(User::class, 'item_pedido_cortesia_user_id');
     }
 
     /** Linha da venda em que este item entrou (nula para lançamentos antigos). */
@@ -265,6 +277,13 @@ class ItensPedido extends Model
             $descontoUnitario,
             $adicionais
         );
+
+        // Cortesia: o preço de tabela fica no unitário e o desconto cobre a
+        // linha inteira (item e adicionais), então o valor cobrado é zero.
+        if ($this->item_pedido_cortesia) {
+            $linha['desconto'] = round($linha['valor_unitario'] * $quantidade + $linha['adicionais'], 2);
+            $linha['valor'] = 0.0;
+        }
 
         $this->item_pedido_valor_unitario = $linha['valor_unitario'];
         $this->item_pedido_desconto = $linha['desconto'];

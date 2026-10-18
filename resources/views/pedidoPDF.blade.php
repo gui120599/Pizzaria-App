@@ -131,8 +131,13 @@
                                     <p class="text-xs font-bold">Obser. {{ $item->item_pedido_observacao }}</p>
                                 @endif
                             </td>
-                            <td class="text-xs font-bold text-right">R$
-                                {{ number_format($item->item_pedido_valor, 2, ',', '.') }}</td>
+                            <td class="text-xs font-bold text-right">
+                                @if ($item->item_pedido_cortesia)
+                                    CORTESIA
+                                @else
+                                    R$ {{ number_format($item->item_pedido_valor, 2, ',', '.') }}
+                                @endif
+                            </td>
                         </tr>
                         <tr>
                             <td class="text-center text-[8px]" colspan="3">

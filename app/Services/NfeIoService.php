@@ -74,6 +74,10 @@ class NfeIoService
             'pagamentos.cartao',
         ]);
 
+        if (! $venda->temItemFiscal()) {
+            throw new NfeIoException('Venda só de cortesia não gera NFC-e: não há item vendido para declarar.');
+        }
+
         ['companyId' => $companyId, 'apiKey' => $apiKey] = $this->credenciais();
 
         $emissao = $this->numeracaoService->reservarPara($venda, $decisao);
@@ -287,12 +291,15 @@ class NfeIoService
     {
         $itensArray = [];
 
+        // Cortesia não é venda: fica fora da nota (e dos rateios abaixo).
+        $itensFiscais = $venda->itensVenda->where('item_venda_cortesia', false);
+
         // Rateia o frete da venda igualmente entre os itens, em centavos: com
         // round(frete / n) por item, R$ 4,00 em 3 itens virava 3,99 e a nota
         // ficava 1 centavo abaixo dos pagamentos (rejeitada).
         $fretePorItem = RateioCentavos::ratearProporcional(
             (int) round((float) ($venda->venda_valor_frete ?? 0) * 100),
-            $venda->itensVenda->mapWithKeys(fn ($item) => [$item->id => 1])->all(),
+            $itensFiscais->mapWithKeys(fn ($item) => [$item->id => 1])->all(),
         );
 
         // Taxa de serviço da mesa também vai em "outras despesas" (vOutro),
@@ -300,10 +307,10 @@ class NfeIoService
         // pagamentos ficaria acima do total da nota.
         $taxaServicoPorItem = RateioCentavos::ratearProporcional(
             (int) round((float) $venda->venda_valor_taxa_servico * 100),
-            $venda->itensVenda->mapWithKeys(fn ($item) => [$item->id => (int) round((float) $item->item_venda_valor * 100)])->all(),
+            $itensFiscais->mapWithKeys(fn ($item) => [$item->id => (int) round((float) $item->item_venda_valor * 100)])->all(),
         );
 
-        foreach ($venda->itensVenda as $item) {
+        foreach ($itensFiscais as $item) {
             $produto = $item->produto;
             $valores = $this->valoresDoItem($item);
 

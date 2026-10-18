@@ -51,7 +51,7 @@ class PermissionSeeder extends Seeder
             'view_any:nota_fiscal', 'view:nota_fiscal',
             // Ações sensíveis do salão: quem tem dispensa o PIN de gerente
             // (ver AcaoAutorizadaEnum::permissao()).
-            'cancelar_item:pedido', 'remover_taxa:sessao_mesa', 'transferir:sessao_mesa',
+            'cancelar_item:pedido', 'remover_taxa:sessao_mesa', 'transferir:sessao_mesa', 'conceder_cortesia:pedido',
             // Relatório de Taxa de Serviço (página + widgets do Shield).
             'view:relatorio_taxa_servico', 'view:taxa_servico_stats_overview',
             'view:taxa_servico_por_garcom_widget', 'view:taxa_servico_detalhamento_widget',

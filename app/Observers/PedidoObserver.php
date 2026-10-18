@@ -98,7 +98,7 @@ class PedidoObserver
                 continue;
             }
 
-            $service->registrarSaida($insumo, $consumo['quantidade'], MovimentacaoOrigemEnum::VENDA, $opts);
+            $service->registrarSaida($insumo, $consumo['quantidade'], $item->item_pedido_cortesia ? MovimentacaoOrigemEnum::CORTESIA : MovimentacaoOrigemEnum::VENDA, $opts);
         }
     }
 

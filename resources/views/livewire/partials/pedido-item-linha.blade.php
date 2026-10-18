@@ -37,6 +37,9 @@
                     <i class='bx bxs-bolt text-[9px]'></i> RELÂMPAGO
                 </span>
             @endif
+            @if (!empty($item['cortesia']))
+                <span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-900 bg-amber-200 rounded px-1.5 py-0.5">CORTESIA</span>
+            @endif
             @if (!empty($item['item_origem_id']))
                 <span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-pink-600 rounded px-1.5 py-0.5">
                     <i class='bx bxs-gift text-[9px]'></i> OFERTA
@@ -98,6 +101,15 @@
             <p class="text-sm font-bold text-gray-800 dark:text-gray-200">R$ {{ number_format($item['valor'], 2, ',', '.') }}</p>
         @endif
     </div>
+
+    {{-- Cortesia (só onde a página oferece a ação: AtenderPedido de pedido já gravado) --}}
+    @if (!empty($cortesiaAcao) && is_numeric($itemId))
+        <button wire:click="mountAction('cortesiaItem', { item: {{ $itemId }} })" type="button"
+            class="h-7 rounded-full bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 text-[10px] font-semibold shrink-0 transition-colors"
+            title="{{ !empty($item['cortesia']) ? 'Desfazer cortesia' : 'Dar item de cortesia' }}">
+            {{ !empty($item['cortesia']) ? 'Desfazer' : 'Cortesia' }}
+        </button>
+    @endif
 
     {{-- Editar --}}
     <button wire:click="abrirEditModal('{{ $itemId }}')" type="button"

@@ -2,11 +2,14 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\AcaoAutorizadaEnum;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
+use App\Filament\Concerns\AutorizaComPinDeGerente;
+use App\Filament\Concerns\ConcedeCortesiaNoItem;
 use App\Filament\Support\PedidoStatusActions;
 use App\Livewire\PedidoProdutoSelector;
 use App\Models\AdicionaisItemPedido;
@@ -20,6 +23,7 @@ use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\StonePedido;
 use App\Services\ClienteResolverService;
+use App\Services\CortesiaService;
 use App\Services\EstoqueService;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\PagamentosCombinadosService;
@@ -28,6 +32,7 @@ use App\Services\TotaisPedidoService;
 use App\Support\TotaisPedido;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -51,6 +56,9 @@ use UnitEnum;
  */
 class AtenderPedido extends Page
 {
+    use AutorizaComPinDeGerente;
+    use ConcedeCortesiaNoItem;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingBag;
 
     protected static ?string $navigationLabel = 'Atender Pedido';
@@ -110,10 +118,49 @@ class AtenderPedido extends Page
     protected function getHeaderActions(): array
     {
         return [
+            $this->cortesiaPedidoAction(),
             PedidoStatusActions::copiarLinkAcompanhamento()
                 ->visible(fn (): bool => $this->pedidoId !== null)
                 ->alpineClickHandler(fn (): string => PedidoStatusActions::jsCopiarLink(route('pedido.acompanhar', $this->pedidoId))),
         ];
+    }
+
+    protected function itemDeCortesia(int $itemId): ItensPedido
+    {
+        return ItensPedido::whereKey($itemId)->where('item_pedido_pedido_id', $this->pedidoId)->firstOrFail();
+    }
+
+    protected function aposMudarCortesia(): void
+    {
+        $this->itensCarrinho = $this->carregarItensDoBanco($this->pedidoId);
+        unset($this->resumoTotais);
+        $this->dispatch('pedido-recarregar-itens')->to(PedidoProdutoSelector::class);
+    }
+
+    /** Todos os itens do pedido como cortesia: sai do estoque, não é cobrado nem vai para a nota. */
+    private function cortesiaPedidoAction(): Action
+    {
+        return Action::make('cortesiaPedido')
+            ->label('Pedido como cortesia')
+            ->icon(Heroicon::OutlinedGift)
+            ->color('warning')
+            ->visible(fn (): bool => $this->pedidoId !== null && ! $this->somenteLeitura)
+            ->modalHeading('Pedido inteiro como cortesia')
+            ->modalDescription('Todos os itens saem do estoque, mas não são cobrados e não entram na nota fiscal. Frete e taxa seguem à parte.')
+            ->modalWidth('md')
+            ->schema(fn (): array => [
+                TextInput::make('motivo')->label('Motivo')->required()->maxLength(255),
+                ...$this->camposAutorizacao(AcaoAutorizadaEnum::CONCEDER_CORTESIA),
+            ])
+            ->action(function (array $data): void {
+                $pedido = Pedido::findOrFail($this->pedidoId);
+
+                $this->executarAutorizado(fn () => app(CortesiaService::class)->concederPedido(
+                    $pedido, Auth::user(), $data['autorizador_id'] ?? null, $data['pin'] ?? null, $data['motivo'],
+                ), 'Pedido marcado como cortesia.');
+
+                $this->aposMudarCortesia();
+            });
     }
 
     public static function canAccess(): bool
@@ -201,6 +248,7 @@ class AtenderPedido extends Page
                 'adicionais_valor' => (float) $item->item_pedido_valor_adicionais,
                 'observacao' => $item->item_pedido_observacao ?? '',
                 'promocao_id' => $item->item_pedido_promocao_id,
+                'cortesia' => (bool) $item->item_pedido_cortesia,
                 'adicionais' => $item->adicionaisItemPedido->map(fn (AdicionaisItemPedido $aip): array => [
                     'id' => $aip->aip_adicional_id,
                     'nome' => $aip->adicional?->adicional_nome ?? '—',

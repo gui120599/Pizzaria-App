@@ -38,6 +38,8 @@ class ItensVenda extends Model
         'item_venda_respostas',
         'item_venda_status',
         'item_venda_usuario_removeu',
+        'item_venda_cortesia',
+        'item_venda_valor_tabela',
     ];
 
     protected $casts = [
@@ -57,6 +59,8 @@ class ItensVenda extends Model
         'item_venda_valor_total_tributos' => 'decimal:2',
         'item_venda_sabores' => 'array',
         'item_venda_respostas' => 'array',
+        'item_venda_cortesia' => 'boolean',
+        'item_venda_valor_tabela' => 'decimal:2',
     ];
 
     protected function colunaSabores(): string

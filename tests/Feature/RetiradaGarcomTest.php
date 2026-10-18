@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\Garcom\AtendimentoMesaService;
 use App\Services\Garcom\RetiradaService;
 use Database\Seeders\PermissionSeeder;
+use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -323,5 +324,21 @@ class RetiradaGarcomTest extends TestCase
             ->assertDispatched('imprimir-rodadas-mesa', urls: [route('pedido.imprimir', ['id' => $pedido->id])]);
 
         Carbon::setTestNow();
+    }
+
+    public function test_garcom_da_cortesia_no_item_da_retirada_com_pin_de_gerente(): void
+    {
+        $this->actingAs($this->garcom);
+        $pedido = $this->retiradaEnviada();
+        $item = $pedido->item_pedido_pedido_id()->firstOrFail();
+        $gerente = User::factory()->gerente()->comPin('1234')->create(['name_first' => 'Gil', 'name' => 'Gil']);
+
+        Livewire::test(AtenderRetirada::class, ['pedido' => $pedido->id])
+            ->callAction(TestAction::make('cortesiaItem')->arguments(['item' => $item->id]), ['motivo' => 'Aniversário', 'autorizador_id' => $gerente->id, 'pin' => '1234'])
+            ->assertSee('CORTESIA');
+
+        $this->assertTrue($item->fresh()->item_pedido_cortesia);
+        $this->assertSame($gerente->id, $item->fresh()->item_pedido_cortesia_user_id);
+        $this->assertEqualsWithDelta(0.0, (float) $pedido->fresh()->pedido_valor_total, 0.001);
     }
 }

@@ -101,6 +101,17 @@ class Venda extends Model
         return $this->hasMany(ItensVenda::class, 'item_venda_venda_id', 'id');
     }
 
+    /**
+     * Tem algum item que é venda de fato? Cortesia fica fora da NFC-e; venda só
+     * de cortesia não tem o que emitir.
+     */
+    public function temItemFiscal(): bool
+    {
+        // Só é "sem item fiscal" quando há cortesia e nada cobrado (venda sem item algum não é caso nosso).
+        return ! $this->itensVenda()->where('item_venda_cortesia', true)->exists()
+            || $this->itensVenda()->where('item_venda_cortesia', false)->exists();
+    }
+
     public function pagamentos()
     {
         return $this->hasMany(PagamentosVenda::class, 'pg_venda_venda_id');

@@ -162,8 +162,16 @@
                                         <p class="text-xs italic text-amber-700 dark:text-amber-400">{{ $item->item_pedido_observacao }}</p>
                                     @endif
                                 </div>
-                                <span class="text-sm text-gray-700 dark:text-gray-300">R$ {{ number_format((float) $item->item_pedido_valor, 2, ',', '.') }}</span>
+                                @if ($item->item_pedido_cortesia)
+                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">CORTESIA</span>
+                        @else
+                            <span class="text-sm text-gray-700 dark:text-gray-300">R$ {{ number_format((float) $item->item_pedido_valor, 2, ',', '.') }}</span>
+                        @endif
                                 @if (! $pago && $status !== \App\Enums\StatusPedidoEnum::CANCELADO && $item->item_pedido_venda_id === null)
+                                    <button type="button" wire:click="mountAction('cortesiaItem', { item: {{ $item->id }} })"
+                                            class="rounded-lg px-2 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200 active:scale-95 dark:text-amber-400 dark:ring-amber-500/30">
+                                        {{ $item->item_pedido_cortesia ? 'Desfazer cortesia' : 'Cortesia' }}
+                                    </button>
                                     <button type="button" wire:click="mountAction('cancelarItem', { item: {{ $item->id }} })"
                                             class="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 ring-1 ring-red-200 active:scale-95 dark:ring-red-500/30">
                                         Cancelar

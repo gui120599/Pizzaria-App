@@ -24,7 +24,7 @@ class EmissaoNfeAutomaticaService
      */
     public function deveEmitir(Venda $venda): bool
     {
-        return (bool) Empresa::first()?->nfeIoConfigurado() && $venda->exigeEnvioNfe();
+        return (bool) Empresa::first()?->nfeIoConfigurado() && $venda->exigeEnvioNfe() && $venda->temItemFiscal();
     }
 
     /**
