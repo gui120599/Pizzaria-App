@@ -75,6 +75,7 @@ class PermissionSeeder extends Seeder
             'view_any:checklist_nao_conformidade', 'view:checklist_nao_conformidade', 'update:checklist_nao_conformidade',
             'view:checklists_dashboard', 'view:checklists_hoje_widget',
             'view:checklist_conformidade_stats_overview', 'view:checklist_itens_mais_falham_widget',
+            'view:checklist_itens_mais_dispensados_widget',
             // Módulo de cozinha (mesmo conjunto de 2026_10_14_100013_seed_cozinha_roles_and_permissions).
             'view_any:setor_producao', 'view:setor_producao', 'create:setor_producao', 'update:setor_producao',
             'delete:setor_producao', 'delete_any:setor_producao', 'restore:setor_producao', 'restore_any:setor_producao', 'reorder:setor_producao',

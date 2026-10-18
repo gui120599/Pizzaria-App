@@ -139,7 +139,8 @@
                                 $errosDoItem = $erros[$item->id] ?? [];
                                 $pedeFoto = $tipo === TipoResposta::Foto
                                     || $item->exigenciaFoto() === ExigenciaFoto::Sempre
-                                    || ($item->exigenciaFoto() === ExigenciaFoto::SeNaoConforme && $item->conforme === false);
+                                    || ($item->exigenciaFoto() === ExigenciaFoto::SeNaoConforme && $item->conforme === false)
+                                    || ($item->foiDispensado() && $item->exigeFotoEstoque());
                                 $minimo = $item->regra('valor_minimo');
                                 $maximo = $item->regra('valor_maximo');
                             @endphp
@@ -148,7 +149,8 @@
                                          'space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-2 transition dark:bg-gray-900',
                                          'ring-amber-500' => $errosDoItem !== [],
                                          'ring-red-500' => $errosDoItem === [] && $item->conforme === false,
-                                         'ring-emerald-500' => $errosDoItem === [] && $item->conforme === true,
+                                         'ring-emerald-500' => $errosDoItem === [] && $item->conforme === true && ! $item->foiDispensado(),
+                                         'ring-sky-500' => $errosDoItem === [] && $item->foiDispensado(),
                                          'ring-gray-200 dark:ring-white/10' => $errosDoItem === [] && $item->conforme === null,
                                      ])>
                                 <div>
@@ -160,7 +162,9 @@
                                         @endif
                                     </h3>
                                     @if ($item->instrucao)
-                                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $item->instrucao }}</p>
+                                        <div class="mt-1" wire:key="instrucao-{{ $item->id }}">
+                                            <x-checklist-instrucao :texto="$item->instrucao" />
+                                        </div>
                                     @endif
                                 </div>
 
@@ -223,6 +227,22 @@
                                                         ])>{{ $opcao['rotulo'] }}</button>
                                             @endforeach
                                         </div>
+                                    @elseif ($tipo === TipoResposta::Producao)
+                                        @if ($item->criterio())
+                                            <p class="text-sm text-gray-700 dark:text-gray-200"><span class="font-semibold">Fazer quando:</span> {{ $item->criterio() }}</p>
+                                        @endif
+                                        <div class="grid grid-cols-3 gap-2">
+                                            @foreach ([['feito', '✓ Feito', 'bg-emerald-600'], ['tinha_estoque', 'Tinha estoque', 'bg-sky-600'], ['nao_feito', '✗ Não feito', 'bg-red-600']] as [$valorProducao, $rotuloProducao, $corProducao])
+                                                @php $escolhidaProducao = $item->valor_opcao === $valorProducao; @endphp
+                                                <button type="button" wire:click="responder({{ $item->id }}, '{{ $valorProducao }}')" wire:loading.attr="disabled"
+                                                        @class([
+                                                            'rounded-xl px-1 py-4 text-sm font-semibold leading-tight transition active:scale-[.97]',
+                                                            $alvo,
+                                                            "{$corProducao} text-white" => $escolhidaProducao,
+                                                            'bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-gray-100' => ! $escolhidaProducao,
+                                                        ])>{{ $rotuloProducao }}</button>
+                                            @endforeach
+                                        </div>
                                     @elseif ($tipo === TipoResposta::Texto)
                                         <textarea wire:model.blur="respostas.{{ $item->id }}" rows="3" aria-label="{{ $item->titulo }}"
                                                   class="w-full rounded-xl border-gray-300 text-base shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-white/10 dark:bg-white/5 dark:text-white"></textarea>
@@ -235,8 +255,12 @@
                                     <p @class([
                                         'text-base font-semibold',
                                         'text-red-600 dark:text-red-400' => $item->conforme === false,
-                                        'text-gray-950 dark:text-white' => $item->conforme !== false,
+                                        'text-sky-600 dark:text-sky-400' => $item->foiDispensado(),
+                                        'text-gray-950 dark:text-white' => $item->conforme !== false && ! $item->foiDispensado(),
                                     ])>{{ $item->respostaFormatada() ?? 'Sem resposta' }}</p>
+                                    @if ($tipo === TipoResposta::Producao && $item->criterio())
+                                        <p class="text-sm text-gray-600 dark:text-gray-300"><span class="font-semibold">Fazer quando:</span> {{ $item->criterio() }}</p>
+                                    @endif
                                 @endif
 
                                 {{-- Fotos --}}

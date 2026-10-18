@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\ChecklistConformidadeStatsOverview;
+use App\Filament\Widgets\ChecklistItensMaisDispensadosWidget;
 use App\Filament\Widgets\ChecklistItensMaisFalhamWidget;
 use App\Filament\Widgets\ChecklistsHojeWidget;
 use BackedEnum;
@@ -39,6 +40,7 @@ class ChecklistsDashboard extends BaseDashboard
             ChecklistConformidadeStatsOverview::class,
             ChecklistsHojeWidget::class,
             ChecklistItensMaisFalhamWidget::class,
+            ChecklistItensMaisDispensadosWidget::class,
         ];
     }
 }

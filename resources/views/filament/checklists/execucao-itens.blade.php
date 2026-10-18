@@ -16,7 +16,9 @@
                 @foreach ($itens as $item)
                     <li class="flex gap-3 p-3">
                         <div class="pt-0.5">
-                            @if ($item->conforme === true)
+                            @if ($item->foiDispensado())
+                                <x-filament::icon icon="heroicon-s-archive-box" class="h-5 w-5 text-info-600 dark:text-info-400" label="Tinha estoque" />
+                            @elseif ($item->conforme === true)
                                 <x-filament::icon icon="heroicon-s-check-circle" class="h-5 w-5 text-success-600 dark:text-success-400" label="Conforme" />
                             @elseif ($item->conforme === false)
                                 <x-filament::icon icon="heroicon-s-x-circle" class="h-5 w-5 text-danger-600 dark:text-danger-400" label="Não conforme" />
@@ -36,7 +38,8 @@
                                 <span @class([
                                     'text-sm font-semibold',
                                     'text-danger-600 dark:text-danger-400' => $item->conforme === false,
-                                    'text-gray-950 dark:text-white' => $item->conforme !== false,
+                                    'text-info-600 dark:text-info-400' => $item->foiDispensado(),
+                                    'text-gray-950 dark:text-white' => $item->conforme !== false && ! $item->foiDispensado(),
                                 ])>{{ $item->respostaFormatada() ?? 'Sem resposta' }}</span>
                             </div>
 

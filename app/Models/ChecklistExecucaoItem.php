@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Checklist\ExigenciaFoto;
+use App\Enums\Checklist\RespostaProducao;
 use App\Enums\Checklist\TipoResposta;
 use App\Models\Concerns\TemHistoricoChecklist;
 use App\Observers\ChecklistAuditoriaObserver;
@@ -116,6 +117,31 @@ class ChecklistExecucaoItem extends Model
         return (bool) $this->regra('exige_observacao_nao_conforme', true);
     }
 
+    public function exigeFotoEstoque(): bool
+    {
+        return (bool) $this->regra('exige_foto_estoque', false);
+    }
+
+    public function criterio(): ?string
+    {
+        $criterio = $this->regra('criterio');
+
+        return filled($criterio) ? (string) $criterio : null;
+    }
+
+    public function respostaProducao(): ?RespostaProducao
+    {
+        return $this->tipo_resposta === TipoResposta::Producao
+            ? RespostaProducao::tryFrom((string) $this->valor_opcao)
+            : null;
+    }
+
+    /** Item "fazer se precisar" respondido com "Tinha estoque". */
+    public function foiDispensado(): bool
+    {
+        return $this->respostaProducao() === RespostaProducao::TinhaEstoque;
+    }
+
     public function foiRespondido(): bool
     {
         return $this->respondido_em !== null;
@@ -138,6 +164,7 @@ class ChecklistExecucaoItem extends Model
             TipoResposta::Selecao => collect($this->regra('opcoes', []))
                 ->firstWhere('valor', $this->valor_opcao)['rotulo'] ?? $this->valor_opcao,
             TipoResposta::Foto => 'Foto enviada',
+            TipoResposta::Producao => $this->respostaProducao()?->getLabel() ?? $this->valor_opcao,
         };
     }
 }

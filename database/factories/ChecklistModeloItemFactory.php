@@ -87,6 +87,15 @@ class ChecklistModeloItemFactory extends Factory
         return $this->state(['tipo_resposta' => TipoResposta::Foto]);
     }
 
+    public function producao(?string $criterio = null, bool $exigeFotoEstoque = false): static
+    {
+        return $this->state([
+            'tipo_resposta' => TipoResposta::Producao,
+            'criterio' => $criterio,
+            'exige_foto_estoque' => $exigeFotoEstoque,
+        ]);
+    }
+
     public function critico(): static
     {
         return $this->state(['critico' => true]);
