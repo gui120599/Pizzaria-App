@@ -28,7 +28,9 @@ use App\Models\Produto;
 use App\Models\SessaoCaixa;
 use App\Models\SessaoMesa;
 use App\Models\StonePedido;
+use App\Models\User;
 use App\Models\Venda;
+use App\Services\CortesiaService;
 use App\Services\DebitosClienteService;
 use App\Services\DivisaoItemPedidoService;
 use App\Services\EstoqueService;
@@ -452,6 +454,10 @@ class OperarVenda extends Page
             return;
         }
 
+        if ($this->avisarSeCortesia($itemVenda)) {
+            return;
+        }
+
         // Linha vinda de mesa/pedido: a quantidade é a dos itens do pedido.
         // Mudar só aqui deixaria a venda diferente do que foi marcado como
         // cobrado (sobraria item "pago" sem estar na venda, ou vice-versa).
@@ -492,10 +498,31 @@ class OperarVenda extends Page
         unset($this->itensCarrinho, $this->venda);
     }
 
+    /** Linha de cortesia não muda quantidade nem desconto: desfaça a cortesia antes. */
+    private function avisarSeCortesia(ItensVenda $itemVenda): bool
+    {
+        if (! $itemVenda->item_venda_cortesia) {
+            return false;
+        }
+
+        Notification::make()
+            ->warning()
+            ->title('Item de cortesia')
+            ->body('Desfaça a cortesia antes de mudar quantidade ou desconto.')
+            ->send();
+        unset($this->itensCarrinho);
+
+        return true;
+    }
+
     public function atualizarDescontoItem(int $itemVendaId, float $novoDesconto): void
     {
         $itemVenda = ItensVenda::find($itemVendaId);
         if (! $itemVenda || $novoDesconto < 0) {
+            return;
+        }
+
+        if ($this->avisarSeCortesia($itemVenda)) {
             return;
         }
 
@@ -1155,6 +1182,9 @@ class OperarVenda extends Page
         $itemVenda->item_venda_quantidade -= $item->item_pedido_quantidade;
         $itemVenda->item_venda_desconto -= $item->item_pedido_desconto;
         $itemVenda->item_venda_valor -= $item->item_pedido_valor;
+        if ($item->item_pedido_cortesia) {
+            $itemVenda->item_venda_valor_tabela = max(0, round((float) $itemVenda->item_venda_valor_tabela - (float) $item->item_pedido_desconto, 2));
+        }
         $itemVenda->item_venda_quantidade_tributavel -= $item->item_pedido_quantidade;
         $itemVenda->item_venda_valor_base_calculo -= $item->item_pedido_valor;
         $itemVenda->item_venda_valor_icms -= ($item->item_pedido_valor * $item->produto->produto_valor_percentual_icms) / 100;
@@ -1205,6 +1235,67 @@ class OperarVenda extends Page
     public function taxaServicoDasMesas(): float
     {
         return $this->vendaId === null ? 0.0 : ContaMesa::taxaServicoDaVenda($this->vendaId);
+    }
+
+    /**
+     * Cortesia (liga/desliga) numa linha do carrinho: sai do estoque, não é
+     * cobrada nem vai para a NFC-e. Linha que veio de pedido passa pelo item do
+     * pedido (retira da venda, muda, lança de novo) para a cortesia ficar no
+     * pedido; linha avulsa do caixa muda direto (CortesiaService).
+     */
+    public function cortesiaLinhaAction(): Action
+    {
+        return Action::make('cortesiaLinha')
+            ->modalHeading(fn (array $arguments): string => (ItensVenda::find($arguments['item'] ?? null)?->item_venda_cortesia ? 'Desfazer cortesia' : 'Dar item de cortesia'))
+            ->modalDescription('Cortesia sai do estoque, mas não é cobrada e não entra na nota fiscal.')
+            ->modalSubmitActionLabel('Confirmar')
+            ->color('warning')
+            ->modalWidth('sm')
+            ->schema(fn (): array => [
+                TextInput::make('motivo')->label('Motivo')->required()->maxLength(255),
+                ...$this->camposAutorizacao(AcaoAutorizadaEnum::CONCEDER_CORTESIA),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                $linha = ItensVenda::where('item_venda_venda_id', $this->vendaId)->find($arguments['item'] ?? null);
+                if (! $linha) {
+                    return;
+                }
+
+                $this->executarAutorizado(
+                    fn () => $this->alternarCortesiaDaLinha($linha, Auth::user(), $data['autorizador_id'] ?? null, $data['pin'] ?? null, $data['motivo']),
+                    $linha->item_venda_cortesia ? 'Cortesia desfeita.' : 'Cortesia concedida.',
+                );
+
+                $this->limparCachesDoCarrinho();
+            });
+    }
+
+    private function alternarCortesiaDaLinha(ItensVenda $linha, User $usuario, ?int $autorizadorId, ?string $pin, string $motivo): void
+    {
+        $cortesia = app(CortesiaService::class);
+        $itensPedido = $this->itensPedidoDaLinha($linha);
+
+        if ($itensPedido->isEmpty()) {
+            $cortesia->alternarLinhaDaVenda($linha, $usuario, $autorizadorId, $pin, $motivo);
+
+            return;
+        }
+
+        $viraCortesia = ! $linha->item_venda_cortesia;
+        $ids = $itensPedido->all();
+
+        $this->retirarItensPedido($ids);
+
+        try {
+            foreach (ItensPedido::whereIn('id', $ids)->get() as $item) {
+                $viraCortesia
+                    ? $cortesia->concederItem($item, $usuario, $autorizadorId, $pin, $motivo)
+                    : $cortesia->desfazerItem($item, $usuario, $autorizadorId, $pin, $motivo);
+            }
+        } finally {
+            // Mesmo se a autorização falhar, o item volta para a venda como estava.
+            $this->lancarItensPedido($ids);
+        }
     }
 
     public function removerTaxaServicoAction(): Action

@@ -342,10 +342,18 @@ class LancamentoItemPedidoService
                 2,
             );
 
-            $item->update([
+            $dados = [
                 'item_pedido_valor_adicionais' => $valorAdicionais,
                 'item_pedido_valor' => round($baseSemAdicionais + $valorAdicionais, 2),
-            ]);
+            ];
+
+            // Cortesia segue sem cobrar: o desconto acompanha o valor de tabela.
+            if ($item->item_pedido_cortesia) {
+                $dados['item_pedido_valor'] = 0;
+                $dados['item_pedido_desconto'] = round((float) $item->item_pedido_valor_unitario * (float) $item->item_pedido_quantidade + $valorAdicionais, 2);
+            }
+
+            $item->update($dados);
 
             $this->gravarAdicionais($item, $adicionais);
 
@@ -383,6 +391,11 @@ class LancamentoItemPedidoService
                 $descontoUnitario,
                 (float) $adicionais->sum('aip_valor_total') + $this->valorDasRespostas($item->respostas(), $quantidade),
             );
+
+            if ($item->item_pedido_cortesia) {
+                $linha['desconto'] = round($linha['valor_unitario'] * $quantidade + $linha['adicionais'], 2);
+                $linha['valor'] = 0.0;
+            }
 
             $item->update([
                 'item_pedido_quantidade' => $quantidade,

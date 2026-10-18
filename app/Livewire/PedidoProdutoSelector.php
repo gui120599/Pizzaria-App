@@ -218,6 +218,7 @@ class PedidoProdutoSelector extends Component
             'promocao_id' => $item->item_pedido_promocao_id,
             'promocao_adicional_regra_id' => $item->item_pedido_promocao_adicional_regra_id,
             'item_origem_id' => $item->item_pedido_origem_id,
+            'cortesia' => (bool) $item->item_pedido_cortesia,
             'adicionais' => $adicionais ?? $item->adicionaisItemPedido->map(fn ($aip) => [
                 'id' => $aip->aip_adicional_id,
                 'nome' => $aip->adicional?->adicional_nome ?? '—',
@@ -849,6 +850,14 @@ class PedidoProdutoSelector extends Component
     public function onRemoverItemExterno(string $itemId): void
     {
         $this->removerItem($itemId);
+    }
+
+    /** Itens mudaram fora do componente (ex.: cortesia na página): relê do banco e avisa o pai. */
+    #[On('pedido-recarregar-itens')]
+    public function onRecarregarItensExterno(): void
+    {
+        $this->carregarItensDB();
+        $this->notificarPai();
     }
 
     #[On('pedido-abrir-edicao-item')]

@@ -98,6 +98,8 @@ class LancamentoItensVendaService
                     ->where('item_venda_valor_adicionais', 0)
                     ->whereNull('item_venda_sabores')
                     ->whereNull('item_venda_respostas')
+                    // Cortesia nunca se mistura com linha cobrada (nem o contrário).
+                    ->where('item_venda_cortesia', (bool) $item->item_pedido_cortesia)
                     // Só mescla em linha que também veio de pedido: produto
                     // lançado à mão fica numa linha própria, com +/- livre.
                     ->whereExists(fn ($query) => $query->select(DB::raw(1))
@@ -109,6 +111,9 @@ class LancamentoItensVendaService
                 $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
                 $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
                 $itemVenda->item_venda_valor += $item->item_pedido_valor;
+                if ($item->item_pedido_cortesia) {
+                    $itemVenda->item_venda_valor_tabela += $this->valorDeTabela($item);
+                }
                 $itemVenda->item_venda_quantidade_tributavel += $item->item_pedido_quantidade;
                 $this->somarTributosItemVenda($itemVenda, $item->produto, $item->item_pedido_valor);
                 $itemVenda->save();
@@ -127,6 +132,8 @@ class LancamentoItensVendaService
                     'item_venda_valor' => $valorEfetivo,
                     'item_venda_sabores' => $item->item_pedido_sabores,
                     'item_venda_respostas' => $item->item_pedido_respostas,
+                    'item_venda_cortesia' => (bool) $item->item_pedido_cortesia,
+                    'item_venda_valor_tabela' => $item->item_pedido_cortesia ? $this->valorDeTabela($item) : null,
                     'item_venda_status' => 'INSERIDO',
                     'item_venda_quantidade_tributavel' => $item->item_pedido_quantidade,
                     'item_venda_valor_unitario_tributavel' => $item->item_pedido_valor_unitario,
@@ -145,6 +152,12 @@ class LancamentoItensVendaService
             $item->item_pedido_item_venda_id = $itemVenda->id;
             ItensPedido::whereKey($item->id)->update(['item_pedido_item_venda_id' => $itemVenda->id]);
         }
+    }
+
+    /** Quanto o item cobraria se não fosse cortesia (o desconto da cortesia cobre a linha toda). */
+    private function valorDeTabela(ItensPedido $item): float
+    {
+        return round((float) $item->item_pedido_desconto, 2);
     }
 
     private function somarTributosItemVenda(ItensVenda $itemVenda, $produto, float $valorTotal): void

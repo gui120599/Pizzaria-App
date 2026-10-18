@@ -80,7 +80,7 @@ class CancelamentoVendaService
         $saidas = MovimentacaoProduto::query()
             ->whereMorphedTo('referencia', $venda)
             ->where('mov_tipo', MovimentacaoTipoEnum::SAIDA)
-            ->where('mov_origem', MovimentacaoOrigemEnum::VENDA)
+            ->whereIn('mov_origem', [MovimentacaoOrigemEnum::VENDA, MovimentacaoOrigemEnum::CORTESIA])
             ->with('produto')
             ->get();
 

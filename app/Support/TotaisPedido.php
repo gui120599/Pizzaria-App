@@ -20,14 +20,18 @@ use Illuminate\Support\Collection;
 class TotaisPedido
 {
     /**
+     * Cortesia (item_pedido_cortesia) não é desconto comercial: sai do subtotal
+     * e do desconto e aparece na sua própria chave, para os relatórios.
+     *
      * @param  Collection<int, ItensPedido>  $itens  linhas com status INSERIDO
      * @param  float  $descontoPedido  desconto manual aplicado ao pedido inteiro (fora dos itens)
-     * @return array{itens: float, desconto: float, frete: float, total: float}
+     * @return array{itens: float, desconto: float, cortesia: float, frete: float, total: float}
      */
     public static function paraItens(Collection $itens, ?OpcoesEntregas $opcao, float $descontoPedido = 0.0): array
     {
         $liquidoItens = round((float) $itens->sum('item_pedido_valor'), 2);
-        $descontoItens = round((float) $itens->sum('item_pedido_desconto'), 2);
+        $cortesia = round((float) $itens->where('item_pedido_cortesia', true)->sum('item_pedido_desconto'), 2);
+        $descontoItens = round((float) $itens->sum('item_pedido_desconto') - $cortesia, 2);
         $descontoPedido = round(max(0.0, $descontoPedido), 2);
 
         $liquido = round(max(0.0, $liquidoItens - $descontoPedido), 2);
@@ -36,6 +40,7 @@ class TotaisPedido
         return [
             'itens' => round($liquidoItens + $descontoItens, 2),
             'desconto' => round($descontoItens + $descontoPedido, 2),
+            'cortesia' => $cortesia,
             'frete' => $frete,
             'total' => round(max(0.0, $liquido + $frete), 2),
         ];

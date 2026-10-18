@@ -7,6 +7,7 @@ use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
+use App\Filament\Concerns\ConcedeCortesiaNoItem;
 use App\Filament\Garcom\Concerns\CarrinhoLateral;
 use App\Filament\Garcom\Concerns\RestritoAoSalao;
 use App\Models\Cliente;
@@ -38,6 +39,7 @@ class AtenderRetirada extends Page
 {
     use AutorizaComPinDeGerente;
     use CarrinhoLateral;
+    use ConcedeCortesiaNoItem;
     use RestritoAoSalao;
 
     protected string $view = 'filament.garcom.pages.atender-retirada';
@@ -259,6 +261,11 @@ class AtenderRetirada extends Page
         }
 
         Notification::make()->title('Retirada entregue ao cliente.')->success()->send();
+    }
+
+    protected function itemDeCortesia(int $itemId): ItensPedido
+    {
+        return ItensPedido::whereKey($itemId)->where('item_pedido_pedido_id', $this->pedidoId)->firstOrFail();
     }
 
     public function cancelarItemAction(): Action

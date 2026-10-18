@@ -37,7 +37,7 @@
                 @else
                     <div class="divide-y divide-gray-100 dark:divide-white/10 max-h-96 overflow-y-auto">
                         @foreach ($itensCarrinho as $item)
-                            @include('livewire.partials.pedido-item-linha', ['item' => $item])
+                            @include('livewire.partials.pedido-item-linha', ['item' => $item, 'cortesiaAcao' => $pedidoId !== null && ! $somenteLeitura])
                         @endforeach
                     </div>
 

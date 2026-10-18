@@ -103,7 +103,11 @@
                     </div>
 
                     <span class="shrink-0 text-gray-700 dark:text-gray-300">
-                        {{ Number::currency((float) $item->item_pedido_valor, 'BRL', 'pt_BR') }}
+                        @if ($item->item_pedido_cortesia)
+                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300" title="{{ $item->item_pedido_cortesia_motivo }}">CORTESIA</span>
+                        @else
+                            {{ Number::currency((float) $item->item_pedido_valor, 'BRL', 'pt_BR') }}
+                        @endif
                     </span>
                 </div>
             @endforeach

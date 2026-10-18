@@ -48,7 +48,10 @@ class VendaService
             $venda_valor_pis += $item->item_venda_valor_pis;
             $venda_valor_cofins += $item->item_venda_valor_cofins;
             $venda_valor_itens += $item->item_venda_valor;
-            $venda_valor_desconto += $item->item_venda_desconto;
+            // Cortesia não é desconto comercial (relatório próprio de cortesias).
+            if (! $item->item_venda_cortesia) {
+                $venda_valor_desconto += $item->item_venda_desconto;
+            }
             $venda_valor_total += $item->item_venda_valor;
         }
 

@@ -175,7 +175,7 @@ class VendaObserver
                         continue;
                     }
 
-                    $service->registrarSaida($insumo, $consumo['quantidade'], MovimentacaoOrigemEnum::VENDA, $opts);
+                    $service->registrarSaida($insumo, $consumo['quantidade'], $item->item_venda_cortesia ? MovimentacaoOrigemEnum::CORTESIA : MovimentacaoOrigemEnum::VENDA, $opts);
                 }
             }
         });

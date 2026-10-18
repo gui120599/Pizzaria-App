@@ -8,6 +8,7 @@ use App\Enums\StatusPedidoEnum;
 use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
+use App\Filament\Concerns\ConcedeCortesiaNoItem;
 use App\Filament\Garcom\Concerns\CarrinhoLateral;
 use App\Filament\Garcom\Concerns\RestritoAoSalao;
 use App\Models\Cliente;
@@ -52,6 +53,7 @@ class AtenderMesa extends Page
 {
     use AutorizaComPinDeGerente;
     use CarrinhoLateral;
+    use ConcedeCortesiaNoItem;
     use RestritoAoSalao;
 
     protected string $view = 'filament.garcom.pages.atender-mesa';
@@ -464,6 +466,13 @@ class AtenderMesa extends Page
         }
 
         $this->prontasAvisadas = $this->rodadasProntasIds();
+    }
+
+    protected function itemDeCortesia(int $itemId): ItensPedido
+    {
+        return ItensPedido::whereKey($itemId)
+            ->whereHas('pedido', fn ($q) => $q->where('pedido_sessao_mesa_id', $this->sessaoId))
+            ->firstOrFail();
     }
 
     public function cancelarItemAction(): Action

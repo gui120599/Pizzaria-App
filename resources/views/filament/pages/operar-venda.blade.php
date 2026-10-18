@@ -304,7 +304,13 @@
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
                                     <x-item-nome :item="$item" class="block text-sm font-medium text-gray-800 dark:text-gray-200" />
+                                    @if ($item->item_venda_cortesia)
+                                        <span class="mt-0.5 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 dark:bg-amber-500/20 dark:text-amber-300">CORTESIA</span>
+                                    @endif
                                 </div>
+                                <button wire:click="mountAction('cortesiaLinha', { item: {{ $item->id }} })" type="button" title="{{ $item->item_venda_cortesia ? 'Desfazer cortesia' : 'Dar item de cortesia' }}" class="ml-auto text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 shrink-0">
+                                    <x-filament::icon icon="heroicon-o-gift" class="h-4 w-4" />
+                                </button>
                                 <button wire:click="removerItemCarrinho({{ $item->id }})" type="button" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 shrink-0">
                                     <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4" />
                                 </button>
@@ -342,6 +348,9 @@
                                 </div>
 
                                 <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                    @if ($item->item_venda_cortesia)
+                                        <span class="mr-1 text-xs font-normal text-gray-400 line-through">R$ {{ number_format((float) $item->item_venda_valor_tabela, 2, ',', '.') }}</span>
+                                    @endif
                                     R$ {{ number_format((float) $item->item_venda_valor, 2, ',', '.') }}
                                 </span>
                             </div>
@@ -428,6 +437,14 @@
                             'text-gray-400 line-through dark:text-gray-500' => $taxaRemovida,
                             'text-gray-800 dark:text-gray-200' => ! $taxaRemovida,
                         ])>R$ {{ number_format($taxaRemovida ? $this->taxaServicoDasMesas : (float) $this->venda->venda_valor_taxa_servico, 2, ',', '.') }}</span>
+                    </div>
+                @endif
+
+                @php $cortesiasDaVenda = (float) $this->itensCarrinho->where('item_venda_cortesia', true)->sum('item_venda_valor_tabela'); @endphp
+                @if ($cortesiasDaVenda > 0)
+                    <div class="flex items-center justify-between text-xs text-amber-700 dark:text-amber-400">
+                        <span>Cortesias (a preço de tabela)</span>
+                        <span>R$ {{ number_format($cortesiasDaVenda, 2, ',', '.') }}</span>
                     </div>
                 @endif
 
