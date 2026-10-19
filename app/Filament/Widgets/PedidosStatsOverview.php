@@ -6,6 +6,7 @@ use App\Filament\Widgets\Concerns\InteractsComPeriodo;
 use App\Models\ItensPedido;
 use App\Models\Pedido;
 use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
+use Carbon\Carbon;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -30,6 +31,7 @@ class PedidosStatsOverview extends BaseWidget
 
         // Pedidos "reais" = tudo que saiu de INICIADO (carrinho), pela abertura.
         $base = Pedido::query()
+            ->tipoAtendimento($this->tiposAtendimentoSelecionados())
             ->where('pedido_status', '!=', 'INICIADO')
             ->whereBetween('pedido_datahora_abertura', [$inicio, $fim]);
 
@@ -52,15 +54,18 @@ class PedidosStatsOverview extends BaseWidget
             ->whereColumn('pedido_datahora_entrega', '>=', 'pedido_datahora_transporte')
             ->avg(DB::raw('TIMESTAMPDIFF(SECOND, pedido_datahora_transporte, pedido_datahora_entrega)')) / 60;
 
-        // Tempo médio de ciclo: abertura -> finalizado.
-        $tCiclo = (float) (clone $base)
-            ->whereNotNull('pedido_datahora_finalizado')
-            ->whereColumn('pedido_datahora_finalizado', '>=', 'pedido_datahora_abertura')
-            ->avg(DB::raw('TIMESTAMPDIFF(SECOND, pedido_datahora_abertura, pedido_datahora_finalizado)')) / 60;
+        // Tempo médio até a entrega: abertura -> entregue. Não usa
+        // pedido_datahora_finalizado: ele marca o pagamento, não a entrega.
+        $tAteEntrega = (float) (clone $base)
+            ->whereNotNull('pedido_datahora_entrega')
+            ->whereColumn('pedido_datahora_entrega', '>=', 'pedido_datahora_abertura')
+            ->avg(DB::raw('TIMESTAMPDIFF(SECOND, pedido_datahora_abertura, pedido_datahora_entrega)')) / 60;
 
         // Itens por pedido (média) entre os pedidos do período.
         $totalItens = ItensPedido::query()
             ->join('pedidos', 'pedidos.id', '=', 'itens_pedidos.item_pedido_pedido_id')
+            ->whereNull('pedidos.deleted_at')
+            ->when($this->tiposAtendimentoSelecionados(), fn ($q, array $tipos) => $q->whereIn('pedidos.id', Pedido::query()->tipoAtendimento($tipos)->select('pedidos.id')))
             ->where('pedidos.pedido_status', '!=', 'INICIADO')
             ->where('itens_pedidos.item_pedido_status', 'INSERIDO')
             ->whereBetween('pedidos.pedido_datahora_abertura', [$inicio, $fim])
@@ -75,7 +80,7 @@ class PedidosStatsOverview extends BaseWidget
                 ->color('success'),
 
             Stat::make('Tempo de preparo', $this->minutos($tPreparo))
-                ->description('Início do preparo → pronto')
+                ->description('Preparo → pronto (conforme registro no painel)')
                 ->descriptionIcon('heroicon-m-fire')
                 ->color($tPreparo <= 20 ? 'success' : ($tPreparo <= 30 ? 'warning' : 'danger')),
 
@@ -84,8 +89,8 @@ class PedidosStatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-truck')
                 ->color($tEntrega == 0 ? 'gray' : ($tEntrega <= 40 ? 'success' : ($tEntrega <= 60 ? 'warning' : 'danger'))),
 
-            Stat::make('Tempo de ciclo', $tCiclo > 0 ? $this->minutos($tCiclo) : '—')
-                ->description('Abertura → finalização')
+            Stat::make('Tempo até a entrega', $tAteEntrega > 0 ? $this->minutos($tAteEntrega) : '—')
+                ->description('Abertura → entregue (conforme registro)')
                 ->descriptionIcon('heroicon-m-clock')
                 ->color('info'),
 
@@ -104,9 +109,10 @@ class PedidosStatsOverview extends BaseWidget
     /**
      * @return array<int, int>
      */
-    private function sparklinePedidos(\Carbon\Carbon $inicio, \Carbon\Carbon $fim): array
+    private function sparklinePedidos(Carbon $inicio, Carbon $fim): array
     {
         return Pedido::query()
+            ->tipoAtendimento($this->tiposAtendimentoSelecionados())
             ->where('pedido_status', '!=', 'INICIADO')
             ->whereBetween('pedido_datahora_abertura', [$inicio, $fim])
             ->selectRaw('DATE(pedido_datahora_abertura) as dia, COUNT(*) as total')

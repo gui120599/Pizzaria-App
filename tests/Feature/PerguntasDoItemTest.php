@@ -253,7 +253,7 @@ class PerguntasDoItemTest extends TestCase
             ['pergunta_id' => 1, 'pergunta' => 'Borda', 'opcoes' => [['id' => 1, 'nome' => 'Catupiry', 'valor' => 10.0]]],
         ]);
 
-        $this->get(route('pedido.imprimir', ['id' => $pedido->id]))
+        $this->get($pedido->linkImpressao())
             ->assertOk()
             ->assertSee('Borda: Catupiry');
     }

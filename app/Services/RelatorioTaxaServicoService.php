@@ -124,6 +124,7 @@ class RelatorioTaxaServicoService
             ->join('sessao_mesas', 'sessao_mesas.id', '=', 'pedidos.pedido_sessao_mesa_id')
             ->join('vendas', 'vendas.id', '=', 'itens_pedidos.item_pedido_venda_id')
             ->leftJoin('mesas', 'mesas.id', '=', 'sessao_mesas.sessao_mesa_mesa_id')
+            ->whereNull('pedidos.deleted_at')
             ->where('vendas.venda_status', 'FINALIZADA')
             ->whereBetween('vendas.venda_datahora_finalizada', [$inicio, $fim])
             ->where('itens_pedidos.item_pedido_status', 'INSERIDO')

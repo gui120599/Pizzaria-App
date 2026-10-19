@@ -6,21 +6,25 @@ use App\Enums\Cozinha\PrioridadeProducao;
 use App\Enums\Cozinha\StatusProducaoPedido;
 use App\Enums\MotivoAprovacaoMesaEnum;
 use App\Enums\MotivoCancelamentoEnum;
+use App\Enums\MotivoExclusaoPedidoEnum;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusAprovacaoPedidoEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Enums\TipoAtendimentoEnum;
 use App\Observers\PedidoProducaoObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\URL;
 
 #[ObservedBy([PedidoProducaoObserver::class])]
 class Pedido extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'pedido_cliente_id',
@@ -40,7 +44,11 @@ class Pedido extends Model
         'pedido_valor_total',
         'pedido_status',
         'pedido_motivo_cancelamento',
+        'pedido_motivo_cancelamento_observacao',
         'pedido_usuario_cancelou_id',
+        'pedido_motivo_exclusao',
+        'pedido_exclusao_observacao',
+        'pedido_usuario_excluiu_id',
         'pedido_origem',
         'pedido_aprovacao_status',
         'pedido_aprovacao_motivos',
@@ -66,6 +74,7 @@ class Pedido extends Model
         'pedido_aprovacao_motivos' => AsEnumCollection::class.':'.MotivoAprovacaoMesaEnum::class,
         'pedido_aprovado_em' => 'datetime',
         'pedido_motivo_cancelamento' => MotivoCancelamentoEnum::class,
+        'pedido_motivo_exclusao' => MotivoExclusaoPedidoEnum::class,
         'pedido_datahora_abertura' => 'datetime',
         'pedido_datahora_preparo' => 'datetime',
         'pedido_datahora_pronto' => 'datetime',
@@ -128,6 +137,11 @@ class Pedido extends Model
     public function usuarioCancelou()
     {
         return $this->belongsTo(User::class, 'pedido_usuario_cancelou_id');
+    }
+
+    public function usuarioExcluiu()
+    {
+        return $this->belongsTo(User::class, 'pedido_usuario_excluiu_id');
     }
 
     public function opcaoEntrega()
@@ -195,6 +209,56 @@ class Pedido extends Model
     public function linkScanEntrega(): string
     {
         return URL::signedRoute('entregador.scan', ['pedido' => $this->id]);
+    }
+
+    /**
+     * Filtra por tipo de atendimento — a mesma regra de tipoAtendimento(), em
+     * SQL: mesa tem prioridade, delivery exige a flag da opção de entrega e
+     * retirada é o resto. Aceita um tipo ou vários (OU entre eles).
+     *
+     * @param  TipoAtendimentoEnum|array<int, TipoAtendimentoEnum>  $tipos
+     */
+    public function scopeTipoAtendimento(Builder $query, TipoAtendimentoEnum|array $tipos): Builder
+    {
+        $tipos = array_values(array_unique(Arr::wrap($tipos), SORT_REGULAR));
+
+        if ($tipos === [] || count($tipos) === count(TipoAtendimentoEnum::cases())) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $grupo) use ($tipos): void {
+            foreach ($tipos as $tipo) {
+                $grupo->orWhere(fn (Builder $q) => match ($tipo) {
+                    TipoAtendimentoEnum::MESA => $q->whereNotNull('pedido_sessao_mesa_id'),
+                    TipoAtendimentoEnum::DELIVERY => $q->whereNull('pedido_sessao_mesa_id')
+                        ->whereHas('opcaoEntrega', fn (Builder $o) => $o->where('opcaoentrega_requer_endereco', true)),
+                    TipoAtendimentoEnum::RETIRADA => $q->whereNull('pedido_sessao_mesa_id')
+                        ->where(fn (Builder $r) => $r
+                            ->whereNull('pedido_opcaoentrega_id')
+                            ->orWhereHas('opcaoEntrega', fn (Builder $o) => $o->where('opcaoentrega_requer_endereco', false))),
+                });
+            }
+        });
+    }
+
+    /**
+     * Link do ticket de impressão, assinado e com prazo (validade configurada
+     * na Empresa). Quem imprime sem sessão precisa dele; telas autenticadas
+     * abrem o ticket pela permissão view:pedido (ver PDFController::pedidoPDF).
+     */
+    public function linkImpressao(): string
+    {
+        return self::linkImpressaoDoId($this->id);
+    }
+
+    /** Mesmo link de linkImpressao() quando só se tem o id (evita reler o pedido). */
+    public static function linkImpressaoDoId(int $id): string
+    {
+        return URL::temporarySignedRoute(
+            'pedido.imprimir',
+            now()->addHours(Empresa::validadeLinkTicketHoras()),
+            ['id' => $id],
+        );
     }
 
     /** Itens de produção da cozinha (todas as etapas, unidades e gerações). */

@@ -33,7 +33,7 @@ class PedidoPDFQrCodeTest extends TestCase
             'pedido_valor_total' => 50.0,
         ]);
 
-        $this->get(route('pedido.imprimir', ['id' => $pedido->id]))
+        $this->get($pedido->linkImpressao())
             ->assertOk()
             ->assertSee('ESCANEIE PRA SAIR / CONFIRMAR ENTREGA')
             ->assertSee('data:image/png;base64,', false);
@@ -49,7 +49,7 @@ class PedidoPDFQrCodeTest extends TestCase
             'pedido_valor_total' => 30.0,
         ]);
 
-        $this->get(route('pedido.imprimir', ['id' => $pedido->id]))
+        $this->get($pedido->linkImpressao())
             ->assertOk()
             ->assertDontSee('ESCANEIE PRA SAIR / CONFIRMAR ENTREGA');
     }
@@ -60,7 +60,7 @@ class PedidoPDFQrCodeTest extends TestCase
         PagamentosPedido::create(['pg_pedido_pedido_id' => $pedido->id, 'pg_pedido_opcaopagamento_nome' => 'Pix', 'pg_pedido_valor' => 30, 'pg_pedido_ordem' => 0]);
         PagamentosPedido::create(['pg_pedido_pedido_id' => $pedido->id, 'pg_pedido_opcaopagamento_nome' => 'Dinheiro', 'pg_pedido_valor' => 50, 'pg_pedido_valor_troco_para' => 100, 'pg_pedido_ordem' => 1]);
 
-        $this->get(route('pedido.imprimir', ['id' => $pedido->id]))
+        $this->get($pedido->linkImpressao())
             ->assertOk()
             ->assertSee('Pix, Dinheiro')
             ->assertSeeInOrder(['Pix: R$ 30,00', 'Dinheiro: R$ 50,00', 'Troco para R$ 100,00', 'levar R$ 50,00']);
@@ -70,7 +70,7 @@ class PedidoPDFQrCodeTest extends TestCase
     {
         $pedido = Pedido::create(['pedido_status' => 'ABERTO', 'pedido_valor_total' => 40.0, 'pedido_descricao_pagamento' => 'Cartão de Crédito']);
 
-        $this->get(route('pedido.imprimir', ['id' => $pedido->id]))
+        $this->get($pedido->linkImpressao())
             ->assertOk()
             ->assertSee('Cartão de Crédito');
     }

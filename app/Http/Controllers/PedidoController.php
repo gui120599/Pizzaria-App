@@ -424,6 +424,8 @@ class PedidoController extends Controller
             motivo: MotivoCancelamentoEnum::tryFrom(
                 (string) $request->input('pedido_motivo_cancelamento')
             ) ?? MotivoCancelamentoEnum::OUTRO,
+            // A tela legada do Kanban rejeita sem perguntar o motivo.
+            observacao: $request->input('pedido_motivo_cancelamento_observacao') ?: 'Rejeitado pela tela legada, sem motivo informado.',
         );
 
         return response()->json(['message' => 'Pedido Cancelado!'], 200);
@@ -435,8 +437,14 @@ class PedidoController extends Controller
     public function CancelarPedido(Request $request)
     {
         $request->validate(
-            ['pedido_motivo_cancelamento' => ['required', Rule::enum(MotivoCancelamentoEnum::class)]],
-            ['pedido_motivo_cancelamento.required' => 'Selecione o motivo do cancelamento.']
+            [
+                'pedido_motivo_cancelamento' => ['required', Rule::enum(MotivoCancelamentoEnum::class)],
+                'pedido_motivo_cancelamento_observacao' => ['nullable', 'string', 'max:1000', 'required_if:pedido_motivo_cancelamento,'.MotivoCancelamentoEnum::OUTRO->value],
+            ],
+            [
+                'pedido_motivo_cancelamento.required' => 'Selecione o motivo do cancelamento.',
+                'pedido_motivo_cancelamento_observacao.required_if' => 'Descreva o que aconteceu: o motivo "Outro" exige uma observação.',
+            ]
         );
 
         $pedido_id = $request->id;
@@ -479,6 +487,7 @@ class PedidoController extends Controller
             $pedido->update([
                 'pedido_status' => 'CANCELADO',
                 'pedido_motivo_cancelamento' => $request->input('pedido_motivo_cancelamento'),
+                'pedido_motivo_cancelamento_observacao' => $request->input('pedido_motivo_cancelamento_observacao'),
                 'pedido_usuario_cancelou_id' => auth()->id(),
                 'pedido_datahora_cancelado' => Carbon::now(),
             ]);
@@ -639,12 +648,4 @@ class PedidoController extends Controller
     }
 
     public function AlterarSessaoMesaPedido() {}
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Pedido $pedido)
-    {
-        $this->authorize('delete', $pedido);
-    }
 }

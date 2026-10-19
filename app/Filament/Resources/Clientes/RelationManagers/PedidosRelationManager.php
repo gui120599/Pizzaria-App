@@ -97,7 +97,7 @@ class PedidosRelationManager extends RelationManager
                 Action::make('imprimir')
                     ->label('Imprimir')
                     ->icon('heroicon-o-printer')
-                    ->url(fn (Pedido $record): string => route('pedido.imprimir', ['id' => $record->id]))
+                    ->url(fn (Pedido $record): string => $record->linkImpressao())
                     ->openUrlInNewTab(),
             ]);
     }

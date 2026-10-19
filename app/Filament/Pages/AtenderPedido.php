@@ -112,7 +112,7 @@ class AtenderPedido extends Page
      * de propósito: aqui a tela inteira vira leitura, porque mexer no conteúdo
      * de um pedido já entregue exigiria também desfazer venda e estoque.
      */
-    private const STATUS_SOMENTE_LEITURA = ['ENTREGUE', 'FINALIZADO', 'CANCELADO'];
+    public const STATUS_SOMENTE_LEITURA = ['ENTREGUE', 'FINALIZADO', 'CANCELADO'];
 
     /** @return array<int, Action> */
     protected function getHeaderActions(): array

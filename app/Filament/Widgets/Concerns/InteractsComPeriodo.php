@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets\Concerns;
 
+use App\Enums\TipoAtendimentoEnum;
 use App\Models\ItensVenda;
 use App\Models\Venda;
 use App\Support\ExpansaoSabores;
@@ -59,6 +60,20 @@ trait InteractsComPeriodo
     protected function tiposEntregaSelecionados(): array
     {
         return array_values(array_filter((array) ($this->pageFilters['tipos_entrega'] ?? [])));
+    }
+
+    /**
+     * Tipos de atendimento (Delivery/Retirada/Mesa) marcados no filtro da
+     * página. Vazio = sem filtro.
+     *
+     * @return array<int, TipoAtendimentoEnum>
+     */
+    protected function tiposAtendimentoSelecionados(): array
+    {
+        return array_values(array_filter(array_map(
+            fn ($valor) => TipoAtendimentoEnum::tryFrom((string) $valor),
+            (array) ($this->pageFilters['tipos_atendimento'] ?? []),
+        )));
     }
 
     /**

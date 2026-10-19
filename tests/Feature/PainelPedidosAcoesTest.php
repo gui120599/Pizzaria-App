@@ -198,12 +198,14 @@ class PainelPedidosAcoesTest extends TestCase
 
     public function test_aceitar_manda_a_comanda_para_a_impressora(): void
     {
+        $this->freezeTime();
+
         $this->actingAs($this->gerente());
         $pedido = $this->pedido(StatusPedidoEnum::ABERTO);
 
         Livewire::test(PainelPedidos::class)
             ->callAction('aceitar', arguments: ['pedido' => $pedido->id])
-            ->assertDispatched('imprimir-pedido', url: route('pedido.imprimir', ['id' => $pedido->id]), mesa: false);
+            ->assertDispatched('imprimir-pedido', url: $pedido->linkImpressao(), mesa: false);
 
         $this->assertSame(StatusPedidoEnum::PREPARANDO->value, $pedido->refresh()->pedido_status);
     }

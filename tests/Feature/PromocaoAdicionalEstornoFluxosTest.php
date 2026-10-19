@@ -135,6 +135,7 @@ class PromocaoAdicionalEstornoFluxosTest extends TestCase
 
         $this->post(route('pedido.cancelar', $pedido->id), [
             'pedido_motivo_cancelamento' => 'outro',
+            'pedido_motivo_cancelamento_observacao' => 'Teste de estorno',
         ])->assertRedirect();
 
         $this->assertSame('CANCELADO', $pedido->fresh()->pedido_status);

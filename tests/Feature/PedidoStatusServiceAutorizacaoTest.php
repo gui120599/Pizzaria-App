@@ -68,7 +68,7 @@ class PedidoStatusServiceAutorizacaoTest extends TestCase
             'pedido_usuario_garcom_id' => $outroAtendente->id,
         ]);
 
-        $pedido = $this->service->cancelar($pedido, $gerente, MotivoCancelamentoEnum::OUTRO);
+        $pedido = $this->service->cancelar($pedido, $gerente, MotivoCancelamentoEnum::OUTRO, 'Motivo de teste');
 
         $this->assertSame(StatusPedidoEnum::CANCELADO->value, $pedido->pedido_status);
     }
@@ -87,7 +87,7 @@ class PedidoStatusServiceAutorizacaoTest extends TestCase
 
         $this->expectException(AuthorizationException::class);
 
-        $this->service->cancelar($pedido, $atendente, MotivoCancelamentoEnum::OUTRO);
+        $this->service->cancelar($pedido, $atendente, MotivoCancelamentoEnum::OUTRO, 'Motivo de teste');
     }
 
     public function test_atendente_cancela_o_proprio_pedido(): void
@@ -99,7 +99,7 @@ class PedidoStatusServiceAutorizacaoTest extends TestCase
             'pedido_usuario_garcom_id' => $atendente->id,
         ]);
 
-        $pedido = $this->service->cancelar($pedido, $atendente, MotivoCancelamentoEnum::OUTRO);
+        $pedido = $this->service->cancelar($pedido, $atendente, MotivoCancelamentoEnum::OUTRO, 'Motivo de teste');
 
         $this->assertSame(StatusPedidoEnum::CANCELADO->value, $pedido->pedido_status);
     }

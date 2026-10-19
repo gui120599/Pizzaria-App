@@ -250,7 +250,7 @@ class PagamentosDoPedidoNaVendaTest extends TestCase
     {
         $pedido = $this->pedido([[$this->pixCnpj, 50, null, true], [$this->dinheiro, 30]]);
 
-        $this->get(route('pedido.imprimir', ['id' => $pedido->id]))
+        $this->get($pedido->linkImpressao())
             ->assertOk()
             ->assertSee('PIX CNPJ (PAGO)')
             ->assertSee('PAGO — não cobrar', false);

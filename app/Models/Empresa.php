@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Empresa extends Model
 {
@@ -43,6 +44,7 @@ class Empresa extends Model
         'empresa_sefaz_auto_importacao_ativa',
         'empresa_sefaz_ultimo_nsu_revisao',
         'empresa_sefaz_ultima_revisao_em',
+        'empresa_validade_link_ticket_horas',
     ];
 
     protected $casts = [
@@ -56,6 +58,25 @@ class Empresa extends Model
         'empresa_sefaz_auto_importacao_ativa' => 'boolean',
         'empresa_sefaz_ultima_revisao_em' => 'datetime',
     ];
+
+    public const VALIDADE_LINK_TICKET_PADRAO_HORAS = 24;
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => Cache::driver('array')->forget('empresa.validade_link_ticket_horas'));
+    }
+
+    /**
+     * Quantas horas o link assinado do ticket de pedido segue válido. Memoizada
+     * por request (cache "array"): o painel monta um link por card.
+     */
+    public static function validadeLinkTicketHoras(): int
+    {
+        return (int) Cache::driver('array')->rememberForever(
+            'empresa.validade_link_ticket_horas',
+            fn (): int => (int) (static::query()->value('empresa_validade_link_ticket_horas') ?: self::VALIDADE_LINK_TICKET_PADRAO_HORAS),
+        );
+    }
 
     /** Certificado A1 (.pfx) + senha já cadastrados, prontos pra autenticar na SEFAZ. */
     public function certificadoConfigurado(): bool

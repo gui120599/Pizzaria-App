@@ -221,7 +221,7 @@ class PedidoStatusServiceTest extends TestCase
         $this->service->aceitar($pedido);
         $this->assertEqualsWithDelta(9.4, (float) $farinha->refresh()->produto_saldo_estoque, 0.001);
 
-        $this->service->cancelar($pedido->refresh(), null, MotivoCancelamentoEnum::OUTRO);
+        $this->service->cancelar($pedido->refresh(), null, MotivoCancelamentoEnum::OUTRO, 'Motivo de teste');
 
         $this->assertEqualsWithDelta(10.0, (float) $farinha->refresh()->produto_saldo_estoque, 0.001);
     }
@@ -234,7 +234,7 @@ class PedidoStatusServiceTest extends TestCase
         $this->expectException(TransicaoPedidoInvalidaException::class);
         $this->expectExceptionMessage('já está pago');
 
-        $this->service->cancelar($pedido, null, MotivoCancelamentoEnum::OUTRO);
+        $this->service->cancelar($pedido, null, MotivoCancelamentoEnum::OUTRO, 'Motivo de teste');
     }
 
     public function test_rejeitar_ignora_o_guard_de_pagamento_mas_cancela(): void
@@ -253,7 +253,7 @@ class PedidoStatusServiceTest extends TestCase
 
         $this->expectException(TransicaoPedidoInvalidaException::class);
 
-        $this->service->cancelar($pedido, null, MotivoCancelamentoEnum::OUTRO);
+        $this->service->cancelar($pedido, null, MotivoCancelamentoEnum::OUTRO, 'Motivo de teste');
     }
 
     public function test_pedido_entregue_nao_tem_proxima_etapa(): void

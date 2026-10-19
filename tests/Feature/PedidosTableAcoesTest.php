@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\StatusPedidoEnum;
-use App\Filament\Pages\AtenderPedido;
 use App\Filament\Resources\Pedidos\Pages\ListPedidos;
+use App\Filament\Resources\Pedidos\Pages\ViewPedido;
 use App\Models\Pedido;
 use App\Models\User;
 use Filament\Actions\Testing\TestAction;
@@ -32,12 +32,12 @@ class PedidosTableAcoesTest extends TestCase
         return Pedido::create(['pedido_status' => $status->value, 'pedido_datahora_abertura' => now()]);
     }
 
-    public function test_clique_na_linha_abre_o_pedido_no_atendimento(): void
+    public function test_clique_na_linha_abre_o_pedido_em_modo_leitura(): void
     {
         $pedido = $this->pedido(StatusPedidoEnum::ABERTO);
 
         Livewire::test(ListPedidos::class)
-            ->assertSeeHtml(AtenderPedido::getUrl(['pedido' => $pedido]));
+            ->assertSeeHtml(ViewPedido::getUrl(['record' => $pedido]));
     }
 
     public function test_cancelar_grava_o_motivo(): void

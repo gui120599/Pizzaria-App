@@ -61,6 +61,8 @@ class PainelPedidosMesaQrTest extends TestCase
 
     public function test_pedido_do_cliente_so_vai_para_impressao_depois_de_aprovado(): void
     {
+        $this->freezeTime();
+
         $painel = Livewire::test(PainelPedidos::class);
 
         Carbon::setTestNow(Carbon::now()->addSeconds(10));
@@ -71,14 +73,14 @@ class PainelPedidosMesaQrTest extends TestCase
         app(AprovacaoPedidoMesaService::class)->aprovar($pendente, $this->gerente);
 
         $painel->call('atualizar')
-            ->assertDispatched('imprimir-rodadas-mesa', urls: [route('pedido.imprimir', ['id' => $pendente->id])]);
+            ->assertDispatched('imprimir-rodadas-mesa', urls: [$pendente->linkImpressao()]);
     }
 
     public function test_comanda_mostra_quem_pediu_pelo_celular(): void
     {
         $pedido = $this->pedidoDoCliente();
 
-        $this->get(route('pedido.imprimir', ['id' => $pedido->id]))
+        $this->get($pedido->linkImpressao())
             ->assertOk()
             ->assertSee('Pedido pelo cliente: Ana');
     }

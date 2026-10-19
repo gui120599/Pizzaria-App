@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\Cozinha\StatusItemProducao;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
+use App\Enums\TipoAtendimentoEnum;
 use App\Enums\UrgenciaPedidoEnum;
 use App\Filament\Support\PedidoStatusActions;
 use App\Filament\Support\ProducaoPedidoActions;
@@ -200,7 +201,7 @@ class PainelPedidos extends Page implements HasActions
     {
         return PedidoStatusActions::aceitar(fn (Pedido $pedido) => $this->dispatch(
             'imprimir-pedido',
-            url: route('pedido.imprimir', ['id' => $pedido->id]),
+            url: $pedido->linkImpressao(),
             mesa: in_array($pedido->pedido_origem, [PedidoOrigemEnum::MESA, PedidoOrigemEnum::MESA_QR, PedidoOrigemEnum::GARCOM], true),
         ));
     }
@@ -336,7 +337,7 @@ class PainelPedidos extends Page implements HasActions
         $this->rodadasMesaImpressas = [...$this->rodadasMesaImpressas, ...$novas];
 
         $this->dispatch('imprimir-rodadas-mesa', urls: array_map(
-            fn (int $id) => route('pedido.imprimir', ['id' => $id]),
+            fn (int $id) => Pedido::linkImpressaoDoId($id),
             $novas,
         ));
     }
@@ -786,7 +787,7 @@ class PainelPedidos extends Page implements HasActions
             )
             ->when(
                 $this->fulfillmentFilterValue(),
-                fn (Builder $q, string $tipo) => $this->aplicarTipoAtendimento($q, $tipo),
+                fn (Builder $q, string $tipo) => $q->tipoAtendimento(TipoAtendimentoEnum::from($tipo)),
             )
             ->when($this->linhaProducaoId, fn (Builder $q) => $this->aplicarLinhaProducao($q));
     }
@@ -806,24 +807,6 @@ class PainelPedidos extends Page implements HasActions
                     ->orWhere('cliente_celular', 'like', "%{$termo}%");
             });
         });
-    }
-
-    /**
-     * Mesma regra de Pedido::tipoAtendimento(), em SQL: mesa tem prioridade,
-     * delivery exige a flag da opção de entrega, retirada é o resto.
-     */
-    private function aplicarTipoAtendimento(Builder $query, string $tipo): Builder
-    {
-        return match ($tipo) {
-            'mesa' => $query->whereNotNull('pedido_sessao_mesa_id'),
-            'delivery' => $query->whereNull('pedido_sessao_mesa_id')
-                ->whereHas('opcaoEntrega', fn (Builder $q) => $q->where('opcaoentrega_requer_endereco', true)),
-            'retirada' => $query->whereNull('pedido_sessao_mesa_id')
-                ->where(fn (Builder $q) => $q
-                    ->whereNull('pedido_opcaoentrega_id')
-                    ->orWhereHas('opcaoEntrega', fn (Builder $q2) => $q2->where('opcaoentrega_requer_endereco', false))),
-            default => $query,
-        };
     }
 
     /**

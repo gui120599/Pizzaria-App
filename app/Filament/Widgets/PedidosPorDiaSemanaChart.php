@@ -29,6 +29,7 @@ class PedidosPorDiaSemanaChart extends ChartWidget
 
         // DAYOFWEEK do MySQL: 1=Domingo ... 7=Sábado.
         $porDia = Pedido::query()
+            ->tipoAtendimento($this->tiposAtendimentoSelecionados())
             ->where('pedido_status', '!=', 'INICIADO')
             ->whereBetween('pedido_datahora_abertura', [$inicio, $fim])
             ->selectRaw('DAYOFWEEK(pedido_datahora_abertura) as dia, COUNT(*) as total')

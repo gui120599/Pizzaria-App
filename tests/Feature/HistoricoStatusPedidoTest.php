@@ -175,7 +175,7 @@ class HistoricoStatusPedidoTest extends TestCase
             'pedido_datahora_abertura' => now(),
         ]);
 
-        app(PedidoStatusService::class)->cancelar($pedido, null, MotivoCancelamentoEnum::OUTRO);
+        app(PedidoStatusService::class)->cancelar($pedido, null, MotivoCancelamentoEnum::OUTRO, 'Motivo de teste');
 
         $ultima = $pedido->historicoStatus()->get()->last();
 

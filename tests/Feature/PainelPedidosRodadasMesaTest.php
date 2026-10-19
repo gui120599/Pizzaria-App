@@ -98,6 +98,8 @@ class PainelPedidosRodadasMesaTest extends TestCase
 
     public function test_rodada_enviada_alerta_e_vai_para_impressao_uma_vez(): void
     {
+        $this->freezeTime();
+
         $painel = Livewire::test(PainelPedidos::class);
 
         Carbon::setTestNow(Carbon::now()->addSeconds(10));
@@ -105,7 +107,7 @@ class PainelPedidosRodadasMesaTest extends TestCase
 
         $painel->call('atualizar')
             ->assertDispatched('novo-pedido')
-            ->assertDispatched('imprimir-rodadas-mesa', urls: [route('pedido.imprimir', ['id' => $rodada->id])]);
+            ->assertDispatched('imprimir-rodadas-mesa', urls: [$rodada->linkImpressao()]);
 
         // Mudança em outro pedido: a rodada já impressa não volta.
         Carbon::setTestNow(Carbon::now()->addSeconds(10));

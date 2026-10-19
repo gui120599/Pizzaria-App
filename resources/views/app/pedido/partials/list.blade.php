@@ -56,7 +56,7 @@
                             @if ($pedido->pedido_status != 'CANCELADO')
                                 <td class="text-center inline-flex gap-x-2">
                                     <x-secondary-button
-                                        onclick="window.open('{{ route('pedido.imprimir', ['id' => $pedido->id]) }}', 'Teste', 'width=600,height=400' );"
+                                        onclick="window.open('{{ $pedido->linkImpressao() }}', 'Teste', 'width=600,height=400' );"
                                         title="IMPRIMIR"><i class='bx bx-printer'></i></x-secondary-button>
                                     <x-secondary-button title="MOVIMENTAÇÃO DO PEDIDO" x-data=""
                                         x-on:click.prevent="$dispatch('open-modal', 'mov-pedido-{{ $pedido->id }}')"><i
@@ -94,7 +94,7 @@
                             @else
                                 <td class="text-center inline-flex gap-x-2">
                                     <x-secondary-button
-                                        onclick="window.open('{{ route('pedido.imprimir', ['id' => $pedido->id]) }}', 'Teste', 'width=600,height=400' );"
+                                        onclick="window.open('{{ $pedido->linkImpressao() }}', 'Teste', 'width=600,height=400' );"
                                         title="IMPRIMIR"><i class='bx bx-printer'></i></x-secondary-button>
 
                                     <x-secondary-button x-data=""
@@ -236,15 +236,20 @@
                             {{ __('Selecione o motivo. Essa informação alimenta a análise de perdas.') }}
                         </p>
 
-                        <div class="mt-4">
+                        <div class="mt-4" x-data="{ motivo: '' }">
                             <x-input-label for="pedido_motivo_cancelamento_{{ $pedido->id }}" :value="__('Motivo')" />
-                            <select id="pedido_motivo_cancelamento_{{ $pedido->id }}" name="pedido_motivo_cancelamento" required
+                            <select id="pedido_motivo_cancelamento_{{ $pedido->id }}" name="pedido_motivo_cancelamento" required x-model="motivo"
                                 class="mt-1 block w-full border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-md shadow-sm">
                                 <option value="" disabled selected>{{ __('Selecione...') }}</option>
                                 @foreach (\App\Enums\MotivoCancelamentoEnum::paraSelect() as $valor => $rotulo)
                                     <option value="{{ $valor }}">{{ $rotulo }}</option>
                                 @endforeach
                             </select>
+                            <div class="mt-3" x-show="motivo === 'outro'" x-cloak>
+                                <x-input-label for="pedido_motivo_cancelamento_observacao_{{ $pedido->id }}" :value="__('O que aconteceu?')" />
+                                <textarea id="pedido_motivo_cancelamento_observacao_{{ $pedido->id }}" name="pedido_motivo_cancelamento_observacao" rows="3" maxlength="1000" x-bind:required="motivo === 'outro'"
+                                    class="mt-1 block w-full border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-md shadow-sm"></textarea>
+                            </div>
                         </div>
 
                         <div class="mt-6 flex justify-end gap-x-3">

@@ -224,7 +224,7 @@
                                     </div>
                                 </button>
                                 <button type="button"
-                                    onclick="window.open('{{ route('pedido.imprimir', ['id' => $pedido->id]) }}', '_blank', 'width=600,height=400')"
+                                    onclick="window.open('{{ $pedido->linkImpressao() }}', '_blank', 'width=600,height=400')"
                                     title="Imprimir pedido"
                                     class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 shrink-0">
                                     <x-filament::icon icon="heroicon-o-printer" class="h-4 w-4" />

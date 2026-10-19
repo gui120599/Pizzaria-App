@@ -13,7 +13,9 @@ use App\Services\PedidoStatusService;
 use App\Support\Cozinha\ModuloCozinha;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
@@ -141,6 +143,7 @@ class PedidoStatusActions
                     $p,
                     $ator,
                     MotivoCancelamentoEnum::from($data['motivo']),
+                    $data['observacao'] ?? null,
                 ),
             ));
     }
@@ -166,8 +169,8 @@ class PedidoStatusActions
             ->action(fn (Pedido $record, array $data) => self::executar(
                 ['pedido' => $record->id],
                 fn (PedidoStatusService $s, Pedido $p, ?User $ator) => in_array($p->status(), [StatusPedidoEnum::INICIADO, StatusPedidoEnum::ABERTO], true)
-                    ? $s->rejeitar($p, $ator, MotivoCancelamentoEnum::from($data['motivo']))
-                    : $s->cancelar($p, $ator, MotivoCancelamentoEnum::from($data['motivo'])),
+                    ? $s->rejeitar($p, $ator, MotivoCancelamentoEnum::from($data['motivo']), $data['observacao'] ?? null)
+                    : $s->cancelar($p, $ator, MotivoCancelamentoEnum::from($data['motivo']), $data['observacao'] ?? null),
             ));
     }
 
@@ -189,7 +192,7 @@ class PedidoStatusActions
             ->schema(self::camposMotivo())
             ->action(fn (Pedido $record, array $data) => self::executar(
                 ['pedido' => $record->id],
-                fn (PedidoStatusService $s, Pedido $p, ?User $ator) => $s->cancelarEntregue($p, $ator, MotivoCancelamentoEnum::from($data['motivo'])),
+                fn (PedidoStatusService $s, Pedido $p, ?User $ator) => $s->cancelarEntregue($p, $ator, MotivoCancelamentoEnum::from($data['motivo']), $data['observacao'] ?? null),
             ));
     }
 
@@ -247,6 +250,7 @@ class PedidoStatusActions
                     $p,
                     $ator,
                     MotivoCancelamentoEnum::from($data['motivo']),
+                    $data['observacao'] ?? null,
                 ),
             ));
     }
@@ -457,7 +461,12 @@ class PedidoStatusActions
             || in_array($pedido->status(), [StatusPedidoEnum::PRONTO, StatusPedidoEnum::EM_TRANSPORTE], true);
     }
 
-    /** @return array<int, Select> */
+    /**
+     * Motivo + observação. "Outro" não diz o que houve, então a observação é
+     * obrigatória nele (e o service confere de novo — ver PedidoStatusService).
+     *
+     * @return array<int, Select|Textarea>
+     */
     public static function camposMotivo(): array
     {
         return [
@@ -465,7 +474,14 @@ class PedidoStatusActions
                 ->label('Motivo')
                 ->options(MotivoCancelamentoEnum::paraSelect())
                 ->required()
+                ->live()
                 ->native(false),
+            Textarea::make('observacao')
+                ->label('Observação')
+                ->rows(2)
+                ->maxLength(1000)
+                ->required(fn (Get $get): bool => $get('motivo') === MotivoCancelamentoEnum::OUTRO->value)
+                ->helperText(fn (Get $get): ?string => $get('motivo') === MotivoCancelamentoEnum::OUTRO->value ? 'Descreva o que aconteceu.' : null),
         ];
     }
 

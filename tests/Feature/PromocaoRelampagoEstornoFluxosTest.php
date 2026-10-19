@@ -12,6 +12,7 @@ use App\Models\Produto;
 use App\Models\PromocaoRelampago;
 use App\Models\SessaoMesa;
 use App\Models\User;
+use App\Services\PromocaoRelampagoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Livewire\Livewire;
@@ -88,7 +89,7 @@ class PromocaoRelampagoEstornoFluxosTest extends TestCase
             'item_pedido_status' => 'INSERIDO',
         ]);
 
-        app(\App\Services\PromocaoRelampagoService::class)->consumir($item);
+        app(PromocaoRelampagoService::class)->consumir($item);
 
         $this->assertSame(1.0, (float) $promocao->fresh()->promocao_qtd_vendida);
 
@@ -103,6 +104,7 @@ class PromocaoRelampagoEstornoFluxosTest extends TestCase
 
         $this->post(route('pedido.cancelar', $pedido->id), [
             'pedido_motivo_cancelamento' => 'outro',
+            'pedido_motivo_cancelamento_observacao' => 'Teste de estorno',
         ])->assertRedirect();
 
         $this->assertSame('CANCELADO', $pedido->fresh()->pedido_status);

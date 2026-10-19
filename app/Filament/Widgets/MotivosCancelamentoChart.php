@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\MotivoCancelamentoEnum;
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
+use App\Models\Pedido;
 use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
@@ -33,6 +34,8 @@ class MotivosCancelamentoChart extends ChartWidget
         // DB::table evita o cast de enum em pedido_motivo_cancelamento.
         // Agrupa pela data do cancelamento (quando a perda ocorreu).
         $porMotivo = DB::table('pedidos')
+            ->whereNull('pedidos.deleted_at')
+            ->when($this->tiposAtendimentoSelecionados(), fn ($q, array $tipos) => $q->whereIn('pedidos.id', Pedido::query()->tipoAtendimento($tipos)->select('pedidos.id')))
             ->where('pedido_status', 'CANCELADO')
             ->whereBetween('pedido_datahora_cancelado', [$inicio, $fim])
             ->selectRaw('pedido_motivo_cancelamento as motivo, COUNT(*) as total')

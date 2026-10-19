@@ -96,7 +96,7 @@ class CancelarPedidoEntregueTest extends TestCase
             ->assertActionHidden(TestAction::make('cancelarPedidoEntregue')->table($pedido));
 
         $this->expectException(AuthorizationException::class);
-        app(PedidoStatusService::class)->cancelarEntregue($pedido, auth()->user(), MotivoCancelamentoEnum::OUTRO);
+        app(PedidoStatusService::class)->cancelarEntregue($pedido, auth()->user(), MotivoCancelamentoEnum::OUTRO, 'Motivo de teste');
     }
 
     public function test_pedido_entregue_ja_pago_nao_pode_ser_cancelado(): void
@@ -107,6 +107,6 @@ class CancelarPedidoEntregueTest extends TestCase
         ItensPedido::where('item_pedido_pedido_id', $pedido->id)->update(['item_pedido_venda_id' => $venda->id]);
 
         $this->expectException(TransicaoPedidoInvalidaException::class);
-        app(PedidoStatusService::class)->cancelarEntregue($pedido, $gerente, MotivoCancelamentoEnum::OUTRO);
+        app(PedidoStatusService::class)->cancelarEntregue($pedido, $gerente, MotivoCancelamentoEnum::OUTRO, 'Motivo de teste');
     }
 }

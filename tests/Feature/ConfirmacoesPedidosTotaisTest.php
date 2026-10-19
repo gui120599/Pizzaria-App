@@ -151,7 +151,7 @@ class ConfirmacoesPedidosTotaisTest extends TestCase
         );
         $this->salvar($pedido);
 
-        $resposta = $this->get(route('pedido.imprimir', $pedido->id))->assertOk();
+        $resposta = $this->get($pedido->linkImpressao())->assertOk();
 
         $resposta->assertDontSee('Taxa de Entrega');
         $resposta->assertSee('75,90'); // (+) Valor Produtos = bruto

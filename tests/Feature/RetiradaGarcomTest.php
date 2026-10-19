@@ -309,6 +309,8 @@ class RetiradaGarcomTest extends TestCase
 
     public function test_retirada_enviada_entra_na_auto_impressao_da_cozinha(): void
     {
+        $this->freezeTime();
+
         $this->seed(PermissionSeeder::class);
         $gerente = User::factory()->create(['name_first' => 'Gerente']);
         $gerente->assignRole('Gerente');
@@ -321,7 +323,7 @@ class RetiradaGarcomTest extends TestCase
         $pedido = $this->retiradaEnviada();
 
         $painel->call('atualizar')
-            ->assertDispatched('imprimir-rodadas-mesa', urls: [route('pedido.imprimir', ['id' => $pedido->id])]);
+            ->assertDispatched('imprimir-rodadas-mesa', urls: [$pedido->linkImpressao()]);
 
         Carbon::setTestNow();
     }

@@ -181,7 +181,7 @@ class AtendimentoMesaService
             $restantes = $pedido->item_pedido_pedido_id()->where('item_pedido_status', 'INSERIDO')->get();
 
             if ($restantes->isEmpty()) {
-                $this->status->cancelar($pedido, null, MotivoCancelamentoEnum::OUTRO);
+                $this->status->cancelar($pedido, null, MotivoCancelamentoEnum::OUTRO, 'Rodada cancelada: todos os itens foram removidos.');
 
                 return;
             }
@@ -336,6 +336,7 @@ class AtendimentoMesaService
             $rascunhos->each(fn (Pedido $rascunho) => $rascunho->fill([
                 'pedido_status' => StatusPedidoEnum::CANCELADO->value,
                 'pedido_motivo_cancelamento' => MotivoCancelamentoEnum::OUTRO->value,
+                'pedido_motivo_cancelamento_observacao' => 'Rascunho vazio descartado ao fechar a mesa.',
                 'pedido_datahora_cancelado' => Carbon::now(),
             ])->save());
 

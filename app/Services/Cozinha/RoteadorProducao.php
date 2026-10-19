@@ -112,7 +112,9 @@ class RoteadorProducao
     public function cancelarPedido(Pedido $pedido, string $origem = 'painel_pedidos'): void
     {
         DB::transaction(function () use ($pedido, $origem): void {
-            $pedido = Pedido::whereKey($pedido->id)->lockForUpdate()->firstOrFail();
+            // withTrashed: este reflexo roda depois do commit, e o pedido pode
+            // ter sido excluído (PedidoExclusaoService) na mesma operação.
+            $pedido = Pedido::withTrashed()->whereKey($pedido->id)->lockForUpdate()->firstOrFail();
             $setores = [];
 
             foreach (ProducaoItem::where('pedido_id', $pedido->id)->ativos()->get() as $linha) {
