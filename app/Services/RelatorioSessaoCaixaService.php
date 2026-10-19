@@ -288,10 +288,10 @@ class RelatorioSessaoCaixaService
     public function resumo(): array
     {
         $vendas = $this->vendas();
+        $cortesias = $this->cortesias();
 
         return [
             'vendas' => $vendas->count(),
-        $cortesias = $this->cortesias();
             'total' => round($vendas->sum('total'), 2),
             'recebido' => round($vendas->sum('pago'), 2),
             'fiado_gerado' => round($vendas->sum('fiado'), 2),
@@ -300,15 +300,12 @@ class RelatorioSessaoCaixaService
                 ->filter(fn (array $pagamento): bool => $pagamento['desc_nfe'] !== 'cash')
                 ->sum('troco')), 2),
             'com_aviso' => $vendas->filter(fn (array $linha): bool => $linha['avisos'] !== [])->count(),
-        ];
-    }
-
             'cortesias' => $cortesias->count(),
             'cortesias_valor' => round($cortesias->sum('valor_tabela'), 2),
             'cortesias_custo' => round($cortesias->sum('custo'), 2),
-    /**
-     * Fiado gerado: um título por venda do recorte (com os filtros).
-     *
+        ];
+    }
+
     /**
      * Cortesias das vendas do recorte (com os filtros): uma linha por linha de
      * venda marcada como cortesia, a preço de tabela e ao custo médio atual do
@@ -372,6 +369,9 @@ class RelatorioSessaoCaixaService
         })->values();
     }
 
+    /**
+     * Fiado gerado: um título por venda do recorte (com os filtros).
+     *
      * @return Collection<int, array{key: string, lancamento_id: int, venda_id: int, finalizada_em: ?Carbon, cliente: string, valor: float, recebido: float, status: string}>
      */
     public function fiadoGerado(): Collection
