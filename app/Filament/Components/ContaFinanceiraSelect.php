@@ -9,6 +9,7 @@ use App\Services\Ponto\AdiantamentoService;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component as Livewire;
 
 /**
@@ -38,6 +39,7 @@ class ContaFinanceiraSelect extends Select
             ->afterStateUpdated(function (Select $component, Livewire $livewire, Set $set, Get $get, mixed $state): void {
                 // O erro "obrigatório" de um envio anterior não some sozinho ao escolher a conta.
                 $livewire->resetErrorBag($component->getStatePath());
+                Log::info('DIAG-CONTA afterStateUpdated', ['path' => $component->getStatePath(), 'state' => $state]); // DIAG-TEMP
 
                 $conta = self::conta($state);
 
