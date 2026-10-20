@@ -24,10 +24,12 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Leandrocfe\FilamentPtbrFormFields\Money;
+use Livewire\Component;
 
 /**
  * Ação de confirmar compra, reutilizada na tabela e na página de edição.
@@ -60,6 +62,9 @@ class ConfirmarCompraAction
                 $record->refresh();
                 $schema?->fill();
             })
+            ->beforeFormValidated(function (Component $livewire): void { // DIAG-TEMP
+                Log::info('DIAG-CONTA beforeFormValidated', ['parcelas' => data_get($livewire->mountedActions, '0.data.parcelas')]); // DIAG-TEMP
+            }) // DIAG-TEMP
             ->schema([
                 self::campoDataEntrada()
                     ->label('Data de entrada no estoque')
