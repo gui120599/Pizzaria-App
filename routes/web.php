@@ -28,6 +28,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RelatorioContasPagarReceberController;
 use App\Http\Controllers\RelatorioDebitosClientesController;
 use App\Http\Controllers\RelatorioFechamentoCaixaController;
+use App\Http\Controllers\RelatorioFiscalNotasController;
 use App\Http\Controllers\RelatorioSessaoCaixaController;
 use App\Http\Controllers\RelatorioTaxaServicoController;
 use App\Http\Controllers\SessaoCaixaController;
@@ -104,6 +105,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/pedidosEntreguesFinalizadosCanceladosPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntreguesFinalizadosCanceladosPDF'])->name('pedidosEntreguesFinalizadosCanceladosPDF.imprimir');
     Route::get('/pedidosEntregasPDF/{datahora_abertura}/Imprimir', [PDFController::class, 'pedidosEntregasPDF'])->name('pedidosEntregasPDF.imprimir');
     Route::get('/relatorios/contas-pagar-receber/imprimir', [RelatorioContasPagarReceberController::class, 'imprimir'])->name('relatorios.contas_pagar_receber.imprimir')->middleware('permission:view:relatorio_financeiro');
+    Route::get('/relatorios/fiscal-notas/imprimir', [RelatorioFiscalNotasController::class, 'imprimir'])->name('relatorios.fiscal_notas.imprimir')->middleware('permission:view:relatorio_financeiro');
+    Route::get('/relatorios/fiscal-notas/csv', [RelatorioFiscalNotasController::class, 'csv'])->name('relatorios.fiscal_notas.csv')->middleware('permission:view:relatorio_financeiro');
     Route::get('/relatorios/taxa-servico/imprimir', [RelatorioTaxaServicoController::class, 'imprimir'])->name('relatorios.taxa_servico.imprimir')->middleware('permission:view:relatorio_financeiro');
     Route::get('/relatorios/fechamento-caixa/imprimir', [RelatorioFechamentoCaixaController::class, 'imprimir'])->name('relatorios.fechamento_caixa.imprimir')->middleware('permission:view:relatorio_financeiro');
     Route::get('/relatorios/sessao-caixa/imprimir', [RelatorioSessaoCaixaController::class, 'imprimir'])->name('relatorios.sessao_caixa.imprimir')->middleware('permission:view:relatorio_financeiro');
