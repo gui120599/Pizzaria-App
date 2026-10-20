@@ -2,7 +2,7 @@
 
 > Origem: relato de 20/10/2026. Ao confirmar a compra com a parcela marcada como **Já pago** e a **Conta de origem** escolhida, o modal não salva e mostra "O campo conta de origem é obrigatório."
 > Diagnóstico de 20/10/2026, reproduzido em navegador real (Playwright + banco isolado) sobre o HEAD `dd378ef1`.
-> Status: **implementado** (Fases 1, 2 e 3.1; commit 14d4109c). Pendentes: 3.2 (aguarda decisão do usuário), 3.4 e Fase 4 (fora do escopo).
+> Status: **implementado** (Fases 1, 2 e 3.1; commit 14d4109c). 3.2 implementado (data de pagamento não pode ser futura). Pendentes: 3.4 e Fase 4 (fora do escopo).
 
 ## 1. Causa raiz (comprovada)
 
