@@ -9,6 +9,7 @@ use App\Services\Ponto\AdiantamentoService;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Livewire\Component as Livewire;
 
 /**
  * "Conta de origem" / "Sai de": contas ativas com o saldo no rótulo
@@ -34,7 +35,10 @@ class ContaFinanceiraSelect extends Select
             ->options(fn (): array => self::opcoes())
             ->native(false)
             ->live()
-            ->afterStateUpdated(function (Set $set, Get $get, mixed $state): void {
+            ->afterStateUpdated(function (Select $component, Livewire $livewire, Set $set, Get $get, mixed $state): void {
+                // O erro "obrigatório" de um envio anterior não some sozinho ao escolher a conta.
+                $livewire->resetErrorBag($component->getStatePath());
+
                 $conta = self::conta($state);
 
                 if ($this->campoForma !== null && $conta !== null && blank($get($this->campoForma))) {
