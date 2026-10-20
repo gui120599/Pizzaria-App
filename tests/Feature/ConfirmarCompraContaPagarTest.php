@@ -524,6 +524,27 @@ class ConfirmarCompraContaPagarTest extends TestCase
         $this->assertSame(CompraStatusEnum::RASCUNHO, $compra->fresh()->compra_status);
     }
 
+    public function test_erro_de_conta_obrigatoria_some_ao_escolher_a_conta(): void
+    {
+        $compra = $this->compraComItem();
+        $banco = $this->contaParaBaixa();
+
+        $testable = Livewire::test(EditCompra::class, ['record' => $compra->getKey()])->mountAction('confirmar');
+        $chave = array_key_first($testable->get('mountedActions.0.data.parcelas'));
+        $caminho = "mountedActions.0.data.parcelas.$chave.conta_financeira_id";
+
+        $testable
+            ->set("mountedActions.0.data.parcelas.$chave.ja_pago", true)
+            ->callMountedAction()
+            ->assertHasErrors([$caminho => 'required'])
+            ->set($caminho, (string) $banco->id)
+            ->assertHasNoErrors($caminho)
+            ->callMountedAction()
+            ->assertHasNoErrors();
+
+        $this->assertSame(CompraStatusEnum::CONFIRMADA, $compra->fresh()->compra_status);
+    }
+
     /** Desde as contas financeiras, toda baixa pela tela informa a conta de origem/destino. */
     private function contaParaBaixa(): ContaFinanceira
     {
