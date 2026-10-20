@@ -19,14 +19,28 @@ use Illuminate\Support\Collection;
 
 class PDFController extends Controller
 {
+    /**
+     * Ticket do pedido. A rota fica fora do grupo auth (impressão sem sessão), então
+     * o acesso exige link assinado dentro do prazo (Pedido::linkImpressao()) ou
+     * usuário logado com view:pedido — as telas legadas montam a URL no JS, sem
+     * assinatura, e dependem da sessão.
+     */
     public function pedidoPDF(Request $request)
     {
-        $pedido_id = $request->id;
+        $assinaturaValida = $request->hasValidSignature();
+        $usuario = $request->user();
+
+        abort_unless($assinaturaValida || $usuario !== null, 403);
+
+        $pedido = Pedido::with(['cliente', 'garcom', 'opcaoEntrega', 'sessaoMesa.mesa', 'pagamentosCombinados', 'participante'])
+            ->findOrFail($request->id);
+
+        abort_unless($assinaturaValida || $usuario->can('view', $pedido), 403);
+
         $itensInseridoPedido = ItensPedido::with(['produto.categoria', 'adicionaisItemPedido.adicional'])
-            ->where('item_pedido_pedido_id', $pedido_id)
+            ->where('item_pedido_pedido_id', $pedido->id)
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
-        $pedido = Pedido::with(['cliente', 'garcom', 'opcaoEntrega', 'sessaoMesa.mesa', 'pagamentosCombinados', 'participante'])->find($pedido_id);
 
         return view('pedidoPDF', ['itens_inserido_pedido' => $itensInseridoPedido, 'pedido' => $pedido]);
     }

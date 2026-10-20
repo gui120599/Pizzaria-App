@@ -158,7 +158,7 @@ class ConfirmarCompraAction
                             ->sugerirForma()
                             ->visible(fn (Get $get): bool => (bool) $get('ja_pago'))
                             ->required(fn (Get $get): bool => (bool) $get('ja_pago')),
-                        ContaFinanceiraSelect::sessaoCaixa(),
+                        ContaFinanceiraSelect::sessaoCaixa()->columnSpan(2),
                     ])
                     ->columns(4)
                     ->default(fn (Compra $record): array => [

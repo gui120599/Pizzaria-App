@@ -247,7 +247,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/Pedido/{id}/Editar', [PedidoController::class, 'editarPedido'])->name('pedido.editar')->middleware('permission:update:pedido');
     Route::patch('/Pedido/{id}/Editar', [PedidoController::class, 'salvarEdicaoPedido'])->name('pedido.salvar_edicao')->middleware('permission:update:pedido');
     Route::patch('/Pedido/{pedido}', [PedidoController::class, 'update'])->name('pedido.update')->middleware('permission:update:pedido');
-    Route::delete('/Pedido/{pedido}', [PedidoController::class, 'destroy'])->name('pedido.destroy')->middleware('permission:delete:pedido');
     Route::post('/iniciar-pedido', [PedidoController::class, 'iniciarPedido'])->name('pedido.iniciar')->middleware('permission:create:pedido');
 
     Route::post('/ItemPedido', [ItensPedidoController::class, 'store'])->name('item_pedido.store')->middleware('permission:update:pedido');

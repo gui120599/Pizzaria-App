@@ -198,7 +198,7 @@
                 </button>
 
                 <a
-                    href="{{ route('pedido.imprimir', ['id' => $pedido->id]) }}"
+                    href="{{ $pedido->linkImpressao() }}"
                     target="_blank"
                     x-on:click="open = false"
                     class="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"

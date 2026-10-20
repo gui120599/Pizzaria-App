@@ -90,7 +90,7 @@ class AprovacaoPedidoMesaService
 
             // Sem ator: recusar o pedido do QR é atribuição do garçom da mesa,
             // não a permissão de cancelar pedido (que exige gerente).
-            $this->status->cancelar($fresco, null, MotivoCancelamentoEnum::OUTRO);
+            $this->status->cancelar($fresco, null, MotivoCancelamentoEnum::OUTRO, $motivo);
 
             return true;
         });

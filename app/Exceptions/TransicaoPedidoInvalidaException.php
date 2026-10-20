@@ -64,4 +64,9 @@ class TransicaoPedidoInvalidaException extends RuntimeException
             "O pedido {$pedido->id} não pode ser cancelado porque a sessão da mesa está {$statusSessao}."
         );
     }
+
+    public static function observacaoObrigatoria(): self
+    {
+        return new self('Informe o que aconteceu: o motivo "Outro" exige uma observação.');
+    }
 }

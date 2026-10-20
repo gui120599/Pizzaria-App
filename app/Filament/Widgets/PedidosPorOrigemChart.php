@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\PedidoOrigemEnum;
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
+use App\Models\Pedido;
 use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
@@ -30,6 +31,8 @@ class PedidosPorOrigemChart extends ChartWidget
 
         // DB::table evita o cast de enum em pedido_origem (que viraria objeto na chave).
         $porOrigem = DB::table('pedidos')
+            ->whereNull('pedidos.deleted_at')
+            ->when($this->tiposAtendimentoSelecionados(), fn ($q, array $tipos) => $q->whereIn('pedidos.id', Pedido::query()->tipoAtendimento($tipos)->select('pedidos.id')))
             ->where('pedido_status', '!=', 'INICIADO')
             ->whereBetween('pedido_datahora_abertura', [$inicio, $fim])
             ->selectRaw('pedido_origem, COUNT(*) as total')

@@ -192,15 +192,20 @@
                         {{ __('Esta ação não pode ser desfeita. Selecione o motivo do cancelamento.') }}
                     </p>
 
-                    <div class="mt-4">
+                    <div class="mt-4" x-data="{ motivo: '' }">
                         <x-input-label for="pedido_motivo_cancelamento_{{ $pedido->id }}" :value="__('Motivo')" />
-                        <select id="pedido_motivo_cancelamento_{{ $pedido->id }}" name="pedido_motivo_cancelamento" required
+                        <select id="pedido_motivo_cancelamento_{{ $pedido->id }}" name="pedido_motivo_cancelamento" required x-model="motivo"
                             class="mt-1 block w-full border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-md shadow-sm">
                             <option value="" disabled selected>{{ __('Selecione...') }}</option>
                             @foreach (\App\Enums\MotivoCancelamentoEnum::paraSelect() as $valor => $rotulo)
                                 <option value="{{ $valor }}">{{ $rotulo }}</option>
                             @endforeach
                         </select>
+                        <div class="mt-3" x-show="motivo === 'outro'" x-cloak>
+                            <x-input-label for="pedido_motivo_cancelamento_observacao_{{ $pedido->id }}" :value="__('O que aconteceu?')" />
+                            <textarea id="pedido_motivo_cancelamento_observacao_{{ $pedido->id }}" name="pedido_motivo_cancelamento_observacao" rows="3" maxlength="1000" x-bind:required="motivo === 'outro'"
+                                class="mt-1 block w-full border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-md shadow-sm"></textarea>
+                        </div>
                     </div>
 
                     <div class="mt-6 flex justify-end gap-x-3">

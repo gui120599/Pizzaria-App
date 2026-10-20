@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\TipoAtendimentoEnum;
 use App\Filament\Widgets\MotivosCancelamentoChart;
 use App\Filament\Widgets\PedidosPorDiaSemanaChart;
 use App\Filament\Widgets\PedidosPorHoraChart;
@@ -10,6 +11,7 @@ use App\Filament\Widgets\PedidosStatsOverview;
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Schemas\Components\Section;
@@ -55,6 +57,14 @@ class PedidosDashboard extends BaseDashboard
                         ->native(false)
                         ->displayFormat('d/m/Y')
                         ->maxDate(now()),
+
+                    Select::make('tipos_atendimento')
+                        ->label('Tipo de atendimento')
+                        ->multiple()
+                        ->native(false)
+                        ->placeholder('Todos')
+                        ->options(collect(TipoAtendimentoEnum::cases())->mapWithKeys(fn (TipoAtendimentoEnum $t) => [$t->value => $t->label()])->all())
+                        ->columnSpanFull(),
                 ]),
         ]);
     }

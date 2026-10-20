@@ -147,17 +147,18 @@ class PedidoStatusService
         Pedido $pedido,
         ?User $ator = null,
         MotivoCancelamentoEnum $motivo = MotivoCancelamentoEnum::OUTRO,
+        ?string $observacao = null,
     ): Pedido {
-        return $this->cancelamento($pedido, $ator, $motivo, 'reject', comGuards: false);
+        return $this->cancelamento($pedido, $ator, $motivo, 'reject', comGuards: false, observacao: $observacao);
     }
 
     /**
      * Cancela um pedido em produção. Aplica os guards que antes só existiam em
      * PedidoController::CancelarPedido: sessão de mesa aberta e pedido não pago.
      */
-    public function cancelar(Pedido $pedido, ?User $ator, MotivoCancelamentoEnum $motivo): Pedido
+    public function cancelar(Pedido $pedido, ?User $ator, MotivoCancelamentoEnum $motivo, ?string $observacao = null): Pedido
     {
-        return $this->cancelamento($pedido, $ator, $motivo, 'cancel', comGuards: true);
+        return $this->cancelamento($pedido, $ator, $motivo, 'cancel', comGuards: true, observacao: $observacao);
     }
 
     /**
@@ -166,11 +167,13 @@ class PedidoStatusService
      * produto já saiu — por isso grava sem disparar o PedidoObserver, que
      * estornaria a baixa.
      */
-    public function cancelarEntregue(Pedido $pedido, ?User $ator, MotivoCancelamentoEnum $motivo): Pedido
+    public function cancelarEntregue(Pedido $pedido, ?User $ator, MotivoCancelamentoEnum $motivo, ?string $observacao = null): Pedido
     {
         $this->autorizar('cancelarEntregue', $pedido, $ator);
 
-        return DB::transaction(function () use ($pedido, $ator, $motivo) {
+        $observacao = $this->observacaoDoCancelamento($motivo, $observacao);
+
+        return DB::transaction(function () use ($pedido, $ator, $motivo, $observacao) {
             $fresco = Pedido::whereKey($pedido->getKey())->lockForUpdate()->firstOrFail();
             $atual = $this->statusDe($fresco);
 
@@ -178,13 +181,14 @@ class PedidoStatusService
                 throw TransicaoPedidoInvalidaException::naoPodeSerCancelado($fresco, $atual);
             }
 
-            if ($fresco->pedido_venda_id !== null || $fresco->item_pedido_pedido_id()->whereNotNull('item_pedido_venda_id')->exists()) {
+            if ($this->temPagamento($fresco)) {
                 throw TransicaoPedidoInvalidaException::jaPago($fresco);
             }
 
             $fresco->updateQuietly([
                 'pedido_status' => StatusPedidoEnum::CANCELADO->value,
                 'pedido_motivo_cancelamento' => $motivo->value,
+                'pedido_motivo_cancelamento_observacao' => $observacao,
                 'pedido_usuario_cancelou_id' => $ator?->id ?? auth()->id(),
                 'pedido_datahora_cancelado' => Carbon::now(),
             ]);
@@ -198,6 +202,31 @@ class PedidoStatusService
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Pedido sem pagamento algum: sem venda vinculada e sem item vendido.
+     * Regra única de "não pago" — mesma de Pedido::scopeNaoPagos().
+     */
+    private function temPagamento(Pedido $pedido): bool
+    {
+        return $pedido->pedido_venda_id !== null
+            || $pedido->item_pedido_pedido_id()->whereNotNull('item_pedido_venda_id')->exists();
+    }
+
+    /**
+     * "Outro" não diz nada sobre o que houve: exige texto. A regra mora aqui
+     * (e não só no formulário) porque o service tem outros chamadores.
+     */
+    private function observacaoDoCancelamento(MotivoCancelamentoEnum $motivo, ?string $observacao): ?string
+    {
+        $observacao = filled($observacao) ? trim($observacao) : null;
+
+        if ($motivo === MotivoCancelamentoEnum::OUTRO && $observacao === null) {
+            throw TransicaoPedidoInvalidaException::observacaoObrigatoria();
+        }
+
+        return $observacao;
+    }
 
     /** Mesa já fechada cujo último pedido em aberto foi cancelado sai da lista do caixa. */
     private function encerrarSessaoMesaSemPendencias(Pedido $pedido): void
@@ -261,10 +290,13 @@ class PedidoStatusService
         MotivoCancelamentoEnum $motivo,
         string $habilidade,
         bool $comGuards,
+        ?string $observacao = null,
     ): Pedido {
         $this->autorizar($habilidade, $pedido, $ator);
 
-        return DB::transaction(function () use ($pedido, $ator, $motivo, $comGuards) {
+        $observacao = $this->observacaoDoCancelamento($motivo, $observacao);
+
+        return DB::transaction(function () use ($pedido, $ator, $motivo, $comGuards, $observacao) {
             $fresco = Pedido::whereKey($pedido->getKey())->lockForUpdate()->firstOrFail();
             $atual = $this->statusDe($fresco);
 
@@ -286,6 +318,7 @@ class PedidoStatusService
             $fresco->fill([
                 'pedido_status' => StatusPedidoEnum::CANCELADO->value,
                 'pedido_motivo_cancelamento' => $motivo->value,
+                'pedido_motivo_cancelamento_observacao' => $observacao,
                 'pedido_usuario_cancelou_id' => $ator?->id ?? auth()->id(),
                 'pedido_datahora_cancelado' => Carbon::now(),
             ])->save();

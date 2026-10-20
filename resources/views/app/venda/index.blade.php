@@ -421,7 +421,7 @@
                                         </label>
                                         <div class="flex items-center gap-1 shrink-0">
                                             <button type="button"
-                                                    onclick="window.open('{{ route('pedido.imprimir', ['id' => $pedido->id]) }}', 'Pedido', 'width=600,height=400');"
+                                                    onclick="window.open('{{ $pedido->linkImpressao() }}', 'Pedido', 'width=600,height=400');"
                                                     class="w-7 h-7 rounded-full hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors" title="Imprimir">
                                                 <i class='bx bx-printer'></i>
                                             </button>

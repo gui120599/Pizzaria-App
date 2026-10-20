@@ -20,22 +20,22 @@
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-C8By16P0.css",
+    "file": "assets/app-BAdVuRWw.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-DEOVAexu.css",
+    "file": "assets/theme-DctEAozD.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
   "resources/css/filament/cozinha/theme.css": {
-    "file": "assets/theme-Dd_VZViG.css",
+    "file": "assets/theme-CMwVEfoa.css",
     "src": "resources/css/filament/cozinha/theme.css",
     "isEntry": true
   },
   "resources/css/filament/garcom/theme.css": {
-    "file": "assets/theme-B3zHjSKV.css",
+    "file": "assets/theme-DN8xZ8BC.css",
     "src": "resources/css/filament/garcom/theme.css",
     "isEntry": true
   },

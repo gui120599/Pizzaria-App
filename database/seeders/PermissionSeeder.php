@@ -21,6 +21,8 @@ class PermissionSeeder extends Seeder
         'Gerente' => [
             'cancel:pedido', 'accept:pedido', 'reject:pedido', 'advance:pedido', 'deliver:pedido',
             'create:pedido', 'update:pedido', 'view:sessao_mesa',
+            // Exclusão de pedido é soft delete com motivo (PedidoExclusaoService); nunca física.
+            'delete:pedido', 'delete_any:pedido', 'restore:pedido', 'restore_any:pedido',
             'estornar:pagamento', 'approve:lancamento', 'confirm:compra', 'registrar:devolucao_compra', 'corrigir:data_entrada_compra',
             'corrigir:movimentacao_estoque',
             'abrir:sessao_caixa', 'fechar:sessao_caixa', 'sangrar:sessao_caixa', 'view:relatorio_financeiro',
@@ -114,9 +116,21 @@ class PermissionSeeder extends Seeder
         ],
     ];
 
+    /**
+     * Permissions sem role: só o Admin as exerce, via Gate::before (super_admin).
+     * Existem na tabela para a página aparecer no Shield e poderem ser atribuídas depois.
+     */
+    private array $permissionsSomenteAdmin = ['view:configuracao_pedidos'];
+
+    /**
+     * Pedido nunca é excluído fisicamente. O Admin passa em qualquer Gate, então
+     * isto é só higiene; a garantia de verdade é nenhuma tela oferecer ForceDelete.
+     */
+    private array $permissionsRevogadasDoAdmin = ['force_delete:pedido', 'force_delete_any:pedido'];
+
     public function run(): void
     {
-        $todasPermissions = collect($this->permissionsPorRole)->flatten()->unique();
+        $todasPermissions = collect($this->permissionsPorRole)->flatten()->merge($this->permissionsSomenteAdmin)->unique();
 
         foreach ($todasPermissions as $name) {
             Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
@@ -127,6 +141,13 @@ class PermissionSeeder extends Seeder
             // permissions de CRUD dos Resources à role super_admin (Admin) separadamente
             // — sync aqui apagaria essa atribuição.
             Role::findByName($role, 'web')->givePermissionTo($permissions);
+        }
+
+        $admin = Role::where('name', 'Admin')->where('guard_name', 'web')->first();
+        $revogadas = Permission::whereIn('name', $this->permissionsRevogadasDoAdmin)->get();
+
+        if ($admin && $revogadas->isNotEmpty()) {
+            $admin->revokePermissionTo($revogadas);
         }
     }
 }

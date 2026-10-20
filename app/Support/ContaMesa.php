@@ -134,6 +134,7 @@ final class ContaMesa
         return round(DB::table('itens_pedidos')
             ->join('pedidos', 'pedidos.id', '=', 'itens_pedidos.item_pedido_pedido_id')
             ->join('sessao_mesas', 'sessao_mesas.id', '=', 'pedidos.pedido_sessao_mesa_id')
+            ->whereNull('pedidos.deleted_at')
             ->where('itens_pedidos.item_pedido_venda_id', $vendaId)
             ->where('itens_pedidos.item_pedido_status', 'INSERIDO')
             ->where('sessao_mesas.sessao_mesa_taxa_servico_percentual', '>', 0)

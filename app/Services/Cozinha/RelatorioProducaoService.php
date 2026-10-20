@@ -128,6 +128,7 @@ class RelatorioProducaoService
     {
         $linhas = DB::table('itens_pedidos as ip')
             ->join('pedidos as pe', 'pe.id', '=', 'ip.item_pedido_pedido_id')
+            ->whereNull('pe.deleted_at')
             ->join('produtos as p', 'p.id', '=', 'ip.item_pedido_produto_id')
             ->leftJoin('categorias as c', 'c.id', '=', 'p.produto_categoria_id')
             ->leftJoin('fichas_tecnicas as ft', fn ($join) => $join

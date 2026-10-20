@@ -30,6 +30,7 @@ class PedidosPorHoraChart extends ChartWidget
         [$inicio, $fim] = $this->periodo();
 
         $porHora = Pedido::query()
+            ->tipoAtendimento($this->tiposAtendimentoSelecionados())
             ->where('pedido_status', '!=', 'INICIADO')
             ->whereBetween('pedido_datahora_abertura', [$inicio, $fim])
             ->selectRaw('HOUR(pedido_datahora_abertura) as hora, COUNT(*) as total')
