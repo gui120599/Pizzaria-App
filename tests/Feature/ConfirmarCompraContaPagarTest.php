@@ -545,6 +545,78 @@ class ConfirmarCompraContaPagarTest extends TestCase
         $this->assertSame(CompraStatusEnum::CONFIRMADA, $compra->fresh()->compra_status);
     }
 
+    private function prazoAVista(): PrazoPagamento
+    {
+        $prazo = PrazoPagamento::create(['prazo_pagamento_nome' => 'À Vista']);
+        $prazo->parcelas()->create(['parcela_numero' => 1, 'parcela_dias' => 0, 'parcela_percentual' => 100]);
+
+        return $prazo;
+    }
+
+    /**
+     * No navegador, o $entangle do Select de conta exige que a chave exista no estado;
+     * Livewire::test()->set() cria a chave sozinho e esconde o bug, então a forma do
+     * estado é verificada direto.
+     */
+    public function test_parcelas_calculadas_pelo_prazo_trazem_os_campos_de_pagamento(): void
+    {
+        $compra = $this->compraComItem();
+        $prazo = PrazoPagamento::create(['prazo_pagamento_nome' => '7/14']);
+        $prazo->parcelas()->createMany([
+            ['parcela_numero' => 1, 'parcela_dias' => 7, 'parcela_percentual' => 50],
+            ['parcela_numero' => 2, 'parcela_dias' => 14, 'parcela_percentual' => 50],
+        ]);
+
+        $parcelas = Livewire::test(EditCompra::class, ['record' => $compra->getKey()])
+            ->mountAction('confirmar')
+            ->set('mountedActions.0.data.prazo_pagamento_id', $prazo->id)
+            ->get('mountedActions.0.data.parcelas');
+
+        $this->assertCount(2, $parcelas);
+        foreach ($parcelas as $linha) {
+            $this->assertArrayHasKey('conta_financeira_id', $linha);
+            $this->assertArrayHasKey('sessao_caixa_id', $linha);
+        }
+    }
+
+    public function test_prazo_a_vista_ja_pago_com_conta_confirma_e_gera_titulo_pago(): void
+    {
+        $compra = $this->compraComItem();
+        $banco = $this->contaParaBaixa();
+
+        $testable = Livewire::test(EditCompra::class, ['record' => $compra->getKey()])
+            ->mountAction('confirmar')
+            ->set('mountedActions.0.data.prazo_pagamento_id', $this->prazoAVista()->id);
+        $chave = array_key_first($testable->get('mountedActions.0.data.parcelas'));
+
+        $testable
+            ->set("mountedActions.0.data.parcelas.$chave.ja_pago", true)
+            ->set("mountedActions.0.data.parcelas.$chave.conta_financeira_id", (string) $banco->id)
+            ->callMountedAction()
+            ->assertHasNoErrors();
+
+        $this->assertSame(CompraStatusEnum::CONFIRMADA, $compra->fresh()->compra_status);
+        $lancamento = $compra->lancamentos()->first();
+        $this->assertSame(StatusLancamento::Pago, $lancamento->status);
+        $this->assertSame($banco->id, $lancamento->pagamentos->first()->conta_financeira_id);
+    }
+
+    public function test_compensacao_ja_paga_confirma_sem_conta_de_origem(): void
+    {
+        $compra = $this->compraComItem();
+
+        $testable = Livewire::test(EditCompra::class, ['record' => $compra->getKey()])->mountAction('confirmar');
+        $chave = array_key_first($testable->get('mountedActions.0.data.parcelas'));
+
+        $testable
+            ->set("mountedActions.0.data.parcelas.$chave.ja_pago", true)
+            ->set("mountedActions.0.data.parcelas.$chave.forma_pagamento", FormaPagamento::Compensacao->value)
+            ->callMountedAction()
+            ->assertHasNoErrors();
+
+        $this->assertSame(CompraStatusEnum::CONFIRMADA, $compra->fresh()->compra_status);
+    }
+
     /** Desde as contas financeiras, toda baixa pela tela informa a conta de origem/destino. */
     private function contaParaBaixa(): ContaFinanceira
     {
