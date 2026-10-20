@@ -617,6 +617,31 @@ class ConfirmarCompraContaPagarTest extends TestCase
         $this->assertSame(CompraStatusEnum::CONFIRMADA, $compra->fresh()->compra_status);
     }
 
+    public function test_parcela_ja_paga_nao_aceita_data_de_pagamento_futura(): void
+    {
+        $compra = $this->compraComItem();
+        $banco = $this->contaParaBaixa();
+
+        $testable = Livewire::test(EditCompra::class, ['record' => $compra->getKey()])->mountAction('confirmar');
+        $chave = array_key_first($testable->get('mountedActions.0.data.parcelas'));
+
+        $testable
+            ->set("mountedActions.0.data.parcelas.$chave.vencimento", today()->addDays(5)->toDateString())
+            ->set("mountedActions.0.data.parcelas.$chave.ja_pago", true)
+            ->set("mountedActions.0.data.parcelas.$chave.conta_financeira_id", (string) $banco->id)
+            ->callMountedAction()
+            ->assertHasErrors(["mountedActions.0.data.parcelas.$chave.vencimento"]);
+
+        $this->assertSame(CompraStatusEnum::RASCUNHO, $compra->fresh()->compra_status);
+
+        $testable
+            ->set("mountedActions.0.data.parcelas.$chave.ja_pago", false)
+            ->callMountedAction()
+            ->assertHasNoErrors();
+
+        $this->assertSame(CompraStatusEnum::CONFIRMADA, $compra->fresh()->compra_status);
+    }
+
     /** Desde as contas financeiras, toda baixa pela tela informa a conta de origem/destino. */
     private function contaParaBaixa(): ContaFinanceira
     {

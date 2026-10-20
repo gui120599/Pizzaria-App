@@ -140,6 +140,7 @@ class ConfirmarCompraAction
                             ->label(fn (Get $get): string => $get('ja_pago') ? 'Data do pagamento' : 'Vencimento')
                             ->native(false)
                             ->displayFormat('d/m/Y')
+                            ->maxDate(fn (Get $get) => $get('ja_pago') ? today() : null)
                             ->required(),
                         Money::make('valor')
                             ->label('Valor')
