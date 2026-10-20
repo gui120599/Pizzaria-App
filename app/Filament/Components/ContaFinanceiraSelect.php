@@ -75,6 +75,8 @@ class ContaFinanceiraSelect extends Select
                 ])
                 ->all())
             ->native(false)
+            ->helperText('Há mais de uma sessão aberta: escolha de qual delas sai o dinheiro.')
+            ->validationMessages(['required' => 'Escolha a sessão de caixa de onde sai o dinheiro.'])
             ->visible($usaCaixaPdv)
             ->required($usaCaixaPdv);
     }

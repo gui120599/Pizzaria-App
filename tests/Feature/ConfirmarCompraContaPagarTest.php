@@ -10,14 +10,16 @@ use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
 use App\Filament\Resources\Compras\Pages\EditCompra;
 use App\Filament\Resources\Compras\Pages\ListCompras;
-use App\Models\ContaFinanceira;
+use App\Models\Caixa;
 use App\Models\Categoria;
 use App\Models\Compra;
 use App\Models\CompraItem;
+use App\Models\ContaFinanceira;
 use App\Models\PlanoDespesa;
 use App\Models\PrazoPagamento;
 use App\Models\Prestador;
 use App\Models\Produto;
+use App\Models\SessaoCaixa;
 use App\Models\User;
 use App\Services\CompraService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -495,6 +497,31 @@ class ConfirmarCompraContaPagarTest extends TestCase
 
         Livewire::test(ListCompras::class)
             ->assertTableActionHidden('corrigirDataEntrada', $rascunho);
+    }
+
+    public function test_ja_pago_em_caixa_pdv_com_varias_sessoes_exige_a_sessao_de_caixa(): void
+    {
+        $compra = $this->compraComItem();
+        $conta = ContaFinanceira::factory()->caixaPdv()->create();
+        $caixa = Caixa::create(['caixa_nome' => 'Caixa 1']);
+        $sessoes = collect([1, 2])->map(fn () => SessaoCaixa::create([
+            'sessaocaixa_caixa_id' => $caixa->id,
+            'sessaocaixa_status' => 'ABERTA',
+            'sessaocaixa_data_hora_abertura' => now(),
+            'sessaocaixa_saldo_inicial' => 0,
+            'sessaocaixa_user_id' => auth()->id(),
+        ]));
+
+        $testable = Livewire::test(EditCompra::class, ['record' => $compra->getKey()])->mountAction('confirmar');
+        $chave = array_key_first($testable->get('mountedActions.0.data.parcelas'));
+
+        $testable
+            ->set("mountedActions.0.data.parcelas.$chave.ja_pago", true)
+            ->set("mountedActions.0.data.parcelas.$chave.conta_financeira_id", $conta->id)
+            ->callMountedAction()
+            ->assertHasErrors(["mountedActions.0.data.parcelas.$chave.sessao_caixa_id" => 'Escolha a sessão de caixa de onde sai o dinheiro.']);
+
+        $this->assertSame(CompraStatusEnum::RASCUNHO, $compra->fresh()->compra_status);
     }
 
     /** Desde as contas financeiras, toda baixa pela tela informa a conta de origem/destino. */
