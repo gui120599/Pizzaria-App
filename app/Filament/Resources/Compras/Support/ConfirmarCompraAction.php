@@ -24,12 +24,10 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Leandrocfe\FilamentPtbrFormFields\Money;
-use Livewire\Component;
 
 /**
  * Ação de confirmar compra, reutilizada na tabela e na página de edição.
@@ -62,9 +60,6 @@ class ConfirmarCompraAction
                 $record->refresh();
                 $schema?->fill();
             })
-            ->beforeFormValidated(function (Component $livewire): void { // DIAG-TEMP
-                Log::info('DIAG-CONTA beforeFormValidated', ['parcelas' => data_get($livewire->mountedActions, '0.data.parcelas')]); // DIAG-TEMP
-            }) // DIAG-TEMP
             ->schema([
                 self::campoDataEntrada()
                     ->label('Data de entrada no estoque')
@@ -161,18 +156,16 @@ class ConfirmarCompraAction
                         // Já pago: de onde saiu o dinheiro (gera a movimentação na conta).
                         ContaFinanceiraSelect::make()
                             ->sugerirForma()
-                            ->visible(fn (Get $get): bool => (bool) $get('ja_pago'))
-                            ->required(fn (Get $get): bool => (bool) $get('ja_pago')),
+                            ->visible(fn (Get $get): bool => self::exigeContaOrigem($get))
+                            ->required(fn (Get $get): bool => self::exigeContaOrigem($get)),
                         ContaFinanceiraSelect::sessaoCaixa()->columnSpan(2),
                     ])
                     ->columns(4)
                     ->default(fn (Compra $record): array => [
-                        [
-                            'vencimento' => ($record->compra_data_entrada ?? now())->toDateString(),
-                            'valor' => number_format((float) $record->compra_valor_total, 2, '.', ''),
-                            'forma_pagamento' => null,
-                            'ja_pago' => false,
-                        ],
+                        self::linhaParcela(
+                            ($record->compra_data_entrada ?? now())->toDateString(),
+                            number_format((float) $record->compra_valor_total, 2, '.', ''),
+                        ),
                     ])
                     ->addActionLabel('Adicionar parcela')
                     ->deletable()
@@ -306,7 +299,7 @@ class ConfirmarCompraAction
      * (matematicamente 0% de qualquer valor é 0).
      *
      * @param  Collection<int, PrazoPagamentoParcela>  $parcelasPrazo
-     * @return array<string, array{vencimento: string, valor: string, forma_pagamento: null}>
+     * @return array<string, array{vencimento: string, valor: string, forma_pagamento: null, ja_pago: false, conta_financeira_id: null, sessao_caixa_id: null}>
      */
     private static function calcularParcelas(Collection $parcelasPrazo, Carbon $dataBase, float $valorTotal): array
     {
@@ -333,15 +326,41 @@ class ConfirmarCompraAction
 
         $resultado = [];
         foreach ($linhas as $linha) {
-            $resultado[(string) Str::uuid()] = [
-                'vencimento' => $linha['vencimento'],
-                'valor' => number_format($linha['valor'], 2, '.', ''),
-                'forma_pagamento' => null,
-                'ja_pago' => false,
-            ];
+            $resultado[(string) Str::uuid()] = self::linhaParcela(
+                $linha['vencimento'],
+                number_format($linha['valor'], 2, '.', ''),
+            );
         }
 
         return $resultado;
+    }
+
+    /**
+     * Linha do Repeater de parcelas com todas as chaves dos campos filhos.
+     * Linha sem a chave quebra o $entangle dos Selects não nativos (a escolha
+     * nunca chega ao servidor): o $set('parcelas', ...) não hidrata defaults.
+     *
+     * @return array{vencimento: string, valor: string, forma_pagamento: null, ja_pago: false, conta_financeira_id: null, sessao_caixa_id: null}
+     */
+    private static function linhaParcela(string $vencimento, string $valor): array
+    {
+        return [
+            'vencimento' => $vencimento,
+            'valor' => $valor,
+            'forma_pagamento' => null,
+            'ja_pago' => false,
+            'conta_financeira_id' => null,
+            'sessao_caixa_id' => null,
+        ];
+    }
+
+    /** Conta de origem só se aplica a parcela já paga; Compensação não movimenta conta. */
+    private static function exigeContaOrigem(Get $get): bool
+    {
+        $forma = $get('forma_pagamento');
+        $forma = $forma instanceof FormaPagamento ? $forma : FormaPagamento::tryFrom((string) $forma);
+
+        return (bool) $get('ja_pago') && $forma !== FormaPagamento::Compensacao;
     }
 
     /** Interpreta o valor bruto do campo data_base (string/Carbon) como Carbon, ou null. */
