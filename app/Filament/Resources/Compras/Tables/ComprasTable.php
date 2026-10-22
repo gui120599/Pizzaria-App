@@ -88,6 +88,8 @@ class ComprasTable
 
                 TrashedFilter::make(),
             ])
+            ->persistColumnsInSession()
+            ->persistFiltersInSession()
             ->recordActions([
                 ConfirmarCompraAction::make()->label('Confirmar'),
                 RegistrarDevolucaoAction::make(),
