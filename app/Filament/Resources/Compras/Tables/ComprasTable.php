@@ -24,7 +24,7 @@ class ComprasTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with('prestador')->withCount('itens'))
+            ->modifyQueryUsing(fn(Builder $query) => $query->with('prestador')->withCount('itens'))
             ->defaultSort('compra_data_entrada', 'desc')
             ->columns([
                 TextColumn::make('compra_numero')
@@ -41,6 +41,13 @@ class ComprasTable
                 TextColumn::make('compra_data_entrada')
                     ->label('Entrada')
                     ->date('d/m/Y')
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->sortable(),
+
+                TextColumn::make('compra_data_emissao')
+                    ->label('Emissão NF')
+                    ->date('d/m/Y')
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->sortable(),
 
                 TextColumn::make('itens_count')
@@ -57,23 +64,23 @@ class ComprasTable
                 TextColumn::make('compra_status')
                     ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn (CompraStatusEnum $state): string => $state->label())
-                    ->color(fn (CompraStatusEnum $state): string => $state->cor()),
+                    ->formatStateUsing(fn(CompraStatusEnum $state): string => $state->label())
+                    ->color(fn(CompraStatusEnum $state): string => $state->cor()),
 
                 TextColumn::make('compra_origem')
                     ->label('Origem')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => $state === 'xml' ? 'XML' : 'Manual')
-                    ->color(fn (string $state): string => $state === 'xml' ? 'info' : 'gray')
+                    ->formatStateUsing(fn(string $state): string => $state === 'xml' ? 'XML' : 'Manual')
+                    ->color(fn(string $state): string => $state === 'xml' ? 'info' : 'gray')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('credito_fornecedor')
                     ->label('Crédito c/ fornecedor')
-                    ->state(fn (Compra $record): float => $record->compra_prestador_id
+                    ->state(fn(Compra $record): float => $record->compra_prestador_id
                         ? (float) PrestadorCredito::doPrestador($record->compra_prestador_id)->naoAplicados()->sum('valor')
                         : 0.0)
                     ->money('BRL')
-                    ->color(fn (float $state): string => $state > 0 ? 'success' : 'gray')
+                    ->color(fn(float $state): string => $state > 0 ? 'success' : 'gray')
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -82,7 +89,7 @@ class ComprasTable
                     ->label('Status')
                     ->options(
                         collect(CompraStatusEnum::cases())
-                            ->mapWithKeys(fn ($s) => [$s->value => $s->label()])
+                            ->mapWithKeys(fn($s) => [$s->value => $s->label()])
                             ->toArray()
                     ),
 
@@ -97,9 +104,9 @@ class ComprasTable
                 CorrigirDataEntradaAction::make(),
                 ImprimirDanfeAction::make(),
                 EditAction::make()
-                    ->visible(fn (Compra $record): bool => $record->isRascunho()),
+                    ->visible(fn(Compra $record): bool => $record->isRascunho()),
                 DeleteAction::make()
-                    ->visible(fn (Compra $record): bool => $record->isRascunho()),
+                    ->visible(fn(Compra $record): bool => $record->isRascunho()),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
