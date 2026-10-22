@@ -50,7 +50,7 @@ class ConfirmarCompraAction
             ->modalHeading('Confirmar compra')
             ->modalDescription('Gera as entradas de estoque e recalcula o custo médio. Esta ação não pode ser desfeita.')
             ->modalSubmitActionLabel('Confirmar')
-            ->modalWidth('2xl')
+            ->modalWidth('4xl')
             // O $record injetado nos campos do schema pode estar desatualizado em memória
             // (ex.: usuário editou itens na aba "Itens" — um Livewire component separado —
             // e o total foi recalculado no banco, mas a página de edição não recarregou o
@@ -158,8 +158,9 @@ class ConfirmarCompraAction
                         ContaFinanceiraSelect::make()
                             ->sugerirForma()
                             ->visible(fn (Get $get): bool => self::exigeContaOrigem($get))
-                            ->required(fn (Get $get): bool => self::exigeContaOrigem($get)),
-                        ContaFinanceiraSelect::sessaoCaixa()->columnSpan(2),
+                            ->required(fn (Get $get): bool => self::exigeContaOrigem($get))
+                            ->columnSpanFull(),
+                        ContaFinanceiraSelect::sessaoCaixa()->columnSpanFull(),
                     ])
                     ->columns(4)
                     ->default(fn (Compra $record): array => [
