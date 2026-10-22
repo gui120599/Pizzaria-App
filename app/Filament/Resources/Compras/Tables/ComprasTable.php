@@ -95,6 +95,7 @@ class ComprasTable
 
                 TrashedFilter::make(),
             ])
+            ->persistSortInSession()
             ->persistColumnSearchesInSession()
             ->persistColumnsInSession()
             ->persistFiltersInSession()
