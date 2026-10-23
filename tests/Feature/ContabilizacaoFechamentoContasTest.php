@@ -545,4 +545,18 @@ class ContabilizacaoFechamentoContasTest extends TestCase
         $this->assertSame(94.0, $this->saldo($this->cofre));
         $this->assertSame(106.0, $this->saldo($this->caixaPdv));
     }
+
+    public function test_troco_em_dinheiro_de_pix_na_maquininha_sai_da_gaveta_para_a_conta_da_maquininha(): void
+    {
+        $this->vender('cash', 100);
+        // Pix na maquininha de 98,29: R$ 6,00 de troco saíram da gaveta em dinheiro.
+        $this->vender('InstantPayment', 92.29, pagamento: ['pg_venda_valor_troco' => 6, 'pg_venda_forma_troco' => FormaTrocoEnum::Dinheiro]);
+        $this->fechar(contado: 194, troco: 100);
+
+        $this->service->contabilizar($this->sessao);
+
+        $this->assertSame(100.0, $this->saldo($this->caixaPdv));
+        $this->assertSame(94.0, $this->saldo($this->cofre));
+        $this->assertSame(6.0, $this->saldo($this->contaStone));
+    }
 }

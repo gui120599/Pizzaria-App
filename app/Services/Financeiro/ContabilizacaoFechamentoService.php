@@ -349,9 +349,11 @@ class ContabilizacaoFechamentoService
 
     /**
      * Troco devolvido por uma forma diferente da que o cliente usou: o título
-     * guarda só o valor líquido, então a diferença anda entre as contas.
+     * guarda só o valor líquido, então a diferença anda entre as contas, da
+     * conta de onde o troco saiu para a conta onde a venda entrou.
      * Dinheiro com troco em Pix: a conta PIX paga e a gaveta fica com o troco.
-     * Pix CNPJ com troco em dinheiro: a gaveta paga e a conta PIX fica com ele.
+     * Pix CNPJ ou maquininha com troco em dinheiro: a gaveta paga e a conta
+     * da forma (PIX CNPJ ou adquirente) fica com ele.
      *
      * @param  Collection<int, array<string, mixed>>  $pagamentos
      */
@@ -360,28 +362,45 @@ class ContabilizacaoFechamentoService
         $caixaPdv = ContaFinanceira::caixaPdv();
         $usuario = $this->usuarioDe($fechamento);
         $opcoes = OpcoesPagamento::withTrashed()->with('contaFinanceira')->get()->keyBy('id');
-        $paraGaveta = 0.0;
-        $daGaveta = [];
+        $maquininhas = Maquininha::withTrashed()->get()->keyBy('id');
+        $contaDoTrocoPix = $this->contaDoTrocoPix();
+        $transferencias = [];
 
         foreach ($pagamentos->where('troco', '>', 0) as $pagamento) {
             $opcao = $opcoes->get($pagamento['opcao_id']);
             $trocoPix = ($pagamento['forma_troco'] ?? FormaTrocoEnum::Dinheiro) === FormaTrocoEnum::Pix;
 
-            if ($opcao?->opcaopag_desc_nfe === 'cash' && $trocoPix) {
-                $paraGaveta += $pagamento['troco'];
-            } elseif ($opcao?->ehPixCnpj() && ! $trocoPix) {
-                $daGaveta[$opcao->conta_financeira_id] = ($daGaveta[$opcao->conta_financeira_id] ?? 0.0) + $pagamento['troco'];
+            $contaDaVendaId = match (true) {
+                $opcao?->opcaopag_desc_nfe === 'cash' => $caixaPdv->id,
+                $pagamento['tipo'] !== null => $maquininhas->get($pagamento['maquininha_id'])?->conta_financeira_id,
+                $opcao?->ehPixCnpj() => $opcao->conta_financeira_id,
+                default => null,
+            };
+            $contaDoTrocoId = $trocoPix ? $contaDoTrocoPix?->id : $caixaPdv->id;
+
+            if ($contaDaVendaId === null || $contaDoTrocoId === null || $contaDaVendaId === $contaDoTrocoId) {
+                continue;
             }
+
+            $chave = "{$contaDoTrocoId}>{$contaDaVendaId}";
+            $transferencias[$chave] = ($transferencias[$chave] ?? 0.0) + (float) $pagamento['troco'];
         }
 
-        $movimentacoes = app(MovimentacaoService::class);
+        foreach ($transferencias as $chave => $valor) {
+            [$origemId, $destinoId] = array_map('intval', explode('>', $chave));
+            $descricao = $origemId === $caixaPdv->id ? "Troco em dinheiro — Sessão #{$sessao->id}" : "Troco em Pix — Sessão #{$sessao->id}";
 
-        if (round($paraGaveta, 2) > 0) {
-            $movimentacoes->transferir($this->contaDoTrocoPix(), $caixaPdv, round($paraGaveta, 2), $data, "Troco em Pix — Sessão #{$sessao->id}", $usuario, $sessao, tocarSessao: false, validarSaldo: false);
-        }
-
-        foreach ($daGaveta as $contaId => $valor) {
-            $movimentacoes->transferir($caixaPdv, ContaFinanceira::findOrFail($contaId), round($valor, 2), $data, "Troco em dinheiro de Pix — Sessão #{$sessao->id}", $usuario, $sessao, tocarSessao: false, validarSaldo: false);
+            app(MovimentacaoService::class)->transferir(
+                ContaFinanceira::findOrFail($origemId),
+                ContaFinanceira::findOrFail($destinoId),
+                round($valor, 2),
+                $data,
+                $descricao,
+                $usuario,
+                $sessao,
+                tocarSessao: false,
+                validarSaldo: false,
+            );
         }
     }
 
