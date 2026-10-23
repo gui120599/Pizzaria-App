@@ -32,6 +32,7 @@ use App\Models\User;
 use App\Models\Venda;
 use App\Services\FechamentoCaixaService;
 use App\Services\Financeiro\ContabilizacaoFechamentoService;
+use App\Services\Financeiro\MovimentacaoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -314,16 +315,11 @@ class ContabilizacaoFechamentoContasTest extends TestCase
     public function test_conferencia_do_caixa_pdv_que_nao_fecha_aborta_tudo(): void
     {
         $this->vender('cash', 100);
-        // Sangria que o esperado desconta mas que nunca passou pelo razão.
-        MovimentacoesSessaoCaixa::create([
-            'mov_sessaocaixa_id' => $this->sessao->id,
-            'mov_descricao' => 'Sangria',
-            'mov_tipo' => 'SAIDA',
-            'mov_forma_pagamento' => 'dinheiro',
-            'mov_motivo' => 'sangria',
-            'mov_valor' => 50,
-        ]);
-        $this->fechar(contado: 150, troco: 100);
+        // Entrada no razão ligada à sessão que o esperado desconhece (não veio de venda, suprimento nem fiado).
+        app(MovimentacaoService::class)->entrada(
+            $this->caixaPdv, 50, NaturezaMovimentacao::AjusteSaldo, today(), 'Lançamento solto', [], registrarNaSessao: false, sessaoCaixaId: $this->sessao->id,
+        );
+        $this->fechar(contado: 200, troco: 100);
 
         try {
             $this->service->contabilizar($this->sessao);
@@ -333,7 +329,7 @@ class ContabilizacaoFechamentoContasTest extends TestCase
         }
 
         $this->assertSame(0, Lancamento::count());
-        $this->assertSame(0, MovimentacaoFinanceira::count());
+        $this->assertSame(1, MovimentacaoFinanceira::count());
     }
 
     public function test_troco_em_pix_de_venda_em_dinheiro_sai_da_conta_pix_para_a_gaveta(): void
@@ -525,5 +521,28 @@ class ContabilizacaoFechamentoContasTest extends TestCase
 
         $this->assertFalse($this->service->contabilizada($this->sessao));
         $this->assertSame(0, MovimentacaoFinanceira::count());
+    }
+
+    public function test_sangria_antiga_sem_movimentacao_financeira_nao_trava_a_confirmacao(): void
+    {
+        $this->vender('cash', 100);
+        // Sangria feita antes da contabilização no razão: só existe no controle da sessão.
+        MovimentacoesSessaoCaixa::create([
+            'mov_sessaocaixa_id' => $this->sessao->id,
+            'mov_descricao' => 'Sangria antiga',
+            'mov_tipo' => 'SAIDA',
+            'mov_forma_pagamento' => 'dinheiro',
+            'mov_motivo' => 'sangria',
+            'mov_valor' => 6,
+        ]);
+        $this->fechar(contado: 194, troco: 100);
+
+        $lancamentos = $this->service->contabilizar($this->sessao);
+
+        $this->assertCount(1, $lancamentos);
+        $this->assertSame(['A sessão tem R$ 6,00 de saídas em dinheiro feitas antes da contabilização no razão financeiro: esse valor não foi lançado nas contas.'], $this->service->avisos);
+        // Recolhido = contado − troco; o razão fica R$ 6,00 acima do troco, pois a saída antiga nunca o tocou.
+        $this->assertSame(94.0, $this->saldo($this->cofre));
+        $this->assertSame(106.0, $this->saldo($this->caixaPdv));
     }
 }
