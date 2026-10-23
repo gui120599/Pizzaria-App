@@ -27,6 +27,12 @@ class CompraItem extends Model
         'ci_valor_rateio',
         'ci_lote_codigo',
         'ci_validade',
+        'ci_cfop',
+        'ci_cst_csosn',
+        'ci_operacao',
+        'ci_valor_st',
+        'ci_valor_ipi',
+        'ci_valor_fcp_st',
     ];
 
     protected function casts(): array
@@ -37,6 +43,9 @@ class CompraItem extends Model
             'ci_fator_conversao' => 'decimal:4',
             'ci_custo_unitario_compra' => 'decimal:8',
             'ci_valor_rateio' => 'decimal:4',
+            'ci_valor_st' => 'decimal:4',
+            'ci_valor_ipi' => 'decimal:4',
+            'ci_valor_fcp_st' => 'decimal:4',
         ];
     }
 

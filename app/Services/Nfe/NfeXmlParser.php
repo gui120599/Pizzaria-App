@@ -3,8 +3,10 @@
 namespace App\Services\Nfe;
 
 use App\Exceptions\NfeXmlInvalidoException;
+use App\Services\Nfe\Dto\NfeDuplicata;
 use App\Services\Nfe\Dto\NfeEmitente;
 use App\Services\Nfe\Dto\NfeItem;
+use App\Services\Nfe\Dto\NfePagamento;
 use App\Services\Nfe\Dto\NfeParseada;
 use Carbon\CarbonImmutable;
 use SimpleXMLElement;
@@ -61,6 +63,17 @@ class NfeXmlParser
             valorOutros: (float) $total->vOutro,
             valorTotalNota: (float) $total->vNF,
             itens: $this->extrairItens($infNFe),
+            tipoNf: $this->inteiroOuNull($ide->tpNF),
+            finalidade: $this->inteiroOuNull($ide->finNFe),
+            naturezaOperacao: $this->textoOuNull($ide->natOp),
+            destinatarioDocumento: $this->extrairDestinatario($infNFe->dest),
+            notasReferenciadas: $this->extrairNotasReferenciadas($ide),
+            pagamentos: $this->extrairPagamentos($infNFe),
+            duplicatas: $this->extrairDuplicatas($infNFe),
+            valorSt: (float) $total->vST,
+            valorIpi: (float) $total->vIPI,
+            valorSeguro: (float) $total->vSeg,
+            valorFcpSt: (float) $total->vFCPST,
         );
     }
 
@@ -175,6 +188,11 @@ class NfeXmlParser
                 valorDesconto: (float) $prod->vDesc,
                 loteCodigo: $temRastro ? $this->textoOuNull($rastro->nLote) : null,
                 validade: $temRastro ? $this->extrairData((string) $rastro->dVal) : null,
+                cfop: $this->textoOuNull($prod->CFOP),
+                cstCsosn: $this->extrairCstCsosn($det->imposto),
+                valorSt: $this->extrairValorImposto($det->imposto, 'vICMSST'),
+                valorIpi: $this->extrairValorImposto($det->imposto, 'vIPI'),
+                valorFcpSt: $this->extrairValorImposto($det->imposto, 'vFCPST'),
             );
         }
 
@@ -183,6 +201,86 @@ class NfeXmlParser
         }
 
         return $itens;
+    }
+
+    /** CNPJ/CPF do destinatário (só dígitos); null quando o XML não traz <dest>. */
+    private function extrairDestinatario(SimpleXMLElement $dest): ?string
+    {
+        $documento = preg_replace('/\D/', '', (string) ($dest->CNPJ ?? $dest->CPF ?? '')) ?? '';
+
+        return $documento === '' ? null : $documento;
+    }
+
+    /** @return string[] */
+    private function extrairNotasReferenciadas(SimpleXMLElement $ide): array
+    {
+        $chaves = [];
+        foreach ($ide->NFref as $ref) {
+            $chave = preg_replace('/\D/', '', (string) $ref->refNFe) ?? '';
+            if ($chave !== '') {
+                $chaves[] = $chave;
+            }
+        }
+
+        return $chaves;
+    }
+
+    /** @return NfePagamento[] */
+    private function extrairPagamentos(SimpleXMLElement $infNFe): array
+    {
+        $pagamentos = [];
+        foreach ($infNFe->pag->detPag ?? [] as $det) {
+            $pagamentos[] = new NfePagamento(
+                tipo: $this->textoOuNull($det->tPag),
+                indicador: $this->textoOuNull($det->indPag),
+                valor: (float) $det->vPag,
+            );
+        }
+
+        return $pagamentos;
+    }
+
+    /** @return NfeDuplicata[] */
+    private function extrairDuplicatas(SimpleXMLElement $infNFe): array
+    {
+        $duplicatas = [];
+        foreach ($infNFe->cobr->dup ?? [] as $dup) {
+            $duplicatas[] = new NfeDuplicata(
+                numero: $this->textoOuNull($dup->nDup),
+                vencimento: $this->extrairData((string) $dup->dVenc),
+                valor: (float) $dup->vDup,
+            );
+        }
+
+        return $duplicatas;
+    }
+
+    /** CST (regime normal) ou CSOSN (Simples) do ICMS do item, qualquer que seja o grupo ICMSxx. */
+    private function extrairCstCsosn(SimpleXMLElement $imposto): ?string
+    {
+        $grupos = $imposto->xpath('ICMS/*');
+        if (empty($grupos)) {
+            return null;
+        }
+
+        $grupo = $grupos[0];
+
+        return $this->textoOuNull($grupo->CSOSN) ?? $this->textoOuNull($grupo->CST);
+    }
+
+    /** Valor de um tributo do item, procurando em qualquer grupo (ICMSxx, IPITrib...). */
+    private function extrairValorImposto(SimpleXMLElement $imposto, string $tag): float
+    {
+        $encontrados = $imposto->xpath('.//'.$tag);
+
+        return empty($encontrados) ? 0.0 : (float) $encontrados[0];
+    }
+
+    private function inteiroOuNull(mixed $node): ?int
+    {
+        $texto = trim((string) $node);
+
+        return $texto === '' ? null : (int) $texto;
     }
 
     private function extrairData(string $valor): ?CarbonImmutable

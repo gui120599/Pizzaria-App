@@ -32,9 +32,14 @@ class CompraPolicy
         return $authUser->can('update:compra');
     }
 
+    /**
+     * Só o rascunho pode ser excluído: compra confirmada tem movimentações de
+     * estoque e títulos que ficariam órfãos. A exclusão em massa deve usar
+     * authorizeIndividualRecords('delete'), já que deleteAny não vê o registro.
+     */
     public function delete(AuthUser $authUser, Compra $compra): bool
     {
-        return $authUser->can('delete:compra');
+        return $authUser->can('delete:compra') && $compra->isRascunho();
     }
 
     public function deleteAny(AuthUser $authUser): bool

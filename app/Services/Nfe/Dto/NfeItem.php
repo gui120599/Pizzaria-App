@@ -18,6 +18,11 @@ final class NfeItem
         public readonly float $valorDesconto,
         public readonly ?string $loteCodigo,
         public readonly ?CarbonImmutable $validade,
+        public readonly ?string $cfop = null,
+        public readonly ?string $cstCsosn = null,
+        public readonly float $valorSt = 0.0,
+        public readonly float $valorIpi = 0.0,
+        public readonly float $valorFcpSt = 0.0,
     ) {}
 
     /** Custo unitário já líquido do desconto informado no próprio item. */

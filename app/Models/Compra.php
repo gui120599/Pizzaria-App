@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CompraStatusEnum;
+use App\Enums\ConfiancaOperacaoEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,6 +37,24 @@ class Compra extends Model
         'compra_observacao',
         'compra_user_id',
         'compra_confirmada_em',
+        'compra_tp_nf',
+        'compra_fin_nfe',
+        'compra_nat_op',
+        'compra_dest_documento',
+        'compra_valor_nf',
+        'compra_valor_st',
+        'compra_valor_ipi',
+        'compra_valor_seguro',
+        'compra_valor_fcp_st',
+        'compra_notas_referenciadas',
+        'compra_pagamentos_nf',
+        'compra_duplicatas_nf',
+        'compra_operacao',
+        'compra_operacao_confianca',
+        'compra_operacao_criterios',
+        'compra_operacao_definida_por',
+        'compra_operacao_definida_em',
+        'compra_operacao_motivo',
     ];
 
     protected function casts(): array
@@ -50,6 +69,17 @@ class Compra extends Model
             'compra_valor_desconto' => 'decimal:2',
             'compra_valor_outros' => 'decimal:2',
             'compra_valor_total' => 'decimal:2',
+            'compra_valor_nf' => 'decimal:2',
+            'compra_valor_st' => 'decimal:2',
+            'compra_valor_ipi' => 'decimal:2',
+            'compra_valor_seguro' => 'decimal:2',
+            'compra_valor_fcp_st' => 'decimal:2',
+            'compra_notas_referenciadas' => 'array',
+            'compra_pagamentos_nf' => 'array',
+            'compra_duplicatas_nf' => 'array',
+            'compra_operacao_confianca' => ConfiancaOperacaoEnum::class,
+            'compra_operacao_criterios' => 'array',
+            'compra_operacao_definida_em' => 'datetime',
         ];
     }
 
@@ -87,6 +117,22 @@ class Compra extends Model
     public function lancamentos(): HasMany
     {
         return $this->hasMany(Lancamento::class, 'compra_id');
+    }
+
+    /** A compra tem dados fiscais do XML (tem sentido exibir a seção "Operação fiscal"). */
+    public function temDadosFiscais(): bool
+    {
+        return $this->compra_tp_nf !== null || $this->compra_operacao !== null || $this->compra_nat_op !== null;
+    }
+
+    /** Diferença entre o total calculado e o vNF da nota; null sem vNF gravado. */
+    public function divergenciaValorNf(): ?float
+    {
+        if ($this->compra_valor_nf === null) {
+            return null;
+        }
+
+        return round((float) $this->compra_valor_total - (float) $this->compra_valor_nf, 2);
     }
 
     public function isRascunho(): bool

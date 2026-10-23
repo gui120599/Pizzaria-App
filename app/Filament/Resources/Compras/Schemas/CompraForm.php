@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Compras\Schemas;
 
 use App\Enums\PrestadorCategoriaEnum;
 use App\Filament\Resources\CentroCustos\CentroCustoResource;
+use App\Filament\Resources\Compras\Support\OperacaoFiscalView;
 use App\Filament\Resources\Fornecedores\FornecedorResource;
 use App\Models\CentroCusto;
 use App\Models\Compra;
@@ -16,6 +17,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 use Leandrocfe\FilamentPtbrFormFields\Money;
 
 class CompraForm
@@ -112,6 +114,56 @@ class CompraForm
                         Placeholder::make('resumo_itens')
                             ->label('Itens lançados')
                             ->content(fn (?Compra $record): string => (string) ($record?->itens()->count() ?? 0)),
+                    ]),
+
+                Section::make('3. Operação fiscal')
+                    ->description('Lida do XML e sugerida pelo sistema. Somente leitura: por enquanto não muda nada no estoque nem no financeiro.')
+                    ->icon('heroicon-o-scale')
+                    ->columns(3)
+                    ->columnSpanFull()
+                    ->collapsible()
+                    ->visible(fn (?Compra $record): bool => $record?->temDadosFiscais() ?? false)
+                    ->schema([
+                        Placeholder::make('fiscal_operacao')
+                            ->label('Operação sugerida')
+                            ->content(fn (?Compra $record): HtmlString => OperacaoFiscalView::badgeOperacao($record)),
+
+                        Placeholder::make('fiscal_confianca')
+                            ->label('Confiança')
+                            ->content(fn (?Compra $record): HtmlString => OperacaoFiscalView::badgeConfianca($record)),
+
+                        Placeholder::make('fiscal_cfops')
+                            ->label('CFOP dos itens')
+                            ->content(fn (?Compra $record): string => OperacaoFiscalView::cfops($record)),
+
+                        Placeholder::make('fiscal_nat_op')
+                            ->label('Natureza da operação')
+                            ->content(fn (?Compra $record): string => $record->compra_nat_op ?: '—'),
+
+                        Placeholder::make('fiscal_finalidade')
+                            ->label('Finalidade (finNFe)')
+                            ->content(fn (?Compra $record): string => OperacaoFiscalView::finalidade($record->compra_fin_nfe)),
+
+                        Placeholder::make('fiscal_tp_nf')
+                            ->label('Tipo da nota (tpNF)')
+                            ->content(fn (?Compra $record): string => OperacaoFiscalView::tipoNf($record->compra_tp_nf)),
+
+                        Placeholder::make('fiscal_criterios')
+                            ->label('Critérios')
+                            ->columnSpanFull()
+                            ->content(fn (?Compra $record): HtmlString => OperacaoFiscalView::lista($record->compra_operacao_criterios['criterios'] ?? [])),
+
+                        Placeholder::make('fiscal_alertas')
+                            ->label('Alertas')
+                            ->columnSpanFull()
+                            ->visible(fn (?Compra $record): bool => ! empty($record?->compra_operacao_criterios['alertas']))
+                            ->content(fn (?Compra $record): HtmlString => OperacaoFiscalView::lista($record->compra_operacao_criterios['alertas'] ?? [])),
+
+                        Placeholder::make('fiscal_divergencia_valor')
+                            ->hiddenLabel()
+                            ->columnSpanFull()
+                            ->visible(fn (?Compra $record): bool => $record !== null && OperacaoFiscalView::avisoDivergenciaValor($record) !== null)
+                            ->content(fn (?Compra $record): HtmlString => OperacaoFiscalView::avisoDivergenciaValor($record)),
                     ]),
             ])
             ->columns(9);
