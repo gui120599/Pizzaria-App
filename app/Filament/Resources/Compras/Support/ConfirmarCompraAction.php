@@ -68,6 +68,7 @@ class ConfirmarCompraAction
                     ->live()
                     ->afterStateUpdated(fn (?string $state, Set $set) => $set('data_base', $state)),
                 self::avisoDataEntrada(),
+                self::avisoOperacaoFiscal(),
                 Toggle::make('gerar_conta_pagar')
                     ->label('Gerar conta a pagar')
                     ->helperText('Cria um título a pagar por parcela para o fornecedor, rateado pelos planos de despesa dos produtos.')
@@ -277,6 +278,23 @@ class ConfirmarCompraAction
                     .'⚠️ A entrada no estoque será registrada em <strong>'.e($data?->format('d/m/Y')).'</strong> ('.e($quando).'). '
                     .'Confira se é a data real em que a mercadoria entrou no estoque.</div>');
             })
+            ->columnSpanFull();
+    }
+
+    /**
+     * Avisa (sem bloquear) quando a operação sugerida na importação não é
+     * COMPRA ou a confiança não é alta, e quando o total diverge do vNF.
+     */
+    public static function avisoOperacaoFiscal(): Placeholder
+    {
+        return Placeholder::make('aviso_operacao_fiscal')
+            ->hiddenLabel()
+            ->visible(fn (Compra $record): bool => OperacaoFiscalView::avisoOperacao($record) !== null
+                || OperacaoFiscalView::avisoDivergenciaValor($record) !== null)
+            ->content(fn (Compra $record): HtmlString => new HtmlString(
+                (OperacaoFiscalView::avisoOperacao($record)?->toHtml() ?? '')
+                .(OperacaoFiscalView::avisoDivergenciaValor($record)?->toHtml() ?? '')
+            ))
             ->columnSpanFull();
     }
 

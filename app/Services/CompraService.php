@@ -38,6 +38,20 @@ class CompraService
     }
 
     /**
+     * Trava a linha da compra até o fim da transação e sincroniza a instância
+     * recebida com o banco. O status só pode ser checado DEPOIS disto: duas
+     * abas ou um duplo clique confirmariam a mesma compra duas vezes (o lock
+     * do EstoqueService é só por produto).
+     */
+    private function travarCompra(Compra $compra): void
+    {
+        $travada = Compra::lockForUpdate()->findOrFail($compra->getKey());
+
+        $compra->setRawAttributes($travada->getAttributes(), true);
+        $compra->unsetRelations();
+    }
+
+    /**
      * Confirma a compra: rateia acréscimos, gera as entradas de estoque
      * (recalculando o custo médio) e atualiza o de-para de fornecedor.
      *
@@ -48,6 +62,7 @@ class CompraService
     public function confirmar(Compra $compra, ?Carbon $dataEntrada = null): Compra
     {
         return DB::transaction(function () use ($compra, $dataEntrada) {
+            $this->travarCompra($compra);
             $compra->loadMissing('itens.insumo');
 
             if (! $compra->isRascunho()) {
@@ -249,6 +264,7 @@ class CompraService
     public function gerarContaPagar(Compra $compra, array $dados = []): Collection
     {
         return DB::transaction(function () use ($compra, $dados) {
+            $this->travarCompra($compra);
             $compra->loadMissing(['itens.insumo.planoDespesa', 'prestador']);
 
             if ($compra->compra_status !== CompraStatusEnum::CONFIRMADA) {

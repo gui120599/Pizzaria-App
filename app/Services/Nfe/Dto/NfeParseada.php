@@ -7,7 +7,12 @@ use Carbon\CarbonImmutable;
 /** Resultado do parsing de um XML de NF-e de compra, pronto para persistência. */
 final class NfeParseada
 {
-    /** @param  NfeItem[]  $itens */
+    /**
+     * @param  NfeItem[]  $itens
+     * @param  string[]  $notasReferenciadas  chaves de acesso das NFref
+     * @param  NfePagamento[]  $pagamentos
+     * @param  NfeDuplicata[]  $duplicatas
+     */
     public function __construct(
         public readonly string $chaveAcesso,
         public readonly ?string $numero,
@@ -22,6 +27,17 @@ final class NfeParseada
         public readonly float $valorOutros,
         public readonly float $valorTotalNota,
         public readonly array $itens,
+        public readonly ?int $tipoNf = null,
+        public readonly ?int $finalidade = null,
+        public readonly ?string $naturezaOperacao = null,
+        public readonly ?string $destinatarioDocumento = null,
+        public readonly array $notasReferenciadas = [],
+        public readonly array $pagamentos = [],
+        public readonly array $duplicatas = [],
+        public readonly float $valorSt = 0.0,
+        public readonly float $valorIpi = 0.0,
+        public readonly float $valorSeguro = 0.0,
+        public readonly float $valorFcpSt = 0.0,
     ) {}
 
     /** Soma dos descontos informados item a item (vDesc de cada <det>). */

@@ -3,6 +3,7 @@
 namespace App\Services\Sefaz;
 
 use App\Enums\SefazNotaRecebidaStatusEnum;
+use App\Exceptions\NfeDestinatarioDivergenteException;
 use App\Exceptions\NfeXmlInvalidoException;
 use App\Exceptions\SefazConsultaEmEsperaException;
 use App\Exceptions\SefazConsumoIndevidoException;
@@ -23,6 +24,7 @@ use App\Services\Sefaz\Dto\SefazLoteDistribuicao;
 use App\Services\Sefaz\Dto\SefazPollingResultado;
 use App\Services\Sefaz\Dto\SefazResumoDocumento;
 use App\Services\Sefaz\Dto\SefazSincronizacaoResultado;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -346,8 +348,16 @@ class SefazDistribuicaoService
             Log::channel('sefaz')->warning("Polling: erro pontual na chave {$item->chaveAcesso} — {$e->getMessage()}");
 
             return $resultado->comIncremento('erros');
+        } catch (NfeDestinatarioDivergenteException $e) {
+            $this->ignorarPorDestinatario($item->chaveAcesso, $e);
+
+            return $resultado->comIncremento('puladas');
         } catch (NfeXmlInvalidoException|ValidationException $e) {
             Log::channel('sefaz')->warning("Polling: nota {$item->chaveAcesso} rejeitada pelo importador — {$e->getMessage()}");
+
+            return $resultado->comIncremento('erros');
+        } catch (QueryException $e) {
+            Log::channel('sefaz')->warning("Polling: erro pontual de banco na chave {$item->chaveAcesso} — {$e->getMessage()}");
 
             return $resultado->comIncremento('erros');
         }
@@ -377,11 +387,34 @@ class SefazDistribuicaoService
             }
 
             return $resultado->comIncremento('pendentes');
+        } catch (NfeDestinatarioDivergenteException $e) {
+            $this->ignorarPorDestinatario($pendente->sdp_chave_acesso, $e);
+            $pendente->delete();
+
+            return $resultado->comIncremento('puladas');
         } catch (SefazIndisponivelException|NfeXmlInvalidoException|ValidationException $e) {
             Log::channel('sefaz')->warning("Polling: erro reprocessando pendente {$pendente->sdp_chave_acesso} — {$e->getMessage()}");
 
             return $resultado->comIncremento('erros');
+        } catch (QueryException $e) {
+            Log::channel('sefaz')->warning("Polling: erro pontual de banco reprocessando pendente {$pendente->sdp_chave_acesso} — {$e->getMessage()}");
+
+            return $resultado->comIncremento('erros');
         }
+    }
+
+    /**
+     * Nota cujo destinatário não é a empresa (somos transportador/autXML):
+     * marca a da caixa de entrada como ignorada e registra o motivo no log,
+     * para não ser reprocessada a cada polling.
+     */
+    private function ignorarPorDestinatario(string $chave, NfeDestinatarioDivergenteException $e): void
+    {
+        SefazNotaRecebida::where('snr_chave_acesso', $chave)
+            ->where('snr_status', SefazNotaRecebidaStatusEnum::PENDENTE)
+            ->update(['snr_status' => SefazNotaRecebidaStatusEnum::IGNORADA]);
+
+        Log::channel('sefaz')->info("Polling: nota {$chave} ignorada — ".collect($e->errors())->flatten()->first());
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Compras\RelationManagers;
 
 use App\Enums\MovimentacaoOrigemEnum;
+use App\Enums\OperacaoEntradaEnum;
 use App\Filament\Components\MarcaSelect;
 use App\Filament\Resources\Produtos\Schemas\ProdutoForm;
 use App\Filament\Support\CorrecaoEstoquePreview;
@@ -248,6 +249,19 @@ class ItensRelationManager extends RelationManager
                 TextColumn::make('ci_validade')
                     ->label('Validade')
                     ->date('d/m/Y')
+                    ->placeholder('—')
+                    ->toggleable(),
+
+                TextColumn::make('ci_cfop')
+                    ->label('CFOP')
+                    ->placeholder('—')
+                    ->toggleable(),
+
+                TextColumn::make('ci_operacao')
+                    ->label('Operação')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => OperacaoEntradaEnum::rotulo($state))
+                    ->color(fn (?string $state): string => OperacaoEntradaEnum::corDoValor($state))
                     ->placeholder('—')
                     ->toggleable(),
             ])

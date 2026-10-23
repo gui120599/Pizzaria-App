@@ -126,4 +126,43 @@ class NfeXmlParserTest extends TestCase
         $this->assertFalse($nfe->autorizacaoConfirmada);
         $this->assertCount(1, $nfe->itens);
     }
+
+    public function test_parseia_campos_fiscais_de_classificacao(): void
+    {
+        $nfe = (new NfeXmlParser)->parse(file_get_contents(base_path('tests/Fixtures/nfe-entrada/devolucao-fornecedor-nfref.xml')));
+
+        $this->assertSame(0, $nfe->tipoNf);
+        $this->assertSame(4, $nfe->finalidade);
+        $this->assertSame('Devolução de compra para comercialização', $nfe->naturezaOperacao);
+        $this->assertSame('11222333000181', $nfe->destinatarioDocumento);
+        $this->assertSame(['35261014200166000166550010000001011000001010'], $nfe->notasReferenciadas);
+        $this->assertCount(1, $nfe->pagamentos);
+        $this->assertTrue($nfe->pagamentos[0]->semPagamento());
+        $this->assertSame('5202', $nfe->itens[0]->cfop);
+        $this->assertSame('102', $nfe->itens[0]->cstCsosn);
+    }
+
+    public function test_parseia_duplicatas_e_pagamentos(): void
+    {
+        $nfe = (new NfeXmlParser)->parse(file_get_contents(base_path('tests/Fixtures/nfe-entrada/venda-5102-duplicatas.xml')));
+
+        $this->assertCount(2, $nfe->duplicatas);
+        $this->assertSame('001', $nfe->duplicatas[0]->numero);
+        $this->assertSame('2026-11-20', $nfe->duplicatas[0]->vencimento?->toDateString());
+        $this->assertEqualsWithDelta(60.0, $nfe->duplicatas[0]->valor, 0.001);
+        $this->assertSame('15', $nfe->pagamentos[0]->tipo);
+        $this->assertFalse($nfe->pagamentos[0]->semPagamento());
+    }
+
+    public function test_xml_antigo_sem_dest_nem_campos_fiscais_continua_parseando(): void
+    {
+        $nfe = (new NfeXmlParser)->parse($this->fixture('nfe-compra-exemplo.xml'));
+
+        $this->assertNull($nfe->destinatarioDocumento);
+        $this->assertNull($nfe->finalidade);
+        $this->assertSame([], $nfe->duplicatas);
+        $this->assertSame([], $nfe->pagamentos);
+        $this->assertSame('1102', $nfe->itens[0]->cfop);
+        $this->assertSame('00', $nfe->itens[0]->cstCsosn);
+    }
 }

@@ -6,6 +6,7 @@ use App\Enums\CompraStatusEnum;
 use App\Enums\PrestadorCategoriaEnum;
 use App\Enums\PrestadorTipoEnum;
 use App\Enums\SefazNotaRecebidaStatusEnum;
+use App\Exceptions\NfeDestinatarioDivergenteException;
 use App\Exceptions\NfeXmlInvalidoException;
 use App\Models\Compra;
 use App\Models\CompraItem;
@@ -13,6 +14,7 @@ use App\Models\FornecedorProduto;
 use App\Models\Prestador;
 use App\Models\Produto;
 use App\Models\SefazNotaRecebida;
+use App\Services\Compras\CompraFiscalService;
 use App\Services\CompraService;
 use App\Services\Nfe\Dto\NfeItem;
 use App\Services\Nfe\Dto\NfeParseada;
@@ -32,20 +34,25 @@ class NfeImportService
     public function __construct(
         private NfeXmlParser $parser,
         private CompraService $compras,
+        private CompraFiscalService $fiscal,
     ) {}
 
     /**
      * @throws ValidationException se a chave de acesso já foi importada antes
+     * @throws NfeDestinatarioDivergenteException se o destinatário da nota não for a empresa
      * @throws NfeXmlInvalidoException se o XML for inválido ou a nota não estiver autorizada
      */
     public function importar(string $xmlConteudo, ?int $userId = null): Compra
     {
         $nfe = $this->parser->parse($xmlConteudo);
 
+        $this->validarDestinatario($nfe);
+
         return DB::transaction(function () use ($nfe, $xmlConteudo, $userId) {
             $this->garantirNaoDuplicada($nfe->chaveAcesso);
 
             $prestador = $this->resolverFornecedor($nfe);
+            $classificacao = $this->fiscal->classificar($nfe, $prestador->id);
 
             $compra = Compra::create([
                 'compra_prestador_id' => $prestador->id,
@@ -62,9 +69,10 @@ class NfeImportService
                 'compra_origem' => 'xml',
                 'compra_observacao' => $nfe->avisos() ? implode(' ', $nfe->avisos()) : null,
                 'compra_user_id' => $userId,
+                ...$this->fiscal->atributosCompra($nfe, $classificacao),
             ]);
 
-            foreach ($nfe->itens as $item) {
+            foreach ($nfe->itens as $indice => $item) {
                 $dePara = $this->resolverDePara($prestador, $item);
 
                 CompraItem::create([
@@ -78,6 +86,7 @@ class NfeImportService
                     'ci_custo_unitario_compra' => $item->custoUnitarioLiquido(),
                     'ci_lote_codigo' => $item->loteCodigo,
                     'ci_validade' => $item->validade?->toDateString(),
+                    ...$this->fiscal->atributosItem($item, $classificacao->porItem[$indice]),
                 ]);
             }
 
@@ -104,13 +113,57 @@ class NfeImportService
             ]);
     }
 
+    /**
+     * Bloqueia a nota cujo destinatário (CNPJ/CPF) não é a empresa — a
+     * distribuição DFe também entrega notas em que somos só transportador ou
+     * autXML. Sem <dest> no XML ou sem CNPJ da empresa cadastrado, não há
+     * como comparar e a importação segue.
+     *
+     * @throws NfeDestinatarioDivergenteException
+     */
+    private function validarDestinatario(NfeParseada $nfe): void
+    {
+        $empresa = $this->fiscal->cnpjEmpresa();
+
+        if ($empresa === null || $nfe->destinatarioDocumento === null || $nfe->destinatarioDocumento === $empresa) {
+            return;
+        }
+
+        throw NfeDestinatarioDivergenteException::withMessages([
+            'destinatario' => 'Esta nota fiscal não é destinada à sua empresa (destinatário '
+                .$nfe->destinatarioDocumento.'). Confira se o XML é o correto.',
+        ]);
+    }
+
+    /**
+     * Barra chave já importada, inclusive a de compra excluída (o unique do
+     * banco vale para linhas com soft delete). Rascunho excluído é removido de
+     * vez para a nota poder ser importada de novo — o XML segue guardado em
+     * disco; compra excluída que não seja rascunho tem estoque/financeiro
+     * associados e precisa ser tratada, não reimportada.
+     */
     private function garantirNaoDuplicada(string $chave): void
     {
-        if (Compra::where('compra_chave_nfe', $chave)->exists()) {
+        $existente = Compra::withTrashed()->where('compra_chave_nfe', $chave)->first();
+
+        if ($existente === null) {
+            return;
+        }
+
+        if (! $existente->trashed()) {
             throw ValidationException::withMessages([
                 'compra_chave_nfe' => 'Esta nota fiscal já foi importada anteriormente.',
             ]);
         }
+
+        if (! $existente->isRascunho()) {
+            throw ValidationException::withMessages([
+                'compra_chave_nfe' => "Esta nota fiscal pertence à compra #{$existente->id}, já {$existente->compra_status->label()} e depois excluída. "
+                    .'Restaure a compra (filtro "Excluídos") em vez de importar de novo.',
+            ]);
+        }
+
+        $existente->forceDelete();
     }
 
     /** Reaproveita o fornecedor pelo CNPJ/CPF; cria um novo apenas se não existir. */
