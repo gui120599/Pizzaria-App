@@ -483,7 +483,16 @@ class ContabilizacaoFechamentoService
             ->get()
             ->sum(fn (MovimentacaoFinanceira $movimentacao): float => $movimentacao->valorComSinal());
 
-        $esperada = round((float) $fechamento->valor_troco_gaveta - (float) $sessao->sessaocaixa_saldo_inicial, 2);
+        // Sessão aberta antes da contabilização no razão: sangrias, suprimentos e fiado em
+        // dinheiro feitos então só existem no controle da sessão. O esperado conta esse
+        // dinheiro, o razão nunca o recebeu, e a conferência os tira da conta.
+        $foraDoRazao = $this->movimentoDeSessaoForaDoRazao($sessao);
+
+        if (abs($foraDoRazao) >= 0.01) {
+            $this->avisos[] = 'A sessão tem R$ '.number_format(abs($foraDoRazao), 2, ',', '.').' de '.($foraDoRazao < 0 ? 'saídas' : 'entradas').' em dinheiro feitas antes da contabilização no razão financeiro: esse valor não foi lançado nas contas.';
+        }
+
+        $esperada = round((float) $fechamento->valor_troco_gaveta - (float) $sessao->sessaocaixa_saldo_inicial - $foraDoRazao, 2);
 
         if (abs(round($variacao, 2) - $esperada) > 0.01) {
             throw new FinanceiroException(sprintf(
@@ -493,6 +502,32 @@ class ContabilizacaoFechamentoService
                 number_format($esperada, 2, ',', '.'),
             ));
         }
+    }
+
+    /**
+     * Dinheiro que o esperado da sessão conta mas o razão nunca recebeu: sangria,
+     * despesa e suprimento manuais sem movimentação financeira e fiado recebido
+     * em dinheiro sem conta (entradas positivas, saídas negativas).
+     */
+    private function movimentoDeSessaoForaDoRazao(SessaoCaixa $sessao): float
+    {
+        $manuais = MovimentacoesSessaoCaixa::query()
+            ->where('mov_sessaocaixa_id', $sessao->id)
+            ->whereNotNull('mov_motivo')
+            ->whereNull('movimentacao_financeira_id')
+            ->where(fn ($query) => $query->whereNull('mov_forma_pagamento')->orWhere('mov_forma_pagamento', FormaPagamento::Dinheiro->value))
+            ->get()
+            ->sum(fn (MovimentacoesSessaoCaixa $movimento): float => $movimento->mov_tipo === 'ENTRADA' ? (float) $movimento->mov_valor : -(float) $movimento->mov_valor);
+
+        $fiado = (float) DB::table('lancamento_pagamentos')
+            ->join('lancamentos', 'lancamentos.id', '=', 'lancamento_pagamentos.lancamento_id')
+            ->where('lancamento_pagamentos.sessao_caixa_id', $sessao->id)
+            ->where('lancamentos.tipo', TipoLancamento::Receber->value)
+            ->where('lancamento_pagamentos.forma_pagamento', FormaPagamento::Dinheiro->value)
+            ->whereNull('lancamento_pagamentos.conta_financeira_id')
+            ->sum('lancamento_pagamentos.valor');
+
+        return round($manuais + $fiado, 2);
     }
 
     /**
