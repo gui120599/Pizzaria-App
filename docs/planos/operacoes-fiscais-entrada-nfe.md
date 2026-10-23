@@ -1,7 +1,7 @@
 # Classificação da operação nas notas de entrada (NF-e) e seus efeitos em estoque e financeiro
 
 > Auditoria e plano de 23/10/2026, sobre o HEAD `ad8bce6d` (branch `prod-new`).
-> Status: **Fases 0 e 1 em implementação (commit a registrar abaixo)**. Fases 2 em diante aguardam as respostas da seção 11.
+> Status: **Fases 0 e 1 implementadas (commit b160f8bd)**. As Fases 2 em diante NÃO foram implementadas: aguardam as respostas da seção 11.
 > Este documento não é parecer tributário. Os pontos fiscais e contábeis marcados com ⚖️ precisam ser validados pelo contador.
 
 Legenda das afirmações:
