@@ -123,7 +123,7 @@ class RelatorioFechamentoCaixaService
     public function sessoes(): Collection
     {
         return $this->cache['sessoes'] ??= SessaoCaixa::query()
-            ->with(['caixa' => fn ($query) => $query->withTrashed(), 'user', 'maquininhas', 'fechamentoCaixa.maquininhas'])
+            ->with(['caixa' => fn ($query) => $query->withTrashed(), 'user', 'maquininhas', 'fechamentoCaixa.maquininhas', 'fechamentoCaixa.recolhimentoConta'])
             ->when(
                 $this->filtrandoPorSessao(),
                 fn ($query) => $query->whereIn('id', $this->sessoesSelecionadas()),
@@ -997,6 +997,25 @@ class RelatorioFechamentoCaixaService
      *
      * @return Collection<int, array{key: string, sessao_id: int, maquininha: string, sistema: float, leitura: float, diferenca: float, diferenca_debito: float, diferenca_credito: float, diferenca_pix: float}>
      */
+    /**
+     * Troco deixado na gaveta e dinheiro recolhido (e para qual conta) de cada
+     * sessão do recorte que já tem fechamento com troco informado.
+     *
+     * @return Collection<int, array{sessao_id: int, troco: float, recolhido: float, conta: ?string}>
+     */
+    public function trocoERecolhimento(): Collection
+    {
+        return $this->sessoes()
+            ->filter(fn (SessaoCaixa $sessao): bool => $sessao->fechamentoCaixa?->valor_troco_gaveta !== null)
+            ->map(fn (SessaoCaixa $sessao): array => [
+                'sessao_id' => $sessao->id,
+                'troco' => (float) $sessao->fechamentoCaixa->valor_troco_gaveta,
+                'recolhido' => (float) $sessao->fechamentoCaixa->valor_recolhido,
+                'conta' => $sessao->fechamentoCaixa->recolhimentoConta?->nome,
+            ])
+            ->values();
+    }
+
     public function conferenciaMaquininhas(): Collection
     {
         $nomes = Maquininha::withTrashed()->pluck('nome', 'id');

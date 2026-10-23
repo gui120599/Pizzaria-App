@@ -26,6 +26,10 @@ class FechamentoCaixa extends Model
         'total_esperado_outros',
         'total_esperado_pix_cnpj',
         'valor_pix_cnpj',
+        'valor_troco_gaveta',
+        'valor_recolhido',
+        'recolhimento_conta_id',
+        'recolhimento_transferencia_uuid',
         'confirmado_em',
         'observacoes',
     ];
@@ -41,6 +45,8 @@ class FechamentoCaixa extends Model
             'total_esperado_outros' => 'decimal:2',
             'total_esperado_pix_cnpj' => 'decimal:2',
             'valor_pix_cnpj' => 'decimal:2',
+            'valor_troco_gaveta' => 'decimal:2',
+            'valor_recolhido' => 'decimal:2',
             'confirmado_em' => 'datetime',
         ];
     }
@@ -48,6 +54,12 @@ class FechamentoCaixa extends Model
     public function sessaoCaixa(): BelongsTo
     {
         return $this->belongsTo(SessaoCaixa::class, 'sessao_caixa_id');
+    }
+
+    /** Conta para onde o dinheiro recolhido foi transferido do Caixa PDV. */
+    public function recolhimentoConta(): BelongsTo
+    {
+        return $this->belongsTo(ContaFinanceira::class, 'recolhimento_conta_id')->withTrashed();
     }
 
     public function user(): BelongsTo

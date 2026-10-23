@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\SessoesCaixa\Schemas;
 
 use App\Enums\StatusSessaoCaixa;
+use App\Filament\Components\ContaFinanceiraSelect;
 use App\Filament\Support\ContagemNotasSchema;
 use App\Filament\Support\MaquininhaQuickCreateForm;
+use App\Models\ContaFinanceira;
 use App\Models\NotaMoeda;
 use App\Models\SessaoCaixa;
 use App\Services\SessaoCaixaService;
@@ -12,6 +14,7 @@ use Closure;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
@@ -61,6 +64,21 @@ class SessaoCaixaForm
                         ->label('Saldo inicial (dinheiro)')
                         ->helperText('Calculado a partir da contagem de cédulas/moedas abaixo.')
                         ->state(fn (Get $get): string => 'R$ '.number_format(self::totalNotas($get('notas')), 2, ',', '.')),
+
+                    Text::make(fn (Get $get): string => self::avisoTroco($get('sessaocaixa_caixa_id'), self::totalNotas($get('notas'))))
+                        ->columnSpanFull()
+                        ->visible(fn (Get $get, ?SessaoCaixa $record): bool => ! ($record?->exists ?? false) && filled($get('sessaocaixa_caixa_id'))),
+
+                    ContaFinanceiraSelect::make('implantacao_conta_id')
+                        ->label('Troco inicial veio de qual conta?')
+                        ->semCaixaPdv()
+                        ->placeholder('Selecione a conta')
+                        ->helperText('Este caixa ainda não tem fechamento com troco: informe de onde saiu o dinheiro da abertura para ele entrar no Caixa PDV.')
+                        ->visible(fn (Get $get, ?SessaoCaixa $record): bool => self::pedeOrigemDoTrocoInicial($get, $record)),
+
+                    Toggle::make('implantacao_ajuste')
+                        ->label('Lançar como ajuste de implantação (sem conta de origem)')
+                        ->visible(fn (Get $get, ?SessaoCaixa $record): bool => self::pedeOrigemDoTrocoInicial($get, $record) && (auth()->user()?->hasRole('Admin') ?? false)),
 
                     Text::make(fn (SessaoCaixa $record): string => sprintf(
                         'Status: %s — Saldo final: R$ %s',
@@ -124,6 +142,35 @@ class SessaoCaixaForm
                         ->columnSpanFull(),
                 ]),
         ]);
+    }
+
+    /** Caixa sem fechamento anterior com troco e dinheiro contado: o troco inicial precisa de uma origem no razão. */
+    private static function pedeOrigemDoTrocoInicial(Get $get, ?SessaoCaixa $record): bool
+    {
+        return ! ($record?->exists ?? false)
+            && filled($get('sessaocaixa_caixa_id'))
+            && self::totalNotas($get('notas')) > 0
+            && ContaFinanceira::caixaPdv() !== null
+            && app(SessaoCaixaService::class)->trocoEsperadoNaAbertura((int) $get('sessaocaixa_caixa_id')) === null;
+    }
+
+    /** Compara o dinheiro contado com o troco que ficou do último fechamento deste caixa. */
+    private static function avisoTroco(mixed $caixaId, float $contado): string
+    {
+        $esperado = app(SessaoCaixaService::class)->trocoEsperadoNaAbertura((int) $caixaId);
+
+        if ($esperado === null) {
+            return '';
+        }
+
+        $moeda = fn (float $valor): string => 'R$ '.number_format($valor, 2, ',', '.');
+        $diferenca = round($contado - $esperado, 2);
+
+        if (abs($diferenca) < 0.01) {
+            return "Troco deixado no último fechamento: {$moeda($esperado)}. A contagem confere.";
+        }
+
+        return "Troco deixado no último fechamento: {$moeda($esperado)}. Diferença na contagem: ".($diferenca > 0 ? 'sobra' : 'falta')." de {$moeda(abs($diferenca))}, que será lançada no Caixa PDV ao abrir.";
     }
 
     /** Soma quantidade × valor da cédula pra cada linha de 'notas' — mesmo cálculo de SessaoCaixaService::finalizarAbertura(), só que ao vivo, no form. */

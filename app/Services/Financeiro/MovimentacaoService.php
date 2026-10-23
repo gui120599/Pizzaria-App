@@ -42,9 +42,12 @@ class MovimentacaoService
         array $vinculos = [],
         ?User $usuario = null,
         ?SessaoCaixa $sessao = null,
+        bool $validarSaldo = true,
+        bool $registrarNaSessao = true,
+        ?int $sessaoCaixaId = null,
     ): MovimentacaoFinanceira {
         return DB::transaction(fn (): MovimentacaoFinanceira => $this->movimentar(
-            $conta, TipoMovimentacao::Saida, $valor, $natureza, $data, $descricao, $vinculos, $usuario, $sessao,
+            $conta, TipoMovimentacao::Saida, $valor, $natureza, $data, $descricao, $vinculos, $usuario, $sessao, $registrarNaSessao, $validarSaldo, sessaoCaixaId: $sessaoCaixaId,
         ));
     }
 
@@ -67,9 +70,10 @@ class MovimentacaoService
         ?User $usuario = null,
         ?SessaoCaixa $sessao = null,
         bool $registrarNaSessao = true,
+        ?int $sessaoCaixaId = null,
     ): MovimentacaoFinanceira {
         return DB::transaction(fn (): MovimentacaoFinanceira => $this->movimentar(
-            $conta, TipoMovimentacao::Entrada, $valor, $natureza, $data, $descricao, $vinculos, $usuario, $sessao, $registrarNaSessao,
+            $conta, TipoMovimentacao::Entrada, $valor, $natureza, $data, $descricao, $vinculos, $usuario, $sessao, $registrarNaSessao, sessaoCaixaId: $sessaoCaixaId,
         ));
     }
 
@@ -94,6 +98,11 @@ class MovimentacaoService
      * nem afeta o DRE; se uma ponta for o Caixa PDV, vira sangria ou
      * suprimento na sessão.
      *
+     * Com `$tocarSessao` = false (recolhimento no fechamento, com a sessão já
+     * fechada) a sessão não ganha linha nova nem valida o dinheiro da gaveta;
+     * `$sessao` só fica registrada na movimentação, como referência. Com
+     * `$validarSaldo` = false a saída também não confere o saldo da origem.
+     *
      * @return array{saida: MovimentacaoFinanceira, entrada: MovimentacaoFinanceira}
      *
      * @throws FinanceiroException
@@ -106,6 +115,8 @@ class MovimentacaoService
         ?string $descricao,
         User $usuario,
         ?SessaoCaixa $sessao = null,
+        bool $tocarSessao = true,
+        bool $validarSaldo = true,
     ): array {
         if ($origem->is($destino)) {
             throw new FinanceiroException('Escolha contas diferentes para a transferência.');
@@ -113,14 +124,21 @@ class MovimentacaoService
 
         $descricao = filled($descricao) ? trim($descricao) : "Transferência {$origem->nome} → {$destino->nome}";
 
-        return DB::transaction(function () use ($origem, $destino, $valor, $data, $descricao, $usuario, $sessao): array {
+        return DB::transaction(function () use ($origem, $destino, $valor, $data, $descricao, $usuario, $sessao, $tocarSessao, $validarSaldo): array {
             // Lock das duas pontas em ordem de id, para duas transferências cruzadas não travarem uma à outra.
             ContaFinanceira::query()->whereKey([$origem->id, $destino->id])->orderBy('id')->lockForUpdate()->get();
 
             $uuid = (string) Str::uuid();
 
+            if (! $tocarSessao) {
+                return [
+                    'saida' => $this->movimentar($origem, TipoMovimentacao::Saida, $valor, NaturezaMovimentacao::Transferencia, $data, $descricao, [], $usuario, registrarNaSessao: false, validarSaldo: $validarSaldo && ! $origem->ehCaixaPdv(), transferenciaUuid: $uuid, sessaoCaixaId: $sessao?->id),
+                    'entrada' => $this->movimentar($destino, TipoMovimentacao::Entrada, $valor, NaturezaMovimentacao::Transferencia, $data, $descricao, [], $usuario, registrarNaSessao: false, transferenciaUuid: $uuid, sessaoCaixaId: $sessao?->id),
+                ];
+            }
+
             return [
-                'saida' => $this->movimentar($origem, TipoMovimentacao::Saida, $valor, NaturezaMovimentacao::Transferencia, $data, $descricao, [], $usuario, $sessao, transferenciaUuid: $uuid),
+                'saida' => $this->movimentar($origem, TipoMovimentacao::Saida, $valor, NaturezaMovimentacao::Transferencia, $data, $descricao, [], $usuario, $sessao, validarSaldo: $validarSaldo, transferenciaUuid: $uuid),
                 'entrada' => $this->movimentar($destino, TipoMovimentacao::Entrada, $valor, NaturezaMovimentacao::Transferencia, $data, $descricao, [], $usuario, $sessao, transferenciaUuid: $uuid),
             ];
         });

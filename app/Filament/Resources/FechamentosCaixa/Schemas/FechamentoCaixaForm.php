@@ -2,15 +2,20 @@
 
 namespace App\Filament\Resources\FechamentosCaixa\Schemas;
 
+use App\Filament\Components\ContaFinanceiraSelect;
 use App\Filament\Support\ContagemNotasSchema;
 use App\Filament\Support\MaquininhaQuickCreateForm;
 use App\Models\FechamentoCaixa;
+use App\Models\NotaMoeda;
 use App\Models\SessaoCaixa;
 use App\Models\SessaoCaixaMaquininha;
 use Closure;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
@@ -42,7 +47,10 @@ class FechamentoCaixaForm
                         // (ver SessaoCaixaMaquininha) — o carryover por categoria fica só
                         // consultado (ver totalPorCategoria em FechamentoCaixa), não é
                         // mais copiado/editável aqui.
-                        ->afterStateUpdated(fn (Set $set, mixed $state) => $set('maquininhas', self::maquininhasDaAbertura($state)))
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $set('maquininhas', self::maquininhasDaAbertura($state));
+                            $set('valor_troco_gaveta', self::trocoSugerido($state));
+                        })
                         ->disabled(fn (?FechamentoCaixa $record): bool => $record?->exists ?? false)
                         ->dehydrated(),
 
@@ -95,6 +103,25 @@ class FechamentoCaixaForm
                         ->label('Total recebido no extrato')
                         ->minValue(0)
                         ->default(0),
+                ]),
+
+            Section::make('Troco e recolhimento')
+                ->columnSpanFull()
+                ->description('O troco sempre fica na gaveta para o próximo turno; o resto do dinheiro contado é recolhido para uma conta na confirmação.')
+                ->columns(3)
+                ->schema([
+                    Money::make('valor_troco_gaveta')
+                        ->label('Troco que fica no caixa')
+                        ->minValue(0)
+                        ->required()
+                        ->suffixAction(self::acaoContarTroco()),
+                    Text::make(fn (?FechamentoCaixa $record): string => self::resumoRecolhimento($record))
+                        ->visible(fn (?FechamentoCaixa $record): bool => $record?->exists ?? false),
+                    ContaFinanceiraSelect::make('recolhimento_conta_id')
+                        ->label('Recolher para')
+                        ->semCaixaPdv()
+                        ->placeholder('Selecione a conta')
+                        ->helperText('Obrigatório quando sobra dinheiro além do troco.'),
                 ]),
 
             Section::make('Conferência')
@@ -155,6 +182,65 @@ class FechamentoCaixaForm
                             : sprintf('%s R$ %s', $sinal, number_format(abs($valor), 2, ',', '.'));
                     }),
             ]);
+    }
+
+    /**
+     * Conta as cédulas/moedas que ficam na gaveta e usa o total como troco:
+     * a abertura seguinte conta as mesmas notas. A contagem só define o valor
+     * (não é persistida): o troco gravado é sempre o campo ao lado.
+     */
+    private static function acaoContarTroco(): Action
+    {
+        return Action::make('contarTroco')
+            ->label('Contar notas')
+            ->icon('heroicon-m-calculator')
+            ->modalHeading('Contar o troco que fica no caixa')
+            ->modalSubmitActionLabel('Usar este valor')
+            ->fillForm(fn (): array => ['notas' => NotaMoeda::ordenadas()->get()->map(fn (NotaMoeda $nota): array => [
+                'nota_moeda_id' => $nota->id,
+                'descricao' => $nota->descricao,
+                'quantidade' => 0,
+            ])->all()])
+            ->schema([
+                Repeater::make('notas')
+                    ->label('')
+                    ->schema([
+                        Hidden::make('nota_moeda_id'),
+                        TextInput::make('descricao')->label('Cédula/Moeda')->disabled()->dehydrated(),
+                        TextInput::make('quantidade')->label('Quantidade')->numeric()->integer()->minValue(0)->default(0)->required(),
+                    ])
+                    ->columns(2)
+                    ->addable(false)
+                    ->deletable(false)
+                    ->reorderable(false),
+            ])
+            ->action(function (array $data, Set $set): void {
+                $valores = NotaMoeda::query()->pluck('valor', 'id');
+                $total = collect($data['notas'] ?? [])->sum(fn (array $nota): float => (int) ($nota['quantidade'] ?? 0) * (float) ($valores[$nota['nota_moeda_id']] ?? 0));
+
+                $set('valor_troco_gaveta', number_format($total, 2, ',', '.'));
+            });
+    }
+
+    /** Troco padrão do caixa físico da sessão ou, sem ele, o saldo com que o caixa abriu. */
+    private static function trocoSugerido(mixed $sessaoCaixaId): string
+    {
+        $sessao = $sessaoCaixaId ? SessaoCaixa::query()->with('caixa')->find($sessaoCaixaId) : null;
+        $troco = $sessao?->caixa?->caixa_troco_padrao ?? $sessao?->sessaocaixa_saldo_inicial ?? 0;
+
+        return number_format((float) $troco, 2, ',', '.');
+    }
+
+    /** Quanto será recolhido: dinheiro contado menos o troco salvo (nunca digitado). */
+    private static function resumoRecolhimento(?FechamentoCaixa $record): string
+    {
+        if ($record === null || $record->valor_troco_gaveta === null) {
+            return 'Valor recolhido: salve o troco para ver o valor.';
+        }
+
+        $recolhido = round($record->totalDinheiroContado - (float) $record->valor_troco_gaveta, 2);
+
+        return 'Valor recolhido: R$ '.number_format($recolhido, 2, ',', '.').' (dinheiro contado R$ '.number_format($record->totalDinheiroContado, 2, ',', '.').' menos o troco).';
     }
 
     /** Maquininhas usadas na abertura da sessão — só a maquininha em si, o carryover fica só consultado. */

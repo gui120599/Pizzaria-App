@@ -35,6 +35,7 @@ class RelatorioFechamentoCaixaController extends Controller
             'movimentacoes' => $service->movimentacoes(),
             'conferencia' => $service->conferencia(),
             'conferenciaMaquininhas' => $service->conferenciaMaquininhas(),
+            'trocoRecolhimento' => $service->trocoERecolhimento(),
             'geradoEm' => now(),
             'geradoPor' => $request->user()?->name ?? 'Sistema',
         ]);

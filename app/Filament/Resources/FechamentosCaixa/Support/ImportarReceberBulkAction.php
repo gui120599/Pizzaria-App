@@ -2,56 +2,55 @@
 
 namespace App\Filament\Resources\FechamentosCaixa\Support;
 
+use App\Exceptions\FinanceiroException;
 use App\Models\FechamentoCaixa;
-use App\Services\ImportacaoCaixaReceberService;
+use App\Services\Financeiro\ContabilizacaoFechamentoService;
 use Filament\Actions\BulkAction;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Importa em lote a receita de vendas dos fechamentos Confirmados selecionados
- * pro Contas a Receber — útil pra backfill de vários fechamentos confirmados
- * antes desta feature existir. Cada sessão roda numa transação independente
- * (ImportacaoCaixaReceberService::importar); a falha de uma não impede as
- * demais, mesmo padrão de ImportarXmlAction.
+ * Contabiliza em lote os fechamentos Confirmados selecionados. Cada sessão
+ * roda numa transação independente (ContabilizacaoFechamentoService::contabilizar);
+ * a falha de uma não impede as demais.
  */
 class ImportarReceberBulkAction
 {
     public static function make(string $name = 'importarReceberBulk'): BulkAction
     {
         return BulkAction::make($name)
-            ->label('Importar p/ Contas a Receber')
+            ->label('Contabilizar nas contas')
             ->icon('heroicon-o-banknotes')
             ->color('success')
             ->requiresConfirmation()
-            ->modalHeading('Importar sessões selecionadas para o Contas a Receber')
-            ->modalDescription('Sessões já importadas, não confirmadas ou sem receita de vendas são ignoradas.')
+            ->modalHeading('Contabilizar sessões selecionadas')
+            ->modalDescription('Sessões já contabilizadas, não confirmadas ou sem receita de vendas são ignoradas.')
             ->deselectRecordsAfterCompletion()
-            ->action(function (Collection $records, ImportacaoCaixaReceberService $service): void {
-                $importados = 0;
+            ->action(function (Collection $records, ContabilizacaoFechamentoService $service): void {
+                $contabilizados = 0;
                 $ignorados = 0;
                 $falhas = [];
 
                 /** @var FechamentoCaixa $record */
                 foreach ($records as $record) {
-                    if (! $service->podeImportar($record->sessaoCaixa)) {
+                    if (! $service->podeContabilizar($record->sessaoCaixa)) {
                         $ignorados++;
 
                         continue;
                     }
 
                     try {
-                        $service->importar($record->sessaoCaixa);
-                        $importados++;
-                    } catch (ValidationException $e) {
-                        $falhas[] = "Sessão #{$record->sessao_caixa_id}: ".collect($e->errors())->flatten()->first();
+                        $service->contabilizar($record->sessaoCaixa);
+                        $contabilizados++;
+                    } catch (ValidationException|FinanceiroException $e) {
+                        $falhas[] = "Sessão #{$record->sessao_caixa_id}: ".($e instanceof ValidationException ? collect($e->errors())->flatten()->first() : $e->getMessage());
                     }
                 }
 
-                if ($importados > 0) {
+                if ($contabilizados > 0) {
                     Notification::make()
-                        ->title($importados.' sessão(ões) importada(s)')
+                        ->title($contabilizados.' sessão(ões) contabilizada(s)')
                         ->success()
                         ->send();
                 }
@@ -59,14 +58,14 @@ class ImportarReceberBulkAction
                 if ($ignorados > 0 && $falhas === []) {
                     Notification::make()
                         ->title($ignorados.' sessão(ões) ignorada(s)')
-                        ->body('Já importadas, sem fechamento confirmado ou sem receita de vendas.')
+                        ->body('Já contabilizadas, sem fechamento confirmado ou sem receita de vendas.')
                         ->warning()
                         ->send();
                 }
 
                 if ($falhas !== []) {
                     Notification::make()
-                        ->title(count($falhas).' sessão(ões) não importada(s)')
+                        ->title(count($falhas).' sessão(ões) não contabilizada(s)')
                         ->body(implode(' | ', $falhas))
                         ->danger()
                         ->persistent()

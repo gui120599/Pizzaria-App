@@ -2,40 +2,40 @@
 
 namespace App\Filament\Resources\FechamentosCaixa\Support;
 
+use App\Exceptions\FinanceiroException;
 use App\Models\FechamentoCaixa;
-use App\Services\ImportacaoCaixaReceberService;
+use App\Services\Financeiro\ContabilizacaoFechamentoService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Importa a receita de vendas desta sessão (fechamento Confirmado) pro Contas
- * a Receber — 1 lançamento por opção de pagamento, já Pago. Visível só quando
- * ainda não importado (cobre tanto o fluxo normal, onde ConfirmarFechamentoAction
- * já importa automaticamente ao confirmar, quanto o backfill de fechamentos
- * confirmados antes desta feature existir).
+ * Contabiliza uma sessão com fechamento Confirmado que ainda não foi
+ * contabilizada (backfill de fechamentos confirmados antes da contabilização
+ * nas contas existir). No fluxo normal quem contabiliza é a confirmação
+ * (ConfirmarFechamentoAction). Sem recolhimento: o dinheiro já foi tratado.
  */
 class ImportarReceberAction
 {
     public static function make(string $name = 'importarReceber'): Action
     {
         return Action::make($name)
-            ->label('Importar p/ Contas a Receber')
+            ->label('Contabilizar nas contas')
             ->icon('heroicon-o-banknotes')
             ->color('success')
             ->visible(fn (FechamentoCaixa $record): bool => auth()->user()?->can('importarReceber', $record)
-                && app(ImportacaoCaixaReceberService::class)->podeImportar($record->sessaoCaixa))
+                && app(ContabilizacaoFechamentoService::class)->podeContabilizar($record->sessaoCaixa))
             ->requiresConfirmation()
-            ->modalHeading('Importar sessão para o Contas a Receber')
-            ->modalDescription('Gera um lançamento a receber (já Pago) por opção de pagamento com receita de vendas nesta sessão.')
-            ->modalSubmitActionLabel('Importar')
-            ->action(function (FechamentoCaixa $record, ImportacaoCaixaReceberService $service, Action $action): void {
+            ->modalHeading('Contabilizar sessão nas contas financeiras')
+            ->modalDescription('Gera os títulos a receber da sessão e lança o dinheiro e o Pix nas contas; cartão e Pix de maquininha viram recebíveis pendentes até a data de repasse.')
+            ->modalSubmitActionLabel('Contabilizar')
+            ->action(function (FechamentoCaixa $record, ContabilizacaoFechamentoService $service, Action $action): void {
                 try {
-                    $lancamentos = $service->importar($record->sessaoCaixa);
-                } catch (ValidationException $e) {
+                    $lancamentos = $service->contabilizar($record->sessaoCaixa);
+                } catch (ValidationException|FinanceiroException $e) {
                     Notification::make()
-                        ->title('Não foi possível importar')
-                        ->body(collect($e->errors())->flatten()->first())
+                        ->title('Não foi possível contabilizar')
+                        ->body($e instanceof ValidationException ? collect($e->errors())->flatten()->first() : $e->getMessage())
                         ->danger()
                         ->send();
 
@@ -45,7 +45,7 @@ class ImportarReceberAction
                 }
 
                 Notification::make()
-                    ->title($lancamentos->count().' lançamento(s) gerado(s) no Contas a Receber')
+                    ->title($lancamentos->count().' título(s) gerado(s)')
                     ->success()
                     ->send();
             });

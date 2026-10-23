@@ -3,6 +3,7 @@
 namespace App\Filament\Support;
 
 use App\Enums\OperadoraMaquininha;
+use App\Filament\Components\ContaFinanceiraSelect;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -28,6 +29,11 @@ final class MaquininhaQuickCreateForm
             TextInput::make('numero_serie')
                 ->label('Número de série')
                 ->maxLength(255),
+            ContaFinanceiraSelect::make('conta_financeira_id')
+                ->label('Conta onde cai o dinheiro')
+                ->semCaixaPdv()
+                ->placeholder('Selecione a conta')
+                ->helperText('Conta em que a adquirente liquida os recebimentos desta maquininha. Sem ela, o fechamento de caixa não é confirmado.'),
             Toggle::make('maquininha_padrao')
                 ->label('Maquininha padrão')
                 ->helperText('Usada para achar a taxa quando o pagamento não informa a maquininha.'),

@@ -469,6 +469,32 @@
             </table>
         </div>
 
+        @if ($trocoRecolhimento->isNotEmpty())
+            <div class="secao">
+                <h2 class="text-sm font-bold border-b border-gray-300 pb-1 mb-3">Troco e recolhimento</h2>
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="border p-1 text-left">Sessão</th>
+                            <th class="border p-1 text-right">Troco que ficou no caixa</th>
+                            <th class="border p-1 text-right">Dinheiro recolhido</th>
+                            <th class="border p-1 text-left">Recolhido para</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($trocoRecolhimento as $linha)
+                            <tr>
+                                <td class="border p-1">#{{ $linha['sessao_id'] }}</td>
+                                <td class="border p-1 text-right">{{ $brl($linha['troco']) }}</td>
+                                <td class="border p-1 text-right">{{ $brl($linha['recolhido']) }}</td>
+                                <td class="border p-1">{{ $linha['conta'] ?? '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+
         @if ($conferenciaMaquininhas->isNotEmpty())
             <div class="secao">
                 <h2 class="text-sm font-bold border-b border-gray-300 pb-1 mb-3">Conferência das maquininhas</h2>

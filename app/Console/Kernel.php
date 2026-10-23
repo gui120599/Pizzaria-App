@@ -53,6 +53,13 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // Cartão/Pix de maquininha entra no extrato da conta só na data de repasse:
+        // liquida os recebíveis vencidos e lança a taxa (ver LiquidacaoRecebiveisService).
+        $schedule->command('financeiro:liquidar-recebiveis')
+            ->dailyAt('06:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // Execuções pendentes de checklist do dia operacional — logo após a
         // virada do dia (config checklists.virada_dia), não à meia-noite: o
         // fechamento feito de madrugada ainda pertence ao dia anterior.

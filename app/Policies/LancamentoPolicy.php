@@ -95,4 +95,20 @@ class LancamentoPolicy
     {
         return $authUser->can('approve:lancamento');
     }
+
+    /**
+     * Liquidar o recebível de maquininha na data de repasse (ver
+     * LiquidacaoRecebiveisService). Métodos customizados, como os de
+     * FechamentoCaixaPolicy: `shield:generate` exige `--ignore-existing-policies`.
+     */
+    public function liquidarRecebivel(AuthUser $authUser, Lancamento $lancamento): bool
+    {
+        return $authUser->can('liquidar_recebivel:lancamento');
+    }
+
+    /** Marcar a baixa como conferida com o extrato da adquirente. */
+    public function conciliar(AuthUser $authUser, Lancamento $lancamento): bool
+    {
+        return $authUser->can('conciliar:lancamento');
+    }
 }

@@ -7,6 +7,7 @@ use App\Filament\Widgets\FaturamentoPorTipoEntregaChart;
 use App\Filament\Widgets\FinanceiroStatsOverview;
 use App\Filament\Widgets\FormasPagamentoChart;
 use App\Filament\Widgets\ProdutosVendidosPorPeriodoChart;
+use App\Filament\Widgets\RecebiveisAdquirentesWidget;
 use App\Filament\Widgets\SaldosContasWidget;
 use App\Filament\Widgets\TopProdutosVendidos;
 use App\Models\Categoria;
@@ -100,6 +101,7 @@ class FinanceiroDashboard extends BaseDashboard
     {
         return [
             SaldosContasWidget::class,
+            RecebiveisAdquirentesWidget::class,
             FinanceiroStatsOverview::class,
             FaturamentoPorDiaChart::class,
             ProdutosVendidosPorPeriodoChart::class,

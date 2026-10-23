@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\OperadoraMaquininha;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,7 @@ class Maquininha extends Model
         'numero_serie',
         'identificador_externo',
         'maquininha_padrao',
+        'conta_financeira_id',
     ];
 
     protected function casts(): array
@@ -39,6 +41,12 @@ class Maquininha extends Model
                 static::whereKeyNot($maquininha->getKey())->where('maquininha_padrao', true)->update(['maquininha_padrao' => false]);
             }
         });
+    }
+
+    /** Conta onde a adquirente liquida os recebíveis desta maquininha. */
+    public function contaFinanceira(): BelongsTo
+    {
+        return $this->belongsTo(ContaFinanceira::class, 'conta_financeira_id')->withTrashed();
     }
 
     public function taxas(): HasMany

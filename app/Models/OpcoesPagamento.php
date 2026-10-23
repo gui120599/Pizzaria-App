@@ -22,6 +22,7 @@ class OpcoesPagamento extends Model
         'opcaopag_desc_nfe',
         'opcaopag_envio_automatico_nfe',
         'plano_receita_id',
+        'conta_financeira_id',
         'opcaopag_valor_percentual_taxa',
         'opcaopag_requer_bandeira',
         'opcaopag_requer_autorizacao',
@@ -87,12 +88,18 @@ class OpcoesPagamento extends Model
 
     /**
      * Conta do plano de receita que classifica o dinheiro recebido nesta opção
-     * de pagamento — usada por App\Services\ImportacaoCaixaReceberService pra
+     * de pagamento — usada por App\Services\Financeiro\ContabilizacaoFechamentoService pra
      * decidir em qual conta cai o lançamento gerado da sessão de caixa.
      */
     public function planoReceita()
     {
         return $this->belongsTo(PlanoReceita::class, 'plano_receita_id');
+    }
+
+    /** Conta onde cai o dinheiro das formas sem maquininha (PIX CNPJ, vales); dinheiro vai sempre para o Caixa PDV. */
+    public function contaFinanceira()
+    {
+        return $this->belongsTo(ContaFinanceira::class, 'conta_financeira_id')->withTrashed();
     }
 
     /** Forma de pagamento que dispara o fluxo integrado de maquininha Stone no PDV. */
