@@ -14,8 +14,10 @@ use App\Models\Maquininha;
 use App\Models\PlanoDespesa;
 use App\Models\PlanoReceita;
 use App\Models\Prestador;
+use App\Services\Financeiro\LiquidacaoRecebiveisService;
 use Closure;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -39,6 +41,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -138,6 +141,8 @@ class LancamentosTable
             ->persistSearchInSession()
             ->recordActions([
                 self::acaoMarcarComoPago(),
+                self::acaoLiquidarRecebivel(),
+                self::acaoConciliar(),
                 self::acaoEstornarPagamento(),
                 self::acaoCompensar(),
                 EditAction::make()
@@ -147,6 +152,7 @@ class LancamentosTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    self::acaoLiquidarRecebiveisEmLote(),
                     DeleteBulkAction::make(),
                 ]),
             ]);
@@ -463,6 +469,7 @@ class LancamentosTable
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
             ->visible(fn (Lancamento $record): bool => in_array($record->status, [StatusLancamento::Pendente, StatusLancamento::Parcial], true)
+                && $record->maquininha_id === null
                 && auth()->user()->can('markAsPaid', $record))
             ->modalHeading('Registrar pagamento')
             ->modalDescription('Pode registrar mais de um pagamento de uma vez (ex.: parcial + complemento).')
@@ -593,6 +600,104 @@ class LancamentosTable
             });
     }
 
+    /** Liquida na data de repasse o recebível de maquininha: entrada do bruto e taxa como despesa. */
+    protected static function acaoLiquidarRecebivel(): Action
+    {
+        return Action::make('liquidarRecebivel')
+            ->label('Liquidar agora')
+            ->icon(Heroicon::OutlinedBanknotes)
+            ->color('success')
+            ->visible(fn (Lancamento $record): bool => $record->maquininha_id !== null
+                && $record->status === StatusLancamento::Pendente
+                && auth()->user()->can('liquidarRecebivel', $record))
+            ->modalHeading('Liquidar recebível da maquininha')
+            ->modalDescription(fn (Lancamento $record): string => 'Lança o valor bruto na conta da maquininha e a taxa prevista (R$ '
+                .number_format((float) $record->taxa_adquirente, 2, ',', '.').') como despesa.')
+            ->modalSubmitActionLabel('Liquidar')
+            ->schema([
+                DatePicker::make('data')
+                    ->label('Data do repasse')
+                    ->native(false)
+                    ->displayFormat('d/m/Y')
+                    ->maxDate(now())
+                    ->default(fn (Lancamento $record): string => min($record->vencimento->toDateString(), today()->toDateString()))
+                    ->required(),
+                Money::make('valor_liquido')
+                    ->label('Valor líquido recebido (opcional)')
+                    ->helperText('Se a adquirente creditou valor diferente do previsto, informe: a taxa é ajustada pela diferença.')
+                    ->initialValue(null),
+            ])
+            ->action(function (Lancamento $record, array $data, Action $action): void {
+                try {
+                    app(LiquidacaoRecebiveisService::class)->liquidar(
+                        $record,
+                        Carbon::parse($data['data']),
+                        filled($data['valor_liquido'] ?? null) && self::normalizeMoney($data['valor_liquido']) > 0 ? self::normalizeMoney($data['valor_liquido']) : null,
+                    );
+                } catch (FinanceiroException $e) {
+                    Notification::make()->title('Recebível não liquidado')->body($e->getMessage())->danger()->send();
+                    $action->halt();
+
+                    return;
+                }
+
+                Notification::make()->title('Recebível liquidado!')->success()->send();
+            });
+    }
+
+    protected static function acaoLiquidarRecebiveisEmLote(): BulkAction
+    {
+        return BulkAction::make('liquidarRecebiveis')
+            ->label('Liquidar recebíveis')
+            ->icon(Heroicon::OutlinedBanknotes)
+            ->color('success')
+            ->visible(fn (): bool => auth()->user()->can('liquidar_recebivel:lancamento'))
+            ->requiresConfirmation()
+            ->modalDescription('Liquida na data de vencimento os recebíveis de maquininha selecionados que ainda estão pendentes e já venceram.')
+            ->deselectRecordsAfterCompletion()
+            ->action(function (Collection $records): void {
+                $liquidados = 0;
+                $falhas = [];
+
+                foreach ($records as $record) {
+                    if ($record->maquininha_id === null || $record->status !== StatusLancamento::Pendente || $record->vencimento->isFuture()) {
+                        continue;
+                    }
+
+                    try {
+                        app(LiquidacaoRecebiveisService::class)->liquidar($record);
+                        $liquidados++;
+                    } catch (FinanceiroException $e) {
+                        $falhas[] = "#{$record->id}: {$e->getMessage()}";
+                    }
+                }
+
+                Notification::make()->title("{$liquidados} recebível(is) liquidado(s)")->success()->send();
+
+                if ($falhas !== []) {
+                    Notification::make()->title('Alguns não foram liquidados')->body(implode(' | ', $falhas))->danger()->persistent()->send();
+                }
+            });
+    }
+
+    /** Marca (ou desmarca) a baixa do recebível como conferida com o extrato da adquirente. */
+    protected static function acaoConciliar(): Action
+    {
+        return Action::make('conciliar')
+            ->label(fn (Lancamento $record): string => $record->pagamentos->first()?->conciliado_em ? 'Desmarcar conciliação' : 'Marcar conciliado')
+            ->icon(Heroicon::OutlinedCheckBadge)
+            ->color('gray')
+            ->visible(fn (Lancamento $record): bool => $record->maquininha_id !== null
+                && $record->status === StatusLancamento::Pago
+                && auth()->user()->can('conciliar', $record))
+            ->requiresConfirmation()
+            ->action(function (Lancamento $record): void {
+                app(LiquidacaoRecebiveisService::class)->conciliar($record, $record->pagamentos->first()?->conciliado_em === null);
+
+                Notification::make()->title('Conciliação atualizada')->success()->send();
+            });
+    }
+
     /** O Select entrega o enum, mas durante o preenchimento o estado pode vir como string. */
     private static function forma(mixed $estado): ?FormaPagamento
     {
@@ -638,7 +743,9 @@ class LancamentosTable
             ->modalSubmitActionLabel('Confirmar estorno')
             ->action(function (Lancamento $record): void {
                 try {
-                    $record->estornarPagamento('Estorno no contas a pagar/receber');
+                    $record->maquininha_id !== null
+                        ? app(LiquidacaoRecebiveisService::class)->estornarLiquidacao($record, 'Estorno no contas a pagar/receber')
+                        : $record->estornarPagamento('Estorno no contas a pagar/receber');
                 } catch (FinanceiroException $e) {
                     Notification::make()->title('Estorno não feito')->body($e->getMessage())->danger()->send();
 

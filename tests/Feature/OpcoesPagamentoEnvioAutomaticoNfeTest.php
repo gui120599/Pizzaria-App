@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\OpcoesPagamento\Pages\ManageOpcoesPagamento;
 use App\Models\OpcoesPagamento;
+use App\Models\PlanoReceita;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -24,6 +25,7 @@ class OpcoesPagamentoEnvioAutomaticoNfeTest extends TestCase
                 'opcaopag_tipo_taxa' => 'N/A',
                 'opcaopag_valor_percentual_taxa' => 0,
                 'opcaopag_envio_automatico_nfe' => true,
+                'plano_receita_id' => PlanoReceita::create(['nome' => 'Balcão'])->id,
             ])
             ->assertHasNoTableActionErrors()
             ->assertTableColumnExists('opcaopag_envio_automatico_nfe');

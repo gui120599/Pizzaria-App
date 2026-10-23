@@ -8,6 +8,7 @@ use App\Enums\FormaTrocoEnum;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\EstoqueInsuficienteException;
+use App\Exceptions\FinanceiroException;
 use App\Exceptions\ItemNaoDivisivelException;
 use App\Exceptions\NfeIoException;
 use App\Exceptions\StoneConnectException;
@@ -35,6 +36,7 @@ use App\Services\DebitosClienteService;
 use App\Services\DivisaoItemPedidoService;
 use App\Services\EstoqueService;
 use App\Services\FinalizacaoVendaService;
+use App\Services\Financeiro\RecebimentoFiadoService;
 use App\Services\LancamentoItensVendaService;
 use App\Services\Nfe\EmissaoNfeAutomaticaService;
 use App\Services\NfeIoService;
@@ -2397,7 +2399,12 @@ class OperarVenda extends Page
         $this->maquininhaRecebimentoId = null;
     }
 
-    /** Registra um recebimento (parcial ou total) de um título fiado, reaproveitando Lancamento::registrarPagamento(). */
+    /**
+     * Registra um recebimento (parcial ou total) de um título fiado. Já entra
+     * no razão (RecebimentoFiadoService): dinheiro no Caixa PDV, cartão/Pix de
+     * maquininha na conta da maquininha com a taxa como despesa, PIX CNPJ na
+     * conta da opção.
+     */
     public function confirmarRecebimento(): void
     {
         $lancamento = Lancamento::find($this->lancamentoRecebimentoId);
@@ -2408,15 +2415,22 @@ class OperarVenda extends Page
         $forma = $this->formaRecebimento ? FormaPagamento::tryFrom($this->formaRecebimento) : null;
         $ehCartao = in_array($forma, [FormaPagamento::CartaoCredito, FormaPagamento::CartaoDebito], true);
 
-        $lancamento->registrarPagamento(
-            valor: $this->valorRecebimento,
-            forma: $forma,
-            observacoes: filled($this->observacaoRecebimento) ? trim($this->observacaoRecebimento) : null,
-            sessaoCaixaId: $this->sessaoCaixaId,
-            cartaoId: $ehCartao ? $this->cartaoRecebimentoId : null,
-            numeroAutorizacaoCartao: $ehCartao ? $this->numeroAutorizacaoRecebimento : null,
-            maquininhaId: $this->maquininhaRecebimentoId,
-        );
+        try {
+            app(RecebimentoFiadoService::class)->receber(
+                titulo: $lancamento,
+                valor: $this->valorRecebimento,
+                forma: $forma,
+                observacoes: filled($this->observacaoRecebimento) ? trim($this->observacaoRecebimento) : null,
+                sessaoCaixaId: $this->sessaoCaixaId,
+                cartaoId: $ehCartao ? $this->cartaoRecebimentoId : null,
+                numeroAutorizacaoCartao: $ehCartao ? $this->numeroAutorizacaoRecebimento : null,
+                maquininhaId: $this->maquininhaRecebimentoId,
+            );
+        } catch (FinanceiroException $e) {
+            Notification::make()->title('Recebimento não registrado')->body($e->getMessage())->danger()->send();
+
+            return;
+        }
 
         $this->fecharModalRecebimento();
         unset($this->debitosPendentes, $this->saldoDevedorDoCliente);

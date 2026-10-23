@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\OpcoesPagamento\Pages\ManageOpcoesPagamento;
 use App\Models\OpcoesPagamento;
+use App\Models\PlanoReceita;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -27,6 +28,7 @@ class OpcoesPagamentoStoneFormTest extends TestCase
             'opcaopag_tipo_taxa' => 'N/A',
             'opcaopag_valor_percentual_taxa' => 0,
             'opcaopag_stone_integrada' => true,
+            'plano_receita_id' => PlanoReceita::firstOrCreate(['nome' => 'Balcão'])->id,
         ];
     }
 

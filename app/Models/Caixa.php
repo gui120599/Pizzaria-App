@@ -15,10 +15,12 @@ class Caixa extends Model
     protected $fillable = [
         'caixa_nome',
         'caixa_fechamento_obrigatorio',
+        'caixa_troco_padrao',
     ];
 
     protected $casts = [
         'caixa_fechamento_obrigatorio' => 'boolean',
+        'caixa_troco_padrao' => 'decimal:2',
     ];
 
     protected $dates = [

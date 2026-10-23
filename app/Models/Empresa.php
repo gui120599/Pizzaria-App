@@ -45,6 +45,9 @@ class Empresa extends Model
         'empresa_sefaz_ultimo_nsu_revisao',
         'empresa_sefaz_ultima_revisao_em',
         'empresa_validade_link_ticket_horas',
+        'empresa_plano_despesa_taxa_cartao_id',
+        'empresa_plano_despesa_quebra_caixa_id',
+        'empresa_plano_receita_sobra_caixa_id',
     ];
 
     protected $casts = [

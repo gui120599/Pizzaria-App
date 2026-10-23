@@ -2,15 +2,16 @@
 
 namespace App\Filament\Resources\SessoesCaixa\Support;
 
-use App\Enums\FormaPagamento;
 use App\Enums\MotivoSaidaCaixa;
 use App\Exceptions\FinanceiroException;
+use App\Filament\Components\ContaFinanceiraSelect;
+use App\Models\ContaFinanceira;
 use App\Models\Lancamento;
 use App\Models\PlanoDespesa;
 use App\Models\Prestador;
 use App\Models\SessaoCaixa;
 use App\Services\Financeiro\DespesaCaixaService;
-use App\Services\MovimentacaoCaixaService;
+use App\Services\Financeiro\MovimentacaoService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -22,10 +23,9 @@ use Illuminate\Validation\ValidationException;
 use Leandrocfe\FilamentPtbrFormFields\Money;
 
 /**
- * Registra uma saída (sangria) de caixa numa sessão ABERTA — traz pro Filament
- * o que hoje só existe no fluxo legado Blade (MovimentacoesSessaoCaixaController,
- * rotas /Saidas*), com motivo estruturado e recompute correto do saldo (ver
- * App\Services\MovimentacaoCaixaService).
+ * Registra uma saída de caixa numa sessão ABERTA: sangria (transferência do
+ * Caixa PDV para outra conta, que grava a retirada na sessão) ou pagamento de
+ * despesa. Não há mais saída sem destino: o dinheiro nunca some do razão.
  *
  * "Pagamento de despesa" exige um título a pagar (em aberto ou criado na
  * hora) e a retirada sai da baixa dele pelo Caixa PDV (DespesaCaixaService),
@@ -50,18 +50,19 @@ class RegistrarSaidaCaixaAction
                     ->options([
                         MotivoSaidaCaixa::Sangria->value => MotivoSaidaCaixa::Sangria->getLabel(),
                         MotivoSaidaCaixa::PagamentoDespesa->value => MotivoSaidaCaixa::PagamentoDespesa->getLabel(),
-                        MotivoSaidaCaixa::Outros->value => MotivoSaidaCaixa::Outros->getLabel(),
                     ])
                     ->default(MotivoSaidaCaixa::Sangria->value)
                     ->live()
                     ->required(),
-                // Despesa sai sempre em dinheiro da gaveta.
-                Select::make('forma_pagamento')
-                    ->label('Forma de pagamento')
-                    ->options(FormaPagamento::class)
-                    ->default(FormaPagamento::Dinheiro)
+                // A sangria é transferência do Caixa PDV para outra conta (cofre, banco);
+                // a gaveta só tem dinheiro, então não há forma de pagamento a escolher.
+                ContaFinanceiraSelect::make('conta_destino_id')
+                    ->label('Para qual conta')
+                    ->semCaixaPdv()
+                    ->placeholder('Selecione a conta')
+                    ->helperText('Cofre, banco ou outra conta que recebe o dinheiro retirado.')
                     ->visible(fn (Get $get): bool => ! self::ehDespesa($get))
-                    ->required(),
+                    ->required(fn (Get $get): bool => ! self::ehDespesa($get)),
                 ToggleButtons::make('titulo_origem')
                     ->label('Título a pagar')
                     ->options(['novo' => 'Criar agora', 'existente' => 'Título em aberto'])
@@ -110,7 +111,7 @@ class RegistrarSaidaCaixaAction
                     ->rows(2)
                     ->columnSpanFull(),
             ])
-            ->action(function (SessaoCaixa $record, array $data, MovimentacaoCaixaService $service, DespesaCaixaService $despesas, Action $action): void {
+            ->action(function (SessaoCaixa $record, array $data, MovimentacaoService $movimentacoes, DespesaCaixaService $despesas, Action $action): void {
                 try {
                     if (MotivoSaidaCaixa::from($data['motivo']) === MotivoSaidaCaixa::PagamentoDespesa) {
                         $existente = ($data['titulo_origem'] ?? null) === 'existente';
@@ -137,15 +138,17 @@ class RegistrarSaidaCaixaAction
                         return;
                     }
 
-                    $service->registrarSaida(
-                        sessao: $record,
-                        valor: self::normalizeMoney($data['valor'] ?? null),
-                        // Select::options(FormaPagamento::class) já entrega o state como
-                        // instância do enum — nada de ::from() aqui.
-                        formaPagamento: $data['forma_pagamento'],
-                        motivo: MotivoSaidaCaixa::from($data['motivo']),
-                        descricao: $data['descricao'],
-                        observacoes: $data['observacoes'] ?? null,
+                    $caixaPdv = ContaFinanceira::caixaPdv() ?? throw new FinanceiroException('Cadastre a conta Caixa PDV para registrar sangrias.');
+
+                    // O Caixa PDV grava a retirada na sessão (CaixaPdvBridge).
+                    $movimentacoes->transferir(
+                        $caixaPdv,
+                        ContaFinanceira::query()->findOrFail($data['conta_destino_id']),
+                        self::normalizeMoney($data['valor'] ?? null),
+                        today(),
+                        trim($data['descricao'].(filled($data['observacoes'] ?? null) ? ' — '.trim($data['observacoes']) : '')),
+                        auth()->user(),
+                        $record,
                     );
                 } catch (ValidationException|FinanceiroException $e) {
                     Notification::make()

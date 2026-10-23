@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\FechamentosCaixa\Tables;
 
 use App\Enums\StatusFechamentoCaixa;
+use App\Enums\StatusLancamento;
 use App\Filament\Pages\RelatorioFechamentoCaixa;
 use App\Filament\Pages\RelatorioSessaoCaixa;
 use App\Filament\Resources\FechamentosCaixa\Support\ConfirmarFechamentoAction;
@@ -32,7 +33,7 @@ class FechamentosCaixaTable
             // totalDebito/Credito/Pix (FechamentoCaixa) precisam das coleções carregadas
             // (o carryover é abatido por maquininha, não dá pra somar direto via SQL).
             ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with(['sessaoCaixa.caixa', 'sessaoCaixa.maquininhas', 'sessaoCaixa.lancamentos', 'maquininhas', 'user'])
+                ->with(['sessaoCaixa.caixa', 'sessaoCaixa.maquininhas', 'sessaoCaixa.lancamentos', 'maquininhas', 'user', 'recolhimentoConta'])
                 ->withSum('notas', 'valor_total'))
             ->defaultSort('id', 'desc')
             ->columns([
@@ -62,9 +63,20 @@ class FechamentosCaixaTable
                     ->label('Status')
                     ->badge()
                     ->sortable(),
+                TextColumn::make('valor_troco_gaveta')
+                    ->label('Troco deixado')
+                    ->money('BRL')
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('valor_recolhido')
+                    ->label('Recolhido')
+                    ->money('BRL')
+                    ->placeholder('—')
+                    ->description(fn (FechamentoCaixa $record): ?string => $record->recolhimentoConta?->nome)
+                    ->toggleable(),
                 IconColumn::make('importado')
-                    ->label('Importado')
-                    ->getStateUsing(fn (FechamentoCaixa $record): bool => $record->sessaoCaixa->lancamentos->isNotEmpty())
+                    ->label('Contabilizado')
+                    ->getStateUsing(fn (FechamentoCaixa $record): bool => $record->sessaoCaixa->lancamentos->contains(fn ($lancamento): bool => $lancamento->status !== StatusLancamento::Cancelado))
                     ->boolean(),
             ])
             ->filters([
@@ -72,10 +84,10 @@ class FechamentosCaixaTable
                     ->label('Status')
                     ->options(StatusFechamentoCaixa::class),
                 TernaryFilter::make('importado')
-                    ->label('Importado p/ Contas a Receber')
+                    ->label('Contabilizado nas contas')
                     ->queries(
-                        true: fn (Builder $query) => $query->whereHas('sessaoCaixa.lancamentos'),
-                        false: fn (Builder $query) => $query->whereDoesntHave('sessaoCaixa.lancamentos'),
+                        true: fn (Builder $query) => $query->whereHas('sessaoCaixa.lancamentos', fn (Builder $q) => $q->where('status', '!=', StatusLancamento::Cancelado)),
+                        false: fn (Builder $query) => $query->whereDoesntHave('sessaoCaixa.lancamentos', fn (Builder $q) => $q->where('status', '!=', StatusLancamento::Cancelado)),
                     ),
             ])
             ->recordActions([

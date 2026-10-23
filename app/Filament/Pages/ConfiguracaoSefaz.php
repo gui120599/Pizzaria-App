@@ -4,6 +4,8 @@ namespace App\Filament\Pages;
 
 use App\Exceptions\SefazAutenticacaoException;
 use App\Models\Empresa;
+use App\Models\PlanoDespesa;
+use App\Models\PlanoReceita;
 use App\Services\Sefaz\SefazCertificadoService;
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
@@ -54,6 +56,9 @@ class ConfiguracaoSefaz extends Page
             'empresa_sefaz_ambiente' => $empresa->empresa_sefaz_ambiente,
             'empresa_sefaz_auto_importacao_ativa' => $empresa->empresa_sefaz_auto_importacao_ativa,
             'empresa_percentual_imposto_nfe' => $empresa->empresa_percentual_imposto_nfe,
+            'empresa_plano_despesa_taxa_cartao_id' => $empresa->empresa_plano_despesa_taxa_cartao_id,
+            'empresa_plano_despesa_quebra_caixa_id' => $empresa->empresa_plano_despesa_quebra_caixa_id,
+            'empresa_plano_receita_sobra_caixa_id' => $empresa->empresa_plano_receita_sobra_caixa_id,
         ]);
     }
 
@@ -112,6 +117,24 @@ class ConfiguracaoSefaz extends Page
                             ->required()
                             ->helperText('Alíquota efetiva paga sobre as vendas com NFC-e autorizada (ex.: DAS do Simples). Descontada das vendas no relatório de fechamento de caixa e da taxa de serviço no relatório dos garçons. Cada venda guarda o percentual vigente quando a nota é autorizada.'),
                     ]),
+
+                Section::make('Planos do fechamento de caixa')
+                    ->description('Classificam o que o fechamento de caixa lança no financeiro: a taxa da maquininha e a diferença do dinheiro contado.')
+                    ->columns(1)
+                    ->schema([
+                        Select::make('empresa_plano_despesa_taxa_cartao_id')
+                            ->label('Despesa: taxa de cartão')
+                            ->options(fn (): array => self::contasDeDespesa())
+                            ->searchable(),
+                        Select::make('empresa_plano_despesa_quebra_caixa_id')
+                            ->label('Despesa: quebra de caixa')
+                            ->options(fn (): array => self::contasDeDespesa())
+                            ->searchable(),
+                        Select::make('empresa_plano_receita_sobra_caixa_id')
+                            ->label('Receita: sobra de caixa')
+                            ->options(fn (): array => PlanoReceita::query()->whereNotNull('pai_id')->orderBy('nome')->pluck('nome', 'id')->all())
+                            ->searchable(),
+                    ]),
             ])
             ->statePath('data');
     }
@@ -125,6 +148,9 @@ class ConfiguracaoSefaz extends Page
             'empresa_sefaz_ambiente' => $state['empresa_sefaz_ambiente'],
             'empresa_sefaz_auto_importacao_ativa' => (bool) $state['empresa_sefaz_auto_importacao_ativa'],
             'empresa_percentual_imposto_nfe' => (float) $state['empresa_percentual_imposto_nfe'],
+            'empresa_plano_despesa_taxa_cartao_id' => $state['empresa_plano_despesa_taxa_cartao_id'] ?: null,
+            'empresa_plano_despesa_quebra_caixa_id' => $state['empresa_plano_despesa_quebra_caixa_id'] ?: null,
+            'empresa_plano_receita_sobra_caixa_id' => $state['empresa_plano_receita_sobra_caixa_id'] ?: null,
         ];
 
         $novoArquivo = $state['novo_certificado'] ?? null;
@@ -197,7 +223,16 @@ class ConfiguracaoSefaz extends Page
             'empresa_sefaz_ambiente' => $atualizacoes['empresa_sefaz_ambiente'],
             'empresa_sefaz_auto_importacao_ativa' => $atualizacoes['empresa_sefaz_auto_importacao_ativa'],
             'empresa_percentual_imposto_nfe' => $atualizacoes['empresa_percentual_imposto_nfe'],
+            'empresa_plano_despesa_taxa_cartao_id' => $atualizacoes['empresa_plano_despesa_taxa_cartao_id'],
+            'empresa_plano_despesa_quebra_caixa_id' => $atualizacoes['empresa_plano_despesa_quebra_caixa_id'],
+            'empresa_plano_receita_sobra_caixa_id' => $atualizacoes['empresa_plano_receita_sobra_caixa_id'],
         ]);
+    }
+
+    /** @return array<int, string> contas (folhas) do plano de despesas */
+    private static function contasDeDespesa(): array
+    {
+        return PlanoDespesa::query()->whereNotNull('pai_id')->orderBy('nome')->pluck('nome', 'id')->all();
     }
 
     /** @return array<Action> */

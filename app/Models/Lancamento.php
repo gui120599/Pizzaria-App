@@ -50,6 +50,9 @@ class Lancamento extends Model
         'cliente_id',
         'venda_id',
         'sessao_caixa_id',
+        'maquininha_id',
+        'taxa_adquirente',
+        'recebivel_id',
         'repasse_id',
         'adiantamento_id',
         'numero_documento',
@@ -69,6 +72,7 @@ class Lancamento extends Model
             'forma_pagamento' => FormaPagamento::class,
             'comportamento' => Comportamento::class,
             'valor' => 'decimal:2',
+            'taxa_adquirente' => 'decimal:2',
             'vencimento' => 'date',
             'data_pagamento' => 'date',
             'competencia' => 'date',
@@ -178,11 +182,17 @@ class Lancamento extends Model
     /**
      * Sessão de caixa que originou este título a receber, quando importado
      * automaticamente na confirmação do fechamento (ver
-     * App\Services\ImportacaoCaixaReceberService::importar).
+     * App\Services\Financeiro\ContabilizacaoFechamentoService::contabilizar).
      */
     public function sessaoCaixa(): BelongsTo
     {
         return $this->belongsTo(SessaoCaixa::class, 'sessao_caixa_id');
+    }
+
+    /** Adquirente de quem este título é recebível (cartão/Pix de maquininha); nulo nos demais títulos. */
+    public function maquininha(): BelongsTo
+    {
+        return $this->belongsTo(Maquininha::class, 'maquininha_id')->withTrashed();
     }
 
     /** Repasse do módulo de ponto que gerou este título (ver RepasseService::aprovar). */
@@ -330,20 +340,27 @@ class Lancamento extends Model
         ?string $numeroAutorizacaoCartao = null,
         ?int $maquininhaId = null,
         ?int $contaFinanceiraId = null,
+        bool $foraDaSessao = false,
     ): LancamentoPagamento {
         // Em transação: o evento do pagamento gera a movimentação na conta
         // financeira, e uma falha nela não pode deixar o pagamento gravado.
-        return DB::transaction(fn (): LancamentoPagamento => $this->pagamentos()->create([
-            'valor' => $valor,
-            'data_pagamento' => $data ?? now(),
-            'forma_pagamento' => $forma,
-            'observacoes' => $observacoes,
-            'sessao_caixa_id' => $sessaoCaixaId,
-            'cartao_id' => $cartaoId,
-            'numero_autorizacao_cartao' => $numeroAutorizacaoCartao,
-            'maquininha_id' => $forma?->tipoMaquininha() ? $maquininhaId : null,
-            'conta_financeira_id' => $contaFinanceiraId,
-        ]));
+        return DB::transaction(function () use ($valor, $data, $forma, $observacoes, $sessaoCaixaId, $cartaoId, $numeroAutorizacaoCartao, $maquininhaId, $contaFinanceiraId, $foraDaSessao): LancamentoPagamento {
+            $pagamento = $this->pagamentos()->make([
+                'valor' => $valor,
+                'data_pagamento' => $data ?? now(),
+                'forma_pagamento' => $forma,
+                'observacoes' => $observacoes,
+                'sessao_caixa_id' => $sessaoCaixaId,
+                'cartao_id' => $cartaoId,
+                'numero_autorizacao_cartao' => $numeroAutorizacaoCartao,
+                'maquininha_id' => $forma?->tipoMaquininha() ? $maquininhaId : null,
+                'conta_financeira_id' => $contaFinanceiraId,
+            ]);
+            $pagamento->foraDaSessao = $foraDaSessao;
+            $pagamento->save();
+
+            return $pagamento;
+        });
     }
 
     /**

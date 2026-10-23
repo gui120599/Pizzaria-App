@@ -17,9 +17,12 @@ use Illuminate\Validation\ValidationException;
  * Onde a empresa guarda dinheiro. Toda entrada/saída passa pelo
  * MovimentacaoService; `saldo_atual` é cache reconstruível por saldoEm().
  *
- * O Caixa PDV é a gaveta das sessões de caixa: as vendas não geram
- * movimentação nela, então o saldo disponível para uma saída do PDV é o
- * dinheiro esperado da sessão escolhida, não este cache.
+ * O Caixa PDV é a conta do dinheiro das sessões de caixa. As vendas em
+ * dinheiro entram nele na confirmação do fechamento (ContabilizacaoFechamentoService)
+ * e o que sobra além do troco é recolhido por transferência, então o saldo
+ * dele é o troco deixado na gaveta. Durante a sessão, o disponível para uma
+ * saída do PDV continua sendo o dinheiro esperado da sessão escolhida
+ * (CaixaPdvBridge), não este cache.
  */
 class ContaFinanceira extends Model
 {

@@ -31,6 +31,7 @@ class RelatorioSessaoCaixaController extends Controller
             'cortesias' => $service->cortesias(),
             'fluxo' => $fechamento->fluxoCaixa(),
             'conferenciaMaquininhas' => $fechamento->conferenciaMaquininhas(),
+            'trocoRecolhimento' => $fechamento->trocoERecolhimento(),
             'geradoEm' => now(),
             'geradoPor' => $request->user()?->name ?? 'Sistema',
         ]);

@@ -74,7 +74,7 @@ class SessaoCaixa extends Model
 
     /**
      * Títulos a receber importados desta sessão (ver
-     * App\Services\ImportacaoCaixaReceberService::importar) — 1 por opção de
+     * App\Services\Financeiro\ContabilizacaoFechamentoService::contabilizar) — 1 por opção de
      * pagamento com receita na sessão. Vazio até o fechamento ser confirmado
      * (ou importado manualmente).
      */

@@ -22,8 +22,9 @@ use Illuminate\Support\Str;
  * - updating: valor, data, sessão e conta não mudam depois de movimentados;
  * - deleting: estorna a movimentação.
  *
- * Pagamento sem conta (antigo, compensação, importação de sessão) não
- * movimenta nada.
+ * Pagamento sem conta (antigo, compensação) não movimenta nada. Com
+ * `foraDaSessao` (fechamento/abertura de caixa), o Caixa PDV não resolve a
+ * sessão aberta, não grava sessao_caixa_id e não valida o saldo da gaveta.
  */
 class BaixaFinanceira
 {
@@ -48,6 +49,11 @@ class BaixaFinanceira
 
         $conta = ContaFinanceira::query()->find($pagamento->conta_financeira_id)
             ?? throw new FinanceiroException('A conta financeira escolhida está desativada.');
+
+        if ($pagamento->foraDaSessao) {
+            return;
+        }
+
         $sessao = $pagamento->sessao_caixa_id !== null ? SessaoCaixa::query()->find($pagamento->sessao_caixa_id) : null;
 
         if (self::ehSaida($pagamento)) {
@@ -90,6 +96,9 @@ class BaixaFinanceira
                 $vinculos,
                 auth()->user(),
                 $sessao,
+                validarSaldo: ! $pagamento->foraDaSessao,
+                registrarNaSessao: ! $pagamento->foraDaSessao,
+                sessaoCaixaId: $pagamento->foraDaSessao ? $lancamento->sessao_caixa_id : null,
             );
 
             return;
@@ -105,6 +114,7 @@ class BaixaFinanceira
             auth()->user(),
             $sessao,
             registrarNaSessao: false,
+            sessaoCaixaId: $pagamento->foraDaSessao ? $lancamento->sessao_caixa_id : null,
         );
     }
 

@@ -26,6 +26,13 @@ class LancamentoPagamento extends Model
     /** Motivo gravado no estorno da movimentação quando este pagamento for excluído. */
     public ?string $motivoEstorno = null;
 
+    /**
+     * Baixa feita por fechamento/abertura de caixa: no Caixa PDV não resolve
+     * nem grava a sessão aberta e não valida o saldo da gaveta (ver
+     * BaixaFinanceira). Sem isso a baixa se ligaria à sessão aberta no momento.
+     */
+    public bool $foraDaSessao = false;
+
     protected $fillable = [
         'lancamento_id',
         'sessao_caixa_id',
@@ -38,6 +45,7 @@ class LancamentoPagamento extends Model
         'maquininha_id',
         'taxa_percentual',
         'taxa_valor',
+        'conciliado_em',
         'observacoes',
     ];
 
@@ -49,6 +57,7 @@ class LancamentoPagamento extends Model
             'forma_pagamento' => FormaPagamento::class,
             'taxa_percentual' => 'decimal:2',
             'taxa_valor' => 'decimal:2',
+            'conciliado_em' => 'datetime',
         ];
     }
 

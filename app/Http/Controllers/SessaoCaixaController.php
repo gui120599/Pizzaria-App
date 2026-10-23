@@ -77,6 +77,8 @@ class SessaoCaixaController extends Controller
             FormaPagamento::Dinheiro->value => (float) $saldoInicial,
         ]);
 
+        $sessaoCaixaService->conciliarAbertura($sessao_caixa->refresh());
+
         return redirect()->route('sessao_caixa')
             ->with('success', 'Sessão Aberta com sucesso!')
             // Dispara o modal de "vendas sem sessão de caixa" (ver

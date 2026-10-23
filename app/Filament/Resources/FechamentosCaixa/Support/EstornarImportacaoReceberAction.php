@@ -2,38 +2,43 @@
 
 namespace App\Filament\Resources\FechamentosCaixa\Support;
 
+use App\Exceptions\FinanceiroException;
 use App\Models\FechamentoCaixa;
-use App\Services\ImportacaoCaixaReceberService;
+use App\Services\Financeiro\ContabilizacaoFechamentoService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Desfaz a importação desta sessão pro Contas a Receber — apaga os lançamentos
- * gerados (e seus pagamentos, via cascade). Necessário antes de reabrir um
- * fechamento já importado (ver ReabrirFechamentoAction).
+ * Desfaz a contabilização desta sessão: estorna as movimentações nas contas e
+ * cancela/apaga os títulos. Bloqueado se algum recebível de maquininha já foi
+ * liquidado (estorne a liquidação antes). Também é feito por
+ * "Reabrir fechamento" quando há contabilização.
  */
 class EstornarImportacaoReceberAction
 {
     public static function make(string $name = 'estornarImportacaoReceber'): Action
     {
         return Action::make($name)
-            ->label('Estornar importação')
+            ->label('Estornar contabilização')
             ->icon('heroicon-o-arrow-uturn-left')
             ->color('warning')
             ->visible(fn (FechamentoCaixa $record): bool => auth()->user()?->can('estornarImportacaoReceber', $record)
-                && $record->sessaoCaixa->lancamentos()->exists())
-            ->requiresConfirmation()
-            ->modalHeading('Estornar importação')
-            ->modalDescription('Apaga os lançamentos a receber gerados a partir desta sessão. Só é possível se nenhum deles tiver pagamento além da baixa automática da importação.')
+                && app(ContabilizacaoFechamentoService::class)->contabilizada($record->sessaoCaixa))
+            ->modalHeading('Estornar contabilização')
+            ->modalDescription('Devolve o dinheiro às contas de origem (estorno das movimentações) e cancela os títulos gerados por esta sessão.')
             ->modalSubmitActionLabel('Confirmar estorno')
-            ->action(function (FechamentoCaixa $record, ImportacaoCaixaReceberService $service, Action $action): void {
+            ->schema([
+                Textarea::make('motivo')->label('Motivo')->required()->minLength(5),
+            ])
+            ->action(function (FechamentoCaixa $record, array $data, ContabilizacaoFechamentoService $service, Action $action): void {
                 try {
-                    $apagados = $service->estornarImportacao($record->sessaoCaixa);
-                } catch (ValidationException $e) {
+                    $apagados = $service->estornar($record->sessaoCaixa, $data['motivo']);
+                } catch (ValidationException|FinanceiroException $e) {
                     Notification::make()
-                        ->title('Não foi possível estornar a importação')
-                        ->body(collect($e->errors())->flatten()->first())
+                        ->title('Não foi possível estornar a contabilização')
+                        ->body($e instanceof ValidationException ? collect($e->errors())->flatten()->first() : $e->getMessage())
                         ->danger()
                         ->send();
 
@@ -43,7 +48,7 @@ class EstornarImportacaoReceberAction
                 }
 
                 Notification::make()
-                    ->title($apagados.' lançamento(s) apagado(s)')
+                    ->title($apagados.' título(s) estornado(s)')
                     ->success()
                     ->send();
             });

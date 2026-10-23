@@ -2,13 +2,23 @@
 
 namespace App\Services;
 
+use App\Enums\Financeiro\NaturezaMovimentacao;
 use App\Enums\FormaPagamento;
 use App\Enums\StatusFechamentoCaixa;
+use App\Enums\StatusLancamento;
+use App\Enums\TipoLancamento;
+use App\Exceptions\FinanceiroException;
 use App\Models\Caixa;
+use App\Models\ContaFinanceira;
+use App\Models\Empresa;
+use App\Models\FechamentoCaixa;
+use App\Models\Lancamento;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\SessaoCaixa;
 use App\Models\Venda;
+use App\Services\Financeiro\MovimentacaoService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class SessaoCaixaService
@@ -92,6 +102,119 @@ class SessaoCaixaService
         ]);
 
         $this->registrarMovimentoAbertura($sessao, [FormaPagamento::Dinheiro->value => $totalDinheiro]);
+    }
+
+    /**
+     * Troco que o último fechamento confirmado do MESMO caixa físico deixou na
+     * gaveta (nulo se o caixa nunca teve fechamento com troco). Comparar por
+     * caixa funciona com vários caixas abertos em paralelo.
+     */
+    public function trocoEsperadoNaAbertura(int $caixaId, ?int $ignorarSessaoId = null): ?float
+    {
+        $fechamento = FechamentoCaixa::query()
+            ->where('status', StatusFechamentoCaixa::Confirmado)
+            ->whereNotNull('valor_troco_gaveta')
+            ->whereHas('sessaoCaixa', fn ($query) => $query
+                ->where('sessaocaixa_caixa_id', $caixaId)
+                ->when($ignorarSessaoId, fn ($q) => $q->whereKeyNot($ignorarSessaoId)))
+            ->orderByDesc('confirmado_em')
+            ->orderByDesc('id')
+            ->first();
+
+        return $fechamento ? round((float) $fechamento->valor_troco_gaveta, 2) : null;
+    }
+
+    /**
+     * Compara o dinheiro contado na abertura com o troco que ficou do último
+     * fechamento do caixa. Igual: é o mesmo dinheiro, que já está no Caixa PDV,
+     * e nada é lançado. Diferente: quebra/sobra "Diferença na abertura" paga
+     * pelo Caixa PDV, fora da sessão (a sessão nova ainda não existia). Caixa
+     * sem fechamento anterior com troco (implantação) não lança nada.
+     */
+    public function conciliarAbertura(SessaoCaixa $sessao): ?Lancamento
+    {
+        $esperado = $this->trocoEsperadoNaAbertura((int) $sessao->sessaocaixa_caixa_id, $sessao->id);
+        $caixaPdv = ContaFinanceira::caixaPdv();
+        $empresa = Empresa::query()->first();
+
+        if ($esperado === null || $caixaPdv === null || $empresa === null) {
+            return null;
+        }
+
+        $diferenca = round((float) $sessao->sessaocaixa_saldo_inicial - $esperado, 2);
+
+        if (abs($diferenca) < 0.01) {
+            return null;
+        }
+
+        $falta = $diferenca < 0;
+        $planoId = $falta ? $empresa->empresa_plano_despesa_quebra_caixa_id : $empresa->empresa_plano_receita_sobra_caixa_id;
+
+        if ($planoId === null) {
+            Log::warning('Diferença na abertura sem plano de quebra/sobra configurado.', ['sessao_caixa_id' => $sessao->id, 'diferenca' => $diferenca]);
+
+            return null;
+        }
+
+        try {
+            return DB::transaction(function () use ($sessao, $diferenca, $falta, $planoId, $caixaPdv): Lancamento {
+                $lancamento = Lancamento::create([
+                    'tipo' => $falta ? TipoLancamento::Pagar : TipoLancamento::Receber,
+                    $falta ? 'plano_despesa_id' : 'plano_receita_id' => $planoId,
+                    'descricao' => 'Diferença na abertura — '.($sessao->caixa?->caixa_nome ?? 'Caixa')." (sessão #{$sessao->id})",
+                    'valor' => abs($diferenca),
+                    'vencimento' => today(),
+                    'status' => StatusLancamento::Pendente,
+                ]);
+
+                $lancamento->registrarPagamento(
+                    valor: abs($diferenca),
+                    data: today(),
+                    forma: FormaPagamento::Dinheiro,
+                    observacoes: 'Baixa automática — troco contado na abertura diferente do deixado no fechamento anterior.',
+                    contaFinanceiraId: $caixaPdv->id,
+                    foraDaSessao: true,
+                );
+
+                return $lancamento;
+            });
+        } catch (FinanceiroException $e) {
+            Log::error('Falha ao lançar a diferença na abertura do caixa.', ['sessao_caixa_id' => $sessao->id, 'erro' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Caixa sem fechamento anterior com troco (implantação): o dinheiro contado
+     * na abertura ainda não está no Caixa PDV. Entra por transferência da conta
+     * de onde o troco saiu (suprimento) ou, só para Admin, como ajuste de
+     * implantação (sem origem, fora do DRE). Não grava linha na sessão: a
+     * abertura já conta esse dinheiro no esperado.
+     *
+     * @throws FinanceiroException
+     */
+    public function lancarTrocoInicial(SessaoCaixa $sessao, ?int $contaOrigemId, bool $ajusteImplantacao = false): void
+    {
+        $valor = round((float) $sessao->sessaocaixa_saldo_inicial, 2);
+        $caixaPdv = ContaFinanceira::caixaPdv();
+
+        if ($valor <= 0 || $caixaPdv === null || $this->trocoEsperadoNaAbertura((int) $sessao->sessaocaixa_caixa_id, $sessao->id) !== null) {
+            return;
+        }
+
+        $movimentacoes = app(MovimentacaoService::class);
+        $descricao = "Troco inicial — abertura da sessão #{$sessao->id}";
+
+        if ($contaOrigemId !== null) {
+            $movimentacoes->transferir(ContaFinanceira::findOrFail($contaOrigemId), $caixaPdv, $valor, today(), $descricao, auth()->user(), tocarSessao: false);
+        } elseif ($ajusteImplantacao) {
+            if (! auth()->user()?->hasRole('Admin')) {
+                throw new FinanceiroException('Só o Admin pode lançar o ajuste de implantação.');
+            }
+
+            $movimentacoes->entrada($caixaPdv, $valor, NaturezaMovimentacao::AjusteSaldo, today(), "Ajuste de implantação — {$descricao}", [], auth()->user(), registrarNaSessao: false);
+        }
     }
 
     /**

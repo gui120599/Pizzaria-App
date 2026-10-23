@@ -19,12 +19,13 @@ use App\Models\MovimentacaoFinanceira;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
+use App\Models\PlanoReceita;
 use App\Models\SessaoCaixa;
 use App\Models\User;
 use App\Models\Venda;
 use App\Services\FechamentoCaixaService;
+use App\Services\Financeiro\ContabilizacaoFechamentoService;
 use App\Services\Financeiro\MovimentacaoService;
-use App\Services\ImportacaoCaixaReceberService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -203,16 +204,17 @@ class BaixaComContaFinanceiraTest extends TestCase
         $venda = Venda::create(['venda_sessao_caixa_id' => $sessao->id, 'venda_status' => 'FINALIZADA', 'venda_valor_total' => 0]);
         PagamentosVenda::create([
             'pg_venda_venda_id' => $venda->id,
-            'pg_venda_opcaopagamento_id' => OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_desc_nfe' => 'cash'])->id,
+            'pg_venda_opcaopagamento_id' => OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_desc_nfe' => 'cash', 'plano_receita_id' => PlanoReceita::create(['nome' => 'Balcão'])->id])->id,
             'pg_venda_valor_pagamento' => 80,
         ]);
         $sessao->update(['sessaocaixa_status' => 'FECHADA']);
         FechamentoCaixa::create(['sessao_caixa_id' => $sessao->id, 'user_id' => $this->admin->id, 'status' => StatusFechamentoCaixa::Confirmado, 'confirmado_em' => now()]);
 
-        app(ImportacaoCaixaReceberService::class)->importar($sessao);
+        app(ContabilizacaoFechamentoService::class)->contabilizar($sessao);
 
         $this->assertSame(1, Lancamento::query()->where('tipo', TipoLancamento::Pagar)->count());
-        $this->assertSame(1, MovimentacaoFinanceira::count());
+        // A despesa paga pela gaveta e a entrada das vendas em dinheiro: o título da despesa não é recriado.
+        $this->assertSame(2, MovimentacaoFinanceira::count());
     }
 
     /** @param  array<string, mixed>  $atributos */

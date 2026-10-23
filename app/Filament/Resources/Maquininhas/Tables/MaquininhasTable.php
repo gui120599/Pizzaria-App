@@ -35,6 +35,10 @@ class MaquininhasTable
                 TextColumn::make('operadora')
                     ->label('Operadora')
                     ->badge(),
+                TextColumn::make('contaFinanceira.nome')
+                    ->label('Conta')
+                    ->placeholder('Sem conta')
+                    ->color(fn (Maquininha $record): ?string => $record->conta_financeira_id === null ? 'danger' : null),
                 TextColumn::make('numero_serie')
                     ->label('Número de série')
                     ->searchable()

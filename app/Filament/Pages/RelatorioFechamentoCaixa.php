@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Widgets\FechamentoCaixaBandeirasWidget;
 use App\Filament\Widgets\FechamentoCaixaConferenciaMaquininhasWidget;
 use App\Filament\Widgets\FechamentoCaixaConferenciaWidget;
+use App\Filament\Widgets\FechamentoCaixaContabilizacaoWidget;
 use App\Filament\Widgets\FechamentoCaixaDreWidget;
 use App\Filament\Widgets\FechamentoCaixaFluxoCaixaWidget;
 use App\Filament\Widgets\FechamentoCaixaFormasPagamentoWidget;
@@ -151,6 +152,7 @@ class RelatorioFechamentoCaixa extends BaseDashboard
             FechamentoCaixaBandeirasWidget::class,
             FechamentoCaixaPrevisaoRecebimentoWidget::class,
             FechamentoCaixaMovimentacoesWidget::class,
+            FechamentoCaixaContabilizacaoWidget::class,
             FechamentoCaixaConferenciaWidget::class,
             FechamentoCaixaConferenciaMaquininhasWidget::class,
         ];

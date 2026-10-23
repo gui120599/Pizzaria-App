@@ -6,7 +6,6 @@ use App\Http\Requests\StoreMovimentacoesSessaoCaixaRequest;
 use App\Http\Requests\UpdateMovimentacoesSessaoCaixaRequest;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\SessaoCaixa;
-use App\Models\Venda;
 use Illuminate\Support\Facades\Auth;
 
 class MovimentacoesSessaoCaixaController extends Controller
@@ -49,30 +48,7 @@ class MovimentacoesSessaoCaixaController extends Controller
      */
     public function store(StoreMovimentacoesSessaoCaixaRequest $request)
     {
-        // Os dados já estarão validados aqui, graças à MovimentacaoRequest
-
-        $valorMovimentacao = (float) str_replace(',', '.', $request->mov_valor);
-
-        MovimentacoesSessaoCaixa::create([
-            'mov_sessaocaixa_id' => $request->mov_sessaocaixa_id,
-            'mov_venda_id' => $request->mov_venda_id ?? null,
-            'mov_descricao' => $request->mov_descricao,
-            'mov_tipo' => 'SAIDA', // Definido como SAÍDA
-            'mov_valor' => $valorMovimentacao,
-            'mov_observacoes' => $request->mov_observacoes,
-        ]);
-
-        $sessaoCaixa = SessaoCaixa::find($request->mov_sessaocaixa_id);
-        $saldoInicial = $sessaoCaixa->sessaocaixa_saldo_inicial;
-
-        $valorTotalVendas = Venda::where('venda_sessao_caixa_id', $sessaoCaixa->id)->where('venda_status', 'FINALIZADA')->sum('venda_valor_total');
-
-        $sessaoCaixa->update([
-            'sessaocaixa_saldo_final' => $saldoInicial + $valorTotalVendas - $valorMovimentacao,
-        ]);
-
-        // Redirecionar para a página de listagem com uma mensagem de sucesso
-        return redirect()->route('mov_saida')->with('success', 'Movimentação de saída criada com sucesso!');
+        return $this->encaminharParaOFilament();
     }
 
     /**
@@ -101,23 +77,7 @@ class MovimentacoesSessaoCaixaController extends Controller
      */
     public function update(UpdateMovimentacoesSessaoCaixaRequest $request, MovimentacoesSessaoCaixa $movimentacoesSessaoCaixa, int $id)
     {
-        $movimentacao = MovimentacoesSessaoCaixa::find($id);
-        $valorAntigo = $movimentacao->mov_valor;
-        $movimentacao->update([
-            'mov_sessaocaixa_id' => $request->mov_sessaocaixa_id,
-            'mov_venda_id' => $request->mov_venda_id ?? null,
-            'mov_descricao' => $request->mov_descricao,
-            'mov_valor' => str_replace(',', '.', $request->mov_valor),
-            'mov_observacoes' => $request->mov_observacoes,
-        ]);
-
-        $sessaoCaixa = SessaoCaixa::find($request->mov_sessaocaixa_id);
-        $sessaoCaixa->update([
-            'sessaocaixa_saldo_final' => ($sessaoCaixa->sessaocaixa_saldo_final + $valorAntigo) - str_replace(',', '.', $request->mov_valor),
-        ]);
-
-        // Redirecionar para a página de listagem com uma mensagem de sucesso
-        return redirect()->route('mov_saida')->with('success', 'Movimentação de saída atualizada com sucesso!');
+        return $this->encaminharParaOFilament();
     }
 
     /**
@@ -125,17 +85,16 @@ class MovimentacoesSessaoCaixaController extends Controller
      */
     public function destroy(MovimentacoesSessaoCaixa $movimentacoesSessaoCaixa, int $id)
     {
-        // Excluir a movimentação de saída
-        $movimentacao = MovimentacoesSessaoCaixa::find($id);
-        $valorAntigo = $movimentacao->mov_valor;
-        $sessaoCaixa = SessaoCaixa::find($movimentacao->mov_sessaocaixa_id);
-        $sessaoCaixa->update([
-            'sessaocaixa_saldo_final' => $sessaoCaixa->sessaocaixa_saldo_final + $valorAntigo,
-        ]);
+        return $this->encaminharParaOFilament();
+    }
 
-        $movimentacao->delete();
-
-        // Redirecionar para a página de listagem com uma mensagem de sucesso
-        return redirect()->route('mov_saida')->with('success', 'Movimentação de saída excluída com sucesso!');
+    /**
+     * Saída de caixa agora é transferência do Caixa PDV para outra conta (ou
+     * pagamento de despesa) e só existe no Filament: o fluxo Blade gravava
+     * saída sem destino, e o dinheiro sumia do razão financeiro.
+     */
+    private function encaminharParaOFilament()
+    {
+        return redirect()->route('mov_saida')->with('error', 'Sangria, suprimento e pagamento de despesa agora são registrados em Sessões de caixa › Registrar saída/suprimento, informando a conta de destino.');
     }
 }

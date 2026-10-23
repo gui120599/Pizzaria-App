@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\OpcoesPagamento;
 
 use App\Enums\FormaTrocoEnum;
+use App\Filament\Components\ContaFinanceiraSelect;
 use App\Filament\Resources\OpcoesPagamento\Pages\ManageOpcoesPagamento;
 use App\Models\OpcoesPagamento;
 use BackedEnum;
@@ -110,8 +111,15 @@ class OpcoesPagamentoResource extends Resource
                         ->relationship('planoReceita', 'nome')
                         ->searchable()
                         ->preload()
-                        ->nullable()
-                        ->helperText('Conta do plano de receita que classifica as vendas recebidas nesta forma de pagamento, usada na importação da sessão de caixa para o Contas a Receber. Sem escolha, cai em "Outras Receitas".'),
+                        ->required()
+                        ->helperText('Conta do plano de receita que classifica as vendas recebidas nesta forma de pagamento no Contas a Receber.'),
+
+                    ContaFinanceiraSelect::make('conta_financeira_id')
+                        ->label('Conta onde cai o dinheiro')
+                        ->semCaixaPdv()
+                        ->placeholder('Selecione a conta')
+                        ->helperText('Para formas que não passam por maquininha, como PIX CNPJ e vales. Cartão e Pix de maquininha usam a conta da maquininha; dinheiro vai sempre para o Caixa PDV.')
+                        ->visible(fn (Get $get): bool => $get('opcaopag_desc_nfe') !== 'cash'),
 
                     Select::make('opcaopag_tipo_taxa')
                         ->label('Tipo de Taxa')
@@ -207,6 +215,18 @@ class OpcoesPagamentoResource extends Resource
 
                 ToggleColumn::make('opcaopag_aparece_cardapio')
                     ->label('No Cardápio'),
+
+                TextColumn::make('planoReceita.nome')
+                    ->label('Plano de receita')
+                    ->placeholder('Sem plano')
+                    ->color(fn (OpcoesPagamento $record): ?string => $record->plano_receita_id === null && ! $record->trashed() ? 'danger' : null)
+                    ->icon(fn (OpcoesPagamento $record): ?string => $record->plano_receita_id === null && ! $record->trashed() ? 'heroicon-o-exclamation-triangle' : null)
+                    ->tooltip(fn (OpcoesPagamento $record): ?string => $record->plano_receita_id === null && ! $record->trashed() ? 'Informe o plano de receita: sem ele a receita do caixa não é classificada.' : null),
+
+                TextColumn::make('contaFinanceira.nome')
+                    ->label('Conta')
+                    ->placeholder('—')
+                    ->toggleable(),
 
                 IconColumn::make('opcaopag_envio_automatico_nfe')
                     ->label('NFC-e automática')

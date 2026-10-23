@@ -2,6 +2,7 @@
 
 namespace App\Filament\Components;
 
+use App\Enums\Financeiro\TipoContaFinanceira;
 use App\Models\ContaFinanceira;
 use App\Models\SessaoCaixa;
 use App\Services\Financeiro\CaixaPdvBridge;
@@ -20,6 +21,8 @@ use Livewire\Component as Livewire;
 class ContaFinanceiraSelect extends Select
 {
     protected ?string $campoForma = null;
+
+    protected bool $semCaixaPdv = false;
 
     public static function getDefaultName(): ?string
     {
@@ -45,7 +48,7 @@ class ContaFinanceiraSelect extends Select
                     $set($this->campoForma, AdiantamentoService::formaSugerida($conta)->value);
                 }
 
-                if (! $conta?->ehCaixaPdv() && $this->getName() === self::getDefaultName()) {
+                if (! $this->semCaixaPdv && ! $conta?->ehCaixaPdv() && $this->getName() === self::getDefaultName()) {
                     $set('sessao_caixa_id', null);
                 }
             });
@@ -57,6 +60,14 @@ class ContaFinanceiraSelect extends Select
         $this->campoForma = $campo;
 
         return $this;
+    }
+
+    /** Cadastros de destino (maquininha, recolhimento): o Caixa PDV não aparece e a sessão não é tocada. */
+    public function semCaixaPdv(): static
+    {
+        $this->semCaixaPdv = true;
+
+        return $this->options(fn (): array => self::opcoes(semCaixaPdv: true));
     }
 
     /**
@@ -86,9 +97,11 @@ class ContaFinanceiraSelect extends Select
     }
 
     /** @return array<int, string> */
-    public static function opcoes(): array
+    public static function opcoes(bool $semCaixaPdv = false): array
     {
-        return ContaFinanceira::query()->ordenadas()->get()
+        return ContaFinanceira::query()->ordenadas()
+            ->when($semCaixaPdv, fn ($query) => $query->where('tipo', '!=', TipoContaFinanceira::CaixaPdv))
+            ->get()
             ->mapWithKeys(fn (ContaFinanceira $conta): array => [$conta->id => self::rotulo($conta)])
             ->all();
     }
