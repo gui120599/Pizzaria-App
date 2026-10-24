@@ -11,6 +11,9 @@ use App\Services\Compras\Dto\ClassificacaoOperacao;
 use App\Services\Compras\Dto\ContextoClassificacao;
 use App\Services\Nfe\Dto\NfeItem;
 use App\Services\Nfe\Dto\NfeParseada;
+use App\Services\Nfe\NfeXmlParser;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 /**
  * Cola entre a NF-e parseada e a Compra: monta o contexto do classificador,
@@ -20,7 +23,10 @@ use App\Services\Nfe\Dto\NfeParseada;
  */
 class CompraFiscalService
 {
-    public function __construct(private ClassificadorOperacaoEntrada $classificador) {}
+    public function __construct(
+        private ClassificadorOperacaoEntrada $classificador,
+        private NfeXmlParser $parser,
+    ) {}
 
     /** CNPJ da empresa (só dígitos), ou null se ainda não estiver cadastrado. */
     public function cnpjEmpresa(): ?string
@@ -120,6 +126,31 @@ class CompraFiscalService
 
                 break;
             }
+        }
+    }
+
+    /**
+     * Compra de XML importada antes da classificação existir (compra_operacao
+     * nula): classifica agora a partir do XML guardado, gravando só as colunas
+     * fiscais. Falha de leitura/parse é ignorada — nesse caso a compra segue
+     * sem classificação, como antes.
+     */
+    public function classificarSeFaltar(Compra $compra): void
+    {
+        if ($compra->compra_operacao !== null || blank($compra->compra_xml_path)) {
+            return;
+        }
+
+        try {
+            $xml = Storage::disk('local')->get($compra->compra_xml_path);
+            if ($xml === null) {
+                return;
+            }
+
+            $nfe = $this->parser->parse($xml);
+            $this->gravar($compra, $nfe, $this->classificar($nfe, $compra->compra_prestador_id, $compra->id));
+        } catch (Throwable) {
+            return;
         }
     }
 }

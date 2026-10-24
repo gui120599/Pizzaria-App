@@ -31,6 +31,7 @@ class RegistrarDevolucaoAction
             ->icon('heroicon-o-arrow-uturn-left')
             ->color('warning')
             ->visible(fn (Compra $record): bool => $record->compra_status === CompraStatusEnum::CONFIRMADA
+                && ! $record->ehNotaDeDevolucao()
                 && auth()->user()->can('registrarDevolucao', $record))
             ->modalHeading('Registrar devolução ao fornecedor')
             ->modalDescription('Baixa o estoque dos itens devolvidos e gera um crédito com o fornecedor, abatido automaticamente na próxima compra dele. Esta ação não pode ser desfeita.')

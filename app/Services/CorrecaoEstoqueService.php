@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\MovimentacaoTipoEnum;
+use App\Models\Compra;
 use App\Models\EstoqueCorrecao;
 use App\Models\EstoqueLote;
 use App\Models\ItensVenda;
@@ -125,8 +126,28 @@ class CorrecaoEstoqueService
      */
     public function aplicarExclusao(MovimentacaoProduto $alvo, ?string $motivo = null): EstoqueCorrecao
     {
-        return DB::transaction(function () use ($alvo, $motivo) {
-            if ($alvo->mov_referencia_id || $alvo->mov_venda_id) {
+        return $this->excluir($alvo, $motivo, permitirEntradaDeCompra: false);
+    }
+
+    /**
+     * Exclusão (com replay do WAC) da movimentação de ENTRADA gerada por uma
+     * compra, chamada só pelo CompraEstornoService — que também cancela os
+     * títulos e muda o status da compra. Nunca exposta como ação solta.
+     */
+    public function aplicarExclusaoDeEntradaDeCompra(MovimentacaoProduto $alvo, ?string $motivo = null): EstoqueCorrecao
+    {
+        return $this->excluir($alvo, $motivo, permitirEntradaDeCompra: true);
+    }
+
+    private function excluir(MovimentacaoProduto $alvo, ?string $motivo, bool $permitirEntradaDeCompra): EstoqueCorrecao
+    {
+        return DB::transaction(function () use ($alvo, $motivo, $permitirEntradaDeCompra) {
+            $entradaDeCompra = $permitirEntradaDeCompra
+                && $alvo->mov_referencia_type === (new Compra)->getMorphClass()
+                && $alvo->mov_tipo === MovimentacaoTipoEnum::ENTRADA
+                && ! $alvo->mov_venda_id;
+
+            if (! $entradaDeCompra && ($alvo->mov_referencia_id || $alvo->mov_venda_id)) {
                 throw ValidationException::withMessages([
                     'movimentacao' => 'Esta movimentação está vinculada a uma compra, balanço ou venda — não pode ser simplesmente excluída. Use "Corrigir" ou ajuste o documento de origem.',
                 ]);

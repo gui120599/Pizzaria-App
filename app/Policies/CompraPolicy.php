@@ -103,4 +103,13 @@ class CompraPolicy
     {
         return $authUser->can('corrigir:data_entrada_compra');
     }
+
+    /**
+     * Estornar uma compra confirmada devolve o estoque (com replay do custo
+     * médio) e cancela os títulos: mexe em histórico já consolidado.
+     */
+    public function estornar(AuthUser $authUser, Compra $compra): bool
+    {
+        return $authUser->can('estornar:compra');
+    }
 }

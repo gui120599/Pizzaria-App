@@ -108,6 +108,26 @@ class ClassificadorOperacaoEntradaTest extends TestCase
         $this->assertSame(ConfiancaOperacaoEnum::BAIXA, $resultado->confianca);
     }
 
+    public function test_devolucao_com_finalidade_4_e_tpnf_1_tambem_e_devolucao_ao_fornecedor(): void
+    {
+        $resultado = $this->classificar('devolucao-fornecedor-tpnf1', new ContextoClassificacao(
+            empresaCnpj: self::CNPJ_EMPRESA,
+            notasReferenciadasNossas: [self::CHAVE_COMPRA_NOSSA],
+        ));
+
+        $this->assertSame(OperacaoEntradaEnum::DEVOLUCAO_AO_FORNECEDOR, $resultado->operacao);
+        $this->assertSame(ConfiancaOperacaoEnum::ALTA, $resultado->confianca);
+    }
+
+    public function test_cfop_de_devolucao_com_finalidade_normal_e_devolucao_e_nunca_compra(): void
+    {
+        $resultado = $this->classificar('devolucao-cfop-5202-finalidade-1');
+
+        $this->assertSame(OperacaoEntradaEnum::DEVOLUCAO_AO_FORNECEDOR, $resultado->operacao);
+        $this->assertSame(ConfiancaOperacaoEnum::MEDIA, $resultado->confianca, 'sem NFref para compra nossa não passa de média');
+        $this->assertTrue($resultado->operacao->efeitos()->exigeVinculo);
+    }
+
     public function test_finalidade_2_e_complementar(): void
     {
         $resultado = $this->classificar('complementar');
