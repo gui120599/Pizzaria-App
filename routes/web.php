@@ -81,6 +81,13 @@ Route::prefix('mesa/{mesa:mesa_codigo_qr}')->name('mesa-cliente.')->controller(M
 
 Route::get('/Produto/{produto}', [ProdutoController::class, 'show'])->name('produto.show');
 
+// Página pública (fora do painel Filament) exibida logo após o autocadastro
+// em /influenciadores/register — o influenciador nasce "pendente" e não
+// consegue entrar no painel até o staff aprovar, então mostramos um aviso
+// em vez de deixar a navegação padrão do Filament esbarrar num 403.
+Route::get('/influenciadores/aguardando-aprovacao', fn () => view('influenciador.aguardando-aprovacao'))
+    ->name('influenciador.aguardando-aprovacao');
+
 Route::get('/dashboard', [Dashboard::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 // Scan de QR code do ticket: assinatura garante que só quem escaneou o QR

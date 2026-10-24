@@ -7,6 +7,7 @@ use App\Models\ItensPedido;
 use App\Models\MovimentacaoPedido;
 use App\Models\Pedido;
 use App\Models\Produto;
+use App\Services\ComissaoService;
 use App\Services\EstoqueService;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,14 @@ class PedidoObserver
 {
     // Statuses que indicam que a baixa de estoque já foi realizada
     private const STATUSES_COM_BAIXA = ['PREPARANDO', 'PRONTO', 'EM TRANSPORTE', 'ENTREGUE', 'FINALIZADO'];
+
+    /**
+     * Handle the Pedido "created" event.
+     */
+    public function created(Pedido $pedido): void
+    {
+        app(ComissaoService::class)->criarSeAplicavel($pedido);
+    }
 
     /**
      * Handle the Pedido "updating" event.
@@ -30,6 +39,8 @@ class PedidoObserver
                 'mov_pedido_user_id' => Auth::id(),
             ]);
         }
+
+        $this->processarComissao($pedido);
 
         if (! $pedido->isDirty('pedido_status')) {
             return;
@@ -46,6 +57,31 @@ class PedidoObserver
         // Estorno: pedido cancelado após ter saído do estado PREPARANDO
         if ($novoStatus === 'CANCELADO' && in_array($statusAnterior, self::STATUSES_COM_BAIXA, true)) {
             $this->estornarEstoque($pedido);
+        }
+    }
+
+    /**
+     * Comissão do influenciador (se o pedido tiver cupom com influenciador):
+     * roda independente de pedido_status estar dirty, porque
+     * FinalizacaoVendaService pode setar pedido_venda_id sem levar o status a
+     * FINALIZADO (ex.: pedido em PRONTO pago no caixa antes da entrega) — o
+     * sinal robusto de "pedido pago" é pedido_venda_id, não o status sozinho.
+     * Cobre os caminhos que passam por $pedido->update()/save(); o caminho
+     * via updateQuietly() é tratado à parte em
+     * VendaObserver::finalizarPedidosEMesas().
+     */
+    private function processarComissao(Pedido $pedido): void
+    {
+        $novoStatus = $pedido->pedido_status;
+
+        if ($pedido->isDirty('pedido_status') && $novoStatus === 'CANCELADO') {
+            app(ComissaoService::class)->cancelar($pedido);
+
+            return;
+        }
+
+        if ($pedido->isDirty('pedido_venda_id') && $pedido->pedido_venda_id && $novoStatus !== 'CANCELADO') {
+            app(ComissaoService::class)->aprovar($pedido);
         }
     }
 

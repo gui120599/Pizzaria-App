@@ -168,6 +168,7 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\Filament\AdminPanelProvider::class,
+        App\Providers\Filament\InfluenciadorPanelProvider::class,
         App\Providers\Filament\GarcomPanelProvider::class,
         App\Providers\Filament\CozinhaPanelProvider::class,
         App\Providers\RouteServiceProvider::class,

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\CanalLancamentoEnum;
 use App\Enums\PedidoOrigemEnum;
 use App\Exceptions\ComboSaboresInvalidoException;
+use App\Exceptions\CupomInvalidoException;
 use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\ItemIndisponivelException;
 use App\Exceptions\PerguntaNaoRespondidaException;
@@ -13,7 +14,9 @@ use App\Models\Cliente;
 use App\Models\HorarioFuncionamento;
 use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
+use App\Notifications\CupomUtilizadoNotification;
 use App\Services\ClienteResolverService;
+use App\Services\CupomService;
 use App\Services\ItemSolicitado;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
@@ -81,6 +84,7 @@ class CardapioCheckoutController extends Controller
         Request $request,
         LancamentoItemPedidoService $lancamento,
         ClienteResolverService $clienteResolver,
+        CupomService $cupomService,
     ) {
         if (! HorarioFuncionamento::estaAberto()) {
             $proximo = HorarioFuncionamento::proximoHorario();
@@ -124,6 +128,7 @@ class CardapioCheckoutController extends Controller
             // produto (na pizza de sabores, a todos os sabores) e usa o valor do cadastro.
             'itens.*.adicionais' => 'nullable|array|max:20',
             'itens.*.adicionais.*' => 'integer',
+            'codigo_cupom' => 'nullable|string|max:50',
         ]);
 
         $opcaoPagamentoId = $request->integer('opcao_pagamento_id') ?: null;
@@ -184,6 +189,23 @@ class CardapioCheckoutController extends Controller
         $somaLiquido = round($somaLiquido + $valorOfertasAdicionais, 2);
         $totalBruto = round($somaLiquido + $totalDesconto, 2);
 
+        // Cupom de desconto: validação otimista antes da transação, só para dar
+        // feedback rápido — a garantia real contra corrida em cupom de uso único
+        // vem da revalidação com lock dentro da transação (ver CupomService).
+        $cupomAplicado = null;
+        $valorDescontoCupom = 0.0;
+
+        if ($request->filled('codigo_cupom')) {
+            try {
+                $resultadoCupom = $cupomService->validar((string) $request->string('codigo_cupom'), $somaLiquido, $cliente);
+            } catch (CupomInvalidoException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            $cupomAplicado = $resultadoCupom['cupom'];
+            $valorDescontoCupom = $resultadoCupom['valor_desconto'];
+        }
+
         // Calcula taxa de entrega
         $valorFrete = 0.0;
         $opcaoEntrega = OpcoesEntregas::find($request->opcao_entrega_id);
@@ -198,8 +220,13 @@ class CardapioCheckoutController extends Controller
         try {
             $pedido = DB::transaction(function () use (
                 $linhas, $lancamento, $request, $cliente, $descricaoPagamento,
-                $observacaoPagamento, $totalBruto, $totalDesconto, $valorFrete, $somaLiquido
+                $observacaoPagamento, $totalBruto, $totalDesconto, $valorFrete, $somaLiquido,
+                $cupomAplicado, $valorDescontoCupom, $cupomService
             ) {
+                if ($cupomAplicado) {
+                    $cupomService->consumir($cupomAplicado, $somaLiquido, $cliente);
+                }
+
                 $pedido = Pedido::create([
                     'pedido_cliente_id' => $cliente->id,
                     'pedido_opcaoentrega_id' => $request->opcao_entrega_id,
@@ -208,8 +235,10 @@ class CardapioCheckoutController extends Controller
                     'pedido_observacao_pagamento' => $observacaoPagamento,
                     'pedido_valor_itens' => $totalBruto,
                     'pedido_valor_desconto' => $totalDesconto,
+                    'pedido_cupom_id' => $cupomAplicado?->id,
+                    'pedido_valor_desconto_cupom' => $valorDescontoCupom,
                     'pedido_valor_frete' => $valorFrete,
-                    'pedido_valor_total' => round(max(0, $somaLiquido + $valorFrete), 2),
+                    'pedido_valor_total' => round(max(0, $somaLiquido - $valorDescontoCupom + $valorFrete), 2),
                     'pedido_status' => 'INICIADO',
                     'pedido_origem' => PedidoOrigemEnum::CARDAPIO,
                     'pedido_datahora_abertura' => now(),
@@ -222,8 +251,14 @@ class CardapioCheckoutController extends Controller
 
                 return $pedido;
             });
-        } catch (PromocaoIndisponivelException $e) {
+        } catch (PromocaoIndisponivelException|CupomInvalidoException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        // Fora da transação de propósito: notificação via HTTP não deve
+        // segurar a conexão do banco esperando a Evolution API responder.
+        if ($cupomAplicado?->influenciador) {
+            $cupomAplicado->influenciador->notify(new CupomUtilizadoNotification($pedido));
         }
 
         return response()->json([
@@ -231,8 +266,9 @@ class CardapioCheckoutController extends Controller
             'cliente_id' => $cliente->id,
             'total_bruto' => $totalBruto,
             'total_desconto' => $totalDesconto,
+            'valor_desconto_cupom' => $valorDescontoCupom,
             'valor_frete' => $valorFrete,
-            'total_final' => round(max(0, $somaLiquido + $valorFrete), 2),
+            'total_final' => round(max(0, $somaLiquido - $valorDescontoCupom + $valorFrete), 2),
         ]);
     }
 }

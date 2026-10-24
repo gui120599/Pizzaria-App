@@ -44,6 +44,8 @@ class Pedido extends Model
         'pedido_endereco_entrega',
         'pedido_valor_itens',
         'pedido_valor_desconto',
+        'pedido_cupom_id',
+        'pedido_valor_desconto_cupom',
         'pedido_valor_frete',
         'pedido_valor_total',
         'pedido_status',
@@ -183,6 +185,16 @@ class Pedido extends Model
     public function mov_pedido()
     {
         return $this->hasMany(MovimentacaoPedido::class, 'mov_pedido_pedido_id');
+    }
+
+    public function cupom()
+    {
+        return $this->belongsTo(Cupom::class, 'pedido_cupom_id');
+    }
+
+    public function comissao()
+    {
+        return $this->hasOne(Comissao::class, 'comissao_pedido_id');
     }
 
     /** Forma de pagamento combinada com o cliente no atendimento — dado informativo, não uma cobrança real (ver PagamentosPedido). */
