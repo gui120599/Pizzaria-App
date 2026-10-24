@@ -27,6 +27,66 @@ class FinanceiroStatsOverview extends BaseWidget
     protected function getStats(): array
     {
         [$inicio, $fim] = $this->periodo();
+        [$inicioAnterior, $fimAnterior] = $this->periodoAnterior();
+
+        $atual = $this->indicadores($inicio, $fim);
+        $anterior = $this->indicadores($inicioAnterior, $fimAnterior);
+
+        // CMV ideal em restaurante costuma ficar entre 28% e 35%.
+        $cmvCor = match (true) {
+            $atual['cmv_pct'] <= 35 => 'success',
+            $atual['cmv_pct'] <= 40 => 'warning',
+            default => 'danger',
+        };
+
+        return [
+            Stat::make('Faturamento', $this->brl($atual['faturamento']))
+                ->description($this->descricaoComComparativo("{$atual['vendas']} vendas finalizadas", $atual['faturamento'], $anterior['faturamento']))
+                ->descriptionIcon('heroicon-m-banknotes')
+                ->chart($this->sparklineFaturamento($inicio, $fim, $this->filtrandoPorProduto()))
+                ->color('success'),
+
+            Stat::make('Qtd. total de produtos', number_format($atual['qtd_produtos'], 0, ',', '.'))
+                ->description($this->descricaoComComparativo('Unidades vendidas no período', $atual['qtd_produtos'], $anterior['qtd_produtos']))
+                ->descriptionIcon('heroicon-m-shopping-bag')
+                ->color('info'),
+
+            Stat::make('Ticket médio', $this->brl($atual['ticket']))
+                ->description($this->descricaoComComparativo('Faturamento ÷ nº de vendas', $atual['ticket'], $anterior['ticket']))
+                ->descriptionIcon('heroicon-m-receipt-percent')
+                ->color('info'),
+
+            Stat::make('CMV', $this->brl($atual['cmv']))
+                ->description($this->descricaoComComparativo("{$this->pct($atual['cmv_pct'])} do faturamento", $atual['cmv'], $anterior['cmv']))
+                ->descriptionIcon('heroicon-m-cube')
+                ->color($cmvCor),
+
+            Stat::make('Margem bruta', $this->brl($atual['margem']))
+                ->description($this->descricaoComComparativo("{$this->pct($atual['margem_pct'])} de margem", $atual['margem'], $anterior['margem']))
+                ->descriptionIcon('heroicon-m-arrow-trending-up')
+                ->color($atual['margem_pct'] >= 60 ? 'success' : ($atual['margem_pct'] >= 50 ? 'warning' : 'danger')),
+
+            Stat::make('Descontos concedidos', $this->brl($atual['descontos']))
+                ->description($this->descricaoComComparativo("{$this->pct($atual['desconto_pct'])} sobre o bruto", $atual['descontos'], $anterior['descontos']))
+                ->descriptionIcon('heroicon-m-tag')
+                ->color($atual['descontos'] > 0 ? 'warning' : 'gray'),
+
+            Stat::make('Cancelamentos', (string) $atual['canceladas'])
+                ->description($this->descricaoComComparativo("{$this->pct($atual['taxa_cancelamento'])} das vendas", $atual['canceladas'], $anterior['canceladas']))
+                ->descriptionIcon('heroicon-m-x-circle')
+                ->color($atual['taxa_cancelamento'] >= 5 ? 'danger' : 'gray'),
+        ];
+    }
+
+    /**
+     * Indicadores de um período, com os filtros do painel (tipo de entrega,
+     * categoria e produto). O período atual e o anterior passam por aqui, então
+     * a comparação usa a mesma regra.
+     *
+     * @return array{vendas: int, faturamento: float, ticket: float, cmv: float, cmv_pct: float, margem: float, margem_pct: float, descontos: float, desconto_pct: float, qtd_produtos: float, canceladas: int, taxa_cancelamento: float}
+     */
+    private function indicadores(Carbon $inicio, Carbon $fim): array
+    {
         $tipos = $this->tiposEntregaSelecionados();
         $filtrandoProduto = $this->filtrandoPorProduto();
 
@@ -49,9 +109,7 @@ class FinanceiroStatsOverview extends BaseWidget
         // preenchido pelo ItensVendaObserver). Fiel ao período mesmo que o custo mude.
         $cmv = (float) (clone $itens)->sum(DB::raw('itens_vendas.item_venda_quantidade * itens_vendas.item_venda_custo_unitario'));
 
-        $cmvPct = $faturamento > 0 ? $cmv / $faturamento * 100 : 0.0;
         $margem = $faturamento - $cmv;
-        $margemPct = $faturamento > 0 ? $margem / $faturamento * 100 : 0.0;
 
         // Soma de unidades vendidas no período (itens filtrados por categoria/produto,
         // se houver), independente do filtro de categoria/produto para faturamento/CMV.
@@ -69,53 +127,20 @@ class FinanceiroStatsOverview extends BaseWidget
 
         $canceladas = $canceladasQuery->count();
         $totalTentativas = $numVendas + $canceladas;
-        $taxaCancel = $totalTentativas > 0 ? $canceladas / $totalTentativas * 100 : 0.0;
-
-        $descontoPct = $faturamento > 0 ? $descontos / ($faturamento + $descontos) * 100 : 0.0;
-
-        // CMV ideal em restaurante costuma ficar entre 28% e 35%.
-        $cmvCor = match (true) {
-            $cmvPct <= 35 => 'success',
-            $cmvPct <= 40 => 'warning',
-            default => 'danger',
-        };
 
         return [
-            Stat::make('Faturamento', $this->brl($faturamento))
-                ->description("{$numVendas} vendas finalizadas")
-                ->descriptionIcon('heroicon-m-banknotes')
-                ->chart($this->sparklineFaturamento($inicio, $fim, $filtrandoProduto))
-                ->color('success'),
-
-            Stat::make('Qtd. total de produtos', number_format($qtdProdutos, 0, ',', '.'))
-                ->description('Unidades vendidas no período')
-                ->descriptionIcon('heroicon-m-shopping-bag')
-                ->color('info'),
-
-            Stat::make('Ticket médio', $this->brl($ticket))
-                ->description('Faturamento ÷ nº de vendas')
-                ->descriptionIcon('heroicon-m-receipt-percent')
-                ->color('info'),
-
-            Stat::make('CMV', $this->brl($cmv))
-                ->description("{$this->pct($cmvPct)} do faturamento")
-                ->descriptionIcon('heroicon-m-cube')
-                ->color($cmvCor),
-
-            Stat::make('Margem bruta', $this->brl($margem))
-                ->description("{$this->pct($margemPct)} de margem")
-                ->descriptionIcon('heroicon-m-arrow-trending-up')
-                ->color($margemPct >= 60 ? 'success' : ($margemPct >= 50 ? 'warning' : 'danger')),
-
-            Stat::make('Descontos concedidos', $this->brl($descontos))
-                ->description("{$this->pct($descontoPct)} sobre o bruto")
-                ->descriptionIcon('heroicon-m-tag')
-                ->color($descontos > 0 ? 'warning' : 'gray'),
-
-            Stat::make('Cancelamentos', (string) $canceladas)
-                ->description("{$this->pct($taxaCancel)} das vendas")
-                ->descriptionIcon('heroicon-m-x-circle')
-                ->color($taxaCancel >= 5 ? 'danger' : 'gray'),
+            'vendas' => $numVendas,
+            'faturamento' => $faturamento,
+            'ticket' => $ticket,
+            'cmv' => $cmv,
+            'cmv_pct' => $faturamento > 0 ? $cmv / $faturamento * 100 : 0.0,
+            'margem' => $margem,
+            'margem_pct' => $faturamento > 0 ? $margem / $faturamento * 100 : 0.0,
+            'descontos' => $descontos,
+            'desconto_pct' => $faturamento > 0 ? $descontos / ($faturamento + $descontos) * 100 : 0.0,
+            'qtd_produtos' => $qtdProdutos,
+            'canceladas' => $canceladas,
+            'taxa_cancelamento' => $totalTentativas > 0 ? $canceladas / $totalTentativas * 100 : 0.0,
         ];
     }
 

@@ -56,6 +56,12 @@ class PermissionSeeder extends Seeder
             // Ações sensíveis do salão: quem tem dispensa o PIN de gerente
             // (ver AcaoAutorizadaEnum::permissao()).
             'cancelar_item:pedido', 'remover_taxa:sessao_mesa', 'transferir:sessao_mesa', 'conceder_cortesia:pedido',
+            // Relatório de Exceções e Perdas dos pedidos (página + widgets do Shield).
+            // Traz contagens por usuário: só Admin (via Gate) e Gerente.
+            'view:relatorio_excecoes_pedidos', 'view:excecoes_pedidos_stats_overview',
+            'view:excecoes_cancelamentos_por_motivo_widget', 'view:excecoes_cancelamentos_por_usuario_widget',
+            'view:excecoes_itens_removidos_widget', 'view:excecoes_pedidos_excluidos_widget',
+            'view:excecoes_entregues_nao_pagos_widget', 'view:excecoes_lancamentos_por_usuario_widget',
             // Relatório de Taxa de Serviço (página + widgets do Shield).
             'view:relatorio_taxa_servico', 'view:taxa_servico_stats_overview',
             'view:taxa_servico_por_garcom_widget', 'view:taxa_servico_detalhamento_widget',
