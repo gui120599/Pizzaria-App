@@ -29,10 +29,11 @@ class CompraDevolucaoService
 
     /**
      * @param  array<int, array{compra_item_id: int, quantidade: float}>  $itens
+     * @param  Compra|null  $notaFiscal  compra importada do XML da NF-e do fornecedor que documenta a devolução
      */
-    public function registrar(Compra $compra, array $itens, ?string $motivo = null): CompraDevolucao
+    public function registrar(Compra $compra, array $itens, ?string $motivo = null, ?Compra $notaFiscal = null): CompraDevolucao
     {
-        return DB::transaction(function () use ($compra, $itens, $motivo) {
+        return DB::transaction(function () use ($compra, $itens, $motivo, $notaFiscal) {
             if ($compra->compra_status !== CompraStatusEnum::CONFIRMADA) {
                 throw ValidationException::withMessages(['compra' => 'Só é possível devolver itens de uma compra confirmada.']);
             }
@@ -43,6 +44,8 @@ class CompraDevolucaoService
 
             $devolucao = CompraDevolucao::create([
                 'compra_id' => $compra->id,
+                'compra_nota_id' => $notaFiscal?->id,
+                'chave_nfe' => $notaFiscal?->compra_chave_nfe,
                 'motivo' => $motivo,
                 'valor_total' => 0,
                 'user_id' => Auth::id(),
@@ -69,7 +72,10 @@ class CompraDevolucaoService
                     ]);
                 }
 
-                $valorUnitario = $compraItem->custoUnitarioEstoque();
+                // Quantidade e valor_unitario ficam na unidade de COMPRA (ex.: caixa); o
+                // custo por unidade de estoque precisa ser multiplicado pelo fator.
+                $fator = (float) $compraItem->ci_fator_conversao ?: 1.0;
+                $valorUnitario = $compraItem->custoUnitarioEstoque() * $fator;
                 $valorItem = round($quantidade * $valorUnitario, 2);
 
                 CompraDevolucaoItem::create([

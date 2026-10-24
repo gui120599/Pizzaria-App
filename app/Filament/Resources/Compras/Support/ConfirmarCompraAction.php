@@ -46,7 +46,7 @@ class ConfirmarCompraAction
             ->label('Confirmar compra')
             ->icon('heroicon-o-check-circle')
             ->color('success')
-            ->visible(fn (Compra $record): bool => $record->isRascunho() && auth()->user()->can('confirm', $record))
+            ->visible(fn (Compra $record): bool => $record->isRascunho() && ! $record->operacaoImpedeEntrada() && auth()->user()->can('confirm', $record))
             ->modalHeading('Confirmar compra')
             ->modalDescription('Gera as entradas de estoque e recalcula o custo médio. Esta ação não pode ser desfeita.')
             ->modalSubmitActionLabel('Confirmar')

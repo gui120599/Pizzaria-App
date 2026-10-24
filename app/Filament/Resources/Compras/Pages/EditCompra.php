@@ -4,9 +4,11 @@ namespace App\Filament\Resources\Compras\Pages;
 
 use App\Filament\Resources\Compras\CompraResource;
 use App\Filament\Resources\Compras\Support\ConfirmarCompraAction;
+use App\Filament\Resources\Compras\Support\ConverterEmDevolucaoAction;
 use App\Filament\Resources\Compras\Support\CorrigirDataEntradaAction;
 use App\Filament\Resources\Compras\Support\ImprimirDanfeAction;
 use App\Filament\Resources\Compras\Support\RegistrarDevolucaoAction;
+use App\Filament\Resources\Compras\Support\RegistrarDevolucaoNotaAction;
 use App\Models\Compra;
 use App\Services\CompraService;
 use Filament\Actions\DeleteAction;
@@ -20,6 +22,14 @@ class EditCompra extends EditRecord
     {
         return [
             ConfirmarCompraAction::make()
+                ->after(function (): void {
+                    $this->redirect(static::getResource()::getUrl('index'));
+                }),
+            RegistrarDevolucaoNotaAction::make()
+                ->after(function (): void {
+                    $this->redirect(static::getResource()::getUrl('index'));
+                }),
+            ConverterEmDevolucaoAction::make()
                 ->after(function (): void {
                     $this->redirect(static::getResource()::getUrl('index'));
                 }),

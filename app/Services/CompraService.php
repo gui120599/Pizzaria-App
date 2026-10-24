@@ -14,6 +14,7 @@ use App\Models\FornecedorProduto;
 use App\Models\Lancamento;
 use App\Models\LancamentoDespesa;
 use App\Models\PrestadorCredito;
+use App\Services\Compras\CompraFiscalService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -24,7 +25,10 @@ use Illuminate\Validation\ValidationException;
 
 class CompraService
 {
-    public function __construct(private EstoqueService $estoque) {}
+    public function __construct(
+        private EstoqueService $estoque,
+        private CompraFiscalService $fiscal,
+    ) {}
 
     /** Recalcula os totais da compra a partir dos itens. */
     public function recalcularTotais(Compra $compra): void
@@ -52,6 +56,27 @@ class CompraService
     }
 
     /**
+     * Nota de devolução (ou documento não processável) nunca vira entrada de
+     * estoque: o efeito certo é saída + crédito com o fornecedor (ver
+     * DevolucaoPorNotaService). Compra importada antes da classificação é
+     * classificada aqui, a partir do XML guardado.
+     */
+    private function garantirQueGeraEntrada(Compra $compra): void
+    {
+        $this->fiscal->classificarSeFaltar($compra);
+
+        if (! $compra->operacaoImpedeEntrada()) {
+            return;
+        }
+
+        $mensagem = $compra->ehNotaDeDevolucao()
+            ? 'Esta nota é uma devolução ao fornecedor e não pode dar entrada no estoque. Use "Registrar devolução da nota": ela baixa o estoque e gera o crédito com o fornecedor.'
+            : 'Esta nota foi classificada como não processável (documento de outra empresa ou sem efeito) e não pode ser confirmada como compra.';
+
+        throw ValidationException::withMessages(['compra' => $mensagem]);
+    }
+
+    /**
      * Confirma a compra: rateia acréscimos, gera as entradas de estoque
      * (recalculando o custo médio) e atualiza o de-para de fornecedor.
      *
@@ -68,6 +93,8 @@ class CompraService
             if (! $compra->isRascunho()) {
                 throw ValidationException::withMessages(['compra' => 'A compra não está em rascunho.']);
             }
+
+            $this->garantirQueGeraEntrada($compra);
 
             if ($dataEntrada !== null) {
                 $this->validarDataEntrada($compra, $dataEntrada);

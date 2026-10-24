@@ -4,10 +4,13 @@ namespace App\Models;
 
 use App\Enums\CompraStatusEnum;
 use App\Enums\ConfiancaOperacaoEnum;
+use App\Enums\EfeitoEstoqueEnum;
+use App\Enums\OperacaoEntradaEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -117,6 +120,37 @@ class Compra extends Model
     public function lancamentos(): HasMany
     {
         return $this->hasMany(Lancamento::class, 'compra_id');
+    }
+
+    /** Devolução registrada a partir desta compra, quando ela é a nota fiscal de uma devolução. */
+    public function devolucaoPorNota(): HasOne
+    {
+        return $this->hasOne(CompraDevolucao::class, 'compra_nota_id');
+    }
+
+    /** A nota é (ou tem item) de devolução ao fornecedor: o efeito é SAÍDA de estoque, nunca entrada. */
+    public function ehNotaDeDevolucao(): bool
+    {
+        $devolucao = OperacaoEntradaEnum::DEVOLUCAO_AO_FORNECEDOR->value;
+
+        return $this->compra_operacao === $devolucao
+            || ($this->compra_operacao === OperacaoEntradaEnum::MISTA && $this->itens()->where('ci_operacao', $devolucao)->exists());
+    }
+
+    /**
+     * A operação classificada não pode gerar entrada de estoque: devolução
+     * (saída) ou documento não processável (de outra empresa, cancelado...).
+     */
+    public function operacaoImpedeEntrada(): bool
+    {
+        if ($this->ehNotaDeDevolucao()) {
+            return true;
+        }
+
+        $operacao = $this->compra_operacao !== null ? OperacaoEntradaEnum::tryFrom($this->compra_operacao) : null;
+
+        return $operacao !== null
+            && ($operacao->efeitos()->bloqueiaConfirmacao || $operacao->efeitos()->estoque === EfeitoEstoqueEnum::SAIDA);
     }
 
     /** A compra tem dados fiscais do XML (tem sentido exibir a seção "Operação fiscal"). */

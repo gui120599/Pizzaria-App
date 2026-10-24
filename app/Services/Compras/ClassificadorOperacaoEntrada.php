@@ -47,7 +47,7 @@ class ClassificadorOperacaoEntrada
             $alertasPorTexto = [];
             $semPagamento = $this->vendaSemPagamento($nfe);
             foreach ($nfe->itens as $indice => $item) {
-                [$operacao, $confianca, $criterio, $alerta] = $this->classificarItem($item, $contexto, $semPagamento);
+                [$operacao, $confianca, $criterio, $alerta] = $this->classificarItem($item, $nfe, $contexto, $semPagamento);
                 $porItem[] = new ClassificacaoItem($indice + 1, $item->cfop, $operacao, $confianca);
                 $criterios[] = 'Item '.($indice + 1).': '.$criterio;
                 if ($alerta !== null) {
@@ -99,18 +99,15 @@ class ClassificadorOperacaoEntrada
      */
     private function classificarCabecalho(NfeParseada $nfe, ContextoClassificacao $contexto, string $empresa, array &$criterios): ?array
     {
-        if ($nfe->finalidade === 4 && $nfe->tipoNf === 0) {
+        // finNFe=4 é devolução, qualquer que seja o tpNF: o fornecedor pode emitir a
+        // nota como entrada (tpNF=0) ou como saída (tpNF=1) referente à devolução
+        // que fizemos. Nunca pode virar entrada de estoque.
+        if ($nfe->finalidade === 4) {
             $referenciada = array_intersect($nfe->notasReferenciadas, $contexto->notasReferenciadasNossas) !== [];
-            $criterios[] = 'finNFe=4 e tpNF=0: devolução emitida pelo fornecedor'
+            $criterios[] = "finNFe=4 e tpNF={$nfe->tipoNf}: devolução emitida pelo fornecedor"
                 .($referenciada ? ', com NFref para compra nossa.' : ', sem NFref para compra nossa.');
 
             return [OperacaoEntradaEnum::DEVOLUCAO_AO_FORNECEDOR, $referenciada ? ConfiancaOperacaoEnum::ALTA : ConfiancaOperacaoEnum::BAIXA];
-        }
-
-        if ($nfe->finalidade === 4 && $nfe->tipoNf === 1) {
-            $criterios[] = 'finNFe=4 e tpNF=1: devolução de saída do emitente, não se aplica a uma entrada nossa.';
-
-            return [OperacaoEntradaEnum::OUTRA, ConfiancaOperacaoEnum::BAIXA];
         }
 
         if ($nfe->finalidade === 2) {
@@ -140,7 +137,7 @@ class ClassificadorOperacaoEntrada
      *
      * @return array{0: OperacaoEntradaEnum, 1: ConfiancaOperacaoEnum, 2: string, 3: string|null}
      */
-    private function classificarItem(NfeItem $item, ContextoClassificacao $contexto, bool $vendaSemPagamento): array
+    private function classificarItem(NfeItem $item, NfeParseada $nfe, ContextoClassificacao $contexto, bool $vendaSemPagamento): array
     {
         $cfop = $item->cfop !== null ? $this->soDigitos($item->cfop) : '';
         $sufixo = strlen($cfop) === 4 ? substr($cfop, 1) : null;
@@ -167,6 +164,17 @@ class ClassificadorOperacaoEntrada
             $motivo = $contexto->fornecedorTemHistorico ? 'fornecedor habitual' : 'fornecedor sem compras anteriores';
 
             return [$operacao, $confianca, "CFOP {$cfop} ({$motivo}) → {$operacao->label()}.", null];
+        }
+
+        if ($operacao === OperacaoEntradaEnum::DEVOLUCAO_AO_FORNECEDOR) {
+            $referenciada = array_intersect($nfe->notasReferenciadas, $contexto->notasReferenciadasNossas) !== [];
+
+            return [
+                $operacao,
+                $referenciada ? ConfiancaOperacaoEnum::ALTA : ConfiancaOperacaoEnum::MEDIA,
+                "CFOP {$cfop} → {$operacao->label()}".($referenciada ? ', com NFref para compra nossa.' : '.'),
+                null,
+            ];
         }
 
         if ($operacao === OperacaoEntradaEnum::COMPRA && $vendaSemPagamento) {

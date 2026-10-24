@@ -2,6 +2,7 @@
 
 > Auditoria e plano de 23/10/2026, sobre o HEAD `ad8bce6d` (branch `prod-new`).
 > Status: **Fases 0 e 1 implementadas (commit b160f8bd)**. As Fases 2 em diante NÃO foram implementadas: aguardam as respostas da seção 11.
+> **Adiantado em 24/10/2026 (incidente em produção: nota de devolução confirmada como entrada):** bloqueio de entrada para devolução e não processável em `CompraService::confirmar()`, reconhecimento por `finNFe=4` e CFOP de devolução, Fase 4 (`DevolucaoPorNotaService`, `compra_devolucoes.compra_nota_id`/`chave_nfe`, `CompraStatusEnum::SEM_EFEITO`) e o núcleo da Fase 5 (`CompraEstornoService`, permissão `estornar:compra`, ação "Converter em devolução"). Continua pendente: `compra_eventos`, reclassificação com motivo, efeitos das demais operações, detecção de cancelamento pela SEFAZ.
 > Este documento não é parecer tributário. Os pontos fiscais e contábeis marcados com ⚖️ precisam ser validados pelo contador.
 
 Legenda das afirmações:
@@ -134,8 +135,8 @@ A **primeira etapa recomendada** (Fases 0 e 1) corrige riscos atuais de integrid
 | 1 | `dest` ≠ CNPJ da empresa | `NAO_PROCESSAVEL` ("documento de outra empresa ou em que somos transportador/autXML") | — (bloqueia) |
 | 2 | Emitente = CNPJ da empresa | `NAO_PROCESSAVEL` (nota própria; não é entrada de terceiro) | — |
 | 3 | Protocolo com cStat ≠ 100, ou evento de cancelamento conhecido | `NAO_PROCESSAVEL` | — |
-| 4 | `finNFe=4` e `tpNF=0` | `DEVOLUCAO_AO_FORNECEDOR`, que exige NFref apontando para uma compra nossa | ALTA se a NFref casar com uma Compra; senão BAIXA |
-| 5 | `finNFe=4` e `tpNF=1` | Devolução de venda **feita por um cliente nosso a nós**? Não se aplica a quem vende por NFC-e ao consumidor → `OUTRA` | BAIXA |
+| 4 | `finNFe=4`, qualquer `tpNF` (atualizado em 24/10/2026) | `DEVOLUCAO_AO_FORNECEDOR`, que exige NFref apontando para uma compra nossa | ALTA se a NFref casar com uma Compra; senão BAIXA |
+| 5 | CFOP de devolução (x201-x210, x410-x413) com `finNFe=1` (atualizado em 24/10/2026) | `DEVOLUCAO_AO_FORNECEDOR` por item | ALTA se a NFref casar; senão MEDIA |
 | 6 | `finNFe=2` | `COMPLEMENTAR` | MEDIA (efeito manual) |
 | 7 | `finNFe=3` | `AJUSTE` | ALTA (sem efeito) |
 | 8 | Raiz do CNPJ do emitente = raiz da empresa, ou CFOP 5151-5159/5408/5409 (6xxx) | `TRANSFERENCIA` | MEDIA |

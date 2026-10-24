@@ -5,9 +5,11 @@ namespace App\Filament\Resources\Compras\Tables;
 use App\Enums\CompraStatusEnum;
 use App\Enums\OperacaoEntradaEnum;
 use App\Filament\Resources\Compras\Support\ConfirmarCompraAction;
+use App\Filament\Resources\Compras\Support\ConverterEmDevolucaoAction;
 use App\Filament\Resources\Compras\Support\CorrigirDataEntradaAction;
 use App\Filament\Resources\Compras\Support\ImprimirDanfeAction;
 use App\Filament\Resources\Compras\Support\RegistrarDevolucaoAction;
+use App\Filament\Resources\Compras\Support\RegistrarDevolucaoNotaAction;
 use App\Models\Compra;
 use App\Models\PrestadorCredito;
 use Filament\Actions\BulkActionGroup;
@@ -113,6 +115,8 @@ class ComprasTable
             ->persistFiltersInSession()
             ->recordActions([
                 ConfirmarCompraAction::make()->label('Confirmar'),
+                RegistrarDevolucaoNotaAction::make(),
+                ConverterEmDevolucaoAction::make(),
                 RegistrarDevolucaoAction::make(),
                 CorrigirDataEntradaAction::make(),
                 ImprimirDanfeAction::make(),

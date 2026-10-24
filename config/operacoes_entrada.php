@@ -28,6 +28,16 @@ return [
         '157' => Op::TRANSFERENCIA, '158' => Op::TRANSFERENCIA, '159' => Op::TRANSFERENCIA,
         '408' => Op::TRANSFERENCIA, '409' => Op::TRANSFERENCIA,
 
+        // Devolução de compra (x201-x210, x410-x413): documento do fornecedor referente
+        // a mercadoria que devolvemos. Nunca pode virar entrada de estoque.
+        '201' => Op::DEVOLUCAO_AO_FORNECEDOR, '202' => Op::DEVOLUCAO_AO_FORNECEDOR,
+        '203' => Op::DEVOLUCAO_AO_FORNECEDOR, '204' => Op::DEVOLUCAO_AO_FORNECEDOR,
+        '205' => Op::DEVOLUCAO_AO_FORNECEDOR, '206' => Op::DEVOLUCAO_AO_FORNECEDOR,
+        '207' => Op::DEVOLUCAO_AO_FORNECEDOR, '208' => Op::DEVOLUCAO_AO_FORNECEDOR,
+        '209' => Op::DEVOLUCAO_AO_FORNECEDOR, '210' => Op::DEVOLUCAO_AO_FORNECEDOR,
+        '410' => Op::DEVOLUCAO_AO_FORNECEDOR, '411' => Op::DEVOLUCAO_AO_FORNECEDOR,
+        '412' => Op::DEVOLUCAO_AO_FORNECEDOR, '413' => Op::DEVOLUCAO_AO_FORNECEDOR,
+
         // Comodato (remessa e retorno)
         '908' => Op::COMODATO, '909' => Op::COMODATO,
 

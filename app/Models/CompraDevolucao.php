@@ -12,6 +12,8 @@ class CompraDevolucao extends Model
 
     protected $fillable = [
         'compra_id',
+        'compra_nota_id',
+        'chave_nfe',
         'motivo',
         'valor_total',
         'user_id',
@@ -27,6 +29,12 @@ class CompraDevolucao extends Model
     public function compra(): BelongsTo
     {
         return $this->belongsTo(Compra::class, 'compra_id');
+    }
+
+    /** Compra importada do XML da nota fiscal que documenta esta devolução. */
+    public function notaFiscal(): BelongsTo
+    {
+        return $this->belongsTo(Compra::class, 'compra_nota_id');
     }
 
     public function user(): BelongsTo
