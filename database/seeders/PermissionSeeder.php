@@ -27,7 +27,7 @@ class PermissionSeeder extends Seeder
             'corrigir:movimentacao_estoque',
             'abrir:sessao_caixa', 'fechar:sessao_caixa', 'sangrar:sessao_caixa', 'view:relatorio_financeiro',
             'importar_caixa:lancamento', 'liquidar_recebivel:lancamento', 'conciliar:lancamento', 'view:recebiveis_adquirentes_widget', 'view:fechamento_caixa_contabilizacao_widget',
-            'operar:venda', 'cancel:venda', 'emitir:nfe',
+            'operar:venda', 'cancel:venda', 'emitir:nfe', 'cancelar_finalizada:venda',
             // Cadastros/config (bloco amarelo): Produto/Categoria/OpcoesEntregas/
             // OpcoesPagamento usam os nomes gerados pelo Shield (já existem na
             // tabela via ShieldSeeder). Mesa/Empresa/Caixa não têm Resource no
