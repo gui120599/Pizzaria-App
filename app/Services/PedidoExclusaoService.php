@@ -51,7 +51,7 @@ class PedidoExclusaoService
                 : PedidoNaoPodeSerExcluidoException::statusNaoPermitido($pedido, $status);
         }
 
-        if ($pedido->pedido_venda_id !== null || $pedido->item_pedido_pedido_id()->whereNotNull('item_pedido_venda_id')->exists()) {
+        if ($pedido->temPagamento()) {
             return PedidoNaoPodeSerExcluidoException::temVenda($pedido);
         }
 

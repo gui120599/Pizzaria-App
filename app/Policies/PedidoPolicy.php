@@ -62,6 +62,12 @@ class PedidoPolicy
         return $authUser->can('restore_any:pedido');
     }
 
+    /** A exportação leva dados pessoais do cliente (nome e celular): só quem tem a permissão. */
+    public function export(AuthUser $authUser): bool
+    {
+        return $authUser->can('export:pedido');
+    }
+
     public function replicate(AuthUser $authUser, Pedido $pedido): bool
     {
         return $authUser->can('replicate:pedido');

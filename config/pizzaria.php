@@ -76,6 +76,23 @@ return [
 
         'limite_entregue' => 50,
         'limite_entregue_expandido' => 200,
+
+        /*
+        |----------------------------------------------------------------------
+        | Fila da exportação de pedidos
+        |----------------------------------------------------------------------
+        |
+        | Só a exportação (App\Filament\Exports\PedidoExporter) usa esta conexão
+        | e esta fila: o QUEUE_CONNECTION padrão não muda, para não alterar o
+        | que já roda em fila (envio automático de NFC-e). Quem consome é o
+        | `queue:work` agendado em App\Console\Kernel. Os testes usam "sync".
+        |
+        */
+
+        'exportacao' => [
+            'conexao' => env('PEDIDOS_EXPORTACAO_CONEXAO', 'database'),
+            'fila' => 'exportacoes',
+        ],
     ],
 
     'salao' => [
