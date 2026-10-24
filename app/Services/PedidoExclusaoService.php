@@ -72,7 +72,7 @@ class PedidoExclusaoService
         // method_exists: a comissão de influenciador chega em outra entrega.
         $comissao = method_exists($pedido, 'comissao') ? $pedido->comissao()->first() : null;
 
-        if ($comissao && in_array($comissao->comissao_status, [StatusComissaoEnum::APROVADA, StatusComissaoEnum::PAGA], true)) {
+        if ($comissao && in_array($comissao->comissao_status, [StatusComissaoEnum::CREDITADA], true)) {
             return PedidoNaoPodeSerExcluidoException::comissaoAtiva($pedido);
         }
 

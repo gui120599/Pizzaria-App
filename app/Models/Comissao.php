@@ -23,9 +23,7 @@ class Comissao extends Model
         'comissao_valor_referencia',
         'comissao_valor',
         'comissao_status',
-        'comissao_aprovada_em',
-        'comissao_paga_em',
-        'comissao_pgcom_id',
+        'comissao_creditada_em',
         'comissao_observacao',
     ];
 
@@ -37,8 +35,7 @@ class Comissao extends Model
             'comissao_valor_referencia' => 'decimal:2',
             'comissao_valor' => 'decimal:2',
             'comissao_status' => StatusComissaoEnum::class,
-            'comissao_aprovada_em' => 'datetime',
-            'comissao_paga_em' => 'datetime',
+            'comissao_creditada_em' => 'datetime',
         ];
     }
 
@@ -57,8 +54,8 @@ class Comissao extends Model
         return $this->belongsTo(Cupom::class, 'comissao_cupom_id');
     }
 
-    public function pagamento()
+    public function movimentos()
     {
-        return $this->belongsTo(PagamentoComissao::class, 'comissao_pgcom_id');
+        return $this->hasMany(CarteiraMovimento::class, 'cm_comissao_id');
     }
 }

@@ -7,6 +7,7 @@ use App\Enums\TipoDescontoEnum;
 use App\Exceptions\InfluenciadorInvalidoException;
 use App\Filament\Resources\Influenciadores\Pages\EditInfluenciador;
 use App\Filament\Resources\Influenciadores\Pages\ManageInfluenciadores;
+use App\Filament\Resources\Influenciadores\RelationManagers\CarteiraRelationManager;
 use App\Filament\Resources\Influenciadores\RelationManagers\ComissoesRelationManager;
 use App\Filament\Resources\Influenciadores\RelationManagers\CuponsRelationManager;
 use App\Models\Empresa;
@@ -276,6 +277,7 @@ class InfluenciadorResource extends Resource
         return [
             CuponsRelationManager::class,
             ComissoesRelationManager::class,
+            CarteiraRelationManager::class,
         ];
     }
 

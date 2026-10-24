@@ -75,6 +75,9 @@ class CancelamentoVendaService
             $this->devolverEstoqueVendaDireta($venda, $usuarioId);
             $this->reabrirPedidosEMesas($venda);
 
+            // Venda cancelada: o que foi pago com carteira de influenciador volta ao saldo.
+            app(ConsumoCarteiraService::class)->estornarDaVenda($venda);
+
             return $this->finalizacao->cancelar($venda, $motivo->value, $usuarioId);
         });
     }
@@ -156,6 +159,9 @@ class CancelamentoVendaService
             }
 
             $pedido->update($dados);
+
+            // Venda reaberta/cancelada: estorna o crédito da comissão (volta a pendente).
+            app(ComissaoService::class)->reabrir($pedido);
         }
 
         SessaoMesa::whereIn('id', $pedidos->pluck('pedido_sessao_mesa_id')->filter()->unique())

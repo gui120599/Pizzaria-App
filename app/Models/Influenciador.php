@@ -55,6 +55,7 @@ class Influenciador extends Authenticatable implements FilamentUser, HasName
         'influenciador_whatsapp',
         'influenciador_instagram',
         'influenciador_chave_pix',
+        'influenciador_cpf',
         'influenciador_status',
         'influenciador_cupom_principal_id',
         'influenciador_tipo_comissao',
@@ -73,6 +74,8 @@ class Influenciador extends Authenticatable implements FilamentUser, HasName
             'influenciador_status' => StatusInfluenciadorEnum::class,
             'influenciador_tipo_comissao' => TipoDescontoEnum::class,
             'influenciador_valor_comissao' => 'decimal:2',
+            'influenciador_cpf' => 'encrypted',
+            'influenciador_chave_pix' => 'encrypted',
         ];
     }
 
@@ -91,23 +94,53 @@ class Influenciador extends Authenticatable implements FilamentUser, HasName
         return $this->hasMany(Comissao::class, 'comissao_influenciador_id');
     }
 
-    public function pagamentosComissao()
+    public function movimentosCarteira()
     {
-        return $this->hasMany(PagamentoComissao::class, 'pgcom_influenciador_id');
+        return $this->hasMany(CarteiraMovimento::class, 'cm_influenciador_id');
+    }
+
+    public function resgates()
+    {
+        return $this->hasMany(ResgateCarteira::class, 'rc_influenciador_id');
+    }
+
+    public function prestador()
+    {
+        return $this->belongsTo(Prestador::class, 'influenciador_prestador_id');
+    }
+
+    /** CPF fica só criptografado; o hash (HMAC dos dígitos) dá unicidade e busca. */
+    protected static function booted(): void
+    {
+        static::saving(function (Influenciador $influenciador): void {
+            if ($influenciador->isDirty('influenciador_cpf')) {
+                $digitos = preg_replace('/\D/', '', (string) $influenciador->influenciador_cpf) ?: null;
+                $influenciador->influenciador_cpf = $digitos;
+                $influenciador->influenciador_cpf_hash = $digitos === null ? null : Colaborador::hashCpf($digitos);
+            }
+        });
+    }
+
+    /** Saldo da carteira: soma do extrato (append-only). */
+    public function saldoCarteira(): float
+    {
+        return round((float) $this->movimentosCarteira()->sum('cm_valor'), 2);
     }
 
     /**
      * Motivo pelo qual o cadastro não pode ser excluído, ou null se pode.
-     * Hoje: comissão ainda não paga. A Fase 2 acrescenta saldo de carteira.
+     * Bloqueia com comissão pendente (pedido ainda não pago) ou saldo diferente de zero.
      */
     public function motivoBloqueioExclusao(): ?string
     {
-        $temComissaoEmAberto = $this->comissoes()
-            ->whereIn('comissao_status', [StatusComissaoEnum::PENDENTE, StatusComissaoEnum::APROVADA])
-            ->exists();
+        if ($this->comissoes()->where('comissao_status', StatusComissaoEnum::PENDENTE)->exists()) {
+            return 'O influenciador tem comissão pendente (pedido ainda não pago).';
+        }
 
-        return $temComissaoEmAberto
-            ? 'O influenciador tem comissão pendente ou aprovada ainda não paga.'
-            : null;
+        if (abs($this->saldoCarteira()) >= 0.01) {
+            return 'A carteira do influenciador tem saldo diferente de zero.';
+        }
+
+        return null;
     }
 }

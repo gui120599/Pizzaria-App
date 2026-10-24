@@ -6,6 +6,7 @@ use App\Enums\StatusComissaoEnum;
 use App\Models\Comissao;
 use App\Models\Cupom;
 use App\Models\Pedido;
+use App\Services\CarteiraInfluenciadorService;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Auth;
@@ -28,14 +29,11 @@ class ComissaoStatsOverview extends BaseWidget
         $totalPedidosMes = (clone $pedidosDoMes)->count();
         $faturamentoMes = (float) (clone $pedidosDoMes)->sum('pedido_valor_total');
 
-        $comissaoAprovada = (float) Comissao::where('comissao_influenciador_id', $influenciadorId)
-            ->where('comissao_status', StatusComissaoEnum::APROVADA->value)
+        $comissaoPendente = (float) Comissao::where('comissao_influenciador_id', $influenciadorId)
+            ->where('comissao_status', StatusComissaoEnum::PENDENTE->value)
             ->sum('comissao_valor');
 
-        $comissaoPagaAno = (float) Comissao::where('comissao_influenciador_id', $influenciadorId)
-            ->where('comissao_status', StatusComissaoEnum::PAGA->value)
-            ->whereYear('comissao_paga_em', now()->year)
-            ->sum('comissao_valor');
+        $saldo = app(CarteiraInfluenciadorService::class)->saldo($influenciadorId);
 
         $cupomMaisUsado = Cupom::where('cupom_influenciador_id', $influenciadorId)
             ->withCount('pedidos')
@@ -53,14 +51,15 @@ class ComissaoStatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-currency-dollar')
                 ->color('success'),
 
-            Stat::make('Comissão a Receber', 'R$ '.number_format($comissaoAprovada, 2, ',', '.'))
-                ->description('Aprovada, aguardando pagamento')
-                ->descriptionIcon('heroicon-m-banknotes')
-                ->color('warning'),
+            Stat::make('Saldo da Carteira', 'R$ '.number_format($saldo, 2, ',', '.'))
+                ->description('Disponível para resgatar em Pix ou consumir em pizza')
+                ->descriptionIcon('heroicon-m-wallet')
+                ->color('success'),
 
-            Stat::make('Comissão Paga no Ano', 'R$ '.number_format($comissaoPagaAno, 2, ',', '.'))
-                ->descriptionIcon('heroicon-m-check-circle')
-                ->color('gray'),
+            Stat::make('Comissão Pendente', 'R$ '.number_format($comissaoPendente, 2, ',', '.'))
+                ->description('Estimada, até o pedido ser pago')
+                ->descriptionIcon('heroicon-m-clock')
+                ->color('warning'),
 
             Stat::make('Cupom Mais Usado', $cupomMaisUsado?->cupom_codigo ?? '—')
                 ->description($cupomMaisUsado ? "{$cupomMaisUsado->pedidos_count} uso(s)" : 'Nenhum cupom usado ainda')

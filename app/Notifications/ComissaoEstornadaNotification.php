@@ -7,7 +7,7 @@ use App\Models\Influenciador;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Notification;
 
-class ComissaoAprovadaNotification extends Notification
+class ComissaoEstornadaNotification extends Notification
 {
     public function __construct(private Comissao $comissao) {}
 
@@ -23,9 +23,9 @@ class ComissaoAprovadaNotification extends Notification
         $valor = number_format((float) $this->comissao->comissao_valor, 2, ',', '.');
 
         return FilamentNotification::make()
-            ->title('Comissão aprovada')
-            ->body("Sua comissão de R$ {$valor} foi aprovada.")
-            ->success()
+            ->title('Comissão estornada')
+            ->body("R$ {$valor} foram estornados da sua carteira (pedido #{$this->comissao->comissao_pedido_id}).")
+            ->warning()
             ->getDatabaseMessage();
     }
 }

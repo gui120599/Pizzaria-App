@@ -5,16 +5,16 @@ namespace App\Enums;
 enum StatusComissaoEnum: string
 {
     case PENDENTE = 'pendente';
-    case APROVADA = 'aprovada';
-    case PAGA = 'paga';
+    case CREDITADA = 'creditada';
+    case ESTORNADA = 'estornada';
     case CANCELADA = 'cancelada';
 
     public function label(): string
     {
         return match ($this) {
             self::PENDENTE => 'Pendente',
-            self::APROVADA => 'Aprovada',
-            self::PAGA => 'Paga',
+            self::CREDITADA => 'Creditada na carteira',
+            self::ESTORNADA => 'Estornada',
             self::CANCELADA => 'Cancelada',
         };
     }

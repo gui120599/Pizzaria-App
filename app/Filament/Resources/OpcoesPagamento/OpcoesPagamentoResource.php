@@ -171,6 +171,17 @@ class OpcoesPagamentoResource extends Resource
                         ->helperText('Pix na chave CNPJ da empresa, sem maquininha. No fechamento de caixa é conferido pelo extrato do banco, numa seção própria.')
                         ->visible(fn (Get $get): bool => $get('opcaopag_desc_nfe') === 'InstantPayment'),
 
+                    Toggle::make('opcaopag_carteira_influenciador')
+                        ->label('Carteira de influenciador (consumo em pizza)')
+                        ->default(false)
+                        ->inline()
+                        ->helperText('Só vale no PDV, com o código de resgate do próprio influenciador, e debita o saldo da carteira dele. Cadastre uma conta financeira de compensação ("Carteira de influenciadores") e escolha-a em "Conta financeira"; o fechamento lança a receita da venda e a despesa de marketing de mesmo valor, sem efeito no caixa. Não aparece no cardápio nem no pedido.')
+                        ->rule(fn (Get $get) => function (string $attribute, $value, \Closure $fail) use ($get) {
+                            if ($value && blank($get('conta_financeira_id'))) {
+                                $fail('Escolha a conta financeira de compensação para a carteira de influenciador.');
+                            }
+                        }),
+
                     ToggleButtons::make('opcaopag_troco_padrao')
                         ->label('Troco padrão')
                         ->options(FormaTrocoEnum::class)

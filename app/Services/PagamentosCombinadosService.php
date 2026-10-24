@@ -29,6 +29,10 @@ class PagamentosCombinadosService
 
         foreach (array_values($linhas) as $ordem => $linha) {
             $opcao = ($linha['opcaoPagamentoId'] ?? null) ? OpcoesPagamento::find($linha['opcaoPagamentoId']) : null;
+
+            if ($opcao?->ehCarteiraInfluenciador()) {
+                throw new \InvalidArgumentException('A carteira de influenciador só pode ser usada no PDV, com o código de resgate.');
+            }
             $nomes[] = $opcao?->opcaopag_nome;
 
             /** @var PagamentosPedido|null $anterior */

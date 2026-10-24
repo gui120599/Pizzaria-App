@@ -10,7 +10,7 @@ use App\Filament\Resources\Comissoes\ComissaoResource;
 use App\Filament\Resources\Influenciadores\InfluenciadorResource;
 use App\Filament\Resources\Influenciadores\Pages\ManageInfluenciadores;
 use App\Filament\Resources\MateriaisDivulgacao\MaterialDivulgacaoResource;
-use App\Filament\Resources\PagamentosComissao\PagamentoComissaoResource;
+use App\Filament\Resources\ResgatesCarteira\ResgateCarteiraResource;
 use App\Models\Cliente;
 use App\Models\Comissao;
 use App\Models\Cupom;
@@ -64,7 +64,7 @@ class InfluenciadorAutorizacaoTest extends TestCase
         return [
             'influenciadores' => [InfluenciadorResource::class],
             'comissoes' => [ComissaoResource::class],
-            'resgates' => [PagamentoComissaoResource::class],
+            'resgates' => [ResgateCarteiraResource::class],
             'materiais' => [MaterialDivulgacaoResource::class],
         ];
     }

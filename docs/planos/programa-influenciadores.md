@@ -1,7 +1,7 @@
 # Programa de Influenciadores: correções, carteira e ida para produção
 
 > Origem: avaliação do painel `/influenciadores` e das telas de admin relacionadas, feita em 24/10/2026. A frente está **inteira sem commit** no working tree (desde 17/09/2026). As 16 migrations `2026_09_17_*` **nunca rodaram**, nem no banco local. Os 50 testes da frente passam num banco isolado, mas não cobrem os problemas abaixo.
-> Status: **decisões do usuário registradas em 24/10/2026 (seção 2). Fase 0 implementada (commit `fd58e131`); Fase 1 implementada em 24/10/2026, aguardando commit e Fase 2.**
+> Status: **decisões do usuário registradas em 24/10/2026 (seção 2). Fase 0 (`fd58e131`) e Fase 1 (`76bc248a`) em `prod-new` e `producao`; Fase 2 implementada em 24/10/2026 (ver seção 8).**
 > Execução: por fases (seção 5). **Cada fase é uma entrega independente**, com testes e commit próprios. Não comece a fase seguinte sem que a anterior esteja verde. O go-live exige as Fases 0, 1 e 2 e os itens **[obrigatório]** da Fase 3.
 
 ---
@@ -249,7 +249,21 @@ Antes de codificar, leia `docs/planos/contabilizacao-vendas-contas-financeiras.m
 
 ## 8. Nota de contabilização (preencher na F2.0, antes da F2.4)
 
-_Pendente. Ver F2.0._
+> Preenchida na implementação da Fase 2 (24/10/2026), seguindo `docs/planos/contabilizacao-vendas-contas-financeiras.md` e o `ContabilizacaoFechamentoService`. O pedido de OK da F2.0 foi dispensado pelo usuário ("implemente o restante sem parar"); **a contabilização abaixo deve ser validada com o contador antes do go-live.**
+
+**Como cada evento aparece no Financeiro**
+
+| Evento | Lançamento | Conta | DRE | Caixa |
+|---|---|---|---|---|
+| Comissão creditada / estornada | Nenhum (só o extrato da carteira) | — | — | — |
+| **Resgate em Pix** | `Lancamento` **Pagar**, plano "Marketing › Comissões de influenciadores" (`empresa_influ_plano_despesa_id`), favorecido = `Prestador` PF autônomo do influenciador, **pago** na hora pela conta `empresa_influ_conta_pix_id` (forma Pix) | `BaixaFinanceira` gera a saída (valida saldo da conta) | Despesa de marketing no mês do resgate | Não toca a gaveta |
+| **Consumo em pizza** (forma "Carteira de influenciador") | No fechamento da sessão: título **Receber** "Vendas Carteira de influenciador" (plano de receita da forma) pago na conta de compensação da forma **+** título **Pagar** "Marketing — consumo de influenciadores" (mesmo valor, plano de marketing) pago na **mesma** conta | A entrada e a saída se anulam: o saldo da conta de compensação não muda | Receita da venda e despesa de marketing, de mesmo valor | Nenhum efeito no caixa (a venda não tem dinheiro) |
+| Estorno do consumo (pagamento removido ou venda cancelada **antes** do fechamento) | Só o extrato da carteira (movimento `ESTORNO_CONSUMO`); como a venda sai da sessão, nada é lançado | — | — | — |
+| Estorno da contabilização do fechamento | `ContabilizacaoFechamentoService::estornar()` estorna os dois títulos (a despesa primeiro, para a conta de compensação não ficar negativa) | Volta ao saldo anterior | Desfeito | — |
+
+**Mecanismo escolhido:** a "conta de compensação" é uma conta financeira comum (ex.: "Carteira de influenciadores", tipo Banco) escolhida em `conta_financeira_id` da forma de pagamento. A despesa é gerada **no fechamento**, não no momento do consumo, porque só então a receita entra na conta; lançar antes deixaria a conta negativa (e `MovimentacaoService` valida saldo de saída). O fechamento é bloqueado (`pendenciasDeConfiguracao`) se houver consumo sem o plano de marketing configurado.
+
+**Pontos para o contador:** (1) pagamento a pessoa física pode exigir recibo ou RPA e retenções (IRRF/INSS); o sistema guarda o comprovante (disco privado) e emite um recibo simples em PDF (`/resgates-carteira/{id}/recibo`), mas **não calcula retenção**; (2) o consumo em pizza é contabilizado como permuta (receita + despesa de marketing de mesmo valor), e a NFC-e dessa venda sai pelo valor total com a forma "outros"; confirmar o tratamento fiscal.
 
 ---
 

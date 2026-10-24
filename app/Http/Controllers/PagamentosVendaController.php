@@ -45,6 +45,11 @@ class PagamentosVendaController extends Controller
         $venda = Venda::find($request->input('venda_id'));
         $opcao_pagamento = OpcoesPagamento::find($request->input('pg_venda_opcaopagamento_id'));
 
+        // Consumo da carteira exige o código de resgate: só o PDV novo (OperarVenda) sabe pedir.
+        if ($opcao_pagamento?->ehCarteiraInfluenciador()) {
+            return response()->json(['error' => 'A carteira de influenciador só pode ser usada no PDV.'], 422);
+        }
+
         // Converte valores monetários e trata valores nulos
         // pg_venda_valor_pagamento representa o valor RECEBIDO (aplicado à venda)
         $valor_recebido = (float) str_replace(',', '.', $request->input('pg_venda_valor_pagamento') ?? 0);

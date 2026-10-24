@@ -79,12 +79,12 @@ class VendaFinalizaComissaoTest extends TestCase
         ]);
 
         // Dispara VendaObserver::updated() -> finalizarPedidosEMesas() ->
-        // $pedido->updateQuietly() -> ComissaoService::aprovar() explícito.
+        // $pedido->updateQuietly() -> ComissaoService::creditar() explícito.
         $venda->update(['venda_status' => 'FINALIZADA']);
 
         $comissao->refresh();
-        $this->assertSame(StatusComissaoEnum::APROVADA, $comissao->comissao_status);
-        $this->assertNotNull($comissao->comissao_aprovada_em);
+        $this->assertSame(StatusComissaoEnum::CREDITADA, $comissao->comissao_status);
+        $this->assertNotNull($comissao->comissao_creditada_em);
 
         // Confirma que o pedido realmente ficou vinculado à venda (efeito
         // colateral que o updateQuietly() já fazia antes desta mudança).

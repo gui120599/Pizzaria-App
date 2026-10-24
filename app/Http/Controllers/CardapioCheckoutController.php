@@ -15,6 +15,7 @@ use App\Models\Cliente;
 use App\Models\HorarioFuncionamento;
 use App\Models\Influenciador;
 use App\Models\OpcoesEntregas;
+use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Notifications\CupomUtilizadoNotification;
 use App\Services\ClienteResolverService;
@@ -206,6 +207,10 @@ class CardapioCheckoutController extends Controller
         ]);
 
         $opcaoPagamentoId = $request->integer('opcao_pagamento_id') ?: null;
+
+        if ($opcaoPagamentoId && OpcoesPagamento::find($opcaoPagamentoId)?->ehCarteiraInfluenciador()) {
+            return response()->json(['message' => 'Forma de pagamento indisponível no cardápio.'], 422);
+        }
 
         // Valida reCAPTCHA apenas se as chaves estiverem configuradas
         $secret = config('services.recaptcha.secret');

@@ -3,15 +3,14 @@
 namespace App\Policies;
 
 use App\Models\Influenciador;
-use App\Models\PagamentoComissao;
+use App\Models\ResgateCarteira;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 
 /**
  * Resgates são registros financeiros imutáveis: só `view_any`/`create` para o
  * staff (permissions `{verbo}:resgate_carteira`), nunca edição ou exclusão.
- * O Influenciador só lê os próprios. Até a Fase 2 renomear o model, esta
- * policy está registrada para PagamentoComissao (AuthServiceProvider).
+ * O Influenciador só lê os próprios.
  */
 class ResgateCarteiraPolicy
 {
@@ -20,10 +19,10 @@ class ResgateCarteiraPolicy
         return $user instanceof Influenciador || $this->staffPode($user, 'view_any');
     }
 
-    public function view(Authenticatable $user, PagamentoComissao $resgate): bool
+    public function view(Authenticatable $user, ResgateCarteira $resgate): bool
     {
         if ($user instanceof Influenciador) {
-            return $resgate->pgcom_influenciador_id === $user->id;
+            return $resgate->rc_influenciador_id === $user->id;
         }
 
         return $this->staffPode($user, 'view_any');
@@ -34,12 +33,12 @@ class ResgateCarteiraPolicy
         return $this->staffPode($user, 'create');
     }
 
-    public function update(Authenticatable $user, PagamentoComissao $resgate): bool
+    public function update(Authenticatable $user, ResgateCarteira $resgate): bool
     {
         return false;
     }
 
-    public function delete(Authenticatable $user, PagamentoComissao $resgate): bool
+    public function delete(Authenticatable $user, ResgateCarteira $resgate): bool
     {
         return false;
     }
@@ -49,7 +48,7 @@ class ResgateCarteiraPolicy
         return false;
     }
 
-    public function forceDelete(Authenticatable $user, PagamentoComissao $resgate): bool
+    public function forceDelete(Authenticatable $user, ResgateCarteira $resgate): bool
     {
         return false;
     }

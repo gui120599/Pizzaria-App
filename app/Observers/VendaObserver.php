@@ -99,7 +99,7 @@ class VendaObserver
             // gancho de comissão e o registro na timeline precisam ser
             // chamados explicitamente aqui — este é o caminho mais comum de
             // "pedido pago" no sistema.
-            app(ComissaoService::class)->aprovar($pedido);
+            app(ComissaoService::class)->creditar($pedido);
 
             if (isset($dados['pedido_status'])) {
                 HistoricoStatusPedido::registrar($pedido->id, $statusAnterior, $dados['pedido_status'], Auth::id());

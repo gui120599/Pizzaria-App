@@ -28,6 +28,7 @@ class OpcoesPagamento extends Model
         'opcaopag_requer_autorizacao',
         'opcaopag_stone_integrada',
         'opcaopag_pix_cnpj',
+        'opcaopag_carteira_influenciador',
         'opcaopag_troco_padrao',
         'opcaopag_confirmavel_no_pedido',
         'opcaopag_tarifa_percentual',
@@ -43,6 +44,7 @@ class OpcoesPagamento extends Model
         'opcaopag_requer_autorizacao' => 'boolean',
         'opcaopag_stone_integrada' => 'boolean',
         'opcaopag_pix_cnpj' => 'boolean',
+        'opcaopag_carteira_influenciador' => 'boolean',
         'opcaopag_troco_padrao' => FormaTrocoEnum::class,
         'opcaopag_confirmavel_no_pedido' => 'boolean',
         'opcaopag_tarifa_percentual' => 'decimal:2',
@@ -100,6 +102,18 @@ class OpcoesPagamento extends Model
     public function contaFinanceira()
     {
         return $this->belongsTo(ContaFinanceira::class, 'conta_financeira_id')->withTrashed();
+    }
+
+    /** "Carteira de influenciador": só o PDV aceita, com o código de resgate do próprio influenciador. */
+    public function ehCarteiraInfluenciador(): bool
+    {
+        return (bool) $this->opcaopag_carteira_influenciador;
+    }
+
+    /** Formas que o pedido, o cardápio e o PDV legado podem oferecer (a carteira só vale no PDV). */
+    public function scopeSemCarteira($query)
+    {
+        return $query->where('opcaopag_carteira_influenciador', false);
     }
 
     /** Forma de pagamento que dispara o fluxo integrado de maquininha Stone no PDV. */

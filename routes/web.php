@@ -32,6 +32,7 @@ use App\Http\Controllers\RelatorioFechamentoCaixaController;
 use App\Http\Controllers\RelatorioFiscalNotasController;
 use App\Http\Controllers\RelatorioSessaoCaixaController;
 use App\Http\Controllers\RelatorioTaxaServicoController;
+use App\Http\Controllers\ResgateCarteiraDocumentoController;
 use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
 use App\Http\Controllers\VendaCancelarVaziaController;
@@ -62,6 +63,10 @@ Route::get('/', function () {
 Route::get('/Cardapio', [CardapioController::class, 'index'])->name('cardapio');
 Route::get('/cardapio/lookup-cliente', [CardapioCheckoutController::class, 'lookupCliente'])->name('cardapio.lookup_cliente');
 Route::post('/cardapio/checkout', [CardapioCheckoutController::class, 'checkout'])->middleware('throttle:cardapio-checkout')->name('cardapio.checkout');
+Route::middleware('auth')->group(function () {
+    Route::get('/resgates-carteira/{resgate}/recibo', [ResgateCarteiraDocumentoController::class, 'recibo'])->name('resgates-carteira.recibo');
+    Route::get('/resgates-carteira/{resgate}/comprovante', [ResgateCarteiraDocumentoController::class, 'comprovante'])->name('resgates-carteira.comprovante');
+});
 Route::get('/r/{slug}', ReferenciaInfluenciadorController::class)->middleware('throttle:referencia-influenciador')->name('referencia.influenciador');
 Route::post('/cardapio/cupom/validar', [CardapioCheckoutController::class, 'validarCupom'])->middleware('throttle:cardapio-cupom')->name('cardapio.cupom.validar');
 Route::get('/acompanhar/{id}', fn ($id) => view('app.acompanhamento.index', ['pedidoId' => (int) $id]))->name('pedido.acompanhar');

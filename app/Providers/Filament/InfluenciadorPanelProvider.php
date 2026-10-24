@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Influenciador\Pages\Auth\Register;
 use App\Filament\Influenciador\Pages\Dashboard;
 use App\Filament\Influenciador\Pages\KitDivulgacao;
+use App\Filament\Influenciador\Pages\MinhaCarteira;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -42,6 +43,7 @@ class InfluenciadorPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
                 KitDivulgacao::class,
+                MinhaCarteira::class,
             ])
             ->middleware([
                 EncryptCookies::class,

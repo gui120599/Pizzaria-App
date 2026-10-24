@@ -160,7 +160,7 @@ class ConfirmacoesPedidos extends Component
         }
 
         $opcoesEntregas = OpcoesEntregas::orderBy('opcaoentrega_nome')->get();
-        $opcoesPagamento = OpcoesPagamento::orderBy('opcaopag_nome')->get();
+        $opcoesPagamento = OpcoesPagamento::semCarteira()->orderBy('opcaopag_nome')->get();
 
         return view('livewire.confirmacoes-pedidos', compact('pedidos', 'opcoesEntregas', 'opcoesPagamento'));
     }

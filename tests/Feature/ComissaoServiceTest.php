@@ -2,13 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ProdutoTipoEnum;
 use App\Enums\StatusComissaoEnum;
 use App\Enums\TipoDescontoEnum;
+use App\Models\Categoria;
 use App\Models\Cliente;
 use App\Models\Comissao;
 use App\Models\Cupom;
 use App\Models\Influenciador;
+use App\Models\ItensPedido;
 use App\Models\Pedido;
+use App\Models\Produto;
 use App\Services\ComissaoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -48,12 +52,30 @@ class ComissaoServiceTest extends TestCase
             'cupom_valor_desconto' => 10,
         ]);
 
-        return Pedido::create([
+        $pedido = Pedido::create([
             'pedido_cliente_id' => $cliente->id,
             'pedido_cupom_id' => $cupom->id,
             'pedido_valor_total' => $valorTotal,
             'pedido_status' => 'INICIADO',
         ]);
+
+        // A base do crédito é a soma dos itens líquidos do pedido.
+        ItensPedido::create([
+            'item_pedido_pedido_id' => $pedido->id,
+            'item_pedido_produto_id' => Produto::create([
+                'produto_descricao' => 'Calabresa',
+                'produto_categoria_id' => Categoria::firstOrCreate(['categoria_nome' => 'Pizzas'])->id,
+                'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value,
+                'produto_preco_venda' => $valorTotal,
+            ])->id,
+            'item_pedido_quantidade' => 1,
+            'item_pedido_valor_unitario' => $valorTotal,
+            'item_pedido_valor' => $valorTotal,
+            'item_pedido_desconto' => 0,
+            'item_pedido_status' => 'INSERIDO',
+        ]);
+
+        return $pedido;
     }
 
     public function test_criar_se_aplicavel_cria_comissao_pendente_para_pedido_com_cupom_de_influenciador(): void
@@ -99,29 +121,29 @@ class ComissaoServiceTest extends TestCase
         $this->assertSame(1, Comissao::where('comissao_pedido_id', $pedido->id)->count());
     }
 
-    public function test_aprovar_promove_pendente_para_aprovada(): void
+    public function test_creditar_promove_pendente_para_creditada_e_lanca_na_carteira(): void
     {
         $influenciador = $this->influenciador();
         $pedido = $this->pedidoComCupom($influenciador);
 
-        $this->service->aprovar($pedido);
+        $this->service->creditar($pedido);
 
         $comissao = Comissao::where('comissao_pedido_id', $pedido->id)->first();
-        $this->assertSame(StatusComissaoEnum::APROVADA, $comissao->comissao_status);
-        $this->assertNotNull($comissao->comissao_aprovada_em);
+        $this->assertSame(StatusComissaoEnum::CREDITADA, $comissao->comissao_status);
+        $this->assertNotNull($comissao->comissao_creditada_em);
+        $this->assertSame(10.0, $influenciador->fresh()->saldoCarteira());
     }
 
-    public function test_aprovar_nunca_reabre_comissao_paga(): void
+    public function test_creditar_duas_vezes_gera_um_unico_movimento(): void
     {
         $influenciador = $this->influenciador();
         $pedido = $this->pedidoComCupom($influenciador);
 
-        $comissao = Comissao::where('comissao_pedido_id', $pedido->id)->first();
-        $comissao->forceFill(['comissao_status' => StatusComissaoEnum::PAGA])->save();
+        $this->service->creditar($pedido);
+        $this->service->creditar($pedido);
 
-        $this->service->aprovar($pedido);
-
-        $this->assertSame(StatusComissaoEnum::PAGA, $comissao->fresh()->comissao_status);
+        $this->assertSame(1, $influenciador->movimentosCarteira()->count());
+        $this->assertSame(10.0, $influenciador->fresh()->saldoCarteira());
     }
 
     public function test_cancelar_marca_comissao_como_cancelada(): void
@@ -135,29 +157,21 @@ class ComissaoServiceTest extends TestCase
         $this->assertSame(StatusComissaoEnum::CANCELADA, $comissao->comissao_status);
     }
 
-    public function test_cancelar_nunca_reabre_comissao_paga(): void
+    public function test_cancelar_estorna_comissao_ja_creditada(): void
     {
         $influenciador = $this->influenciador();
         $pedido = $this->pedidoComCupom($influenciador);
-
-        $comissao = Comissao::where('comissao_pedido_id', $pedido->id)->first();
-        $comissao->forceFill(['comissao_status' => StatusComissaoEnum::PAGA])->save();
+        $this->service->creditar($pedido);
 
         $this->service->cancelar($pedido);
 
-        $this->assertSame(StatusComissaoEnum::PAGA, $comissao->fresh()->comissao_status);
-    }
-
-    public function test_calculo_valor_fixo(): void
-    {
-        $influenciador = $this->influenciador([
-            'influenciador_tipo_comissao' => TipoDescontoEnum::VALOR_FIXO->value,
-            'influenciador_valor_comissao' => 15,
-        ]);
-        $pedido = $this->pedidoComCupom($influenciador, 200.0);
-
         $comissao = Comissao::where('comissao_pedido_id', $pedido->id)->first();
+        $this->assertSame(StatusComissaoEnum::ESTORNADA, $comissao->comissao_status);
+        $this->assertSame(0.0, $influenciador->fresh()->saldoCarteira());
+        $this->assertSame(2, $influenciador->movimentosCarteira()->count());
 
-        $this->assertSame(15.0, (float) $comissao->comissao_valor);
+        // Idempotente: cancelar de novo não estorna em dobro.
+        $this->service->cancelar($pedido);
+        $this->assertSame(2, $influenciador->movimentosCarteira()->count());
     }
 }

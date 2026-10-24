@@ -2,8 +2,6 @@
 
 namespace App\Providers;
 
-use App\Models\PagamentoComissao;
-use App\Policies\ResgateCarteiraPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
@@ -17,9 +15,7 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        // Temporário: a Fase 2 renomeia PagamentoComissao para ResgateCarteira
-        // (descoberta automática passa a valer e esta linha sai).
-        PagamentoComissao::class => ResgateCarteiraPolicy::class,
+        //
     ];
 
     /**
