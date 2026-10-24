@@ -400,6 +400,8 @@ class LancamentoItemPedidoService
             $item->update([
                 'item_pedido_quantidade' => $quantidade,
                 'item_pedido_desconto' => $linha['desconto'],
+                // O valor volta a ser o da tabela; reaplicar() refaz a parte do cupom.
+                'item_pedido_desconto_cupom' => 0,
                 'item_pedido_valor_adicionais' => $linha['adicionais'],
                 'item_pedido_valor' => $linha['valor'],
             ]);

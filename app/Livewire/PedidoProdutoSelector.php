@@ -212,7 +212,7 @@ class PedidoProdutoSelector extends Component
                 ? (float) $item->item_pedido_desconto_unitario
                 : ($quantidade > 0 ? round((float) $item->item_pedido_desconto / $quantidade, 4) : 0),
             'valor' => (float) $item->item_pedido_valor,
-            'desconto' => (float) $item->item_pedido_desconto,
+            'desconto' => $item->descontoTotal(),
             'adicionais_valor' => (float) $item->item_pedido_valor_adicionais,
             'observacao' => $item->item_pedido_observacao ?? '',
             'promocao_id' => $item->item_pedido_promocao_id,

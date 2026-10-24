@@ -38,7 +38,7 @@ class DivisaoItemPedidoService
             $novo->item_pedido_venda_id = null;
             $novo->item_pedido_item_venda_id = null;
 
-            foreach (['item_pedido_desconto', 'item_pedido_valor_adicionais', 'item_pedido_valor'] as $campo) {
+            foreach (['item_pedido_desconto', 'item_pedido_desconto_cupom', 'item_pedido_valor_adicionais', 'item_pedido_valor'] as $campo) {
                 $parte = round((float) $item->{$campo} * $proporcao, 2);
                 $novo->{$campo} = $parte;
                 $item->{$campo} = round((float) $item->{$campo} - $parte, 2);

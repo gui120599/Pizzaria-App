@@ -3,10 +3,16 @@
 namespace App\Providers;
 
 use App\Models\Cliente;
+use App\Models\Comissao;
+use App\Models\Cupom;
+use App\Models\Influenciador;
 use App\Models\ItensVenda;
 use App\Models\Pedido;
 use App\Models\Venda;
 use App\Observers\ClienteObserver;
+use App\Observers\ComissaoObserver;
+use App\Observers\CupomObserver;
+use App\Observers\InfluenciadorObserver;
 use App\Observers\ItensVendaObserver;
 use App\Observers\HistoricoStatusPedidoObserver;
 use App\Observers\PedidoObserver;
@@ -53,5 +59,8 @@ class EventServiceProvider extends ServiceProvider
         Venda::class => [VendaObserver::class],
         ItensVenda::class => [ItensVendaObserver::class],
         Cliente::class => [ClienteObserver::class],
+        Influenciador::class => [InfluenciadorObserver::class],
+        Cupom::class => [CupomObserver::class],
+        Comissao::class => [ComissaoObserver::class],
     ];
 }

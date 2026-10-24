@@ -96,6 +96,12 @@ class PermissionSeeder extends Seeder
             'view_any:producao_item', 'produzir:producao_item', 'despachar:producao_item', 'refazer:producao_item',
             'priorizar:producao_item', 'forcar:producao_item', 'liberar_sem_abertura:producao_item',
             'view:relatorio_producao',
+            // Programa de influenciadores. Resgate é registro financeiro: só ler e criar.
+            'view_any:influenciador', 'view:influenciador', 'create:influenciador', 'update:influenciador', 'delete:influenciador',
+            'view_any:cupom', 'view:cupom', 'create:cupom', 'update:cupom', 'delete:cupom',
+            'view_any:comissao', 'view:comissao', 'create:comissao', 'update:comissao', 'delete:comissao',
+            'view_any:material_divulgacao', 'view:material_divulgacao', 'create:material_divulgacao', 'update:material_divulgacao', 'delete:material_divulgacao',
+            'view_any:resgate_carteira', 'create:resgate_carteira', 'ajustar:carteira_influenciador',
         ],
         'Cozinha' => ['view_any:ficha_tecnica', 'view:ficha_tecnica', 'produzir:producao_item'],
         'Expedicao' => ['view_any:ficha_tecnica', 'view:ficha_tecnica', 'produzir:producao_item', 'despachar:producao_item', 'refazer:producao_item'],
@@ -128,7 +134,7 @@ class PermissionSeeder extends Seeder
      * Permissions sem role: só o Admin as exerce, via Gate::before (super_admin).
      * Existem na tabela para a página aparecer no Shield e poderem ser atribuídas depois.
      */
-    private array $permissionsSomenteAdmin = ['view:configuracao_pedidos'];
+    private array $permissionsSomenteAdmin = ['view:configuracao_pedidos', 'view:configuracao_influenciadores'];
 
     /**
      * Pedido nunca é excluído fisicamente. O Admin passa em qualquer Gate, então

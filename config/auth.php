@@ -40,6 +40,11 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        'influenciador' => [
+            'driver' => 'session',
+            'provider' => 'influenciadores',
+        ],
     ],
 
     /*
@@ -69,6 +74,11 @@ return [
         //     'driver' => 'database',
         //     'table' => 'users',
         // ],
+
+        'influenciadores' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Influenciador::class,
+        ],
     ],
 
     /*

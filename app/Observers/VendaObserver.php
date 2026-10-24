@@ -11,6 +11,7 @@ use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
 use App\Services\AlteracaoVendaService;
+use App\Services\ComissaoService;
 use App\Services\EstoqueService;
 use App\Support\ContaMesa;
 use Carbon\Carbon;
@@ -94,9 +95,12 @@ class VendaObserver
 
             $pedido->updateQuietly($dados);
 
-            // updateQuietly() não dispara eventos Eloquent — a timeline de
-            // status (HistoricoStatusPedidoObserver) não veria esta transição
-            // sem este registro explícito.
+            // updateQuietly() não dispara nenhum observer de Pedido, então o
+            // gancho de comissão e o registro na timeline precisam ser
+            // chamados explicitamente aqui — este é o caminho mais comum de
+            // "pedido pago" no sistema.
+            app(ComissaoService::class)->aprovar($pedido);
+
             if (isset($dados['pedido_status'])) {
                 HistoricoStatusPedido::registrar($pedido->id, $statusAnterior, $dados['pedido_status'], Auth::id());
             }

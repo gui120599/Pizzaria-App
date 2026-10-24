@@ -63,6 +63,31 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/10 p-4 space-y-3">
                 <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Resumo financeiro</h3>
 
+                {{-- Cupom de desconto: pedido novo aplica ao salvar; em edição grava na hora, até a venda --}}
+                <div class="space-y-1">
+                    <label class="text-xs text-gray-500 dark:text-gray-400">Cupom de desconto</label>
+                    <div class="flex gap-2">
+                        <input type="text" wire:model="cupomCodigo" @disabled($cupomId !== null || ! $this->podeAlterarCupom)
+                            wire:keydown.enter.prevent="aplicarCupom" placeholder="Código do cupom"
+                            class="flex-1 min-w-0 px-3 py-2 text-sm uppercase border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-60">
+                        @if ($cupomId === null)
+                            <button type="button" wire:click="aplicarCupom" @disabled(! $this->podeAlterarCupom)
+                                class="rounded-lg border border-gray-300 dark:border-white/10 px-3 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-50">
+                                Aplicar
+                            </button>
+                        @elseif ($this->podeAlterarCupom)
+                            <button type="button" wire:click="removerCupom"
+                                class="rounded-lg border border-gray-300 dark:border-white/10 px-3 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5">
+                                Remover
+                            </button>
+                        @endif
+                    </div>
+                    @if ($cupomId !== null && ! $this->podeAlterarCupom)
+                        <p class="text-xs text-gray-400 dark:text-gray-500">O pedido já tem venda: o cupom não pode mais ser trocado.</p>
+                    @endif
+                    <p class="text-xs text-gray-400 dark:text-gray-500">A taxa de entrega grátis por valor mínimo considera o total já com o cupom.</p>
+                </div>
+
                 <dl class="space-y-1.5 text-sm">
                     <div class="flex justify-between text-gray-600 dark:text-gray-300">
                         <dt>Itens</dt>

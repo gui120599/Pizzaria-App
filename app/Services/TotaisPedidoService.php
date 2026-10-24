@@ -28,13 +28,14 @@ class TotaisPedidoService
     }
 
     /**
+     * @param  bool  $inclusiveRascunho  recalcula também o pedido INICIADO (troca de cupom no atendimento)
      * @return array{itens: float, desconto: float, frete: float, total: float}
      */
-    public function recalcular(Pedido|int $pedido): array
+    public function recalcular(Pedido|int $pedido, bool $inclusiveRascunho = false): array
     {
         $pedido = $this->travar($pedido instanceof Pedido ? $pedido->getKey() : $pedido);
 
-        if ($pedido->pedido_status === StatusPedidoEnum::INICIADO->value) {
+        if (! $inclusiveRascunho && $pedido->pedido_status === StatusPedidoEnum::INICIADO->value) {
             return [
                 'itens' => (float) $pedido->pedido_valor_itens,
                 'desconto' => (float) $pedido->pedido_valor_desconto,
@@ -43,15 +44,16 @@ class TotaisPedidoService
             ];
         }
 
+        // Sem cupom não faz nada; com cupom, redistribui o desconto sobre os itens atuais.
+        app(CupomPedidoService::class)->reaplicar($pedido);
+
         $itens = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
             ->where('item_pedido_status', 'INSERIDO')
             ->get();
 
-        // Desconto do cupom só existe onde a coluna existe (feature de cupom).
-        $descontoPedido = (float) ($pedido->getAttribute('pedido_valor_desconto_cupom') ?? 0);
         $opcao = $pedido->pedido_opcaoentrega_id ? $pedido->opcaoEntrega : null;
 
-        $totais = TotaisPedido::paraItens($itens, $opcao, $descontoPedido);
+        $totais = TotaisPedido::paraItens($itens, $opcao);
 
         $novos = [
             'pedido_valor_itens' => $totais['itens'],
