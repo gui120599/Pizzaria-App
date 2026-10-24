@@ -16,6 +16,8 @@ class PrazoRecebimentoMaquininhaEnumTest extends TestCase
             'na hora, mesmo de madrugada' => [PrazoRecebimentoMaquininhaEnum::NaHora, '2026-10-10 23:59:00', '2026-10-10'],
             'mesmo dia, venda às 22h em ponto' => [PrazoRecebimentoMaquininhaEnum::MesmoDia, '2026-10-10 22:00:00', '2026-10-10'],
             'mesmo dia, venda depois das 22h' => [PrazoRecebimentoMaquininhaEnum::MesmoDia, '2026-10-10 22:00:01', '2026-10-11'],
+            'dia seguinte, venda na sexta cai no sábado' => [PrazoRecebimentoMaquininhaEnum::DiaSeguinte, '2026-10-09 23:30:00', '2026-10-10'],
+            'dia seguinte não pula feriado' => [PrazoRecebimentoMaquininhaEnum::DiaSeguinte, '2026-10-11 20:00:00', '2026-10-12'],
             'próximo dia útil, venda na quarta' => [PrazoRecebimentoMaquininhaEnum::ProximoDiaUtil, '2026-10-07 20:00:00', '2026-10-08'],
             'próximo dia útil pula fim de semana e feriado' => [PrazoRecebimentoMaquininhaEnum::ProximoDiaUtil, '2026-10-09 20:00:00', '2026-10-13'],
             'próximo dia útil pula o Carnaval' => [PrazoRecebimentoMaquininhaEnum::ProximoDiaUtil, '2027-02-05 20:00:00', '2027-02-10'],

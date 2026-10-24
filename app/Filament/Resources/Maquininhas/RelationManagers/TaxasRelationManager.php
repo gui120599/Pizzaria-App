@@ -78,7 +78,7 @@ class TaxasRelationManager extends RelationManager
                     ->label('Recebimento')
                     ->options(PrazoRecebimentoMaquininhaEnum::class)
                     ->placeholder('Não informado')
-                    ->helperText('Como está configurado no aplicativo da maquininha. "Mesmo dia": vendas depois das 22h caem no dia seguinte.'),
+                    ->helperText('Como está configurado no aplicativo da maquininha. "Mesmo dia": vendas depois das 22h caem no dia seguinte. "Dia seguinte": cai no outro dia mesmo em fim de semana ou feriado (ex.: Cielo).'),
             ]);
     }
 

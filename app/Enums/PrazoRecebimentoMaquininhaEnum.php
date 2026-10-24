@@ -15,6 +15,7 @@ enum PrazoRecebimentoMaquininhaEnum: string implements HasLabel
 {
     case NaHora = 'na_hora';
     case MesmoDia = 'mesmo_dia';
+    case DiaSeguinte = 'dia_seguinte';
     case ProximoDiaUtil = 'proximo_dia_util';
 
     /** Vendas até este horário caem no mesmo dia; depois, no dia seguinte. */
@@ -25,6 +26,7 @@ enum PrazoRecebimentoMaquininhaEnum: string implements HasLabel
         return match ($this) {
             self::NaHora => 'Na hora',
             self::MesmoDia => 'Mesmo dia (vendas até 22h)',
+            self::DiaSeguinte => 'Dia seguinte (útil ou não)',
             self::ProximoDiaUtil => 'Próximo dia útil',
         };
     }
@@ -37,6 +39,7 @@ enum PrazoRecebimentoMaquininhaEnum: string implements HasLabel
         return match ($this) {
             self::NaHora => $dia,
             self::MesmoDia => $venda->format('H:i:s') <= self::HORARIO_CORTE_MESMO_DIA ? $dia : $dia->addDay(),
+            self::DiaSeguinte => $dia->addDay(),
             self::ProximoDiaUtil => DiasUteis::proximo($dia),
         };
     }
