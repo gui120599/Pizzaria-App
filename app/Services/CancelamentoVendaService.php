@@ -101,10 +101,19 @@ class CancelamentoVendaService
     }
 
     /** Estorna exatamente as saídas que a finalização registrou para esta venda. */
-    private function devolverEstoqueVendaDireta(Venda $venda, ?int $usuarioId): void
+    public function devolverEstoqueVendaDireta(Venda $venda, ?int $usuarioId, ?string $motivo = null): void
     {
+        // Só o que saiu depois do último estorno desta venda: a venda reaberta e
+        // finalizada de novo baixa o estoque outra vez, e a baixa antiga já foi devolvida.
+        $ultimoEstorno = (int) MovimentacaoProduto::query()
+            ->whereMorphedTo('referencia', $venda)
+            ->where('mov_tipo', MovimentacaoTipoEnum::ENTRADA)
+            ->where('mov_origem', MovimentacaoOrigemEnum::AJUSTE)
+            ->max('id');
+
         $saidas = MovimentacaoProduto::query()
             ->whereMorphedTo('referencia', $venda)
+            ->where('id', '>', $ultimoEstorno)
             ->where('mov_tipo', MovimentacaoTipoEnum::SAIDA)
             ->whereIn('mov_origem', [MovimentacaoOrigemEnum::VENDA, MovimentacaoOrigemEnum::CORTESIA])
             ->with('produto')
@@ -122,12 +131,13 @@ class CancelamentoVendaService
                 (float) $saida->mov_quantidade,
                 (float) $saida->mov_custo_unitario,
                 MovimentacaoOrigemEnum::AJUSTE,
-                ['referencia' => $venda, 'motivo' => "Estorno de cancelamento — Venda #{$venda->id}", 'user_id' => $usuarioId],
+                ['referencia' => $venda, 'motivo' => $motivo ?? "Estorno de cancelamento — Venda #{$venda->id}", 'user_id' => $usuarioId],
             );
         }
     }
 
-    private function reabrirPedidosEMesas(Venda $venda): void
+    /** Devolve pedidos e sessões de mesa da venda ao recebimento do PDV; os vínculos dos itens com a venda ficam. */
+    public function reabrirPedidosEMesas(Venda $venda): void
     {
         $pedidoIds = ItensPedido::where('item_pedido_venda_id', $venda->id)
             ->whereNotNull('item_pedido_pedido_id')

@@ -10,6 +10,7 @@ use App\Models\Mesa;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
+use App\Services\AlteracaoVendaService;
 use App\Services\EstoqueService;
 use App\Support\ContaMesa;
 use Carbon\Carbon;
@@ -26,12 +27,26 @@ class VendaObserver
      */
     public function updated(Venda $venda): void
     {
-        if (! $venda->wasChanged('venda_status') || $venda->venda_status !== 'FINALIZADA') {
+        if (! $venda->wasChanged('venda_status')) {
+            return;
+        }
+
+        // Venda reaberta para alteração (AlteracaoVendaService) que foi cancelada.
+        if ($venda->venda_status === 'CANCELADA') {
+            app(AlteracaoVendaService::class)->registrarCancelamento($venda);
+
+            return;
+        }
+
+        if ($venda->venda_status !== 'FINALIZADA') {
             return;
         }
 
         $this->finalizarPedidosEMesas($venda);
         $this->baixarEstoqueVendaDireta($venda);
+
+        // Venda reaberta para alteração e finalizada de novo.
+        app(AlteracaoVendaService::class)->registrarConclusao($venda);
     }
 
     private function finalizarPedidosEMesas(Venda $venda): void
