@@ -34,6 +34,32 @@ class CancelamentoVendaService
 {
     public function __construct(private readonly FinalizacaoVendaService $finalizacao) {}
 
+    /**
+     * Por que esta venda finalizada não pode ser cancelada em lote (null = pode).
+     * O cancelamento não trata título a receber nem estorno na maquininha, e a
+     * NFC-e autorizada precisa ser cancelada antes, individualmente.
+     */
+    public function motivoBloqueioCancelamento(Venda $venda): ?string
+    {
+        if ($venda->venda_status !== 'FINALIZADA') {
+            return 'Só vendas finalizadas são canceladas por aqui.';
+        }
+
+        if ($motivo = app(CorrecaoPagamentoService::class)->motivoBloqueioVenda($venda)) {
+            return $motivo;
+        }
+
+        if ($venda->lancamentos()->exists() || round((float) $venda->venda_valor_pago, 2) < round((float) $venda->venda_valor_total, 2)) {
+            return 'Venda a prazo (fiado): o título a receber precisa ser tratado antes.';
+        }
+
+        if ($venda->pagamentos()->where('pg_venda_tipo_integracao', 'integrated')->exists()) {
+            return 'Pagamento recebido pela Stone: o estorno é feito na maquininha.';
+        }
+
+        return null;
+    }
+
     public function cancelarFinalizada(Venda $venda, MotivoCancelamentoEnum $motivo, ?int $usuarioId = null): Venda
     {
         return DB::transaction(function () use ($venda, $motivo, $usuarioId) {

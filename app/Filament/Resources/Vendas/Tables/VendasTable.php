@@ -5,6 +5,10 @@ namespace App\Filament\Resources\Vendas\Tables;
 use App\Exceptions\CorrecaoPagamentoException;
 use App\Exceptions\NfeIoException;
 use App\Filament\Pages\OperarVenda;
+use App\Filament\Resources\Vendas\Tables\Actions\AtualizarStatusNfeEmLoteBulkAction;
+use App\Filament\Resources\Vendas\Tables\Actions\CancelarVendasEmLoteBulkAction;
+use App\Filament\Resources\Vendas\Tables\Actions\EnviarNfeEmLoteBulkAction;
+use App\Filament\Resources\Vendas\Tables\Actions\ExportarVendasCsvBulkAction;
 use App\Filament\Support\CorrecaoPagamentoFormulario;
 use App\Models\Cliente;
 use App\Models\NfEmissao;
@@ -16,15 +20,15 @@ use App\Services\Nfe\ReenvioNfeService;
 use App\Services\NfeIoService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -33,7 +37,12 @@ class VendasTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['cliente', 'nfEmissaoAtual']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with([
+                'cliente',
+                'nfEmissaoAtual',
+                'sessaoCaixa.user',
+                'pagamentos.opcaoPagamento' => fn ($opcao) => $opcao->withTrashed(),
+            ]))
             ->columns([
                 TextColumn::make('id')
                     ->label('#')
@@ -54,23 +63,40 @@ class VendasTable
                 TextColumn::make('venda_valor_itens')
                     ->label('Itens')
                     ->money('BRL')
-                    ->sortable(),
+                    ->sortable()
+                    ->summarize(Sum::make('sum')->money('BRL')->label('Itens')),
 
                 TextColumn::make('venda_valor_desconto')
                     ->label('Desconto')
                     ->money('BRL')
-                    ->sortable(),
+                    ->sortable()
+                    ->summarize(Sum::make('sum')->money('BRL')->label('Desconto')),
 
                 TextColumn::make('venda_valor_total')
                     ->label('Total')
                     ->money('BRL')
                     ->sortable()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->summarize(Sum::make('sum')->money('BRL')->label('Total')),
 
                 TextColumn::make('venda_valor_pago')
                     ->label('Pago')
                     ->money('BRL')
-                    ->sortable(),
+                    ->sortable()
+                    ->summarize(Sum::make('sum')->money('BRL')->label('Pago')),
+
+                TextColumn::make('operador')
+                    ->label('Operador')
+                    ->state(fn (Venda $record): ?string => $record->sessaoCaixa?->user?->name)
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('formas_pagamento')
+                    ->label('Pagamento')
+                    ->state(fn (Venda $record): string => $record->pagamentos->map(fn ($pagamento) => $pagamento->opcaoPagamento?->opcaopag_nome)->filter()->unique()->implode(', '))
+                    ->placeholder('—')
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('venda_status')
                     ->label('Status')
@@ -113,15 +139,12 @@ class VendasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('id', 'desc')
-            ->filters([
-                SelectFilter::make('venda_status')
-                    ->label('Status')
-                    ->options([
-                        'INICIADA' => 'Iniciada',
-                        'FINALIZADA' => 'Finalizada',
-                        'CANCELADA' => 'Cancelada',
-                    ]),
-            ])
+            ->filters(VendasFiltros::filtros(), layout: FiltersLayout::AboveContentCollapsible)
+            ->filtersFormSchema(VendasFiltros::secoes(...))
+            ->deferFilters(false)
+            ->persistFiltersInSession()
+            ->persistSortInSession()
+            ->persistSearchInSession()
             ->recordActions([
                 Action::make('operar')
                     ->label('Operar')
@@ -204,7 +227,10 @@ class VendasTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    EnviarNfeEmLoteBulkAction::make(),
+                    AtualizarStatusNfeEmLoteBulkAction::make(),
+                    ExportarVendasCsvBulkAction::make(),
+                    CancelarVendasEmLoteBulkAction::make(),
                 ]),
             ]);
     }
