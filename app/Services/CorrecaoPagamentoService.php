@@ -52,6 +52,12 @@ class CorrecaoPagamentoService
             return 'O fechamento desta sessão já foi confirmado. Reabra o fechamento para corrigir.';
         }
 
+        return $this->motivoBloqueioNfe($venda);
+    }
+
+    /** NFC-e autorizada ou em andamento trava a alteração da venda: cancele a nota antes. */
+    public function motivoBloqueioNfe(Venda $venda): ?string
+    {
         $statusNfe = $venda->venda_status_nfe;
 
         if (blank($statusNfe) || in_array($statusNfe, self::STATUS_NFE_LIBERADOS, true)) {

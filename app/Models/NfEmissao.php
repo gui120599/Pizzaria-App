@@ -43,6 +43,8 @@ class NfEmissao extends Model
         'user_id',
         'enviada_em',
         'autorizada_em',
+        'erro_envio',
+        'comprador_motivo_omissao',
     ];
 
     protected function casts(): array

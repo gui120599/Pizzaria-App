@@ -22,6 +22,7 @@ use App\Models\ItensPedido;
 use App\Models\ItensVenda;
 use App\Models\Lancamento;
 use App\Models\Maquininha;
+use App\Models\NfEmissao;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosVenda;
 use App\Models\Pedido;
@@ -198,6 +199,9 @@ class OperarVenda extends Page
     public ?string $nfeStatusModal = null;
 
     public ?string $nfeErroModal = null;
+
+    /** Aviso quando a nota saiu sem identificar o cliente (cadastro incompleto). */
+    public ?string $nfeAvisoModal = null;
 
     public ?string $nfeInvoiceId = null;
 
@@ -2280,11 +2284,15 @@ class OperarVenda extends Page
         $this->modalNfeAberta = true;
         $this->nfeStatusModal = 'processando';
         $this->nfeErroModal = null;
+        $this->nfeAvisoModal = null;
 
         // Reenvio (botão "tentar novamente" do modal) reaproveita a reserva já gravada em nf_emissoes.
         try {
             app(EmissaoNfeAutomaticaService::class)->emitir($venda);
             $this->nfeInvoiceId = $venda->fresh()->venda_id_nfe;
+
+            $motivo = NfEmissao::where('venda_id', $venda->id)->latest('id')->value('comprador_motivo_omissao');
+            $this->nfeAvisoModal = $motivo ? "Cadastro do cliente incompleto ({$motivo}): a nota foi enviada sem identificar o cliente." : null;
         } catch (NfeIoException $e) {
             $this->nfeStatusModal = 'erro';
             $this->nfeErroModal = $e->getMessage();

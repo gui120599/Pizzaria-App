@@ -7,6 +7,7 @@ use App\Models\Empresa;
 use App\Models\ItensVenda;
 use App\Models\NfEmissao;
 use App\Models\Venda;
+use App\Services\Nfe\CompradorNfceService;
 use App\Services\Nfe\NfNumeracaoService;
 use App\Support\RateioCentavos;
 use Illuminate\Http\Client\PendingRequest;
@@ -28,7 +29,10 @@ class NfeIoService
 {
     private const BASE_URL = 'https://api.nfse.io/v2';
 
-    public function __construct(private readonly NfNumeracaoService $numeracaoService) {}
+    public function __construct(
+        private readonly NfNumeracaoService $numeracaoService,
+        private readonly CompradorNfceService $comprador,
+    ) {}
 
     /**
      * @return array{companyId: string, apiKey: string}
@@ -81,17 +85,17 @@ class NfeIoService
         ['companyId' => $companyId, 'apiKey' => $apiKey] = $this->credenciais();
 
         $emissao = $this->numeracaoService->reservarPara($venda, $decisao);
+        $motivoSemComprador = $venda->cliente ? $this->comprador->motivoSemIdentificacao($venda->cliente) : null;
+        $emissao->update(['comprador_motivo_omissao' => $motivoSemComprador, 'erro_envio' => null]);
 
         $response = $this->client($apiKey)
             ->post(self::BASE_URL."/companies/{$companyId}/consumerinvoices", $this->montarPayload($venda, $emissao->serie, $emissao->numero));
 
         if ($response->failed()) {
-            $emissao->update(['status' => NfEmissao::STATUS_FALHA_ENVIO]);
+            $mensagem = 'Falha ao enfileirar emissão da NFC-e: '.($response->json('message') ?? $response->body());
+            $emissao->update(['status' => NfEmissao::STATUS_FALHA_ENVIO, 'erro_envio' => mb_substr($mensagem, 0, 2000)]);
 
-            throw new NfeIoException(
-                'Falha ao enfileirar emissão da NFC-e: '.($response->json('message') ?? $response->body()),
-                $response->json()
-            );
+            throw new NfeIoException($mensagem, $response->json());
         }
 
         $data = $response->json() ?? [];
@@ -264,27 +268,10 @@ class NfeIoService
         ]];
     }
 
+    /** Só vai identificado com cadastro completo; senão a nota sai sem comprador (ver CompradorNfceService). */
     private function montarComprador(Venda $venda): ?array
     {
-        $cliente = $venda->cliente;
-
-        if (! $cliente) {
-            return null;
-        }
-
-        $ehJuridica = in_array($cliente->cliente_tipo, ['Jurídica', 'PJ'], true);
-
-        return [
-            'stateTaxNumberIndicator' => 'NonTaxPayer',
-            'tradeName' => $cliente->cliente_nome ?? null,
-            'taxRegime' => 'isento',
-            'stateTaxNumber' => $cliente->cliente_inscricao_estadual ?? null,
-            'id' => (string) $cliente->id,
-            'name' => $cliente->cliente_nome ?? null,
-            'federalTaxNumber' => $ehJuridica ? (string) $cliente->cliente_cnpj : (string) $cliente->cliente_cpf,
-            'email' => $cliente->cliente_email ?? null,
-            'type' => $ehJuridica ? 4 : 2, // 2 Pessoa Física, 4 Pessoa Jurídica
-        ];
+        return $this->comprador->montar($venda->cliente);
     }
 
     private function montarItens(Venda $venda): array
