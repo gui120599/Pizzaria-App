@@ -20,7 +20,7 @@
         @keydown.window.escape="$wire.fecharModalCliente(); $wire.fecharModalPagamento(); $wire.fecharModalCancelar(); $wire.fecharModalDividirConta()"
     >
     @if ($alteracao = $this->venda?->alteracaoAberta)
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
             <div>
                 <p class="font-semibold">Venda #{{ $alteracao->venda_id }} em alteração</p>
                 <p class="text-xs">Reaberta por {{ $alteracao->user?->name ?? 'usuário removido' }} em {{ $alteracao->created_at->format('d/m/Y H:i') }} — motivo: {{ $alteracao->motivo }}. Faça as mudanças e finalize a venda para concluir.</p>
@@ -29,7 +29,7 @@
                 <button type="button"
                     wire:click="descartarAlteracao"
                     wire:confirm="Descartar as alterações e restaurar a venda como estava antes? (Itens divididos durante a alteração não voltam a ser um só.)"
-                    class="rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-semibold hover:bg-amber-100 dark:border-amber-500/40 dark:hover:bg-amber-500/20">
+                    class="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-semibold hover:bg-amber-100 dark:border-amber-500/30 dark:hover:bg-amber-500/20">
                     Descartar alterações
                 </button>
             @endcan

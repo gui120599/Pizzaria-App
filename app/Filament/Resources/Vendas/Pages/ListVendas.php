@@ -17,6 +17,22 @@ class ListVendas extends ListRecords
 {
     protected static string $resource = VendaResource::class;
 
+    /**
+     * O Filament abre o agrupamento padrão em ordem crescente (e só na montagem
+     * inicial da tabela); aqui a sessão mais recente vem primeiro e o operador
+     * pode inverter no seletor.
+     */
+    public function bootedInteractsWithTable(): void
+    {
+        $montagemInicial = $this->shouldMountInteractsWithTable;
+
+        parent::bootedInteractsWithTable();
+
+        if ($montagemInicial && $this->tableGrouping === 'venda_sessao_caixa_id:asc') {
+            $this->tableGrouping = 'venda_sessao_caixa_id:desc';
+        }
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -82,7 +98,7 @@ class ListVendas extends ListRecords
                 ->badge(fn (): int => Venda::emAlteracao()->count())
                 ->badgeColor('warning'),
 
-            'canceladas' => Tab::make('NFC-e canceladas')
+            'canceladas' => Tab::make('Canceladas')
                 ->icon('heroicon-o-x-circle')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('venda_status', 'FINALIZADA')->situacaoNfe('cancelada')),
         ];

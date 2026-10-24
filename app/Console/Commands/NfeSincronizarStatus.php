@@ -3,9 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Exceptions\NfeIoException;
+use App\Models\Empresa;
 use App\Models\Venda;
 use App\Services\NfeIoService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Reconcilia com a NFe.io o status das NFC-e que ficaram "paradas" aqui
@@ -18,6 +20,8 @@ class NfeSincronizarStatus extends Command
         {--simular : Consulta a NFe.io e lista as mudanças, sem gravar}
         {--desde= : Só vendas finalizadas a partir desta data (AAAA-MM-DD)}
         {--ate= : Só vendas finalizadas até esta data (AAAA-MM-DD)}
+        {--dias= : Só vendas finalizadas nos últimos N dias}
+        {--minutos=0 : Só vendas finalizadas há mais de N minutos (não compete com uma emissão em curso)}
         {--limite=0 : Máximo de vendas a consultar (0 = todas)}';
 
     protected $description = 'Atualiza o status das NFC-e pendentes consultando a NFe.io';
@@ -26,12 +30,18 @@ class NfeSincronizarStatus extends Command
     {
         $simular = (bool) $this->option('simular');
 
+        if (! Empresa::first()?->nfeIoConfigurado()) {
+            return self::SUCCESS;
+        }
+
         $vendas = Venda::query()
             ->whereNotNull('venda_id_nfe')
             ->where('venda_id_nfe', '!=', '')
             ->where(fn ($query) => $query->whereNull('venda_status_nfe')->orWhereNotIn('venda_status_nfe', ['Issued', 'Cancelled']))
             ->when($this->option('desde'), fn ($query, $data) => $query->whereDate('venda_datahora_finalizada', '>=', $data))
             ->when($this->option('ate'), fn ($query, $data) => $query->whereDate('venda_datahora_finalizada', '<=', $data))
+            ->when($this->option('dias'), fn ($query, $dias) => $query->where('venda_datahora_finalizada', '>=', now()->subDays((int) $dias)))
+            ->when((int) $this->option('minutos') > 0, fn ($query) => $query->where('venda_datahora_finalizada', '<=', now()->subMinutes((int) $this->option('minutos'))))
             ->orderBy('id')
             ->when((int) $this->option('limite') > 0, fn ($query) => $query->limit((int) $this->option('limite')))
             ->get();
@@ -75,6 +85,15 @@ class NfeSincronizarStatus extends Command
         }
 
         $this->info(($simular ? 'Mudariam: ' : 'Atualizadas: ').$mudancas.' | Falhas: '.$falhas);
+
+        // Rodando agendado, o log só ganha linha quando houve o que contar.
+        if (! $simular && $mudancas > 0) {
+            Log::info('nfe:sincronizar-status atualizou o status de NFC-e paradas', ['atualizadas' => $mudancas, 'vendas' => array_column($linhas, 0)]);
+        }
+
+        if ($falhas > 0) {
+            Log::warning('nfe:sincronizar-status teve falhas ao consultar a NFe.io', ['falhas' => $falhas]);
+        }
 
         return $falhas > 0 ? self::FAILURE : self::SUCCESS;
     }

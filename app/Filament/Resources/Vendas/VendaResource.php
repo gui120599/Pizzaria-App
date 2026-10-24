@@ -35,6 +35,24 @@ class VendaResource extends Resource
 
     protected static ?int $navigationSort = 10;
 
+    /** Vendas reabertas para alteração: caixa da sessão sem a entrada delas até finalizar ou descartar. */
+    public static function getNavigationBadge(): ?string
+    {
+        $emAlteracao = Venda::emAlteracao()->count();
+
+        return $emAlteracao > 0 ? (string) $emAlteracao : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'Vendas em alteração';
+    }
+
     public static function table(Table $table): Table
     {
         return VendasTable::configure($table);

@@ -24,11 +24,28 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Enums\RecordActionsPosition;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
 class VendasTable
 {
+    /** Status da NFC-e (NFe.io e tentativas locais) em português para o selo da coluna. */
+    private const ROTULOS_NFE = [
+        'Issued' => 'Autorizada',
+        'Processing' => 'Em processamento',
+        'Created' => 'Criada',
+        'Error' => 'Erro',
+        'Failed' => 'Erro',
+        'IssueFailed' => 'Erro na emissão',
+        NfEmissao::STATUS_FALHA_ENVIO => 'Falha no envio',
+        NfEmissao::STATUS_RESERVADO => 'Número reservado',
+        'Cancelled' => 'Cancelada',
+        'CancelamentoSolicitado' => 'Cancelamento solicitado',
+        'CancelFailed' => 'Cancelamento recusado',
+    ];
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -36,8 +53,11 @@ class VendasTable
                 'cliente',
                 'nfEmissaoAtual',
                 'sessaoCaixa.user',
+                'sessaoCaixa.caixa',
                 'pagamentos.opcaoPagamento' => fn ($opcao) => $opcao->withTrashed(),
             ]))
+            ->groups([self::grupoSessaoCaixa()])
+            ->defaultGroup('venda_sessao_caixa_id')
             ->columns([
                 TextColumn::make('id')
                     ->label('#')
@@ -47,7 +67,8 @@ class VendasTable
                 TextColumn::make('sessaoCaixa.caixa.caixa_nome')
                     ->label('Caixa')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('cliente.cliente_nome')
                     ->label('Cliente')
@@ -59,12 +80,14 @@ class VendasTable
                     ->label('Itens')
                     ->money('BRL')
                     ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->summarize(Sum::make('sum')->money('BRL')->label('Itens')),
 
                 TextColumn::make('venda_valor_desconto')
                     ->label('Desconto')
                     ->money('BRL')
                     ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->summarize(Sum::make('sum')->money('BRL')->label('Desconto')),
 
                 TextColumn::make('venda_valor_total')
@@ -86,12 +109,19 @@ class VendasTable
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                TextColumn::make('formas_pagamento')
-                    ->label('Pagamento')
-                    ->state(fn (Venda $record): string => $record->pagamentos->map(fn ($pagamento) => $pagamento->opcaoPagamento?->opcaopag_nome)->filter()->unique()->implode(', '))
-                    ->placeholder('—')
-                    ->wrap()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('pagamentos')
+                    ->label('Pagamentos')
+                    ->state(fn (Venda $record): array => $record->pagamentos->map(function ($pagamento): string {
+                        $linha = ($pagamento->opcaoPagamento?->opcaopag_nome ?? 'Forma não identificada').' — R$ '.number_format((float) $pagamento->pg_venda_valor_pagamento, 2, ',', '.');
+
+                        return (float) $pagamento->pg_venda_valor_troco > 0
+                            ? $linha.' · troco R$ '.number_format((float) $pagamento->pg_venda_valor_troco, 2, ',', '.')
+                            : $linha;
+                    })->all())
+                    ->listWithLineBreaks()
+                    ->limitList(1)
+                    ->expandableLimitedList()
+                    ->placeholder('—'),
 
                 TextColumn::make('venda_status')
                     ->label('Status')
@@ -105,18 +135,20 @@ class VendasTable
                 TextColumn::make('venda_datahora_iniciada')
                     ->label('Iniciada')
                     ->dateTime('d/m/Y H:i')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('venda_datahora_finalizada')
                     ->label('Finalizada')
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
 
                 TextColumn::make('venda_status_nfe')
                     ->label('NFC-e')
                     ->badge()
                     ->state(fn (Venda $record): string => $record->statusNfeExibicao() ?? '—')
+                    ->formatStateUsing(fn (string $state): string => self::ROTULOS_NFE[$state] ?? $state)
                     ->tooltip(fn (Venda $record): ?string => self::detalheDaNota($record))
                     ->color(fn (?string $state): string => match ($state) {
                         'Issued' => 'success',
@@ -140,6 +172,8 @@ class VendasTable
             ->persistFiltersInSession()
             ->persistSortInSession()
             ->persistSearchInSession()
+            // Antes das células: com tantas colunas, o menu de ações ficaria fora da tela à direita.
+            ->recordActionsPosition(RecordActionsPosition::BeforeCells)
             ->recordActions([
                 ActionGroup::make([
                     Action::make('operar')
@@ -234,6 +268,26 @@ class VendasTable
                     CancelarVendasEmLoteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /** Vendas agrupadas pela sessão de caixa em que foram feitas, com subtotais pelos Sum das colunas. */
+    private static function grupoSessaoCaixa(): Group
+    {
+        return Group::make('venda_sessao_caixa_id')
+            ->label('Sessão de caixa')
+            ->titlePrefixedWithLabel(false)
+            ->getKeyFromRecordUsing(fn (Venda $record): string => (string) ($record->venda_sessao_caixa_id ?? ''))
+            ->getTitleFromRecordUsing(fn (Venda $record): string => $record->sessaoCaixa
+                ? "Sessão #{$record->sessaoCaixa->id} — ".($record->sessaoCaixa->caixa?->caixa_nome ?? 'Caixa').' — '.($record->sessaoCaixa->user?->name ?? 'Operador')
+                : 'Sem sessão de caixa')
+            ->getDescriptionFromRecordUsing(fn (Venda $record): ?string => $record->sessaoCaixa
+                ? 'Aberta em '.$record->sessaoCaixa->sessaocaixa_data_hora_abertura?->format('d/m/Y H:i').' · '.$record->sessaoCaixa->sessaocaixa_status
+                : null)
+            ->orderQueryUsing(fn (Builder $query, string $direction): Builder => $query->orderBy('venda_sessao_caixa_id', $direction === 'asc' ? 'asc' : 'desc'))
+            ->scopeQueryByKeyUsing(fn (Builder $query, ?string $key): Builder => blank($key)
+                ? $query->whereNull('venda_sessao_caixa_id')
+                : $query->where('venda_sessao_caixa_id', (int) $key))
+            ->collapsible();
     }
 
     private static function podeEmitirNfe(): bool

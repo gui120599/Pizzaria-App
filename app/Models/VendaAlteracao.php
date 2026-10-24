@@ -30,6 +30,7 @@ class VendaAlteracao extends Model
         'antes',
         'depois',
         'encerrada_em',
+        'alertada_em',
     ];
 
     protected function casts(): array
@@ -38,6 +39,7 @@ class VendaAlteracao extends Model
             'antes' => 'array',
             'depois' => 'array',
             'encerrada_em' => 'datetime',
+            'alertada_em' => 'datetime',
         ];
     }
 

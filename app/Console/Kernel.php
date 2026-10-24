@@ -45,6 +45,21 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // Reconcilia com a NFe.io as NFC-e que ficaram paradas por webhook perdido
+        // (ver App\Console\Commands\NfeSincronizarStatus): só vendas dos últimos 7
+        // dias, pendentes há mais de 10 min, no máximo 100 consultas por rodada.
+        $schedule->command('nfe:sincronizar-status --dias=7 --minutos=10 --limite=100')
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // Avisa o gerente sobre venda reaberta para alteração há mais de N horas
+        // (ver App\Console\Commands\VendasAlertarAlteracoesAbertas e config/vendas.php).
+        $schedule->command('vendas:alertar-alteracoes-abertas')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // Rede de segurança do recebimento em maquininha Stone: fecha pedidos
         // pagos que não fecharam no handler do webhook e recupera charge.paid
         // perdidos (ver App\Console\Commands\StoneConciliarPedidos).
