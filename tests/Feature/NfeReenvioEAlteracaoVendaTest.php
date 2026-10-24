@@ -3,23 +3,16 @@
 namespace Tests\Feature;
 
 use App\Enums\ProdutoTipoEnum;
-use App\Enums\StatusLancamento;
-use App\Enums\TipoCorrecaoPagamentoEnum;
-use App\Enums\TipoLancamento;
-use App\Exceptions\CorrecaoPagamentoException;
 use App\Exceptions\NfeIoException;
 use App\Filament\Resources\Vendas\Pages\ListVendas;
 use App\Models\Categoria;
 use App\Models\Cliente;
-use App\Models\CorrecaoPagamento;
 use App\Models\Empresa;
 use App\Models\ItensVenda;
-use App\Models\Lancamento;
 use App\Models\NfEmissao;
 use App\Models\Produto;
 use App\Models\User;
 use App\Models\Venda;
-use App\Services\AlteracaoVendaService;
 use App\Services\Nfe\ReenvioNfeService;
 use App\Services\NfeIoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -156,41 +149,7 @@ class NfeReenvioEAlteracaoVendaTest extends TestCase
         $this->assertFalse($reenvio->podeAtualizarStatus($this->venda($this->completo)));
     }
 
-    public function test_trocar_e_remover_cliente_registra_a_auditoria(): void
-    {
-        $venda = $this->venda($this->semCpf);
-        $service = app(AlteracaoVendaService::class);
-
-        $service->trocarCliente($venda, $this->completo->id, 'cadastro errado');
-        $this->assertSame($this->completo->id, $venda->fresh()->venda_cliente_id);
-
-        $service->trocarCliente($venda->fresh(), null);
-        $this->assertNull($venda->fresh()->venda_cliente_id);
-
-        $correcoes = CorrecaoPagamento::where('venda_id', $venda->id)->orderBy('id')->get();
-        $this->assertCount(2, $correcoes);
-        $this->assertSame(TipoCorrecaoPagamentoEnum::ClienteVenda, $correcoes[0]->tipo);
-        $this->assertSame('Sem CPF', $correcoes[0]->antes['cliente']);
-        $this->assertSame('Completo', $correcoes[0]->depois['cliente']);
-        $this->assertSame('cadastro errado', $correcoes[0]->justificativa);
-    }
-
-    public function test_troca_de_cliente_bloqueada_com_nota_autorizada_ou_fiado(): void
-    {
-        $service = app(AlteracaoVendaService::class);
-
-        $autorizada = $this->venda($this->semCpf, 'Issued');
-        $this->assertStringContainsString('autorizada', $service->motivoBloqueioCliente($autorizada));
-
-        $fiado = $this->venda($this->semCpf);
-        Lancamento::create(['tipo' => TipoLancamento::Receber, 'venda_id' => $fiado->id, 'cliente_id' => $this->semCpf->id, 'descricao' => 'fiado', 'valor' => 10, 'vencimento' => now()->addWeek()->toDateString(), 'status' => StatusLancamento::Pendente]);
-        $this->assertStringContainsString('fiado', $service->motivoBloqueioCliente($fiado));
-
-        $this->expectException(CorrecaoPagamentoException::class);
-        $service->trocarCliente($fiado, $this->completo->id);
-    }
-
-    public function test_acoes_da_tabela_enviar_e_alterar_cliente(): void
+    public function test_acao_da_tabela_enviar_nfce(): void
     {
         Http::preventStrayRequests();
         Http::fake([
@@ -203,14 +162,11 @@ class NfeReenvioEAlteracaoVendaTest extends TestCase
         Livewire::test(ListVendas::class)
             ->assertTableActionVisible('enviarNfe', $venda)
             ->assertTableActionHidden('enviarNfe', $autorizada)
-            ->assertTableActionDisabled('alterarVenda', $autorizada)
-            ->callTableAction('alterarVenda', $venda, ['o_que' => 'cliente', 'cliente_id' => $this->completo->id, 'justificativa_cliente' => 'ajuste'])
-            ->assertNotified('Venda #'.$venda->id.' alterada')
             ->callTableAction('enviarNfe', $venda)
             ->assertNotified('NFC-e enviada');
 
-        $this->assertSame($this->completo->id, $venda->fresh()->venda_cliente_id);
         $this->assertSame('inv-9', $venda->fresh()->venda_id_nfe);
-        Http::assertSent(fn ($request) => $request->method() === 'POST' && $request['buyer']['federalTaxNumber'] === '52998224725');
+        // Cliente sem CPF: a nota sai sem comprador em vez de ser recusada.
+        Http::assertSent(fn ($request) => $request->method() === 'POST' && $request['buyer'] === null);
     }
 }

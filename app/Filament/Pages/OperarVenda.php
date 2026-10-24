@@ -7,6 +7,7 @@ use App\Enums\FormaPagamento;
 use App\Enums\FormaTrocoEnum;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
+use App\Exceptions\AlteracaoVendaException;
 use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\FinanceiroException;
 use App\Exceptions\ItemNaoDivisivelException;
@@ -14,6 +15,7 @@ use App\Exceptions\NfeIoException;
 use App\Exceptions\StoneConnectException;
 use App\Exceptions\VendaNaoFinalizavelException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
+use App\Filament\Resources\Vendas\VendaResource;
 use App\Models\AdicionaisItemPedido;
 use App\Models\AdicionaisItemVenda;
 use App\Models\CartoesPagamento;
@@ -32,6 +34,7 @@ use App\Models\SessaoMesa;
 use App\Models\StonePedido;
 use App\Models\User;
 use App\Models\Venda;
+use App\Services\AlteracaoVendaService;
 use App\Services\CortesiaService;
 use App\Services\DebitosClienteService;
 use App\Services\DivisaoItemPedidoService;
@@ -2465,5 +2468,36 @@ class OperarVenda extends Page
         app(FinalizacaoVendaService::class)->cancelar($venda, $this->motivoCancelamento);
 
         $this->redirect(static::getUrl());
+    }
+
+    /**
+     * Desfaz a alteração em andamento (venda reaberta pela tabela de vendas):
+     * restaura a venda como estava e a finaliza de novo (AlteracaoVendaService).
+     */
+    public function descartarAlteracao(): void
+    {
+        $venda = Venda::find($this->vendaId);
+
+        if (! $venda?->alteracaoAberta) {
+            return;
+        }
+
+        if (! (Auth::user()?->can('alterar_finalizada:venda') ?? false)) {
+            Notification::make()->title('Sem permissão para descartar a alteração')->danger()->send();
+
+            return;
+        }
+
+        try {
+            app(AlteracaoVendaService::class)->descartar($venda);
+        } catch (AlteracaoVendaException $e) {
+            Notification::make()->title('Não foi possível descartar')->body($e->getMessage())->danger()->send();
+
+            return;
+        }
+
+        Notification::make()->title("Alterações da venda #{$venda->id} descartadas")->body('A venda voltou ao estado original.')->success()->send();
+
+        $this->redirect(VendaResource::getUrl('index'));
     }
 }

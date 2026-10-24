@@ -134,6 +134,22 @@ class Venda extends Model
         return $this->hasMany(Lancamento::class, 'venda_id');
     }
 
+    public function alteracoes()
+    {
+        return $this->hasMany(VendaAlteracao::class, 'venda_id');
+    }
+
+    /** Alteração completa em andamento (venda reaberta no PDV), se houver. */
+    public function alteracaoAberta()
+    {
+        return $this->hasOne(VendaAlteracao::class, 'venda_id')->where('status', VendaAlteracao::ABERTA)->latestOfMany();
+    }
+
+    public function scopeEmAlteracao(Builder $query): Builder
+    {
+        return $query->where('venda_status', 'INICIADA')->whereHas('alteracoes', fn (Builder $a) => $a->where('status', VendaAlteracao::ABERTA));
+    }
+
     /** Correções de lançamento feitas depois de finalizada (Relatório de Sessão de Caixa). */
     public function correcoesPagamento()
     {

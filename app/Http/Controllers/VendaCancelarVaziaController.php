@@ -15,7 +15,8 @@ class VendaCancelarVaziaController extends Controller
 {
     public function __invoke(Venda $venda, FinalizacaoVendaService $service)
     {
-        if ($venda->venda_status === 'INICIADA' && (float) $venda->venda_valor_total <= 0) {
+        // Venda reaberta para alteração nunca é "vazia": cancelar aqui apagaria uma venda que já existia.
+        if ($venda->venda_status === 'INICIADA' && (float) $venda->venda_valor_total <= 0 && ! $venda->alteracaoAberta) {
             $service->cancelar($venda, MotivoCancelamentoEnum::OUTRO->value);
         }
 

@@ -26,6 +26,7 @@ class CancelarVendasIniciadasVazias extends Command
 
         $vendas = Venda::where('venda_status', 'INICIADA')
             ->where('venda_valor_total', '<=', 0)
+            ->whereDoesntHave('alteracoes', fn ($alteracao) => $alteracao->where('status', 'aberta'))
             ->where('venda_datahora_iniciada', '<', now()->subHours($horas))
             ->get();
 

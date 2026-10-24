@@ -76,6 +76,12 @@ class ListVendas extends ListRecords
                 ->icon('heroicon-o-check-circle')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->situacaoNfe('autorizada')),
 
+            'em_alteracao' => Tab::make('Em alteração')
+                ->icon('heroicon-o-pencil-square')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->emAlteracao())
+                ->badge(fn (): int => Venda::emAlteracao()->count())
+                ->badgeColor('warning'),
+
             'canceladas' => Tab::make('NFC-e canceladas')
                 ->icon('heroicon-o-x-circle')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('venda_status', 'FINALIZADA')->situacaoNfe('cancelada')),
