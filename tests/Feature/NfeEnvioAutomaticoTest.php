@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\OperarVenda;
 use App\Models\Caixa;
+use App\Models\Cliente;
 use App\Models\Empresa;
 use App\Models\NfEmissao;
 use App\Models\NfNumeracao;
@@ -160,5 +161,17 @@ class NfeEnvioAutomaticoTest extends TestCase
 
         $this->assertFalse($operador->can('emitir:nfe'));
         Http::assertSentCount(1);
+    }
+
+    public function test_modal_avisa_quando_a_nota_sai_sem_identificar_o_cliente(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([self::URL_EMISSAO => Http::response(['id' => 'inv-1', 'status' => 'Processing'])]);
+        $this->venda->update(['venda_cliente_id' => Cliente::create(['cliente_nome' => 'Sem CPF', 'cliente_tipo' => 'PF'])->id]);
+        $this->pagar($this->pix(), 30);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->call('finalizarVenda')
+            ->assertSet('nfeAvisoModal', 'Cadastro do cliente incompleto (CPF não informado): a nota foi enviada sem identificar o cliente.');
     }
 }

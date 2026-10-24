@@ -145,6 +145,12 @@ class Venda extends Model
         return $this->hasMany(NfEmissao::class, 'venda_id');
     }
 
+    /** Status da NFC-e para exibir: o da venda; sem ele, o da tentativa de emissão (FalhaEnvio, Reservado). */
+    public function statusNfeExibicao(): ?string
+    {
+        return filled($this->venda_status_nfe) ? $this->venda_status_nfe : $this->nfEmissaoAtual?->status;
+    }
+
     public function nfEmissaoAtual()
     {
         return $this->hasOne(NfEmissao::class, 'venda_id')->latestOfMany();

@@ -11,6 +11,7 @@ enum TipoCorrecaoPagamentoEnum: string implements HasLabel
     case Divisao = 'divisao';
     case FormaFiado = 'forma_fiado';
     case FormaTroco = 'forma_troco';
+    case ClienteVenda = 'cliente_venda';
 
     public function getLabel(): string
     {
@@ -19,6 +20,7 @@ enum TipoCorrecaoPagamentoEnum: string implements HasLabel
             self::Divisao => 'Divisão de pagamento',
             self::FormaFiado => 'Troca de forma do fiado recebido',
             self::FormaTroco => 'Troca da forma do troco',
+            self::ClienteVenda => 'Troca do cliente da venda',
         };
     }
 }

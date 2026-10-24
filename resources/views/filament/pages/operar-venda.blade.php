@@ -578,6 +578,11 @@
                     <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Emissão de NFC-e</h3>
                 </div>
                 <div class="p-4 space-y-3">
+                    @if ($nfeAvisoModal)
+                        <div class="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs rounded-lg px-3 py-2">
+                            {{ $nfeAvisoModal }}
+                        </div>
+                    @endif
                     @if ($nfeStatusModal === 'processando')
                         <div wire:poll.3s="verificarStatusNfe" class="flex flex-col items-center gap-3 py-4 text-center">
                             <svg class="animate-spin h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
