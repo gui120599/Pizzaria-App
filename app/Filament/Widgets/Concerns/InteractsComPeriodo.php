@@ -8,6 +8,7 @@ use App\Models\Venda;
 use App\Support\ExpansaoSabores;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 /**
  * Lê o período selecionado no filtro de um dashboard e oferece helpers de
@@ -34,6 +35,59 @@ trait InteractsComPeriodo
             : now()->endOfDay();
 
         return [$inicio, $fim];
+    }
+
+    /**
+     * Período imediatamente anterior, com a mesma duração em dias: de 1 a 24
+     * do mês corrente, o anterior vai de 7 a 30 do mês passado.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    protected function periodoAnterior(): array
+    {
+        [$inicio, $fim] = $this->periodo();
+
+        $dias = max(1, (int) round(abs($inicio->copy()->startOfDay()->diffInDays($fim->copy()->startOfDay()))) + 1);
+        $fimAnterior = $inicio->copy()->subDay()->endOfDay();
+
+        return [$fimAnterior->copy()->subDays($dias - 1)->startOfDay(), $fimAnterior];
+    }
+
+    /**
+     * Variação percentual de $atual sobre $anterior. Sem base (anterior zero)
+     * não existe percentual: devolve null.
+     */
+    protected function variacao(float $atual, float $anterior): ?float
+    {
+        if (round($anterior, 2) === 0.0) {
+            return null;
+        }
+
+        return ($atual - $anterior) / abs($anterior) * 100;
+    }
+
+    /** "▲ 12,0% vs. período anterior", ou "—" quando não há base de comparação. */
+    protected function comparativo(float $atual, float $anterior): string
+    {
+        $variacao = $this->variacao($atual, $anterior);
+
+        if ($variacao === null) {
+            return '— vs. período anterior';
+        }
+
+        $seta = match (true) {
+            round($variacao, 1) > 0 => '▲',
+            round($variacao, 1) < 0 => '▼',
+            default => '=',
+        };
+
+        return $seta.' '.$this->pct(abs($variacao)).' vs. período anterior';
+    }
+
+    /** Descrição de um Stat: o detalhe do indicador e, na linha de baixo, o comparativo. */
+    protected function descricaoComComparativo(string $detalhe, float $atual, float $anterior): HtmlString
+    {
+        return new HtmlString(e($detalhe).'<br>'.e($this->comparativo($atual, $anterior)));
     }
 
     protected function brl(float $valor): string

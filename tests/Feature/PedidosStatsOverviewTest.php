@@ -78,4 +78,35 @@ class PedidosStatsOverviewTest extends TestCase
 
         $this->assertSame('1', $this->stats()['Pedidos']->getValue());
     }
+
+    public function test_comparativo_mostra_a_variacao_sobre_o_periodo_anterior_com_os_mesmos_filtros(): void
+    {
+        $retirada = OpcoesEntregas::create(['opcaoentrega_nome' => 'Retirada', 'opcaoentrega_requer_endereco' => false]);
+        $delivery = OpcoesEntregas::create(['opcaoentrega_nome' => 'Entrega', 'opcaoentrega_requer_endereco' => true]);
+        // Setembro (período anterior): um de cada tipo. Outubro: dois de entrega.
+        $this->entregue(['pedido_opcaoentrega_id' => $delivery->id, 'pedido_datahora_abertura' => '2026-09-10 12:00:00']);
+        $this->entregue(['pedido_opcaoentrega_id' => $retirada->id, 'pedido_datahora_abertura' => '2026-09-11 12:00:00']);
+        $this->entregue(['pedido_opcaoentrega_id' => $delivery->id]);
+        $this->entregue(['pedido_opcaoentrega_id' => $delivery->id]);
+
+        $this->assertStringContainsString('= 0,0% vs. período anterior', (string) $this->stats()['Pedidos']->getDescription());
+        $this->assertStringContainsString('▲ 100,0% vs. período anterior', (string) $this->stats(['tipos_atendimento' => ['delivery']])['Pedidos']->getDescription());
+    }
+
+    public function test_comparativo_sem_base_no_periodo_anterior_mostra_travessao(): void
+    {
+        $this->entregue();
+
+        $this->assertStringContainsString('— vs. período anterior', (string) $this->stats()['Pedidos']->getDescription());
+    }
+
+    public function test_periodo_anterior_tem_a_mesma_duracao_logo_antes(): void
+    {
+        $widget = Livewire::test(PedidosStatsOverview::class, ['pageFilters' => ['inicio' => '2026-10-10', 'fim' => '2026-10-16']])->instance();
+
+        [$inicio, $fim] = (new ReflectionMethod($widget, 'periodoAnterior'))->invoke($widget);
+
+        $this->assertSame('2026-10-03 00:00:00', $inicio->toDateTimeString());
+        $this->assertSame('2026-10-09 23:59:59', $fim->toDateTimeString());
+    }
 }
