@@ -41,6 +41,15 @@ class RouteServiceProvider extends ServiceProvider
         // Identificação e pedido de abertura: por IP, contra cadastro em massa.
         RateLimiter::for('mesa-cliente-entrada', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
 
+        // Cupom do cardápio: tentativas por IP, contra adivinhação de códigos.
+        RateLimiter::for('cardapio-cupom', fn (Request $request) => Limit::perMinute(10)->by('cupom:'.$request->ip()));
+
+        // Link rastreável do influenciador: por IP, contra inflar cliques.
+        RateLimiter::for('referencia-influenciador', fn (Request $request) => Limit::perMinute(30)->by('ref:'.$request->ip()));
+
+        // Checkout público: por IP, contra pedido em massa.
+        RateLimiter::for('cardapio-checkout', fn (Request $request) => Limit::perMinute(20)->by('checkout:'.$request->ip()));
+
         $this->routes(function () {
             Route::middleware('api')
                 ->prefix('api')

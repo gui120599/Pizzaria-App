@@ -1,7 +1,7 @@
 # Programa de Influenciadores: correções, carteira e ida para produção
 
 > Origem: avaliação do painel `/influenciadores` e das telas de admin relacionadas, feita em 24/10/2026. A frente está **inteira sem commit** no working tree (desde 17/09/2026). As 16 migrations `2026_09_17_*` **nunca rodaram**, nem no banco local. Os 50 testes da frente passam num banco isolado, mas não cobrem os problemas abaixo.
-> Status: **decisões do usuário registradas em 24/10/2026 (seção 2). Plano aguardando implementação.**
+> Status: **decisões do usuário registradas em 24/10/2026 (seção 2). Fase 0 implementada (commit `fd58e131`); Fase 1 implementada em 24/10/2026, aguardando commit e Fase 2.**
 > Execução: por fases (seção 5). **Cada fase é uma entrega independente**, com testes e commit próprios. Não comece a fase seguinte sem que a anterior esteja verde. O go-live exige as Fases 0, 1 e 2 e os itens **[obrigatório]** da Fase 3.
 
 ---

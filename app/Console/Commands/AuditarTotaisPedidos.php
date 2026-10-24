@@ -38,7 +38,7 @@ class AuditarTotaisPedidos extends Command
 
         foreach ($pedidos as $pedido) {
             $itens = $this->itensInseridos($pedido);
-            $bruto = round((float) $itens->sum('item_pedido_valor') + (float) $itens->sum('item_pedido_desconto'), 2);
+            $bruto = round((float) $itens->sum('item_pedido_valor') + (float) $itens->sum('item_pedido_desconto') + (float) $itens->sum('item_pedido_desconto_cupom'), 2);
             $gravado = round((float) $pedido->pedido_valor_itens, 2);
 
             if (abs($bruto - $gravado) > 0.009) {
@@ -72,7 +72,7 @@ class AuditarTotaisPedidos extends Command
         return self::SUCCESS;
     }
 
-    /** Preserva frete e desconto do cupom gravados; recalcula itens, desconto dos itens e total. */
+    /** Preserva o frete gravado; recalcula itens, desconto (itens e cupom) e total. */
     private function corrigir(Pedido $pedido): void
     {
         DB::transaction(function () use ($pedido) {
@@ -81,15 +81,15 @@ class AuditarTotaisPedidos extends Command
 
             $liquido = round((float) $itens->sum('item_pedido_valor'), 2);
             $descontoItens = round((float) $itens->sum('item_pedido_desconto'), 2);
-            $cupom = (float) ($pedido->getAttribute('pedido_valor_desconto_cupom') ?? 0);
+            $cupom = round((float) $itens->sum('item_pedido_desconto_cupom'), 2);
             $frete = (float) $pedido->pedido_valor_frete;
 
             $antes = $pedido->only(['pedido_valor_itens', 'pedido_valor_desconto', 'pedido_valor_frete', 'pedido_valor_total']);
 
             $pedido->update([
-                'pedido_valor_itens' => round($liquido + $descontoItens, 2),
+                'pedido_valor_itens' => round($liquido + $descontoItens + $cupom, 2),
                 'pedido_valor_desconto' => round($descontoItens + $cupom, 2),
-                'pedido_valor_total' => round(max(0.0, $liquido - $cupom) + $frete, 2),
+                'pedido_valor_total' => round($liquido + $frete, 2),
             ]);
 
             Log::info('pedidos:auditar-totais corrigiu totais', [

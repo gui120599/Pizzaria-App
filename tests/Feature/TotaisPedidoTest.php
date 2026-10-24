@@ -33,11 +33,12 @@ class TotaisPedidoTest extends TestCase
         $this->assertEqualsWithDelta(62.90, $totais['total'], 0.001);
     }
 
-    public function test_desconto_do_pedido_entra_no_total_uma_unica_vez(): void
+    public function test_desconto_do_cupom_nos_itens_entra_no_total_uma_unica_vez(): void
     {
-        $totais = TotaisPedido::paraItens($this->itens([
-            ['valor' => 100.00, 'desconto' => 0.0],
-        ]), opcao: null, descontoPedido: 10.00);
+        // Linha de 100,00 com 10,00 de cupom rateado: o valor da linha já é líquido (90,00).
+        $totais = TotaisPedido::paraItens(collect([
+            new ItensPedido(['item_pedido_valor' => 90.00, 'item_pedido_desconto' => 0.0, 'item_pedido_desconto_cupom' => 10.00]),
+        ]), opcao: null);
 
         $this->assertEqualsWithDelta(100.00, $totais['itens'], 0.001);
         $this->assertEqualsWithDelta(10.00, $totais['desconto'], 0.001);

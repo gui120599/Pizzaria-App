@@ -46,6 +46,7 @@ class Pedido extends Model
         'pedido_valor_desconto',
         'pedido_cupom_id',
         'pedido_valor_desconto_cupom',
+        'pedido_influenciador_ref_id',
         'pedido_valor_frete',
         'pedido_valor_total',
         'pedido_status',

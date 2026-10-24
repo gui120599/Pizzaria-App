@@ -45,6 +45,47 @@ class ComissaoService
         );
     }
 
+    /**
+     * Acompanha a troca ou remoção do cupom de um pedido ainda não pago: a
+     * comissão pendente passa a refletir o novo cupom (ou é cancelada). Comissão
+     * aprovada ou paga nunca é mexida aqui.
+     */
+    public function sincronizarComCupom(Pedido $pedido): void
+    {
+        $pedido = $pedido->fresh();
+        $cupom = $pedido->cupom;
+        $influenciador = $cupom?->influenciador;
+        $comissao = Comissao::where('comissao_pedido_id', $pedido->id)->first();
+
+        if (! $influenciador) {
+            if ($comissao?->comissao_status === StatusComissaoEnum::PENDENTE) {
+                $comissao->forceFill(['comissao_status' => StatusComissaoEnum::CANCELADA])->save();
+            }
+
+            return;
+        }
+
+        if (! $comissao) {
+            $this->criarSeAplicavel($pedido);
+
+            return;
+        }
+
+        if (! in_array($comissao->comissao_status, [StatusComissaoEnum::PENDENTE, StatusComissaoEnum::CANCELADA], true)) {
+            return;
+        }
+
+        $comissao->forceFill([
+            'comissao_influenciador_id' => $influenciador->id,
+            'comissao_cupom_id' => $cupom->id,
+            'comissao_base_calculo' => $pedido->pedido_valor_total,
+            'comissao_tipo' => $influenciador->influenciador_tipo_comissao,
+            'comissao_valor_referencia' => $influenciador->influenciador_valor_comissao,
+            'comissao_valor' => $this->calcularValor($influenciador, (float) $pedido->pedido_valor_total),
+            'comissao_status' => StatusComissaoEnum::PENDENTE,
+        ])->save();
+    }
+
     /** Nunca reabre uma comissão já paga — só promove pendente → aprovada. */
     public function aprovar(Pedido $pedido): void
     {

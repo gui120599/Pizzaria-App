@@ -32,6 +32,7 @@ class ItensPedido extends Model
         'item_pedido_valor_unitario',
         'item_pedido_desconto',
         'item_pedido_desconto_unitario',
+        'item_pedido_desconto_cupom',
         'item_pedido_valor_adicionais',
         'item_pedido_valor',
         'item_pedido_observacao',
@@ -285,11 +286,27 @@ class ItensPedido extends Model
             $linha['valor'] = 0.0;
         }
 
+        // Parte do cupom já rateada nesta linha: sai do valor cobrado (cortesia
+        // não tem parte). CupomPedidoService::reaplicar() redistribui em seguida.
+        $descontoCupom = $this->item_pedido_cortesia
+            ? 0.0
+            : min((float) $this->item_pedido_desconto_cupom, max(0.0, $linha['valor']));
+
         $this->item_pedido_valor_unitario = $linha['valor_unitario'];
         $this->item_pedido_desconto = $linha['desconto'];
+        $this->item_pedido_desconto_cupom = $descontoCupom;
         $this->item_pedido_valor_adicionais = $linha['adicionais'];
-        $this->item_pedido_valor = $linha['valor'];
+        $this->item_pedido_valor = round($linha['valor'] - $descontoCupom, 2);
 
         return $this;
+    }
+
+    /**
+     * Desconto da linha na venda e na NFC-e: o comercial (promoção) mais a
+     * parte do cupom. `item_pedido_valor` já é líquido das duas.
+     */
+    public function descontoTotal(): float
+    {
+        return round((float) $this->item_pedido_desconto + (float) $this->item_pedido_desconto_cupom, 2);
     }
 }

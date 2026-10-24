@@ -4,9 +4,14 @@ namespace App\Filament\Resources\Influenciadores;
 
 use App\Enums\StatusInfluenciadorEnum;
 use App\Enums\TipoDescontoEnum;
+use App\Exceptions\InfluenciadorInvalidoException;
+use App\Filament\Resources\Influenciadores\Pages\EditInfluenciador;
 use App\Filament\Resources\Influenciadores\Pages\ManageInfluenciadores;
+use App\Filament\Resources\Influenciadores\RelationManagers\ComissoesRelationManager;
+use App\Filament\Resources\Influenciadores\RelationManagers\CuponsRelationManager;
+use App\Models\Empresa;
 use App\Models\Influenciador;
-use App\Notifications\CadastroAprovadoNotification;
+use App\Services\InfluenciadorService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -20,6 +25,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -90,7 +97,16 @@ class InfluenciadorResource extends Resource
                                 StatusInfluenciadorEnum::INATIVO->value => StatusInfluenciadorEnum::INATIVO->label(),
                             ])
                             ->required()
-                            ->native(false),
+                            ->native(false)
+                            ->live()
+                            ->afterStateUpdated(function (?string $state, Get $get, Set $set): void {
+                                $empresa = Empresa::first();
+
+                                if ($state === StatusInfluenciadorEnum::ATIVO->value && (float) $get('influenciador_valor_comissao') <= 0 && $empresa) {
+                                    $set('influenciador_tipo_comissao', $empresa->empresa_influ_comissao_tipo);
+                                    $set('influenciador_valor_comissao', $empresa->empresa_influ_comissao_valor);
+                                }
+                            }),
 
                         TextInput::make('password')
                             ->label('Senha')
@@ -121,7 +137,8 @@ class InfluenciadorResource extends Resource
                         TextInput::make('influenciador_valor_comissao')
                             ->label('Valor da Comissão')
                             ->numeric()
-                            ->minValue(0)
+                            ->minValue(fn (Get $get): float => $get('influenciador_status') === StatusInfluenciadorEnum::ATIVO->value ? 0.01 : 0)
+                            ->helperText('Influenciador ativo precisa de comissão maior que zero.')
                             ->required(),
                     ]),
             ]);
@@ -186,9 +203,14 @@ class InfluenciadorResource extends Resource
                     ->color('success')
                     ->visible(fn (Influenciador $record): bool => $record->influenciador_status !== StatusInfluenciadorEnum::ATIVO)
                     ->requiresConfirmation()
-                    ->action(function (Influenciador $record): void {
-                        $record->forceFill(['influenciador_status' => StatusInfluenciadorEnum::ATIVO])->save();
-                        $record->notify(new CadastroAprovadoNotification);
+                    ->action(function (Influenciador $record, InfluenciadorService $service): void {
+                        try {
+                            $service->aprovar($record);
+                        } catch (InfluenciadorInvalidoException $e) {
+                            Notification::make()->title('Não foi possível aprovar')->body($e->getMessage())->danger()->send();
+
+                            return;
+                        }
 
                         Notification::make()
                             ->title('Influenciador aprovado')
@@ -212,7 +234,9 @@ class InfluenciadorResource extends Resource
                             ->send();
                     }),
 
-                EditAction::make(),
+                EditAction::make()
+                    ->url(fn (Influenciador $record): string => static::getUrl('edit', ['record' => $record]))
+                    ->modal(false),
                 DeleteAction::make()
                     ->before(function (DeleteAction $action, Influenciador $record): void {
                         self::barrarExclusaoSeBloqueada($action, $record);
@@ -230,7 +254,7 @@ class InfluenciadorResource extends Resource
             ]);
     }
 
-    private static function barrarExclusaoSeBloqueada(DeleteAction|DeleteBulkAction $action, Influenciador $record): void
+    public static function barrarExclusaoSeBloqueada(DeleteAction|DeleteBulkAction $action, Influenciador $record): void
     {
         $motivo = $record->motivoBloqueioExclusao();
 
@@ -247,10 +271,19 @@ class InfluenciadorResource extends Resource
         $action->cancel();
     }
 
+    public static function getRelations(): array
+    {
+        return [
+            CuponsRelationManager::class,
+            ComissoesRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => ManageInfluenciadores::route('/'),
+            'edit' => EditInfluenciador::route('/{record}/edit'),
         ];
     }
 

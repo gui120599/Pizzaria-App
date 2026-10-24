@@ -25,6 +25,7 @@ use App\Http\Controllers\PDFController;
 use App\Http\Controllers\PedidoController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReferenciaInfluenciadorController;
 use App\Http\Controllers\RelatorioContasPagarReceberController;
 use App\Http\Controllers\RelatorioDebitosClientesController;
 use App\Http\Controllers\RelatorioFechamentoCaixaController;
@@ -60,7 +61,9 @@ Route::get('/', function () {
 
 Route::get('/Cardapio', [CardapioController::class, 'index'])->name('cardapio');
 Route::get('/cardapio/lookup-cliente', [CardapioCheckoutController::class, 'lookupCliente'])->name('cardapio.lookup_cliente');
-Route::post('/cardapio/checkout', [CardapioCheckoutController::class, 'checkout'])->name('cardapio.checkout');
+Route::post('/cardapio/checkout', [CardapioCheckoutController::class, 'checkout'])->middleware('throttle:cardapio-checkout')->name('cardapio.checkout');
+Route::get('/r/{slug}', ReferenciaInfluenciadorController::class)->middleware('throttle:referencia-influenciador')->name('referencia.influenciador');
+Route::post('/cardapio/cupom/validar', [CardapioCheckoutController::class, 'validarCupom'])->middleware('throttle:cardapio-cupom')->name('cardapio.cupom.validar');
 Route::get('/acompanhar/{id}', fn ($id) => view('app.acompanhamento.index', ['pedidoId' => (int) $id]))->name('pedido.acompanhar');
 
 // Pedido pelo QR da mesa (público, sem login). O código do QR não é o id da mesa.

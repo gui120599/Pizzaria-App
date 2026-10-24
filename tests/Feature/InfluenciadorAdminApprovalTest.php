@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\StatusInfluenciadorEnum;
 use App\Filament\Resources\Influenciadores\Pages\ManageInfluenciadores;
+use App\Models\Empresa;
 use App\Models\Influenciador;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -26,6 +27,7 @@ class InfluenciadorAdminApprovalTest extends TestCase
             'influenciador_nome' => 'Fulano',
             'email' => uniqid().'@teste.com',
             'password' => 'senha-segura',
+            'influenciador_valor_comissao' => 5,
         ]);
 
         $influenciador->forceFill(['influenciador_status' => StatusInfluenciadorEnum::PENDENTE])->save();
@@ -75,5 +77,33 @@ class InfluenciadorAdminApprovalTest extends TestCase
         $this->actingAs(User::factory()->atendente()->create(['name_first' => 'Atendente']));
 
         $this->get(route('filament.admin.resources.influenciadores.index'))->assertForbidden();
+    }
+
+    public function test_aprovar_com_comissao_zerada_aplica_a_comissao_padrao(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+        Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_influ_comissao_tipo' => 'percentual', 'empresa_influ_comissao_valor' => 7]);
+
+        $influenciador = $this->influenciadorPendente();
+        $influenciador->update(['influenciador_valor_comissao' => 0]);
+
+        Livewire::test(ManageInfluenciadores::class)->callTableAction('aprovar', $influenciador);
+
+        $influenciador->refresh();
+        $this->assertSame(StatusInfluenciadorEnum::ATIVO, $influenciador->influenciador_status);
+        $this->assertSame('7.00', $influenciador->influenciador_valor_comissao);
+    }
+
+    public function test_aprovar_exige_comissao_maior_que_zero(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+        Empresa::create(['empresa_razao_social' => 'Pizzaria', 'empresa_influ_comissao_valor' => 0]);
+
+        $influenciador = $this->influenciadorPendente();
+        $influenciador->update(['influenciador_valor_comissao' => 0]);
+
+        Livewire::test(ManageInfluenciadores::class)->callTableAction('aprovar', $influenciador);
+
+        $this->assertSame(StatusInfluenciadorEnum::PENDENTE, $influenciador->fresh()->influenciador_status);
     }
 }

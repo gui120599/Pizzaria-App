@@ -126,7 +126,7 @@ class CortesiaService
                         'id' => $item->id,
                         'produto' => $item->nomeProduto(),
                         'quantidade' => (float) $item->item_pedido_quantidade,
-                        'valor' => round((float) $item->item_pedido_valor + (float) $item->item_pedido_desconto, 2),
+                        'valor' => round((float) $item->item_pedido_valor + $item->descontoTotal(), 2),
                     ])->all(),
                 ],
             );

@@ -566,7 +566,7 @@
                         @if ($mesaCliente)
                             @include('mesa-cliente.enviar')
                         @else
-                        <button @click="$store.cart.step = 'checkout'"
+                        <button @click="$store.cart.step = 'checkout'; $store.cart.aplicarCupomPendente()"
                                 :disabled="$store.cart.items.length === 0 || !$store.cart.estaAbertoAgora()"
                                 class="w-full py-4 bg-green-500 hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl flex items-center justify-center gap-2 uppercase tracking-wide transition-colors text-sm">
                             <template x-if="!$store.cart.estaAbertoAgora()">
@@ -758,6 +758,41 @@
                             <p x-show="$store.cart.erros.troco" x-text="$store.cart.erros.troco" class="text-red-400 text-xs mt-1" style="display:none"></p>
                         </div>
 
+                        {{-- Cupom de desconto --}}
+                        <div>
+                            <label class="text-gray-300 text-xs font-semibold uppercase tracking-wide block mb-1">Cupom de desconto</label>
+                            <div class="flex gap-2">
+                                <input type="text"
+                                       x-model="$store.cart.cupom.codigo"
+                                       @input="$store.cart.cupom.codigo = $event.target.value.toUpperCase().replace(/\s/g, ''); $store.cart.cupom.erro = ''"
+                                       @keydown.enter.prevent="$store.cart.aplicarCupom()"
+                                       :disabled="$store.cart.cupom.aplicado"
+                                       maxlength="50"
+                                       autocomplete="off"
+                                       placeholder="Tem um cupom?"
+                                       class="flex-1 min-w-0 bg-gray-800 border border-gray-600 focus:border-green-500 text-white rounded-lg px-3 py-2.5 text-sm uppercase focus:outline-none transition-colors disabled:opacity-60">
+                                <button type="button"
+                                        x-show="!$store.cart.cupom.aplicado"
+                                        @click="$store.cart.aplicarCupom()"
+                                        :disabled="!$store.cart.cupom.codigo || $store.cart.cupom.carregando"
+                                        class="px-4 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors">
+                                    <span x-show="!$store.cart.cupom.carregando">Aplicar</span>
+                                    <i x-show="$store.cart.cupom.carregando" class='bx bx-loader-alt bx-spin' style="display:none"></i>
+                                </button>
+                                <button type="button"
+                                        x-show="$store.cart.cupom.aplicado"
+                                        @click="$store.cart.removerCupom()"
+                                        class="px-4 bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition-colors"
+                                        style="display:none">
+                                    Remover
+                                </button>
+                            </div>
+                            <p x-show="$store.cart.cupom.erro" x-text="$store.cart.cupom.erro" class="text-red-400 text-xs mt-1" style="display:none"></p>
+                            <p x-show="$store.cart.cupom.aplicado && !$store.cart.cupomVigente" class="text-yellow-400 text-xs mt-1" style="display:none">
+                                O carrinho mudou: o desconto será recalculado ao confirmar o pedido.
+                            </p>
+                        </div>
+
                         {{-- reCAPTCHA (só aparece se a chave estiver configurada) --}}
                         @if(config('services.recaptcha.site_key'))
                             <div>
@@ -793,6 +828,17 @@
                             </span>
                             <span class="text-green-400 font-medium"
                                   x-text="'- R$ ' + $store.cart.totalDesconto.toFixed(2).replace('.', ',')"></span>
+                        </div>
+                        {{-- Cupom --}}
+                        <div x-show="$store.cart.cupomDesconto > 0"
+                             class="flex justify-between items-center text-sm"
+                             style="display:none">
+                            <span class="text-green-400 flex items-center gap-1.5">
+                                <i class='bx bx-purchase-tag text-base'></i>
+                                Cupom <span x-text="$store.cart.cupom.codigo" class="font-semibold"></span>
+                            </span>
+                            <span class="text-green-400 font-medium"
+                                  x-text="'- R$ ' + $store.cart.cupomDesconto.toFixed(2).replace('.', ',')"></span>
                         </div>
                         {{-- Taxa de entrega --}}
                         <div x-show="$store.cart.valorFrete > 0"
@@ -1182,6 +1228,7 @@
 
     <script>
         const _checkoutRoute        = @js(route('cardapio.checkout'));
+        const _cupomRoute           = @js(route('cardapio.cupom.validar'));
         const _lookupRoute          = @js(route('cardapio.lookup_cliente'));
         const _csrfToken            = @js(csrf_token());
         const _opcoesEntregas       = @js($opcoesEntregas);
@@ -1213,6 +1260,14 @@
                 })),
                 drawerOpen: new URLSearchParams(window.location.search).get('abrir') === 'carrinho',
                 step: 'cart',   // 'cart' | 'checkout'
+
+                // ── Cupom ──
+                // O desconto exibido é só uma prévia calculada pelo servidor; o checkout revalida.
+                // totalBase: total do carrinho quando o cupom foi validado (se mudar, a prévia vale 0).
+                cupom: {
+                    codigo: (new URLSearchParams(window.location.search).get('cupom') || '').toUpperCase().replace(/\s/g, ''),
+                    aplicado: false, desconto: 0, totalBase: 0, erro: '', carregando: false,
+                },
 
                 // ── Modal de sabores ──
                 saboresModal: {
@@ -1484,15 +1539,17 @@
                 get total()        { return this.items.reduce((s, i) => s + i.preco * i.qty + (i.oferta ? i.oferta.valorAdicional : 0), 0); },
                 get totalOriginal() { return this.items.reduce((s, i) => s + (i.precoOriginal ?? i.preco) * i.qty + (i.oferta ? i.oferta.valorAdicional : 0), 0); },
                 get totalDesconto() { return Math.max(0, this.totalOriginal - this.total); },
+                get cupomVigente() { return this.cupom.aplicado && Math.abs(this.cupom.totalBase - this.total) < 0.005; },
+                get cupomDesconto() { return this.cupomVigente ? this.cupom.desconto : 0; },
                 get count() { return this.items.reduce((s, i) => s + i.qty + (i.oferta ? 1 : 0), 0); },
                 get valorFrete() {
                     if (!this.form.opcaoEntregaId) return 0;
                     const opcao = _opcoesEntregas.find(o => o.id === this.form.opcaoEntregaId);
                     if (!opcao || !opcao.valor_frete) return 0;
-                    if (opcao.min_frete > 0 && this.total >= opcao.min_frete) return 0;
+                    if (opcao.min_frete > 0 && (this.total - this.cupomDesconto) >= opcao.min_frete) return 0;
                     return opcao.valor_frete;
                 },
-                get totalComFrete() { return this.total + this.valorFrete; },
+                get totalComFrete() { return this.total - this.cupomDesconto + this.valorFrete; },
                 save()  { localStorage.setItem(_chaveCarrinho, JSON.stringify(this.items)); },
                 clear() { this.items = []; this.avisoPagamentoRemovido = []; this.avisoPagamentoRestaurado = []; localStorage.removeItem(_chaveCarrinho); },
 
@@ -1686,6 +1743,50 @@
                     return Object.keys(e).length === 0;
                 },
 
+                // ── Cupom ──
+                async aplicarCupom() {
+                    const c = this.cupom;
+                    if (!c.codigo || c.carregando) return;
+                    c.carregando = true;
+                    c.erro = '';
+                    try {
+                        const res = await fetch(_cupomRoute, {
+                            method:  'POST',
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': _csrfToken },
+                            body: JSON.stringify({
+                                codigo_cupom: c.codigo,
+                                telefone: this.form.telefone || null,
+                                opcao_pagamento_id: this.form.pagamentoId,
+                                itens: this.items.map(i => ({
+                                    id: i.id, qty: i.qty, sabores: i.sabores ?? null, respostas: i.respostas ?? null,
+                                    adicionais: i.adicionais ?? null, oferta_produto_id: i.oferta?.produtoId ?? null,
+                                })),
+                            }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            c.aplicado = false; c.desconto = 0;
+                            c.erro = data.message || 'Cupom inválido ou indisponível.';
+                            return;
+                        }
+                        c.codigo = data.codigo;
+                        c.desconto = Number(data.valor_desconto) || 0;
+                        c.totalBase = this.total;
+                        c.aplicado = true;
+                    } catch (_) {
+                        c.erro = 'Falha de conexão. Tente novamente.';
+                    } finally {
+                        c.carregando = false;
+                    }
+                },
+                removerCupom() {
+                    this.cupom = { codigo: '', aplicado: false, desconto: 0, totalBase: 0, erro: '', carregando: false };
+                },
+                /** Cupom vindo do link (?cupom=): aplica sozinho ao abrir o checkout. */
+                async aplicarCupomPendente() {
+                    if (this.cupom.codigo && !this.cupom.aplicado && !this.cupom.erro) await this.aplicarCupom();
+                },
+
                 // ── Checkout ──
                 async submitCheckout() {
                     if (!this.estaAbertoAgora()) {
@@ -1726,6 +1827,7 @@
                                     ? parseFloat(this.form.trocoPara.replace(/\./g, '').replace(',', '.')) || null
                                     : null,
                                 recaptcha_token:  recaptchaToken,
+                                codigo_cupom:     this.cupom.aplicado ? this.cupom.codigo : null,
                                 itens: this.items.map(i => ({
                                     id:             i.id,
                                     qty:            i.qty,
@@ -1768,6 +1870,8 @@
                         });
                         if (data.total_desconto > 0)
                             msg += `\nDesconto: -R$${data.total_desconto.toFixed(2).replace('.', ',')}`;
+                        if (this.cupom.aplicado && data.valor_desconto_cupom > 0)
+                            msg += ` (cupom ${this.cupom.codigo}: -R$${data.valor_desconto_cupom.toFixed(2).replace('.', ',')})`;
                         if (data.valor_frete > 0)
                             msg += `\nTaxa de entrega: R$${data.valor_frete.toFixed(2).replace('.', ',')}`;
                         msg += `\n*Total: R$${data.total_final.toFixed(2).replace('.', ',')}*`;
@@ -1787,6 +1891,7 @@
                         this.step         = 'cart';
                         this.form         = { clienteId: null, nome: '', telefone: '', opcaoEntregaId: null, requerEndereco: false, endereco: '', pagamentoId: null, pagamentoNome: '', isDinheiro: false, trocoPara: '' };
                         this.clienteEncontrado = false;
+                        this.removerCupom();
 
                     } catch (_) {
                         this.erros = { geral: 'Falha de conexão. Verifique sua internet.' };

@@ -7,6 +7,7 @@ use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
+use App\Exceptions\CupomInvalidoException;
 use App\Exceptions\StoneConnectException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
 use App\Filament\Concerns\ConcedeCortesiaNoItem;
@@ -14,6 +15,7 @@ use App\Filament\Support\PedidoStatusActions;
 use App\Livewire\PedidoProdutoSelector;
 use App\Models\AdicionaisItemPedido;
 use App\Models\Cliente;
+use App\Models\Cupom;
 use App\Models\ItensPedido;
 use App\Models\Maquininha;
 use App\Models\OpcoesEntregas;
@@ -24,6 +26,8 @@ use App\Models\Produto;
 use App\Models\StonePedido;
 use App\Services\ClienteResolverService;
 use App\Services\CortesiaService;
+use App\Services\CupomPedidoService;
+use App\Services\CupomService;
 use App\Services\EstoqueService;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\PagamentosCombinadosService;
@@ -87,6 +91,13 @@ class AtenderPedido extends Page
     public array $entregaPagamentoData = ['opcaoEntregaId' => null, 'pagamentos' => []];
 
     public string $observacao = '';
+
+    // ── Cupom de desconto (D3: pedido por telefone/WhatsApp também vale) ──
+    // Pedido novo: o cupom fica na tela e é aplicado ao salvar. Pedido em edição:
+    // aplicar/remover grava na hora, até o pedido ser pago.
+    public string $cupomCodigo = '';
+
+    public ?int $cupomId = null;
 
     public ?string $statusSelecionado = null;
 
@@ -185,6 +196,8 @@ class AtenderPedido extends Page
         $this->pedidoId = $pedido->id;
         $this->statusSelecionado = $pedido->pedido_status;
         $this->observacao = (string) ($pedido->pedido_observacao_pagamento ?? '');
+        $this->cupomId = $pedido->pedido_cupom_id;
+        $this->cupomCodigo = (string) ($pedido->cupom?->cupom_codigo ?? '');
         $this->somenteLeitura = in_array($pedido->pedido_status, self::STATUS_SOMENTE_LEITURA, true);
 
         $this->itensCarrinho = $this->carregarItensDoBanco($pedido->id);
@@ -243,7 +256,7 @@ class AtenderPedido extends Page
                 'desconto_unit' => $item->item_pedido_quantidade > 0
                     ? round((float) $item->item_pedido_desconto / (float) $item->item_pedido_quantidade, 4)
                     : 0,
-                'desconto' => (float) $item->item_pedido_desconto,
+                'desconto' => $item->descontoTotal(),
                 'valor' => (float) $item->item_pedido_valor,
                 'adicionais_valor' => (float) $item->item_pedido_valor_adicionais,
                 'observacao' => $item->item_pedido_observacao ?? '',
@@ -321,13 +334,140 @@ class AtenderPedido extends Page
             ? OpcoesEntregas::find($this->entregaPagamentoData['opcaoEntregaId'])
             : null;
 
-        return TotaisPedido::paraItens(
-            collect($this->itensCarrinho)->map(fn (array $item): ItensPedido => new ItensPedido([
-                'item_pedido_valor' => $item['valor'] ?? 0,
-                'item_pedido_desconto' => $item['desconto'] ?? 0,
-            ])),
-            $opcao,
-        );
+        $linhas = collect($this->itensCarrinho)->map(fn (array $item): ItensPedido => new ItensPedido([
+            'item_pedido_valor' => $item['valor'] ?? 0,
+            'item_pedido_desconto' => $item['desconto'] ?? 0,
+        ]));
+
+        // Pedido novo com cupom: prévia do desconto como uma linha sintética (o
+        // líquido cai e o desconto sobe pelo mesmo valor). Em edição o cupom já
+        // está rateado nas linhas gravadas.
+        $previaCupom = $this->previaDescontoCupom();
+
+        if ($previaCupom > 0) {
+            $linhas->push(new ItensPedido([
+                'item_pedido_valor' => -$previaCupom,
+                'item_pedido_desconto' => 0,
+                'item_pedido_desconto_cupom' => $previaCupom,
+            ]));
+        }
+
+        return TotaisPedido::paraItens($linhas, $opcao);
+    }
+
+    private function previaDescontoCupom(): float
+    {
+        if ($this->pedidoId !== null || $this->cupomId === null) {
+            return 0.0;
+        }
+
+        $cupom = Cupom::find($this->cupomId);
+
+        return $cupom
+            ? app(CupomService::class)->calcularDesconto($cupom, round((float) collect($this->itensCarrinho)->sum('valor'), 2))
+            : 0.0;
+    }
+
+    /** Cupom editável: pedido novo, ou em edição ainda sem venda e fora do modo leitura. */
+    #[Computed]
+    public function podeAlterarCupom(): bool
+    {
+        if ($this->somenteLeitura) {
+            return false;
+        }
+
+        if ($this->pedidoId === null) {
+            return true;
+        }
+
+        return ! ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)->whereNotNull('item_pedido_venda_id')->exists()
+            && Pedido::whereKey($this->pedidoId)->whereNull('pedido_venda_id')->exists();
+    }
+
+    public function aplicarCupom(): void
+    {
+        if (! $this->podeAlterarCupom || blank($this->cupomCodigo)) {
+            return;
+        }
+
+        $cliente = filled($this->clienteData['clienteId'] ?? null) ? Cliente::find($this->clienteData['clienteId']) : null;
+
+        try {
+            if ($this->pedidoId === null) {
+                $base = round((float) collect($this->itensCarrinho)->sum('valor'), 2);
+                $resultado = app(CupomService::class)->validar($this->cupomCodigo, $base, $cliente);
+
+                $this->cupomId = $resultado['cupom']->id;
+                $this->cupomCodigo = $resultado['cupom']->cupom_codigo;
+            } else {
+                $this->cupomId = $this->aplicarCupomNoPedidoGravado($cliente);
+            }
+        } catch (CupomInvalidoException $e) {
+            $this->notificarErro($e->getMessage(), titulo: 'Cupom não aplicado');
+
+            return;
+        }
+
+        unset($this->resumoTotais);
+        Notification::make()->title('Cupom aplicado')->success()->send();
+    }
+
+    public function removerCupom(): void
+    {
+        if (! $this->podeAlterarCupom) {
+            return;
+        }
+
+        if ($this->pedidoId !== null && $this->cupomId !== null) {
+            try {
+                DB::transaction(function (): void {
+                    $pedido = Pedido::findOrFail($this->pedidoId);
+                    app(CupomPedidoService::class)->remover($pedido);
+                    app(TotaisPedidoService::class)->recalcular($pedido, inclusiveRascunho: true);
+                });
+            } catch (CupomInvalidoException $e) {
+                $this->notificarErro($e->getMessage(), titulo: 'Cupom não removido');
+
+                return;
+            }
+
+            $this->aposMudarCortesia();
+        }
+
+        $this->cupomId = null;
+        $this->cupomCodigo = '';
+        unset($this->resumoTotais);
+    }
+
+    /**
+     * Valida e grava o cupom num pedido existente, refazendo o rateio e os totais.
+     *
+     * @throws CupomInvalidoException
+     */
+    private function aplicarCupomNoPedidoGravado(?Cliente $cliente): int
+    {
+        $cupomId = DB::transaction(function () use ($cliente): int {
+            $pedido = Pedido::findOrFail($this->pedidoId);
+
+            $cupom = Cupom::where('cupom_codigo', Cupom::normalizarCodigo($this->cupomCodigo))->first()
+                ?? throw new CupomInvalidoException('Cupom não encontrado.');
+
+            // A base é o valor dos itens antes do cupom (a validação confere o pedido mínimo).
+            $base = round((float) ItensPedido::where('item_pedido_pedido_id', $pedido->id)->where('item_pedido_status', 'INSERIDO')
+                ->selectRaw('COALESCE(SUM(item_pedido_valor + item_pedido_desconto_cupom), 0) as base')->value('base'), 2);
+
+            // Trocar por outro cupom: o pedido atual não pode contar contra o limite do novo.
+            app(CupomService::class)->consumir($cupom, $base, $cliente, ignorarPedidoId: $pedido->id);
+            app(CupomPedidoService::class)->aplicar($pedido, $cupom);
+            app(TotaisPedidoService::class)->recalcular($pedido, inclusiveRascunho: true);
+
+            return $cupom->id;
+        });
+
+        $this->cupomCodigo = Cupom::find($cupomId)->cupom_codigo;
+        $this->aposMudarCortesia();
+
+        return $cupomId;
     }
 
     /**
@@ -420,60 +560,74 @@ class AtenderPedido extends Page
             return;
         }
 
-        DB::transaction(function () use ($semCliente, $opcaoEntrega, $pagamentos): void {
-            $clienteId = $semCliente ? null : $this->resolverCliente();
+        try {
+            DB::transaction(function () use ($semCliente, $opcaoEntrega, $pagamentos): void {
+                $clienteId = $semCliente ? null : $this->resolverCliente();
 
-            $pedido = $this->pedidoId ? Pedido::findOrFail($this->pedidoId) : new Pedido;
+                $pedido = $this->pedidoId ? Pedido::findOrFail($this->pedidoId) : new Pedido;
 
-            $souNovo = ! $pedido->exists;
+                $souNovo = ! $pedido->exists;
 
-            $dadosPedido = [
-                'pedido_cliente_id' => $clienteId,
-                'pedido_opcaoentrega_id' => $opcaoEntrega?->id,
-                'pedido_observacao_pagamento' => $this->observacao !== '' ? $this->observacao : null,
-                'pedido_endereco_entrega' => $this->montarEnderecoSnapshot(),
-            ];
+                $dadosPedido = [
+                    'pedido_cliente_id' => $clienteId,
+                    'pedido_opcaoentrega_id' => $opcaoEntrega?->id,
+                    'pedido_observacao_pagamento' => $this->observacao !== '' ? $this->observacao : null,
+                    'pedido_endereco_entrega' => $this->montarEnderecoSnapshot(),
+                ];
 
-            if ($souNovo) {
-                // ABERTO, não INICIADO: um pedido montado aqui pelo atendente já está
-                // confirmado por definição. INICIADO é o estado "aguardando confirmação
-                // da loja" do cardápio público (ver ConfirmacoesPedidos) — pedidos nesse
-                // status ficam invisíveis pro resto do sistema (OperarVenda, dashboards,
-                // PDFController) e sujeitos ao cancelamento em massa de
-                // pedidos:zerar-iniciados.
-                $dadosPedido['pedido_status'] = 'ABERTO';
-                $dadosPedido['pedido_usuario_garcom_id'] = Auth::id();
-                $dadosPedido['pedido_origem'] = PedidoOrigemEnum::ATENDENTE;
-            } else {
-                $dadosPedido['pedido_status'] = $this->statusSelecionado ?? $pedido->pedido_status;
-            }
+                if ($souNovo) {
+                    // ABERTO, não INICIADO: um pedido montado aqui pelo atendente já está
+                    // confirmado por definição. INICIADO é o estado "aguardando confirmação
+                    // da loja" do cardápio público (ver ConfirmacoesPedidos) — pedidos nesse
+                    // status ficam invisíveis pro resto do sistema (OperarVenda, dashboards,
+                    // PDFController) e sujeitos ao cancelamento em massa de
+                    // pedidos:zerar-iniciados.
+                    $dadosPedido['pedido_status'] = 'ABERTO';
+                    $dadosPedido['pedido_usuario_garcom_id'] = Auth::id();
+                    $dadosPedido['pedido_origem'] = PedidoOrigemEnum::ATENDENTE;
+                } else {
+                    $dadosPedido['pedido_status'] = $this->statusSelecionado ?? $pedido->pedido_status;
+                }
 
-            $pedido->fill($dadosPedido);
-            $pedido->save();
+                $pedido->fill($dadosPedido);
+                $pedido->save();
 
-            $this->sincronizarItens($pedido, $souNovo);
+                $this->sincronizarItens($pedido, $souNovo);
 
-            if ($souNovo) {
-                $linhas = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
-                    ->where('item_pedido_status', 'INSERIDO')
-                    ->get();
+                if ($souNovo && $this->cupomId !== null) {
+                    $cupom = Cupom::findOrFail($this->cupomId);
+                    $base = round((float) collect($this->itensCarrinho)->sum('valor'), 2);
 
-                $totais = TotaisPedido::paraItens($linhas, $opcaoEntrega);
+                    app(CupomService::class)->consumir($cupom, $base, $clienteId ? Cliente::find($clienteId) : null);
+                    app(CupomPedidoService::class)->aplicar($pedido, $cupom);
+                }
 
-                $pedido->update([
-                    'pedido_valor_itens' => $totais['itens'],
-                    'pedido_valor_desconto' => $totais['desconto'],
-                    'pedido_valor_frete' => $totais['frete'],
-                    'pedido_valor_total' => $totais['total'],
-                ]);
-            } else {
-                app(TotaisPedidoService::class)->recalcular($pedido);
-            }
+                if ($souNovo) {
+                    $linhas = ItensPedido::where('item_pedido_pedido_id', $pedido->id)
+                        ->where('item_pedido_status', 'INSERIDO')
+                        ->get();
 
-            $this->sincronizarPagamentos($pedido, $pagamentos);
+                    $totais = TotaisPedido::paraItens($linhas, $opcaoEntrega);
 
-            $this->pedidoId = $pedido->id;
-        });
+                    $pedido->update([
+                        'pedido_valor_itens' => $totais['itens'],
+                        'pedido_valor_desconto' => $totais['desconto'],
+                        'pedido_valor_frete' => $totais['frete'],
+                        'pedido_valor_total' => $totais['total'],
+                    ]);
+                } else {
+                    app(TotaisPedidoService::class)->recalcular($pedido);
+                }
+
+                $this->sincronizarPagamentos($pedido, $pagamentos);
+
+                $this->pedidoId = $pedido->id;
+            });
+        } catch (CupomInvalidoException $e) {
+            $this->notificarErro($e->getMessage(), titulo: 'Cupom não aplicado');
+
+            return;
+        }
 
         // Salvou, a tela volta em branco para o próximo atendimento — o
         // balcão lança um pedido atrás do outro. O link da notificação reabre

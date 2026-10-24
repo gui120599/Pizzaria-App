@@ -2,12 +2,18 @@
 
 namespace App\Filament\Influenciador\Resources\Cupoms\Tables;
 
+use App\Models\Cupom;
+use App\Models\Influenciador;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class CupomsTable
 {
@@ -54,6 +60,12 @@ class CupomsTable
                     ->placeholder('Sem expiração')
                     ->sortable(),
 
+                IconColumn::make('principal')
+                    ->label('Principal')
+                    ->state(fn (Cupom $record): bool => $record->id === Auth::guard('influenciador')->user()?->influenciador_cupom_principal_id)
+                    ->boolean()
+                    ->tooltip('Cupom que o seu link já preenche no cardápio'),
+
                 IconColumn::make('cupom_ativo')
                     ->label('Ativo')
                     ->boolean(),
@@ -65,6 +77,18 @@ class CupomsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->recordActions([
+                Action::make('definirPrincipal')
+                    ->label('Tornar principal')
+                    ->icon(Heroicon::OutlinedStar)
+                    ->visible(fn (Cupom $record): bool => $record->cupom_ativo
+                        && $record->id !== Auth::guard('influenciador')->user()?->influenciador_cupom_principal_id)
+                    ->action(function (Cupom $record): void {
+                        /** @var Influenciador $influenciador */
+                        $influenciador = Auth::guard('influenciador')->user();
+                        $influenciador->update(['influenciador_cupom_principal_id' => $record->id]);
+
+                        Notification::make()->title('Cupom principal atualizado')->success()->send();
+                    }),
                 EditAction::make(),
                 DeleteAction::make(),
             ]);

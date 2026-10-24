@@ -56,6 +56,7 @@ class Influenciador extends Authenticatable implements FilamentUser, HasName
         'influenciador_instagram',
         'influenciador_chave_pix',
         'influenciador_status',
+        'influenciador_cupom_principal_id',
         'influenciador_tipo_comissao',
         'influenciador_valor_comissao',
     ];
@@ -78,6 +79,11 @@ class Influenciador extends Authenticatable implements FilamentUser, HasName
     public function cupons()
     {
         return $this->hasMany(Cupom::class, 'cupom_influenciador_id');
+    }
+
+    public function cupomPrincipal()
+    {
+        return $this->belongsTo(Cupom::class, 'influenciador_cupom_principal_id');
     }
 
     public function comissoes()

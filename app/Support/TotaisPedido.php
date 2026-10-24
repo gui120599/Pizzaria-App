@@ -14,8 +14,8 @@ use Illuminate\Support\Collection;
  * é `soma(item_pedido_valor) + soma(item_pedido_desconto)`. Tratar o líquido
  * como bruto conta o desconto duas vezes (ver histórico de ConfirmacoesPedidos).
  *
- * O frete só é cobrado quando o valor líquido (após TODOS os descontos) fica
- * abaixo do mínimo da opção de entrega — mesma regra do checkout do cardápio.
+ * O frete só é cobrado quando o valor líquido (após TODOS os descontos, inclusive
+ * o do cupom) fica abaixo do mínimo da opção de entrega.
  */
 class TotaisPedido
 {
@@ -24,22 +24,21 @@ class TotaisPedido
      * e do desconto e aparece na sua própria chave, para os relatórios.
      *
      * @param  Collection<int, ItensPedido>  $itens  linhas com status INSERIDO
-     * @param  float  $descontoPedido  desconto manual aplicado ao pedido inteiro (fora dos itens)
      * @return array{itens: float, desconto: float, cortesia: float, frete: float, total: float}
      */
-    public static function paraItens(Collection $itens, ?OpcoesEntregas $opcao, float $descontoPedido = 0.0): array
+    public static function paraItens(Collection $itens, ?OpcoesEntregas $opcao): array
     {
-        $liquidoItens = round((float) $itens->sum('item_pedido_valor'), 2);
+        $liquido = round((float) $itens->sum('item_pedido_valor'), 2);
         $cortesia = round((float) $itens->where('item_pedido_cortesia', true)->sum('item_pedido_desconto'), 2);
-        $descontoItens = round((float) $itens->sum('item_pedido_desconto') - $cortesia, 2);
-        $descontoPedido = round(max(0.0, $descontoPedido), 2);
-
-        $liquido = round(max(0.0, $liquidoItens - $descontoPedido), 2);
+        // O cupom já está rateado nos itens (item_pedido_desconto_cupom) e o valor
+        // da linha já o descontou: entra no desconto, não é subtraído de novo.
+        $descontoCupom = round((float) $itens->sum('item_pedido_desconto_cupom'), 2);
+        $desconto = round((float) $itens->sum('item_pedido_desconto') - $cortesia + $descontoCupom, 2);
         $frete = self::frete($opcao, $liquido);
 
         return [
-            'itens' => round($liquidoItens + $descontoItens, 2),
-            'desconto' => round($descontoItens + $descontoPedido, 2),
+            'itens' => round($liquido + $desconto, 2),
+            'desconto' => $desconto,
             'cortesia' => $cortesia,
             'frete' => $frete,
             'total' => round(max(0.0, $liquido + $frete), 2),

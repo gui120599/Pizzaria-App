@@ -109,7 +109,7 @@ class LancamentoItensVendaService
 
             if ($itemVenda && ! $itemAtualTemAdicionais) {
                 $itemVenda->item_venda_quantidade += $item->item_pedido_quantidade;
-                $itemVenda->item_venda_desconto += $item->item_pedido_desconto;
+                $itemVenda->item_venda_desconto += $item->descontoTotal();
                 $itemVenda->item_venda_valor += $item->item_pedido_valor;
                 if ($item->item_pedido_cortesia) {
                     $itemVenda->item_venda_valor_tabela += $this->valorDeTabela($item);
@@ -128,7 +128,7 @@ class LancamentoItensVendaService
                     'item_venda_quantidade' => $item->item_pedido_quantidade,
                     'item_venda_valor_unitario' => $item->item_pedido_valor_unitario,
                     'item_venda_valor_adicionais' => $item->item_pedido_valor_adicionais,
-                    'item_venda_desconto' => $item->item_pedido_desconto,
+                    'item_venda_desconto' => $item->descontoTotal(),
                     'item_venda_valor' => $valorEfetivo,
                     'item_venda_sabores' => $item->item_pedido_sabores,
                     'item_venda_respostas' => $item->item_pedido_respostas,

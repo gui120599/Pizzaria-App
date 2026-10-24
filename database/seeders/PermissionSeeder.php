@@ -134,7 +134,7 @@ class PermissionSeeder extends Seeder
      * Permissions sem role: só o Admin as exerce, via Gate::before (super_admin).
      * Existem na tabela para a página aparecer no Shield e poderem ser atribuídas depois.
      */
-    private array $permissionsSomenteAdmin = ['view:configuracao_pedidos'];
+    private array $permissionsSomenteAdmin = ['view:configuracao_pedidos', 'view:configuracao_influenciadores'];
 
     /**
      * Pedido nunca é excluído fisicamente. O Admin passa em qualquer Gate, então

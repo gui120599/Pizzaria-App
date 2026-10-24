@@ -48,6 +48,13 @@ class Empresa extends Model
         'empresa_plano_despesa_taxa_cartao_id',
         'empresa_plano_despesa_quebra_caixa_id',
         'empresa_plano_receita_sobra_caixa_id',
+        'empresa_influ_teto_percentual',
+        'empresa_influ_teto_valor_fixo',
+        'empresa_influ_teto_usos_total',
+        'empresa_influ_comissao_tipo',
+        'empresa_influ_comissao_valor',
+        'empresa_influ_plano_despesa_id',
+        'empresa_influ_conta_pix_id',
     ];
 
     protected $casts = [
@@ -60,6 +67,9 @@ class Empresa extends Model
         'empresa_sefaz_ultima_consulta_em' => 'datetime',
         'empresa_sefaz_auto_importacao_ativa' => 'boolean',
         'empresa_sefaz_ultima_revisao_em' => 'datetime',
+        'empresa_influ_teto_percentual' => 'decimal:2',
+        'empresa_influ_teto_valor_fixo' => 'decimal:2',
+        'empresa_influ_comissao_valor' => 'decimal:2',
     ];
 
     public const VALIDADE_LINK_TICKET_PADRAO_HORAS = 24;

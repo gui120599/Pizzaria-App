@@ -49,6 +49,18 @@ class Cupom extends Model
         ];
     }
 
+    /** Maiúsculas e sem espaços: é assim que o código é gravado e procurado. */
+    public static function normalizarCodigo(string $codigo): string
+    {
+        return mb_strtoupper((string) preg_replace('/\s+/u', '', $codigo));
+    }
+
+    /** Já foi gasto em algum pedido (cancelado não conta). */
+    public function jaFoiUsado(): bool
+    {
+        return $this->exists && $this->pedidosValidos()->exists();
+    }
+
     public function influenciador()
     {
         return $this->belongsTo(Influenciador::class, 'cupom_influenciador_id');

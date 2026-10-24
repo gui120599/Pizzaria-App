@@ -3,10 +3,20 @@
 namespace App\Observers;
 
 use App\Models\Cupom;
+use App\Services\CupomService;
 use Illuminate\Support\Facades\Log;
 
 class CupomObserver
 {
+    public function saving(Cupom $cupom): void
+    {
+        $cupom->cupom_codigo = Cupom::normalizarCodigo((string) $cupom->cupom_codigo);
+
+        $service = app(CupomService::class);
+        $service->validarTeto($cupom);
+        $service->validarImutabilidade($cupom);
+    }
+
     public function created(Cupom $cupom): void
     {
         Log::info('Cupom criado', [
