@@ -38,6 +38,7 @@ use App\Http\Controllers\SessaoMesaController;
 use App\Http\Controllers\VendaCancelarVaziaController;
 use App\Http\Controllers\VendaController;
 use App\Http\Middleware\ResolverParticipanteMesa;
+use App\Models\RegulamentoInfluenciador;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -93,6 +94,9 @@ Route::get('/Produto/{produto}', [ProdutoController::class, 'show'])->name('prod
 // em /influenciadores/register — o influenciador nasce "pendente" e não
 // consegue entrar no painel até o staff aprovar, então mostramos um aviso
 // em vez de deixar a navegação padrão do Filament esbarrar num 403.
+Route::get('/influenciadores/regulamento', fn () => view('influenciador.regulamento', ['regulamento' => RegulamentoInfluenciador::atual()]))
+    ->name('influenciador.regulamento');
+
 Route::get('/influenciadores/aguardando-aprovacao', fn () => view('influenciador.aguardando-aprovacao'))
     ->name('influenciador.aguardando-aprovacao');
 

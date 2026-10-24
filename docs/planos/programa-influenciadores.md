@@ -1,7 +1,7 @@
 # Programa de Influenciadores: correções, carteira e ida para produção
 
 > Origem: avaliação do painel `/influenciadores` e das telas de admin relacionadas, feita em 24/10/2026. A frente está **inteira sem commit** no working tree (desde 17/09/2026). As 16 migrations `2026_09_17_*` **nunca rodaram**, nem no banco local. Os 50 testes da frente passam num banco isolado, mas não cobrem os problemas abaixo.
-> Status: **decisões do usuário registradas em 24/10/2026 (seção 2). Fase 0 (`fd58e131`) e Fase 1 (`76bc248a`) em `prod-new` e `producao`; Fase 2 implementada em 24/10/2026 (ver seção 8).**
+> Status: **decisões do usuário registradas em 24/10/2026 (seção 2). Fase 0 (`fd58e131`) e Fase 1 (`76bc248a`) em `prod-new` e `producao`; Fase 2 (`23116052`) e Fase 3 implementadas em 24/10/2026 (ver seção 8).**
 > Execução: por fases (seção 5). **Cada fase é uma entrega independente**, com testes e commit próprios. Não comece a fase seguinte sem que a anterior esteja verde. O go-live exige as Fases 0, 1 e 2 e os itens **[obrigatório]** da Fase 3.
 
 ---
@@ -296,7 +296,9 @@ Removido do release (arquivos apagados do working tree; nunca foram commitados n
   - forma de pagamento "Carteira de influenciador" (com conta e plano, conforme a contabilização de vendas);
   - **Configuração de Influenciadores** (tetos, comissão padrão, plano, conta);
   - **regulamento v1**.
-- Conferir `MAIL_*` (recuperação de senha) e o cron do `schedule:run` (worker da fila para as notificações).
+- Conferir `MAIL_*`: o "Esqueci a senha" do painel do influenciador só liga com e-mail configurado (`MAIL_MAILER` diferente de `log`/`array`, `MAIL_HOST` no SMTP e `MAIL_FROM_ADDRESS`). Sem isso, o Admin usa "Redefinir senha" no cadastro do influenciador (senha temporária, troca obrigatória).
+- Notificações do painel são gravadas direto na tabela `notifications` (já existe), depois do commit; não dependem de worker.
+- **Ordem do deploy:** `migrate` (cria carteira, resgates, códigos, regulamento; ajusta comissões), `PermissionSeeder`, OPcache. Cadastrar no `/admin`: Configurações › Influenciadores (tetos, comissão padrão, plano e conta Pix), a forma "Carteira de influenciador" (com a conta de compensação e o plano de receita) e publicar o regulamento v1 em Configurações › Regulamento de influenciadores. O CPF e a chave Pix dos influenciadores são preenchidos por eles no Perfil.
 - Commits com arquivos listados por nome. Promover `prod-new` → `producao` com `scripts/promote-producao.sh`.
 
 ---

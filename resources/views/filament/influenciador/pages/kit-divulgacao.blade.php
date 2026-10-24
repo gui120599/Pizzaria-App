@@ -4,6 +4,41 @@
         $cupons = $this->cupons();
     @endphp
 
+    @if ($link = $this->linkRastreavel())
+        <x-filament::section>
+            <x-slot name="heading">Seu link de divulgação</x-slot>
+
+            <div class="flex flex-col gap-4 md:flex-row md:items-center">
+                <img src="{{ $this->qrDoLink() }}" alt="QR do seu link" class="h-40 w-40 rounded-lg bg-white p-2" />
+
+                <div class="space-y-2">
+                    <p class="break-all font-mono text-sm">{{ $link }}</p>
+                    <p class="text-sm text-gray-500">
+                        Quem abrir o link cai no cardápio
+                        @if ($cupomPrincipal = $this->cupomPrincipal())
+                            com o cupom <strong>{{ $cupomPrincipal->cupom_codigo }}</strong> já preenchido.
+                        @else
+                            (escolha um cupom principal em "Meus Cupons" para ele já vir preenchido).
+                        @endif
+                    </p>
+                    <button
+                        type="button"
+                        x-data="{ copiado: false }"
+                        x-on:click="
+                            navigator.clipboard.writeText({{ \Illuminate\Support\Js::from($link) }});
+                            copiado = true;
+                            setTimeout(() => copiado = false, 2000);
+                        "
+                        class="fi-btn fi-btn-size-sm inline-flex items-center gap-1 rounded-lg bg-success-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-success-500"
+                    >
+                        <span x-show="! copiado">Copiar link</span>
+                        <span x-show="copiado" x-cloak>Copiado!</span>
+                    </button>
+                </div>
+            </div>
+        </x-filament::section>
+    @endif
+
     @if ($cupons->isNotEmpty())
         <x-filament::section>
             <x-slot name="heading">Cupom para as legendas</x-slot>

@@ -54,7 +54,7 @@ class InfluenciadorDashboardTest extends TestCase
             'pedido_cliente_id' => $cliente->id,
             'pedido_cupom_id' => $meuCupom->id,
             'pedido_valor_total' => 100.0,
-            'pedido_status' => 'INICIADO',
+            'pedido_status' => 'FINALIZADO',
         ]);
 
         $cupomDoOutro = Cupom::create([
@@ -67,7 +67,7 @@ class InfluenciadorDashboardTest extends TestCase
             'pedido_cliente_id' => $cliente->id,
             'pedido_cupom_id' => $cupomDoOutro->id,
             'pedido_valor_total' => 999.0,
-            'pedido_status' => 'INICIADO',
+            'pedido_status' => 'FINALIZADO',
         ]);
 
         $this->actingAs($meu, 'influenciador');

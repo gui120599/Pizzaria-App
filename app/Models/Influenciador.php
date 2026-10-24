@@ -58,6 +58,7 @@ class Influenciador extends Authenticatable implements FilamentUser, HasName
         'influenciador_cpf',
         'influenciador_status',
         'influenciador_cupom_principal_id',
+        'influenciador_deve_trocar_senha',
         'influenciador_tipo_comissao',
         'influenciador_valor_comissao',
     ];
@@ -75,6 +76,8 @@ class Influenciador extends Authenticatable implements FilamentUser, HasName
             'influenciador_tipo_comissao' => TipoDescontoEnum::class,
             'influenciador_valor_comissao' => 'decimal:2',
             'influenciador_cpf' => 'encrypted',
+            'influenciador_regulamento_aceito_em' => 'datetime',
+            'influenciador_deve_trocar_senha' => 'boolean',
             'influenciador_chave_pix' => 'encrypted',
         ];
     }
@@ -113,12 +116,52 @@ class Influenciador extends Authenticatable implements FilamentUser, HasName
     protected static function booted(): void
     {
         static::saving(function (Influenciador $influenciador): void {
+            if ($influenciador->isDirty('influenciador_whatsapp')) {
+                $influenciador->influenciador_whatsapp = self::normalizarWhatsapp($influenciador->influenciador_whatsapp);
+            }
+
             if ($influenciador->isDirty('influenciador_cpf')) {
                 $digitos = preg_replace('/\D/', '', (string) $influenciador->influenciador_cpf) ?: null;
                 $influenciador->influenciador_cpf = $digitos;
                 $influenciador->influenciador_cpf_hash = $digitos === null ? null : Colaborador::hashCpf($digitos);
             }
         });
+    }
+
+    /** Só dígitos, com DDI 55 quando vier só DDD + número: "(64) 98138-0071" → "5564981380071". */
+    public static function normalizarWhatsapp(?string $numero): ?string
+    {
+        $digitos = preg_replace('/\D/', '', (string) $numero);
+
+        if ($digitos === '') {
+            return null;
+        }
+
+        return in_array(strlen($digitos), [10, 11], true) ? '55'.$digitos : $digitos;
+    }
+
+    /** O regulamento em vigor ainda não foi aceito (ou há versão mais nova que a aceita). */
+    public function precisaAceitarRegulamento(): bool
+    {
+        $atual = RegulamentoInfluenciador::atual();
+
+        return $atual !== null && (int) $this->influenciador_regulamento_versao < $atual->ri_versao;
+    }
+
+    /** Grava o aceite da versão atual, com data e IP. */
+    public function aceitarRegulamento(?string $ip): void
+    {
+        $atual = RegulamentoInfluenciador::atual();
+
+        if ($atual === null) {
+            return;
+        }
+
+        $this->forceFill([
+            'influenciador_regulamento_versao' => $atual->ri_versao,
+            'influenciador_regulamento_aceito_em' => now(),
+            'influenciador_regulamento_aceito_ip' => $ip,
+        ])->save();
     }
 
     /** Saldo da carteira: soma do extrato (append-only). */

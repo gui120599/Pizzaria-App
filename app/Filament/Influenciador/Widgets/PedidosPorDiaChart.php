@@ -23,6 +23,7 @@ class PedidosPorDiaChart extends ChartWidget
         $inicio = now()->subDays(29)->startOfDay();
 
         $rows = Pedido::whereHas('cupom', fn ($q) => $q->where('cupom_influenciador_id', $influenciadorId))
+            ->whereNotIn('pedido_status', ['INICIADO', 'CANCELADO'])
             ->where('created_at', '>=', $inicio)
             ->selectRaw('DATE(created_at) as dia, COUNT(*) as total')
             ->groupBy('dia')

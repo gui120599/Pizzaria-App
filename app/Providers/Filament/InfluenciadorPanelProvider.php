@@ -2,10 +2,13 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Influenciador\Pages\AceitarRegulamento;
+use App\Filament\Influenciador\Pages\Auth\EditProfile;
 use App\Filament\Influenciador\Pages\Auth\Register;
 use App\Filament\Influenciador\Pages\Dashboard;
 use App\Filament\Influenciador\Pages\KitDivulgacao;
 use App\Filament\Influenciador\Pages\MinhaCarteira;
+use App\Http\Middleware\ExigePendenciasDoInfluenciador;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -24,7 +27,7 @@ class InfluenciadorPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        return $panel
+        $panel
             ->id('influenciador')
             ->path('influenciadores')
             ->authGuard('influenciador')
@@ -44,7 +47,10 @@ class InfluenciadorPanelProvider extends PanelProvider
                 Dashboard::class,
                 KitDivulgacao::class,
                 MinhaCarteira::class,
+                AceitarRegulamento::class,
             ])
+            ->profile(EditProfile::class)
+            ->databaseNotifications()
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -58,6 +64,32 @@ class InfluenciadorPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                ExigePendenciasDoInfluenciador::class,
             ]);
+
+        // "Esqueci a senha" só liga com e-mail configurado em produção (MAIL_*);
+        // sem isso o link nunca chegaria e a tela só confundiria. Sem e-mail, o
+        // Admin redefine a senha pelo cadastro do influenciador.
+        if (self::emailConfigurado()) {
+            config(['auth.passwords.influenciadores' => [
+                'provider' => 'influenciadores',
+                'table' => 'password_reset_tokens',
+                'expire' => 60,
+                'throttle' => 60,
+            ]]);
+
+            $panel->passwordReset()->authPasswordBroker('influenciadores');
+        }
+
+        return $panel;
+    }
+
+    public static function emailConfigurado(): bool
+    {
+        $mailer = (string) config('mail.default');
+
+        return ! in_array($mailer, ['log', 'array', ''], true)
+            && ($mailer !== 'smtp' || filled(config('mail.mailers.smtp.host')))
+            && filled(config('mail.from.address'));
     }
 }
