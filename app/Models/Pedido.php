@@ -8,10 +8,13 @@ use App\Enums\MotivoAprovacaoMesaEnum;
 use App\Enums\MotivoCancelamentoEnum;
 use App\Enums\MotivoExclusaoPedidoEnum;
 use App\Enums\PedidoOrigemEnum;
+use App\Enums\SituacaoPagamentoPedidoEnum;
 use App\Enums\StatusAprovacaoPedidoEnum;
 use App\Enums\StatusPedidoEnum;
+use App\Enums\StonePedidoStatus;
 use App\Enums\TipoAtendimentoEnum;
 use App\Observers\PedidoProducaoObserver;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
@@ -19,6 +22,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\URL;
 
 #[ObservedBy([PedidoProducaoObserver::class])]
@@ -187,6 +191,14 @@ class Pedido extends Model
         return $this->hasMany(PagamentosPedido::class, 'pg_pedido_pedido_id')->orderBy('pg_pedido_ordem');
     }
 
+    /** Cobranças na maquininha ainda em aberto (aguardando ou paga em parte), da mais recente para a mais antiga. */
+    public function stonePedidosPendentes()
+    {
+        return $this->hasMany(StonePedido::class, 'stp_pedido_id')
+            ->whereIn('stp_status', [StonePedidoStatus::Aguardando->value, StonePedidoStatus::PagoParcial->value])
+            ->latest('id');
+    }
+
     /** Só pedidos combinados em forma integrada à Stone podem ser cobrados na maquininha. */
     public function temPagamentoCombinadoStone(): bool
     {
@@ -239,6 +251,174 @@ class Pedido extends Model
                 });
             }
         });
+    }
+
+    /**
+     * Pedido que entrou na operação: tudo menos o rascunho (INICIADO).
+     *
+     * @return Builder<self>
+     */
+    public function scopeReais(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('pedido_status'), '!=', StatusPedidoEnum::INICIADO->value);
+    }
+
+    /**
+     * Pedido em produção ou a caminho (ABERTO a EM TRANSPORTE): os status do
+     * fluxo ativo do painel, sem o rascunho e sem ENTREGUE.
+     *
+     * @return Builder<self>
+     */
+    public function scopeEmAndamento(Builder $query): Builder
+    {
+        $status = array_values(array_diff(StatusPedidoEnum::valoresEmAndamento(), [StatusPedidoEnum::INICIADO->value]));
+
+        return $query->whereIn($query->qualifyColumn('pedido_status'), $status);
+    }
+
+    /**
+     * Pedido com algum pagamento: venda vinculada ou item lançado numa venda.
+     * Mesma regra de temPagamento(), em SQL.
+     *
+     * @return Builder<self>
+     */
+    public function scopePagos(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $pago) => $pago
+            ->whereNotNull($pago->qualifyColumn('pedido_venda_id'))
+            ->orWhereHas('item_pedido_pedido_id', fn (Builder $item) => $item->whereNotNull('item_pedido_venda_id')));
+    }
+
+    /**
+     * Inverso de scopePagos(): sem venda vinculada e sem item lançado numa venda.
+     *
+     * @return Builder<self>
+     */
+    public function scopeSemPagamento(Builder $query): Builder
+    {
+        return $query
+            ->whereNull($query->qualifyColumn('pedido_venda_id'))
+            ->whereDoesntHave('item_pedido_pedido_id', fn (Builder $item) => $item->whereNotNull('item_pedido_venda_id'));
+    }
+
+    /**
+     * ENTREGUE sem pagamento algum — o pedido que ficou pendurado (ex.: venda
+     * desfeita por estorno). É a mesma regra do guard de
+     * PedidoStatusService::cancelarEntregue().
+     *
+     * @return Builder<self>
+     */
+    public function scopeNaoPagos(Builder $query): Builder
+    {
+        return $query
+            ->where($query->qualifyColumn('pedido_status'), StatusPedidoEnum::ENTREGUE->value)
+            ->semPagamento();
+    }
+
+    /**
+     * Pedido em andamento parado no status atual além do limite "atrasado" do
+     * SLA (config pizzaria.pedidos.sla). Segue UrgenciaPedidoEnum: mede o tempo
+     * desde a entrada no status, e sem data de entrada nunca acusa atraso.
+     *
+     * @return Builder<self>
+     */
+    public function scopeParados(Builder $query, ?Carbon $agora = null): Builder
+    {
+        $agora ??= Carbon::now();
+        $limites = [];
+
+        foreach ((array) config('pizzaria.pedidos.sla', []) as $valor => $faixas) {
+            $status = StatusPedidoEnum::tryFrom((string) $valor);
+
+            if ($status === null || $status === StatusPedidoEnum::INICIADO || $status->campoDataHora() === null || ! isset($faixas['atrasado'])) {
+                continue;
+            }
+
+            $limites[] = [$status, $agora->copy()->subMinutes((int) $faixas['atrasado'])];
+        }
+
+        if ($limites === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $grupo) use ($limites): void {
+            foreach ($limites as [$status, $limite]) {
+                $grupo->orWhere(fn (Builder $q) => $q
+                    ->where($q->qualifyColumn('pedido_status'), $status->value)
+                    ->where($q->qualifyColumn($status->campoDataHora()), '<=', $limite));
+            }
+        });
+    }
+
+    /**
+     * O que pede decisão de alguém: entregue sem receber ou parado além do SLA.
+     *
+     * @return Builder<self>
+     */
+    public function scopePendencias(Builder $query, ?Carbon $agora = null): Builder
+    {
+        return $query->where(fn (Builder $grupo) => $grupo
+            ->naoPagos()
+            ->orWhere(fn (Builder $parado) => $parado->parados($agora)));
+    }
+
+    /**
+     * Aberto dentro do período, medido como a coluna "Abertura" da lista: a
+     * data de abertura, ou a de criação quando o pedido nunca foi aberto
+     * (rascunho cancelado, por exemplo). Datas inclusivas, null = sem limite.
+     *
+     * @return Builder<self>
+     */
+    public function scopeAbertoEntre(Builder $query, ?CarbonInterface $de, ?CarbonInterface $ate): Builder
+    {
+        $de = $de?->copy()->startOfDay();
+        $ate = $ate?->copy()->endOfDay();
+
+        $janela = fn (Builder $q, string $coluna): Builder => $q
+            ->when($de, fn (Builder $b) => $b->where($b->qualifyColumn($coluna), '>=', $de))
+            ->when($ate, fn (Builder $b) => $b->where($b->qualifyColumn($coluna), '<=', $ate));
+
+        return $query->where(fn (Builder $q) => $q
+            ->where(fn (Builder $aberto) => $janela($aberto->whereNotNull($aberto->qualifyColumn('pedido_datahora_abertura')), 'pedido_datahora_abertura'))
+            ->orWhere(fn (Builder $criado) => $janela($criado->whereNull($criado->qualifyColumn('pedido_datahora_abertura')), 'created_at')));
+    }
+
+    /**
+     * Já tem algum pagamento? Venda vinculada ou item lançado numa venda — a
+     * regra de scopePagos(), que o guard de cancelarEntregue() e o de exclusão
+     * compartilham.
+     */
+    public function temPagamento(): bool
+    {
+        return $this->pedido_venda_id !== null
+            || $this->item_pedido_pedido_id()->whereNotNull('item_pedido_venda_id')->exists();
+    }
+
+    /**
+     * Pago: venda vinculada, ou FINALIZADO anterior ao vínculo (pedido_venda_id
+     * só passou a ser gravado depois). Parcial: parte dos itens já foi lançada
+     * numa venda. A receber: nada lançado. Rascunho e cancelado não têm o que
+     * receber: null.
+     *
+     * Usa o atributo `tem_item_vendido` quando a consulta o traz (withExists),
+     * para a lista não consultar linha a linha.
+     */
+    public function situacaoPagamento(): ?SituacaoPagamentoPedidoEnum
+    {
+        $status = $this->status();
+
+        if ($status === null || in_array($status, [StatusPedidoEnum::INICIADO, StatusPedidoEnum::CANCELADO], true)) {
+            return null;
+        }
+
+        if ($status === StatusPedidoEnum::FINALIZADO || $this->pedido_venda_id !== null) {
+            return SituacaoPagamentoPedidoEnum::PAGO;
+        }
+
+        $temItemVendido = $this->getAttribute('tem_item_vendido')
+            ?? $this->item_pedido_pedido_id()->whereNotNull('item_pedido_venda_id')->exists();
+
+        return $temItemVendido ? SituacaoPagamentoPedidoEnum::PARCIAL : SituacaoPagamentoPedidoEnum::A_RECEBER;
     }
 
     /**

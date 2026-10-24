@@ -60,6 +60,21 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // Exportação de pedidos (Filament): consome só a fila dela e sai quando esvazia. Sem este
+        // worker o arquivo nunca é gerado nem a notificação de download chega. A fila padrão
+        // (NFC-e automática) não é tocada; ver config pizzaria.pedidos.exportacao. "sync" (testes
+        // e dev) executa na hora e não tem worker.
+        if (config('pizzaria.pedidos.exportacao.conexao') !== 'sync') {
+            $schedule->command(sprintf(
+                'queue:work %s --queue=%s --stop-when-empty --max-time=55',
+                config('pizzaria.pedidos.exportacao.conexao'),
+                config('pizzaria.pedidos.exportacao.fila'),
+            ))
+                ->everyMinute()
+                ->withoutOverlapping(10)
+                ->onOneServer();
+        }
+
         // Rede de segurança do recebimento em maquininha Stone: fecha pedidos
         // pagos que não fecharam no handler do webhook e recupera charge.paid
         // perdidos (ver App\Console\Commands\StoneConciliarPedidos).

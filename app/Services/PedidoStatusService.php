@@ -181,7 +181,7 @@ class PedidoStatusService
                 throw TransicaoPedidoInvalidaException::naoPodeSerCancelado($fresco, $atual);
             }
 
-            if ($this->temPagamento($fresco)) {
+            if ($fresco->temPagamento()) {
                 throw TransicaoPedidoInvalidaException::jaPago($fresco);
             }
 
@@ -202,16 +202,6 @@ class PedidoStatusService
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Pedido sem pagamento algum: sem venda vinculada e sem item vendido.
-     * Regra única de "não pago" — mesma de Pedido::scopeNaoPagos().
-     */
-    private function temPagamento(Pedido $pedido): bool
-    {
-        return $pedido->pedido_venda_id !== null
-            || $pedido->item_pedido_pedido_id()->whereNotNull('item_pedido_venda_id')->exists();
-    }
 
     /**
      * "Outro" não diz nada sobre o que houve: exige texto. A regra mora aqui

@@ -23,6 +23,8 @@ class PermissionSeeder extends Seeder
             'create:pedido', 'update:pedido', 'view:sessao_mesa',
             // Exclusão de pedido é soft delete com motivo (PedidoExclusaoService); nunca física.
             'delete:pedido', 'delete_any:pedido', 'restore:pedido', 'restore_any:pedido',
+            // A exportação da lista de pedidos leva nome e celular do cliente.
+            'export:pedido',
             'estornar:pagamento', 'approve:lancamento', 'confirm:compra', 'registrar:devolucao_compra', 'corrigir:data_entrada_compra',
             'corrigir:movimentacao_estoque',
             'abrir:sessao_caixa', 'fechar:sessao_caixa', 'sangrar:sessao_caixa', 'view:relatorio_financeiro',
