@@ -16,9 +16,11 @@ use App\Services\Nfe\CompradorNfceService;
 use App\Services\Nfe\ReenvioNfeService;
 use App\Services\NfeIoService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
@@ -139,84 +141,90 @@ class VendasTable
             ->persistSortInSession()
             ->persistSearchInSession()
             ->recordActions([
-                Action::make('operar')
-                    ->label('Operar')
-                    ->icon('heroicon-o-shopping-cart')
-                    ->url(fn (Venda $record) => OperarVenda::getUrl(['venda' => $record]))
-                    ->visible(fn (Venda $record) => $record->venda_status === 'INICIADA'),
+                ActionGroup::make([
+                    Action::make('operar')
+                        ->label('Operar')
+                        ->icon('heroicon-o-shopping-cart')
+                        ->url(fn (Venda $record) => OperarVenda::getUrl(['venda' => $record]))
+                        ->visible(fn (Venda $record) => $record->venda_status === 'INICIADA'),
 
-                Action::make('imprimirDanfe')
-                    ->label('DANFE')
-                    ->icon('heroicon-o-printer')
-                    ->url(fn (Venda $record) => route('venda.imprimir_NFE', ['id_nfe' => $record->venda_id_nfe]))
-                    ->openUrlInNewTab()
-                    ->visible(fn (Venda $record) => filled($record->venda_id_nfe)),
+                    Action::make('imprimirDanfe')
+                        ->label('DANFE')
+                        ->icon('heroicon-o-printer')
+                        ->url(fn (Venda $record) => route('venda.imprimir_NFE', ['id_nfe' => $record->venda_id_nfe]))
+                        ->openUrlInNewTab()
+                        ->visible(fn (Venda $record) => filled($record->venda_id_nfe)),
 
-                Action::make('enviarNfe')
-                    ->label(fn (Venda $record): string => $record->nfEmissaoAtual ? 'Reenviar NFC-e' : 'Enviar NFC-e')
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('primary')
-                    ->authorize(fn (): bool => self::podeEmitirNfe())
-                    ->visible(fn (Venda $record, ReenvioNfeService $reenvio): bool => self::podeEmitirNfe() && $record->venda_status === 'FINALIZADA' && $reenvio->motivoBloqueio($record) === null)
-                    ->requiresConfirmation()
-                    ->modalDescription(fn (Venda $record): string => self::descricaoDoEnvio($record))
-                    ->action(function (Venda $record, ReenvioNfeService $reenvio): void {
-                        try {
-                            $status = $reenvio->reenviar($record);
-                        } catch (NfeIoException $e) {
-                            Notification::make()->title('Não foi possível enviar a NFC-e')->body($e->getMessage())->danger()->send();
+                    Action::make('enviarNfe')
+                        ->label(fn (Venda $record): string => $record->nfEmissaoAtual ? 'Reenviar NFC-e' : 'Enviar NFC-e')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('primary')
+                        ->authorize(fn (): bool => self::podeEmitirNfe())
+                        ->visible(fn (Venda $record, ReenvioNfeService $reenvio): bool => self::podeEmitirNfe() && $record->venda_status === 'FINALIZADA' && $reenvio->motivoBloqueio($record) === null)
+                        ->requiresConfirmation()
+                        ->modalDescription(fn (Venda $record): string => self::descricaoDoEnvio($record))
+                        ->action(function (Venda $record, ReenvioNfeService $reenvio): void {
+                            try {
+                                $status = $reenvio->reenviar($record);
+                            } catch (NfeIoException $e) {
+                                Notification::make()->title('Não foi possível enviar a NFC-e')->body($e->getMessage())->danger()->send();
 
-                            return;
-                        }
+                                return;
+                            }
 
-                        Notification::make()->title('NFC-e enviada')->body("Status atual: {$status}. A autorização chega pela NFe.io.")->success()->send();
-                    }),
+                            Notification::make()->title('NFC-e enviada')->body("Status atual: {$status}. A autorização chega pela NFe.io.")->success()->send();
+                        }),
 
-                Action::make('atualizarStatusNfe')
-                    ->label('Atualizar status NFC-e')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('gray')
-                    ->authorize(fn (): bool => self::podeEmitirNfe())
-                    ->visible(fn (Venda $record, ReenvioNfeService $reenvio): bool => self::podeEmitirNfe() && $reenvio->podeAtualizarStatus($record))
-                    ->action(function (Venda $record, ReenvioNfeService $reenvio): void {
-                        try {
-                            $status = $reenvio->atualizarStatus($record);
-                        } catch (NfeIoException $e) {
-                            Notification::make()->title('Não foi possível consultar a NFe.io')->body($e->getMessage())->danger()->send();
+                    Action::make('atualizarStatusNfe')
+                        ->label('Atualizar status NFC-e')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('gray')
+                        ->authorize(fn (): bool => self::podeEmitirNfe())
+                        ->visible(fn (Venda $record, ReenvioNfeService $reenvio): bool => self::podeEmitirNfe() && $reenvio->podeAtualizarStatus($record))
+                        ->action(function (Venda $record, ReenvioNfeService $reenvio): void {
+                            try {
+                                $status = $reenvio->atualizarStatus($record);
+                            } catch (NfeIoException $e) {
+                                Notification::make()->title('Não foi possível consultar a NFe.io')->body($e->getMessage())->danger()->send();
 
-                            return;
-                        }
+                                return;
+                            }
 
-                        Notification::make()->title("Status da NFC-e: {$status}")->success()->send();
-                    }),
+                            Notification::make()->title("Status da NFC-e: {$status}")->success()->send();
+                        }),
 
-                self::acaoAlterarVenda(),
+                    self::acaoAlterarVenda(),
 
-                Action::make('cancelarNfe')
-                    ->label('Cancelar NFC-e')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->modalDescription('O cancelamento é enviado à NFe.io e processado de forma assíncrona — o status só reflete a confirmação real quando o webhook chegar.')
-                    ->action(function (Venda $record, NfeIoService $service): void {
-                        try {
-                            $service->cancelar($record->venda_id_nfe);
-                            $record->update(['venda_status_nfe' => 'CancelamentoSolicitado']);
-                            NfEmissao::espelharStatus($record->venda_id_nfe, 'CancelamentoSolicitado');
+                    Action::make('cancelarNfe')
+                        ->label('Cancelar NFC-e')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalDescription('O cancelamento é enviado à NFe.io e processado de forma assíncrona — o status só reflete a confirmação real quando o webhook chegar.')
+                        ->action(function (Venda $record, NfeIoService $service): void {
+                            try {
+                                $service->cancelar($record->venda_id_nfe);
+                                $record->update(['venda_status_nfe' => 'CancelamentoSolicitado']);
+                                NfEmissao::espelharStatus($record->venda_id_nfe, 'CancelamentoSolicitado');
 
-                            Notification::make()
-                                ->title('Cancelamento solicitado')
-                                ->success()
-                                ->send();
-                        } catch (NfeIoException $e) {
-                            Notification::make()
-                                ->title('Não foi possível cancelar a NFC-e')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
-                        }
-                    })
-                    ->visible(fn (Venda $record) => $record->venda_status_nfe === 'Issued'),
+                                Notification::make()
+                                    ->title('Cancelamento solicitado')
+                                    ->success()
+                                    ->send();
+                            } catch (NfeIoException $e) {
+                                Notification::make()
+                                    ->title('Não foi possível cancelar a NFC-e')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn (Venda $record) => $record->venda_status_nfe === 'Issued'),
+                ])
+                    ->label('Ações')
+                    ->icon(Heroicon::EllipsisVertical)
+                    ->tooltip('Ações da venda')
+                    ->color('gray'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
