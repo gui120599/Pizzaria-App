@@ -48,6 +48,7 @@ class VendasFiltros
                         ->label('Atalho')
                         ->options(['hoje' => 'Hoje', 'ontem' => 'Ontem', '7dias' => 'Últimos 7 dias', 'mes' => 'Este mês'])
                         ->inline()
+                        ->columnSpanFull()
                         ->live()
                         ->afterStateUpdated(function (?string $state, Set $set): void {
                             [$de, $ate] = match ($state) {
@@ -63,7 +64,7 @@ class VendasFiltros
                     DatePicker::make('de')->label('Finalizada de')->native(false)->displayFormat('d/m/Y'),
                     DatePicker::make('ate')->label('Finalizada até')->native(false)->displayFormat('d/m/Y'),
                 ])
-                ->columns(3)
+                ->columns(2)
                 ->query(fn (Builder $query, array $data): Builder => $query
                     ->when($data['de'] ?? null, fn (Builder $q, $valor) => $q->whereDate('venda_datahora_finalizada', '>=', $valor))
                     ->when($data['ate'] ?? null, fn (Builder $q, $valor) => $q->whereDate('venda_datahora_finalizada', '<=', $valor)))

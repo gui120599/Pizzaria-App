@@ -30,6 +30,16 @@ class RelatorioFiscalNotasService
         'dia' => 'Dia de emissão',
     ];
 
+    /** Títulos das tabelas (sem minúscula forçada: NCM e CFOP são siglas). */
+    public const TITULOS = [
+        'ncm' => 'Por NCM',
+        'categoria' => 'Por categoria de produto',
+        'produto' => 'Por produto',
+        'cfop_csosn' => 'Por CFOP / CSOSN',
+        'forma_pagamento' => 'Por forma de pagamento',
+        'dia' => 'Por dia de emissão',
+    ];
+
     public function __construct(
         private readonly CarbonInterface $inicio,
         private readonly CarbonInterface $fim,
@@ -117,7 +127,7 @@ class RelatorioFiscalNotasService
 
             $grupo = $this->agrupar($dimensao);
             $linhas[] = [];
-            $linhas[] = ['Por '.mb_strtolower(self::DIMENSOES[$dimensao])];
+            $linhas[] = [self::TITULOS[$dimensao]];
             $linhas[] = [self::DIMENSOES[$dimensao], 'Itens', 'Quantidade', 'Bruto', 'Desconto', 'Líquido'];
 
             foreach ($grupo['linhas']->push($grupo['total']) as $linha) {

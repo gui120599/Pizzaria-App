@@ -146,7 +146,7 @@ class RelatorioFiscalNotasTest extends TestCase
 
         Livewire::test(RelatorioFiscalNotas::class)
             ->set('agrupamentos', ['ncm'])
-            ->assertSee('Por ncm')
+            ->assertSee('Por NCM')
             ->assertDontSee('Por categoria de produto');
 
         $query = ['agrupamentos' => ['ncm', 'produto']];

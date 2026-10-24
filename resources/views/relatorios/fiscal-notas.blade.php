@@ -52,7 +52,7 @@
 
         @foreach ($grupos as $dimensao => $grupo)
             <div class="secao mb-6">
-                <h2 class="mb-1 text-sm font-semibold">Por {{ mb_strtolower($dimensoes[$dimensao]) }}</h2>
+                <h2 class="mb-1 text-sm font-semibold">{{ \App\Services\RelatorioFiscalNotasService::TITULOS[$dimensao] }}</h2>
                 @include('relatorios.partials.fiscal-notas-grupo', ['dimensao' => $dimensao, 'titulo' => $dimensoes[$dimensao], 'grupo' => $grupo])
             </div>
         @endforeach
