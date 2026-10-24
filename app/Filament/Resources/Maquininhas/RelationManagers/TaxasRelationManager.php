@@ -6,17 +6,23 @@ use App\Enums\PrazoRecebimentoMaquininhaEnum;
 use App\Enums\TipoPagamentoMaquininhaEnum;
 use App\Models\CartoesPagamento;
 use App\Models\MaquininhaTaxa;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rules\Unique;
 
 /**
@@ -108,6 +114,44 @@ class TaxasRelationManager extends RelationManager
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make(),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('alterarTaxas')
+                        ->label('Alterar taxas selecionadas')
+                        ->icon(Heroicon::OutlinedPencilSquare)
+                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->modalDescription('Preencha só o que quer mudar. Campo em branco mantém o valor atual de cada taxa.')
+                        ->schema([
+                            TextInput::make('mt_percentual')
+                                ->label('Taxa (%)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->maxValue(100)
+                                ->step(0.01)
+                                ->suffix('%')
+                                ->requiredWithout('mt_prazo_recebimento')
+                                ->validationMessages(['required_without' => 'Informe a taxa ou o recebimento.']),
+                            Select::make('mt_prazo_recebimento')
+                                ->label('Recebimento')
+                                ->options(PrazoRecebimentoMaquininhaEnum::class)
+                                ->placeholder('Manter o atual')
+                                ->requiredWithout('mt_percentual')
+                                ->validationMessages(['required_without' => 'Informe a taxa ou o recebimento.']),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $alteracoes = array_filter($data, fn ($valor): bool => filled($valor));
+
+                            $records->each(fn (MaquininhaTaxa $taxa): bool => $taxa->update($alteracoes));
+
+                            Notification::make()
+                                ->title("{$records->count()} taxa(s) alterada(s).")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    DeleteBulkAction::make(),
+                ]),
             ]);
     }
 

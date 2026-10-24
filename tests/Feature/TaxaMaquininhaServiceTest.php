@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\OperadoraMaquininha;
+use App\Enums\PrazoRecebimentoMaquininhaEnum;
 use App\Filament\Resources\Maquininhas\Pages\EditMaquininha;
 use App\Filament\Resources\Maquininhas\Pages\ListMaquininhas;
 use App\Filament\Resources\Maquininhas\RelationManagers\TaxasRelationManager;
@@ -145,6 +146,38 @@ class TaxaMaquininhaServiceTest extends TestCase
         $relationManager
             ->callAction(TestAction::make('create')->table(), ['mt_tipo' => 'credito', 'mt_cartao_id' => null, 'mt_percentual' => 9])
             ->assertHasFormErrors(['mt_tipo' => 'unique']);
+    }
+
+    public function test_alteracao_em_massa_muda_so_os_campos_preenchidos_das_taxas_selecionadas(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+        [$credito, $creditoVisa, $pix] = $this->maquininha->taxas()->orderBy('id')->get()->all();
+        $relationManager = Livewire::test(TaxasRelationManager::class, ['ownerRecord' => $this->maquininha, 'pageClass' => EditMaquininha::class]);
+
+        $relationManager
+            ->selectTableRecords([$credito->id, $creditoVisa->id])
+            ->callAction(TestAction::make('alterarTaxas')->table()->bulk(), ['mt_prazo_recebimento' => 'dia_seguinte'])
+            ->assertHasNoFormErrors()
+            ->assertNotified();
+
+        $relationManager
+            ->selectTableRecords([$credito->id])
+            ->callAction(TestAction::make('alterarTaxas')->table()->bulk(), ['mt_percentual' => 3.49])
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(['3.49', PrazoRecebimentoMaquininhaEnum::DiaSeguinte], [$credito->fresh()->mt_percentual, $credito->fresh()->mt_prazo_recebimento]);
+        $this->assertSame(['2.50', PrazoRecebimentoMaquininhaEnum::DiaSeguinte], [$creditoVisa->fresh()->mt_percentual, $creditoVisa->fresh()->mt_prazo_recebimento]);
+        $this->assertSame(['1.00', null], [$pix->fresh()->mt_percentual, $pix->fresh()->mt_prazo_recebimento]);
+    }
+
+    public function test_alteracao_em_massa_exige_a_taxa_ou_o_recebimento(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+
+        Livewire::test(TaxasRelationManager::class, ['ownerRecord' => $this->maquininha, 'pageClass' => EditMaquininha::class])
+            ->selectTableRecords($this->maquininha->taxas()->pluck('id')->all())
+            ->callAction(TestAction::make('alterarTaxas')->table()->bulk(), [])
+            ->assertHasFormErrors(['mt_percentual' => 'required_without', 'mt_prazo_recebimento' => 'required_without']);
     }
 
     public function test_copiar_taxas_substitui_ou_so_acrescenta_as_que_faltam(): void
