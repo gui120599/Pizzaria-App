@@ -15,6 +15,7 @@ class CatalogoManuais
     private const TITULOS = [
         'Manual-Checklists-Equipe.pdf' => ['titulo' => 'Checklists — Equipe', 'descricao' => 'Como preencher os checklists do turno.'],
         'Manual-Checklists-Gerencia.pdf' => ['titulo' => 'Checklists — Gerência', 'descricao' => 'Modelos, aprovação e acompanhamento dos checklists.'],
+        'Manual-Compras-Condicoes-Fornecedor.pdf' => ['titulo' => 'Compras — Condições do fornecedor', 'descricao' => 'Prazo, forma de pagamento e data de entrada pré-preenchidos no Confirmar compra.'],
         'Manual-Cozinha-Equipe.pdf' => ['titulo' => 'Cozinha (KDS) — Equipe', 'descricao' => 'Uso do tablet de produção pelos setores da cozinha.'],
         'Manual-Ponto-Equipe.pdf' => ['titulo' => 'Folha de Ponto — Equipe', 'descricao' => 'Como registrar entrada, intervalo e saída.'],
         'Manual-Ponto-Gerencia.pdf' => ['titulo' => 'Folha de Ponto — Gerência', 'descricao' => 'Espelho de ponto, correções e repasses.'],

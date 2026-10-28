@@ -6,6 +6,8 @@ use App\Enums\BaseVencimentoEnum;
 use App\Enums\FormaPagamento;
 use App\Enums\RegraDataEntradaEnum;
 use App\Filament\Resources\Compras\Pages\EditCompra;
+use App\Filament\Resources\Fornecedores\Pages\CreateFornecedor;
+use App\Filament\Resources\Fornecedores\Pages\EditFornecedor;
 use App\Filament\Resources\Prestadors\Pages\ManagePrestadors;
 use App\Models\Compra;
 use App\Models\ContaFinanceira;
@@ -110,6 +112,35 @@ class CondicoesCompraFornecedorTest extends TestCase
         $this->assertSame(BaseVencimentoEnum::Emissao, $condicao->fcc_prazo_base);
         $this->assertSame(FormaPagamento::Pix, $condicao->fcc_forma_pagamento);
         $this->assertSame(RegraDataEntradaEnum::Emissao, $condicao->fcc_data_entrada_regra);
+    }
+
+    public function test_tela_de_fornecedores_cria_e_edita_as_condicoes(): void
+    {
+        $prazo = PrazoPagamento::create(['prazo_pagamento_nome' => '28 dias', 'prazo_pagamento_ativo' => true]);
+
+        Livewire::test(CreateFornecedor::class)
+            ->fillForm([
+                'tipo' => 'pj',
+                'nome' => 'Atacado Z',
+                'condicaoCompra' => [
+                    'fcc_prazo_pagamento_id' => $prazo->id,
+                    'fcc_prazo_base' => 'emissao',
+                    'fcc_data_entrada_regra' => 'hoje',
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $fornecedor = Prestador::sole();
+        $this->assertSame($prazo->id, $fornecedor->condicaoCompra->fcc_prazo_pagamento_id);
+
+        Livewire::test(EditFornecedor::class, ['record' => $fornecedor->getKey()])
+            ->fillForm(['condicaoCompra' => ['fcc_data_entrada_regra' => 'emissao']])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(1, FornecedorCondicaoCompra::count());
+        $this->assertSame(RegraDataEntradaEnum::Emissao, $fornecedor->fresh()->condicaoCompra->fcc_data_entrada_regra);
     }
 
     public function test_categoria_diferente_de_fornecedor_nao_grava_condicoes(): void

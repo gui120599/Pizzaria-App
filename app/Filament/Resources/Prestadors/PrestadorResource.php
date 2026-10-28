@@ -2,14 +2,10 @@
 
 namespace App\Filament\Resources\Prestadors;
 
-use App\Enums\BaseVencimentoEnum;
-use App\Enums\FormaPagamento;
 use App\Enums\PrestadorCategoriaEnum;
 use App\Enums\PrestadorTipoEnum;
-use App\Enums\RegraDataEntradaEnum;
-use App\Filament\Components\ContaFinanceiraSelect;
+use App\Filament\Components\CondicoesCompraSection;
 use App\Filament\Resources\Prestadors\Pages\ManagePrestadors;
-use App\Models\PrazoPagamento;
 use App\Models\Prestador;
 use App\Services\IBGEServices;
 use BackedEnum;
@@ -253,55 +249,8 @@ class PrestadorResource extends Resource
                             ->columnSpan(2),
                     ]),
 
-                Section::make('Condições de compra')
-                    ->description('Sugestões para o modal "Confirmar compra" deste fornecedor. Nada é pago nem confirmado automaticamente.')
-                    ->icon('heroicon-o-banknotes')
-                    ->relationship('condicaoCompra')
-                    ->visible(fn (Get $get, ?Prestador $record): bool => self::ehFornecedor($get('categoria')) && ! $record?->ehEspelhoDeColaborador())
-                    ->columnSpanFull()
-                    ->columns(2)
-                    ->schema([
-                        Select::make('fcc_prazo_pagamento_id')
-                            ->label('Prazo de pagamento padrão')
-                            ->options(fn (): array => PrazoPagamento::query()
-                                ->ativos()
-                                ->orderBy('prazo_pagamento_nome')
-                                ->pluck('prazo_pagamento_nome', 'id')
-                                ->all())
-                            ->searchable()
-                            ->helperText('Vem selecionado ao confirmar a compra. Se a nota trouxer duplicatas, os vencimentos da nota prevalecem.')
-                            ->columnSpan(1),
-
-                        Select::make('fcc_prazo_base')
-                            ->label('O prazo conta a partir da')
-                            ->options(BaseVencimentoEnum::class)
-                            ->default(BaseVencimentoEnum::Entrada->value)
-                            ->required()
-                            ->native(false)
-                            ->columnSpan(1),
-
-                        Select::make('fcc_forma_pagamento')
-                            ->label('Forma de pagamento padrão')
-                            ->options(FormaPagamento::class)
-                            ->native(false)
-                            ->helperText('Apenas sugestão: a parcela só é paga quando você marca "Já pago".')
-                            ->columnSpan(1),
-
-                        ContaFinanceiraSelect::make('fcc_conta_financeira_id')
-                            ->label('Conta de origem sugerida')
-                            ->semCaixaPdv()
-                            ->helperText('Aparece preenchida quando você marca "Já pago" na confirmação da compra.')
-                            ->columnSpan(1),
-
-                        Select::make('fcc_data_entrada_regra')
-                            ->label('Data de entrada no estoque')
-                            ->options(RegraDataEntradaEnum::class)
-                            ->default(RegraDataEntradaEnum::Hoje->value)
-                            ->required()
-                            ->native(false)
-                            ->helperText('Com "Data de emissão da nota", relatórios por data (ex.: CMV do período) passam a refletir a emissão, não o dia da importação.')
-                            ->columnSpanFull(),
-                    ]),
+                CondicoesCompraSection::make()
+                    ->visible(fn (Get $get, ?Prestador $record): bool => self::ehFornecedor($get('categoria')) && ! $record?->ehEspelhoDeColaborador()),
 
                 Section::make('Observações')
                     ->icon('heroicon-o-chat-bubble-left-ellipsis')
