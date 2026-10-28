@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FormaPagamento;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -14,6 +15,7 @@ class PrazoPagamentoParcela extends Model
         'parcela_numero',
         'parcela_dias',
         'parcela_percentual',
+        'parcela_forma_pagamento',
     ];
 
     protected function casts(): array
@@ -22,6 +24,7 @@ class PrazoPagamentoParcela extends Model
             'parcela_numero' => 'integer',
             'parcela_dias' => 'integer',
             'parcela_percentual' => 'decimal:4',
+            'parcela_forma_pagamento' => FormaPagamento::class,
         ];
     }
 

@@ -8,6 +8,7 @@ use App\Enums\FormaPagamento;
 use App\Enums\Periodicidade;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
+use App\Enums\VencimentoOrigemEnum;
 use App\Filament\Resources\Compras\Pages\EditCompra;
 use App\Filament\Resources\Compras\Pages\ListCompras;
 use App\Models\Caixa;
@@ -15,6 +16,7 @@ use App\Models\Categoria;
 use App\Models\Compra;
 use App\Models\CompraItem;
 use App\Models\ContaFinanceira;
+use App\Models\FornecedorCondicaoCompra;
 use App\Models\PlanoDespesa;
 use App\Models\PrazoPagamento;
 use App\Models\Prestador;
@@ -539,6 +541,187 @@ class ConfirmarCompraContaPagarTest extends TestCase
             ->assertHasErrors([$caminho => 'required'])
             ->set($caminho, (string) $banco->id)
             ->assertHasNoErrors($caminho)
+            ->callMountedAction()
+            ->assertHasNoErrors();
+
+        $this->assertSame(CompraStatusEnum::CONFIRMADA, $compra->fresh()->compra_status);
+    }
+
+    private function fornecedorComCondicao(Compra $compra, array $condicao): void
+    {
+        FornecedorCondicaoCompra::factory()->create(['fcc_prestador_id' => $compra->compra_prestador_id, ...$condicao]);
+    }
+
+    public function test_modal_vem_preenchido_pelo_prazo_do_fornecedor_sem_marcar_ja_pago(): void
+    {
+        $compra = $this->compraComItem();
+        $conta = $this->contaParaBaixa();
+        $prazo = $this->prazoAVista();
+        $this->fornecedorComCondicao($compra, [
+            'fcc_prazo_pagamento_id' => $prazo->id,
+            'fcc_forma_pagamento' => FormaPagamento::Pix,
+            'fcc_conta_financeira_id' => $conta->id,
+        ]);
+
+        $testable = Livewire::test(EditCompra::class, ['record' => $compra->getKey()])->mountAction('confirmar');
+
+        $this->assertSame($prazo->id, (int) $testable->get('mountedActions.0.data.prazo_pagamento_id'));
+        $this->assertSame('prazo_entrada', $testable->get('mountedActions.0.data.vencimento_origem'));
+        $parcelas = $testable->get('mountedActions.0.data.parcelas');
+        $this->assertCount(1, $parcelas);
+        foreach ($parcelas as $linha) {
+            foreach (['vencimento', 'valor', 'forma_pagamento', 'ja_pago', 'conta_financeira_id', 'sessao_caixa_id'] as $chave) {
+                $this->assertArrayHasKey($chave, $linha);
+            }
+            $this->assertFalse($linha['ja_pago']);
+            $this->assertSame(FormaPagamento::Pix->value, $linha['forma_pagamento']);
+            $this->assertSame($conta->id, (int) $linha['conta_financeira_id']);
+        }
+    }
+
+    public function test_conta_sugerida_sem_ja_pago_nao_gera_pagamento_nem_movimentacao(): void
+    {
+        $compra = $this->compraComItem();
+        $conta = $this->contaParaBaixa();
+        $this->fornecedorComCondicao($compra, [
+            'fcc_prazo_pagamento_id' => $this->prazoAVista()->id,
+            'fcc_conta_financeira_id' => $conta->id,
+        ]);
+
+        Livewire::test(EditCompra::class, ['record' => $compra->getKey()])
+            ->mountAction('confirmar')
+            ->callMountedAction()
+            ->assertHasNoErrors();
+
+        $lancamento = $compra->lancamentos()->sole();
+        $this->assertSame(StatusLancamento::Pendente, $lancamento->status);
+        $this->assertCount(0, $lancamento->pagamentos);
+        $this->assertSame(0, $conta->movimentacoes()->count());
+    }
+
+    public function test_marcar_ja_pago_usa_a_conta_sugerida_e_gera_titulo_pago_com_movimentacao(): void
+    {
+        $compra = $this->compraComItem();
+        $conta = $this->contaParaBaixa();
+        $this->fornecedorComCondicao($compra, [
+            'fcc_prazo_pagamento_id' => $this->prazoAVista()->id,
+            'fcc_forma_pagamento' => FormaPagamento::Pix,
+            'fcc_conta_financeira_id' => $conta->id,
+        ]);
+
+        $testable = Livewire::test(EditCompra::class, ['record' => $compra->getKey()])->mountAction('confirmar');
+        $chave = array_key_first($testable->get('mountedActions.0.data.parcelas'));
+
+        $testable
+            ->set("mountedActions.0.data.parcelas.$chave.ja_pago", true)
+            ->callMountedAction()
+            ->assertHasNoErrors();
+
+        $lancamento = $compra->lancamentos()->sole();
+        $this->assertSame(StatusLancamento::Pago, $lancamento->status);
+        $this->assertSame($conta->id, $lancamento->pagamentos->first()->conta_financeira_id);
+        $this->assertSame(1, $conta->movimentacoes()->count());
+    }
+
+    public function test_origem_dos_vencimentos_e_gravada_conforme_a_sugestao_e_a_troca_de_prazo(): void
+    {
+        $compra = $this->compraComItem();
+        Livewire::test(EditCompra::class, ['record' => $compra->getKey()])->mountAction('confirmar')->callMountedAction();
+        $this->assertSame(VencimentoOrigemEnum::PrazoEntrada, $compra->fresh()->compra_vencimento_origem);
+
+        $comNota = $this->compraComItem();
+        $comNota->update(['compra_duplicatas_nf' => [['nDup' => '1', 'dVenc' => '2026-08-20', 'vDup' => 100]]]);
+        $testable = Livewire::test(EditCompra::class, ['record' => $comNota->getKey()])->mountAction('confirmar');
+        $this->assertSame('duplicatas_nf', $testable->get('mountedActions.0.data.vencimento_origem'));
+        $this->assertSame(['2026-08-20'], array_map(fn ($v) => substr($v, 0, 10), array_values(array_column($testable->get('mountedActions.0.data.parcelas'), 'vencimento'))));
+        $testable->callMountedAction();
+        $this->assertSame(VencimentoOrigemEnum::DuplicatasNf, $comNota->fresh()->compra_vencimento_origem);
+
+        $trocada = $this->compraComItem();
+        $trocada->update(['compra_duplicatas_nf' => [['nDup' => '1', 'dVenc' => '2026-08-20', 'vDup' => 100]]]);
+        $this->fornecedorComCondicao($trocada, ['fcc_prazo_base' => 'emissao']);
+        $trocada->update(['compra_data_emissao' => '2026-07-01']);
+        $testable = Livewire::test(EditCompra::class, ['record' => $trocada->getKey()])->mountAction('confirmar')
+            ->set('mountedActions.0.data.prazo_pagamento_id', $this->prazoAVista()->id);
+        $this->assertSame('prazo_emissao', $testable->get('mountedActions.0.data.vencimento_origem'));
+        $testable->callMountedAction();
+        $this->assertSame(VencimentoOrigemEnum::PrazoEmissao, $trocada->fresh()->compra_vencimento_origem);
+    }
+
+    // ── Correção da data de entrada: deslocar vencimentos ────────────
+
+    private function compraConfirmadaComTitulo(?VencimentoOrigemEnum $origem): Compra
+    {
+        $compra = $this->compraComItem();
+        $service = app(CompraService::class);
+        $service->confirmar($compra->fresh('itens'));
+        $service->gerarContaPagar($compra->fresh(), ['parcelas' => [['vencimento' => '2026-08-07', 'valor' => '100.00']]]);
+        $compra->forceFill(['compra_vencimento_origem' => $origem])->save();
+
+        return $compra->fresh();
+    }
+
+    public function test_correcao_de_data_desloca_vencimentos_por_padrao_em_compra_antiga_ou_prazo_da_entrada(): void
+    {
+        foreach ([null, VencimentoOrigemEnum::PrazoEntrada] as $origem) {
+            $compra = $this->compraConfirmadaComTitulo($origem);
+
+            $testable = Livewire::test(EditCompra::class, ['record' => $compra->getKey()])->mountAction('corrigirDataEntrada');
+            $this->assertTrue($testable->get('mountedActions.0.data.deslocar_vencimentos'));
+            $testable->callMountedAction()->assertHasNoErrors();
+        }
+    }
+
+    public function test_correcao_de_data_com_toggle_ligado_desloca_o_vencimento(): void
+    {
+        $compra = $this->compraConfirmadaComTitulo(null);
+
+        Livewire::test(EditCompra::class, ['record' => $compra->getKey()])
+            ->callAction('corrigirDataEntrada', data: ['data_entrada' => '2026-07-05'])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame('2026-08-04', $compra->lancamentos()->sole()->vencimento->toDateString());
+    }
+
+    public function test_correcao_de_data_vem_desligada_para_duplicatas_e_prazo_da_emissao_e_nao_desloca(): void
+    {
+        foreach ([VencimentoOrigemEnum::DuplicatasNf, VencimentoOrigemEnum::PrazoEmissao] as $origem) {
+            $compra = $this->compraConfirmadaComTitulo($origem);
+
+            $testable = Livewire::test(EditCompra::class, ['record' => $compra->getKey()])->mountAction('corrigirDataEntrada');
+            $this->assertFalse($testable->get('mountedActions.0.data.deslocar_vencimentos'));
+
+            $testable
+                ->set('mountedActions.0.data.data_entrada', '2026-07-05')
+                ->callMountedAction()
+                ->assertHasNoErrors();
+
+            $this->assertSame('2026-07-05', $compra->fresh()->compra_data_entrada->toDateString());
+            $this->assertSame('2026-08-07', $compra->lancamentos()->sole()->vencimento->toDateString());
+        }
+    }
+
+    public function test_usuario_pode_inverter_o_toggle_nos_dois_casos(): void
+    {
+        $daNota = $this->compraConfirmadaComTitulo(VencimentoOrigemEnum::DuplicatasNf);
+        Livewire::test(EditCompra::class, ['record' => $daNota->getKey()])
+            ->callAction('corrigirDataEntrada', data: ['data_entrada' => '2026-07-05', 'deslocar_vencimentos' => true]);
+        $this->assertSame('2026-08-04', $daNota->lancamentos()->sole()->vencimento->toDateString());
+
+        $daEntrada = $this->compraConfirmadaComTitulo(VencimentoOrigemEnum::PrazoEntrada);
+        Livewire::test(EditCompra::class, ['record' => $daEntrada->getKey()])
+            ->callAction('corrigirDataEntrada', data: ['data_entrada' => '2026-07-05', 'deslocar_vencimentos' => false]);
+        $this->assertSame('2026-08-07', $daEntrada->lancamentos()->sole()->vencimento->toDateString());
+    }
+
+    /** Regressão: a data do modal vai pelo cast do DatePicker; string 'Y-m-d' ganhava a hora atual e estourava o maxDate(today()). */
+    public function test_confirma_com_data_de_entrada_de_hoje_sem_erro_de_validacao(): void
+    {
+        $compra = $this->compraComItem();
+        $compra->update(['compra_data_entrada' => today()->toDateString()]);
+
+        Livewire::test(EditCompra::class, ['record' => $compra->getKey()])
+            ->mountAction('confirmar')
             ->callMountedAction()
             ->assertHasNoErrors();
 

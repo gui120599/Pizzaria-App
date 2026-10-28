@@ -157,16 +157,18 @@ class CompraService
      * Corrige a data de entrada de uma compra já confirmada: a própria compra,
      * as movimentações de entrada e os lotes gerados por ela (preservando o
      * horário original) e desloca os vencimentos dos títulos em aberto pela
-     * mesma diferença de dias — títulos pagos/cancelados não mudam.
+     * mesma diferença de dias — títulos pagos/cancelados não mudam. Com
+     * $deslocarVencimentos = false (vencimentos contados da nota/emissão, que não
+     * dependem da entrada) os títulos ficam como estão.
      *
      * Não mexe em saldo nem custo médio: o WAC e o mov_saldo_apos seguem a
      * ordem de inserção (id), não mov_data — a data é só data de negócio.
      *
      * @return array{movimentacoes: int, lotes: int, titulos: int, dias: int}
      */
-    public function corrigirDataEntrada(Compra $compra, Carbon $novaData, ?string $responsavel = null): array
+    public function corrigirDataEntrada(Compra $compra, Carbon $novaData, ?string $responsavel = null, bool $deslocarVencimentos = true): array
     {
-        return DB::transaction(function () use ($compra, $novaData, $responsavel) {
+        return DB::transaction(function () use ($compra, $novaData, $responsavel, $deslocarVencimentos) {
             /** @var Compra $compra */
             $compra = Compra::lockForUpdate()->findOrFail($compra->id);
 
@@ -200,7 +202,7 @@ class CompraService
                 $lote->forceFill(['lote_data_entrada' => ($lote->lote_data_entrada ?? $novaData)->copy()->setDateFrom($novaData)])->save();
             }
 
-            $titulos = $dias !== 0 ? $this->titulosEmAberto($compra)->get() : new Collection;
+            $titulos = $deslocarVencimentos && $dias !== 0 ? $this->titulosEmAberto($compra)->get() : new Collection;
             foreach ($titulos as $titulo) {
                 $titulo->forceFill(['vencimento' => $titulo->vencimento->copy()->addDays($dias)])->save();
             }

@@ -7,6 +7,7 @@ use App\Enums\PrestadorTipoEnum;
 use App\Enums\TipoChavePix;
 use App\Exceptions\FinanceiroException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Prestador extends Model
@@ -128,6 +129,12 @@ class Prestador extends Model
     public function fornecedorProdutos()
     {
         return $this->hasMany(FornecedorProduto::class, 'fp_prestador_id');
+    }
+
+    /** Condições comerciais de compra (prazo, forma, conta, regra da data de entrada). */
+    public function condicaoCompra(): HasOne
+    {
+        return $this->hasOne(FornecedorCondicaoCompra::class, 'fcc_prestador_id');
     }
 
     /** Cadastro de Cliente vinculado, quando este fornecedor também consome no PDV. */

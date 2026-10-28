@@ -137,4 +137,34 @@ class PrazoPagamentoResourceTest extends TestCase
         $prazo->refresh();
         $this->assertEqualsWithDelta(33.34, (float) $prazo->parcelas()->where('parcela_numero', 1)->first()->parcela_percentual, 0.001);
     }
+
+    public function test_grava_e_edita_a_forma_de_pagamento_da_parcela(): void
+    {
+        Livewire::test(CreatePrazoPagamento::class)
+            ->fillForm([
+                'prazo_pagamento_nome' => '50% Pix + 50% boleto 30d',
+                'parcelas' => [
+                    ['parcela_dias' => 0, 'parcela_percentual' => 50, 'parcela_forma_pagamento' => 'pix'],
+                    ['parcela_dias' => 30, 'parcela_percentual' => 50, 'parcela_forma_pagamento' => null],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $prazo = PrazoPagamento::where('prazo_pagamento_nome', '50% Pix + 50% boleto 30d')->firstOrFail();
+        $this->assertSame(['pix', null], $prazo->parcelas->map(fn ($p) => $p->parcela_forma_pagamento?->value)->all());
+
+        $segunda = $prazo->parcelas->last();
+        Livewire::test(EditPrazoPagamento::class, ['record' => $prazo->getKey()])
+            ->fillForm([
+                'parcelas' => [
+                    'record-'.$prazo->parcelas->first()->id => ['parcela_dias' => 0, 'parcela_percentual' => 50, 'parcela_forma_pagamento' => 'dinheiro'],
+                    'record-'.$segunda->id => ['parcela_dias' => 30, 'parcela_percentual' => 50, 'parcela_forma_pagamento' => 'boleto'],
+                ],
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(['dinheiro', 'boleto'], $prazo->fresh()->parcelas->map(fn ($p) => $p->parcela_forma_pagamento?->value)->all());
+    }
 }

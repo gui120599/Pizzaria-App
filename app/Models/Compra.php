@@ -6,6 +6,7 @@ use App\Enums\CompraStatusEnum;
 use App\Enums\ConfiancaOperacaoEnum;
 use App\Enums\EfeitoEstoqueEnum;
 use App\Enums\OperacaoEntradaEnum;
+use App\Enums\VencimentoOrigemEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 class Compra extends Model
 {
@@ -52,6 +54,7 @@ class Compra extends Model
         'compra_notas_referenciadas',
         'compra_pagamentos_nf',
         'compra_duplicatas_nf',
+        'compra_vencimento_origem',
         'compra_operacao',
         'compra_operacao_confianca',
         'compra_operacao_criterios',
@@ -80,6 +83,7 @@ class Compra extends Model
             'compra_notas_referenciadas' => 'array',
             'compra_pagamentos_nf' => 'array',
             'compra_duplicatas_nf' => 'array',
+            'compra_vencimento_origem' => VencimentoOrigemEnum::class,
             'compra_operacao_confianca' => ConfiancaOperacaoEnum::class,
             'compra_operacao_criterios' => 'array',
             'compra_operacao_definida_em' => 'datetime',
@@ -167,6 +171,23 @@ class Compra extends Model
         }
 
         return round((float) $this->compra_valor_total - (float) $this->compra_valor_nf, 2);
+    }
+
+    /**
+     * Data de entrada sugerida: a emissão da nota quando o fornecedor tem essa
+     * regra; sem condição cadastrada, a data já gravada ou hoje (como sempre foi).
+     */
+    public function dataEntradaSugerida(): Carbon
+    {
+        $padrao = $this->compra_data_entrada ?? now();
+
+        return $this->prestador?->condicaoCompra?->dataEntradaSugerida($this->compra_data_emissao, $padrao) ?? $padrao;
+    }
+
+    /** A regra de data de entrada do fornecedor está ativa (aviso no modal de confirmação). */
+    public function dataEntradaPelaRegraDeEmissao(): bool
+    {
+        return $this->prestador?->condicaoCompra?->usaDataDeEmissao() === true && $this->compra_data_emissao !== null;
     }
 
     public function isRascunho(): bool

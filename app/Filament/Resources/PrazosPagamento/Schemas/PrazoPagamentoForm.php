@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\PrazosPagamento\Schemas;
 
+use App\Enums\FormaPagamento;
 use Closure;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -49,7 +51,7 @@ class PrazoPagamentoForm
                         ->collapsible()
                         ->live()
                         ->itemLabel(fn (array $state): ?string => (isset($state['parcela_dias']) && isset($state['parcela_percentual']))
-                            ? "{$state['parcela_dias']} dias — {$state['parcela_percentual']}%"
+                            ? "{$state['parcela_dias']} dias — {$state['parcela_percentual']}%".self::rotuloForma($state['parcela_forma_pagamento'] ?? null)
                             : 'Nova parcela')
                         // Precisa ser validação de campo (roda antes de mutateFormDataBeforeCreate/Save):
                         // por ser ->relationship(), 'parcelas' já é removido do $data principal antes
@@ -132,6 +134,13 @@ class PrazoPagamentoForm
         };
     }
 
+    private static function rotuloForma(mixed $forma): string
+    {
+        $forma = $forma instanceof FormaPagamento ? $forma : FormaPagamento::tryFrom((string) $forma);
+
+        return $forma ? ' — '.$forma->getLabel() : '';
+    }
+
     private static function somaPercentuais(array $parcelas): float
     {
         return collect($parcelas)->sum(fn (array $p): float => (float) ($p['parcela_percentual'] ?? 0));
@@ -158,6 +167,13 @@ class PrazoPagamentoForm
                 ->step(0.0001)
                 ->suffix('%')
                 ->required(),
+            Select::make('parcela_forma_pagamento')
+                ->label('Forma de pagamento')
+                ->options(FormaPagamento::class)
+                ->native(false)
+                ->placeholder('Padrão do fornecedor')
+                ->helperText('Opcional. Vazio usa a forma padrão do fornecedor.')
+                ->columnSpanFull(),
         ];
     }
 }

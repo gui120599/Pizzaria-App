@@ -2,17 +2,21 @@
 
 namespace App\Filament\Resources\Compras\Support;
 
+use App\Enums\BaseVencimentoEnum;
 use App\Enums\FormaPagamento;
+use App\Enums\VencimentoOrigemEnum;
 use App\Exceptions\FinanceiroException;
 use App\Filament\Components\ContaFinanceiraSelect;
 use App\Filament\Resources\PrazosPagamento\Schemas\PrazoPagamentoForm;
+use App\Filament\Resources\Prestadors\PrestadorResource;
 use App\Models\Compra;
 use App\Models\PrazoPagamento;
-use App\Models\PrazoPagamentoParcela;
+use App\Services\Compras\SugestaoPagamentoCompra;
 use App\Services\CompraService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -22,10 +26,8 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Leandrocfe\FilamentPtbrFormFields\Money;
 
@@ -56,19 +58,47 @@ class ConfirmarCompraAction
             // e o total foi recalculado no banco, mas a página de edição não recarregou o
             // registro). Sem isso, compra_valor_total fica 0 aqui e as parcelas do prazo
             // de pagamento calculam tudo zerado.
-            ->mountUsing(function (Compra $record, ?Schema $schema): void {
+            // A sugestão (duplicatas da NF-e > prazo do fornecedor > parcela única) é
+            // calculada uma vez aqui e entra pelo fill(): sem $set encadeado, e cada
+            // linha de parcela já nasce com as 6 chaves. fill(array) não aplica os
+            // defaults dos campos, então tudo que o modal precisa vem explícito. As datas
+            // vão como Carbon à meia-noite: string 'Y-m-d' passa pelo cast do DatePicker
+            // (createFromFormat) e ganha a hora atual, o que estoura o maxDate(today()).
+            ->mountUsing(function (Compra $record, ?Schema $schema, SugestaoPagamentoCompra $sugestoes): void {
                 $record->refresh();
-                $schema?->fill();
+                $sugestao = $sugestoes->para($record);
+
+                $schema?->fill([
+                    'data_entrada' => $sugestao->dataEntrada->copy()->startOfDay(),
+                    'gerar_conta_pagar' => true,
+                    'data_base' => $sugestao->dataBase->copy()->startOfDay(),
+                    'prazo_pagamento_id' => $sugestao->prazoPagamentoId,
+                    'parcelas' => array_map(
+                        fn (array $linha): array => [...$linha, 'vencimento' => Carbon::parse($linha['vencimento'])->startOfDay()],
+                        $sugestao->parcelas,
+                    ),
+                    'vencimento_origem' => $sugestao->origem->value,
+                    'base_vencimento' => $sugestao->baseVencimento->value,
+                ]);
             })
             ->schema([
                 self::campoDataEntrada()
                     ->label('Data de entrada no estoque')
-                    ->default(fn (Compra $record) => $record->compra_data_entrada ?? now())
+                    ->default(fn (Compra $record) => $record->dataEntradaSugerida())
                     ->helperText('Data registrada nas movimentações e lotes. Notas importadas vêm com o dia da importação — confira se é o dia em que a mercadoria realmente entrou.')
                     ->live()
-                    ->afterStateUpdated(fn (?string $state, Set $set) => $set('data_base', $state)),
+                    // Com prazo contado da emissão, a data-base não acompanha a entrada.
+                    ->afterStateUpdated(function (?string $state, Get $get, Set $set): void {
+                        if ($get('base_vencimento') !== BaseVencimentoEnum::Emissao->value) {
+                            $set('data_base', $state);
+                        }
+                    }),
+                Hidden::make('vencimento_origem')->default(VencimentoOrigemEnum::PrazoEntrada->value),
+                Hidden::make('base_vencimento')->default(BaseVencimentoEnum::Entrada->value),
                 self::avisoDataEntrada(),
                 self::avisoOperacaoFiscal(),
+                self::fontesDaSugestao(),
+                self::avisosDaSugestao(),
                 Toggle::make('gerar_conta_pagar')
                     ->label('Gerar conta a pagar')
                     ->helperText('Cria um título a pagar por parcela para o fornecedor, rateado pelos planos de despesa dos produtos.')
@@ -79,7 +109,7 @@ class ConfirmarCompraAction
                     ->native(false)
                     ->displayFormat('d/m/Y')
                     ->helperText('Usada para calcular os vencimentos das parcelas ao aplicar um Prazo de Pagamento (data-base + dias).')
-                    ->default(fn (Compra $record) => $record->compra_data_entrada ?? now())
+                    ->default(fn (Compra $record) => $record->dataEntradaSugerida())
                     ->required(fn (Get $get): bool => (bool) $get('gerar_conta_pagar'))
                     ->visible(fn (Get $get): bool => (bool) $get('gerar_conta_pagar')),
                 Select::make('prazo_pagamento_id')
@@ -108,11 +138,12 @@ class ConfirmarCompraAction
                                 'parcela_numero' => $indice + 1,
                                 'parcela_dias' => $parcela['parcela_dias'],
                                 'parcela_percentual' => $parcela['parcela_percentual'],
+                                'parcela_forma_pagamento' => $parcela['parcela_forma_pagamento'] ?? null,
                             ]));
 
                         return $prazo->id;
                     })
-                    ->afterStateUpdated(function (?int $state, Get $get, Set $set, Compra $record): void {
+                    ->afterStateUpdated(function (?int $state, Get $get, Set $set, Compra $record, SugestaoPagamentoCompra $sugestoes): void {
                         if ($state === null) {
                             return;
                         }
@@ -122,10 +153,27 @@ class ConfirmarCompraAction
                             return;
                         }
 
-                        $dataBase = self::parseData($get('data_base')) ?? $record->compra_data_entrada ?? now();
+                        if ($get('vencimento_origem') === VencimentoOrigemEnum::DuplicatasNf->value) {
+                            Notification::make()
+                                ->title('Vencimentos da nota descartados')
+                                ->body('As parcelas foram recalculadas pelo prazo escolhido, e não mais pelas duplicatas da NF-e.')
+                                ->warning()
+                                ->send();
+                        }
+
+                        $dataBase = self::parseData($get('data_base')) ?? $record->dataEntradaSugerida();
                         $valorTotal = (float) $record->compra_valor_total;
 
-                        $set('parcelas', self::calcularParcelas($prazo->parcelas, $dataBase, $valorTotal));
+                        $set('parcelas', $sugestoes->parcelasDoPrazo(
+                            $prazo,
+                            $dataBase,
+                            $valorTotal,
+                            $record->prestador?->condicaoCompra,
+                            $sugestoes->formaDaNota($record),
+                        ));
+                        $set('vencimento_origem', ($get('base_vencimento') === BaseVencimentoEnum::Emissao->value
+                            ? VencimentoOrigemEnum::PrazoEmissao
+                            : VencimentoOrigemEnum::PrazoEntrada)->value);
                     }),
                 Repeater::make('parcelas')
                     ->label('Parcelas')
@@ -165,10 +213,7 @@ class ConfirmarCompraAction
                     ])
                     ->columns(4)
                     ->default(fn (Compra $record): array => [
-                        self::linhaParcela(
-                            ($record->compra_data_entrada ?? now())->toDateString(),
-                            number_format((float) $record->compra_valor_total, 2, '.', ''),
-                        ),
+                        SugestaoPagamentoCompra::linhaParcela($record->dataEntradaSugerida()->toDateString(), (float) $record->compra_valor_total),
                     ])
                     ->addActionLabel('Adicionar parcela')
                     ->deletable()
@@ -222,6 +267,13 @@ class ConfirmarCompraAction
                                 'prazo_pagamento_id' => $data['prazo_pagamento_id'] ?? null,
                                 'parcelas' => $parcelas,
                             ]);
+
+                            // Origem dos vencimentos: decide, na correção da data de entrada,
+                            // se os títulos em aberto acompanham a mudança. Ausente = compra antiga.
+                            $origem = VencimentoOrigemEnum::tryFrom((string) ($data['vencimento_origem'] ?? ''));
+                            if ($origem !== null) {
+                                Compra::query()->whereKey($record->id)->update(['compra_vencimento_origem' => $origem->value]);
+                            }
                         }
                     });
                 } catch (ValidationException|FinanceiroException $e) {
@@ -269,15 +321,49 @@ class ConfirmarCompraAction
 
                 return $data !== null && ! $data->isToday();
             })
-            ->content(function (Get $get): HtmlString {
+            ->content(function (Get $get, Compra $record): HtmlString {
                 $data = self::parseData($get('data_entrada'));
                 $dias = (int) $data?->copy()->startOfDay()->diffInDays(today());
                 $quando = $dias === 1 ? 'há 1 dia' : "há {$dias} dias";
+                $regra = $record->dataEntradaPelaRegraDeEmissao() ? ' (regra do fornecedor: data de emissão)' : '';
 
                 return new HtmlString('<div class="rounded-lg bg-warning-50 p-3 text-sm font-medium text-warning-700 dark:bg-warning-400/10 dark:text-warning-400">'
-                    .'⚠️ A entrada no estoque será registrada em <strong>'.e($data?->format('d/m/Y')).'</strong> ('.e($quando).'). '
+                    .'⚠️ A entrada no estoque será registrada em <strong>'.e($data?->format('d/m/Y')).'</strong> ('.e($quando).')'.e($regra).'. '
                     .'Confira se é a data real em que a mercadoria entrou no estoque.</div>');
             })
+            ->columnSpanFull();
+    }
+
+    /** De onde veio o pré-preenchimento das parcelas, com atalho para o cadastro do fornecedor. */
+    public static function fontesDaSugestao(): Placeholder
+    {
+        return Placeholder::make('fontes_sugestao')
+            ->hiddenLabel()
+            ->visible(fn (Get $get, Compra $record, SugestaoPagamentoCompra $sugestoes): bool => (bool) $get('gerar_conta_pagar')
+                && $sugestoes->para($record)->fontes !== [])
+            ->content(function (Compra $record, SugestaoPagamentoCompra $sugestoes): HtmlString {
+                $fontes = implode(' · ', array_map('e', $sugestoes->para($record)->fontes));
+                $busca = urlencode((string) $record->prestador?->nome_exibicao);
+                $link = '<a href="'.e(PrestadorResource::getUrl('index').'?tableSearch='.$busca).'" target="_blank" class="font-medium underline">editar fornecedor</a>';
+
+                return new HtmlString('<div class="rounded-lg bg-info-50 p-3 text-sm text-info-700 dark:bg-info-400/10 dark:text-info-400">'
+                    .'Pré-preenchido por: '.$fontes.'. Confira antes de confirmar ('.$link.').</div>');
+            })
+            ->columnSpanFull();
+    }
+
+    /** Divergências da sugestão (soma das duplicatas, prazo × nota): avisa sem bloquear. */
+    public static function avisosDaSugestao(): Placeholder
+    {
+        return Placeholder::make('avisos_sugestao')
+            ->hiddenLabel()
+            ->visible(fn (Get $get, Compra $record, SugestaoPagamentoCompra $sugestoes): bool => (bool) $get('gerar_conta_pagar')
+                && $sugestoes->para($record)->avisos !== [])
+            ->content(fn (Compra $record, SugestaoPagamentoCompra $sugestoes): HtmlString => new HtmlString(
+                collect($sugestoes->para($record)->avisos)
+                    ->map(fn (string $aviso): string => '<div class="rounded-lg bg-warning-50 p-3 text-sm font-medium text-warning-700 dark:bg-warning-400/10 dark:text-warning-400">⚠️ '.e($aviso).'</div>')
+                    ->implode('')
+            ))
             ->columnSpanFull();
     }
 
@@ -296,82 +382,6 @@ class ConfirmarCompraAction
                 .(OperacaoFiscalView::avisoDivergenciaValor($record)?->toHtml() ?? '')
             ))
             ->columnSpanFull();
-    }
-
-    /**
-     * Calcula vencimento + valor de cada parcela a partir das parcelas do Prazo de
-     * Pagamento (dias + percentual), reconciliando o resíduo de arredondamento na
-     * maior parcela — mesmo padrão de CompraService::gravarRateio, pra soma bater
-     * com o valor esperado (percentuais somando 100%) mesmo com valores quebrados
-     * (ex.: compra de R$ 100,01 dividida em 3 parcelas de 33,33%).
-     *
-     * Quando os percentuais do prazo somam mais de 100% de propósito (juros
-     * embutido), a reconciliação preserva essa diferença — só corrige o
-     * arredondamento por parcela, não força a soma a fechar em 100% do valor da compra.
-     *
-     * As linhas retornam com chaves novas (UUID) a cada chamada — não índices
-     * sequenciais 0,1,2 — pra forçar o Livewire a recriar cada item do zero em vez
-     * de reciclar um nó DOM de posição igual entre a seleção antiga e a nova.
-     *
-     * Se todas as parcelas derem 0, o problema não está aqui: confira se o Prazo de
-     * Pagamento selecionado tem `parcela_percentual` preenchido (> 0) em cada linha —
-     * um prazo com percentuais zerados produz parcelas de R$ 0,00 corretamente
-     * (matematicamente 0% de qualquer valor é 0).
-     *
-     * @param  Collection<int, PrazoPagamentoParcela>  $parcelasPrazo
-     * @return array<string, array{vencimento: string, valor: string, forma_pagamento: null, ja_pago: false, conta_financeira_id: null, sessao_caixa_id: null}>
-     */
-    private static function calcularParcelas(Collection $parcelasPrazo, Carbon $dataBase, float $valorTotal): array
-    {
-        $linhas = $parcelasPrazo->map(fn (PrazoPagamentoParcela $parcela): array => [
-            'vencimento' => $dataBase->copy()->addDays($parcela->parcela_dias)->toDateString(),
-            'valor_bruto' => $valorTotal * ((float) $parcela->parcela_percentual / 100),
-        ])->values()->all();
-
-        if ($linhas === []) {
-            return [];
-        }
-
-        $somaBruta = round(array_sum(array_column($linhas, 'valor_bruto')), 2);
-        foreach ($linhas as &$linha) {
-            $linha['valor'] = round($linha['valor_bruto'], 2);
-        }
-        unset($linha);
-
-        $diferenca = round($somaBruta - array_sum(array_column($linhas, 'valor')), 2);
-        if (abs($diferenca) >= 0.01) {
-            $maiorIndice = collect($linhas)->sortByDesc('valor')->keys()->first();
-            $linhas[$maiorIndice]['valor'] = round($linhas[$maiorIndice]['valor'] + $diferenca, 2);
-        }
-
-        $resultado = [];
-        foreach ($linhas as $linha) {
-            $resultado[(string) Str::uuid()] = self::linhaParcela(
-                $linha['vencimento'],
-                number_format($linha['valor'], 2, '.', ''),
-            );
-        }
-
-        return $resultado;
-    }
-
-    /**
-     * Linha do Repeater de parcelas com todas as chaves dos campos filhos.
-     * Linha sem a chave quebra o $entangle dos Selects não nativos (a escolha
-     * nunca chega ao servidor): o $set('parcelas', ...) não hidrata defaults.
-     *
-     * @return array{vencimento: string, valor: string, forma_pagamento: null, ja_pago: false, conta_financeira_id: null, sessao_caixa_id: null}
-     */
-    private static function linhaParcela(string $vencimento, string $valor): array
-    {
-        return [
-            'vencimento' => $vencimento,
-            'valor' => $valor,
-            'forma_pagamento' => null,
-            'ja_pago' => false,
-            'conta_financeira_id' => null,
-            'sessao_caixa_id' => null,
-        ];
     }
 
     /** Conta de origem só se aplica a parcela já paga; Compensação não movimenta conta. */
