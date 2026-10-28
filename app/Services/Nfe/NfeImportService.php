@@ -18,6 +18,7 @@ use App\Services\Compras\CompraFiscalService;
 use App\Services\CompraService;
 use App\Services\Nfe\Dto\NfeItem;
 use App\Services\Nfe\Dto\NfeParseada;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -61,7 +62,7 @@ class NfeImportService
                 'compra_chave_nfe' => $nfe->chaveAcesso,
                 'compra_xml_path' => $this->armazenarXml($xmlConteudo, $nfe->chaveAcesso),
                 'compra_data_emissao' => $nfe->dataEmissao?->toDateString(),
-                'compra_data_entrada' => now()->toDateString(),
+                'compra_data_entrada' => $this->dataEntrada($prestador, $nfe)->toDateString(),
                 'compra_valor_frete' => $nfe->valorFrete,
                 'compra_valor_desconto' => $nfe->valorDescontoParaRateio(),
                 'compra_valor_outros' => $nfe->valorOutros,
@@ -96,6 +97,14 @@ class NfeImportService
 
             return $compra->refresh();
         });
+    }
+
+    /** Dia da importação, ou a emissão da nota quando o fornecedor tem essa regra de data de entrada. */
+    private function dataEntrada(Prestador $prestador, NfeParseada $nfe): Carbon
+    {
+        $emissao = $nfe->dataEmissao !== null ? Carbon::instance($nfe->dataEmissao) : null;
+
+        return $prestador->condicaoCompra?->dataEntradaSugerida($emissao, now()) ?? now();
     }
 
     /**

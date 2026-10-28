@@ -184,6 +184,7 @@ class CardapioService
 
         $opcoesPagamento = OpcoesPagamento::whereNull('deleted_at')
             ->where('opcaopag_aparece_cardapio', true)
+            ->semCarteira()
             ->get()
             ->map(fn ($p) => [
                 'id' => $p->id,

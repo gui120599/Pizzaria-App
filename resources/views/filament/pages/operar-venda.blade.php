@@ -821,6 +821,8 @@
             $opcaoSelecionada = $this->opcoesPagamento->firstWhere('id', $opcaoPagamentoSelecionadaId);
             $emEdicaoPagamento = (bool) $pagamentoEmEdicaoId;
             $ehStone = (bool) $opcaoSelecionada?->ehIntegracaoStone();
+            $ehCarteira = (bool) $opcaoSelecionada?->opcaopag_carteira_influenciador;
+            $semTroco = $ehStone || $ehCarteira;
         @endphp
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" wire:click.self="fecharModalPagamento">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto">
@@ -861,6 +863,31 @@
                             @endforeach
                         </div>
                     </div>
+
+                    @if ($ehCarteira)
+                        <div class="space-y-2">
+                            <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Código de resgate do influenciador</label>
+                            <div class="flex gap-2">
+                                <input wire:model="codigoCarteira" type="text" inputmode="numeric" maxlength="6" placeholder="6 dígitos"
+                                    wire:keydown.enter.prevent="verificarCodigoCarteira"
+                                    class="flex-1 min-w-0 text-sm tracking-widest border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                                <button type="button" wire:click="verificarCodigoCarteira"
+                                    class="px-3 rounded-lg border border-gray-300 dark:border-white/10 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5">
+                                    Verificar
+                                </button>
+                            </div>
+                            @error('codigoCarteira')
+                                <p class="text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                            @if ($carteiraInfo)
+                                <div class="text-xs bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 text-green-800 dark:text-green-300 rounded-lg p-2 space-y-0.5">
+                                    <p><strong>{{ $carteiraInfo['nome'] }}</strong></p>
+                                    <p>Saldo: R$ {{ number_format($carteiraInfo['saldo'], 2, ',', '.') }}</p>
+                                    <p>Máximo neste pagamento: R$ {{ number_format($carteiraInfo['limite'], 2, ',', '.') }}</p>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
 
                     @if ($opcaoSelecionada?->ehIntegracaoStone())
                         <div>
@@ -915,6 +942,7 @@
 
                     <div
                         class="grid grid-cols-2 gap-3"
+                        wire:key="pg-valores-{{ $codigoCarteiraId ?? 'x' }}"
                         x-data="{
                             recebido: @js(number_format($this->valorPagamento, 2, ',', '.')),
                             pagoCliente: @js($this->valorPagoPeloCliente > 0 ? number_format($this->valorPagoPeloCliente, 2, ',', '.') : ''),
@@ -922,7 +950,7 @@
                             get troco() { return Math.max(0, this.parseValor(this.pagoCliente) - this.parseValor(this.recebido)); },
                         }"
                     >
-                        <div @class(['col-span-2' => $ehStone])>
+                        <div @class(['col-span-2' => $semTroco])>
                             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $ehStone ? 'Valor a cobrar (R$)' : 'Valor recebido (R$)' }}</label>
                             <input
                                 type="text"
@@ -933,7 +961,7 @@
                                 class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 text-right focus:outline-none focus:ring-2 focus:ring-primary-500"
                             />
                         </div>
-                        @unless ($ehStone)
+                        @unless ($semTroco)
                             <div>
                                 <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Pago pelo cliente (R$)</label>
                                 <input
@@ -949,11 +977,11 @@
                         @endunless
                         <div class="col-span-2 flex items-center justify-between text-xs px-1">
                             <span class="text-gray-500 dark:text-gray-400">Restante: <strong class="text-gray-700 dark:text-gray-200">R$ {{ number_format($this->valorRestante, 2, ',', '.') }}</strong></span>
-                            @unless ($ehStone)
+                            @unless ($semTroco)
                                 <span class="text-gray-500 dark:text-gray-400">Troco: <strong class="text-green-600 dark:text-green-400" x-text="'R$ ' + troco.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})"></strong></span>
                             @endunless
                         </div>
-                        @unless ($ehStone)
+                        @unless ($semTroco)
                             <div class="col-span-2 flex items-center gap-2 text-xs px-1" x-show="troco > 0" x-cloak>
                                 <span class="text-gray-500 dark:text-gray-400">Troco em:</span>
                                 @foreach (\App\Enums\FormaTrocoEnum::cases() as $formaTrocoOpcao)

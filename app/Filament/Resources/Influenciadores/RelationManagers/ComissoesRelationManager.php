@@ -28,9 +28,9 @@ class ComissoesRelationManager extends RelationManager
                     ->badge()
                     ->formatStateUsing(fn ($state) => $state?->label())
                     ->color(fn ($state) => match ($state) {
-                        StatusComissaoEnum::PAGA => 'success',
-                        StatusComissaoEnum::APROVADA => 'info',
+                        StatusComissaoEnum::CREDITADA => 'success',
                         StatusComissaoEnum::PENDENTE => 'warning',
+                        StatusComissaoEnum::ESTORNADA => 'danger',
                         default => 'gray',
                     }),
                 TextColumn::make('created_at')->label('Criada em')->dateTime('d/m/Y H:i')->sortable(),

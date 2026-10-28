@@ -15,6 +15,7 @@ class EditInfluenciador extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            InfluenciadorResource::redefinirSenhaAction(),
             DeleteAction::make()
                 ->before(function (DeleteAction $action, Influenciador $record): void {
                     InfluenciadorResource::barrarExclusaoSeBloqueada($action, $record);

@@ -81,7 +81,7 @@ class PedidoObserver
         }
 
         if ($pedido->isDirty('pedido_venda_id') && $pedido->pedido_venda_id && $novoStatus !== 'CANCELADO') {
-            app(ComissaoService::class)->aprovar($pedido);
+            app(ComissaoService::class)->creditar($pedido);
         }
     }
 

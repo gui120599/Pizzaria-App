@@ -102,6 +102,8 @@ class PermissionSeeder extends Seeder
             'view_any:comissao', 'view:comissao', 'create:comissao', 'update:comissao', 'delete:comissao',
             'view_any:material_divulgacao', 'view:material_divulgacao', 'create:material_divulgacao', 'update:material_divulgacao', 'delete:material_divulgacao',
             'view_any:resgate_carteira', 'create:resgate_carteira', 'ajustar:carteira_influenciador',
+            // Relatório do programa de influenciadores (página + widget do Shield).
+            'view:relatorio_influenciadores', 'view:relatorio_influenciadores_widget',
         ],
         'Cozinha' => ['view_any:ficha_tecnica', 'view:ficha_tecnica', 'produzir:producao_item'],
         'Expedicao' => ['view_any:ficha_tecnica', 'view:ficha_tecnica', 'produzir:producao_item', 'despachar:producao_item', 'refazer:producao_item'],
@@ -134,7 +136,7 @@ class PermissionSeeder extends Seeder
      * Permissions sem role: só o Admin as exerce, via Gate::before (super_admin).
      * Existem na tabela para a página aparecer no Shield e poderem ser atribuídas depois.
      */
-    private array $permissionsSomenteAdmin = ['view:configuracao_pedidos', 'view:configuracao_influenciadores'];
+    private array $permissionsSomenteAdmin = ['view:configuracao_pedidos', 'view:configuracao_influenciadores', 'view:regulamento_influenciadores'];
 
     /**
      * Pedido nunca é excluído fisicamente. O Admin passa em qualquer Gate, então

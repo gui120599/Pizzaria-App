@@ -8,6 +8,7 @@ use App\Enums\FormaTrocoEnum;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\AlteracaoVendaException;
+use App\Exceptions\CarteiraInfluenciadorException;
 use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\FinanceiroException;
 use App\Exceptions\ItemNaoDivisivelException;
@@ -20,6 +21,7 @@ use App\Models\AdicionaisItemPedido;
 use App\Models\AdicionaisItemVenda;
 use App\Models\CartoesPagamento;
 use App\Models\Cliente;
+use App\Models\CodigoResgate;
 use App\Models\ItensPedido;
 use App\Models\ItensVenda;
 use App\Models\Lancamento;
@@ -35,6 +37,9 @@ use App\Models\StonePedido;
 use App\Models\User;
 use App\Models\Venda;
 use App\Services\AlteracaoVendaService;
+use App\Services\CarteiraInfluenciadorService;
+use App\Services\CodigoResgateService;
+use App\Services\ConsumoCarteiraService;
 use App\Services\CortesiaService;
 use App\Services\DebitosClienteService;
 use App\Services\DivisaoItemPedidoService;
@@ -158,6 +163,14 @@ class OperarVenda extends Page
     public float $valorPagamento = 0;
 
     public float $valorPagoPeloCliente = 0;
+
+    // ── Carteira de influenciador (consumo em pizza) ──
+    public string $codigoCarteira = '';
+
+    public ?int $codigoCarteiraId = null;
+
+    /** @var array{nome: string, saldo: float, limite: float}|null */
+    public ?array $carteiraInfo = null;
 
     /** De onde sai o troco (FormaTrocoEnum) — vem do padrão da forma escolhida, o operador pode trocar. */
     public ?string $formaTroco = null;
@@ -1572,6 +1585,42 @@ class OperarVenda extends Page
     public function updatedOpcaoPagamentoSelecionadaId(): void
     {
         $this->formaTroco = $this->trocoPadraoDaOpcao();
+        $this->limparCarteira();
+    }
+
+    private function limparCarteira(): void
+    {
+        $this->codigoCarteira = '';
+        $this->codigoCarteiraId = null;
+        $this->carteiraInfo = null;
+        $this->resetErrorBag('codigoCarteira');
+    }
+
+    /** Confere o código de resgate do influenciador e mostra nome, saldo e o máximo que dá para consumir. */
+    public function verificarCodigoCarteira(): void
+    {
+        $this->resetErrorBag('codigoCarteira');
+        $this->codigoCarteiraId = null;
+        $this->carteiraInfo = null;
+
+        try {
+            $codigo = app(CodigoResgateService::class)->consultar($this->codigoCarteira, Auth::id());
+        } catch (CarteiraInfluenciadorException $e) {
+            $this->addError('codigoCarteira', $e->getMessage());
+
+            return;
+        }
+
+        $limite = app(ConsumoCarteiraService::class)->limite($codigo, $this->valorRestante);
+
+        $this->codigoCarteiraId = $codigo->id;
+        $this->carteiraInfo = [
+            'nome' => $codigo->influenciador->influenciador_nome,
+            'saldo' => app(CarteiraInfluenciadorService::class)->saldo($codigo->cr_influenciador_id),
+            'limite' => $limite,
+        ];
+        $this->valorPagamento = $limite;
+        $this->valorPagoPeloCliente = $limite;
     }
 
     private function trocoPadraoDaOpcao(): string
@@ -1593,6 +1642,7 @@ class OperarVenda extends Page
         $this->formaTroco = null;
         $this->pagamentoEmEdicaoId = null;
         $this->stoneMaquininhaId = null;
+        $this->limparCarteira();
     }
 
     // ── Cobrança na maquininha Stone ─────────────────────────────────────────
@@ -1812,6 +1862,12 @@ class OperarVenda extends Page
             return;
         }
 
+        if ($pagamento->opcaoPagamento?->opcaopag_carteira_influenciador) {
+            Notification::make()->title('Pagamento com carteira não se edita')->body('Remova o pagamento (o saldo volta à carteira) e lance de novo com um código novo.')->warning()->send();
+
+            return;
+        }
+
         $this->pagamentoEmEdicaoId = $pagamento->id;
         $this->opcaoPagamentoSelecionadaId = $pagamento->pg_venda_opcaopagamento_id;
         $this->cartaoId = $pagamento->pg_venda_cartao_id;
@@ -1856,6 +1912,12 @@ class OperarVenda extends Page
             return;
         }
 
+        if ($opcaoPagamento->opcaopag_carteira_influenciador) {
+            $this->registrarPagamentoCarteira($venda, $opcaoPagamento);
+
+            return;
+        }
+
         $valorRecebido = (float) $this->valorPagamento;
         $valorPagoPeloCliente = $this->valorPagoPeloCliente > 0 ? (float) $this->valorPagoPeloCliente : $valorRecebido;
 
@@ -1886,6 +1948,46 @@ class OperarVenda extends Page
             // Corrigir um pagamento que veio do pedido mantém o vínculo (retirar o pedido o desfaz).
             'pg_venda_pagamento_pedido_id' => $pagamentoAntigo?->pg_venda_pagamento_pedido_id,
         ]);
+
+        $this->fecharModalPagamento();
+        $this->recarregarPagamentos();
+    }
+
+    /**
+     * Consumo em pizza: o código de resgate prova que quem paga é o próprio
+     * influenciador. O valor fica limitado ao menor entre o saldo e o restante,
+     * e o pagamento, o débito e o uso do código saem na mesma transação.
+     */
+    private function registrarPagamentoCarteira(Venda $venda, OpcoesPagamento $opcao): void
+    {
+        $consumo = app(ConsumoCarteiraService::class);
+        $codigo = $this->codigoCarteiraId ? CodigoResgate::find($this->codigoCarteiraId) : null;
+
+        if (! $codigo) {
+            $this->addError('codigoCarteira', 'Informe e verifique o código de resgate do influenciador.');
+
+            return;
+        }
+
+        $valor = round((float) $this->valorPagamento, 2);
+        $limite = $consumo->limite($codigo, $this->valorRestante);
+
+        if ($valor <= 0 || $valor > $limite + 0.001) {
+            $this->addError('valorPagamento', 'O valor precisa ficar entre R$ 0,01 e R$ '.number_format($limite, 2, ',', '.').' (menor entre o saldo e o restante).');
+
+            return;
+        }
+
+        try {
+            DB::transaction(function () use ($venda, $opcao, $valor, $consumo, $codigo): void {
+                $pagamento = $this->gravarPagamento($venda, $opcao, $valor, $valor);
+                $consumo->consumir($codigo, $pagamento, $valor);
+            });
+        } catch (CarteiraInfluenciadorException $e) {
+            $this->addError('codigoCarteira', $e->getMessage());
+
+            return;
+        }
 
         $this->fecharModalPagamento();
         $this->recarregarPagamentos();
@@ -1980,6 +2082,11 @@ class OperarVenda extends Page
 
                 // Venda fiado: só entra o que já foi recebido de verdade no pedido.
                 if ($this->vendaFiado && ! $combinado->pg_pedido_pago) {
+                    continue;
+                }
+
+                // A carteira de influenciador nunca entra por pedido: exige o código no PDV.
+                if ($opcao->ehCarteiraInfluenciador()) {
                     continue;
                 }
 

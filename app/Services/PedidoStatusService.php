@@ -195,6 +195,9 @@ class PedidoStatusService
 
             HistoricoStatusPedido::registrar($fresco->id, $atual->value, StatusPedidoEnum::CANCELADO->value, $ator?->id ?? auth()->id());
 
+            // updateQuietly não dispara o PedidoObserver: o gancho da comissão é explícito.
+            app(ComissaoService::class)->cancelar($fresco);
+
             $this->encerrarSessaoMesaSemPendencias($fresco);
 
             return $fresco;

@@ -7,6 +7,7 @@ use App\Enums\TipoDescontoEnum;
 use App\Exceptions\InfluenciadorInvalidoException;
 use App\Filament\Resources\Influenciadores\Pages\EditInfluenciador;
 use App\Filament\Resources\Influenciadores\Pages\ManageInfluenciadores;
+use App\Filament\Resources\Influenciadores\RelationManagers\CarteiraRelationManager;
 use App\Filament\Resources\Influenciadores\RelationManagers\ComissoesRelationManager;
 use App\Filament\Resources\Influenciadores\RelationManagers\CuponsRelationManager;
 use App\Models\Empresa;
@@ -234,6 +235,8 @@ class InfluenciadorResource extends Resource
                             ->send();
                     }),
 
+                self::redefinirSenhaAction(),
+
                 EditAction::make()
                     ->url(fn (Influenciador $record): string => static::getUrl('edit', ['record' => $record]))
                     ->modal(false),
@@ -252,6 +255,27 @@ class InfluenciadorResource extends Resource
                     RestoreBulkAction::make(),
                 ]),
             ]);
+    }
+
+    public static function redefinirSenhaAction(): Action
+    {
+        return Action::make('redefinirSenha')
+            ->label('Redefinir senha')
+            ->icon(Heroicon::OutlinedKey)
+            ->color('gray')
+            ->authorize(fn (Influenciador $record): bool => (bool) auth()->user()?->can('update', $record))
+            ->requiresConfirmation()
+            ->modalDescription('Gera uma senha temporária, que só aparece uma vez. O influenciador terá de trocá-la no próximo acesso.')
+            ->action(function (Influenciador $record, InfluenciadorService $service): void {
+                $senha = $service->redefinirSenha($record);
+
+                Notification::make()
+                    ->title("Senha temporária de {$record->influenciador_nome}")
+                    ->body("**{$senha}** — passe ao influenciador agora: ela não será mostrada de novo.")
+                    ->success()
+                    ->persistent()
+                    ->send();
+            });
     }
 
     public static function barrarExclusaoSeBloqueada(DeleteAction|DeleteBulkAction $action, Influenciador $record): void
@@ -276,6 +300,7 @@ class InfluenciadorResource extends Resource
         return [
             CuponsRelationManager::class,
             ComissoesRelationManager::class,
+            CarteiraRelationManager::class,
         ];
     }
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\FormaTrocoEnum;
+use App\Services\ConsumoCarteiraService;
 use App\Services\TaxaMaquininhaService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -55,6 +56,9 @@ class PagamentosVenda extends Model
                 app(TaxaMaquininhaService::class)->gravarRetrato($pagamento);
             }
         });
+
+        // Pagamento removido/trocado: devolve à carteira o que foi consumido em pizza.
+        static::deleting(fn (PagamentosVenda $pagamento) => app(ConsumoCarteiraService::class)->estornarDoPagamento($pagamento->id));
     }
 
     /** Forma combinada no pedido que originou este pagamento (lançada pelo Nova Venda). */

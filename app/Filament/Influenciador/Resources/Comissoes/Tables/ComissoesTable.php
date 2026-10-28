@@ -39,8 +39,8 @@ class ComissoesTable
                     ->formatStateUsing(fn ($state) => $state?->label())
                     ->color(fn ($state) => match ($state) {
                         StatusComissaoEnum::PENDENTE => 'gray',
-                        StatusComissaoEnum::APROVADA => 'warning',
-                        StatusComissaoEnum::PAGA => 'success',
+                        StatusComissaoEnum::CREDITADA => 'success',
+                        StatusComissaoEnum::ESTORNADA => 'warning',
                         StatusComissaoEnum::CANCELADA => 'danger',
                         default => 'gray',
                     }),

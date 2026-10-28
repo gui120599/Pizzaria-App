@@ -5,14 +5,17 @@ namespace App\Filament\Influenciador\Pages\Auth;
 use App\Enums\StatusInfluenciadorEnum;
 use App\Filament\Influenciador\Auth\AguardandoAprovacaoResponse;
 use App\Models\Influenciador;
+use App\Models\RegulamentoInfluenciador;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Auth\Events\Registered;
 use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
 use Filament\Auth\Pages\Register as BaseRegister;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 
 class Register extends BaseRegister
 {
@@ -39,6 +42,12 @@ class Register extends BaseRegister
                 ->maxLength(100),
             $this->getPasswordFormComponent(),
             $this->getPasswordConfirmationFormComponent(),
+            // Só aparece quando já existe um regulamento publicado; o aceite grava versão, data e IP.
+            Checkbox::make('aceite_regulamento')
+                ->label(fn (): HtmlString => new HtmlString('Li e aceito o <a href="'.e(route('influenciador.regulamento')).'" target="_blank" class="underline">regulamento do programa</a>'))
+                ->accepted()
+                ->visible(fn (): bool => RegulamentoInfluenciador::atual() !== null)
+                ->dehydrated(false),
         ]);
     }
 
@@ -103,6 +112,7 @@ class Register extends BaseRegister
         /** @var Influenciador $influenciador */
         $influenciador = Influenciador::create($data);
         $influenciador->forceFill(['influenciador_status' => StatusInfluenciadorEnum::PENDENTE])->save();
+        $influenciador->aceitarRegulamento(request()->ip());
 
         return $influenciador;
     }

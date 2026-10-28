@@ -207,7 +207,7 @@ class EntregaPagamentoPicker extends Component
                 ->when($this->somenteComEndereco, fn ($q) => $q->where('opcaoentrega_requer_endereco', true))
                 ->orderBy('opcaoentrega_nome')
                 ->get(),
-            'opcoesPagamento' => OpcoesPagamento::query()->orderBy('opcaopag_nome')->get(),
+            'opcoesPagamento' => OpcoesPagamento::query()->semCarteira()->orderBy('opcaopag_nome')->get(),
         ]);
     }
 

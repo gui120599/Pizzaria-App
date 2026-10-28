@@ -91,6 +91,12 @@ class ContabilizacaoFechamentoService
 
         $empresa = Empresa::query()->first();
 
+        foreach ($pagamentos->groupBy('opcao_id') as $opcaoId => $doGrupo) {
+            if ($opcoes->get($opcaoId)?->ehCarteiraInfluenciador() && $empresa?->empresa_influ_plano_despesa_id === null) {
+                $pendencias[] = 'A venda teve consumo da carteira de influenciador, mas o plano de despesa de marketing não está configurado: configure em Configurações › Influenciadores.';
+            }
+        }
+
         if ($pagamentos->contains(fn (array $pagamento): bool => $pagamento['tipo'] !== null && $pagamento['taxa'] > 0) && $empresa?->empresa_plano_despesa_taxa_cartao_id === null) {
             $pendencias[] = 'A taxa de cartão está sem plano de despesa: configure em Configurações › Certificado SEFAZ.';
         }
@@ -194,6 +200,10 @@ class ContabilizacaoFechamentoService
                 $data = $ehDinheiro ? $dataFechamento : $doGrupo->max('finalizada_em')->copy();
 
                 $lancamentos->push($this->receitaRecebida($sessao, $opcao, $total, $data, $conta));
+
+                if ($opcao->ehCarteiraInfluenciador()) {
+                    $lancamentos->push($this->despesaDaCarteira($sessao, $opcao, $total, $data, $conta));
+                }
             }
 
             $this->lancarTrocoEntreContas($sessao, $pagamentos, $dataFechamento, $fechamento);
@@ -237,7 +247,8 @@ class ContabilizacaoFechamentoService
             $usuario = auth()->user();
             $movimentacoes = app(MovimentacaoService::class);
 
-            foreach ($lancamentos as $lancamento) {
+            // Pagar antes de Receber: a despesa da carteira sai da mesma conta em que a receita entrou.
+            foreach ($lancamentos->sortBy(fn (Lancamento $lancamento): int => $lancamento->tipo === TipoLancamento::Pagar ? 0 : 1) as $lancamento) {
                 $lancamento->estornarPagamento($motivo);
 
                 // Movimentação é append-only e a FK é restrict: título que já
@@ -289,6 +300,39 @@ class ContabilizacaoFechamentoService
             data: $data,
             forma: self::formaPagamentoDe($opcao),
             observacoes: 'Baixa automática — fechamento de caixa.',
+            contaFinanceiraId: $conta->id,
+            foraDaSessao: true,
+        );
+
+        return $lancamento;
+    }
+
+    /**
+     * Consumo em pizza com a carteira do influenciador: a venda entra como
+     * receita na conta de compensação e, no mesmo valor, sai como despesa de
+     * marketing da mesma conta. Resultado: receita + despesa no DRE, saldo da
+     * conta de compensação inalterado e nenhum efeito no caixa.
+     */
+    private function despesaDaCarteira(SessaoCaixa $sessao, OpcoesPagamento $opcao, float $total, Carbon $data, ContaFinanceira $conta): Lancamento
+    {
+        $planoId = Empresa::query()->value('empresa_influ_plano_despesa_id');
+
+        $lancamento = Lancamento::create([
+            'tipo' => TipoLancamento::Pagar,
+            'sessao_caixa_id' => $sessao->id,
+            'plano_despesa_id' => $planoId,
+            'descricao' => "Marketing — {$opcao->opcaopag_nome} (consumo de influenciadores) — Sessão #{$sessao->id} ({$data->format('d/m/Y')})",
+            'valor' => $total,
+            'vencimento' => $data,
+            'competencia' => $data->copy()->startOfMonth(),
+            'status' => StatusLancamento::Pendente,
+        ]);
+
+        $lancamento->registrarPagamento(
+            valor: $total,
+            data: $data,
+            forma: FormaPagamento::Transferencia,
+            observacoes: 'Baixa automática — consumo da carteira de influenciadores.',
             contaFinanceiraId: $conta->id,
             foraDaSessao: true,
         );

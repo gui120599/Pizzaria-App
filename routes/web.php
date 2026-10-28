@@ -32,11 +32,13 @@ use App\Http\Controllers\RelatorioFechamentoCaixaController;
 use App\Http\Controllers\RelatorioFiscalNotasController;
 use App\Http\Controllers\RelatorioSessaoCaixaController;
 use App\Http\Controllers\RelatorioTaxaServicoController;
+use App\Http\Controllers\ResgateCarteiraDocumentoController;
 use App\Http\Controllers\SessaoCaixaController;
 use App\Http\Controllers\SessaoMesaController;
 use App\Http\Controllers\VendaCancelarVaziaController;
 use App\Http\Controllers\VendaController;
 use App\Http\Middleware\ResolverParticipanteMesa;
+use App\Models\RegulamentoInfluenciador;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -62,6 +64,10 @@ Route::get('/', function () {
 Route::get('/Cardapio', [CardapioController::class, 'index'])->name('cardapio');
 Route::get('/cardapio/lookup-cliente', [CardapioCheckoutController::class, 'lookupCliente'])->name('cardapio.lookup_cliente');
 Route::post('/cardapio/checkout', [CardapioCheckoutController::class, 'checkout'])->middleware('throttle:cardapio-checkout')->name('cardapio.checkout');
+Route::middleware('auth')->group(function () {
+    Route::get('/resgates-carteira/{resgate}/recibo', [ResgateCarteiraDocumentoController::class, 'recibo'])->name('resgates-carteira.recibo');
+    Route::get('/resgates-carteira/{resgate}/comprovante', [ResgateCarteiraDocumentoController::class, 'comprovante'])->name('resgates-carteira.comprovante');
+});
 Route::get('/r/{slug}', ReferenciaInfluenciadorController::class)->middleware('throttle:referencia-influenciador')->name('referencia.influenciador');
 Route::post('/cardapio/cupom/validar', [CardapioCheckoutController::class, 'validarCupom'])->middleware('throttle:cardapio-cupom')->name('cardapio.cupom.validar');
 Route::get('/acompanhar/{id}', fn ($id) => view('app.acompanhamento.index', ['pedidoId' => (int) $id]))->name('pedido.acompanhar');
@@ -88,6 +94,9 @@ Route::get('/Produto/{produto}', [ProdutoController::class, 'show'])->name('prod
 // em /influenciadores/register — o influenciador nasce "pendente" e não
 // consegue entrar no painel até o staff aprovar, então mostramos um aviso
 // em vez de deixar a navegação padrão do Filament esbarrar num 403.
+Route::get('/influenciadores/regulamento', fn () => view('influenciador.regulamento', ['regulamento' => RegulamentoInfluenciador::atual()]))
+    ->name('influenciador.regulamento');
+
 Route::get('/influenciadores/aguardando-aprovacao', fn () => view('influenciador.aguardando-aprovacao'))
     ->name('influenciador.aguardando-aprovacao');
 
