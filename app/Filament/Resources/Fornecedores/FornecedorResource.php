@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Fornecedores;
 
 use App\Enums\PrestadorCategoriaEnum;
 use App\Enums\PrestadorTipoEnum;
+use App\Filament\Components\CondicoesCompraSection;
 use App\Filament\Resources\Fornecedores\Pages\CreateFornecedor;
 use App\Filament\Resources\Fornecedores\Pages\EditFornecedor;
 use App\Filament\Resources\Fornecedores\Pages\ListFornecedores;
@@ -91,6 +92,8 @@ class FornecedorResource extends Resource
                     TextInput::make('cidade')->label('Cidade'),
                     TextInput::make('uf')->label('UF')->maxLength(2),
                 ]),
+
+            CondicoesCompraSection::make(),
         ]);
     }
 

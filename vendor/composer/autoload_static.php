@@ -1074,6 +1074,7 @@ class ComposerStaticInitfccadfecc210f6baf2c8998013be6b73
         'App\\Exceptions\\StoneConnectException' => __DIR__ . '/../..' . '/app/Exceptions/StoneConnectException.php',
         'App\\Exceptions\\TransicaoPedidoInvalidaException' => __DIR__ . '/../..' . '/app/Exceptions/TransicaoPedidoInvalidaException.php',
         'App\\Exceptions\\VendaNaoFinalizavelException' => __DIR__ . '/../..' . '/app/Exceptions/VendaNaoFinalizavelException.php',
+        'App\\Filament\\Components\\CondicoesCompraSection' => __DIR__ . '/../..' . '/app/Filament/Components/CondicoesCompraSection.php',
         'App\\Filament\\Components\\ContaFinanceiraSelect' => __DIR__ . '/../..' . '/app/Filament/Components/ContaFinanceiraSelect.php',
         'App\\Filament\\Components\\MarcaSelect' => __DIR__ . '/../..' . '/app/Filament/Components/MarcaSelect.php',
         'App\\Filament\\Concerns\\AutorizaComPinDeGerente' => __DIR__ . '/../..' . '/app/Filament/Concerns/AutorizaComPinDeGerente.php',

@@ -184,6 +184,7 @@ return array(
     'App\\Exceptions\\StoneConnectException' => $baseDir . '/app/Exceptions/StoneConnectException.php',
     'App\\Exceptions\\TransicaoPedidoInvalidaException' => $baseDir . '/app/Exceptions/TransicaoPedidoInvalidaException.php',
     'App\\Exceptions\\VendaNaoFinalizavelException' => $baseDir . '/app/Exceptions/VendaNaoFinalizavelException.php',
+    'App\\Filament\\Components\\CondicoesCompraSection' => $baseDir . '/app/Filament/Components/CondicoesCompraSection.php',
     'App\\Filament\\Components\\ContaFinanceiraSelect' => $baseDir . '/app/Filament/Components/ContaFinanceiraSelect.php',
     'App\\Filament\\Components\\MarcaSelect' => $baseDir . '/app/Filament/Components/MarcaSelect.php',
     'App\\Filament\\Concerns\\AutorizaComPinDeGerente' => $baseDir . '/app/Filament/Concerns/AutorizaComPinDeGerente.php',
