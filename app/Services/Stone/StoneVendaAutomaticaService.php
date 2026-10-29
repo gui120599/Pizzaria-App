@@ -15,6 +15,7 @@ use App\Models\Venda;
 use App\Services\FinalizacaoVendaService;
 use App\Services\LancamentoItensVendaService;
 use App\Services\LancamentoPagamentosVendaService;
+use App\Services\Nfe\EmissaoNfeAutomaticaService;
 use App\Services\VendaService;
 use App\Support\ContaMesa;
 use Illuminate\Support\Collection;
@@ -215,11 +216,29 @@ class StoneVendaAutomaticaService
             return false;
         }
 
-        // Mesma regra de NFC-e automática do PDV (forma de pagamento) — em
-        // fila, depois do commit, para não segurar a resposta do webhook.
-        EmitirNfeAutomaticaJob::dispatch($venda->id)->afterCommit();
+        $this->emitirNfceAutomatica($venda);
 
         return true;
+    }
+
+    /**
+     * Mesma regra de NFC-e automática do PDV (forma de pagamento). Roda no
+     * mesmo processo, depois da resposta (webhook), sem depender de worker da
+     * fila padrão. Nenhum chamador de finalizarSePago() está dentro de uma
+     * transação: o job só lê a venda já commitada.
+     */
+    private function emitirNfceAutomatica(Venda $venda): void
+    {
+        $motivo = app(EmissaoNfeAutomaticaService::class)->motivoNaoEmitir($venda);
+
+        if ($motivo !== null) {
+            Log::channel('stone')->warning('NFC-e automática não emitida', [
+                'venda_id' => $venda->id, 'motivo' => $motivo,
+            ]);
+        }
+
+        // O job rechecka as mesmas condições e é idempotente.
+        EmitirNfeAutomaticaJob::dispatchAfterResponse($venda->id);
     }
 
     /**

@@ -4,7 +4,10 @@ namespace App\Console\Commands;
 
 use App\Enums\StonePedidoOrigem;
 use App\Enums\StonePedidoStatus;
+use App\Exceptions\NfeIoException;
 use App\Models\StonePedido;
+use App\Models\Venda;
+use App\Services\Nfe\EmissaoNfeAutomaticaService;
 use App\Services\Stone\StoneConnectService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Services\Stone\StoneVendaAutomaticaService;
@@ -25,7 +28,9 @@ use Illuminate\Support\Facades\Log;
  *   5. pedidos de RESULTADO DESCONHECIDO (timeout/5xx no POST) e AGUARDANDO
  *      sem order_id: reconsulta/reenvia o MESMO registro com a mesma
  *      Idempotency-Key (ver StoneRecebimentoService::reconsultar()). Nunca
- *      viram Falha sozinhos: o pedido pode existir na maquininha.
+ *      viram Falha sozinhos: o pedido pode existir na maquininha;
+ *   6. vendas FINALIZADAS pelo webhook (origem Pedido/SessaoMesa) que ficaram
+ *      sem NFC-e automática: emite direto, sem fila (ver emitirNfcesPendentes()).
  */
 class StoneConciliarPedidos extends Command
 {
@@ -36,7 +41,7 @@ class StoneConciliarPedidos extends Command
 
     protected $description = 'Fecha pedidos Stone pendentes e recupera webhooks charge.paid perdidos';
 
-    public function handle(StoneConnectService $connect, StoneRecebimentoService $recebimento, StoneVendaAutomaticaService $vendaAutomatica): int
+    public function handle(StoneConnectService $connect, StoneRecebimentoService $recebimento, StoneVendaAutomaticaService $vendaAutomatica, EmissaoNfeAutomaticaService $emissaoNfe): int
     {
         if (blank(config('services.stone.secret_key'))) {
             $this->warn('Integração Stone não configurada — nada a fazer.');
@@ -49,10 +54,11 @@ class StoneConciliarPedidos extends Command
         $vendasGeradas = $this->reprocessarPagosSemVenda($vendaAutomatica);
         $resolvidos = $this->resolverIndeterminados($recebimento);
         $expirados = $this->expirarAntigos();
+        $nfces = $this->emitirNfcesPendentes($emissaoNfe);
 
         $this->table(
-            ['Fechados', 'Recuperados', 'Vendas geradas', 'Indeterminados resolvidos', 'Expirados'],
-            [[$fechados, $recuperados, $vendasGeradas, $resolvidos, $expirados]],
+            ['Fechados', 'Recuperados', 'Vendas geradas', 'Indeterminados resolvidos', 'Expirados', 'NFC-e emitidas'],
+            [[$fechados, $recuperados, $vendasGeradas, $resolvidos, $expirados, $nfces]],
         );
 
         return self::SUCCESS;
@@ -181,5 +187,43 @@ class StoneConciliarPedidos extends Command
             ->whereNotNull('stp_order_id')
             ->where('created_at', '<', $limite)
             ->update(['stp_status' => StonePedidoStatus::Falha->value]);
+    }
+
+    /**
+     * Rede de segurança da NFC-e automática: venda finalizada pela Stone há
+     * mais de 5 min e menos de 24 h (prazo de autorização da NFC-e) que seguiu
+     * sem nota. A rechecagem de venda_id_nfe e a exclusão mútua com o job ficam
+     * em EmissaoNfeAutomaticaService::emitir(). Falha na NFe.io só é logada.
+     */
+    private function emitirNfcesPendentes(EmissaoNfeAutomaticaService $emissaoNfe): int
+    {
+        $vendas = Venda::query()
+            ->where('venda_status', 'FINALIZADA')
+            ->where(fn ($query) => $query->whereNull('venda_id_nfe')->orWhere('venda_id_nfe', ''))
+            ->whereBetween('venda_datahora_finalizada', [now()->subHours(24), now()->subMinutes(5)])
+            ->whereIn('id', StonePedido::query()
+                ->select('stp_venda_id')
+                ->whereNotNull('stp_venda_id')
+                ->whereIn('stp_origem', [StonePedidoOrigem::Pedido->value, StonePedidoOrigem::SessaoMesa->value]))
+            ->get();
+
+        $emitidas = 0;
+        foreach ($vendas as $venda) {
+            if (! $emissaoNfe->deveEmitir($venda)) {
+                continue;
+            }
+
+            try {
+                if ($emissaoNfe->emitir($venda)) {
+                    $emitidas++;
+                }
+            } catch (NfeIoException $e) {
+                Log::channel('stone')->error('Conciliação: NFC-e automática da venda finalizada pela Stone falhou', [
+                    'venda_id' => $venda->id, 'erro' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $emitidas;
     }
 }
