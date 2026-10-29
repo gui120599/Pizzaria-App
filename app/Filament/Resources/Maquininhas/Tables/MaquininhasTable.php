@@ -43,6 +43,9 @@ class MaquininhasTable
                     ->label('Número de série')
                     ->searchable()
                     ->placeholder('—'),
+                IconColumn::make('maquininha_connect_ativo')
+                    ->label('Stone Connect')
+                    ->boolean(),
                 IconColumn::make('maquininha_padrao')
                     ->label('Padrão')
                     ->boolean(),

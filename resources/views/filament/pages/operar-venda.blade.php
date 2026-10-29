@@ -687,6 +687,18 @@
                                 Fechar
                             </button>
                         </div>
+                    @elseif ($stoneStatusModal === 'indeterminado')
+                        <div class="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 text-sm rounded-lg px-3 py-2">
+                            {{ $stoneErroModal ?: 'Não foi possível confirmar se a cobrança chegou à maquininha. Não envie de novo: reconsulte na Stone.' }}
+                        </div>
+                        <div class="flex gap-2">
+                            <button wire:click="reconsultarCobrancaStone" wire:loading.attr="disabled" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50">
+                                Reconsultar na Stone
+                            </button>
+                            <button wire:click="fecharModalStone" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+                                Fechar
+                            </button>
+                        </div>
                     @elseif ($stoneStatusModal === 'cancelado')
                         <div class="flex flex-col items-center gap-2 py-2 text-center">
                             <x-filament::icon icon="heroicon-o-x-circle" class="h-8 w-8 text-gray-400" />
@@ -820,7 +832,8 @@
         @php
             $opcaoSelecionada = $this->opcoesPagamento->firstWhere('id', $opcaoPagamentoSelecionadaId);
             $emEdicaoPagamento = (bool) $pagamentoEmEdicaoId;
-            $ehStone = (bool) $opcaoSelecionada?->ehIntegracaoStone();
+            $escolhaModo = $this->escolhaModoRecebimentoVisivel;
+            $ehStone = $escolhaModo && $modoRecebimento === 'stone';
             $ehCarteira = (bool) $opcaoSelecionada?->opcaopag_carteira_influenciador;
             $semTroco = $ehStone || $ehCarteira;
         @endphp
@@ -864,6 +877,26 @@
                         </div>
                     </div>
 
+                    @if ($escolhaModo)
+                        <div>
+                            <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Como receber</label>
+                            <div class="grid grid-cols-2 gap-2 mt-1">
+                                @foreach (['manual' => 'Lançar manual', 'stone' => 'Cobrar na Stone'] as $valorModo => $rotuloModo)
+                                    <label class="relative flex items-center justify-center px-3 py-2 rounded-lg border text-sm font-medium text-center cursor-pointer transition-colors
+                                        border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300
+                                        has-[:checked]:border-primary-500 has-[:checked]:bg-primary-50 has-[:checked]:text-primary-700
+                                        dark:has-[:checked]:bg-primary-500/10 dark:has-[:checked]:text-primary-400">
+                                        <input type="radio" wire:model.live="modoRecebimento" value="{{ $valorModo }}" class="sr-only" />
+                                        {{ $rotuloModo }}
+                                    </label>
+                                @endforeach
+                            </div>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                {{ $ehStone ? 'A cobrança vai para a maquininha Connect e o pagamento é lançado quando ela confirmar.' : 'Registra o pagamento já feito em qualquer maquininha, com bandeira e autorização.' }}
+                            </p>
+                        </div>
+                    @endif
+
                     @if ($ehCarteira)
                         <div class="space-y-2">
                             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Código de resgate do influenciador</label>
@@ -889,7 +922,7 @@
                         </div>
                     @endif
 
-                    @if ($opcaoSelecionada?->ehIntegracaoStone())
+                    @if ($ehStone)
                         <div>
                             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Maquininha Stone</label>
                             <select wire:model="stoneMaquininhaId" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
@@ -899,12 +932,12 @@
                                 @endforeach
                             </select>
                             @if ($this->maquininhasStone->isEmpty())
-                                <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Nenhuma maquininha Stone com número de série cadastrada.</p>
+                                <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Nenhuma maquininha com Stone Connect ativo e número de série cadastrada.</p>
                             @endif
                         </div>
                     @endif
 
-                    @if ($opcaoSelecionada?->tipoMaquininha() && ! $opcaoSelecionada?->ehIntegracaoStone() && $this->maquininhas->isNotEmpty())
+                    @if ($opcaoSelecionada?->tipoMaquininha() && ! $ehStone && $this->maquininhas->isNotEmpty())
                         <div>
                             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Maquininha</label>
                             <select wire:model="maquininhaPagamentoId" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
@@ -916,7 +949,7 @@
                         </div>
                     @endif
 
-                    @if ($opcaoSelecionada?->opcaopag_requer_bandeira && ! $opcaoSelecionada?->ehIntegracaoStone())
+                    @if ($opcaoSelecionada?->opcaopag_requer_bandeira && ! $ehStone)
                         <div>
                             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Cartão / bandeira</label>
                             <select wire:model="cartaoId" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">

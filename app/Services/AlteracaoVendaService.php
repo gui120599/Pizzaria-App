@@ -122,7 +122,7 @@ class AlteracaoVendaService
 
             $antes = $alteracao->antes;
 
-            if (StonePedido::where('stp_venda_id', $venda->id)->whereIn('stp_status', [StonePedidoStatus::Aguardando, StonePedidoStatus::PagoParcial])->exists()) {
+            if (StonePedido::where('stp_venda_id', $venda->id)->whereIn('stp_status', StonePedidoStatus::pendentes())->exists()) {
                 throw new AlteracaoVendaException('Há uma cobrança na maquininha aguardando pagamento. Conclua ou cancele antes de descartar.');
             }
 

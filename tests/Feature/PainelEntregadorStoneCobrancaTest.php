@@ -98,8 +98,8 @@ class PainelEntregadorStoneCobrancaTest extends TestCase
 
         $entregador = User::factory()->create(['name_first' => 'Entregador']);
         $pedido = $this->pedidoEmTransporte($entregador);
-        $maquininhaEntregador = Maquininha::create(['nome' => 'Entregador 1', 'operadora' => 'stone', 'numero_serie' => '999']);
-        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $maquininhaEntregador = Maquininha::create(['nome' => 'Entregador 1', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '999']);
+        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
 
         $this->actingAs($entregador);
 
@@ -122,11 +122,21 @@ class PainelEntregadorStoneCobrancaTest extends TestCase
             && ! isset($request->data()['poi_payment_settings']['payment_setup']));
     }
 
-    public function test_botao_receber_some_quando_pagamento_combinado_nao_e_stone(): void
+    public function test_botao_receber_aparece_mesmo_quando_pagamento_combinado_nao_e_stone(): void
     {
         $entregador = User::factory()->create(['name_first' => 'Entregador']);
-        $pedido = $this->pedidoEmTransporte($entregador, combinadoStone: false);
-        Maquininha::create(['nome' => 'Entregador 1', 'operadora' => 'stone', 'numero_serie' => '999']);
+        $this->pedidoEmTransporte($entregador, combinadoStone: false);
+        Maquininha::create(['nome' => 'Entregador 1', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '999']);
+        $this->actingAs($entregador);
+
+        Livewire::test(PainelEntregador::class)->assertSee('Receber na maquininha');
+    }
+
+    public function test_botao_receber_some_sem_maquininha_connect(): void
+    {
+        $entregador = User::factory()->create(['name_first' => 'Entregador']);
+        $pedido = $this->pedidoEmTransporte($entregador);
+        Maquininha::create(['nome' => 'Tectoy T8', 'operadora' => 'stone', 'numero_serie' => '222']);
         $this->actingAs($entregador);
 
         Livewire::test(PainelEntregador::class)

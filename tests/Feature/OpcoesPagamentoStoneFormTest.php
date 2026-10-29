@@ -60,4 +60,41 @@ class OpcoesPagamentoStoneFormTest extends TestCase
 
         $this->assertSame(0, OpcoesPagamento::count());
     }
+
+    /** #6c — duas formas que permitem Stone com o mesmo Código NF-e deixam o pagamento da maquininha ambíguo. */
+    public function test_duas_formas_que_permitem_stone_com_o_mesmo_codigo_nfe_sao_rejeitadas(): void
+    {
+        $existente = OpcoesPagamento::create($this->dadosBase('creditCard'));
+
+        Livewire::test(ManageOpcoesPagamento::class)
+            ->callTableAction('create', data: ['opcaopag_nome' => 'Crédito 2'] + $this->dadosBase('creditCard'))
+            ->assertHasTableActionErrors(['opcaopag_stone_integrada']);
+
+        $this->assertSame(1, OpcoesPagamento::where('opcaopag_stone_integrada', true)->count());
+        $this->assertTrue($existente->fresh()->opcaopag_stone_integrada);
+    }
+
+    public function test_forma_de_outro_codigo_nfe_ou_sem_o_flag_nao_conflita(): void
+    {
+        OpcoesPagamento::create($this->dadosBase('creditCard'));
+
+        Livewire::test(ManageOpcoesPagamento::class)
+            ->callTableAction('create', data: $this->dadosBase('debitCard'))
+            ->assertHasNoTableActionErrors();
+
+        Livewire::test(ManageOpcoesPagamento::class)
+            ->callTableAction('create', data: ['opcaopag_nome' => 'Crédito manual', 'opcaopag_stone_integrada' => false] + $this->dadosBase('creditCard'))
+            ->assertHasNoTableActionErrors();
+    }
+
+    public function test_editar_a_propria_forma_que_permite_stone_nao_conflita_consigo_mesma(): void
+    {
+        $existente = OpcoesPagamento::create($this->dadosBase('creditCard'));
+
+        Livewire::test(ManageOpcoesPagamento::class)
+            ->callTableAction('edit', $existente, data: ['opcaopag_nome' => 'Crédito renomeado'])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertSame('Crédito renomeado', $existente->fresh()->opcaopag_nome);
+    }
 }

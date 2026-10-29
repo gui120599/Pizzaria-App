@@ -116,8 +116,12 @@ class OpcoesPagamento extends Model
         return $query->where('opcaopag_carteira_influenciador', false);
     }
 
-    /** Forma de pagamento que dispara o fluxo integrado de maquininha Stone no PDV. */
-    public function ehIntegracaoStone(): bool
+    /**
+     * Forma que PODE ser cobrada numa maquininha Stone Connect (não que sempre
+     * seja): o PDV deixa o operador escolher entre lançar manual e cobrar na
+     * Stone. Lançar manual continua valendo para qualquer maquininha.
+     */
+    public function permiteCobrarStone(): bool
     {
         return (bool) $this->opcaopag_stone_integrada;
     }

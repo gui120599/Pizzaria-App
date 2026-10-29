@@ -147,7 +147,7 @@ class StoneWebhookControllerTest extends TestCase
                 'opcaopag_stone_integrada' => true,
             ])->id;
         }
-        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '6N021234']);
+        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '6N021234']);
 
         return StonePedido::create([
             'stp_venda_id' => $venda->id,

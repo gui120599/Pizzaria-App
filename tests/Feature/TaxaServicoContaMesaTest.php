@@ -167,7 +167,7 @@ class TaxaServicoContaMesaTest extends TestCase
         StonePedido::create([
             'stp_sessao_mesa_id' => $sessao->id,
             'stp_origem' => StonePedidoOrigem::SessaoMesa,
-            'stp_maquininha_id' => Maquininha::create(['nome' => 'Salão', 'operadora' => 'stone', 'numero_serie' => '6N0001'])->id,
+            'stp_maquininha_id' => Maquininha::create(['nome' => 'Salão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '6N0001'])->id,
             'stp_order_id' => 'or_taxa_1',
             'stp_order_code' => 'TAXA1',
             'stp_valor_solicitado' => 55.00,

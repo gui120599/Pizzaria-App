@@ -204,26 +204,18 @@ class Pedido extends Model
         return $this->hasMany(PagamentosPedido::class, 'pg_pedido_pedido_id')->orderBy('pg_pedido_ordem');
     }
 
-    /** Cobranças na maquininha ainda em aberto (aguardando ou paga em parte), da mais recente para a mais antiga. */
+    /** Todas as cobranças na maquininha deste pedido, da mais recente para a mais antiga. */
+    public function stonePedidos()
+    {
+        return $this->hasMany(StonePedido::class, 'stp_pedido_id')->latest('id');
+    }
+
+    /** Cobranças na maquininha ainda em aberto (aguardando, paga em parte ou de resultado desconhecido), da mais recente para a mais antiga. */
     public function stonePedidosPendentes()
     {
         return $this->hasMany(StonePedido::class, 'stp_pedido_id')
-            ->whereIn('stp_status', [StonePedidoStatus::Aguardando->value, StonePedidoStatus::PagoParcial->value])
+            ->whereIn('stp_status', StonePedidoStatus::valoresPendentes())
             ->latest('id');
-    }
-
-    /** Só pedidos combinados em forma integrada à Stone podem ser cobrados na maquininha. */
-    public function temPagamentoCombinadoStone(): bool
-    {
-        if ($this->relationLoaded('pagamentosCombinados')) {
-            return $this->pagamentosCombinados->contains(
-                fn (PagamentosPedido $pagamento): bool => (bool) $pagamento->opcaoPagamento?->opcaopag_stone_integrada
-            );
-        }
-
-        return $this->pagamentosCombinados()
-            ->whereHas('opcaoPagamento', fn ($query) => $query->where('opcaopag_stone_integrada', true))
-            ->exists();
     }
 
     /**

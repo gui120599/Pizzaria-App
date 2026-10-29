@@ -34,6 +34,7 @@ class StoneConnectServiceTest extends TestCase
         $maquininha = Maquininha::create([
             'nome' => 'Balcão',
             'operadora' => 'stone',
+            'maquininha_connect_ativo' => true,
             'numero_serie' => '6N021234',
         ]);
 

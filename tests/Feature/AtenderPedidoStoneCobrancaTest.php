@@ -51,7 +51,7 @@ class AtenderPedidoStoneCobrancaTest extends TestCase
             'produto_preco_venda' => 40.0,
         ]);
 
-        $pedido = Pedido::create(['pedido_status' => 'EM TRANSPORTE']);
+        $pedido = Pedido::create(['pedido_status' => 'EM TRANSPORTE', 'pedido_valor_total' => 40.0, 'pedido_valor_itens' => 40.0]);
 
         ItensPedido::create([
             'item_pedido_pedido_id' => $pedido->id,
@@ -106,8 +106,8 @@ class AtenderPedidoStoneCobrancaTest extends TestCase
         Http::fake(['api.pagar.me/*' => Http::response(['id' => 'or_abc', 'code' => 'COD1'], 200)]);
 
         $pedido = $this->pedidoComItem();
-        $maquininhaBalcao = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
-        Maquininha::create(['nome' => 'Entregador', 'operadora' => 'stone', 'numero_serie' => '222']);
+        $maquininhaBalcao = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
+        Maquininha::create(['nome' => 'Entregador', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '222']);
 
         Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
             ->call('abrirModalStone')
@@ -129,8 +129,8 @@ class AtenderPedidoStoneCobrancaTest extends TestCase
 
     public function test_maquininha_sem_numero_de_serie_nao_aparece_na_lista(): void
     {
-        Maquininha::create(['nome' => 'Sem série', 'operadora' => 'stone', 'numero_serie' => null]);
-        $comSerie = Maquininha::create(['nome' => 'Com série', 'operadora' => 'stone', 'numero_serie' => '333']);
+        Maquininha::create(['nome' => 'Sem série', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => null]);
+        $comSerie = Maquininha::create(['nome' => 'Com série', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '333']);
         $pedido = $this->pedidoComItem();
 
         Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
@@ -147,7 +147,7 @@ class AtenderPedidoStoneCobrancaTest extends TestCase
         Http::fake(['api.pagar.me/*' => Http::response(['id' => 'or_abc', 'code' => 'COD1'], 200)]);
 
         $pedido = $this->pedidoComItem();
-        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
         $credito = OpcoesPagamento::create([
             'opcaopag_nome' => 'Crédito Stone',
             'opcaopag_desc_nfe' => 'creditCard',
@@ -170,21 +170,31 @@ class AtenderPedidoStoneCobrancaTest extends TestCase
             && ($request->data()['poi_payment_settings']['payment_setup']['type'] ?? null) === 'credit');
     }
 
-    public function test_botao_cobrar_some_quando_pagamento_combinado_nao_e_stone(): void
+    public function test_botao_cobrar_aparece_mesmo_quando_pagamento_combinado_nao_e_stone(): void
     {
-        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
         $pedido = $this->pedidoComItem(combinadoStone: false);
 
         Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
-            ->assertSet('podeCobrarStone', false)
-            ->assertDontSee('Cobrar na maquininha')
+            ->assertSet('podeCobrarStone', true)
+            ->assertSee('Cobrar na maquininha')
             ->call('abrirModalStone')
-            ->assertSet('modalStoneAberta', false);
+            ->assertSet('modalStoneAberta', true);
+    }
+
+    public function test_botao_cobrar_some_sem_maquininha_connect(): void
+    {
+        Maquininha::create(['nome' => 'Tectoy T8', 'operadora' => 'stone', 'numero_serie' => '222']);
+        $pedido = $this->pedidoComItem();
+
+        Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
+            ->assertSet('podeCobrarStone', false)
+            ->assertDontSee('Cobrar na maquininha');
     }
 
     public function test_botao_cobrar_aparece_quando_pagamento_combinado_e_stone(): void
     {
-        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
         $pedido = $this->pedidoComItem();
 
         Livewire::test(AtenderPedido::class, ['pedido' => $pedido])

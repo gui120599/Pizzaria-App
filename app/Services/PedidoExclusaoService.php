@@ -59,6 +59,7 @@ class PedidoExclusaoService
             ->whereIn('stp_status', [
                 StonePedidoStatus::Aguardando->value,
                 StonePedidoStatus::PagoParcial->value,
+                StonePedidoStatus::Indeterminado->value,
                 StonePedidoStatus::Pago->value,
             ])
             ->exists();

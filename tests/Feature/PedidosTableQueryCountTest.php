@@ -52,7 +52,7 @@ class PedidosTableQueryCountTest extends TestCase
 
         $this->garcom = User::factory()->create(['name_first' => 'Ana']);
         $this->delivery = OpcoesEntregas::create(['opcaoentrega_nome' => 'Delivery', 'opcaoentrega_requer_endereco' => true]);
-        $this->maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $this->maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
         $this->cartao = OpcoesPagamento::create([
             'opcaopag_nome' => 'Cartão Stone',
             'opcaopag_desc_nfe' => 'creditCard',

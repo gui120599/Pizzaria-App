@@ -100,7 +100,7 @@ class StoneVendaPeloWebhookTest extends TestCase
 
     private function maquininha(): Maquininha
     {
-        return Maquininha::create(['nome' => 'Entregador', 'operadora' => 'stone', 'numero_serie' => '6N021234']);
+        return Maquininha::create(['nome' => 'Entregador', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '6N021234']);
     }
 
     private function stonePedidoDePedido(Pedido $pedido, float $valor): StonePedido

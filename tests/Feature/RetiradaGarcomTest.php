@@ -292,7 +292,7 @@ class RetiradaGarcomTest extends TestCase
         Http::preventStrayRequests();
         Http::fake(['api.pagar.me/*' => Http::response(['id' => 'or_ret', 'code' => 'RET1'], 200)]);
         OpcoesPagamento::create(['opcaopag_nome' => 'Cartão Stone', 'opcaopag_desc_nfe' => 'creditCard', 'opcaopag_tipo_taxa' => 'N/A', 'opcaopag_valor_percentual_taxa' => 0, 'opcaopag_stone_integrada' => true]);
-        $maquininha = Maquininha::create(['nome' => 'Salão', 'operadora' => 'stone', 'numero_serie' => '777']);
+        $maquininha = Maquininha::create(['nome' => 'Salão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '777']);
         $pedido = $this->retiradaEnviada();
 
         Livewire::test(MesaStoneCobranca::class, ['pedidoId' => $pedido->id])

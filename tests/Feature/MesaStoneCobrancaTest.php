@@ -99,7 +99,7 @@ class MesaStoneCobrancaTest extends TestCase
         Http::fake(['api.pagar.me/*' => Http::response(['id' => 'or_abc', 'code' => 'COD1'], 200)]);
 
         $sessaoMesa = $this->sessaoMesaComConta();
-        $maquininhaGarcom = Maquininha::create(['nome' => 'Garçom 1', 'operadora' => 'stone', 'numero_serie' => '555']);
+        $maquininhaGarcom = Maquininha::create(['nome' => 'Garçom 1', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '555']);
 
         Livewire::test(MesaStoneCobranca::class, ['sessaoMesaId' => $sessaoMesa->id])
             ->call('abrirModal')
@@ -118,15 +118,22 @@ class MesaStoneCobrancaTest extends TestCase
             && $request->data()['poi_payment_settings']['devices_serial_number'] === ['555']);
     }
 
-    public function test_botao_cobrar_some_sem_forma_de_pagamento_integrada_stone(): void
+    public function test_botao_cobrar_some_sem_maquininha_connect_ativa(): void
     {
-        OpcoesPagamento::query()->update(['opcaopag_stone_integrada' => false]);
-        Maquininha::create(['nome' => 'Garçom', 'operadora' => 'stone', 'numero_serie' => '111']);
+        Maquininha::create(['nome' => 'Tectoy T8', 'operadora' => 'stone', 'numero_serie' => '111']);
         $sessaoMesa = $this->sessaoMesaComConta();
 
         Livewire::test(MesaStoneCobranca::class, ['sessaoMesaId' => $sessaoMesa->id])
-            ->assertDontSee('Cobrar na maquininha')
-            ->call('abrirModal')
-            ->assertSet('modalAberta', false);
+            ->assertDontSee('Cobrar na maquininha');
+    }
+
+    public function test_botao_cobrar_aparece_sem_depender_do_flag_da_forma_de_pagamento(): void
+    {
+        OpcoesPagamento::query()->update(['opcaopag_stone_integrada' => false]);
+        Maquininha::create(['nome' => 'Garçom', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
+        $sessaoMesa = $this->sessaoMesaComConta();
+
+        Livewire::test(MesaStoneCobranca::class, ['sessaoMesaId' => $sessaoMesa->id])
+            ->assertSee('Cobrar na maquininha');
     }
 }

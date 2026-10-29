@@ -95,7 +95,7 @@ class PedidosTableStoneCobrancaTest extends TestCase
         Http::fake(['api.pagar.me/*' => Http::response(['id' => 'or_abc', 'code' => 'COD1'], 200)]);
 
         $pedido = $this->pedidoComItem();
-        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
 
         Livewire::test(ListPedidos::class)
             ->callAction(TestAction::make('enviarStone')->table($pedido), [
@@ -115,16 +115,25 @@ class PedidosTableStoneCobrancaTest extends TestCase
     public function test_action_enviar_stone_fica_invisivel_para_pedido_finalizado(): void
     {
         $pedido = $this->pedidoComItem('FINALIZADO');
-        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
 
         Livewire::test(ListPedidos::class)
             ->assertActionHidden(TestAction::make('enviarStone')->table($pedido));
     }
 
-    public function test_action_enviar_stone_fica_invisivel_sem_pagamento_combinado_stone(): void
+    public function test_action_enviar_stone_aparece_mesmo_sem_pagamento_combinado_stone(): void
     {
         $pedido = $this->pedidoComItem(combinadoStone: false);
-        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
+
+        Livewire::test(ListPedidos::class)
+            ->assertActionVisible(TestAction::make('enviarStone')->table($pedido));
+    }
+
+    public function test_action_enviar_stone_fica_invisivel_sem_maquininha_connect(): void
+    {
+        $pedido = $this->pedidoComItem();
+        Maquininha::create(['nome' => 'Tectoy T8', 'operadora' => 'stone', 'numero_serie' => '222']);
 
         Livewire::test(ListPedidos::class)
             ->assertActionHidden(TestAction::make('enviarStone')->table($pedido));
@@ -133,7 +142,7 @@ class PedidosTableStoneCobrancaTest extends TestCase
     public function test_action_enviar_stone_fica_invisivel_com_cobranca_ja_pendente(): void
     {
         $pedido = $this->pedidoComItem();
-        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
 
         StonePedido::create([
             'stp_pedido_id' => $pedido->id,
@@ -157,7 +166,7 @@ class PedidosTableStoneCobrancaTest extends TestCase
 
         $pedido1 = $this->pedidoComItem();
         $pedido2 = $this->pedidoComItem();
-        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
 
         Livewire::test(ListPedidos::class)
             ->callTableBulkAction('enviarStoneBulk', [$pedido1, $pedido2], [
@@ -178,7 +187,7 @@ class PedidosTableStoneCobrancaTest extends TestCase
 
         $pedido1 = $this->pedidoComItem();
         $pedido2 = $this->pedidoComItem();
-        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
 
         StonePedido::create([
             'stp_pedido_id' => $pedido1->id,
@@ -209,7 +218,7 @@ class PedidosTableStoneCobrancaTest extends TestCase
         Livewire::test(ListPedidos::class)
             ->assertActionHidden(TestAction::make('cancelarStone')->table($pedido));
 
-        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
         $stonePedido = StonePedido::create([
             'stp_pedido_id' => $pedido->id,
             'stp_maquininha_id' => $maquininha->id,
@@ -234,7 +243,7 @@ class PedidosTableStoneCobrancaTest extends TestCase
 
         $pedido1 = $this->pedidoComItem();
         $pedido2 = $this->pedidoComItem();
-        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '111']);
+        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
 
         $stonePedido1 = StonePedido::create([
             'stp_pedido_id' => $pedido1->id,

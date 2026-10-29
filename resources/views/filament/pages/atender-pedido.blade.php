@@ -115,9 +115,23 @@
                 </button>
 
                 @if ($this->podeCobrarStone)
-                    <button type="button" wire:click="abrirModalStone"
-                        class="w-full rounded-lg border border-primary-300 dark:border-primary-500/30 py-2.5 text-sm font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-500/10">
-                        Cobrar na maquininha
+                    @php
+                        $cobrancaPendente = $this->cobrancaStonePendente;
+                        $elegibilidadeStone = $this->elegibilidadeStone;
+                        $sujo = $this->cobrarExigeSalvar;
+                        $bloqueada = $pedidoId && ! $cobrancaPendente && ! $sujo && ! $elegibilidadeStone['elegivel'];
+                        $acaoStone = ! $pedidoId || ($sujo && ! $cobrancaPendente) ? 'salvarECobrar' : 'abrirModalStone';
+                        $rotuloStone = match (true) {
+                            ! $pedidoId => 'Salvar e cobrar na maquininha',
+                            (bool) $cobrancaPendente => 'Acompanhar cobrança na maquininha',
+                            $sujo => 'Salvar e cobrar',
+                            default => 'Cobrar na maquininha',
+                        };
+                    @endphp
+                    <button type="button" wire:click="{{ $acaoStone }}" wire:loading.attr="disabled" @disabled($bloqueada)
+                        @if ($bloqueada) title="{{ $elegibilidadeStone['motivo'] }}" @endif
+                        class="w-full rounded-lg border border-primary-300 dark:border-primary-500/30 py-2.5 text-sm font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-500/10 disabled:opacity-50 disabled:cursor-not-allowed">
+                        {{ $rotuloStone }}
                     </button>
                 @endif
             </div>
@@ -158,7 +172,8 @@
                         </div>
 
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            Valor: <strong class="text-gray-700 dark:text-gray-200">R$ {{ number_format($this->totalPreview, 2, ',', '.') }}</strong>
+                            Valor a cobrar: <strong class="text-gray-700 dark:text-gray-200">R$ {{ number_format($this->valorDevidoStone, 2, ',', '.') }}</strong>
+                            <span class="block text-gray-400 dark:text-gray-500">Total do pedido gravado, menos o que já foi pago ou está aguardando na maquininha.</span>
                         </p>
 
                         <div class="flex gap-2">
@@ -176,6 +191,7 @@
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                             </svg>
                             <p class="text-sm text-gray-600 dark:text-gray-300">Aguardando o pagamento na maquininha…</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">Fechar esta janela não cancela a cobrança: ela continua na maquininha.</p>
                         </div>
                         <div class="flex gap-2">
                             <button wire:click="cancelarCobrancaStone" wire:loading.attr="disabled" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-50">
@@ -198,6 +214,18 @@
                             {{ $stoneErroModal }}
                         </div>
                         <div class="flex gap-2">
+                            <button wire:click="fecharModalStone" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+                                Fechar
+                            </button>
+                        </div>
+                    @elseif ($stoneStatusModal === 'indeterminado')
+                        <div class="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 text-sm rounded-lg px-3 py-2">
+                            {{ $stoneErroModal ?: 'Não foi possível confirmar se a cobrança chegou à maquininha. Não envie de novo: reconsulte na Stone.' }}
+                        </div>
+                        <div class="flex gap-2">
+                            <button wire:click="reconsultarCobrancaStone" wire:loading.attr="disabled" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50">
+                                Reconsultar na Stone
+                            </button>
                             <button wire:click="fecharModalStone" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
                                 Fechar
                             </button>

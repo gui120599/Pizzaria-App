@@ -3,16 +3,17 @@
 namespace App\Services\Stone;
 
 use App\Enums\MotivoCancelamentoEnum;
-use App\Enums\OperadoraMaquininha;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoOrigem;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\NfeIoException;
 use App\Exceptions\StoneConnectException;
+use App\Exceptions\StoneResultadoDesconhecidoException;
 use App\Models\ItensPedido;
 use App\Models\Maquininha;
 use App\Models\MovimentacoesSessaoCaixa;
 use App\Models\OpcoesPagamento;
+use App\Models\PagamentosPedido;
 use App\Models\PagamentosVenda;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
@@ -22,6 +23,9 @@ use App\Models\Venda;
 use App\Services\CancelamentoVendaService;
 use App\Services\MovimentacaoCaixaService;
 use App\Services\VendaService;
+use App\Support\ContaMesa;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -39,6 +43,12 @@ use Illuminate\Support\Facades\Log;
  */
 class StoneRecebimentoService
 {
+    /** Diferença de centavos tolerada nas comparações de valor. */
+    private const TOLERANCIA = 0.005;
+
+    /** A Pagar.me guarda a Idempotency-Key por 24 h: dentro disso o reenvio do mesmo POST devolve o mesmo pedido. */
+    private const JANELA_IDEMPOTENCIA_HORAS = 24;
+
     /** Aliases de scheme_name da Stone que não normalizam igual ao valor na coluna. */
     private const ALIAS_BANDEIRA = [
         'amex' => 'americanexpress',
@@ -52,42 +62,235 @@ class StoneRecebimentoService
         private readonly MovimentacaoCaixaService $movimentacaoCaixa,
     ) {}
 
+    // ── Valor devido e elegibilidade ─────────────────────────────────────────
+
+    /**
+     * Quanto ainda pode ser cobrado do alvo na maquininha, calculado no
+     * servidor a partir do registro persistido — nunca do estado da tela:
+     *  - Pedido: total − formas combinadas já efetuadas (pg_pedido_pago) − o
+     *    que as cobranças Stone do pedido já cobriram (pago + saldo das
+     *    pendentes, de qualquer modo) − pagamentos manuais lançados na venda
+     *    que a própria cobrança Stone gerou.
+     *  - Venda: total − já pago − saldo das cobranças pendentes.
+     *  - SessaoMesa: conta em aberto (ContaMesa) − pedidos da mesa já pagos no
+     *    pedido − saldo das cobranças pendentes.
+     * O saldo de uma cobrança pendente é solicitado − pago. Usa as relações já
+     * carregadas (lista de pedidos) para não consultar linha a linha.
+     */
+    public function valorDevido(Pedido|SessaoMesa|Venda $alvo): float
+    {
+        $stones = $this->stonePedidosDoAlvo($alvo);
+
+        $devido = match (true) {
+            $alvo instanceof Venda => (float) $alvo->venda_valor_total - (float) $alvo->venda_valor_pago - $this->saldoPendente($stones),
+            $alvo instanceof SessaoMesa => ContaMesa::para($alvo)['total'] - $this->pagoNoPedidoDaMesa($alvo) - $this->saldoPendente($stones),
+            default => $this->valorDevidoDoPedido($alvo, $stones),
+        };
+
+        return max(0.0, round($devido, 2));
+    }
+
+    /**
+     * O alvo pode receber uma cobrança na maquininha agora? `oculto` separa o
+     * que a tela esconde (pedido encerrado, cobrança em andamento, nada a
+     * cobrar) do que mostra desabilitado com o motivo no tooltip (integração
+     * sem configuração, maquininha sem vaga).
+     *
+     * @param  ?bool  $haMaquininhaConnect  Quem já sabe (lista de pedidos) evita a consulta por linha
+     * @param  bool  $verificarVagas  O lote confere as vagas uma vez, sob lock, e não por pedido
+     * @return array{elegivel: bool, motivo: ?string, oculto: bool}
+     */
+    public function elegibilidade(Pedido|SessaoMesa|Venda $alvo, ?Maquininha $maquininha = null, ?bool $haMaquininhaConnect = null, bool $verificarVagas = true): array
+    {
+        $negar = fn (string $motivo, bool $oculto = true): array => ['elegivel' => false, 'motivo' => $motivo, 'oculto' => $oculto];
+
+        if (($motivo = $this->motivoAlvoNaoCobravel($alvo)) !== null) {
+            return $negar($motivo);
+        }
+
+        if (! ($haMaquininhaConnect ?? Maquininha::stoneDisponivel()->exists())) {
+            return $negar('Nenhuma maquininha com Stone Connect ativo e número de série cadastrado.');
+        }
+
+        if (blank(config('services.stone.secret_key')) || blank(config('services.stone.service_referer_name'))) {
+            return $negar('A integração com a Stone Connect não está configurada.', oculto: false);
+        }
+
+        $stones = $this->stonePedidosDoAlvo($alvo);
+
+        if ($stones->contains(fn (StonePedido $stp): bool => $stp->stp_status === StonePedidoStatus::Indeterminado)) {
+            return $negar('O resultado de uma cobrança anterior é desconhecido: reconsulte na Stone antes de enviar de novo.');
+        }
+
+        if ($stones->contains(fn (StonePedido $stp): bool => $stp->stp_modo === StonePedidoModo::Direto
+            && in_array($stp->stp_status, [StonePedidoStatus::Aguardando, StonePedidoStatus::PagoParcial], true))) {
+            return $negar('Já existe uma cobrança aguardando pagamento na maquininha.');
+        }
+
+        if ($this->valorDevido($alvo) <= 0) {
+            return $negar('Não há valor a cobrar na maquininha.');
+        }
+
+        if ($verificarVagas && $maquininha && $this->vagasAbertas($maquininha) <= 0) {
+            return $negar($this->mensagemSemVagas($maquininha), oculto: false);
+        }
+
+        return ['elegivel' => true, 'motivo' => null, 'oculto' => false];
+    }
+
+    /** Quantas cobranças a maquininha ainda comporta (o POS da Stone lista no máximo `limite_pedidos_abertos`). */
+    public function vagasAbertas(Maquininha $maquininha): int
+    {
+        return max(0, $this->limiteDePedidosAbertos() - $this->pedidosAbertos($maquininha));
+    }
+
+    public function limiteDePedidosAbertos(): int
+    {
+        return max(1, (int) config('services.stone.limite_pedidos_abertos', 30));
+    }
+
+    /**
+     * Pedidos que ocupam o POS: cobranças pendentes (inclusive as ainda sem
+     * order_id — já reservam a vaga enquanto o POST está em curso) e as pagas
+     * cujo fechamento na Stone ainda não foi confirmado. Cancelada e falha não contam.
+     */
+    private function pedidosAbertos(Maquininha $maquininha): int
+    {
+        return StonePedido::query()
+            ->where('stp_maquininha_id', $maquininha->id)
+            ->where(fn ($query) => $query
+                ->whereIn('stp_status', StonePedidoStatus::valoresPendentes())
+                ->orWhere(fn ($pago) => $pago
+                    ->where('stp_status', StonePedidoStatus::Pago->value)
+                    ->whereNotNull('stp_order_id')
+                    ->whereNull('stp_fechado_em')))
+            ->count();
+    }
+
+    private function mensagemSemVagas(Maquininha $maquininha): string
+    {
+        return "A maquininha {$maquininha->nome} já tem {$this->limiteDePedidosAbertos()} pedidos abertos. Feche ou cancele pedidos em Financeiro › Pedidos Stone.";
+    }
+
+    /** Motivo pelo qual o alvo, em si, não é cobrável (null = cobrável). */
+    private function motivoAlvoNaoCobravel(Pedido|SessaoMesa|Venda $alvo): ?string
+    {
+        if ($alvo instanceof Venda) {
+            return $alvo->venda_status === 'INICIADA' ? null : 'A venda já foi finalizada ou cancelada.';
+        }
+
+        if ($alvo instanceof SessaoMesa) {
+            return in_array($alvo->sessao_mesa_status, ['CANCELADA', 'FINALIZADA'], true) ? 'A conta da mesa já foi encerrada.' : null;
+        }
+
+        if ($alvo->trashed() || in_array($alvo->pedido_status, ['CANCELADO', 'FINALIZADO'], true)) {
+            return 'O pedido está cancelado, finalizado ou excluído.';
+        }
+
+        if (filled($alvo->pedido_venda_id)) {
+            return 'O pedido já foi recebido no PDV.';
+        }
+
+        // Itens lançados em venda do PDV: o recebimento é de lá. A venda criada pela
+        // própria cobrança Stone (pagamento em parte) não conta como "alheia".
+        $vendasDaStone = $this->stonePedidosDoAlvo($alvo)->pluck('stp_venda_id')->filter()->unique();
+        $semItemVendido = $alvo->hasAttribute('tem_item_vendido') && ! $alvo->getAttribute('tem_item_vendido');
+        $itemEmVendaAlheia = ! $semItemVendido
+            && $alvo->item_pedido_pedido_id()
+                ->whereNotNull('item_pedido_venda_id')
+                ->when($vendasDaStone->isNotEmpty(), fn ($query) => $query->whereNotIn('item_pedido_venda_id', $vendasDaStone))
+                ->exists();
+
+        return $itemEmVendaAlheia ? 'O pedido já foi lançado no PDV: receba por lá.' : null;
+    }
+
+    /**
+     * Cobranças Stone do alvo, usando a relação carregada quando houver. Pedido
+     * só conta as de origem Pedido: as do PDV (origem Venda) guardam o pedido
+     * apenas como informação e pertencem à venda.
+     *
+     * @return Collection<int, StonePedido>
+     */
+    private function stonePedidosDoAlvo(Pedido|SessaoMesa|Venda $alvo): Collection
+    {
+        return match (true) {
+            $alvo instanceof Venda => StonePedido::where('stp_venda_id', $alvo->id)->get(),
+            $alvo instanceof SessaoMesa => StonePedido::where('stp_sessao_mesa_id', $alvo->id)->get(),
+            default => ($alvo->relationLoaded('stonePedidos') ? $alvo->stonePedidos : $alvo->stonePedidos()->get())
+                ->filter(fn (StonePedido $stp): bool => $stp->stp_origem === StonePedidoOrigem::Pedido)
+                ->values(),
+        };
+    }
+
+    /**
+     * @param  Collection<int, StonePedido>  $stones
+     */
+    private function saldoPendente(Collection $stones): float
+    {
+        return $stones
+            ->filter(fn (StonePedido $stp): bool => $stp->stp_status->pendente())
+            ->sum(fn (StonePedido $stp): float => max(0.0, (float) $stp->stp_valor_solicitado - (float) $stp->stp_valor_pago));
+    }
+
+    /**
+     * @param  Collection<int, StonePedido>  $stones
+     */
+    private function valorDevidoDoPedido(Pedido $pedido, Collection $stones): float
+    {
+        $combinados = $pedido->relationLoaded('pagamentosCombinados') ? $pedido->pagamentosCombinados : $pedido->pagamentosCombinados()->get();
+        $efetuados = $combinados->where('pg_pedido_pago', true)->sum(fn (PagamentosPedido $pagamento): float => (float) $pagamento->pg_pedido_valor);
+
+        // Cobertura das cobranças: o que já entrou (stp_valor_pago, mesmo se a cobrança foi
+        // cancelada depois) mais o saldo das ainda pendentes.
+        $coberto = $stones->sum(fn (StonePedido $stp): float => (float) $stp->stp_valor_pago)
+            + $this->saldoPendente($stones);
+
+        // Venda gerada pela própria cobrança (pagamento em parte): o que o PDV recebeu
+        // à mão nela também abate o pedido. Os pagamentos vindos das formas combinadas já
+        // pagas estão em $efetuados, e os da Stone em stp_valor_pago.
+        $vendaIds = $stones->pluck('stp_venda_id')->filter()->unique();
+        $lancadosManuais = $vendaIds->isEmpty() ? 0.0 : (float) PagamentosVenda::query()
+            ->whereIn('pg_venda_venda_id', $vendaIds)
+            ->where('pg_venda_tipo_integracao', '!=', 'integrated')
+            ->where(fn ($query) => $query
+                ->whereNull('pg_venda_pagamento_pedido_id')
+                ->orWhereDoesntHave('pagamentoPedido', fn ($pagamento) => $pagamento->where('pg_pedido_pago', true)))
+            ->sum('pg_venda_valor_pagamento');
+
+        return (float) $pedido->pedido_valor_total - $efetuados - $coberto - $lancadosManuais;
+    }
+
+    private function pagoNoPedidoDaMesa(SessaoMesa $sessao): float
+    {
+        return (float) PagamentosPedido::query()
+            ->where('pg_pedido_pago', true)
+            ->whereHas('pedido', fn ($query) => $query
+                ->where('pedido_sessao_mesa_id', $sessao->id)
+                ->whereNotIn('pedido_status', ContaMesa::STATUS_FORA_DA_CONTA))
+            ->sum('pg_pedido_valor');
+    }
+
+    // ── Envio ────────────────────────────────────────────────────────────────
+
     /**
      * Cria o pedido na Stone a partir do PDV. Devolve o StonePedido já com
-     * stp_order_id preenchido (status Aguardando), ou lança StoneConnectException.
+     * stp_order_id preenchido (status Aguardando), ou lança StoneConnectException
+     * (StoneResultadoDesconhecidoException quando não se sabe se o pedido foi criado).
      *
      * Modo Direto (padrão, balcão): a forma de pagamento é obrigatória e define
      * o tipo da transação (crédito/débito/PIX). Modo Listado (botão "Lançar
      * pedido total", recebimento na entrega): forma opcional — o tipo é
-     * escolhido na maquininha e resolvido depois pelo webhook.
+     * escolhido na maquininha e resolvido depois pelo webhook. Sem $valor, cobra
+     * o valor devido; com $valor, ele não pode passar do valor devido.
      */
     public function iniciarCobranca(
         Venda $venda,
         ?OpcoesPagamento $opcao,
         Maquininha $maquininha,
-        float $valor,
+        ?float $valor = null,
         StonePedidoModo $modo = StonePedidoModo::Direto,
     ): StonePedido {
-        $modoEfetivo = $this->validarECalcularModoEfetivo($opcao, $maquininha, $valor, $modo);
-
-        if ($modo === StonePedidoModo::Direto && $modoEfetivo === StonePedidoModo::Listado) {
-            Log::channel('stone')->info('STONE_CONNECT_PEDIDO_DIRETO desligado — pedido criado como Listado', [
-                'venda_id' => $venda->id,
-            ]);
-        }
-
-        return $this->criarStonePedido([
-            'stp_venda_id' => $venda->id,
-            'stp_pedido_id' => $this->pedidoVinculadoAVenda($venda),
-            'stp_origem' => StonePedidoOrigem::Venda,
-            'stp_usuario_id' => Auth::id(),
-            'stp_maquininha_id' => $maquininha->id,
-            'stp_opcaopagamento_id' => $opcao?->id,
-            'stp_valor_solicitado' => round($valor, 2),
-            'stp_valor_pago' => 0,
-            'stp_status' => StonePedidoStatus::Aguardando,
-            'stp_modo' => $modoEfetivo,
-        ]);
+        return $this->enviar($venda, $opcao, $maquininha, $valor, $modo);
     }
 
     /**
@@ -95,68 +298,133 @@ class StoneRecebimentoService
      * delivery) ou da conta de uma SessaoMesa — sem Venda prévia. O webhook
      * charge.paid cria a Venda quando o pagamento chegar (ver
      * StoneVendaAutomaticaService). Mesmas validações e camadas de
-     * idempotência de iniciarCobranca().
+     * idempotência de iniciarCobranca(); o valor cobrado é sempre o devido
+     * (ou menos, no Listado, quando $valor é informado).
      */
     public function iniciarCobrancaDePedido(
         Pedido|SessaoMesa $alvo,
         ?OpcoesPagamento $opcao,
         Maquininha $maquininha,
-        float $valor,
+        ?float $valor = null,
         StonePedidoModo $modo = StonePedidoModo::Direto,
     ): StonePedido {
-        $modoEfetivo = $this->validarECalcularModoEfetivo($opcao, $maquininha, $valor, $modo);
-        $origem = $alvo instanceof Pedido ? StonePedidoOrigem::Pedido : StonePedidoOrigem::SessaoMesa;
-
-        if ($modo === StonePedidoModo::Direto && $modoEfetivo === StonePedidoModo::Listado) {
-            Log::channel('stone')->info('STONE_CONNECT_PEDIDO_DIRETO desligado — pedido criado como Listado', [
-                'origem' => $origem->value, 'alvo_id' => $alvo->id,
-            ]);
-        }
-
-        return $this->criarStonePedido([
-            'stp_pedido_id' => $alvo instanceof Pedido ? $alvo->id : null,
-            'stp_sessao_mesa_id' => $alvo instanceof SessaoMesa ? $alvo->id : null,
-            'stp_origem' => $origem,
-            'stp_usuario_id' => Auth::id(),
-            'stp_maquininha_id' => $maquininha->id,
-            'stp_opcaopagamento_id' => $opcao?->id,
-            'stp_valor_solicitado' => round($valor, 2),
-            'stp_valor_pago' => 0,
-            'stp_status' => StonePedidoStatus::Aguardando,
-            'stp_modo' => $modoEfetivo,
-        ]);
+        return $this->enviar($alvo, $opcao, $maquininha, $valor, $modo);
     }
 
     /**
-     * Valida forma de pagamento, maquininha e valor (regras comuns a
-     * iniciarCobranca e iniciarCobrancaDePedido) e resolve o modo efetivo —
-     * Pedido Direto exige a conta credenciada para o modelo; com a flag
-     * services.stone.pedido_direto desligada, cai para Listado sem quebrar
-     * (só degrada a UX no POS).
+     * Envia vários pedidos de uma vez para a mesma maquininha (envio em lote do
+     * painel). Os elegíveis precisam caber nas vagas da maquininha: se não
+     * couberem, NENHUM é enviado. A checagem e a criação dos registros acontecem
+     * numa transação com lock da maquininha (serializa envios concorrentes ao
+     * mesmo aparelho); o HTTP vem depois, um por vez.
+     *
+     * @param  iterable<Pedido>  $pedidos
+     * @return array{recusado: ?string, enviados: list<StonePedido>, indeterminados: list<StonePedido>, falhas: array<int, string>, ignorados: array<int, string>} Pedidos ignorados e com falha vêm indexados pelo id do Pedido
      */
-    private function validarECalcularModoEfetivo(
-        ?OpcoesPagamento $opcao,
-        Maquininha $maquininha,
-        float $valor,
-        StonePedidoModo $modo,
-    ): StonePedidoModo {
+    public function iniciarCobrancasEmLote(iterable $pedidos, ?OpcoesPagamento $opcao, Maquininha $maquininha, StonePedidoModo $modo = StonePedidoModo::Listado): array
+    {
+        $modoEfetivo = $this->validarFormaEMaquininha($opcao, $maquininha, $modo);
+        $resultado = ['recusado' => null, 'enviados' => [], 'indeterminados' => [], 'falhas' => [], 'ignorados' => []];
+
+        $criados = DB::transaction(function () use ($pedidos, $opcao, $maquininha, $modoEfetivo, &$resultado): Collection {
+            $maquininhaTravada = $this->travarMaquininha($maquininha);
+            $elegiveis = collect();
+
+            foreach ($pedidos as $pedido) {
+                $travado = $this->travarAlvo($pedido);
+                $elegibilidade = $this->elegibilidade($travado, $maquininhaTravada, haMaquininhaConnect: true, verificarVagas: false);
+
+                if ($elegibilidade['elegivel']) {
+                    $elegiveis->push($travado);
+                } else {
+                    $resultado['ignorados'][$pedido->id] = $elegibilidade['motivo'];
+                }
+            }
+
+            $vagas = $this->vagasAbertas($maquininhaTravada);
+            if ($elegiveis->count() > $vagas) {
+                $excedente = $elegiveis->count() - $vagas;
+                $resultado['recusado'] = "A maquininha {$maquininhaTravada->nome} tem {$vagas} vaga(s) livre(s) e você selecionou {$elegiveis->count()} pedido(s) elegível(eis). Desmarque {$excedente} ou feche pedidos pagos.";
+
+                return collect();
+            }
+
+            $criados = collect();
+            foreach ($elegiveis as $travado) {
+                try {
+                    $criados->push($this->criarRegistroPendente($travado, $opcao, $maquininhaTravada, null, $modoEfetivo));
+                } catch (StoneConnectException $e) {
+                    $resultado['ignorados'][$travado->id] = $e->getMessage();
+                }
+            }
+
+            return $criados;
+        });
+
+        foreach ($criados as $stonePedido) {
+            try {
+                $resultado['enviados'][] = $this->enviarParaStone($stonePedido);
+            } catch (StoneResultadoDesconhecidoException) {
+                $resultado['indeterminados'][] = $stonePedido->fresh();
+            } catch (StoneConnectException $e) {
+                $resultado['falhas'][(int) $stonePedido->stp_pedido_id] = $e->getMessage();
+            }
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Registra a cobrança sob lock (maquininha, depois alvo), faz commit e só
+     * então fala com a Stone: nenhum HTTP dentro de transação, e uma segunda
+     * tentativa já enxerga a linha pendente.
+     */
+    private function enviar(Pedido|SessaoMesa|Venda $alvo, ?OpcoesPagamento $opcao, Maquininha $maquininha, ?float $valor, StonePedidoModo $modo): StonePedido
+    {
+        $modoEfetivo = $this->validarFormaEMaquininha($opcao, $maquininha, $modo);
+
+        if ($modo === StonePedidoModo::Direto && $modoEfetivo === StonePedidoModo::Listado) {
+            Log::channel('stone')->info('STONE_CONNECT_PEDIDO_DIRETO desligado — pedido criado como Listado', [
+                'origem' => $this->origemDoAlvo($alvo)->value, 'alvo_id' => $alvo->id,
+            ]);
+        }
+
+        $stonePedido = DB::transaction(function () use ($alvo, $opcao, $maquininha, $valor, $modoEfetivo): StonePedido {
+            $maquininhaTravada = $this->travarMaquininha($maquininha);
+            $alvoTravado = $this->travarAlvo($alvo);
+
+            $elegibilidade = $this->elegibilidade($alvoTravado, $maquininhaTravada, haMaquininhaConnect: true);
+            if (! $elegibilidade['elegivel']) {
+                throw new StoneConnectException($elegibilidade['motivo']);
+            }
+
+            return $this->criarRegistroPendente($alvoTravado, $opcao, $maquininhaTravada, $valor, $modoEfetivo);
+        });
+
+        return $this->enviarParaStone($stonePedido);
+    }
+
+    /**
+     * Valida forma de pagamento e maquininha (regras comuns aos pontos de
+     * disparo) e resolve o modo efetivo — Pedido Direto exige a conta
+     * credenciada para o modelo; com a flag services.stone.pedido_direto
+     * desligada, cai para Listado sem quebrar (só degrada a UX no POS).
+     */
+    private function validarFormaEMaquininha(?OpcoesPagamento $opcao, Maquininha $maquininha, StonePedidoModo $modo): StonePedidoModo
+    {
         if ($modo === StonePedidoModo::Direto) {
-            if (! $opcao || ! $opcao->ehIntegracaoStone()) {
-                throw new StoneConnectException('Esta forma de pagamento não está integrada à maquininha Stone.');
+            if (! $opcao || ! $opcao->permiteCobrarStone()) {
+                throw new StoneConnectException('Esta forma de pagamento não pode ser cobrada na maquininha Stone.');
             }
             if (blank($opcao->tipoStone())) {
                 throw new StoneConnectException('A forma de pagamento não tem um tipo Stone (crédito, débito ou PIX).');
             }
-        } elseif ($opcao && ! $opcao->ehIntegracaoStone()) {
-            throw new StoneConnectException('Esta forma de pagamento não está integrada à maquininha Stone.');
+        } elseif ($opcao && ! $opcao->permiteCobrarStone()) {
+            throw new StoneConnectException('Esta forma de pagamento não pode ser cobrada na maquininha Stone.');
         }
 
-        if ($maquininha->operadora !== OperadoraMaquininha::Stone || blank($maquininha->numero_serie)) {
-            throw new StoneConnectException('A maquininha selecionada não é Stone ou está sem número de série cadastrado.');
-        }
-
-        if ($valor <= 0) {
-            throw new StoneConnectException('Informe um valor maior que zero para enviar à maquininha.');
+        if (! $maquininha->maquininha_connect_ativo || blank($maquininha->numero_serie)) {
+            throw new StoneConnectException('A maquininha selecionada não recebe pedidos Stone Connect ou está sem número de série cadastrado.');
         }
 
         return ($modo === StonePedidoModo::Direto && config('services.stone.pedido_direto'))
@@ -164,26 +432,227 @@ class StoneRecebimentoService
             : StonePedidoModo::Listado;
     }
 
-    /**
-     * @param  array<string, mixed>  $dados
-     */
-    private function criarStonePedido(array $dados): StonePedido
+    private function travarMaquininha(Maquininha $maquininha): Maquininha
     {
-        $pedido = StonePedido::create($dados);
+        return Maquininha::whereKey($maquininha->id)->lockForUpdate()->first()
+            ?? throw new StoneConnectException('A maquininha selecionada não foi encontrada.');
+    }
+
+    private function travarAlvo(Pedido|SessaoMesa|Venda $alvo): Pedido|SessaoMesa|Venda
+    {
+        return $alvo->newQueryWithoutScopes()->whereKey($alvo->getKey())->lockForUpdate()->first()
+            ?? throw new StoneConnectException('O pedido ou a conta a cobrar não foi encontrado.');
+    }
+
+    private function origemDoAlvo(Pedido|SessaoMesa|Venda $alvo): StonePedidoOrigem
+    {
+        return match (true) {
+            $alvo instanceof Venda => StonePedidoOrigem::Venda,
+            $alvo instanceof SessaoMesa => StonePedidoOrigem::SessaoMesa,
+            default => StonePedidoOrigem::Pedido,
+        };
+    }
+
+    /**
+     * Cria a linha pendente (ainda sem order_id). Chamado dentro da transação
+     * que já travou maquininha e alvo e conferiu a elegibilidade. O índice
+     * único de stp_chave_pendente é a última barreira contra duas cobranças
+     * Direto no mesmo alvo.
+     */
+    private function criarRegistroPendente(Pedido|SessaoMesa|Venda $alvo, ?OpcoesPagamento $opcao, Maquininha $maquininha, ?float $valor, StonePedidoModo $modo): StonePedido
+    {
+        $devido = $this->valorDevido($alvo);
+        $valorCobrado = $valor === null ? $devido : round($valor, 2);
+
+        if ($valorCobrado <= 0) {
+            throw new StoneConnectException('Informe um valor maior que zero para enviar à maquininha.');
+        }
+
+        if ($valorCobrado > $devido + self::TOLERANCIA) {
+            throw new StoneConnectException('O valor a cobrar (R$ '.number_format($valorCobrado, 2, ',', '.').') passa do saldo devido (R$ '.number_format($devido, 2, ',', '.').').');
+        }
 
         try {
-            $resposta = $this->connect->criarPedido($pedido);
+            return StonePedido::create([
+                'stp_venda_id' => $alvo instanceof Venda ? $alvo->id : null,
+                'stp_pedido_id' => match (true) {
+                    $alvo instanceof Pedido => $alvo->id,
+                    $alvo instanceof Venda => $this->pedidoVinculadoAVenda($alvo),
+                    default => null,
+                },
+                'stp_sessao_mesa_id' => $alvo instanceof SessaoMesa ? $alvo->id : null,
+                'stp_origem' => $this->origemDoAlvo($alvo),
+                'stp_usuario_id' => Auth::id(),
+                'stp_maquininha_id' => $maquininha->id,
+                'stp_opcaopagamento_id' => $opcao?->id,
+                'stp_valor_solicitado' => $valorCobrado,
+                'stp_valor_pago' => 0,
+                'stp_status' => StonePedidoStatus::Aguardando,
+                'stp_modo' => $modo,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            throw new StoneConnectException('Já existe uma cobrança aguardando na maquininha para este pedido. Acompanhe a existente antes de enviar outra.');
+        }
+    }
+
+    /**
+     * Fala com a Stone para uma linha já gravada. Recusa comprovada (4xx) vira
+     * Falha; timeout, rede e 5xx viram Indeterminado — o pedido pode existir na
+     * Stone, então a linha NUNCA é substituída: reenvia-se esta mesma, com a
+     * mesma Idempotency-Key (ver reconsultar()).
+     */
+    private function enviarParaStone(StonePedido $stonePedido): StonePedido
+    {
+        try {
+            $resposta = $this->connect->criarPedido($stonePedido);
+        } catch (StoneResultadoDesconhecidoException $e) {
+            $stonePedido->update(['stp_status' => StonePedidoStatus::Indeterminado, 'stp_erro' => $e->getMessage()]);
+
+            throw $e->paraStonePedido($stonePedido->id);
         } catch (StoneConnectException $e) {
-            $pedido->update(['stp_status' => StonePedidoStatus::Falha]);
+            $stonePedido->update(['stp_status' => StonePedidoStatus::Falha, 'stp_erro' => $e->getMessage()]);
+
             throw $e;
         }
 
-        $pedido->update([
+        // Só tira do Indeterminado: um webhook que chegou antes (resolvido pelo code)
+        // pode já ter levado a linha para Pago, e isso não pode regredir.
+        $atualizacao = [
             'stp_order_id' => $resposta['id'] ?? null,
             'stp_order_code' => $resposta['code'] ?? null,
-        ]);
+            'stp_erro' => null,
+        ];
 
-        return $pedido->fresh();
+        if (StonePedido::find($stonePedido->id)?->stp_status === StonePedidoStatus::Indeterminado) {
+            $atualizacao['stp_status'] = StonePedidoStatus::Aguardando;
+        }
+
+        $stonePedido->update($atualizacao);
+
+        return $stonePedido->fresh();
+    }
+
+    /**
+     * Resolve uma cobrança de resultado desconhecido (ou Aguardando que ficou
+     * sem order_id):
+     *  1. com order_id → GET /orders/{id} e aplica o que a Stone responde;
+     *  2. sem order_id → repete o POST com a MESMA Idempotency-Key, dentro das 24 h
+     *     em que a Pagar.me guarda a chave: se o pedido já existe, devolve o mesmo.
+     * Passadas as 24 h sem order_id, mantém Indeterminado e pede conferência no
+     * dashboard Pagar.me pelo code rf-{id}.
+     *
+     * @throws StoneConnectException
+     */
+    public function reconsultar(StonePedido $stonePedido): StonePedido
+    {
+        $stonePedido = $stonePedido->fresh();
+
+        if (! in_array($stonePedido->stp_status, [StonePedidoStatus::Indeterminado, StonePedidoStatus::Aguardando], true)) {
+            return $stonePedido;
+        }
+
+        if (filled($stonePedido->stp_order_id)) {
+            $this->aplicarPedidoDaStone($stonePedido, $this->connect->consultarPedido($stonePedido->stp_order_id));
+
+            return $stonePedido->fresh();
+        }
+
+        if ($stonePedido->created_at->lt(now()->subHours(self::JANELA_IDEMPOTENCIA_HORAS))) {
+            // Sem order_id e fora da janela: segue como Indeterminado (nunca vira Falha sozinho).
+            $stonePedido->update(['stp_status' => StonePedidoStatus::Indeterminado]);
+
+            throw new StoneConnectException('Passaram mais de '.self::JANELA_IDEMPOTENCIA_HORAS.' h sem resposta da Stone: confira no dashboard Pagar.me o pedido de code '.StoneConnectService::codigoDoPedido($stonePedido).' antes de enviar de novo.');
+        }
+
+        return $this->enviarParaStone($stonePedido);
+    }
+
+    /**
+     * Aplica o estado do pedido na Stone (resposta de GET /orders/{id}) ao
+     * StonePedido: cancelado/falho, pedido aberto (sai do Indeterminado) e
+     * charges pagas (reprocessadas como charge.paid, sem duplicar).
+     *
+     * @param  array<string, mixed>  $order
+     * @return int Quantidade de charges pagas recuperadas
+     */
+    public function aplicarPedidoDaStone(StonePedido $stonePedido, array $order): int
+    {
+        $status = $order['status'] ?? null;
+
+        if (in_array($status, ['canceled', 'failed'], true)) {
+            $stonePedido->update([
+                'stp_status' => $status === 'canceled' ? StonePedidoStatus::Cancelado : StonePedidoStatus::Falha,
+                'stp_order_id' => $stonePedido->stp_order_id ?? ($order['id'] ?? null),
+            ]);
+
+            return 0;
+        }
+
+        if ($stonePedido->stp_status === StonePedidoStatus::Indeterminado) {
+            $stonePedido->update([
+                'stp_status' => StonePedidoStatus::Aguardando,
+                'stp_order_id' => $order['id'] ?? $stonePedido->stp_order_id,
+                'stp_order_code' => $order['code'] ?? $stonePedido->stp_order_code,
+                'stp_erro' => null,
+            ]);
+        }
+
+        $recuperados = 0;
+        foreach ($order['charges'] ?? [] as $charge) {
+            if (($charge['status'] ?? null) !== 'paid') {
+                continue;
+            }
+
+            $webhook = StoneWebhook::create([
+                'stw_evento' => 'charge.paid',
+                'stw_hook_id' => 'sync-'.($charge['id'] ?? uniqid()),
+                'stw_charge_id' => $charge['id'] ?? null,
+                'stw_charge_code' => $charge['code'] ?? null,
+                'stw_order_id' => $stonePedido->stp_order_id,
+                'stw_order_code' => $order['code'] ?? $stonePedido->stp_order_code,
+                'stw_venda_id' => $stonePedido->stp_venda_id,
+                'stw_stone_pedido_id' => $stonePedido->id,
+                'stw_payload' => $this->payloadSintetico($order, $charge),
+                'stw_processado_em' => now(),
+            ]);
+
+            try {
+                $this->processarWebhook($webhook);
+                $recuperados++;
+            } catch (\Throwable $e) {
+                Log::channel('stone')->error('Falha ao reprocessar charge recuperada da Stone', [
+                    'stone_pedido_id' => $stonePedido->id, 'charge_id' => $charge['id'] ?? null, 'erro' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $recuperados;
+    }
+
+    /**
+     * @param  array<string, mixed>  $order
+     * @param  array<string, mixed>  $charge
+     * @return array<string, mixed>
+     */
+    private function payloadSintetico(array $order, array $charge): array
+    {
+        return [
+            'id' => 'sync-'.($charge['id'] ?? uniqid()),
+            'type' => 'charge.paid',
+            'data' => [
+                'id' => $charge['id'] ?? null,
+                'code' => $charge['code'] ?? null,
+                'amount' => $charge['amount'] ?? null,
+                'paid_amount' => $charge['paid_amount'] ?? $charge['amount'] ?? null,
+                'status' => 'paid',
+                'payment_method' => $charge['payment_method'] ?? null,
+                'order' => ['id' => $order['id'] ?? null, 'code' => $order['code'] ?? null],
+                'metadata' => $charge['last_transaction']['metadata'] ?? $charge['metadata'] ?? [],
+                // Necessário para inferir a forma de pagamento nos pedidos Listado
+                // (sem stp_opcaopagamento_id).
+                'last_transaction' => $charge['last_transaction'] ?? [],
+            ],
+        ];
     }
 
     /** Id do Pedido de origem cujos itens já estão lançados nesta venda (informativo). */
@@ -194,11 +663,18 @@ class StoneRecebimentoService
             ->value('item_pedido_pedido_id');
     }
 
-    /** Cancela um pedido que ainda não recebeu pagamento. */
+    /**
+     * Cancela uma cobrança que ainda não recebeu pagamento. Resultado
+     * desconhecido sem order_id não se cancela: o pedido pode existir na Stone.
+     */
     public function cancelarCobranca(StonePedido $pedido): void
     {
         if (! $pedido->stp_status->pendente()) {
             return;
+        }
+
+        if ($pedido->stp_status === StonePedidoStatus::Indeterminado && blank($pedido->stp_order_id)) {
+            throw new StoneConnectException('O resultado desta cobrança é desconhecido: reconsulte na Stone antes de cancelar.');
         }
 
         if (filled($pedido->stp_order_id)) {
@@ -572,7 +1048,12 @@ class StoneRecebimentoService
         }
     }
 
-    /** Resolve o StonePedido pelo id/código do pedido no payload — nunca por metadata. */
+    /**
+     * Resolve o StonePedido pelo id/código do pedido no payload — nunca por
+     * metadata. O code rf-{id} é o nosso identificador e vale mesmo quando o
+     * webhook chega antes de gravarmos o stp_order_id (corrida com a resposta
+     * do POST /orders).
+     */
     public function resolverPedido(array $order): ?StonePedido
     {
         if (filled($order['id'] ?? null)) {
@@ -583,7 +1064,21 @@ class StoneRecebimentoService
         }
 
         if (filled($order['code'] ?? null)) {
-            return StonePedido::where('stp_order_code', $order['code'])->first();
+            $pedido = StonePedido::where('stp_order_code', $order['code'])->first();
+            if ($pedido) {
+                return $pedido;
+            }
+
+            if (preg_match('/^rf-(\d+)$/', (string) $order['code'], $partes)) {
+                $pedido = StonePedido::find((int) $partes[1]);
+
+                // Grava o order_id que a resposta do POST ainda não tinha gravado.
+                if ($pedido && blank($pedido->stp_order_id) && filled($order['id'] ?? null)) {
+                    $pedido->update(['stp_order_id' => $order['id'], 'stp_order_code' => $order['code']]);
+                }
+
+                return $pedido;
+            }
         }
 
         return null;

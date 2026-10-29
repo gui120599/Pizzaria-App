@@ -89,7 +89,7 @@ class OperarVendaStonePagamentoTest extends TestCase
             'opcaopag_valor_percentual_taxa' => 0,
             'opcaopag_stone_integrada' => true,
         ]);
-        $this->maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '6N021234']);
+        $this->maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '6N021234']);
     }
 
     private function fakeStoneOk(): void
@@ -106,6 +106,7 @@ class OperarVendaStonePagamentoTest extends TestCase
 
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
             ->set('opcaoPagamentoSelecionadaId', $this->opcao->id)
+            ->set('modoRecebimento', 'stone')
             ->set('stoneMaquininhaId', $this->maquininha->id)
             ->set('valorPagamento', 20.00)
             ->call('registrarPagamento')
@@ -173,6 +174,7 @@ class OperarVendaStonePagamentoTest extends TestCase
     {
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
             ->set('opcaoPagamentoSelecionadaId', $this->opcao->id)
+            ->set('modoRecebimento', 'stone')
             ->set('valorPagamento', 20.00)
             ->call('registrarPagamento')
             ->assertHasErrors('valorPagamento')
@@ -187,6 +189,7 @@ class OperarVendaStonePagamentoTest extends TestCase
 
         $component = Livewire::test(OperarVenda::class, ['venda' => $this->venda])
             ->set('opcaoPagamentoSelecionadaId', $this->opcao->id)
+            ->set('modoRecebimento', 'stone')
             ->set('stoneMaquininhaId', $this->maquininha->id)
             ->set('valorPagamento', 20.00)
             ->call('registrarPagamento');
@@ -218,6 +221,7 @@ class OperarVendaStonePagamentoTest extends TestCase
 
         $component = Livewire::test(OperarVenda::class, ['venda' => $this->venda])
             ->set('opcaoPagamentoSelecionadaId', $this->opcao->id)
+            ->set('modoRecebimento', 'stone')
             ->set('stoneMaquininhaId', $this->maquininha->id)
             ->set('valorPagamento', 5.00)
             ->call('registrarPagamento');
@@ -247,6 +251,7 @@ class OperarVendaStonePagamentoTest extends TestCase
 
         $component = Livewire::test(OperarVenda::class, ['venda' => $this->venda])
             ->set('opcaoPagamentoSelecionadaId', $this->opcao->id)
+            ->set('modoRecebimento', 'stone')
             ->set('stoneMaquininhaId', $this->maquininha->id)
             ->set('valorPagamento', 20.00)
             ->call('registrarPagamento');
@@ -264,6 +269,7 @@ class OperarVendaStonePagamentoTest extends TestCase
 
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
             ->set('opcaoPagamentoSelecionadaId', $this->opcao->id)
+            ->set('modoRecebimento', 'stone')
             ->set('stoneMaquininhaId', $this->maquininha->id)
             ->set('valorPagamento', 20.00)
             ->call('registrarPagamento')
@@ -278,6 +284,7 @@ class OperarVendaStonePagamentoTest extends TestCase
 
         Livewire::test(OperarVenda::class, ['venda' => $this->venda])
             ->set('opcaoPagamentoSelecionadaId', $this->opcao->id)
+            ->set('modoRecebimento', 'stone')
             ->set('stoneMaquininhaId', $this->maquininha->id)
             ->set('valorPagamento', 20.00)
             ->call('registrarPagamento')

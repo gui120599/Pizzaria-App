@@ -121,7 +121,7 @@ class EstornoStoneCancelaVendaTest extends TestCase
     {
         StonePedido::create([
             'stp_venda_id' => $venda->id,
-            'stp_maquininha_id' => Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'numero_serie' => '6N021234'])->id,
+            'stp_maquininha_id' => Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '6N021234'])->id,
             'stp_opcaopagamento_id' => OpcoesPagamento::create([
                 'opcaopag_nome' => 'Crédito Stone',
                 'opcaopag_desc_nfe' => 'creditCard',
