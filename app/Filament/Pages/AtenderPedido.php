@@ -9,6 +9,7 @@ use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\CupomInvalidoException;
 use App\Exceptions\StoneConnectException;
+use App\Exceptions\StoneResultadoDesconhecidoException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
 use App\Filament\Concerns\ConcedeCortesiaNoItem;
 use App\Filament\Support\PedidoStatusActions;
@@ -110,12 +111,15 @@ class AtenderPedido extends Page
 
     public ?int $stoneOpcaoPagamentoId = null;
 
-    /** aguardando|pago|erro|cancelado */
+    /** form|aguardando|pago|erro|cancelado|indeterminado */
     public string $stoneStatusModal = 'aguardando';
 
     public ?string $stoneErroModal = null;
 
     public ?int $stonePedidoId = null;
+
+    /** Fotografia do formulário no último salvamento — base de "alterações não salvas" (ver formularioSujo()). */
+    public string $estadoSalvo = '';
 
     /**
      * Status a partir dos quais o conteúdo do pedido não faz mais sentido
@@ -227,6 +231,8 @@ class AtenderPedido extends Page
                 'pagoInfo' => $p->pg_pedido_pago ? $this->descreverConfirmacao($p) : null,
             ])->all(),
         ];
+
+        $this->estadoSalvo = $this->impressaoDoFormulario();
     }
 
     /**
@@ -493,16 +499,22 @@ class AtenderPedido extends Page
         return $this->resumoTotais()['total'];
     }
 
-    public function save(): void
+    /**
+     * Valida e grava o pedido (cria ou atualiza), sem notificar nem redirecionar.
+     * Devolve o pedido persistido ou null quando algo impediu (a notificação de
+     * erro já foi enviada). Em pedido novo grava $pedidoId no componente: uma
+     * segunda chamada (duplo clique) trata o pedido como edição e não duplica.
+     */
+    private function persistir(): ?Pedido
     {
         if ($this->somenteLeitura) {
-            return;
+            return null;
         }
 
         if (empty($this->itensCarrinho)) {
             $this->notificarErro('Adicione ao menos um item ao pedido.');
 
-            return;
+            return null;
         }
 
         $semCliente = (bool) ($this->clienteData['semCliente'] ?? false);
@@ -514,20 +526,20 @@ class AtenderPedido extends Page
         if (! $semCliente && blank($this->clienteData['nome'] ?? null)) {
             $this->notificarErro('Informe o nome do cliente, ou marque "Pedido sem cliente".');
 
-            return;
+            return null;
         }
 
         if (! $semCliente && ! $temClienteJaVinculado && blank($this->clienteData['celular'] ?? null)) {
             $this->notificarErro('Informe o telefone do cliente (ou busque um já cadastrado), ou marque "Pedido sem cliente".');
 
-            return;
+            return null;
         }
 
         $pagamentos = $this->entregaPagamentoData['pagamentos'] ?? [];
         if (empty($pagamentos) || collect($pagamentos)->contains(fn (array $p): bool => blank($p['opcaoPagamentoId'] ?? null) || blank($p['valor'] ?? null))) {
             $this->notificarErro('Escolha ao menos uma forma de pagamento e informe o valor de cada uma.');
 
-            return;
+            return null;
         }
 
         $total = $this->totalPreview;
@@ -539,7 +551,7 @@ class AtenderPedido extends Page
                 number_format($total, 2, ',', '.'),
             ));
 
-            return;
+            return null;
         }
 
         $opcaoEntrega = ($this->entregaPagamentoData['opcaoEntregaId'] ?? null)
@@ -550,14 +562,14 @@ class AtenderPedido extends Page
             && (blank($this->clienteData['enderecoRua'] ?? null) || blank($this->clienteData['enderecoBairro'] ?? null))) {
             $this->notificarErro('Esta opção de entrega exige rua e bairro preenchidos.');
 
-            return;
+            return null;
         }
 
         $bloqueios = $this->verificarEstoque();
         if ($bloqueios !== []) {
             $this->notificarErro(implode(' | ', $bloqueios), titulo: 'Estoque insuficiente');
 
-            return;
+            return null;
         }
 
         try {
@@ -626,6 +638,24 @@ class AtenderPedido extends Page
         } catch (CupomInvalidoException $e) {
             $this->notificarErro($e->getMessage(), titulo: 'Cupom não aplicado');
 
+            return null;
+        }
+
+        $pedido = Pedido::findOrFail($this->pedidoId);
+
+        // Pedido novo gravado sem sair da tela (Salvar e cobrar): o carrinho passa a
+        // refletir as linhas do banco e o formulário vira o estado salvo.
+        $this->itensCarrinho = $this->carregarItensDoBanco($pedido->id);
+        $this->statusSelecionado = $pedido->pedido_status;
+        $this->estadoSalvo = $this->impressaoDoFormulario();
+        unset($this->resumoTotais, $this->totalPreview);
+
+        return $pedido;
+    }
+
+    public function save(): void
+    {
+        if (! $this->persistir()) {
             return;
         }
 
@@ -791,7 +821,46 @@ class AtenderPedido extends Page
             ->all();
     }
 
-    /** Maquininhas Stone com número de série — mesmo critério do PDV (OperarVenda). */
+    /**
+     * Resumo do que o operador pode alterar na tela sem gravar na hora. Os itens
+     * de um pedido existente já são gravados a cada ação (modo dual do
+     * PedidoProdutoSelector), então ficam de fora.
+     */
+    private function impressaoDoFormulario(): string
+    {
+        return md5(json_encode([
+            $this->clienteData,
+            $this->entregaPagamentoData['opcaoEntregaId'] ?? null,
+            collect($this->entregaPagamentoData['pagamentos'] ?? [])->map(fn (array $p): array => [
+                $p['opcaoPagamentoId'] ?? null, $p['valor'] ?? null, $p['trocoPara'] ?? null,
+            ])->all(),
+            $this->observacao,
+            $this->statusSelecionado,
+        ]));
+    }
+
+    /**
+     * Há alterações na tela que ainda não foram gravadas? Pedido existente cujo
+     * formulário mudou, ou cujo total na tela (frete, itens) difere do gravado.
+     * Pedido novo nunca foi gravado: sempre sujo.
+     */
+    #[Computed]
+    public function formularioSujo(): bool
+    {
+        if (! $this->pedidoId) {
+            return true;
+        }
+
+        if ($this->estadoSalvo !== $this->impressaoDoFormulario()) {
+            return true;
+        }
+
+        $gravado = (float) Pedido::whereKey($this->pedidoId)->value('pedido_valor_total');
+
+        return abs($gravado - $this->totalPreview) > 0.01;
+    }
+
+    /** Maquininhas com Stone Connect ativo — mesmo critério do PDV (OperarVenda). */
     #[Computed]
     public function maquininhasStone()
     {
@@ -804,17 +873,70 @@ class AtenderPedido extends Page
         return OpcoesPagamento::where('opcaopag_stone_integrada', true)->orderBy('opcaopag_nome')->pluck('opcaopag_nome', 'id');
     }
 
+    /** Cobrança da maquininha ainda em aberto neste pedido (a mais recente), se houver. */
+    #[Computed]
+    public function cobrancaStonePendente(): ?StonePedido
+    {
+        return $this->pedidoId ? Pedido::find($this->pedidoId)?->stonePedidosPendentes()->first() : null;
+    }
+
+    /**
+     * Elegibilidade do pedido GRAVADO para ser cobrado na maquininha (o servidor
+     * decide pelo registro persistido, nunca pelo estado da tela).
+     *
+     * @return array{elegivel: bool, motivo: ?string, oculto: bool}
+     */
+    #[Computed]
+    public function elegibilidadeStone(): array
+    {
+        $pedido = $this->pedidoId ? Pedido::find($this->pedidoId) : null;
+
+        return $pedido
+            ? app(StoneRecebimentoService::class)->elegibilidade($pedido)
+            : ['elegivel' => false, 'motivo' => null, 'oculto' => true];
+    }
+
+    /** Valor que a maquininha vai cobrar: o devido do pedido gravado. */
+    #[Computed]
+    public function valorDevidoStone(): float
+    {
+        $pedido = $this->pedidoId ? Pedido::find($this->pedidoId) : null;
+
+        return $pedido ? app(StoneRecebimentoService::class)->valorDevido($pedido) : 0.0;
+    }
+
+    /**
+     * Pedido novo ou com formulário alterado: gravar e cobrar numa ação só. Sem
+     * isso, a cobrança sairia com o valor antigo do banco.
+     */
+    #[Computed]
+    public function cobrarExigeSalvar(): bool
+    {
+        return $this->formularioSujo;
+    }
+
     #[Computed]
     public function podeCobrarStone(): bool
     {
-        return ! $this->somenteLeitura
-            && $this->maquininhasStone->isNotEmpty()
-            && $this->pedidoTemCombinadoStone();
+        if ($this->somenteLeitura || $this->maquininhasStone->isEmpty()) {
+            return false;
+        }
+
+        // Pedido novo: o botão "Salvar e cobrar" cria o pedido antes de cobrar.
+        if (! $this->pedidoId) {
+            return true;
+        }
+
+        return $this->cobrancaStonePendente !== null || ! $this->elegibilidadeStone['oculto'];
     }
 
-    private function pedidoTemCombinadoStone(): bool
+    public function salvarECobrar(): void
     {
-        return (bool) ($this->pedidoId ? Pedido::find($this->pedidoId)?->temPagamentoCombinadoStone() : false);
+        if ($this->somenteLeitura || $this->persistir() === null) {
+            return;
+        }
+
+        $this->abrirModalStone();
     }
 
     public function abrirModalStone(): void
@@ -825,8 +947,26 @@ class AtenderPedido extends Page
             return;
         }
 
-        if (! $this->pedidoTemCombinadoStone()) {
-            $this->notificarErro('Nenhuma forma de pagamento combinada deste pedido está integrada à Stone.');
+        // Cobrança em aberto: reabre o acompanhamento em vez de oferecer outro envio.
+        $pendente = Pedido::find($this->pedidoId)?->stonePedidosPendentes()->first();
+        if ($pendente) {
+            $this->stonePedidoId = $pendente->id;
+            $this->stoneErroModal = $pendente->stp_status === StonePedidoStatus::Indeterminado ? $pendente->stp_erro : null;
+            $this->stoneStatusModal = $pendente->stp_status === StonePedidoStatus::Indeterminado ? 'indeterminado' : 'aguardando';
+            $this->modalStoneAberta = true;
+
+            return;
+        }
+
+        if ($this->formularioSujo) {
+            $this->notificarErro('Há alterações não salvas no pedido. Use "Salvar e cobrar" para gravar antes de cobrar na maquininha.', titulo: 'Não foi possível cobrar');
+
+            return;
+        }
+
+        $elegibilidade = $this->elegibilidadeStone;
+        if (! $elegibilidade['elegivel']) {
+            $this->notificarErro((string) $elegibilidade['motivo'], titulo: 'Não foi possível cobrar');
 
             return;
         }
@@ -845,6 +985,7 @@ class AtenderPedido extends Page
         $this->stonePedidoId = null;
         $this->stoneErroModal = null;
         $this->stoneStatusModal = 'form';
+        unset($this->cobrancaStonePendente, $this->elegibilidadeStone, $this->valorDevidoStone);
 
         // O pagamento integral finaliza o pedido pelo webhook — recarrega a
         // página pra refletir o novo status (a mesma UX de OperarVenda).
@@ -870,8 +1011,8 @@ class AtenderPedido extends Page
             return;
         }
 
-        if (! $pedido->temPagamentoCombinadoStone()) {
-            $this->notificarErro('Nenhuma forma de pagamento combinada deste pedido está integrada à Stone.');
+        if ($this->formularioSujo) {
+            $this->notificarErro('Há alterações não salvas no pedido. Use "Salvar e cobrar" para gravar antes de cobrar na maquininha.', titulo: 'Não foi possível cobrar');
 
             return;
         }
@@ -882,15 +1023,22 @@ class AtenderPedido extends Page
         $modo = $opcao ? StonePedidoModo::Direto : StonePedidoModo::Listado;
 
         try {
+            // Sem valor: o serviço cobra o valor devido do pedido gravado.
             $stonePedido = app(StoneRecebimentoService::class)->iniciarCobrancaDePedido(
-                $pedido, $opcao, $maquininha, $this->totalPreview, $modo,
+                $pedido, $opcao, $maquininha, modo: $modo,
             );
             $this->stonePedidoId = $stonePedido->id;
             $this->stoneStatusModal = 'aguardando';
+        } catch (StoneResultadoDesconhecidoException $e) {
+            $this->stonePedidoId = $e->stonePedidoId();
+            $this->stoneStatusModal = 'indeterminado';
+            $this->stoneErroModal = $e->getMessage();
         } catch (StoneConnectException $e) {
             $this->stoneStatusModal = 'erro';
             $this->stoneErroModal = $e->getMessage();
         }
+
+        unset($this->cobrancaStonePendente, $this->elegibilidadeStone, $this->valorDevidoStone);
     }
 
     public function verificarStatusStone(): void
@@ -908,12 +1056,38 @@ class AtenderPedido extends Page
             StonePedidoStatus::Pago => 'pago',
             StonePedidoStatus::Cancelado, StonePedidoStatus::Estornado => 'cancelado',
             StonePedidoStatus::Falha => 'erro',
-            default => $this->stoneStatusModal,
+            StonePedidoStatus::Indeterminado => 'indeterminado',
+            default => $this->stoneStatusModal === 'indeterminado' ? 'aguardando' : $this->stoneStatusModal,
         };
 
         if ($this->stoneStatusModal === 'erro' && $this->stoneErroModal === null) {
-            $this->stoneErroModal = 'A cobrança falhou na Stone. Tente novamente.';
+            $this->stoneErroModal = $pedido->stp_erro ?: 'A cobrança falhou na Stone. Tente novamente.';
         }
+
+        if ($this->stoneStatusModal === 'indeterminado') {
+            $this->stoneErroModal ??= $pedido->stp_erro;
+        }
+    }
+
+    /** Resultado desconhecido: pergunta à Stone (ou repete o envio com a mesma chave) e volta ao acompanhamento normal. */
+    public function reconsultarCobrancaStone(): void
+    {
+        $stonePedido = $this->stonePedidoId ? StonePedido::find($this->stonePedidoId) : null;
+        if (! $stonePedido) {
+            return;
+        }
+
+        try {
+            app(StoneRecebimentoService::class)->reconsultar($stonePedido);
+        } catch (StoneConnectException $e) {
+            $this->stoneErroModal = $e->getMessage();
+
+            return;
+        }
+
+        $this->stoneErroModal = null;
+        $this->stoneStatusModal = 'aguardando';
+        $this->verificarStatusStone();
     }
 
     public function cancelarCobrancaStone(): void
@@ -924,7 +1098,14 @@ class AtenderPedido extends Page
 
         $stonePedido = StonePedido::find($this->stonePedidoId);
         if ($stonePedido) {
-            app(StoneRecebimentoService::class)->cancelarCobranca($stonePedido);
+            try {
+                app(StoneRecebimentoService::class)->cancelarCobranca($stonePedido);
+            } catch (StoneConnectException $e) {
+                $this->stoneStatusModal = 'erro';
+                $this->stoneErroModal = $e->getMessage();
+
+                return;
+            }
         }
 
         $this->fecharModalStone();

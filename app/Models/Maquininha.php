@@ -20,6 +20,7 @@ class Maquininha extends Model
         'nome',
         'operadora',
         'numero_serie',
+        'maquininha_connect_ativo',
         'identificador_externo',
         'maquininha_padrao',
         'conta_financeira_id',
@@ -30,6 +31,7 @@ class Maquininha extends Model
         return [
             'operadora' => OperadoraMaquininha::class,
             'maquininha_padrao' => 'boolean',
+            'maquininha_connect_ativo' => 'boolean',
         ];
     }
 
@@ -97,16 +99,17 @@ class Maquininha extends Model
     }
 
     /**
-     * Maquininhas aptas a receber um pedido Stone: operadora Stone e com
-     * número de série cadastrado (é o devices_serial_number que endereça o
-     * POST /orders ao aparelho físico — sem ele a Stone não sabe pra onde
-     * mandar). Critério único usado em todo ponto de disparo (PDV, balcão,
-     * entregador, mesa) — ver OperarVenda::maquininhasStone() (origem deste
-     * scope, extraído para reaproveitar fora do PDV).
+     * Maquininhas aptas a receber um pedido Stone: marcadas como "recebe
+     * pedidos Connect" (maquininha_connect_ativo) e com número de série
+     * cadastrado (é o devices_serial_number que endereça o POST /orders ao
+     * aparelho físico — sem ele a Stone não sabe pra onde mandar). Uma Stone
+     * sem o flag (ex.: Tectoy T8) só serve para lançamento manual. Critério
+     * único usado em todo ponto de disparo (PDV, balcão, entregador, mesa).
      */
     public function scopeStoneDisponivel(Builder $query): Builder
     {
-        return $query->where('operadora', OperadoraMaquininha::Stone->value)
-            ->whereNotNull('numero_serie');
+        return $query->where('maquininha_connect_ativo', true)
+            ->whereNotNull('numero_serie')
+            ->where('numero_serie', '!=', '');
     }
 }

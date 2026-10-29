@@ -6,6 +6,7 @@ use App\Filament\Pages\AtenderPedido;
 use App\Filament\Resources\Pedidos\PedidoResource;
 use App\Filament\Support\PedidoExclusaoActions;
 use App\Filament\Support\PedidoStatusActions;
+use App\Filament\Support\PedidoStoneActions;
 use App\Models\Pedido;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
@@ -58,6 +59,7 @@ class ViewPedido extends ViewRecord
                 'usuarioExcluiu:id,name_first',
                 'vendas',
                 'pagamentosCombinados',
+                'stonePedidos',
                 'historicoStatus.usuario:id,name_first',
                 'item_pedido_pedido_id' => fn ($query) => $query
                     ->with(['produto.categoria', 'adicionaisItemPedido.adicional', 'usuarioRemoveu:id,name_first']),
@@ -82,6 +84,10 @@ class ViewPedido extends ViewRecord
                 ->url(fn (Pedido $record): string => $record->linkImpressao())
                 ->openUrlInNewTab()
                 ->visible(fn (Pedido $record): bool => ! $record->trashed()),
+            PedidoStoneActions::enviar(),
+            PedidoStoneActions::reconsultar(),
+            PedidoStoneActions::verCobranca(),
+            PedidoStoneActions::cancelar(),
             PedidoStatusActions::cancelarDaTabela(),
             PedidoStatusActions::cancelarEntregueDaTabela(),
             PedidoExclusaoActions::excluir(verificacaoCompleta: true),

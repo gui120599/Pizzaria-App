@@ -3,15 +3,15 @@
 namespace App\Livewire;
 
 use App\Enums\StonePedidoModo;
+use App\Enums\StonePedidoOrigem;
 use App\Enums\StonePedidoStatus;
 use App\Exceptions\StoneConnectException;
+use App\Exceptions\StoneResultadoDesconhecidoException;
 use App\Models\Maquininha;
-use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\StonePedido;
 use App\Services\Stone\StoneRecebimentoService;
-use App\Support\ContaMesa;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -36,7 +36,7 @@ class MesaStoneCobranca extends Component
 
     public ?int $maquininhaId = null;
 
-    /** form|aguardando|pago|erro|cancelado */
+    /** form|aguardando|pago|erro|cancelado|indeterminado */
     public string $status = 'form';
 
     public ?string $erro = null;
@@ -58,36 +58,75 @@ class MesaStoneCobranca extends Component
         return Maquininha::stoneDisponivel()->orderBy('nome')->pluck('nome', 'id');
     }
 
-    #[Computed]
-    public function temFormaStone(): bool
+    /** Conta da mesa ou pedido avulso a cobrar (null quando já não é cobrável, ex.: pedido lançado no PDV). */
+    private function alvo(): Pedido|SessaoMesa|null
     {
-        return OpcoesPagamento::where('opcaopag_stone_integrada', true)->exists();
+        return $this->pedidoId ? $this->pedidoAvulso() : SessaoMesa::find($this->sessaoMesaId);
     }
 
-    /** Consumo ainda não pago + taxa de serviço da sessão (ver ContaMesa). */
+    /** Cobrança da maquininha ainda em aberto neste alvo, se houver. */
+    private function cobrancaPendente(): ?StonePedido
+    {
+        return StonePedido::query()
+            ->when($this->pedidoId, fn ($query) => $query->where('stp_pedido_id', $this->pedidoId)->where('stp_origem', StonePedidoOrigem::Pedido->value))
+            ->unless($this->pedidoId, fn ($query) => $query->where('stp_sessao_mesa_id', $this->sessaoMesaId))
+            ->whereIn('stp_status', StonePedidoStatus::valoresPendentes())
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * O botão aparece com cobrança em andamento (para acompanhar) ou quando a
+     * conta pode receber uma — regra do StoneRecebimentoService::elegibilidade().
+     */
+    #[Computed]
+    public function podeCobrar(): bool
+    {
+        if ($this->maquininhasStone->isEmpty()) {
+            return false;
+        }
+
+        if ($this->cobrancaPendente() !== null) {
+            return true;
+        }
+
+        $alvo = $this->alvo();
+
+        return $alvo !== null
+            && ! app(StoneRecebimentoService::class)->elegibilidade($alvo, haMaquininhaConnect: true)['oculto'];
+    }
+
+    /** O que a maquininha vai cobrar: o valor devido da conta ou do pedido (descontado o que já foi pago ou está aguardando). */
     #[Computed]
     public function totalAberto(): float
     {
-        if ($this->pedidoId) {
-            $pedido = $this->pedidoAvulso();
+        $alvo = $this->alvo();
 
-            return $pedido ? (float) $pedido->pedido_valor_total : 0.0;
-        }
-
-        $sessaoMesa = SessaoMesa::find($this->sessaoMesaId);
-
-        return $sessaoMesa ? ContaMesa::para($sessaoMesa)['total'] : 0.0;
+        return $alvo ? app(StoneRecebimentoService::class)->valorDevido($alvo) : 0.0;
     }
 
     public function abrirModal(): void
     {
-        if (! $this->temFormaStone) {
+        $this->erro = null;
+        $this->stonePedidoId = null;
+
+        // Cobrança em aberto: reabre o acompanhamento em vez de oferecer outro envio.
+        $pendente = $this->cobrancaPendente();
+        if ($pendente) {
+            $this->stonePedidoId = $pendente->id;
+            $indeterminado = $pendente->stp_status === StonePedidoStatus::Indeterminado;
+            $this->status = $indeterminado ? 'indeterminado' : 'aguardando';
+            $this->erro = $indeterminado ? $pendente->stp_erro : null;
+            $this->modalAberta = true;
+
             return;
         }
 
-        $this->status = 'form';
-        $this->erro = null;
-        $this->stonePedidoId = null;
+        $alvo = $this->alvo();
+        $elegibilidade = $alvo ? app(StoneRecebimentoService::class)->elegibilidade($alvo) : ['elegivel' => false, 'motivo' => 'Conta ou pedido indisponível para cobrança.'];
+
+        $this->status = $elegibilidade['elegivel'] ? 'form' : 'erro';
+        $this->erro = $elegibilidade['elegivel'] ? null : $elegibilidade['motivo'];
         $this->modalAberta = true;
     }
 
@@ -114,10 +153,9 @@ class MesaStoneCobranca extends Component
         }
 
         $maquininha = Maquininha::find($this->maquininhaId);
-        $alvo = $this->pedidoId ? $this->pedidoAvulso() : SessaoMesa::find($this->sessaoMesaId);
-        $valor = $this->totalAberto;
+        $alvo = $this->alvo();
 
-        if (! $maquininha || ! $alvo || $valor <= 0) {
+        if (! $maquininha || ! $alvo) {
             $this->erro = 'Conta ou valor inválido para envio.';
             $this->status = 'erro';
 
@@ -127,13 +165,18 @@ class MesaStoneCobranca extends Component
         session(['stone_ultima_maquininha_id.'.Auth::id() => $this->maquininhaId]);
 
         // O garçom escolhe o tipo (crédito/débito/PIX) na própria maquininha
-        // — modo Listado, igual ao botão "Lançar total" do PDV.
+        // — modo Listado, igual ao botão "Lançar total" do PDV. Sem valor: o
+        // serviço cobra o valor devido da conta.
         try {
             $stonePedido = app(StoneRecebimentoService::class)->iniciarCobrancaDePedido(
-                $alvo, null, $maquininha, $valor, StonePedidoModo::Listado,
+                $alvo, null, $maquininha, modo: StonePedidoModo::Listado,
             );
             $this->stonePedidoId = $stonePedido->id;
             $this->status = 'aguardando';
+        } catch (StoneResultadoDesconhecidoException $e) {
+            $this->stonePedidoId = $e->stonePedidoId();
+            $this->status = 'indeterminado';
+            $this->erro = $e->getMessage();
         } catch (StoneConnectException $e) {
             $this->status = 'erro';
             $this->erro = $e->getMessage();
@@ -155,8 +198,34 @@ class MesaStoneCobranca extends Component
             StonePedidoStatus::Pago => 'pago',
             StonePedidoStatus::Cancelado, StonePedidoStatus::Estornado => 'cancelado',
             StonePedidoStatus::Falha => 'erro',
-            default => $this->status,
+            StonePedidoStatus::Indeterminado => 'indeterminado',
+            default => $this->status === 'indeterminado' ? 'aguardando' : $this->status,
         };
+
+        if ($this->status === 'erro') {
+            $this->erro ??= $stonePedido->stp_erro ?: 'A cobrança falhou na Stone. Tente novamente.';
+        }
+    }
+
+    /** Resultado desconhecido: pergunta à Stone (ou repete o envio com a mesma chave) e volta ao acompanhamento normal. */
+    public function reconsultarCobranca(): void
+    {
+        $stonePedido = $this->stonePedidoId ? StonePedido::find($this->stonePedidoId) : null;
+        if (! $stonePedido) {
+            return;
+        }
+
+        try {
+            app(StoneRecebimentoService::class)->reconsultar($stonePedido);
+        } catch (StoneConnectException $e) {
+            $this->erro = $e->getMessage();
+
+            return;
+        }
+
+        $this->erro = null;
+        $this->status = 'aguardando';
+        $this->verificarStatus();
     }
 
     public function cancelarCobranca(): void
@@ -164,7 +233,14 @@ class MesaStoneCobranca extends Component
         if ($this->stonePedidoId) {
             $stonePedido = StonePedido::find($this->stonePedidoId);
             if ($stonePedido) {
-                app(StoneRecebimentoService::class)->cancelarCobranca($stonePedido);
+                try {
+                    app(StoneRecebimentoService::class)->cancelarCobranca($stonePedido);
+                } catch (StoneConnectException $e) {
+                    $this->status = 'erro';
+                    $this->erro = $e->getMessage();
+
+                    return;
+                }
             }
         }
 

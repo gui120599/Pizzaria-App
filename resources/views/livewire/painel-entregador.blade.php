@@ -82,11 +82,11 @@
                         @include('livewire.partials.painel-entregador-qrcode', ['pedido' => $pedido])
 
                         <div class="px-4 pb-4 pt-3 space-y-2">
-                            @if ($this->maquininhasStone->isNotEmpty() && $pedido->temPagamentoCombinadoStone())
+                            @if ($this->podeCobrarNaMaquininha($pedido))
                                 <button wire:click="abrirModalStone({{ $pedido->id }})"
                                         class="w-full py-2.5 border-2 border-teal-500 text-teal-600 font-bold rounded-lg text-sm flex items-center justify-center gap-2">
                                     <i class='bx bx-credit-card-alt text-lg'></i>
-                                    Receber na maquininha
+                                    {{ $pedido->stonePedidos->contains(fn ($stp) => $stp->stp_status->pendente()) ? 'Acompanhar cobrança na maquininha' : 'Receber na maquininha' }}
                                 </button>
                             @endif
                             <button wire:click="marcarEntregue({{ $pedido->id }})"
@@ -247,6 +247,18 @@
                         <button wire:click="fecharModalStone" type="button" class="w-full py-2 rounded-lg text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50">
                             Fechar
                         </button>
+                    @elseif ($stoneStatusModal === 'indeterminado')
+                        <div class="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-3 py-2">
+                            {{ $stoneErroModal ?: 'Não foi possível confirmar se a cobrança chegou à maquininha. Não envie de novo: reconsulte na Stone.' }}
+                        </div>
+                        <div class="flex gap-2">
+                            <button wire:click="reconsultarCobrancaStone" wire:loading.attr="disabled" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">
+                                Reconsultar na Stone
+                            </button>
+                            <button wire:click="fecharModalStone" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50">
+                                Fechar
+                            </button>
+                        </div>
                     @elseif ($stoneStatusModal === 'cancelado')
                         <div class="flex flex-col items-center gap-2 py-2 text-center">
                             <i class='bx bx-x-circle text-4xl text-gray-400'></i>

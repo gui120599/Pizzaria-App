@@ -14,6 +14,7 @@ use App\Models\StonePedido;
 use App\Models\Venda;
 use App\Services\FinalizacaoVendaService;
 use App\Services\LancamentoItensVendaService;
+use App\Services\LancamentoPagamentosVendaService;
 use App\Services\VendaService;
 use App\Support\ContaMesa;
 use Illuminate\Support\Collection;
@@ -38,6 +39,7 @@ class StoneVendaAutomaticaService
 
     public function __construct(
         private readonly LancamentoItensVendaService $lancamento,
+        private readonly LancamentoPagamentosVendaService $pagamentos,
         private readonly VendaService $vendas,
     ) {}
 
@@ -118,6 +120,11 @@ class StoneVendaAutomaticaService
         }
 
         $this->vendas->atualizarValoresdaVenda($venda->id);
+
+        // A cobrança na maquininha foi o valor devido: o que o cliente já pagou no
+        // pedido (pg_pedido_pago, ex.: PIX CNPJ) entra na venda, senão ela ficaria
+        // "devendo" esse valor e nunca finalizaria sozinha.
+        $this->pagamentos->lancarDosPedidos($venda->fresh(), $pedidosAlvo->pluck('id'), somentePagos: true);
 
         return $venda->fresh();
     }

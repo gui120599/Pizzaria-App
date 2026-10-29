@@ -33,6 +33,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use UnitEnum;
 
@@ -54,6 +55,7 @@ class OpcoesPagamentoResource extends Resource
     {
         return $schema->components([
             SchemaSection::make('Identificação')
+                ->columnSpanFull()
                 ->icon('heroicon-o-credit-card')
                 ->schema([
                     TextInput::make('opcaopag_nome')
@@ -76,8 +78,10 @@ class OpcoesPagamentoResource extends Resource
                 ]),
 
             SchemaSection::make('Configurações Fiscais')
+                ->columnSpanFull()
                 ->icon('heroicon-o-document-text')
                 ->collapsible()
+                ->collapsed()
                 ->schema([
                     Select::make('opcaopag_desc_nfe')
                         ->label('Código NF-e')
@@ -137,8 +141,10 @@ class OpcoesPagamentoResource extends Resource
                 ]),
 
             SchemaSection::make('Operação no PDV')
+                ->columnSpanFull()
                 ->icon('heroicon-o-credit-card')
                 ->collapsible()
+                ->collapsed()
                 ->schema([
                     Toggle::make('opcaopag_requer_bandeira')
                         ->label('Exige bandeira do cartão')
@@ -153,13 +159,29 @@ class OpcoesPagamentoResource extends Resource
                         ->helperText('Quando ativado, o operador deve informar o número de autorização ao registrar este pagamento na venda'),
 
                     Toggle::make('opcaopag_stone_integrada')
-                        ->label('Recebe via maquininha Stone (Connect)')
+                        ->label('Permite cobrar na maquininha Stone (Connect)')
                         ->default(false)
                         ->inline()
-                        ->helperText('O PDV envia a cobrança automaticamente para uma maquininha Stone e lança o pagamento pelo webhook. Exige Código NF-e = Cartão de Crédito, Cartão de Débito ou PIX.')
-                        ->rule(fn (Get $get) => function (string $attribute, $value, \Closure $fail) use ($get) {
-                            if ($value && ! in_array($get('opcaopag_desc_nfe'), ['creditCard', 'debitCard', 'InstantPayment'], true)) {
+                        ->helperText('No PDV, o operador escolhe entre "Lançar manual" (qualquer maquininha) e "Cobrar na Stone" (envia a cobrança à maquininha e lança o pagamento pelo webhook). Exige Código NF-e = Cartão de Crédito, Cartão de Débito ou PIX; só uma forma por Código NF-e.')
+                        ->rule(fn (Get $get, ?Model $record) => function (string $attribute, $value, \Closure $fail) use ($get, $record) {
+                            if (! $value) {
+                                return;
+                            }
+
+                            if (! in_array($get('opcaopag_desc_nfe'), ['creditCard', 'debitCard', 'InstantPayment'], true)) {
                                 $fail('Formas integradas à Stone precisam de Código NF-e "Cartão de Crédito", "Cartão de Débito" ou "PIX".');
+
+                                return;
+                            }
+
+                            $jaPermite = OpcoesPagamento::query()
+                                ->where('opcaopag_stone_integrada', true)
+                                ->where('opcaopag_desc_nfe', $get('opcaopag_desc_nfe'))
+                                ->when($record, fn (Builder $query) => $query->whereKeyNot($record->getKey()))
+                                ->value('opcaopag_nome');
+
+                            if ($jaPermite !== null) {
+                                $fail("A forma \"{$jaPermite}\" já permite cobrar na Stone com este Código NF-e. Desmarque lá antes, para o pagamento da maquininha cair numa forma só.");
                             }
                         }),
 
@@ -227,6 +249,9 @@ class OpcoesPagamentoResource extends Resource
                 ToggleColumn::make('opcaopag_aparece_cardapio')
                     ->label('No Cardápio'),
 
+                ToggleColumn::make('opcaopag_stone_integrada')
+                ->label('Connect Stone'),
+
                 TextColumn::make('planoReceita.nome')
                     ->label('Plano de receita')
                     ->placeholder('Sem plano')
@@ -242,13 +267,6 @@ class OpcoesPagamentoResource extends Resource
                 IconColumn::make('opcaopag_envio_automatico_nfe')
                     ->label('NFC-e automática')
                     ->boolean(),
-
-                TextColumn::make('opcaopag_descricao')
-                    ->label('Descrição')
-                    ->limit(60)
-                    ->wrap()
-                    ->placeholder('—')
-                    ->toggleable(),
 
                 TextColumn::make('opcaopag_tipo_taxa')
                     ->label('Taxa')

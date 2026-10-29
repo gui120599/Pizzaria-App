@@ -49,6 +49,9 @@ return [
         // para o modelo Direto no Stone Partner Hub. Se ainda não estiver, deixar
         // false: o PDV cai para o modelo Listado sem precisar de deploy.
         'pedido_direto' => env('STONE_CONNECT_PEDIDO_DIRETO', true),
+        // O POS da Stone lista no máximo 30 pedidos abertos por maquininha — o
+        // envio recusa quando a maquininha já está no limite.
+        'limite_pedidos_abertos' => (int) env('STONE_CONNECT_LIMITE_PEDIDOS_ABERTOS', 30),
         // HTTP Basic Auth da URL de webhook configurada na Dashboard do Pagar.me
         'webhook_user' => env('STONE_WEBHOOK_USER'),
         'webhook_password' => env('STONE_WEBHOOK_PASSWORD'),

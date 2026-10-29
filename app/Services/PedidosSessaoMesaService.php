@@ -213,7 +213,7 @@ class PedidosSessaoMesaService
                 ->where('item_pedido_status', 'INSERIDO')
                 ->whereNotNull('item_pedido_venda_id'))
             ->whereNotIn('id', StonePedido::query()
-                ->where('stp_status', StonePedidoStatus::Aguardando)
+                ->whereIn('stp_status', [StonePedidoStatus::Aguardando, StonePedidoStatus::Indeterminado])
                 ->whereNotNull('stp_pedido_id')
                 ->select('stp_pedido_id'));
     }
@@ -227,7 +227,7 @@ class PedidosSessaoMesaService
     private function sessoesComStoneAguardando(): QueryBuilder
     {
         return StonePedido::query()
-            ->where('stp_status', StonePedidoStatus::Aguardando)
+            ->whereIn('stp_status', [StonePedidoStatus::Aguardando, StonePedidoStatus::Indeterminado])
             ->whereNotNull('stp_sessao_mesa_id')
             ->select('stp_sessao_mesa_id')
             ->toBase();
@@ -236,7 +236,7 @@ class PedidosSessaoMesaService
     private function temStoneAguardando(SessaoMesa $sessao): bool
     {
         return StonePedido::where('stp_sessao_mesa_id', $sessao->id)
-            ->where('stp_status', StonePedidoStatus::Aguardando)
+            ->whereIn('stp_status', [StonePedidoStatus::Aguardando, StonePedidoStatus::Indeterminado])
             ->exists();
     }
 

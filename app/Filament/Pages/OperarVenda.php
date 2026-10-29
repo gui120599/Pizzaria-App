@@ -14,6 +14,7 @@ use App\Exceptions\FinanceiroException;
 use App\Exceptions\ItemNaoDivisivelException;
 use App\Exceptions\NfeIoException;
 use App\Exceptions\StoneConnectException;
+use App\Exceptions\StoneResultadoDesconhecidoException;
 use App\Exceptions\VendaNaoFinalizavelException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
 use App\Filament\Resources\Vendas\VendaResource;
@@ -47,6 +48,7 @@ use App\Services\EstoqueService;
 use App\Services\FinalizacaoVendaService;
 use App\Services\Financeiro\RecebimentoFiadoService;
 use App\Services\LancamentoItensVendaService;
+use App\Services\LancamentoPagamentosVendaService;
 use App\Services\Nfe\EmissaoNfeAutomaticaService;
 use App\Services\NfeIoService;
 use App\Services\Stone\StoneRecebimentoService;
@@ -181,7 +183,7 @@ class OperarVenda extends Page
     // ── Modal Cobrança na maquininha Stone ───────────────────────────────────
     public bool $modalStoneAberta = false;
 
-    /** @var 'aguardando'|'pago'|'erro'|'cancelado'|null */
+    /** @var 'aguardando'|'pago'|'erro'|'cancelado'|'indeterminado'|null */
     public ?string $stoneStatusModal = null;
 
     public ?string $stoneErroModal = null;
@@ -190,6 +192,14 @@ class OperarVenda extends Page
 
     /** Maquininha escolhida no modal de pagamento para formas integradas à Stone. */
     public ?int $stoneMaquininhaId = null;
+
+    /**
+     * Como receber uma forma que permite Stone: 'manual' (qualquer maquininha,
+     * bandeira e autorização) ou 'stone' (cobrança enviada à maquininha
+     * Connect). Só vale 'stone' quando a forma permite e há maquininha Connect
+     * — o servidor revalida em registrarPagamento().
+     */
+    public string $modoRecebimento = 'manual';
 
     // ── Modal "Lançar pedido total na maquininha" (modelo Listado) ────────────
     public bool $modalStoneTotalAberta = false;
@@ -1579,6 +1589,7 @@ class OperarVenda extends Page
 
         $this->maquininhaPagamentoId ??= Maquininha::padrao()?->id;
         $this->formaTroco ??= $this->trocoPadraoDaOpcao();
+        $this->restaurarModoRecebimento();
     }
 
     /** Trocar a forma no modal volta o troco para o padrão da forma nova. */
@@ -1586,6 +1597,42 @@ class OperarVenda extends Page
     {
         $this->formaTroco = $this->trocoPadraoDaOpcao();
         $this->limparCarteira();
+        $this->restaurarModoRecebimento();
+    }
+
+    /** A escolha só aparece para forma que permite Stone com maquininha Connect cadastrada; fora disso, sempre manual. */
+    private function podeEscolherModoRecebimento(): bool
+    {
+        $opcao = $this->opcaoPagamentoSelecionadaId ? OpcoesPagamento::find($this->opcaoPagamentoSelecionadaId) : null;
+
+        return $opcao !== null
+            && $opcao->permiteCobrarStone()
+            && ! $opcao->ehCarteiraInfluenciador()
+            && $this->pagamentoEmEdicaoId === null
+            && $this->maquininhasStone->isNotEmpty();
+    }
+
+    #[Computed]
+    public function escolhaModoRecebimentoVisivel(): bool
+    {
+        return $this->podeEscolherModoRecebimento();
+    }
+
+    /** Última escolha do operador (por sessão) vale só onde a escolha existe; o padrão é lançar manual. */
+    private function restaurarModoRecebimento(): void
+    {
+        $lembrado = session('stone_modo_recebimento.'.Auth::id(), 'manual');
+
+        $this->modoRecebimento = $this->podeEscolherModoRecebimento() && $lembrado === 'stone' ? 'stone' : 'manual';
+    }
+
+    public function updatedModoRecebimento(): void
+    {
+        if (! in_array($this->modoRecebimento, ['manual', 'stone'], true)) {
+            $this->modoRecebimento = 'manual';
+        }
+
+        session(['stone_modo_recebimento.'.Auth::id() => $this->modoRecebimento]);
     }
 
     private function limparCarteira(): void
@@ -1642,6 +1689,7 @@ class OperarVenda extends Page
         $this->formaTroco = null;
         $this->pagamentoEmEdicaoId = null;
         $this->stoneMaquininhaId = null;
+        $this->modoRecebimento = 'manual';
         $this->limparCarteira();
     }
 
@@ -1656,10 +1704,14 @@ class OperarVenda extends Page
     {
         $this->resetErrorBag('valorPagamento');
 
+        $stone = app(StoneRecebimentoService::class);
         $valor = round((float) $this->valorPagamento, 2);
 
-        if ($valor <= 0 || $valor > $this->valorRestante + 0.005) {
-            $this->addError('valorPagamento', 'Informe um valor entre R$ 0,01 e o restante da venda.');
+        // Restante da venda menos o que já aguarda na maquininha (outras cobranças pendentes).
+        $devido = $stone->valorDevido($venda->fresh());
+
+        if ($valor <= 0 || $valor > $devido + 0.005) {
+            $this->addError('valorPagamento', 'Informe um valor entre R$ 0,01 e R$ '.number_format($devido, 2, ',', '.').' (restante da venda menos o que já aguarda na maquininha).');
 
             return;
         }
@@ -1672,13 +1724,9 @@ class OperarVenda extends Page
         }
 
         try {
-            $pedido = app(StoneRecebimentoService::class)
-                ->iniciarCobranca($venda, $opcao, $maquininha, $valor, StonePedidoModo::Direto);
+            $pedido = $stone->iniciarCobranca($venda, $opcao, $maquininha, $valor, StonePedidoModo::Direto);
         } catch (StoneConnectException $e) {
-            $this->stonePedidoId = null;
-            $this->stoneStatusModal = 'erro';
-            $this->stoneErroModal = $e->getMessage();
-            $this->modalStoneAberta = true;
+            $this->abrirModalStoneComErro($e);
             $this->fecharModalPagamento();
 
             return;
@@ -1689,6 +1737,17 @@ class OperarVenda extends Page
         $this->stoneErroModal = null;
         $this->modalStoneAberta = true;
         $this->fecharModalPagamento();
+    }
+
+    /** Falha no envio: recusa comprovada vira 'erro'; resultado desconhecido vira 'indeterminado' e acompanha o registro para reconsultar. */
+    private function abrirModalStoneComErro(StoneConnectException $e): void
+    {
+        $indeterminado = $e instanceof StoneResultadoDesconhecidoException;
+
+        $this->stonePedidoId = $indeterminado ? $e->stonePedidoId() : null;
+        $this->stoneStatusModal = $indeterminado ? 'indeterminado' : 'erro';
+        $this->stoneErroModal = $e->getMessage();
+        $this->modalStoneAberta = true;
     }
 
     /**
@@ -1720,8 +1779,9 @@ class OperarVenda extends Page
             return;
         }
 
-        $valor = $this->valorRestante;
-        if ($valor <= 0) {
+        $stone = app(StoneRecebimentoService::class);
+
+        if ($stone->valorDevido($venda) <= 0) {
             $this->addError('stoneTotal', 'Não há saldo restante para cobrar na maquininha.');
 
             return;
@@ -1735,14 +1795,11 @@ class OperarVenda extends Page
         }
 
         try {
-            $pedido = app(StoneRecebimentoService::class)
-                ->iniciarCobranca($venda, null, $maquininha, $valor, StonePedidoModo::Listado);
+            // Sem valor: cobra o devido (restante menos o que já aguarda na maquininha).
+            $pedido = $stone->iniciarCobranca($venda, null, $maquininha, null, StonePedidoModo::Listado);
         } catch (StoneConnectException $e) {
             $this->fecharModalStoneTotal();
-            $this->stonePedidoId = null;
-            $this->stoneStatusModal = 'erro';
-            $this->stoneErroModal = $e->getMessage();
-            $this->modalStoneAberta = true;
+            $this->abrirModalStoneComErro($e);
 
             return;
         }
@@ -1781,7 +1838,14 @@ class OperarVenda extends Page
         }
 
         if ($pedido->stp_status === StonePedidoStatus::Falha) {
-            $this->definirErroStone('Não foi possível enviar a cobrança para a maquininha.');
+            $this->definirErroStone($pedido->stp_erro ?: 'Não foi possível enviar a cobrança para a maquininha.');
+
+            return;
+        }
+
+        if ($pedido->stp_status === StonePedidoStatus::Indeterminado) {
+            $this->stoneStatusModal = 'indeterminado';
+            $this->stoneErroModal ??= $pedido->stp_erro;
 
             return;
         }
@@ -1811,6 +1875,27 @@ class OperarVenda extends Page
         } catch (StoneConnectException $e) {
             $this->definirErroStone($e->getMessage());
         }
+    }
+
+    /** Resultado desconhecido: pergunta à Stone (ou repete o envio com a mesma chave) e volta ao acompanhamento normal. */
+    public function reconsultarCobrancaStone(): void
+    {
+        $pedido = $this->stonePedidoId ? StonePedido::find($this->stonePedidoId) : null;
+        if (! $pedido) {
+            return;
+        }
+
+        try {
+            app(StoneRecebimentoService::class)->reconsultar($pedido);
+        } catch (StoneConnectException $e) {
+            $this->stoneErroModal = $e->getMessage();
+
+            return;
+        }
+
+        $this->stoneErroModal = null;
+        $this->stoneStatusModal = 'aguardando';
+        $this->verificarStatusStone();
     }
 
     public function fecharModalStone(): void
@@ -1869,6 +1954,7 @@ class OperarVenda extends Page
         }
 
         $this->pagamentoEmEdicaoId = $pagamento->id;
+        $this->modoRecebimento = 'manual';
         $this->opcaoPagamentoSelecionadaId = $pagamento->pg_venda_opcaopagamento_id;
         $this->cartaoId = $pagamento->pg_venda_cartao_id;
         $this->maquininhaPagamentoId = $pagamento->pg_venda_maquininha_id;
@@ -1904,9 +1990,17 @@ class OperarVenda extends Page
             return;
         }
 
-        // Forma integrada à maquininha Stone: em vez de gravar o pagamento
-        // aqui, manda a cobrança para o POS e espera o webhook charge.paid.
-        if ($opcaoPagamento->ehIntegracaoStone()) {
+        // "Cobrar na Stone": em vez de gravar o pagamento aqui, manda a
+        // cobrança para o POS e espera o webhook charge.paid. O modo vem do
+        // estado da tela, então o servidor revalida: forma que não permite,
+        // edição de pagamento e carteira de influenciador são sempre manuais.
+        if ($this->modoRecebimento === 'stone') {
+            if (! $opcaoPagamento->permiteCobrarStone() || $opcaoPagamento->ehCarteiraInfluenciador() || $this->pagamentoEmEdicaoId !== null) {
+                $this->addError('valorPagamento', 'Esta forma de pagamento não pode ser cobrada na maquininha Stone. Lance o pagamento manualmente.');
+
+                return;
+            }
+
             $this->iniciarCobrancaStone($opcaoPagamento, $venda);
 
             return;
@@ -1994,59 +2088,23 @@ class OperarVenda extends Page
     }
 
     /**
-     * Grava um pagamento na venda com a taxa da forma (ACRESCENTAR/DESCONTAR)
-     * e o troco, mutando os totais da venda do mesmo jeito que o legado
-     * (ver docblock de registrarPagamento). Usado pelo modal e pelas formas
-     * combinadas no pedido (lancarPagamentosDosPedidos).
-     *
-     * Com troco, grava de onde ele saiu: o escolhido no modal ou, sem
-     * escolha, o padrão da forma (FormaTrocoEnum).
+     * Grava um pagamento na venda mutando os totais do mesmo jeito que o
+     * legado (ver docblock de registrarPagamento). Usado pelo modal e pelas
+     * formas combinadas no pedido (lancarPagamentosDosPedidos). A regra mora em
+     * LancamentoPagamentosVendaService, compartilhada com o webhook Stone.
      *
      * @param  array<string, mixed>  $extras  Colunas adicionais do PagamentosVenda (cartão, maquininha, vínculo com o pedido)
      */
     private function gravarPagamento(Venda $venda, OpcoesPagamento $opcaoPagamento, float $valorRecebido, float $valorPagoPeloCliente, ?FormaTrocoEnum $formaTroco = null, array $extras = []): PagamentosVenda
     {
-        $valorAcrescimo = 0.0;
-        $valorDesconto = 0.0;
-        $valorTroco = max(0, round($valorPagoPeloCliente - $valorRecebido, 2));
-
-        $tipoTaxa = $opcaoPagamento->opcaopag_tipo_taxa;
-        if ($tipoTaxa === 'ACRESCENTAR') {
-            $valorAcrescimo = round($valorRecebido * (float) $opcaoPagamento->opcaopag_valor_percentual_taxa / 100, 2);
-        } elseif ($tipoTaxa === 'DESCONTAR') {
-            $valorDesconto = round($valorRecebido * (float) $opcaoPagamento->opcaopag_valor_percentual_taxa / 100, 2);
-        }
-
-        $pagamento = PagamentosVenda::create($extras + [
-            'pg_venda_venda_id' => $venda->id,
-            'pg_venda_opcaopagamento_id' => $opcaoPagamento->id,
-            'pg_venda_valor_pagamento' => $valorRecebido,
-            'pg_venda_valor_recebido' => $valorRecebido,
-            'pg_venda_valor_pago_pelo_cliente' => $valorPagoPeloCliente,
-            'pg_venda_valor_troco' => $valorTroco,
-            'pg_venda_forma_troco' => $valorTroco > 0 ? ($formaTroco ?? $opcaoPagamento->opcaopag_troco_padrao ?? FormaTrocoEnum::Dinheiro) : null,
-            'pg_venda_valor_acrescimo' => $valorAcrescimo,
-            'pg_venda_valor_desconto' => $valorDesconto,
-        ]);
-
-        $venda->venda_valor_acrescimo += $valorAcrescimo;
-        $venda->venda_valor_desconto += $valorDesconto;
-        $venda->venda_valor_pago += $valorRecebido + $valorAcrescimo - $valorDesconto;
-        $venda->venda_valor_total += $valorAcrescimo - $valorDesconto;
-        $venda->venda_valor_troco += $valorTroco;
-        $venda->save();
-
-        return $pagamento;
+        return app(LancamentoPagamentosVendaService::class)->gravar($venda, $opcaoPagamento, $valorRecebido, $valorPagoPeloCliente, $formaTroco, $extras);
     }
 
     /**
      * Formas de pagamento combinadas no pedido (Atender Pedido) viram
-     * pagamentos da venda assim que o pedido inteiro entra nela. Lançamento
-     * parcial (item a item, "Dividir") não cria nada: os valores combinados
-     * são do pedido todo. Forma integrada à Stone fica de fora — a cobrança
-     * precisa ir para a maquininha. Cada pagamento guarda o vínculo
-     * (pg_venda_pagamento_pedido_id), então lançar de novo não duplica e
-     * retirar o pedido desfaz (apagarPagamentosDosPedidos).
+     * pagamentos da venda assim que o pedido inteiro entra nela (regra em
+     * LancamentoPagamentosVendaService::lancarDosPedidos). Venda fiado: só
+     * entra o que já foi recebido de verdade no pedido.
      *
      * @param  Collection<int, int>  $pedidoIds
      */
@@ -2057,58 +2115,8 @@ class OperarVenda extends Page
             return;
         }
 
-        $pedidos = Pedido::whereIn('id', $pedidoIds)
-            ->whereHas('pagamentosCombinados')
-            ->whereDoesntHave('item_pedido_pedido_id', fn ($query) => $query
-                ->where('item_pedido_status', 'INSERIDO')
-                ->where(fn ($q) => $q->whereNull('item_pedido_venda_id')->orWhere('item_pedido_venda_id', '!=', $venda->id)))
-            ->with('pagamentosCombinados.opcaoPagamento')
-            ->orderBy('id')
-            ->get();
-
-        $lancados = [];
-        $naMaquininha = [];
-
-        foreach ($pedidos as $pedido) {
-            foreach ($pedido->pagamentosCombinados->sortBy('pg_pedido_ordem') as $combinado) {
-                $opcao = $combinado->opcaoPagamento;
-                $jaLancado = PagamentosVenda::where('pg_venda_venda_id', $venda->id)
-                    ->where('pg_venda_pagamento_pedido_id', $combinado->id)
-                    ->exists();
-
-                if (! $opcao || (float) $combinado->pg_pedido_valor <= 0 || $jaLancado) {
-                    continue;
-                }
-
-                // Venda fiado: só entra o que já foi recebido de verdade no pedido.
-                if ($this->vendaFiado && ! $combinado->pg_pedido_pago) {
-                    continue;
-                }
-
-                // A carteira de influenciador nunca entra por pedido: exige o código no PDV.
-                if ($opcao->ehCarteiraInfluenciador()) {
-                    continue;
-                }
-
-                if ($opcao->ehIntegracaoStone()) {
-                    $naMaquininha[] = $opcao->opcaopag_nome;
-
-                    continue;
-                }
-
-                $valor = min((float) $combinado->pg_pedido_valor, round((float) $venda->venda_valor_total - (float) $venda->venda_valor_pago, 2));
-                if ($valor <= 0) {
-                    continue;
-                }
-
-                $this->gravarPagamento($venda, $opcao, $valor, max($valor, (float) $combinado->pg_pedido_valor_troco_para), extras: [
-                    'pg_venda_pagamento_pedido_id' => $combinado->id,
-                    'pg_venda_maquininha_id' => $opcao->tipoMaquininha() ? Maquininha::padrao()?->id : null,
-                ]);
-
-                $lancados[] = $opcao->opcaopag_nome.' R$ '.number_format($valor, 2, ',', '.').($combinado->pg_pedido_pago ? ' (pago no pedido)' : '');
-            }
-        }
+        ['lancados' => $lancados, 'naMaquininha' => $naMaquininha] = app(LancamentoPagamentosVendaService::class)
+            ->lancarDosPedidos($venda, $pedidoIds, somentePagos: $this->vendaFiado);
 
         if ($lancados !== []) {
             Notification::make()
@@ -2122,7 +2130,7 @@ class OperarVenda extends Page
         if ($naMaquininha !== []) {
             Notification::make()
                 ->title('Cobrar na maquininha')
-                ->body('O pedido combinou '.implode(', ', array_unique($naMaquininha)).': lance o pagamento para enviar a cobrança à maquininha.')
+                ->body('O pedido combinou '.implode(', ', array_unique($naMaquininha)).': lance o pagamento (manual ou "Cobrar na Stone") para receber.')
                 ->warning()
                 ->send();
         }
@@ -2323,7 +2331,7 @@ class OperarVenda extends Page
         }
 
         $temCobrancaStonePendente = StonePedido::where('stp_venda_id', $this->vendaId)
-            ->whereIn('stp_status', [StonePedidoStatus::Aguardando, StonePedidoStatus::PagoParcial])
+            ->whereIn('stp_status', StonePedidoStatus::pendentes())
             ->exists();
 
         if ($temCobrancaStonePendente) {

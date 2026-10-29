@@ -1,5 +1,5 @@
 <div>
-    @if ($this->temFormaStone && $this->maquininhasStone->isNotEmpty() && $this->totalAberto > 0)
+    @if ($this->podeCobrar)
         <x-secondary-button type="button" wire:click="abrirModal">
             Cobrar na maquininha
         </x-secondary-button>
@@ -30,6 +30,7 @@
                             Envia {{ $pedidoId ? 'o pedido #'.$pedidoId : 'a conta inteira da mesa' }}
                             (<strong class="text-gray-700">R$ {{ number_format($this->totalAberto, 2, ',', '.') }}</strong>)
                             pra lista do POS — o tipo (crédito, débito ou PIX) é escolhido na própria maquininha.
+                            O valor desconta o que já foi pago ou está aguardando na maquininha.
                         </p>
 
                         <div class="flex gap-2">
@@ -71,6 +72,18 @@
                         <button wire:click="fecharModal" type="button" class="w-full py-2 rounded-lg text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50">
                             Fechar
                         </button>
+                    @elseif ($status === 'indeterminado')
+                        <div class="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-3 py-2">
+                            {{ $erro ?: 'Não foi possível confirmar se a cobrança chegou à maquininha. Não envie de novo: reconsulte na Stone.' }}
+                        </div>
+                        <div class="flex gap-2">
+                            <button wire:click="reconsultarCobranca" wire:loading.attr="disabled" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50">
+                                Reconsultar na Stone
+                            </button>
+                            <button wire:click="fecharModal" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50">
+                                Fechar
+                            </button>
+                        </div>
                     @elseif ($status === 'cancelado')
                         <div class="flex flex-col items-center gap-2 py-2 text-center">
                             <p class="text-sm text-gray-600">Cobrança cancelada.</p>

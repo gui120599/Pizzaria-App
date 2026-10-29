@@ -4,7 +4,9 @@ namespace App\Services\Stone;
 
 use App\Enums\StonePedidoModo;
 use App\Exceptions\StoneConnectException;
+use App\Exceptions\StoneResultadoDesconhecidoException;
 use App\Models\StonePedido;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -60,7 +62,14 @@ class StoneConnectService
      *    operador/entregador seleciona e escolhe o tipo na maquininha.
      * Cada transação vira uma charge e dispara webhook charge.paid.
      *
+     * O corpo leva `code` = rf-{id} (identificador nosso, resolvido também pelo
+     * webhook) e a Idempotency-Key estável stone-pedido-{id}: reenviar o MESMO
+     * StonePedido depois de um resultado desconhecido não cria outro pedido.
+     *
      * @return array{id: string, code: string, status: string}
+     *
+     * @throws StoneResultadoDesconhecidoException timeout, falha de rede ou HTTP 5xx — o pedido pode existir na Stone
+     * @throws StoneConnectException recusa comprovada da API (4xx) ou integração não configurada
      */
     public function criarPedido(StonePedido $pedido): array
     {
@@ -81,6 +90,7 @@ class StoneConnectService
         };
 
         $body = [
+            'code' => self::codigoDoPedido($pedido),
             'customer' => [
                 'name' => $nome !== '' ? $nome : 'Consumidor',
                 'email' => $email,
@@ -112,9 +122,24 @@ class StoneConnectService
             ];
         }
 
-        $response = $this->client()
-            ->withHeaders(['Idempotency-Key' => "stone-pedido-{$pedido->id}"])
-            ->post("{$base}/orders", $body);
+        try {
+            $response = $this->client()
+                ->withHeaders(['Idempotency-Key' => "stone-pedido-{$pedido->id}"])
+                ->post("{$base}/orders", $body);
+        } catch (ConnectionException $e) {
+            Log::channel('stone')->error('StoneConnect: criarPedido sem resposta (resultado desconhecido)', [
+                'stone_pedido_id' => $pedido->id, 'erro' => $e->getMessage(),
+            ]);
+
+            throw new StoneResultadoDesconhecidoException(self::MENSAGEM_RESULTADO_DESCONHECIDO);
+        }
+
+        // 5xx e 408: o servidor pode ter processado o pedido antes de falhar.
+        if ($response->serverError() || $response->status() === 408) {
+            $this->logErro('criarPedido', $response->status(), $response->json(), ['stone_pedido_id' => $pedido->id]);
+
+            throw new StoneResultadoDesconhecidoException(self::MENSAGEM_RESULTADO_DESCONHECIDO, $response->json());
+        }
 
         if ($response->failed()) {
             $this->logErro('criarPedido', $response->status(), $response->json(), ['stone_pedido_id' => $pedido->id]);
@@ -125,6 +150,14 @@ class StoneConnectService
         }
 
         return $response->json() ?? [];
+    }
+
+    private const MENSAGEM_RESULTADO_DESCONHECIDO = 'Não foi possível confirmar se a cobrança chegou à maquininha (a Stone não respondeu). NÃO envie de novo: o sistema reconsulta sozinho, ou use "Reconsultar na Stone".';
+
+    /** Identificador do nosso StonePedido no pedido da Stone (máx. 52 caracteres no Pagar.me). */
+    public static function codigoDoPedido(StonePedido $pedido): string
+    {
+        return "rf-{$pedido->id}";
     }
 
     /**
