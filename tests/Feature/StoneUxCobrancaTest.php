@@ -230,7 +230,7 @@ class StoneUxCobrancaTest extends TestCase
         $stonePedido = $this->cobrancaDoPedido($pedido, $this->sunmi, ['stp_modo' => StonePedidoModo::Direto]);
 
         Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
-            ->assertSee('Acompanhar cobrança na maquininha')
+            ->assertSee('Ver cobrança na maquininha')
             ->call('abrirModalStone')
             ->assertSet('modalStoneAberta', true)
             ->assertSet('stoneStatusModal', 'aguardando')
@@ -247,7 +247,9 @@ class StoneUxCobrancaTest extends TestCase
             ->call('abrirModalStone')
             ->assertSet('stoneStatusModal', 'indeterminado')
             ->call('reconsultarCobrancaStone')
-            ->assertSet('stoneStatusModal', 'aguardando');
+            ->assertSet('modalStoneAberta', false)
+            ->assertSet('stonePedidoId', null)
+            ->assertRedirect(AtenderPedido::getUrl(['pedido' => $pedido->id]));
 
         $this->assertSame('or_rec', $stonePedido->fresh()->stp_order_id);
     }

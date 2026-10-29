@@ -101,7 +101,8 @@ class StoneConcorrenciaIdempotenciaTest extends TestCase
             ->call('abrirModalStone')
             ->set('stoneMaquininhaId', $this->sunmi->id)
             ->call('enviarCobrancaStone')
-            ->assertSet('stoneStatusModal', 'aguardando');
+            ->assertSet('modalStoneAberta', false)
+            ->assertRedirect(AtenderPedido::getUrl(['pedido' => $pedido->id]));
 
         $stonePedido = StonePedido::sole();
         $this->assertSame(80.0, (float) $stonePedido->stp_valor_solicitado);

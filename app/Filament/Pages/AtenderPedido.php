@@ -20,7 +20,6 @@ use App\Models\Cupom;
 use App\Models\ItensPedido;
 use App\Models\Maquininha;
 use App\Models\OpcoesEntregas;
-use App\Models\OpcoesPagamento;
 use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\Produto;
@@ -109,7 +108,8 @@ class AtenderPedido extends Page
 
     public ?int $stoneMaquininhaId = null;
 
-    public ?int $stoneOpcaoPagamentoId = null;
+    /** Pedido gravado por "Salvar e cobrar": depois do envio a tela volta em branco, como no save(). */
+    public bool $stonePedidoRecemCriado = false;
 
     /** form|aguardando|pago|erro|cancelado|indeterminado */
     public string $stoneStatusModal = 'aguardando';
@@ -867,12 +867,6 @@ class AtenderPedido extends Page
         return Maquininha::stoneDisponivel()->orderBy('nome')->pluck('nome', 'id');
     }
 
-    #[Computed]
-    public function opcoesPagamentoStone()
-    {
-        return OpcoesPagamento::where('opcaopag_stone_integrada', true)->orderBy('opcaopag_nome')->pluck('opcaopag_nome', 'id');
-    }
-
     /** Cobrança da maquininha ainda em aberto neste pedido (a mais recente), se houver. */
     #[Computed]
     public function cobrancaStonePendente(): ?StonePedido
@@ -932,11 +926,18 @@ class AtenderPedido extends Page
 
     public function salvarECobrar(): void
     {
-        if ($this->somenteLeitura || $this->persistir() === null) {
+        if ($this->somenteLeitura) {
+            return;
+        }
+
+        $eraNovo = $this->pedidoId === null;
+
+        if ($this->persistir() === null) {
             return;
         }
 
         $this->abrirModalStone();
+        $this->stonePedidoRecemCriado = $eraNovo;
     }
 
     public function abrirModalStone(): void
@@ -947,7 +948,7 @@ class AtenderPedido extends Page
             return;
         }
 
-        // Cobrança em aberto: reabre o acompanhamento em vez de oferecer outro envio.
+        // Cobrança em aberto: mostra o resumo dela em vez de oferecer outro envio.
         $pendente = Pedido::find($this->pedidoId)?->stonePedidosPendentes()->first();
         if ($pendente) {
             $this->stonePedidoId = $pendente->id;
@@ -985,15 +986,40 @@ class AtenderPedido extends Page
         $this->stonePedidoId = null;
         $this->stoneErroModal = null;
         $this->stoneStatusModal = 'form';
+        $this->stonePedidoRecemCriado = false;
         unset($this->cobrancaStonePendente, $this->elegibilidadeStone, $this->valorDevidoStone);
 
         // O pagamento integral finaliza o pedido pelo webhook — recarrega a
-        // página pra refletir o novo status (a mesma UX de OperarVenda).
+        // página pra refletir o novo status.
         if ($recemPago) {
             $this->redirect(static::getUrl(['pedido' => $this->pedidoId]));
         }
     }
 
+    /** Falha comprovada no envio: volta ao formulário para tentar de novo. */
+    public function voltarAoFormularioStone(): void
+    {
+        $this->stoneErroModal = null;
+        $this->stoneStatusModal = 'form';
+    }
+
+    /** Resumo da cobrança pendente → formulário para enviar o que ainda falta pagar. */
+    public function prepararEnvioRestanteStone(): void
+    {
+        if ($this->valorDevidoStone <= 0) {
+            return;
+        }
+
+        $this->stonePedidoId = null;
+        $this->stoneErroModal = null;
+        $this->stoneStatusModal = 'form';
+    }
+
+    /**
+     * Sempre em Listado e sem forma: o pedido entra na lista do POS e quem
+     * escolhe crédito/débito/PIX é o entregador na maquininha, no ato da
+     * entrega. A forma é resolvida no webhook. Não espera o pagamento na tela.
+     */
     public function enviarCobrancaStone(): void
     {
         if (! $this->stoneMaquininhaId) {
@@ -1019,57 +1045,69 @@ class AtenderPedido extends Page
 
         session(['stone_ultima_maquininha_id.'.Auth::id() => $this->stoneMaquininhaId]);
 
-        $opcao = $this->stoneOpcaoPagamentoId ? OpcoesPagamento::find($this->stoneOpcaoPagamentoId) : null;
-        $modo = $opcao ? StonePedidoModo::Direto : StonePedidoModo::Listado;
-
         try {
             // Sem valor: o serviço cobra o valor devido do pedido gravado.
             $stonePedido = app(StoneRecebimentoService::class)->iniciarCobrancaDePedido(
-                $pedido, $opcao, $maquininha, modo: $modo,
+                $pedido, null, $maquininha, modo: StonePedidoModo::Listado,
             );
-            $this->stonePedidoId = $stonePedido->id;
-            $this->stoneStatusModal = 'aguardando';
         } catch (StoneResultadoDesconhecidoException $e) {
             $this->stonePedidoId = $e->stonePedidoId();
             $this->stoneStatusModal = 'indeterminado';
             $this->stoneErroModal = $e->getMessage();
+            unset($this->cobrancaStonePendente, $this->elegibilidadeStone, $this->valorDevidoStone);
+
+            return;
         } catch (StoneConnectException $e) {
             $this->stoneStatusModal = 'erro';
             $this->stoneErroModal = $e->getMessage();
+            unset($this->cobrancaStonePendente, $this->elegibilidadeStone, $this->valorDevidoStone);
+
+            return;
         }
 
-        unset($this->cobrancaStonePendente, $this->elegibilidadeStone, $this->valorDevidoStone);
+        $this->concluirEnvioStone($stonePedido);
     }
 
-    public function verificarStatusStone(): void
+    /** Cobrança entregue à Stone: fecha o modal, avisa e volta à tela (em branco se o pedido foi criado agora). */
+    private function concluirEnvioStone(StonePedido $stonePedido): void
     {
-        if (! $this->stonePedidoId) {
-            return;
-        }
+        $novo = $this->stonePedidoRecemCriado;
+        $valor = number_format((float) $stonePedido->stp_valor_solicitado, 2, ',', '.');
+        $maquininha = $stonePedido->maquininha?->nome ?? 'maquininha';
 
-        $pedido = StonePedido::find($this->stonePedidoId);
-        if (! $pedido) {
-            return;
-        }
+        Notification::make()
+            ->title("Pedido #{$this->pedidoId} enviado para a maquininha")
+            ->body("{$maquininha} · R$ {$valor}. O pagamento será registrado quando o entregador receber.")
+            ->success()
+            ->send();
 
-        $this->stoneStatusModal = match ($pedido->stp_status) {
+        $this->modalStoneAberta = false;
+        $this->stonePedidoId = null;
+        $this->stoneErroModal = null;
+        $this->stoneStatusModal = 'form';
+        $this->stonePedidoRecemCriado = false;
+        unset($this->cobrancaStonePendente, $this->elegibilidadeStone, $this->valorDevidoStone);
+
+        $this->redirect($novo ? static::getUrl() : static::getUrl(['pedido' => $this->pedidoId]));
+    }
+
+    /** Estado do modal conforme o StonePedido (usado depois de reconsultar). */
+    private function aplicarStatusStone(StonePedido $stonePedido): void
+    {
+        $this->stoneStatusModal = match ($stonePedido->stp_status) {
             StonePedidoStatus::Pago => 'pago',
             StonePedidoStatus::Cancelado, StonePedidoStatus::Estornado => 'cancelado',
             StonePedidoStatus::Falha => 'erro',
             StonePedidoStatus::Indeterminado => 'indeterminado',
-            default => $this->stoneStatusModal === 'indeterminado' ? 'aguardando' : $this->stoneStatusModal,
+            default => 'aguardando',
         };
 
-        if ($this->stoneStatusModal === 'erro' && $this->stoneErroModal === null) {
-            $this->stoneErroModal = $pedido->stp_erro ?: 'A cobrança falhou na Stone. Tente novamente.';
-        }
-
-        if ($this->stoneStatusModal === 'indeterminado') {
-            $this->stoneErroModal ??= $pedido->stp_erro;
-        }
+        $this->stoneErroModal = in_array($this->stoneStatusModal, ['erro', 'indeterminado'], true)
+            ? ($stonePedido->stp_erro ?: 'A cobrança falhou na Stone. Tente novamente.')
+            : null;
     }
 
-    /** Resultado desconhecido: pergunta à Stone (ou repete o envio com a mesma chave) e volta ao acompanhamento normal. */
+    /** Resultado desconhecido: pergunta à Stone (ou repete o envio com a mesma chave). */
     public function reconsultarCobrancaStone(): void
     {
         $stonePedido = $this->stonePedidoId ? StonePedido::find($this->stonePedidoId) : null;
@@ -1085,9 +1123,16 @@ class AtenderPedido extends Page
             return;
         }
 
-        $this->stoneErroModal = null;
-        $this->stoneStatusModal = 'aguardando';
-        $this->verificarStatusStone();
+        $atual = $stonePedido->fresh();
+
+        if (in_array($atual->stp_status, [StonePedidoStatus::Aguardando, StonePedidoStatus::PagoParcial], true)) {
+            $this->concluirEnvioStone($atual);
+
+            return;
+        }
+
+        $this->aplicarStatusStone($atual);
+        unset($this->cobrancaStonePendente, $this->elegibilidadeStone, $this->valorDevidoStone);
     }
 
     public function cancelarCobrancaStone(): void

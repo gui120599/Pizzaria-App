@@ -607,3 +607,163 @@ ENTREGA FINAL (em português):
 - Roteiro curto de teste na maquininha real (R$ 1,00, cancelar/estornar em seguida)
   e validação da Idempotency-Key em produção (seção 8.3).
 ```
+
+---
+
+## 15. Revisão 1 (2026-10-28): atendimento em Listado e NFC-e automática
+
+> **Contexto:** o plano (Etapas 1 a 4) foi implementado em `00be6f69`. Esta revisão ajusta duas regras depois do uso real. As seções 0 a 14 continuam valendo, exceto onde esta seção diz o contrário.
+
+### 15.1 Decisões
+
+| # | Decisão | Substitui |
+|---|---|---|
+| D5 | O botão **"Cobrar na maquininha"** do atendimento de pedido (`AtenderPedido`) envia **sempre em modo Listado** e **não fica esperando o pagamento na tela**. A maioria dos pedidos é de entrega e o pagamento acontece no ato da entrega, no POS do entregador. | Seção 6.1 (modal com forma opcional → Direto, e acompanhamento "Aguardando" na tela) |
+| D6 | Quando o webhook cria a venda e a finaliza com o recebimento total, a **NFC-e é enviada à NFE.io automaticamente**, sem depender de fila com worker. | Seção 3.2 (emissão em fila `EmitirNfeAutomaticaJob`) |
+
+### 15.2 D5: atendimento sempre em Listado, sem espera
+
+**Como está hoje [FATO, `00be6f69`]:**
+- `AtenderPedido::enviarCobrancaStone()` (~linha 1022) envia em Direto quando o operador escolhe uma forma no modal (`stoneOpcaoPagamentoId`) e em Listado quando não escolhe.
+- Depois do envio, o modal fica em "Aguardando" com polling (`verificarStatusStone`) até o `charge.paid`.
+
+**Como fica:**
+1. **O modal só pede a maquininha.** Sai o select de forma (`stoneOpcaoPagamentoId`, `opcoesPagamentoStone()` e o bloco do blade). O serviço é chamado com `opcao: null` e `modo: StonePedidoModo::Listado`. O tipo (crédito, débito ou PIX) é escolhido na maquininha, e a forma é resolvida no webhook (`resolverOpcaoStone`).
+2. **Depois do envio com sucesso:** o modal fecha e mostra uma notificação de sucesso, "Pedido #N enviado para a maquininha X (R$ valor). O pagamento será registrado quando o entregador receber." Não há polling. Vale o mesmo comportamento do `save()`:
+   - pedido novo (veio de "Salvar e cobrar") → redireciona para o atendimento em branco;
+   - pedido existente → recarrega o próprio pedido.
+3. **Resultado desconhecido (`indeterminado`):** **mantém** o modal aberto com a mensagem e o botão "Reconsultar" (D3). Esse caso não pode sumir da tela, porque o operador não sabe se o pedido chegou ao POS.
+4. **Falha comprovada (4xx):** mantém o modal com o erro e permite tentar de novo, como hoje.
+5. **Pedido com cobrança já enviada** (reabrir o modal com `aguardando` ou `pago_parcial`): o modal mostra um resumo, sem polling, com:
+   - maquininha, valor, data e hora do envio e status;
+   - botão **"Cancelar cobrança"**, com confirmação;
+   - botão **"Enviar valor restante"**, só se `valorDevido() > 0` (D4: Listado aceita mais de uma, e a soma não passa do devido);
+   - botão **"Fechar"**.
+6. **Indicador fora do modal:** abaixo dos botões do resumo, um aviso discreto quando houver cobrança Stone pendente: "Na maquininha X desde hh:mm · R$ valor". Ele substitui o acompanhamento em tempo real.
+7. **Fica como está:** o PDV (`OperarVenda`), que continua com Direto e espera na tela (balcão); o painel de pedidos (`PedidosTable`), que pode enviar Direto se o operador escolher a forma; o entregador e a mesa, que já usam Listado.
+
+**Arquivos:** `app/Filament/Pages/AtenderPedido.php`, `resources/views/filament/pages/atender-pedido.blade.php`. Nenhuma migration.
+
+### 15.3 D6: NFC-e automática quando o webhook finaliza a venda
+
+**Como está hoje [FATO]:**
+- `StoneVendaAutomaticaService::finalizarSePago()` (~linha 220) finaliza a venda e chama `EmitirNfeAutomaticaJob::dispatch($venda->id)->afterCommit()`.
+- O job só emite se `EmissaoNfeAutomaticaService::deveEmitir()` for verdadeiro, ou seja:
+  - empresa com NFE.io configurada;
+  - `Venda::exigeEnvioNfe()`: algum pagamento com forma `opcaopag_envio_automatico_nfe = true`;
+  - item fiscal na venda.
+- Em produção a fila é `database`. O único worker agendado (`app/Console/Kernel.php`, ~linha 63) consome **só** a fila da exportação de pedidos. O comentário do próprio arquivo diz: *"A fila padrão (NFC-e automática) não é tocada"*.
+
+**Causas prováveis, a confirmar com o diagnóstico abaixo:**
+- **C1 (principal) [HIPÓTESE]:** o job fica parado na tabela `jobs` porque não há worker para a fila padrão.
+- **C2 [HIPÓTESE]:** a forma "pode cobrar na Stone" do tipo resolvido no webhook não tem "envio automático de NFC-e" marcado, então `deveEmitir()` é falso.
+- **C3 [HIPÓTESE]:** a venda não chegou a ser finalizada (por exemplo, sem sessão de caixa aberta), então o job nem é despachado. Fica registrado no log `stone` como "não pôde ser finalizada automaticamente".
+
+**Diagnóstico (produção, só leitura):**
+```sql
+SELECT queue, COUNT(*) FROM jobs GROUP BY queue;
+SELECT id, failed_at FROM failed_jobs WHERE payload LIKE '%EmitirNfeAutomaticaJob%' ORDER BY id DESC LIMIT 10;
+SELECT id, opcaopag_nome, opcaopag_desc_nfe, opcaopag_stone_integrada, opcaopag_envio_automatico_nfe FROM opcoes_pagamentos;
+```
+
+**Como fica:**
+1. **Emissão logo depois da resposta ao webhook.** Em `finalizarSePago()`, o `dispatch(...)->afterCommit()` vira `EmitirNfeAutomaticaJob::dispatchAfterResponse($venda->id)`.
+   - Roda no mesmo processo PHP, depois que a resposta 200 já saiu para a Stone. Não atrasa o webhook e não depende de worker.
+   - **Atenção:** `finalizarSePago()` é chamado de dentro do fluxo do webhook, mas também pelo `stone:conciliar-pedidos` (CLI) e pela ação "Gerar venda" do hub (Livewire). Em todos esses casos, `dispatchAfterResponse` executa no `terminate` da aplicação, então funciona nos três. Se a chamada acontecer dentro de uma transação aberta, o job precisa só **ler** a venda já commitada. Verifique que `finalizarSePago()` não está dentro de `DB::transaction` no chamador. Se estiver, despache depois do commit com `DB::afterCommit(fn () => EmitirNfeAutomaticaJob::dispatchAfterResponse(...))`.
+2. **O job continua idempotente:** não emite se `venda_id_nfe` já estiver preenchido ou se a venda não estiver FINALIZADA. Isso já existe e deve ser mantido.
+3. **Visibilidade quando não emite (C2):** se `deveEmitir()` for falso numa venda finalizada pela Stone, registrar no log `stone` em nível `warning` "NFC-e automática não emitida", com o motivo específico (NFE.io não configurada / nenhuma forma com envio automático / sem item fiscal). Hoje isso é silencioso.
+4. **Rede de segurança:** o `stone:conciliar-pedidos` passa a procurar vendas **FINALIZADAS** com `StonePedido` de origem `pedido` ou `sessao_mesa`, sem `venda_id_nfe`, em que `deveEmitir()` é verdadeiro, finalizadas há mais de 5 minutos e há menos de 24 horas (dentro do prazo de autorização da NFC-e). Para cada uma, chama `EmissaoNfeAutomaticaService::emitir()` diretamente, sem fila, protegido por `lockForUpdate` na venda e rechecando `venda_id_nfe` dentro do lock, para não emitir em dobro com o job.
+5. **Falha na NFE.io:** o comportamento atual se mantém: loga e não lança. A venda continua finalizada, e a emissão pode ser refeita manualmente pela tela de vendas ou pela rede de segurança do item 4.
+6. **Fila padrão:** não é preciso adicionar worker para ela nesta revisão. Jobs `EmitirNfeAutomaticaJob` antigos parados na tabela `jobs` podem ser descartados depois do deploy, porque a rede de segurança emite as notas das últimas 24 horas que ficaram pendentes. Notas mais antigas que isso precisam de conferência manual e não são reenviadas automaticamente.
+
+**Arquivos:** `app/Services/Stone/StoneVendaAutomaticaService.php`, `app/Jobs/EmitirNfeAutomaticaJob.php` (só se precisar de log), `app/Console/Commands/StoneConciliarPedidos.php`, e possivelmente `app/Services/Nfe/EmissaoNfeAutomaticaService.php` (um método `motivoNaoEmitir(Venda): ?string` para o log). Nenhuma migration.
+
+### 15.4 Testes da revisão
+
+| # | Cenário | Critério de aceitação |
+|---|---|---|
+| R1 | Atendimento: "Cobrar na maquininha" com pedido elegível | POST `/orders` **sem** `payment_setup` (Listado); `StonePedido.stp_modo = listado`, `stp_opcaopagamento_id` nulo; o modal fecha, a notificação de sucesso aparece, e nenhum polling fica ativo (`stonePedidoId` nulo, `modalStoneAberta` falso) |
+| R2 | Atendimento: "Salvar e cobrar" em pedido novo | 1 pedido criado, 1 `StonePedido` Listado, redireciona para o atendimento em branco |
+| R3 | Atendimento: resultado desconhecido | O modal **continua aberto** em `indeterminado` com "Reconsultar" |
+| R4 | Atendimento: reabrir pedido com cobrança pendente | O modal mostra o resumo (maquininha, valor, status) e "Cancelar cobrança"; "Enviar valor restante" aparece só com `valorDevido > 0`; não há select de forma |
+| R5 | O select de forma não existe mais no modal do atendimento | `assertDontSee` do rótulo antigo; a propriedade `stoneOpcaoPagamentoId` foi removida |
+| R6 | Webhook `charge.paid` quita um pedido de origem `pedido` com forma de envio automático | Venda FINALIZADA e `EmitirNfeAutomaticaJob` despachado **after response** (`Bus::fake()` + `Bus::assertDispatchedAfterResponse`) |
+| R7 | O job executa contra a NFE.io fake | `Http::fake` da NFE.io recebe 1 POST; `venda_id_nfe` preenchido; executar o job de novo não faz um segundo POST |
+| R8 | Forma sem envio automático | Nenhum POST para a NFE.io; log `warning` com o motivo |
+| R9 | Rede de segurança no `stone:conciliar-pedidos` | Venda finalizada pela Stone há 10 minutos sem NFC-e → emite 1 vez; finalizada há 2 minutos → ignora; finalizada há 25 horas → ignora; com `venda_id_nfe` → ignora; rodar o comando 2 vezes → 1 POST só |
+| R10 | Regressão do PDV | `OperarVenda` segue Direto com espera na tela; os testes `OperarVendaStone*` passam sem mudança |
+
+---
+
+## 16. Prompt para o agente implementar a Revisão 1
+
+```text
+Implemente a Revisão 1 (seção 15) de docs/plano/plano-multiplas-maquininhas-connect-stone.md
+no RazelFood (Laravel 12, Filament 4, Livewire 3, Sail/MySQL). O plano original já está
+implementado no commit 00be6f69; leia a seção 15 inteira e as seções 6.1, 7, 8.4 e 8.9
+para contexto. Siga CLAUDE.md, .ai/rules/index.md e as regras que cobrem os arquivos.
+
+D5 — Atendimento de pedido (AtenderPedido + blade):
+- "Cobrar na maquininha" e "Salvar e cobrar" enviam SEMPRE em modo Listado, sem forma:
+  remova stoneOpcaoPagamentoId, opcoesPagamentoStone() e o select do blade; chame
+  iniciarCobrancaDePedido($pedido, null, $maquininha, modo: StonePedidoModo::Listado).
+- Envio com sucesso: fecha o modal, notificação de sucesso com número do pedido,
+  maquininha e valor, sem polling; pedido novo redireciona para o atendimento em
+  branco, pedido existente recarrega o próprio pedido.
+- indeterminado: o modal continua aberto com a mensagem e "Reconsultar". Falha 4xx:
+  o modal continua com o erro e permite tentar de novo.
+- Reabrir com cobrança aguardando/pago_parcial: resumo (maquininha, valor, envio,
+  status) sem polling, com "Cancelar cobrança" (confirmação), "Enviar valor restante"
+  (só se valorDevido() > 0) e "Fechar".
+- Aviso discreto fora do modal quando houver cobrança pendente:
+  "Na maquininha X desde hh:mm · R$ valor".
+- Não altere OperarVenda (PDV segue Direto com espera), PedidosTable, PainelEntregador
+  nem MesaStoneCobranca.
+
+D6 — NFC-e automática quando o webhook finaliza a venda:
+- Em StoneVendaAutomaticaService::finalizarSePago(), troque
+  EmitirNfeAutomaticaJob::dispatch(...)->afterCommit() por dispatchAfterResponse.
+  Antes, confira todos os chamadores de finalizarSePago() (webhook,
+  stone:conciliar-pedidos, ação "Gerar venda" do hub StonePedidos): se algum chama
+  dentro de DB::transaction, despache via DB::afterCommit(fn () =>
+  EmitirNfeAutomaticaJob::dispatchAfterResponse($id)).
+- Mantenha a idempotência do job (não emite com venda_id_nfe preenchido ou venda
+  não FINALIZADA).
+- Quando deveEmitir() for falso numa venda finalizada pela Stone, logue warning no
+  canal stone com o motivo específico (crie EmissaoNfeAutomaticaService::
+  motivoNaoEmitir(Venda): ?string reaproveitando as mesmas condições de deveEmitir()).
+- stone:conciliar-pedidos ganha a rede de segurança da seção 15.3 item 4: vendas
+  FINALIZADAS com StonePedido de origem pedido/sessao_mesa, sem venda_id_nfe,
+  deveEmitir() verdadeiro, finalizadas entre 5 min e 24 h atrás; emitir direto com
+  lockForUpdate na venda e rechecagem de venda_id_nfe dentro do lock; NfeIoException
+  é logada e não interrompe o comando.
+- Não adicione worker para a fila padrão e não altere o Kernel.
+
+TESTES: implemente R1 a R10 da seção 15.4. PHPUnit, RefreshDatabase, Http::fake() +
+Http::preventStrayRequests() (Stone e NFE.io), Bus::fake() para R6 (use
+Bus::assertDispatchedAfterResponse) e execução real do job para R7. Use
+travel()/Carbon::setTestNow para R9. Atualize os testes do atendimento que esperavam
+Direto/polling sem enfraquecer as asserções. Crie arquivos com
+`vendor/bin/sail artisan make:test --phpunit --no-interaction`. Rode em banco isolado:
+  vendor/bin/sail exec -u sail -e DB_DATABASE=testing_stone laravel.test \
+    php -d memory_limit=1G artisan test --compact <arquivos ou --filter>
+Antes de concluir, rode todos os testes Stone*, AtenderPedido*, OperarVenda*, *Nfe*,
+*Caixa* e a suíte inteira, separando as falhas pré-existentes (prove com git stash).
+
+REGRAS:
+- Envio não é aprovação: PagamentosVenda integrado só nasce de charge.paid.
+- Nenhum HTTP (Stone ou NFE.io) dentro de transação de banco.
+- Sem chamadas reais, sem tocar em dados de produção, sem dependências novas.
+- Rode `vendor/bin/sail bin pint --dirty --format agent`. Mexeu em blade: rode
+  `vendor/bin/sail npm run build` e inclua public/build.
+- Não commitar sem autorização. Quando autorizado: um commit, git add listando os
+  arquivos por nome (nunca -A), mensagem em português terminando com
+  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ENTREGA FINAL (em português): arquivos alterados; testes rodados e resultado (com as
+falhas pré-existentes separadas); desvios do plano com evidência; passos de deploy
+(git pull, reiniciar PHP/OPcache; sem migration); como conferir em produção: um
+pedido de entrega enviado pelo atendimento aparece na lista do POS, e depois do
+pagamento a venda finaliza e a NFC-e é autorizada; e o que fazer com jobs
+EmitirNfeAutomaticaJob antigos na tabela jobs (consulta + descarte).
+```

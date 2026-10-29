@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Emite a NFC-e de uma venda finalizada fora do PDV (webhook Stone), quando a
- * forma de pagamento exige. Em fila porque o webhook precisa responder rápido
+ * forma de pagamento exige. Roda depois da resposta do webhook (dispatchAfterResponse), que precisa responder rápido
  * e a NFe.io pode demorar. Falha fica registrada em nf_emissoes
  * (FALHA_ENVIO) e no log — o reenvio é manual, pela tela da venda.
  */

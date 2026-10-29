@@ -26,8 +26,8 @@ use App\Services\NfeIoService;
 use App\Services\SessaoMesaService;
 use App\Support\ContaMesa;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Mockery\MockInterface;
 use Tests\TestCase;
@@ -150,7 +150,7 @@ class TaxaServicoContaMesaTest extends TestCase
 
     public function test_webhook_stone_fecha_a_conta_com_taxa_e_despacha_a_nfce(): void
     {
-        Queue::fake();
+        Bus::fake();
         config([
             'services.stone.webhook_user' => null,
             'services.stone.webhook_password' => null,
@@ -197,7 +197,7 @@ class TaxaServicoContaMesaTest extends TestCase
         $this->assertEquals(55.00, $venda->venda_valor_total);
         $this->assertSame('LIBERADA', $this->mesa->fresh()->mesa_status);
 
-        Queue::assertPushed(EmitirNfeAutomaticaJob::class, fn (EmitirNfeAutomaticaJob $job) => $job->vendaId === $venda->id);
+        Bus::assertDispatchedAfterResponse(EmitirNfeAutomaticaJob::class, fn (EmitirNfeAutomaticaJob $job) => $job->vendaId === $venda->id);
     }
 
     public function test_job_so_emite_quando_a_forma_de_pagamento_exige(): void

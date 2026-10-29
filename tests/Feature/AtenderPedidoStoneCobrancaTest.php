@@ -114,7 +114,8 @@ class AtenderPedidoStoneCobrancaTest extends TestCase
             ->set('stoneMaquininhaId', $maquininhaBalcao->id)
             ->call('enviarCobrancaStone')
             ->assertHasNoErrors()
-            ->assertSet('stoneStatusModal', 'aguardando');
+            ->assertSet('modalStoneAberta', false)
+            ->assertSet('stonePedidoId', null);
 
         $stonePedido = StonePedido::sole();
         $this->assertSame($pedido->id, $stonePedido->stp_pedido_id);
@@ -140,34 +141,6 @@ class AtenderPedidoStoneCobrancaTest extends TestCase
             ->assertDontSee('Sem série');
 
         $this->assertEquals([$comSerie->id], Maquininha::stoneDisponivel()->pluck('id')->all());
-    }
-
-    public function test_forma_de_pagamento_escolhida_usa_modo_direto(): void
-    {
-        Http::fake(['api.pagar.me/*' => Http::response(['id' => 'or_abc', 'code' => 'COD1'], 200)]);
-
-        $pedido = $this->pedidoComItem();
-        $maquininha = Maquininha::create(['nome' => 'Balcão', 'operadora' => 'stone', 'maquininha_connect_ativo' => true, 'numero_serie' => '111']);
-        $credito = OpcoesPagamento::create([
-            'opcaopag_nome' => 'Crédito Stone',
-            'opcaopag_desc_nfe' => 'creditCard',
-            'opcaopag_tipo_taxa' => 'N/A',
-            'opcaopag_valor_percentual_taxa' => 0,
-            'opcaopag_stone_integrada' => true,
-        ]);
-
-        Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
-            ->call('abrirModalStone')
-            ->set('stoneMaquininhaId', $maquininha->id)
-            ->set('stoneOpcaoPagamentoId', $credito->id)
-            ->call('enviarCobrancaStone')
-            ->assertHasNoErrors();
-
-        $stonePedido = StonePedido::sole();
-        $this->assertSame('direto', $stonePedido->stp_modo->value);
-
-        Http::assertSent(fn ($request) => str_contains($request->url(), '/orders')
-            && ($request->data()['poi_payment_settings']['payment_setup']['type'] ?? null) === 'credit');
     }
 
     public function test_botao_cobrar_aparece_mesmo_quando_pagamento_combinado_nao_e_stone(): void
