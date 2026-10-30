@@ -19,7 +19,7 @@
                 <div>
                     <span class="font-semibold text-gray-900 dark:text-white">Rodada #{{ $rodada->id }}</span>
                     @if ($rodada->participante)
-                        <span class="ml-1 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-800 dark:bg-orange-500/15 dark:text-orange-300">Pelo cliente · {{ $rodada->participante->mp_nome }}</span>
+                        <span class="ml-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800 dark:bg-orange-500/15 dark:text-orange-300">Pelo cliente · {{ $rodada->participante->mp_nome }}</span>
                     @endif
                     <span class="ml-2 text-xs text-gray-500">{{ $rodada->pedido_datahora_abertura ? \Illuminate\Support\Carbon::parse($rodada->pedido_datahora_abertura)->format('H:i') : '' }} @if ($rodada->pedido_usuario_garcom_id) · {{ $rodada->garcom?->name_first ?: $rodada->garcom?->name }} @endif</span>
                     @if (in_array($rodada->id, $idsRemoviveis, true))
@@ -48,6 +48,10 @@
                     } }}
                 </span>
             </div>
+
+            @if ($statusRodada !== \App\Enums\StatusPedidoEnum::CANCELADO)
+                <x-pedido.passos :etapas="\App\Support\Pedido\EtapasAcompanhamento::paraSalao($rodada)->etapas()" class="border-b border-gray-100 px-3 py-3 dark:border-white/10" />
+            @endif
 
             <ul class="divide-y divide-gray-100 dark:divide-white/10">
                 @foreach ($rodada->item_pedido_pedido_id as $item)

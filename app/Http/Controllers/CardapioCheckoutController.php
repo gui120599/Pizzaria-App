@@ -369,6 +369,7 @@ class CardapioCheckoutController extends Controller
 
         return response()->json([
             'pedido_id' => $pedido->id,
+            'link_acompanhamento' => $pedido->linkAcompanhamento(),
             'cliente_id' => $cliente->id,
             'total_bruto' => $cupomAplicado ? (float) $pedido->pedido_valor_itens : $totalBruto,
             'total_desconto' => $cupomAplicado ? (float) $pedido->pedido_valor_desconto : $totalDesconto,

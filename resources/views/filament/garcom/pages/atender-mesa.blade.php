@@ -21,35 +21,42 @@
             @include('filament.garcom.partials.alerta-pronto')
             @include('filament.garcom.partials.mesa-qr')
 
-            {{-- Cabeçalho da conta --}}
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
-                <a href="{{ \App\Filament\Garcom\Pages\MapaMesas::getUrl() }}" wire:navigate
-                   class="font-semibold text-primary-600 dark:text-primary-400">&larr; Mesas</a>
-                <span>{{ $sessao->sessao_mesa_pessoas }} pessoa(s)</span>
-                <span>Aberta há {{ (int) $sessao->created_at->diffInMinutes(now()) }} min</span>
-                <span>Garçom: {{ $sessao->garcom?->name_first ?: $sessao->garcom?->name }}</span>
-                <button type="button" wire:click="mountAction('verQr')"
-                        class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 active:scale-95 dark:text-gray-200 dark:ring-white/20">
-                    <x-filament::icon icon="heroicon-o-qr-code" class="h-4 w-4" />
-                    QR da mesa
-                </button>
-                @if (config('pizzaria.mesa_cliente.exigir_pin') && $sessao->sessao_mesa_pin)
-                    <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-900 py-1 pl-3 pr-1 text-xs font-semibold text-white dark:bg-white dark:text-gray-900"
-                          title="Informe este PIN a quem está na mesa para pedir pelo celular">
-                        PIN <span class="font-mono text-sm tracking-widest">{{ $sessao->sessao_mesa_pin }}</span>
-                        <button type="button" wire:click="gerarNovoPin"
-                                wire:confirm="Gerar um novo PIN? Quem já entrou pelo celular continua na conta."
-                                class="rounded-full p-1 hover:bg-white/20 dark:hover:bg-gray-900/10" title="Gerar novo PIN">
-                            <x-filament::icon icon="heroicon-o-arrow-path" class="h-3.5 w-3.5" />
-                        </button>
+            {{-- Cabeçalho da conta: quem/quanto tempo (e a conta pedida) separado das ações da mesa --}}
+            <div class="space-y-2">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
+                    <a href="{{ \App\Filament\Garcom\Pages\MapaMesas::getUrl() }}" wire:navigate
+                       class="inline-flex min-h-11 items-center font-semibold text-primary-600 dark:text-primary-400">&larr; Mesas</a>
+                    <span>{{ $sessao->sessao_mesa_pessoas }} pessoa(s)</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Aberta há {{ (int) $sessao->created_at->diffInMinutes(now()) }} min</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Garçom: {{ $sessao->garcom?->name_first ?: $sessao->garcom?->name }}</span>
+                    @if ($sessao->contaSolicitada())
+                        <span class="rounded-full bg-violet-600 px-3 py-1 text-sm font-bold text-white">Pediu a conta</span>
+                    @endif
+                    <span class="ml-auto hidden text-base font-bold text-gray-900 lg:inline dark:text-white">
+                        Conta: R$ {{ number_format($conta['total'], 2, ',', '.') }}
                     </span>
-                @endif
-                @if ($sessao->contaSolicitada())
-                    <span class="rounded-full bg-violet-600 px-2 py-0.5 text-xs font-semibold text-white">Pediu a conta</span>
-                @endif
-                <span class="ml-auto hidden text-base font-bold text-gray-900 lg:inline dark:text-white">
-                    Conta: R$ {{ number_format($conta['total'], 2, ',', '.') }}
-                </span>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" wire:click="mountAction('verQr')"
+                            class="inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 active:scale-95 dark:text-gray-200 dark:ring-white/20">
+                        <x-filament::icon icon="heroicon-o-qr-code" class="h-5 w-5" />
+                        QR da mesa
+                    </button>
+                    @if (config('pizzaria.mesa_cliente.exigir_pin') && $sessao->sessao_mesa_pin)
+                        <span class="inline-flex min-h-11 items-center gap-2 rounded-full bg-gray-900 py-1 pl-4 pr-1.5 text-sm font-semibold text-white dark:bg-white dark:text-gray-900"
+                              title="Informe este PIN a quem está na mesa para pedir pelo celular">
+                            PIN <span class="font-mono text-base tracking-widest">{{ $sessao->sessao_mesa_pin }}</span>
+                            <button type="button" wire:click="gerarNovoPin"
+                                    wire:confirm="Gerar um novo PIN? Quem já entrou pelo celular continua na conta."
+                                    class="grid size-9 place-items-center rounded-full hover:bg-white/20 dark:hover:bg-gray-900/10" title="Gerar novo PIN" aria-label="Gerar novo PIN">
+                                <x-filament::icon icon="heroicon-o-arrow-path" class="h-4 w-4" />
+                            </button>
+                        </span>
+                    @endif
+                </div>
             </div>
 
             {{-- Abas do celular --}}

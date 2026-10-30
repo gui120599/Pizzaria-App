@@ -39,6 +39,7 @@ use App\Http\Controllers\VendaCancelarVaziaController;
 use App\Http\Controllers\VendaController;
 use App\Http\Middleware\ResolverParticipanteMesa;
 use App\Models\RegulamentoInfluenciador;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -70,7 +71,11 @@ Route::middleware('auth')->group(function () {
 });
 Route::get('/r/{slug}', ReferenciaInfluenciadorController::class)->middleware('throttle:referencia-influenciador')->name('referencia.influenciador');
 Route::post('/cardapio/cupom/validar', [CardapioCheckoutController::class, 'validarCupom'])->middleware('throttle:cardapio-cupom')->name('cardapio.cupom.validar');
-Route::get('/acompanhar/{id}', fn ($id) => view('app.acompanhamento.index', ['pedidoId' => (int) $id]))->name('pedido.acompanhar');
+// Link assinado (Pedido::linkAcompanhamento) mostra o pedido completo; sem assinatura (links antigos) só o status.
+Route::get('/acompanhar/{id}', fn (Request $request, $id) => view('app.acompanhamento.index', [
+    'pedidoId' => (int) $id,
+    'completo' => $request->hasValidSignature(),
+]))->name('pedido.acompanhar');
 
 // Pedido pelo QR da mesa (público, sem login). O código do QR não é o id da mesa.
 Route::prefix('mesa/{mesa:mesa_codigo_qr}')->name('mesa-cliente.')->controller(MesaClienteController::class)->group(function () {

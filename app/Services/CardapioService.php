@@ -179,7 +179,7 @@ class CardapioService
             ->map(fn ($o) => [
                 'id' => $o->id,
                 'nome' => $o->opcaoentrega_nome,
-                'requer_endereco' => str_contains(strtolower($o->opcaoentrega_nome), 'entrega') || str_contains(strtolower($o->opcaoentrega_nome), 'deliver'),
+                'requer_endereco' => (bool) $o->opcaoentrega_requer_endereco,
                 'valor_frete' => (float) $o->opcaoentrega_valor_frete,
                 'min_frete' => (float) $o->opcaoentrega_min_valor_frete,
             ]);
@@ -205,9 +205,8 @@ class CardapioService
                 'nome' => $c->categoria_nome,
                 'maxSabores' => $c->maxSabores(),
                 'regraPreco' => $c->regraPrecoSaboresResolvida()->value,
-                // Só muda o desenho da montagem (pizza quadrada é dividida em
-                // faixas). Sem campo próprio na categoria: vem do nome.
-                'formato' => Str::contains(Str::lower(Str::ascii($c->categoria_nome)), 'quadrad') ? 'quadrada' : 'redonda',
+                // Só muda o desenho da montagem (pizza quadrada é dividida em faixas).
+                'formato' => Str::lower($c->formatoPizza()->value),
                 // Opções de quantidade (≥ 2): o cliente escolhe primeiro quantos
                 // sabores, depois quais — o servidor recusa quantidade sem opção.
                 'opcoesSabores' => $c->quantidadesSaboresResolvidas()

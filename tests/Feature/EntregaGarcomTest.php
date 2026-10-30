@@ -186,7 +186,7 @@ class EntregaGarcomTest extends TestCase
 
         Livewire::test(AtenderRetirada::class, ['pedido' => $rascunho->id])
             ->assertSee('Rua das Flores')
-            ->assertDontSee('Entregue ao cliente')
+            ->assertDontSee('Cliente retirou o pedido')
             ->assertDontSeeHtml('wire:click="abrirModal"');
 
         Livewire::test(MapaMesas::class)

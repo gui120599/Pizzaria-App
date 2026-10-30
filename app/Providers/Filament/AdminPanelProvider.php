@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Pages\Dashboard;
 use App\Http\Controllers\ManualController;
 use App\Models\User;
+use App\Support\PaletaMarca;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
@@ -15,16 +16,17 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Filament\Support\Icons\Heroicon;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Foundation\Vite;
 use Illuminate\Routing\Middleware\SubstituteBindings;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -39,8 +41,10 @@ class AdminPanelProvider extends PanelProvider
             // Mesmo favicon dos layouts Blade legados (resources/views/layouts/*.blade.php).
             ->favicon(asset('favicon.png'))
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => PaletaMarca::brasa(),
             ])
+            // O desenho da pizza de sabores (seletor de produtos) vem de um módulo JS: o viteTheme só carrega CSS.
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => app(Vite::class)('resources/js/pizza-svg-painel.js'))
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

@@ -67,12 +67,16 @@ class ClientePicker extends Component
     /** A opção de entrega do pedido exige endereço: o bloco já abre expandido. */
     public bool $requerEndereco = false;
 
+    /** Só mostra o bloco de endereço quando a opção de entrega escolhida exige (Atender Pedido). */
+    public bool $enderecoSomenteComEntrega = false;
+
     public bool $buscaModalAberta = false;
 
     public string $buscaQuery = '';
 
-    public function mount(array $inicial = []): void
+    public function mount(array $inicial = [], bool $enderecoSomenteComEntrega = false): void
     {
+        $this->enderecoSomenteComEntrega = $enderecoSomenteComEntrega;
         $this->clienteId = $inicial['clienteId'] ?? null;
         $this->celular = $inicial['celular'] ?? '';
         $this->nome = $inicial['nome'] ?? '';

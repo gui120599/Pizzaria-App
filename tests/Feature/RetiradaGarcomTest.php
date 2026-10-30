@@ -188,7 +188,7 @@ class RetiradaGarcomTest extends TestCase
         $pedido->update(['pedido_status' => StatusPedidoEnum::PRONTO->value]);
 
         Livewire::test(AtenderRetirada::class, ['pedido' => $pedido->id])
-            ->assertSee('Entregue ao cliente')
+            ->assertSee('Cliente retirou o pedido')
             ->call('entregarAoCliente');
         $this->assertSame(StatusPedidoEnum::ENTREGUE->value, $pedido->fresh()->pedido_status);
 

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\FormatoPizzaEnum;
 use App\Enums\ProdutoTipoEnum;
 use App\Models\Categoria;
+use App\Models\OpcoesEntregas;
 use App\Models\Produto;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -106,7 +108,12 @@ class CardapioRedesignTest extends TestCase
 
     public function test_categoria_quadrada_monta_a_pizza_no_formato_quadrado(): void
     {
-        $quadrada = Categoria::create(['categoria_nome' => 'Pizza Quadrada', 'categoria_cardapio' => true, 'categoria_permite_sabores' => true]);
+        $quadrada = Categoria::create([
+            'categoria_nome' => 'Rodízio',
+            'categoria_cardapio' => true,
+            'categoria_permite_sabores' => true,
+            'categoria_formato_pizza' => FormatoPizzaEnum::QUADRADA,
+        ]);
         $quadrada->sincronizarQuantidadesSabores(2);
         $this->produto('Calabresa', ['produto_categoria_id' => $quadrada->id]);
         $this->categoria->update(['categoria_permite_sabores' => true]);
@@ -115,8 +122,32 @@ class CardapioRedesignTest extends TestCase
 
         $formatos = $this->get(route('cardapio'))->assertOk()->viewData('categoriasComSabores')->pluck('formato', 'nome');
 
-        $this->assertSame('quadrada', $formatos['Pizza Quadrada']);
+        // O formato vem do campo da categoria, não do nome.
+        $this->assertSame('quadrada', $formatos['Rodízio']);
         $this->assertSame('redonda', $formatos['Pizza Grande']);
+    }
+
+    public function test_categoria_com_quadrada_no_nome_mas_formato_redondo_sai_redonda(): void
+    {
+        $this->categoria->update(['categoria_nome' => 'Pizza Quadrada', 'categoria_permite_sabores' => true]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
+        $this->produto('Calabresa');
+
+        $formatos = $this->get(route('cardapio'))->assertOk()->viewData('categoriasComSabores')->pluck('formato', 'nome');
+
+        $this->assertSame('redonda', $formatos['Pizza Quadrada']);
+    }
+
+    public function test_opcao_de_entrega_exige_endereco_pela_coluna_e_nao_pelo_nome(): void
+    {
+        $this->produto('Calabresa');
+        OpcoesEntregas::create(['opcaoentrega_nome' => 'Motoboy', 'opcaoentrega_requer_endereco' => true, 'opcaoentrega_valor_frete' => 5, 'opcaoentrega_min_valor_frete' => 0]);
+        OpcoesEntregas::create(['opcaoentrega_nome' => 'Entrega no balcão', 'opcaoentrega_requer_endereco' => false, 'opcaoentrega_valor_frete' => 0, 'opcaoentrega_min_valor_frete' => 0]);
+
+        $opcoes = $this->get(route('cardapio'))->assertOk()->viewData('opcoesEntregas')->pluck('requer_endereco', 'nome');
+
+        $this->assertTrue($opcoes['Motoboy']);
+        $this->assertFalse($opcoes['Entrega no balcão']);
     }
 
     public function test_link_antigo_do_produto_abre_o_detalhe_dentro_do_cardapio(): void

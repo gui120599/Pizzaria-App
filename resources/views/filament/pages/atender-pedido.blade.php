@@ -13,7 +13,30 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-1 xl:grid-cols-5 gap-4" @if ($somenteLeitura) style="opacity: .6; pointer-events: none;" @endif>
+    {{-- Tipo de atendimento: segue a opção de entrega escolhida (retirada não tem endereço nem taxa). --}}
+    @php
+        $tipoAtendimento = $this->tipoAtendimento;
+        $iconeTipo = match ($tipoAtendimento) {
+            \App\Enums\TipoAtendimentoEnum::DELIVERY => 'heroicon-o-truck',
+            \App\Enums\TipoAtendimentoEnum::MESA => 'heroicon-o-squares-2x2',
+            default => 'heroicon-o-shopping-bag',
+        };
+    @endphp
+    <div class="mb-4 flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+        <span>Tipo de atendimento</span>
+        <span class="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-primary-600 px-3 font-semibold text-white">
+            <x-filament::icon :icon="$iconeTipo" class="h-4 w-4" />
+            {{ $tipoAtendimento->label() }}
+        </span>
+        @if ($pedidoId)
+            <span class="text-gray-500 dark:text-gray-400">Pedido nº {{ $pedidoId }}</span>
+        @endif
+    </div>
+
+    {{-- Somente leitura: o aviso acima explica e os campos ficam desabilitados (fieldset),
+         sem travar a rolagem nem a cópia de texto. --}}
+    <fieldset @disabled($somenteLeitura) class="m-0 min-w-0 border-0 p-0 [&_:disabled]:cursor-not-allowed">
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-4">
         <div class="xl:col-span-3">
             @livewire('pedido-produto-selector', ['pedidoId' => $pedidoId, 'itensIniciais' => $itensCarrinho, 'carrinhoTopo' => true], key('selector-'.($pedidoId ?? 'novo')))
         </div>
@@ -27,7 +50,7 @@
                  negócio dos itens. --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/10 p-4">
                 <h3 class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    <i class='bx bx-cart text-teal-600'></i>
+                    <i class='bx bx-cart text-primary-600'></i>
                     Carrinho
                     <span class="font-normal normal-case text-gray-400 dark:text-gray-500">({{ count($itensCarrinho) }})</span>
                 </h3>
@@ -48,7 +71,7 @@
                 @endif
             </div>
 
-            @livewire('cliente-picker', ['inicial' => $clienteData], key('cliente-'.($pedidoId ?? 'novo')))
+            @livewire('cliente-picker', ['inicial' => $clienteData, 'enderecoSomenteComEntrega' => true], key('cliente-'.($pedidoId ?? 'novo')))
 
             @livewire('entrega-pagamento-picker', ['inicial' => $entregaPagamentoData, 'total' => $this->totalPreview], key('entrega-'.($pedidoId ?? 'novo')))
 
@@ -99,10 +122,12 @@
                             <dd>− R$ {{ number_format($resumo['desconto'], 2, ',', '.') }}</dd>
                         </div>
                     @endif
-                    <div class="flex justify-between text-gray-600 dark:text-gray-300">
-                        <dt>Taxa de entrega</dt>
-                        <dd>{{ $resumo['frete'] > 0 ? 'R$ '.number_format($resumo['frete'], 2, ',', '.') : 'Grátis' }}</dd>
-                    </div>
+                    @if ($tipoAtendimento === \App\Enums\TipoAtendimentoEnum::DELIVERY || $resumo['frete'] > 0)
+                        <div class="flex justify-between text-gray-600 dark:text-gray-300">
+                            <dt>Taxa de entrega</dt>
+                            <dd>{{ $resumo['frete'] > 0 ? 'R$ '.number_format($resumo['frete'], 2, ',', '.') : 'Grátis' }}</dd>
+                        </div>
+                    @endif
                     <div class="flex justify-between pt-1.5 mt-1 border-t border-gray-100 dark:border-white/10 text-base font-bold text-gray-800 dark:text-gray-100">
                         <dt>Total</dt>
                         <dd class="text-primary-600 dark:text-primary-400">R$ {{ number_format($resumo['total'], 2, ',', '.') }}</dd>
@@ -142,6 +167,7 @@
             </div>
         </div>
     </div>
+    </fieldset>
 
     {{-- Modal Cobrança na maquininha Stone --}}
     @if ($modalStoneAberta)

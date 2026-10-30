@@ -1,5 +1,5 @@
 {{-- Conta da mesa: aba Conta no celular e painel lateral no desktop.
-     Espera $sessao e $conta no escopo. --}}
+     Espera $sessao e $conta no escopo. Ordem: resumo, por pessoa, cobrança e ações. --}}
 <div class="space-y-4">
     <div class="rounded-2xl bg-white p-4 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
         <dl class="space-y-2 text-base">
@@ -29,7 +29,42 @@
         </dl>
     </div>
 
-    <div class="grid grid-cols-2 gap-3">
+    {{-- Conta por pessoa + comanda individual --}}
+    @php $porPessoa = $this->contaPorPessoa(); @endphp
+    <div class="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
+        @include('filament.garcom.partials.pessoas-mesa')
+
+        @if (count($porPessoa) > 0)
+            <ul class="divide-y divide-gray-100 dark:divide-white/10">
+                @foreach ($porPessoa as $clienteId => $parcial)
+                    <li wire:key="parcial-{{ $clienteId }}" class="flex items-center gap-3 py-2.5">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $parcial['nome'] }}</p>
+                            <p class="text-xs text-gray-500">
+                                R$ {{ number_format($parcial['subtotal'], 2, ',', '.') }}
+                                @if ($parcial['taxa'] > 0)
+                                    + taxa R$ {{ number_format($parcial['taxa'], 2, ',', '.') }}
+                                @endif
+                            </p>
+                        </div>
+                        <span class="text-sm font-bold text-gray-900 dark:text-white">R$ {{ number_format($parcial['total'], 2, ',', '.') }}</span>
+                        <a href="{{ route('sessaoMesa.imprimir', ['id' => $sessao->id, 'modo' => 'cliente', 'cliente' => $clienteId]) }}" target="_blank"
+                           class="rounded-lg px-2 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 dark:text-gray-200 dark:ring-white/10">
+                            Comanda
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </div>
+
+    <div>
+        @livewire('mesa-stone-cobranca', ['sessaoMesaId' => $sessao->id], key('stone-'.$sessao->id))
+    </div>
+
+    <div class="space-y-2">
+        <h3 class="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Ações da conta e da mesa</h3>
+        <div class="grid grid-cols-2 gap-3">
         <button type="button" wire:click="alternarContaSolicitada"
                 class="col-span-2 rounded-xl bg-violet-600 py-4 text-base font-semibold text-white active:scale-[.98]">
             {{ $sessao->contaSolicitada() ? 'Desfazer pedido de conta' : 'Mesa pediu a conta' }}
@@ -77,39 +112,7 @@
                 Fechar mesa (liberar para outro cliente)
             </button>
         @endif
-    </div>
-
-    {{-- Conta por pessoa + comanda individual --}}
-    @php $porPessoa = $this->contaPorPessoa(); @endphp
-    <div class="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
-        @include('filament.garcom.partials.pessoas-mesa')
-
-        @if (count($porPessoa) > 0)
-            <ul class="divide-y divide-gray-100 dark:divide-white/10">
-                @foreach ($porPessoa as $clienteId => $parcial)
-                    <li wire:key="parcial-{{ $clienteId }}" class="flex items-center gap-3 py-2.5">
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $parcial['nome'] }}</p>
-                            <p class="text-xs text-gray-500">
-                                R$ {{ number_format($parcial['subtotal'], 2, ',', '.') }}
-                                @if ($parcial['taxa'] > 0)
-                                    + taxa R$ {{ number_format($parcial['taxa'], 2, ',', '.') }}
-                                @endif
-                            </p>
-                        </div>
-                        <span class="text-sm font-bold text-gray-900 dark:text-white">R$ {{ number_format($parcial['total'], 2, ',', '.') }}</span>
-                        <a href="{{ route('sessaoMesa.imprimir', ['id' => $sessao->id, 'modo' => 'cliente', 'cliente' => $clienteId]) }}" target="_blank"
-                           class="rounded-lg px-2 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 dark:text-gray-200 dark:ring-white/10">
-                            Comanda
-                        </a>
-                    </li>
-                @endforeach
-            </ul>
-        @endif
-    </div>
-
-    <div>
-        @livewire('mesa-stone-cobranca', ['sessaoMesaId' => $sessao->id], key('stone-'.$sessao->id))
+        </div>
     </div>
 
     <p class="text-xs text-gray-500 dark:text-gray-400">

@@ -213,7 +213,7 @@ class PedidoStatusActions
             ->label('Copiar link de acompanhamento')
             ->icon(Heroicon::OutlinedLink)
             ->color('gray')
-            ->alpineClickHandler(fn (?Pedido $record): string => self::jsCopiarLink(route('pedido.acompanhar', $record?->id)));
+            ->alpineClickHandler(fn (?Pedido $record): string => self::jsCopiarLink($record?->linkAcompanhamento() ?? ''));
     }
 
     /**

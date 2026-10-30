@@ -112,6 +112,9 @@
                 $retirada = $this->retirada();
                 $status = \App\Enums\StatusPedidoEnum::tryFrom($retirada->pedido_status);
                 $pago = $retirada->pedido_venda_id !== null || $status === \App\Enums\StatusPedidoEnum::FINALIZADO;
+                // Mesma linha do tempo do acompanhamento do cliente (retirada sem etapa de entrega).
+                $etapas = new \App\Support\Pedido\EtapasAcompanhamento($retirada);
+                $ehRetirada = ! $retirada->exigeEntrega();
             @endphp
 
             <div wire:poll.{{ (int) config('pizzaria.salao.polling_mesa_segundos') }}s="atualizar"
@@ -135,15 +138,19 @@
                             {{ match ($status) {
                                 \App\Enums\StatusPedidoEnum::ABERTO => 'Enviado',
                                 \App\Enums\StatusPedidoEnum::PREPARANDO => 'Em preparo',
-                                \App\Enums\StatusPedidoEnum::PRONTO => 'Pronto',
+                                \App\Enums\StatusPedidoEnum::PRONTO => $ehRetirada ? 'Pronto para retirar' : 'Pronto',
                                 \App\Enums\StatusPedidoEnum::EM_TRANSPORTE => 'Saiu para entrega',
-                                \App\Enums\StatusPedidoEnum::ENTREGUE => 'Entregue',
-                                \App\Enums\StatusPedidoEnum::FINALIZADO => 'Entregue e pago',
+                                \App\Enums\StatusPedidoEnum::ENTREGUE => $ehRetirada ? 'Retirado' : 'Entregue',
+                                \App\Enums\StatusPedidoEnum::FINALIZADO => $ehRetirada ? 'Retirado e pago' : 'Entregue e pago',
                                 \App\Enums\StatusPedidoEnum::CANCELADO => 'Cancelado',
                                 default => $retirada->pedido_status,
                             } }}
                         </span>
                     </div>
+
+                    @unless ($etapas->cancelado())
+                        <x-pedido.passos :etapas="$etapas->etapas()" orientacao="vertical" class="mt-4 rounded-xl bg-gray-50 p-3 dark:bg-white/5" />
+                    @endunless
 
                     <ul class="mt-3 divide-y divide-gray-100 dark:divide-white/10">
                         @foreach ($retirada->item_pedido_pedido_id as $item)
@@ -228,7 +235,7 @@
                 @if ($status === \App\Enums\StatusPedidoEnum::PRONTO && ! $retirada->exigeEntrega())
                     <button type="button" wire:click="entregarAoCliente" wire:loading.attr="disabled"
                             class="w-full rounded-xl bg-emerald-600 py-4 text-base font-semibold text-white active:scale-[.98]">
-                        Entregue ao cliente
+                        Cliente retirou o pedido
                     </button>
                 @endif
 

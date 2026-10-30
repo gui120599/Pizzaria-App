@@ -208,7 +208,7 @@
 
                 <button
                     type="button"
-                    x-on:click="open = false; {{ PedidoStatusActions::jsCopiarLink(route('pedido.acompanhar', $pedido->id)) }}"
+                    x-on:click="open = false; {{ PedidoStatusActions::jsCopiarLink($pedido->linkAcompanhamento()) }}"
                     class="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
                 >
                     Copiar link de acompanhamento

@@ -278,7 +278,7 @@
                             </div>
 
                             {{-- Link de acompanhamento --}}
-                            <a href="{{ route('pedido.acompanhar', $pedido->id) }}" target="_blank"
+                            <a href="{{ $pedido->linkAcompanhamento() }}" target="_blank"
                                class="flex items-center justify-center gap-1.5 text-xs text-teal-600 hover:text-teal-800 transition-colors py-1">
                                 <i class='bx bx-link-external'></i>
                                 Link de acompanhamento do cliente

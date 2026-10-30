@@ -112,6 +112,11 @@ class PedidoProdutoSelector extends Component
      */
     public array $saboresOpcoes = [];
 
+    /** Regra de preço (MEDIA|MAIOR) e formato (redonda|quadrada) da categoria aberta: só a prévia e o desenho do navegador usam. */
+    public string $saboresRegraPreco = 'MEDIA';
+
+    public string $saboresFormato = 'redonda';
+
     public array $saboresProdutos = [];
 
     public array $saboresSelecionados = [];
@@ -496,6 +501,7 @@ class PedidoProdutoSelector extends Component
                 'nome' => $p->produto_descricao,
                 'codimentacao' => $p->produto_codimentacao ?? null,
                 'foto' => $p->getMiniaturaUrl(56),
+                'fotoPizza' => $p->getMiniaturaUrl(64),
                 // Preço da fração respeita a mesma regra do cardápio: promoção
                 // relâmpago "só inteira" volta ao preço normal na fração (ver
                 // Produto::precoFracaoCardapio()). Na prévia (sem pedido
@@ -522,6 +528,8 @@ class PedidoProdutoSelector extends Component
             ->map(fn ($o) => ['quantidade' => $o->quantidade_sabor_quantidade, 'descricao' => $o->quantidade_sabor_descricao])
             ->values()
             ->all();
+        $this->saboresRegraPreco = $categoria->regraPrecoSaboresResolvida()->value;
+        $this->saboresFormato = strtolower($categoria->formatoPizza()->value);
         $this->saboresModo = 1;
         $this->saboresProdutos = $produtos;
         $this->saboresSelecionados = $presel ? [$presel] : [];
@@ -633,8 +641,22 @@ class PedidoProdutoSelector extends Component
         $this->ofertasDisponiveis = $this->montarOfertasDisponiveis($this->saboresSelecionados[0]['id']);
     }
 
-    public function confirmarSabores(): void
+    /**
+     * Confirma a pizza. `$idsDoNavegador` é a seleção montada no Alpine (sem ida
+     * ao servidor por toque): o servidor só aproveita os ids, depois de validar
+     * contra os sabores da categoria aberta; o preço é sempre o dele. Sem ids,
+     * vale a seleção já gravada por toggleSabor().
+     *
+     * @param  array<int, int|string>|null  $idsDoNavegador
+     */
+    public function confirmarSabores(?array $idsDoNavegador = null): void
     {
+        if ($idsDoNavegador !== null && ! $this->aplicarSaboresDoNavegador($idsDoNavegador)) {
+            $this->erroPromocao = 'Não foi possível confirmar os sabores escolhidos. Escolha novamente.';
+
+            return;
+        }
+
         $ids = array_map(fn (array $sabor) => (int) $sabor['id'], $this->saboresSelecionados);
 
         if (count($ids) !== $this->saboresModo) {
@@ -670,6 +692,42 @@ class PedidoProdutoSelector extends Component
 
         $this->fecharSaboresModal();
         $this->notificarPai();
+    }
+
+    /**
+     * Valida a seleção vinda do navegador: ids inteiros, sem repetição, todos
+     * da categoria aberta (saboresProdutos) e na quantidade do modo escolhido.
+     *
+     * @param  array<int|string, mixed>  $ids
+     */
+    protected function aplicarSaboresDoNavegador(array $ids): bool
+    {
+        if (! array_is_list($ids) || count($ids) !== $this->saboresModo) {
+            return false;
+        }
+
+        foreach ($ids as $id) {
+            if (! is_int($id) && ! (is_string($id) && ctype_digit($id))) {
+                return false;
+            }
+        }
+
+        $ids = array_map('intval', $ids);
+        $porId = collect($this->saboresProdutos)->keyBy('id');
+
+        if (count(array_unique($ids)) !== count($ids) || collect($ids)->contains(fn (int $id) => ! $porId->has($id))) {
+            return false;
+        }
+
+        $antes = array_map(fn (array $sabor) => (int) $sabor['id'], $this->saboresSelecionados);
+
+        if ($antes !== $ids) {
+            $this->saboresSelecionados = array_map(fn (int $id) => $porId[$id], $ids);
+            $this->atualizarOfertaSaborUnico();
+            $this->atualizarPerguntasSabores();
+        }
+
+        return true;
     }
 
     public function fecharSaboresModal(): void

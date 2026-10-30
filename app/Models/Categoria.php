@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FormatoPizzaEnum;
 use App\Enums\RegraPrecoSaboresEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +31,7 @@ class Categoria extends Model
         'categoria_permite_sabores',
         'categoria_herda_sabores',
         'categoria_regra_preco_sabores',
+        'categoria_formato_pizza',
     ];
 
     protected $casts = [
@@ -40,6 +42,7 @@ class Categoria extends Model
         'categoria_herda_sabores' => 'boolean',
         'categoria_ordem' => 'integer',
         'categoria_regra_preco_sabores' => RegraPrecoSaboresEnum::class,
+        'categoria_formato_pizza' => FormatoPizzaEnum::class,
     ];
 
     protected static function booted(): void
@@ -167,6 +170,12 @@ class Categoria extends Model
         }
 
         return $this->categoria_regra_preco_sabores ?? RegraPrecoSaboresEnum::MEDIA;
+    }
+
+    /** Formato da pizza de sabores desta categoria (próprio: não segue categoria_herda_sabores). */
+    public function formatoPizza(): FormatoPizzaEnum
+    {
+        return $this->categoria_formato_pizza ?? FormatoPizzaEnum::REDONDA;
     }
 
     public function opcaoQuantidadeSabores(int $quantidade): ?QuantidadeSabor

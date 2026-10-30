@@ -77,6 +77,18 @@ class CardapioCheckoutPrecoServidorTest extends TestCase
         $this->assertSame('55.00', ItensPedido::where('item_pedido_pedido_id', $pedido->id)->first()->item_pedido_valor);
     }
 
+    public function test_checkout_devolve_o_link_de_acompanhamento_assinado(): void
+    {
+        $resposta = $this->checkout([
+            ['id' => $this->pizza->id, 'qty' => 1],
+        ])->assertOk();
+
+        $pedido = Pedido::firstOrFail();
+
+        $this->assertSame($pedido->linkAcompanhamento(), $resposta->json('link_acompanhamento'));
+        $this->assertStringContainsString('signature=', $resposta->json('link_acompanhamento'));
+    }
+
     public function test_promocao_relampago_e_aplicada_e_debita_o_contador(): void
     {
         $promocao = PromocaoRelampago::create([

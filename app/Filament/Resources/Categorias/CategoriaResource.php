@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Categorias;
 
+use App\Enums\FormatoPizzaEnum;
 use App\Enums\RegraPrecoSaboresEnum;
 use App\Filament\Resources\Categorias\Pages\ManageCategorias;
 use App\Filament\Resources\Categorias\Schemas\QuantidadesSaboresRepeater;
@@ -156,6 +157,14 @@ class CategoriaResource extends Resource
                             ->visible(fn ($get) => (bool) $get('categoria_permite_sabores')
                                 && ! ((bool) $get('categoria_herda_sabores') && filled($get('categoria_pai_id'))))
                             ->helperText('Vale para todos os canais: cardápio online, PDV, atendente e garçom.'),
+
+                        Select::make('categoria_formato_pizza')
+                            ->label('Formato da pizza')
+                            ->options(FormatoPizzaEnum::class)
+                            ->default(FormatoPizzaEnum::REDONDA)
+                            ->selectablePlaceholder(false)
+                            ->visible(fn ($get) => (bool) $get('categoria_permite_sabores'))
+                            ->helperText('Só muda o desenho da montagem. Vale para a própria categoria, mesmo que ela herde as quantidades de sabores de outra.'),
                     ]),
 
                 SchemaSection::make('Perguntas do item')

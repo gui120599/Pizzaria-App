@@ -77,7 +77,7 @@
                                     @if ($isEntregaOuRetirada)
                                         <button type="button"
                                             title="COPIAR LINK DE ACOMPANHAMENTO"
-                                            onclick="copiarLinkAcompanhamento('{{ route('pedido.acompanhar', $pedido->id) }}', this)"
+                                            onclick="copiarLinkAcompanhamento('{{ $pedido->linkAcompanhamento() }}', this)"
                                             class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-md font-semibold text-xs text-teal-700 uppercase tracking-widest shadow-sm hover:bg-teal-50 hover:border-teal-400 focus:outline-none transition ease-in-out duration-150">
                                             <i class='bx bx-link'></i>
                                         </button>
@@ -108,7 +108,7 @@
                                     @if ($isEntregaOuRetirada)
                                         <button type="button"
                                             title="COPIAR LINK DE ACOMPANHAMENTO"
-                                            onclick="copiarLinkAcompanhamento('{{ route('pedido.acompanhar', $pedido->id) }}', this)"
+                                            onclick="copiarLinkAcompanhamento('{{ $pedido->linkAcompanhamento() }}', this)"
                                             class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-md font-semibold text-xs text-teal-700 uppercase tracking-widest shadow-sm hover:bg-teal-50 hover:border-teal-400 focus:outline-none transition ease-in-out duration-150">
                                             <i class='bx bx-link'></i>
                                         </button>
