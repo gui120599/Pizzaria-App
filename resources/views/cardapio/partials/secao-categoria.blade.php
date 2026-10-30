@@ -17,16 +17,16 @@
         <div class="sticky z-20 -mx-4 bg-forno/95 px-4 py-2.5 backdrop-blur-md lg:mx-0 lg:px-0"
              style="top: calc(var(--altura-topo, 56px) + var(--altura-abas, 57px))"
              data-ocultar-na-busca>
-            <div class="rolagem-x flex gap-2">
-                <button type="button" @click="catFilhaAtiva = 'todos'" :aria-pressed="catFilhaAtiva === 'todos'"
+            <x-cardapio.trilho rotulo="subcategorias">
+                <button type="button" @click="catFilhaAtiva = 'todos'; alinharSecao($el)" :aria-pressed="catFilhaAtiva === 'todos'"
                         :class="catFilhaAtiva === 'todos' ? 'border-creme bg-creme text-forno' : 'border-linha bg-forno-2 text-farinha hover:text-creme'"
                         class="h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-[13.5px] font-semibold transition-colors">Todos</button>
                 @foreach ($categoria->filhas as $filha)
-                    <button type="button" @click="catFilhaAtiva = '{{ $filha->id }}'" :aria-pressed="catFilhaAtiva === '{{ $filha->id }}'"
+                    <button type="button" @click="catFilhaAtiva = '{{ $filha->id }}'; alinharSecao($el)" :aria-pressed="catFilhaAtiva === '{{ $filha->id }}'"
                             :class="catFilhaAtiva === '{{ $filha->id }}' ? 'border-creme bg-creme text-forno' : 'border-linha bg-forno-2 text-farinha hover:text-creme'"
                             class="h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-[13.5px] font-semibold transition-colors">{{ $filha->categoria_nome }}</button>
                 @endforeach
-            </div>
+            </x-cardapio.trilho>
         </div>
     @endif
 

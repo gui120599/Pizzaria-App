@@ -15,6 +15,7 @@ use App\Models\PromocaoRelampago;
 use App\Support\Cardapio\ProdutoCardapio;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Dados do cardápio público: seções, promoções, sabores, perguntas e adicionais.
@@ -204,6 +205,9 @@ class CardapioService
                 'nome' => $c->categoria_nome,
                 'maxSabores' => $c->maxSabores(),
                 'regraPreco' => $c->regraPrecoSaboresResolvida()->value,
+                // Só muda o desenho da montagem (pizza quadrada é dividida em
+                // faixas). Sem campo próprio na categoria: vem do nome.
+                'formato' => Str::contains(Str::lower(Str::ascii($c->categoria_nome)), 'quadrad') ? 'quadrada' : 'redonda',
                 // Opções de quantidade (≥ 2): o cliente escolhe primeiro quantos
                 // sabores, depois quais — o servidor recusa quantidade sem opção.
                 'opcoesSabores' => $c->quantidadesSaboresResolvidas()

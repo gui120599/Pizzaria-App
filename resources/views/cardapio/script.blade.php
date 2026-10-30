@@ -462,6 +462,7 @@
                         open: true, categoriaId, categoriaNome, maxSabores,
                         modo: 1, produtos, selecionados: presel ? [presel] : [], opcoes,
                         regraPreco: cat ? cat.regraPreco : 'MEDIA', busca: '',
+                        formato: cat?.formato ?? 'redonda',
                     };
                     if (presel) {
                         setTimeout(() => {
@@ -485,9 +486,11 @@
                 /**
                  * Pizza em SVG dividida no número de sabores do modo, cada fatia
                  * com a foto do sabor escolhido naquela posição (a ordem importa:
-                 * é a mesma da linha do carrinho).
+                 * é a mesma da linha do carrinho). Redonda: fatias em leque;
+                 * quadrada: faixas (2×2 com 4 sabores).
                  */
                 svgPizza() {
+                    if (this.saboresModal.formato === 'quadrada') return this.svgPizzaQuadrada();
                     const n = Math.max(1, this.saboresModal.modo);
                     const sel = this.saboresModal.selecionados;
                     const c = 64, r = 60;
@@ -512,6 +515,40 @@
                         linhas += `<line x1="${c}" y1="${c}" x2="${x0.toFixed(2)}" y2="${y0.toFixed(2)}" stroke="#14100D" stroke-width="3"/>`;
                     }
                     return `<svg viewBox="0 0 128 128" class="size-full" aria-hidden="true"><defs>${defs}</defs><circle cx="${c}" cy="${c}" r="${r + 2}" fill="#3a2a1c"/>${fatias}${linhas}<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#F2B33D" stroke-width="3"/></svg>`;
+                },
+                svgPizzaQuadrada() {
+                    const n = Math.max(1, this.saboresModal.modo);
+                    const sel = this.saboresModal.selecionados;
+                    const m = 4, lado = 120, raio = 14;
+                    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+                    // Grade das partes: 4 sabores = 2×2; os demais, faixas verticais.
+                    const colunas = n === 4 ? 2 : n;
+                    const linhas = n === 4 ? 2 : 1;
+                    const w = lado / colunas, h = lado / linhas;
+                    let defs = `<clipPath id="pizza-quadrada"><rect x="${m}" y="${m}" width="${lado}" height="${lado}" rx="${raio}"/></clipPath>`;
+                    let partes = '', divisas = '';
+                    for (let i = 0; i < n; i++) {
+                        const sabor = sel[i];
+                        const x = m + (i % colunas) * w, y = m + Math.floor(i / colunas) * h;
+                        if (this.temFoto(sabor?.foto)) {
+                            // As fotos são de pizzas redondas: cada parte mostra o miolo
+                            // da foto (ampliada e centrada nela), sem a borda curva.
+                            const zoom = Math.max(w, h) * 1.45;
+                            const ix = x + w / 2 - zoom / 2, iy = y + h / 2 - zoom / 2;
+                            defs += `<pattern id="fatia-${i}" patternUnits="userSpaceOnUse" width="128" height="128"><image href="${esc(sabor.foto)}" x="${ix.toFixed(2)}" y="${iy.toFixed(2)}" width="${zoom.toFixed(2)}" height="${zoom.toFixed(2)}" preserveAspectRatio="xMidYMid slice"/></pattern>`;
+                        }
+                        const fill = sabor ? (this.temFoto(sabor.foto) ? `url(#fatia-${i})` : '#5a4636') : '#2A221C';
+                        partes += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${fill}"/>`;
+                    }
+                    for (let c = 1; c < colunas; c++) {
+                        const x = (m + c * w).toFixed(2);
+                        divisas += `<line x1="${x}" y1="${m}" x2="${x}" y2="${m + lado}" stroke="#14100D" stroke-width="3"/>`;
+                    }
+                    for (let l = 1; l < linhas; l++) {
+                        const y = (m + l * h).toFixed(2);
+                        divisas += `<line x1="${m}" y1="${y}" x2="${m + lado}" y2="${y}" stroke="#14100D" stroke-width="3"/>`;
+                    }
+                    return `<svg viewBox="0 0 128 128" class="size-full" aria-hidden="true"><defs>${defs}</defs><rect x="${m - 2}" y="${m - 2}" width="${lado + 4}" height="${lado + 4}" rx="${raio + 2}" fill="#3a2a1c"/><g clip-path="url(#pizza-quadrada)">${partes}${divisas}</g><rect x="${m}" y="${m}" width="${lado}" height="${lado}" rx="${raio}" fill="none" stroke="#F2B33D" stroke-width="3"/></svg>`;
                 },
                 setModoSabores(modo) {
                     this.saboresModal.modo = modo;
@@ -857,6 +894,25 @@
          * sheet aberto.
          */
         document.addEventListener('alpine:init', () => {
+            /** Trilho horizontal: sabe se ainda há conteúdo à esquerda/direita para mostrar setas. */
+            Alpine.data('trilhoRolavel', () => ({
+                podeVoltar: false,
+                podeAvancar: false,
+                init() {
+                    this.$nextTick(() => this.medir());
+                    new ResizeObserver(() => this.medir()).observe(this.$refs.trilho);
+                },
+                medir() {
+                    const t = this.$refs.trilho;
+                    this.podeVoltar = t.scrollLeft > 4;
+                    this.podeAvancar = t.scrollLeft + t.clientWidth < t.scrollWidth - 4;
+                },
+                rolar(direcao) {
+                    const t = this.$refs.trilho;
+                    t.scrollBy({ left: direcao * t.clientWidth * 0.7, behavior: 'smooth' });
+                },
+            }));
+
             Alpine.data('cardapioPagina', () => ({
                 secaoAtiva: null,
                 busca: '',
@@ -874,18 +930,24 @@
                     medir();
                     new ResizeObserver(medir).observe(topo);
 
+                    // Aba ativa = última seção cujo topo já passou da linha logo
+                    // abaixo das barras fixas (a anterior não "vaza" para a próxima).
                     const secoes = [...document.querySelectorAll('[data-secao]')];
                     this.secaoAtiva = secoes[0]?.id ?? null;
-                    const visiveis = new Map();
-                    const observador = new IntersectionObserver((entradas) => {
-                        entradas.forEach(e => e.isIntersecting ? visiveis.set(e.target.id, e.target) : visiveis.delete(e.target.id));
-                        const primeira = secoes.find(s => visiveis.has(s.id));
-                        if (primeira && primeira.id !== this.secaoAtiva) {
-                            this.secaoAtiva = primeira.id;
-                            this.centralizarAba(primeira.id);
+                    let agendado = false;
+                    const atualizar = () => {
+                        agendado = false;
+                        const linha = (topo?.offsetHeight ?? 56) + (abas?.offsetHeight ?? 57) + 24;
+                        const visiveis = secoes.filter(s => s.offsetParent !== null);
+                        const atual = visiveis.filter(s => s.getBoundingClientRect().top <= linha).pop() ?? visiveis[0];
+                        if (atual && atual.id !== this.secaoAtiva) {
+                            this.secaoAtiva = atual.id;
+                            this.centralizarAba(atual.id);
                         }
-                    }, { rootMargin: '-130px 0px -55% 0px' });
-                    secoes.forEach(s => observador.observe(s));
+                    };
+                    window.addEventListener('scroll', () => {
+                        if (!agendado) { agendado = true; requestAnimationFrame(atualizar); }
+                    }, { passive: true });
                 },
 
                 irPara(id) {
@@ -895,8 +957,20 @@
                     this.centralizarAba(id);
                     alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 },
+                /**
+                 * Filtro de subcategoria encolhe a lista de baixo de quem já
+                 * rolou para dentro da seção — sem isto a tela "cai" na seção
+                 * seguinte ou anterior. Volta para o início da própria seção.
+                 */
+                alinharSecao(el) {
+                    this.$nextTick(() => {
+                        const secao = el.closest('[data-secao]');
+                        const linha = (document.getElementById('topo-fixo')?.offsetHeight ?? 56) + (document.getElementById('abas-fixas')?.offsetHeight ?? 57);
+                        if (secao && secao.getBoundingClientRect().top < linha) secao.scrollIntoView({ block: 'start' });
+                    });
+                },
                 centralizarAba(id) {
-                    const trilho = this.$refs.trilhoAbas;
+                    const trilho = document.querySelector('#trilho-abas [x-ref="trilho"]');
                     const aba = trilho?.querySelector(`[data-aba="${id}"]`);
                     if (aba) trilho.scrollTo({ left: aba.offsetLeft - (trilho.clientWidth - aba.offsetWidth) / 2, behavior: 'smooth' });
                 },

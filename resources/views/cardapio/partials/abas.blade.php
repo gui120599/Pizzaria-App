@@ -16,7 +16,7 @@
      class="sticky z-30 border-b border-linha bg-forno/95 backdrop-blur-md"
      style="top: var(--altura-topo, 56px)">
     <div class="mx-auto flex w-full max-w-[1232px] items-center gap-2 px-4 py-2 lg:px-6">
-        <div x-show="!buscaAberta" x-ref="trilhoAbas" class="rolagem-x flex flex-1 gap-1">
+        <x-cardapio.trilho x-show="!buscaAberta" id="trilho-abas" rotulo="seções" class="flex-1">
             @foreach ($atalhos as $atalho)
                 <button type="button" data-aba="{{ $atalho['alvo'] }}" @click="irPara(@js($atalho['alvo']))"
                         :aria-current="secaoAtiva === @js($atalho['alvo']) ? 'true' : 'false'"
@@ -28,7 +28,7 @@
                     {{ $atalho['nome'] }}
                 </button>
             @endforeach
-        </div>
+        </x-cardapio.trilho>
 
         <label x-show="buscaAberta" x-cloak class="flex h-11 flex-1 items-center gap-2 rounded-xl border border-brasa-viva bg-forno-2 px-3 text-farinha lg:hidden">
             <i class='bx bx-search text-xl' aria-hidden="true"></i>
