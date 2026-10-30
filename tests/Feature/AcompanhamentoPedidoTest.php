@@ -78,6 +78,7 @@ class AcompanhamentoPedidoTest extends TestCase
             ->assertSee('Maria')
             ->assertSee('Rua das Flores, 123')
             ->assertSee('Pizza Calabresa Especial')
+            ->assertSee('Pizzas')
             ->assertSee('Cartão de crédito')
             ->assertSee('Em preparo');
     }

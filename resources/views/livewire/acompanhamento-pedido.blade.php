@@ -193,6 +193,9 @@
                                     @endphp
                                     <div class="flex items-start justify-between gap-3">
                                         <div class="min-w-0 text-[15px] leading-snug">
+                                            @if ($item->produto?->categoria?->categoria_nome)
+                                                <span class="mb-0.5 block text-xs font-semibold uppercase tracking-wider text-brasa-viva">{{ $item->produto->categoria->categoria_nome }}</span>
+                                            @endif
                                             <span class="num font-bold text-brasa-viva">{{ $qtdFmt }}×</span>
                                             @if ($item->ehMultiSabor())
                                                 @foreach ($item->linhasSabores() as $linha)
