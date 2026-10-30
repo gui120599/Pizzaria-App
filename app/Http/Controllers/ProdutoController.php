@@ -8,6 +8,7 @@ use App\Models\AdicionaisProduto;
 use App\Models\Adicional;
 use App\Models\Categoria;
 use App\Models\Produto;
+use Illuminate\Http\RedirectResponse;
 
 class ProdutoController extends Controller
 {
@@ -88,19 +89,16 @@ class ProdutoController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Produto $produto)
+    /**
+     * Link público antigo do produto: abre o detalhe dentro do próprio
+     * cardápio, onde preço, sabores e perguntas seguem as regras de venda.
+     * Produto fora do cardápio não é exposto.
+     */
+    public function show(Produto $produto): RedirectResponse
     {
-        $top10Ids = Produto::where('produto_destaque_mais_vendidos', true)
-            ->where('produto_qtd_vendas', '>', 0)
-            ->orderByDesc('produto_qtd_vendas')
-            ->limit(10)
-            ->pluck('id')
-            ->all();
+        abort_unless($produto->visivelNoCardapio(), 404);
 
-        return view('app.produto.show', [
-            'produto' => $produto,
-            'ehMaisVendido' => in_array($produto->id, $top10Ids),
-        ]);
+        return redirect()->route('cardapio', ['produto' => $produto->id]);
     }
 
     /**

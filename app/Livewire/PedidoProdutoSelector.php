@@ -203,7 +203,7 @@ class PedidoProdutoSelector extends Component
             'sabores_linhas' => $item->linhasSabores(),
             'respostas' => $item->item_pedido_respostas,
             'respostas_linhas' => $item->linhasRespostas(),
-            'produto_foto' => $item->produto?->getImagemUrl(),
+            'produto_foto' => $item->produto?->getMiniaturaUrl(56),
             'cliente_id' => $item->item_pedido_cliente_id,
             'cliente_nome' => $this->nomeDoCliente($item->item_pedido_cliente_id),
             'quantidade' => $quantidade,
@@ -295,7 +295,7 @@ class PedidoProdutoSelector extends Component
             'id' => $produto->id,
             'nome' => $produto->produto_descricao,
             'categoria_nome' => $produto->categoria?->categoria_nome ?? '',
-            'foto' => $produto->getImagemUrl(),
+            'foto' => $produto->getMiniaturaUrl(56),
             'preco_venda' => (float) $produto->produto_preco_venda,
             'preco_base' => $preco->valorUnitario,
             'desconto_unit' => $preco->descontoUnitario,
@@ -351,7 +351,7 @@ class PedidoProdutoSelector extends Component
                 'produto_id' => $oferta->pao_produto_oferta_id,
                 'nome' => $oferta->produtoOferta?->produto_descricao ?? '—',
                 'categoria_nome' => $oferta->produtoOferta?->categoria?->categoria_nome ?? '',
-                'foto' => $oferta->produtoOferta?->getImagemUrl(),
+                'foto' => $oferta->produtoOferta?->getMiniaturaUrl(56),
                 'valor_adicional' => (float) $oferta->pao_valor_adicional,
             ])
             ->values()
@@ -495,7 +495,7 @@ class PedidoProdutoSelector extends Component
                 'id' => $p->id,
                 'nome' => $p->produto_descricao,
                 'codimentacao' => $p->produto_codimentacao ?? null,
-                'foto' => $p->getImagemUrl(),
+                'foto' => $p->getMiniaturaUrl(56),
                 // Preço da fração respeita a mesma regra do cardápio: promoção
                 // relâmpago "só inteira" volta ao preço normal na fração (ver
                 // Produto::precoFracaoCardapio()). Na prévia (sem pedido

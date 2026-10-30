@@ -1,0 +1,40 @@
+/*
+ * Identidade "Forno aceso" do Empório da Pizza — tokens compartilhados.
+ *
+ * Fonte única das cores, fontes e raios da marca. O cardápio público usa
+ * agora; os painéis do salão (garçom, mesa, Atender Pedido) devem importar
+ * este arquivo em vez de redefinir cores. Contraste medido (WCAG):
+ *   creme/forno 16,4:1 · farinha/forno 8,5:1 · branco/brasa 5,2:1
+ *   ouro/forno 10,2:1 · brasa-viva/forno 5,8:1 · branco/whats 5,0:1
+ * Ver docs/plano/redesign-cardapio-online-emporio-da-pizza.md, seção 5.
+ *
+ * Só cores, raios e curva de animação: seguro para importar num tema do
+ * Filament (não troca a fonte do painel). As fontes da marca (Fraunces nos
+ * títulos, Figtree no corpo) ficam em cada folha de estilo que as carrega.
+ */
+@theme {
+    /* Superfícies (carvão quente) */
+    --color-forno: #14100D;
+    --color-forno-2: #1F1915;
+    --color-forno-3: #2A221C;
+    --color-linha: #3A2F27;
+
+    /* Texto */
+    --color-creme: #F6EEE3;
+    --color-farinha: #B9AC9E;
+
+    /* Ação, destaque e estados */
+    --color-brasa: #C2410C;
+    --color-brasa-escura: #9A3412;
+    --color-brasa-viva: #E8673A;
+    --color-ouro: #F2B33D;
+    --color-manjericao: #4ADE80;
+    --color-whats: #15803D;
+    --color-whats-escuro: #166534;
+    --color-tomate: #F87171;
+
+    --radius-card: 1rem;
+    --radius-sheet: 1.5rem;
+
+    --ease-forno: cubic-bezier(.2, .8, .2, 1);
+}

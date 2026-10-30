@@ -8,6 +8,7 @@ export default defineConfig({
         laravel({
             input: [
                 'resources/css/app.css',
+                'resources/css/cardapio.css',
                 'resources/js/app.js',
                 'resources/css/filament/admin/theme.css',
                 'resources/css/filament/garcom/theme.css',

@@ -1,60 +1,72 @@
-@props(['produto', 'categoria', 'top10Ids' => []])
+@props([
+    'produto',
+    'variante' => 'lista',
+    'soTitulo' => false,
+    'selo' => null,
+    'ofertas' => null,
+    'prioridade' => false,
+])
 
+{{--
+    Card único do cardápio.
+    - lista: texto à esquerda, foto 1:1 à direita (categorias).
+    - vitrine: foto 4:3 em cima, para carrosséis (mais pedidos, relâmpago, promoções).
+    soTitulo: dentro da própria categoria o título é só a descrição ("Calabresa");
+    o nome que vai para o carrinho continua sendo o nome completo.
+    selo: ['texto' => ..., 'icone' => ...] — só selos verdadeiros (ranking, top 10, relâmpago, oferta).
+--}}
 @php
-    $nomeExibicao = $produto->nomeExibicao();
-    $nomeCarrinho = $nomeExibicao;
-    $preco = $produto->precoResolvido();
-    $precoCarrinho = $preco->precoFinal();
+    $titulo = $soTitulo ? $produto->titulo : $produto->nome;
 @endphp
 
-<div class="relative snap-end">
-    <a href="{{ route('produto.show', ['produto' => $produto]) }}">
-        <div class="w-full p-2 rounded-lg flex items-start justify-between opacity-95 hover:opacity-100 gap-1">
-            <div class="w-2/5 relative">
-                <img src="{{ $produto->getImagemUrl() }}" alt="{{ $produto->produto_descricao }}" class="w-32 h-28 object-cover rounded-lg bg-white">
-                @if ($preco->descontoUnitario > 0)
-                    <span class="absolute top-1 left-1 bg-orange-500 text-white text-[10px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5"><i class='bx bxs-purchase-tag text-xs'></i> PROMO</span>
-                @endif
-                @if (in_array($produto->id, $top10Ids ?? []))
-                    <span class="absolute bottom-1 left-1 bg-yellow-500 text-white text-[10px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5"><i class='bx bxs-star text-xs'></i> +VENDIDO</span>
-                @endif
-            </div>
-            <div class="w-full h-28 flex flex-col justify-center space-y-2">
-                <h2 class="text-gray-100 text-lg uppercase">
-                    @if (isset($produto->produto_referencia) && $produto->produto_referencia !== null)
-                        {{ $nomeExibicao }} - <span>Ref. {{ $produto->produto_referencia }}</span>
-                    @else
-                        {{ $nomeExibicao }}
-                    @endif
-                </h2>
-                <span class="text-gray-200 text-xs">Codimentos: {{ $produto->produto_codimentacao }}</span>
-                <div class="flex flex-col">
-                    @if ($preco->descontoUnitario > 0)
-                        <span class="text-gray-400 text-xs line-through">DE: R${{ number_format($preco->valorUnitario, 2, ',', '.') }}</span>
-                        <span class="text-green-400 text-lg font-bold">POR: R${{ number_format($precoCarrinho, 2, ',', '.') }}</span>
-                    @else
-                        <span class="text-white text-lg font-bold">R${{ number_format($precoCarrinho, 2, ',', '.') }}</span>
-                    @endif
-                </div>
-            </div>
+@if ($variante === 'vitrine')
+    <article {{ $attributes->merge(['class' => 'w-[200px] shrink-0 snap-start overflow-hidden rounded-card border border-linha bg-forno-2 sm:w-[220px]']) }}>
+        <div class="relative aspect-[4/3]">
+            <x-cardapio.foto :produto="$produto" :largura="220" :prioridade="$prioridade" class="size-full" />
+            @if ($selo)
+                <span class="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ouro px-2 py-0.5 text-[11px] font-bold text-forno">
+                    @isset($selo['icone'])<i class='bx {{ $selo['icone'] }}' aria-hidden="true"></i>@endisset{{ $selo['texto'] }}
+                </span>
+            @endif
+            <x-cardapio.botao-adicionar :produto="$produto" class="absolute -bottom-5 right-1" />
         </div>
-    </a>
-    <div class="absolute bottom-3 right-2 flex items-center gap-1 z-10">
-        @if($produto->permiteSaboresCardapio())
-            <div x-show="$store.cart.qty({{ $produto->id }}) > 0" class="flex items-center gap-1 bg-black/70 rounded-full px-1.5 py-0.5 text-white text-xs font-bold" style="display:none">
-                <i class='bx bx-bowl-hot text-xs'></i>
-                <span x-text="$store.cart.qty({{ $produto->id }})"></span>
-            </div>
-            <button @click.stop="$store.cart.abrirSabores({{ $categoria->id }}, @js($categoria->categoria_nome), {{ $produto->maxSaboresCardapio() }}, {{ $produto->id }})"
-                    class="w-8 h-8 rounded-full bg-green-500 hover:bg-green-400 active:scale-90 text-white text-xl font-bold flex items-center justify-center shadow-lg transition-all">+</button>
-        @else
-            <div x-show="$store.cart.qty({{ $produto->id }}) > 0" class="flex items-center gap-1 bg-black/70 rounded-full px-1.5 py-0.5" style="display:none">
-                <button @click.stop="$store.cart.decrement({{ $produto->id }})" class="w-5 h-5 flex items-center justify-center text-white font-bold hover:text-red-400 transition text-base leading-none">−</button>
-                <span class="text-white text-xs font-bold min-w-[0.75rem] text-center" x-text="$store.cart.qty({{ $produto->id }})"></span>
-            </div>
-            <button @click.stop="$store.cart.add({{ $produto->id }}, @js($nomeCarrinho), {{ $precoCarrinho }}, {{ $produto->produto_preco_venda }}, @js($produto->getImagemUrl()))"
-                    class="w-8 h-8 rounded-full bg-green-500 hover:bg-green-400 active:scale-90 text-white text-xl font-bold flex items-center justify-center shadow-lg transition-all">+</button>
-        @endif
-    </div>
-    <hr class="h-px my-1 border-0 bg-gray-600">
-</div>
+        <button type="button" @click="$store.cart.abrirDetalhe({{ $produto->id }})"
+                class="block w-full px-3 pb-3 pt-4 text-left">
+            <h3 class="line-clamp-2 min-h-10 text-[15px] font-semibold leading-snug first-letter:uppercase">{{ $titulo }}</h3>
+            <x-cardapio.preco :produto="$produto" class="mt-1.5" />
+        </button>
+    </article>
+@else
+    <article data-busca="{{ $produto->busca }}"
+             {{ $attributes->merge(['class' => 'card-lista']) }}>
+        <button type="button" @click="$store.cart.abrirDetalhe({{ $produto->id }})"
+                class="min-w-0 flex-1 text-left">
+            @if ($selo)
+                <span class="card-selo">
+                    @isset($selo['icone'])<i class='bx {{ $selo['icone'] }}' aria-hidden="true"></i>@endisset{{ $selo['texto'] }}
+                </span>
+            @endif
+            <h3 class="card-titulo">{{ $titulo }}</h3>
+            @if ($produto->referencia)
+                <span class="text-xs text-farinha">Ref. {{ $produto->referencia }}</span>
+            @endif
+            @if ($produto->descricao)
+                <p class="card-descricao">{{ $produto->descricao }}</p>
+            @endif
+            @if ($ofertas && count($ofertas))
+                <p class="mt-1 text-xs font-medium leading-snug text-ouro">
+                    <i class='bx bxs-gift' aria-hidden="true"></i>
+                    Leve também:
+                    @foreach ($ofertas as $oferta)
+                        {{ $oferta['nomeExibicao'] }} (+R$ {{ number_format($oferta['valorAdicional'], 2, ',', '.') }}){{ ! $loop->last ? ' ou ' : '' }}
+                    @endforeach
+                </p>
+            @endif
+            <x-cardapio.preco :produto="$produto" class="mt-2" />
+        </button>
+        <div class="relative size-24 shrink-0 md:size-28">
+            <x-cardapio.foto :produto="$produto" :largura="112" :prioridade="$prioridade" class="size-full rounded-xl" />
+            <x-cardapio.botao-adicionar :produto="$produto" class="absolute -bottom-3 -right-2" />
+        </div>
+    </article>
+@endif
