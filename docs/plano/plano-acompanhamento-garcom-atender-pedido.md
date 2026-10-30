@@ -178,11 +178,15 @@ retirada não exibe endereço e taxa; somente leitura sem `pointer-events`.
 | **F. Garçom: mesa e retirada** | G9, linha do tempo da retirada | Médio | M |
 | **G. Atender Pedido** | G6, G7, G8, depois da frente de endereço | Médio | M |
 | **H. Ajuste de regra no cardápio** | `requer_endereco` pela coluna (G10) | Baixo hoje, evita bug futuro | P |
-| **I. (Opcional) Sabores no navegador** | G4 (A3) | Médio | M/G |
+| **I. Sabores no navegador** | G4 (A3), feita junto com a E | Médio | M/G |
+| **K. Formato da pizza na categoria** | Campo `categoria_formato_pizza` (A6) | Baixo | P |
+| **L. Endereço e mapa da loja** | Edição do endereço + `empresa_google_maps_url` (A4), base do card "Onde retirar" | Médio | P |
 | **0. Auditoria visual dos painéis** | Capturas reais do garçom e do Atender Pedido antes de D–G | Pré-requisito de qualidade | P |
 
 **Ordem sugerida:** A → B → C (o acompanhamento é público e tem o risco de dados) → H → 0 →
 D → E → F → G → (I).
+
+**Ordem após as decisões de 4.1:** A → B → L → C → H → K → 0 → D → A2 → E+I → F → G.
 
 ---
 
@@ -196,3 +200,13 @@ D → E → F → G → (I).
 | **A4** | "Onde retirar" com endereço da loja | Sim, usando o endereço do cadastro da empresa (confirmar que está preenchido em produção) |
 | **A5** | Login para a auditoria visual dos painéis (Etapa 0) | Um usuário de teste local, ou você me passa um acesso de homologação |
 | **A6** | Campo `categoria_formato` em vez da regra pelo nome "quadrad" | Só se surgir outro formato; hoje a regra pelo nome basta |
+
+### 4.1 Decisões tomadas (2026-10-30)
+| # | Decisão |
+|---|---|
+| **A1** | **Só o status** para links sem assinatura (os já enviados): linha do tempo e estado, sem nome, endereço, itens nem pagamento |
+| **A2** | **Sim nos dois painéis**: brasa da marca como cor primária no garçom **e** no admin |
+| **A3** | **Entra nesta rodada**: seleção dos sabores no navegador, junto com a Etapa E (o desenho da pizza passa a ser JS compartilhado com o cardápio) |
+| **A4** | Sim, com **endereço e link do Google Maps no cadastro da empresa** (nova Etapa L): o endereço reaproveita as colunas `empresa_endereco_*` e ganha edição no Filament; a localização é a coluna nova `empresa_google_maps_url`. Sem endereço preenchido, o card mostra só o horário |
+| **A5** | **Autorizado criar um usuário local** (só no banco de desenvolvimento) para fotografar os painéis |
+| **A6** | **Campo de formato na categoria** (nova Etapa K): `categoria_formato_pizza` (redonda/quadrada) editável no cadastro, com a migration marcando como quadrada as categorias que hoje têm "quadrad" no nome; a regra pelo nome sai |
