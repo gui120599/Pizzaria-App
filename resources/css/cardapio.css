@@ -1,0 +1,177 @@
+@import url('/node_modules/boxicons/css/boxicons.min.css');
+@import 'tailwindcss' source(none);
+@import './marca/forno-aceso.css';
+
+@theme {
+    --font-display: 'Fraunces', ui-serif, Georgia, serif;
+    --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+/* Só as telas do cardápio público entram neste CSS (o do sistema é o app.css). */
+@source '../views/cardapio.blade.php';
+@source '../views/cardapio/**/*.blade.php';
+@source '../views/components/cardapio/**/*.blade.php';
+@source '../views/layouts/cardapio.blade.php';
+@source '../views/mesa-cliente/**/*.blade.php';
+
+@layer base {
+    html {
+        background: var(--color-forno);
+        color-scheme: dark;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        @apply bg-forno font-sans text-creme antialiased;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--color-ouro);
+        outline-offset: 2px;
+    }
+
+    /* Âncoras das seções param abaixo do cabeçalho + abas fixos. */
+    [data-secao] {
+        scroll-margin-top: calc(var(--altura-topo, 56px) + var(--altura-abas, 57px) + .5rem);
+    }
+}
+
+@layer components {
+    .num {
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Rolagem horizontal sem barra visível (abas, carrosséis). */
+    .rolagem-x {
+        overflow-x: auto;
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+    }
+
+    .rolagem-x::-webkit-scrollbar {
+        display: none;
+    }
+
+    .campo {
+        @apply w-full rounded-xl border border-linha bg-forno px-3.5 py-3 text-base text-creme placeholder:text-farinha/70 transition-colors focus:border-brasa-viva focus:outline-none;
+    }
+
+    .rotulo {
+        @apply mb-1.5 block text-sm font-semibold text-creme;
+    }
+
+    .botao-brasa {
+        @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-brasa font-bold text-white transition hover:bg-brasa-escura active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .botao-secundario {
+        @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-linha bg-forno-3 font-semibold text-creme transition hover:border-farinha/50;
+    }
+
+    /* Card de lista (categorias): texto à esquerda, foto 1:1 à direita. */
+    .card-lista {
+        @apply flex gap-3.5 border-b border-linha py-3.5 md:rounded-card md:border md:bg-forno-2 md:p-3.5;
+    }
+
+    .card-titulo {
+        @apply text-base leading-snug font-semibold first-letter:uppercase;
+    }
+
+    .card-descricao {
+        @apply mt-1 line-clamp-2 text-[13.5px] leading-snug text-farinha;
+    }
+
+    .card-selo {
+        @apply mb-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-ouro;
+    }
+
+    .preco-de {
+        @apply text-sm text-farinha line-through;
+    }
+
+    .preco-economia {
+        @apply rounded-full bg-ouro/15 px-2 py-0.5 text-xs font-semibold text-ouro;
+    }
+
+    /* "+" do card: alvo de toque de 44px, círculo visível de 36px. */
+    .botao-mais {
+        @apply relative grid size-11 place-items-center text-2xl text-white;
+
+        &::before {
+            @apply absolute inset-1 rounded-full border-[3px] border-forno bg-brasa shadow-lg shadow-black/40 transition content-[''];
+        }
+
+        &:hover::before {
+            @apply bg-brasa-escura;
+        }
+
+        &:active::before {
+            @apply scale-90;
+        }
+
+        & > i {
+            @apply relative;
+        }
+    }
+
+    .contador-card {
+        @apply grid h-7 min-w-7 place-items-center rounded-full border-2 border-forno bg-creme px-1.5 text-xs font-bold text-forno;
+    }
+
+    .stepper-card {
+        @apply flex h-9 items-center rounded-full border-2 border-forno bg-creme text-forno shadow-lg shadow-black/40;
+    }
+
+    .stepper-card-menos {
+        @apply grid size-9 place-items-center rounded-full text-xl font-bold;
+    }
+
+    .stepper-card-qtd {
+        @apply min-w-4 text-center text-sm font-bold;
+    }
+
+    .foto-fade {
+        animation: foto-entra 180ms var(--ease-forno);
+    }
+}
+
+@keyframes foto-entra {
+    from { opacity: 0; }
+}
+
+@keyframes pulso-sacola {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+}
+
+@keyframes raio {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .35; }
+}
+
+.pulso-sacola {
+    animation: pulso-sacola 320ms var(--ease-forno);
+}
+
+.raio-uma-vez {
+    animation: raio 700ms ease-in-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Busca ativa: destaques e filtros de subcategoria saem; ficam só os cards que casam. */
+.buscando [data-ocultar-na-busca] {
+    display: none !important;
+}

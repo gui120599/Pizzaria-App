@@ -12,6 +12,7 @@ use App\Models\Pergunta;
 use App\Models\Produto;
 use App\Models\PromocaoAdicionalRegra;
 use App\Models\PromocaoRelampago;
+use App\Support\Cardapio\ProdutoCardapio;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
@@ -122,7 +123,7 @@ class CardapioService
                             'produtoId' => $oferta->pao_produto_oferta_id,
                             'nome' => $oferta->produtoOferta->produto_descricao,
                             'nomeExibicao' => trim(($oferta->produtoOferta->categoria?->categoria_nome ?? '').': '.$oferta->produtoOferta->produto_descricao, ': '),
-                            'foto' => $oferta->produtoOferta->getImagemUrl(),
+                            'foto' => $oferta->produtoOferta->getMiniaturaUrl(56),
                             'valorAdicional' => (float) $oferta->pao_valor_adicional,
                         ])->values(),
                     // [] = sem restrição, todas as formas de pagamento valem.
@@ -222,7 +223,8 @@ class CardapioService
                         'preco' => $p->precoResolvido()->precoFinal(),
                         'precoFracao' => $p->precoFracaoCardapio(),
                         'precoOriginal' => (float) $p->produto_preco_venda,
-                        'foto' => $p->getImagemUrl(),
+                        'foto' => $p->getMiniaturaUrl(56),
+                        'ingredientes' => filled($p->produto_codimentacao) ? trim($p->produto_codimentacao) : null,
                     ])->values(),
             ])
             ->values();
@@ -268,7 +270,15 @@ class CardapioService
             ])
             ->toArray();
 
-        return compact('categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
+        // Um apresentador por produto exibido (card, vitrine e sheet de detalhe).
+        $produtosTela = ProdutoCardapio::mapa(collect()
+            ->merge($categorias->flatMap(fn ($c) => $c->produtos->merge($c->filhas->flatMap->produtos)))
+            ->merge($promocoesRelampago->flatMap(fn (array $promo) => $promo['produtos']))
+            ->merge($campanhasAdicionaisAtivas->flatMap(fn (array $campanha) => $campanha['produtos']->pluck('produto')))
+            ->merge($promocoes)
+            ->merge($maisVendidos));
+
+        return compact('produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
     }
 
     /**

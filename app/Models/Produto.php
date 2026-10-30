@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EstoqueModoControleEnum;
+use App\Services\MiniaturaProdutoService;
 use App\Services\PrecificadorService;
 use App\Services\PrecoResolvido;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +24,15 @@ class Produto extends Model
     protected $table = 'produtos';
 
     private ?PrecoResolvido $precoResolvidoCache = null;
+
+    /**
+     * URLs de foto já resolvidas nesta instância, por foto e tamanho: o
+     * cardápio pede a mesma foto várias vezes por card, e cada consulta ia ao
+     * disco (Storage::exists).
+     *
+     * @var array<string, string>
+     */
+    private array $imagemUrlCache = [];
 
     protected $dates = ['deleted_at'];
 
@@ -94,6 +104,26 @@ class Produto extends Model
         'produto_ficha_rendimento' => 'decimal:3',
         'produto_dispensa_producao' => 'boolean',
     ];
+
+    /**
+     * Foto nova (Filament ou upload legado) já ganha as miniaturas. Falha ao
+     * gerar não impede salvar o produto: a tela cai na foto original e o
+     * comando produtos:miniaturas completa depois.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (Produto $produto): void {
+            if (! $produto->produto_foto || (! $produto->wasChanged('produto_foto') && ! $produto->wasRecentlyCreated)) {
+                return;
+            }
+
+            try {
+                app(MiniaturaProdutoService::class)->gerar($produto->produto_foto);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        });
+    }
 
     /**
      * Preço que o servidor cobrará por uma unidade deste produto agora.
@@ -421,11 +451,32 @@ class Produto extends Model
 
     public function getImagemUrl()
     {
-        if ($this->produto_foto && Storage::disk('public')->exists($this->produto_foto)) {
-            return Storage::disk('public')->url($this->produto_foto);
+        return $this->imagemUrlCache[$this->produto_foto.'|original'] ??= $this->produto_foto && Storage::disk('public')->exists($this->produto_foto)
+            ? Storage::disk('public')->url($this->produto_foto)
+            : asset('Sem Imagem.png');
+    }
+
+    public function temFoto(): bool
+    {
+        return $this->getImagemUrl() !== asset('Sem Imagem.png');
+    }
+
+    /**
+     * Miniatura WebP adequada à largura exibida (em pixels CSS). Sem
+     * miniatura gerada, devolve a foto original — nunca quebra a imagem.
+     */
+    public function getMiniaturaUrl(int $larguraExibida): string
+    {
+        if (! $this->temFoto()) {
+            return $this->getImagemUrl();
         }
 
-        return asset('Sem Imagem.png');
+        $miniaturas = app(MiniaturaProdutoService::class);
+        $lado = $miniaturas->ladoPara($larguraExibida);
+
+        return $this->imagemUrlCache[$this->produto_foto.'|'.$lado] ??= $miniaturas->existe($this->produto_foto, $lado)
+            ? Storage::disk('public')->url($miniaturas->caminho($this->produto_foto, $lado))
+            : $this->getImagemUrl();
     }
 
     public function saldo()

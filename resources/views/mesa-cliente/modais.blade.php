@@ -6,33 +6,33 @@
      style="display:none">
     <div class="absolute inset-0 bg-black/70" @click="$store.mesa.identOpen = false"></div>
     <form @submit.prevent="$store.mesa.entrar()"
-          class="relative w-full max-w-sm bg-gray-900 border border-gray-700 rounded-t-2xl sm:rounded-2xl p-5 z-10 space-y-4">
+          class="relative w-full max-w-sm bg-forno-2 border border-linha rounded-t-2xl sm:rounded-2xl p-5 z-10 space-y-4">
         <div>
             <h3 class="text-white font-bold text-lg">Pedir pelo celular</h3>
-            <p class="text-gray-400 text-xs mt-1">Só uma vez: assim o garçom sabe de quem é cada pedido.</p>
+            <p class="text-farinha text-xs mt-1">Só uma vez: assim o garçom sabe de quem é cada pedido.</p>
         </div>
         <div>
-            <label for="mesa-nome" class="text-gray-300 text-xs font-semibold uppercase tracking-wide block mb-1">Seu nome</label>
+            <label for="mesa-nome" class="text-creme text-xs font-semibold uppercase tracking-wide block mb-1">Seu nome</label>
             <input id="mesa-nome" type="text" x-model="$store.mesa.form.nome" maxlength="120" autocomplete="given-name"
-                   class="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-green-500">
+                   class="w-full bg-forno border border-linha text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-brasa-viva">
         </div>
         <div>
-            <label for="mesa-celular" class="text-gray-300 text-xs font-semibold uppercase tracking-wide block mb-1">Celular com DDD</label>
+            <label for="mesa-celular" class="text-creme text-xs font-semibold uppercase tracking-wide block mb-1">Celular com DDD</label>
             <input id="mesa-celular" type="tel" inputmode="numeric" x-model="$store.mesa.form.celular"
                    @input="$store.mesa.mascararCelular($event)" placeholder="(64) 9 9999-9999" autocomplete="tel"
-                   class="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-green-500">
+                   class="w-full bg-forno border border-linha text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-brasa-viva">
         </div>
         <div x-show="$store.mesa.estado.pede_pin">
-            <label for="mesa-pin" class="text-gray-300 text-xs font-semibold uppercase tracking-wide block mb-1">PIN da mesa</label>
+            <label for="mesa-pin" class="text-creme text-xs font-semibold uppercase tracking-wide block mb-1">PIN da mesa</label>
             <input id="mesa-pin" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" x-model="$store.mesa.form.pin"
                    @input="$store.mesa.form.pin = $event.target.value = $event.target.value.replace(/\D/g, '').slice(0, 4)"
                    placeholder="0000" autocomplete="off"
-                   class="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-3 text-center text-2xl font-bold tracking-[0.5em] focus:outline-none focus:border-green-500">
-            <p class="text-gray-400 text-xs mt-1">Peça o PIN de 4 números ao garçom.</p>
+                   class="w-full bg-forno border border-linha text-white rounded-lg px-3 py-3 text-center text-2xl font-bold tracking-[0.5em] focus:outline-none focus:border-brasa-viva">
+            <p class="text-farinha text-xs mt-1">Peça o PIN de 4 números ao garçom.</p>
         </div>
         <p x-show="$store.mesa.erroIdentificacao" style="display:none" class="text-red-300 text-xs" x-text="$store.mesa.erroIdentificacao"></p>
         <button type="submit" :disabled="$store.mesa.ocupado"
-                class="w-full py-3.5 rounded-xl bg-green-500 hover:bg-green-400 disabled:opacity-60 text-white font-bold text-sm uppercase tracking-wide">
+                class="w-full py-3.5 rounded-xl bg-brasa hover:bg-brasa-escura disabled:opacity-60 text-white font-bold text-sm uppercase tracking-wide">
             <span x-text="$store.mesa.ocupado ? 'Entrando...' : 'Entrar na mesa'"></span>
         </button>
     </form>
@@ -45,33 +45,33 @@
      class="fixed inset-0 z-[60] flex flex-col justify-end"
      style="display:none">
     <div class="absolute inset-0 bg-black/60" @click="$store.mesa.painelOpen = false"></div>
-    <div class="relative bg-gray-900 rounded-t-3xl max-h-[90vh] flex flex-col z-10 w-full md:max-w-lg md:mx-auto">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700 shrink-0">
+    <div class="relative bg-forno-2 rounded-t-3xl max-h-[90vh] flex flex-col z-10 w-full md:max-w-lg md:mx-auto">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-linha shrink-0">
             <h3 class="text-white font-bold text-lg flex items-center gap-2">
-                <i class='bx bx-receipt text-green-400'></i>
+                <i class='bx bx-receipt text-manjericao'></i>
                 <span x-text="$store.mesa.estado.mesa.nome"></span>
             </h3>
-            <button @click="$store.mesa.painelOpen = false" class="text-gray-400 hover:text-white transition" aria-label="Fechar">
+            <button @click="$store.mesa.painelOpen = false" class="text-farinha hover:text-white transition" aria-label="Fechar">
                 <i class='bx bx-x text-2xl'></i>
             </button>
         </div>
 
         <div class="overflow-y-auto flex-1 px-4 py-3 space-y-5">
             <template x-if="$store.mesa.estado.estado !== 'pedindo'">
-                <p class="text-gray-300 text-sm py-6 text-center" x-text="$store.mesa.legenda()"></p>
+                <p class="text-creme text-sm py-6 text-center" x-text="$store.mesa.legenda()"></p>
             </template>
 
             <template x-if="$store.mesa.estado.estado === 'pedindo'">
                 <div class="space-y-5">
                     {{-- Rodadas deste celular --}}
                     <section>
-                        <h4 class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">Seus pedidos</h4>
-                        <p x-show="$store.mesa.estado.rodadas.length === 0" class="text-gray-500 text-sm">Você ainda não pediu nada.</p>
+                        <h4 class="text-farinha text-xs font-semibold uppercase tracking-wide mb-2">Seus pedidos</h4>
+                        <p x-show="$store.mesa.estado.rodadas.length === 0" class="text-farinha text-sm">Você ainda não pediu nada.</p>
                         <div class="space-y-2">
                             <template x-for="rodada in $store.mesa.estado.rodadas" :key="rodada.id">
-                                <div class="rounded-xl border border-gray-700 bg-gray-800/60 p-3">
+                                <div class="rounded-xl border border-linha bg-forno p-3">
                                     <div class="flex items-center justify-between gap-2 mb-1.5">
-                                        <span class="text-gray-400 text-xs" x-text="rodada.hora"></span>
+                                        <span class="text-farinha text-xs" x-text="rodada.hora"></span>
                                         <span class="text-[11px] font-bold uppercase rounded px-1.5 py-0.5"
                                               :class="rodada.recusada ? 'bg-red-500/20 text-red-300' : (rodada.aguardando ? 'bg-yellow-500/20 text-yellow-300' : 'bg-green-500/20 text-green-300')"
                                               x-text="rodada.situacao"></span>
@@ -80,47 +80,47 @@
                                         <div class="text-sm">
                                             <span class="text-white" x-text="item.quantidade.toLocaleString('pt-BR') + '× ' + item.nome"></span>
                                             <template x-for="detalhe in item.detalhes" :key="detalhe">
-                                                <span class="block text-gray-400 text-[11px] leading-tight" x-text="detalhe"></span>
+                                                <span class="block text-farinha text-[11px] leading-tight" x-text="detalhe"></span>
                                             </template>
                                         </div>
                                     </template>
                                     <p x-show="rodada.motivo_recusa" style="display:none" class="mt-1.5 text-red-300 text-xs" x-text="'Motivo: ' + rodada.motivo_recusa"></p>
-                                    <p class="mt-1.5 text-right text-gray-300 text-xs" :class="rodada.recusada && 'line-through'" x-text="$store.mesa.reais(rodada.total)"></p>
+                                    <p class="mt-1.5 text-right text-creme text-xs" :class="rodada.recusada && 'line-through'" x-text="$store.mesa.reais(rodada.total)"></p>
                                 </div>
                             </template>
                         </div>
                     </section>
 
                     {{-- Conta da mesa --}}
-                    <section x-show="$store.mesa.estado.conta" class="rounded-xl border border-gray-700 p-3 space-y-1 text-sm">
-                        <h4 class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-1">Conta da mesa</h4>
-                        <div class="flex justify-between text-gray-300"><span>Consumo</span><span x-text="$store.mesa.reais($store.mesa.estado.conta?.subtotal)"></span></div>
-                        <div x-show="$store.mesa.estado.conta?.taxa > 0" class="flex justify-between text-gray-300">
+                    <section x-show="$store.mesa.estado.conta" class="rounded-xl border border-linha p-3 space-y-1 text-sm">
+                        <h4 class="text-farinha text-xs font-semibold uppercase tracking-wide mb-1">Conta da mesa</h4>
+                        <div class="flex justify-between text-creme"><span>Consumo</span><span x-text="$store.mesa.reais($store.mesa.estado.conta?.subtotal)"></span></div>
+                        <div x-show="$store.mesa.estado.conta?.taxa > 0" class="flex justify-between text-creme">
                             <span x-text="'Serviço (' + ($store.mesa.estado.conta?.percentual ?? 0).toLocaleString('pt-BR') + '%)'"></span>
                             <span x-text="$store.mesa.reais($store.mesa.estado.conta?.taxa)"></span>
                         </div>
                         <div class="flex justify-between text-white font-bold"><span>Total da mesa</span><span x-text="$store.mesa.reais($store.mesa.estado.conta?.total)"></span></div>
-                        <div class="flex justify-between text-green-400 font-semibold pt-1 border-t border-gray-800">
+                        <div class="flex justify-between text-manjericao font-semibold pt-1 border-t border-linha">
                             <span>Sua parte</span><span x-text="$store.mesa.reais($store.mesa.estado.conta?.minha.total)"></span>
                         </div>
-                        <p class="text-gray-500 text-[11px]">Pedidos aguardando o garçom entram na conta quando ele confirma.</p>
+                        <p class="text-farinha text-[11px]">Pedidos aguardando o garçom entram na conta quando ele confirma.</p>
                     </section>
                 </div>
             </template>
         </div>
 
-        <div x-show="$store.mesa.estado.estado === 'pedindo'" class="px-4 pb-6 pt-3 border-t border-gray-700 grid grid-cols-2 gap-2 shrink-0">
+        <div x-show="$store.mesa.estado.estado === 'pedindo'" class="px-4 pb-6 pt-3 border-t border-linha grid grid-cols-2 gap-2 shrink-0">
             <button type="button" @click="$store.mesa.chamar('CHAMAR_GARCOM')"
                     :disabled="$store.mesa.chamadoAberto('CHAMAR_GARCOM') || $store.mesa.ocupado"
                     class="min-h-[48px] rounded-xl text-sm font-bold flex items-center justify-center gap-1 transition-colors disabled:opacity-60"
-                    :class="$store.mesa.chamadoAberto('CHAMAR_GARCOM') ? 'bg-gray-700 text-gray-300' : 'bg-yellow-400 text-gray-900 hover:bg-yellow-300'">
+                    :class="$store.mesa.chamadoAberto('CHAMAR_GARCOM') ? 'bg-forno-3 text-creme' : 'bg-yellow-400 text-gray-900 hover:bg-yellow-300'">
                 <i class='bx bx-bell'></i>
                 <span x-text="$store.mesa.chamadoAberto('CHAMAR_GARCOM') ? 'Garçom chamado' : 'Chamar garçom'"></span>
             </button>
             <button type="button" @click="$store.mesa.chamar('PEDIR_CONTA')"
                     :disabled="$store.mesa.chamadoAberto('PEDIR_CONTA') || $store.mesa.ocupado"
                     class="min-h-[48px] rounded-xl text-sm font-bold flex items-center justify-center gap-1 transition-colors disabled:opacity-60"
-                    :class="$store.mesa.chamadoAberto('PEDIR_CONTA') ? 'bg-gray-700 text-gray-300' : 'bg-purple-500 text-white hover:bg-purple-400'">
+                    :class="$store.mesa.chamadoAberto('PEDIR_CONTA') ? 'bg-forno-3 text-creme' : 'bg-purple-500 text-white hover:bg-purple-400'">
                 <i class='bx bx-wallet'></i>
                 <span x-text="$store.mesa.chamadoAberto('PEDIR_CONTA') ? 'Conta pedida' : 'Pedir a conta'"></span>
             </button>

@@ -1,7 +1,7 @@
 {{-- Topo da página da mesa: abre "Minha mesa" (pedidos, conta e chamados). --}}
 <button type="button"
         @click="$store.mesa.abrirPainel()"
-        class="relative mt-2 text-white text-3xl focus:outline-none"
+        class="relative grid size-11 shrink-0 place-items-center rounded-full text-2xl text-creme hover:bg-forno-3"
         aria-label="Minha mesa">
     <i class='bx bx-receipt'></i>
     <span x-show="$store.mesa.aguardando > 0" style="display:none"
