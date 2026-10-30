@@ -7,6 +7,7 @@ use App\Filament\Pages\AtenderPedido;
 use App\Models\Categoria;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
+use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\PagamentosPedido;
 use App\Models\Pedido;
@@ -112,6 +113,117 @@ class AtenderPedidoEdicaoTest extends TestCase
         $pedido->refresh();
         $this->assertSame(1, $pedido->pagamentosCombinados()->count());
         $this->assertSame($cartao->id, $pedido->pagamentosCombinados()->first()->pg_pedido_opcaopagamento_id);
+    }
+
+    /**
+     * Pedido de entrega cujo endereço gravado difere do cadastro atual do
+     * cliente — o caso dos pedidos 59406/57377: cadastro mudou (ou nunca
+     * recebeu) o endereço desta entrega.
+     */
+    private function pedidoDeEntregaComCadastroDiferente(): Pedido
+    {
+        $pedido = $this->pedidoComItem();
+        $pedido->cliente->update([
+            'cliente_endereco' => 'Rua do Cadastro',
+            'cliente_numero_endereco' => '10',
+            'cliente_bairro' => 'Bairro do Cadastro',
+        ]);
+
+        $entrega = OpcoesEntregas::create([
+            'opcaoentrega_nome' => 'Entregar',
+            'opcaoentrega_requer_endereco' => true,
+        ]);
+
+        $pedido->update([
+            'pedido_opcaoentrega_id' => $entrega->id,
+            'pedido_endereco_entrega' => 'Rua do Pedido, Qd 4, Lt 3, perto da igreja',
+        ]);
+
+        return $pedido;
+    }
+
+    /** @return array{opcaoEntregaId: int, pagamentos: array<int, array<string, mixed>>} */
+    private function entregaPagaEmDinheiro(Pedido $pedido): array
+    {
+        $dinheiro = OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_desc_nfe' => 'cash']);
+
+        return [
+            'opcaoEntregaId' => $pedido->pedido_opcaoentrega_id,
+            'pagamentos' => [
+                ['opcaoPagamentoId' => $dinheiro->id, 'valor' => '40,00', 'trocoPara' => null],
+            ],
+        ];
+    }
+
+    public function test_abre_com_endereco_gravado_no_pedido_e_nao_com_o_do_cadastro(): void
+    {
+        $pedido = $this->pedidoDeEntregaComCadastroDiferente();
+
+        Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
+            ->assertSet('clienteData.enderecoEntrega', 'Rua do Pedido, Qd 4, Lt 3, perto da igreja')
+            ->assertSet('clienteData.enderecoRua', '')
+            ->assertSet('clienteData.enderecoBairro', '');
+    }
+
+    public function test_salvar_sem_mexer_no_endereco_preserva_o_endereco_do_pedido(): void
+    {
+        $pedido = $this->pedidoDeEntregaComCadastroDiferente();
+
+        Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
+            ->set('statusSelecionado', 'PREPARANDO')
+            ->set('entregaPagamentoData', $this->entregaPagaEmDinheiro($pedido))
+            ->call('save')
+            ->assertRedirect(AtenderPedido::getUrl());
+
+        $pedido->refresh();
+        $this->assertSame('PREPARANDO', $pedido->pedido_status);
+        $this->assertSame('Rua do Pedido, Qd 4, Lt 3, perto da igreja', $pedido->pedido_endereco_entrega);
+    }
+
+    public function test_endereco_alterado_na_edicao_vai_para_o_pedido_sem_mexer_no_cadastro(): void
+    {
+        $pedido = $this->pedidoDeEntregaComCadastroDiferente();
+
+        Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
+            ->set('clienteData.enderecoEntrega', '  Rua Nova, 99, Centro  ')
+            ->set('entregaPagamentoData', $this->entregaPagaEmDinheiro($pedido))
+            ->call('save')
+            ->assertRedirect(AtenderPedido::getUrl());
+
+        $this->assertSame('Rua Nova, 99, Centro', $pedido->fresh()->pedido_endereco_entrega);
+        $this->assertSame('Rua do Cadastro', $pedido->cliente->fresh()->cliente_endereco);
+    }
+
+    public function test_correcao_de_endereco_feita_em_outra_tela_nao_e_desfeita_ao_salvar(): void
+    {
+        $pedido = $this->pedidoDeEntregaComCadastroDiferente();
+
+        $tela = Livewire::test(AtenderPedido::class, ['pedido' => $pedido]);
+
+        $pedido->update(['pedido_endereco_entrega' => 'Endereço corrigido pelo WhatsApp']);
+
+        $tela->set('entregaPagamentoData', $this->entregaPagaEmDinheiro($pedido))
+            ->call('save')
+            ->assertRedirect(AtenderPedido::getUrl());
+
+        $this->assertSame('Endereço corrigido pelo WhatsApp', $pedido->fresh()->pedido_endereco_entrega);
+    }
+
+    public function test_entrega_com_endereco_apagado_nao_salva(): void
+    {
+        $pedido = $this->pedidoDeEntregaComCadastroDiferente();
+
+        Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
+            ->set('statusSelecionado', 'PREPARANDO')
+            ->set('clienteData.enderecoEntrega', '   ')
+            ->set('entregaPagamentoData', $this->entregaPagaEmDinheiro($pedido))
+            ->call('save')
+            ->assertNotified('Não foi possível salvar')
+            ->assertNoRedirect();
+
+        $pedido->refresh();
+        $this->assertSame('ABERTO', $pedido->pedido_status);
+        $this->assertSame('Rua do Pedido, Qd 4, Lt 3, perto da igreja', $pedido->pedido_endereco_entrega);
     }
 
     public function test_nao_e_possivel_salvar_pedido_finalizado(): void

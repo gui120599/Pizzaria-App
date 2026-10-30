@@ -44,6 +44,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use UnitEnum;
 
@@ -86,6 +87,15 @@ class AtenderPedido extends Page
 
     /** @var array<string, mixed> */
     public array $clienteData = [];
+
+    /**
+     * Endereço de entrega gravado no pedido quando a tela abriu (ou no último
+     * salvamento). Na edição o snapshot só é regravado se o atendente mudar o
+     * texto — não sobrescreve correção feita por outra tela enquanto esta
+     * estava aberta.
+     */
+    #[Locked]
+    public ?string $enderecoEntregaCarregado = null;
 
     /** @var array<string, mixed> */
     public array $entregaPagamentoData = ['opcaoEntregaId' => null, 'pagamentos' => []];
@@ -206,17 +216,24 @@ class AtenderPedido extends Page
 
         $this->itensCarrinho = $this->carregarItensDoBanco($pedido->id);
 
+        // Endereço vem do snapshot do pedido, nunca do cadastro do cliente: o
+        // cadastro pode ter mudado depois (outro pedido, edição do cliente) e
+        // salvar esta tela regravaria a entrega com o endereço errado. Os campos
+        // estruturados ficam vazios — o ClientePicker mostra o texto livre
+        // (enderecoEntrega) no lugar deles.
         $cliente = $pedido->pedido_cliente_id ? $pedido->cliente : null;
+        $this->enderecoEntregaCarregado = $pedido->pedido_endereco_entrega;
         $this->clienteData = [
             'clienteId' => $cliente?->id,
             'celular' => $cliente?->cliente_celular ?? '',
             'nome' => $cliente?->cliente_nome ?? '',
-            'enderecoRua' => $cliente?->cliente_endereco ?? '',
-            'enderecoNumero' => $cliente?->cliente_numero_endereco ?? '',
-            'enderecoBairro' => $cliente?->cliente_bairro ?? '',
-            'enderecoCidade' => $cliente?->cliente_cidade ?? '',
-            'enderecoUf' => $cliente?->cliente_uf_estado ?? '',
-            'enderecoCep' => $cliente?->cliente_cep ?? '',
+            'enderecoEntrega' => (string) ($pedido->pedido_endereco_entrega ?? ''),
+            'enderecoRua' => '',
+            'enderecoNumero' => '',
+            'enderecoBairro' => '',
+            'enderecoCidade' => '',
+            'enderecoUf' => '',
+            'enderecoCep' => '',
             'semCliente' => $pedido->pedido_cliente_id === null,
             'requerEndereco' => (bool) $pedido->opcaoEntrega?->opcaoentrega_requer_endereco,
         ];
@@ -558,11 +575,19 @@ class AtenderPedido extends Page
             ? OpcoesEntregas::find($this->entregaPagamentoData['opcaoEntregaId'])
             : null;
 
-        if ($opcaoEntrega?->opcaoentrega_requer_endereco
-            && (blank($this->clienteData['enderecoRua'] ?? null) || blank($this->clienteData['enderecoBairro'] ?? null))) {
-            $this->notificarErro('Esta opção de entrega exige rua e bairro preenchidos.');
+        if ($opcaoEntrega?->opcaoentrega_requer_endereco) {
+            if ($this->enderecoEmTextoLivre() && blank($this->clienteData['enderecoEntrega'])) {
+                $this->notificarErro('Esta opção de entrega exige o endereço de entrega preenchido.');
 
-            return null;
+                return null;
+            }
+
+            if (! $this->enderecoEmTextoLivre()
+                && (blank($this->clienteData['enderecoRua'] ?? null) || blank($this->clienteData['enderecoBairro'] ?? null))) {
+                $this->notificarErro('Esta opção de entrega exige rua e bairro preenchidos.');
+
+                return null;
+            }
         }
 
         $bloqueios = $this->verificarEstoque();
@@ -584,8 +609,15 @@ class AtenderPedido extends Page
                     'pedido_cliente_id' => $clienteId,
                     'pedido_opcaoentrega_id' => $opcaoEntrega?->id,
                     'pedido_observacao_pagamento' => $this->observacao !== '' ? $this->observacao : null,
-                    'pedido_endereco_entrega' => $this->montarEnderecoSnapshot(),
                 ];
+
+                if (! $this->enderecoEmTextoLivre()) {
+                    $dadosPedido['pedido_endereco_entrega'] = $this->montarEnderecoSnapshot();
+                } elseif ($this->enderecoEntregaAlterado()) {
+                    $dadosPedido['pedido_endereco_entrega'] = filled($this->clienteData['enderecoEntrega'])
+                        ? trim((string) $this->clienteData['enderecoEntrega'])
+                        : null;
+                }
 
                 if ($souNovo) {
                     // ABERTO, não INICIADO: um pedido montado aqui pelo atendente já está
@@ -647,6 +679,7 @@ class AtenderPedido extends Page
         // refletir as linhas do banco e o formulário vira o estado salvo.
         $this->itensCarrinho = $this->carregarItensDoBanco($pedido->id);
         $this->statusSelecionado = $pedido->pedido_status;
+        $this->enderecoEntregaCarregado = $pedido->pedido_endereco_entrega;
         $this->estadoSalvo = $this->impressaoDoFormulario();
         unset($this->resumoTotais, $this->totalPreview);
 
@@ -720,7 +753,9 @@ class AtenderPedido extends Page
         $cliente = app(ClienteResolverService::class)->resolverOuCriar([
             'nome' => $nome,
             'celular' => $this->clienteData['celular'] ?? null,
-            'endereco' => $this->clienteData['enderecoRua'] ?? null,
+            'endereco' => $this->enderecoEmTextoLivre()
+                ? $this->clienteData['enderecoEntrega']
+                : ($this->clienteData['enderecoRua'] ?? null),
             'numero_endereco' => $this->clienteData['enderecoNumero'] ?? null,
             'bairro' => $this->clienteData['enderecoBairro'] ?? null,
             'cidade' => $this->clienteData['enderecoCidade'] ?? null,
@@ -741,6 +776,21 @@ class AtenderPedido extends Page
         ], fn ($v) => filled($v));
 
         return $partes !== [] ? implode(', ', $partes) : null;
+    }
+
+    /**
+     * Pedido aberto para edição: o endereço é o texto livre do snapshot
+     * (enderecoEntrega), não os campos estruturados do pedido novo.
+     */
+    private function enderecoEmTextoLivre(): bool
+    {
+        return array_key_exists('enderecoEntrega', $this->clienteData)
+            && $this->clienteData['enderecoEntrega'] !== null;
+    }
+
+    private function enderecoEntregaAlterado(): bool
+    {
+        return trim((string) $this->clienteData['enderecoEntrega']) !== trim((string) $this->enderecoEntregaCarregado);
     }
 
     private function sincronizarItens(Pedido $pedido, bool $souNovo): void

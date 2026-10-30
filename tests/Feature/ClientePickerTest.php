@@ -108,4 +108,36 @@ class ClientePickerTest extends TestCase
             ->assertSet('celular', '11966665555')
             ->assertSet('buscaModalAberta', false);
     }
+
+    public function test_em_pedido_editado_selecionar_cliente_nao_troca_o_endereco_da_entrega(): void
+    {
+        $cliente = Cliente::create([
+            'cliente_nome' => 'João da Silva',
+            'cliente_celular' => '11966665555',
+            'cliente_endereco' => 'Rua do Cadastro, 1',
+            'cliente_tipo' => 'Física',
+        ]);
+
+        Livewire::test(ClientePicker::class, ['inicial' => ['enderecoEntrega' => 'Rua do Pedido, 2']])
+            ->call('selecionarDaBusca', $cliente->id)
+            ->assertSet('clienteId', $cliente->id)
+            ->assertSet('enderecoEntrega', 'Rua do Pedido, 2')
+            ->assertSet('enderecoRua', '');
+    }
+
+    public function test_usar_endereco_do_cadastro_substitui_o_endereco_da_entrega(): void
+    {
+        $cliente = Cliente::create([
+            'cliente_nome' => 'João da Silva',
+            'cliente_endereco' => 'Rua do Cadastro',
+            'cliente_numero_endereco' => '1',
+            'cliente_bairro' => 'Centro',
+            'cliente_tipo' => 'Física',
+        ]);
+
+        Livewire::test(ClientePicker::class, ['inicial' => ['clienteId' => $cliente->id, 'enderecoEntrega' => 'Rua do Pedido, 2']])
+            ->call('usarEnderecoDoCadastro')
+            ->assertSet('enderecoEntrega', 'Rua do Cadastro, 1, Centro')
+            ->assertDispatched('pedido-cliente-atualizado', fn (string $name, array $params): bool => $params['dados']['enderecoEntrega'] === 'Rua do Cadastro, 1, Centro');
+    }
 }
