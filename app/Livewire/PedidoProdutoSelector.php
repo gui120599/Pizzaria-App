@@ -490,7 +490,7 @@ class PedidoProdutoSelector extends Component
         $categoria = $produtoBase->categoria;
         $tiposVenda = [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value];
 
-        $produtos = Produto::with('categoria')
+        $produtos = Produto::with(['categoria', 'ap_produto_id.adicional'])
             ->where('produto_categoria_id', $categoria->id)
             ->whereIn('produto_tipo', $tiposVenda)
             ->where('produto_cardapio_garcom', true)
@@ -502,6 +502,16 @@ class PedidoProdutoSelector extends Component
                 'codimentacao' => $p->produto_codimentacao ?? null,
                 'foto' => $p->getMiniaturaUrl(56),
                 'fotoPizza' => $p->getMiniaturaUrl(64),
+                // Adicionais vinculados ao sabor: a pizza só leva os comuns a todos os sabores (regra do servidor).
+                'adicionais' => $p->ap_produto_id
+                    ->filter(fn ($ap) => $ap->adicional !== null)
+                    ->map(fn ($ap) => [
+                        'id' => $ap->adicional->id,
+                        'nome' => $ap->adicional->adicional_nome,
+                        'valor' => (float) $ap->adicional->adicional_valor,
+                    ])
+                    ->values()
+                    ->all(),
                 // Preço da fração respeita a mesma regra do cardápio: promoção
                 // relâmpago "só inteira" volta ao preço normal na fração (ver
                 // Produto::precoFracaoCardapio()). Na prévia (sem pedido
@@ -530,6 +540,7 @@ class PedidoProdutoSelector extends Component
             ->all();
         $this->saboresRegraPreco = $categoria->regraPrecoSaboresResolvida()->value;
         $this->saboresFormato = strtolower($categoria->formatoPizza()->value);
+        $this->adicionaisSelecionados = [];
         $this->saboresModo = 1;
         $this->saboresProdutos = $produtos;
         $this->saboresSelecionados = $presel ? [$presel] : [];
@@ -647,10 +658,18 @@ class PedidoProdutoSelector extends Component
      * contra os sabores da categoria aberta; o preço é sempre o dele. Sem ids,
      * vale a seleção já gravada por toggleSabor().
      *
+     * Os adicionais marcados também vêm do navegador; o servidor só aceita os
+     * vinculados a todos os sabores (LancamentoItemPedidoService).
+     *
      * @param  array<int, int|string>|null  $idsDoNavegador
+     * @param  array<int, int|string>|null  $adicionaisDoNavegador
      */
-    public function confirmarSabores(?array $idsDoNavegador = null): void
+    public function confirmarSabores(?array $idsDoNavegador = null, ?array $adicionaisDoNavegador = null): void
     {
+        if ($adicionaisDoNavegador !== null) {
+            $this->adicionaisSelecionados = array_values(array_map('intval', array_filter($adicionaisDoNavegador, 'is_numeric')));
+        }
+
         if ($idsDoNavegador !== null && ! $this->aplicarSaboresDoNavegador($idsDoNavegador)) {
             $this->erroPromocao = 'Não foi possível confirmar os sabores escolhidos. Escolha novamente.';
 
@@ -675,6 +694,7 @@ class PedidoProdutoSelector extends Component
             $linha = app(LancamentoItemPedidoService::class)->precificar(new ItemSolicitado(
                 produtoId: $ids[0],
                 saboresIds: count($ids) > 1 ? $ids : [],
+                adicionaisIds: array_map('intval', $this->adicionaisSelecionados),
                 observacao: $this->saboresObservacao,
                 ofertaProdutoId: count($ids) === 1 ? $this->ofertaProdutoEscolhido() : null,
                 clienteId: $this->clienteSelecionadoId ?: null,
@@ -742,6 +762,7 @@ class PedidoProdutoSelector extends Component
         $this->perguntasDisponiveis = [];
         $this->respostas = [];
         $this->saboresCategoriaId = null;
+        $this->adicionaisSelecionados = [];
     }
 
     // ── Adicionais ───────────────────────────────────────────────────────────
