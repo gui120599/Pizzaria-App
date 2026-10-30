@@ -104,6 +104,21 @@ class CardapioRedesignTest extends TestCase
         $this->assertNull($sabores->firstWhere('nome', 'Marguerita')['ingredientes']);
     }
 
+    public function test_categoria_quadrada_monta_a_pizza_no_formato_quadrado(): void
+    {
+        $quadrada = Categoria::create(['categoria_nome' => 'Pizza Quadrada', 'categoria_cardapio' => true, 'categoria_permite_sabores' => true]);
+        $quadrada->sincronizarQuantidadesSabores(2);
+        $this->produto('Calabresa', ['produto_categoria_id' => $quadrada->id]);
+        $this->categoria->update(['categoria_permite_sabores' => true]);
+        $this->categoria->sincronizarQuantidadesSabores(2);
+        $this->produto('Marguerita');
+
+        $formatos = $this->get(route('cardapio'))->assertOk()->viewData('categoriasComSabores')->pluck('formato', 'nome');
+
+        $this->assertSame('quadrada', $formatos['Pizza Quadrada']);
+        $this->assertSame('redonda', $formatos['Pizza Grande']);
+    }
+
     public function test_link_antigo_do_produto_abre_o_detalhe_dentro_do_cardapio(): void
     {
         $produto = $this->produto('Calabresa');
