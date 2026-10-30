@@ -31,7 +31,7 @@
         {{-- Abre sozinho quando a opção de entrega escolhida exige endereço
              (evento do EntregaPagamentoPicker); nunca fecha sozinho, para não
              esconder o que o atendente já digitou. --}}
-        <div x-data="{ open: {{ $enderecoRua || $enderecoBairro || $requerEndereco ? 'true' : 'false' }} }"
+        <div x-data="{ open: {{ $enderecoRua || $enderecoBairro || $enderecoEntrega || $requerEndereco ? 'true' : 'false' }} }"
             x-on:pedido-entrega-pagamento-atualizado.window="if ($event.detail.dados?.requerEndereco) open = true">
             <button type="button" x-on:click="open = !open"
                 class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
@@ -39,36 +39,55 @@
                 <span x-show="open">- Endereço de entrega</span>
             </button>
 
-            <div x-show="open" x-cloak class="mt-2 grid grid-cols-6 gap-2">
-                <div class="col-span-2">
-                    <input type="text" wire:model.blur="enderecoCep" wire:change="buscarPorCep" placeholder="CEP"
-                        x-mask="99999-999"
-                        class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
-                    @if ($cepNaoEncontrado)
-                        <p class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">CEP não encontrado — preencha manualmente.</p>
+            @if ($enderecoEntrega !== null)
+                {{-- Pedido em edição: o endereço é o gravado no pedido, não o do
+                     cadastro (ver AtenderPedido::mount()). --}}
+                <div x-show="open" x-cloak class="mt-2 space-y-1">
+                    <textarea wire:model.blur="enderecoEntrega" rows="2" placeholder="Rua, número, bairro, referência..."
+                        class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400">Endereço gravado neste pedido. Alterar o cadastro do cliente não muda este endereço.</p>
+                    @if ($this->enderecoDoCadastro && trim($this->enderecoDoCadastro) !== trim($enderecoEntrega))
+                        <div class="flex items-start justify-between gap-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 px-2 py-1.5">
+                            <p class="text-[11px] text-amber-700 dark:text-amber-300">Cadastro do cliente: {{ $this->enderecoDoCadastro }}</p>
+                            <button type="button" wire:click="usarEnderecoDoCadastro"
+                                class="shrink-0 text-[11px] font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
+                                Usar este
+                            </button>
+                        </div>
                     @endif
                 </div>
-                <div class="col-span-4">
-                    <input type="text" wire:model.blur="enderecoRua" placeholder="Rua"
-                        class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
+            @else
+                <div x-show="open" x-cloak class="mt-2 grid grid-cols-6 gap-2">
+                    <div class="col-span-2">
+                        <input type="text" wire:model.blur="enderecoCep" wire:change="buscarPorCep" placeholder="CEP"
+                            x-mask="99999-999"
+                            class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        @if ($cepNaoEncontrado)
+                            <p class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">CEP não encontrado — preencha manualmente.</p>
+                        @endif
+                    </div>
+                    <div class="col-span-4">
+                        <input type="text" wire:model.blur="enderecoRua" placeholder="Rua"
+                            class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div class="col-span-2">
+                        <input type="text" wire:model.blur="enderecoNumero" placeholder="Número"
+                            class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div class="col-span-4">
+                        <input type="text" wire:model.blur="enderecoBairro" placeholder="Bairro"
+                            class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div class="col-span-4">
+                        <input type="text" wire:model.blur="enderecoCidade" placeholder="Cidade"
+                            class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div class="col-span-2">
+                        <input type="text" wire:model.blur="enderecoUf" placeholder="UF" maxlength="2"
+                            class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase">
+                    </div>
                 </div>
-                <div class="col-span-2">
-                    <input type="text" wire:model.blur="enderecoNumero" placeholder="Número"
-                        class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
-                </div>
-                <div class="col-span-4">
-                    <input type="text" wire:model.blur="enderecoBairro" placeholder="Bairro"
-                        class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
-                </div>
-                <div class="col-span-4">
-                    <input type="text" wire:model.blur="enderecoCidade" placeholder="Cidade"
-                        class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
-                </div>
-                <div class="col-span-2">
-                    <input type="text" wire:model.blur="enderecoUf" placeholder="UF" maxlength="2"
-                        class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase">
-                </div>
-            </div>
+            @endif
         </div>
     </div>
 

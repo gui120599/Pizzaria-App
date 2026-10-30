@@ -50,6 +50,14 @@ class ClientePicker extends Component
 
     public string $enderecoCep = '';
 
+    /**
+     * Endereço de entrega em texto livre, gravado no pedido em edição. Nulo no
+     * pedido novo (campos estruturados acima). Preenchido, a tela mostra só
+     * este campo e nunca o completa sozinha com o cadastro do cliente — só pelo
+     * botão "usar endereço do cadastro".
+     */
+    public ?string $enderecoEntrega = null;
+
     public bool $clienteEncontrado = false;
 
     public bool $cepNaoEncontrado = false;
@@ -74,6 +82,7 @@ class ClientePicker extends Component
         $this->enderecoCidade = $inicial['enderecoCidade'] ?? '';
         $this->enderecoUf = $inicial['enderecoUf'] ?? '';
         $this->enderecoCep = $inicial['enderecoCep'] ?? '';
+        $this->enderecoEntrega = isset($inicial['enderecoEntrega']) ? (string) $inicial['enderecoEntrega'] : null;
         $this->semCliente = $inicial['semCliente'] ?? false;
         $this->requerEndereco = (bool) ($inicial['requerEndereco'] ?? false);
         $this->clienteEncontrado = (bool) $this->clienteId;
@@ -113,6 +122,10 @@ class ClientePicker extends Component
         $this->clienteEncontrado = true;
         $this->nome = $cliente->cliente_nome;
 
+        if ($this->enderecoEntrega !== null) {
+            return;
+        }
+
         // Não sobrescreve o que o atendente já digitou nesta tela — só
         // preenche o que ainda está em branco (mesma regra de "não apagar
         // endereço já salvo" do resolverCliente() legado, na outra direção).
@@ -136,6 +149,38 @@ class ClientePicker extends Component
         $this->celular = (string) ($cliente->cliente_celular ?? '');
         $this->buscaModalAberta = false;
         $this->buscaQuery = '';
+        $this->emitirMudanca();
+    }
+
+    /** Endereço atual do cadastro do cliente selecionado, no mesmo formato do snapshot do pedido. */
+    #[Computed]
+    public function enderecoDoCadastro(): ?string
+    {
+        $cliente = $this->clienteId ? Cliente::find($this->clienteId) : null;
+
+        if (! $cliente) {
+            return null;
+        }
+
+        $partes = array_filter([
+            $cliente->cliente_endereco,
+            $cliente->cliente_numero_endereco,
+            $cliente->cliente_bairro,
+            $cliente->cliente_cidade,
+        ], fn ($v) => filled($v));
+
+        return $partes !== [] ? implode(', ', $partes) : null;
+    }
+
+    public function usarEnderecoDoCadastro(): void
+    {
+        $endereco = $this->enderecoDoCadastro();
+
+        if ($this->enderecoEntrega === null || $endereco === null) {
+            return;
+        }
+
+        $this->enderecoEntrega = $endereco;
         $this->emitirMudanca();
     }
 
@@ -224,6 +269,7 @@ class ClientePicker extends Component
             'enderecoCidade' => $this->enderecoCidade,
             'enderecoUf' => $this->enderecoUf,
             'enderecoCep' => $this->enderecoCep,
+            'enderecoEntrega' => $this->enderecoEntrega,
             'semCliente' => $this->semCliente,
         ]);
     }
