@@ -1,4 +1,8 @@
 {
+  "_pizza-svg-D5Qpga6C.js": {
+    "file": "assets/pizza-svg-D5Qpga6C.js",
+    "name": "pizza-svg"
+  },
   "node_modules/boxicons/fonts/boxicons.eot": {
     "file": "assets/boxicons-CSrLvhY_.eot",
     "src": "node_modules/boxicons/fonts/boxicons.eot"
@@ -20,34 +24,46 @@
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-B1dEUS5T.css",
+    "file": "assets/app-Bq-sqxOz.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/cardapio.css": {
-    "file": "assets/cardapio-1qltBwKN.css",
+    "file": "assets/cardapio-zBgXeTxv.css",
     "src": "resources/css/cardapio.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-Do2PW5E0.css",
+    "file": "assets/theme-KyEl9ywy.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
   "resources/css/filament/cozinha/theme.css": {
-    "file": "assets/theme-DbWyRE5V.css",
+    "file": "assets/theme-C5bdIJ8-.css",
     "src": "resources/css/filament/cozinha/theme.css",
     "isEntry": true
   },
   "resources/css/filament/garcom/theme.css": {
-    "file": "assets/theme-BhKjJswB.css",
+    "file": "assets/theme-DUgoC-7m.css",
     "src": "resources/css/filament/garcom/theme.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-D2rw8sTd.js",
+    "file": "assets/app-BId1WUGD.js",
     "name": "app",
     "src": "resources/js/app.js",
-    "isEntry": true
+    "isEntry": true,
+    "imports": [
+      "_pizza-svg-D5Qpga6C.js"
+    ]
+  },
+  "resources/js/pizza-svg-painel.js": {
+    "file": "assets/pizza-svg-painel-CGsh9oY-.js",
+    "name": "pizza-svg-painel",
+    "src": "resources/js/pizza-svg-painel.js",
+    "isEntry": true,
+    "imports": [
+      "_pizza-svg-D5Qpga6C.js"
+    ]
   }
 }

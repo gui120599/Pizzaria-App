@@ -7,6 +7,7 @@ use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
+use App\Enums\TipoAtendimentoEnum;
 use App\Exceptions\CupomInvalidoException;
 use App\Exceptions\StoneConnectException;
 use App\Exceptions\StoneResultadoDesconhecidoException;
@@ -146,7 +147,7 @@ class AtenderPedido extends Page
             $this->cortesiaPedidoAction(),
             PedidoStatusActions::copiarLinkAcompanhamento()
                 ->visible(fn (): bool => $this->pedidoId !== null)
-                ->alpineClickHandler(fn (): string => PedidoStatusActions::jsCopiarLink(route('pedido.acompanhar', $this->pedidoId))),
+                ->alpineClickHandler(fn (): string => PedidoStatusActions::jsCopiarLink(Pedido::linkAcompanhamentoDoPedido((int) $this->pedidoId))),
         ];
     }
 
@@ -341,6 +342,25 @@ class AtenderPedido extends Page
     {
         $this->entregaPagamentoData = $dados;
         unset($this->resumoTotais);
+    }
+
+    /**
+     * Como o pedido é atendido: mesa (sessão de mesa), delivery (a opção de
+     * entrega escolhida exige endereço) ou retirada. Segue a opção escolhida
+     * na tela, antes mesmo de salvar.
+     */
+    #[Computed]
+    public function tipoAtendimento(): TipoAtendimentoEnum
+    {
+        if ($this->pedidoId && Pedido::whereKey($this->pedidoId)->whereNotNull('pedido_sessao_mesa_id')->exists()) {
+            return TipoAtendimentoEnum::MESA;
+        }
+
+        $opcaoId = $this->entregaPagamentoData['opcaoEntregaId'] ?? null;
+
+        return $opcaoId && OpcoesEntregas::find($opcaoId)?->opcaoentrega_requer_endereco
+            ? TipoAtendimentoEnum::DELIVERY
+            : TipoAtendimentoEnum::RETIRADA;
     }
 
     /**

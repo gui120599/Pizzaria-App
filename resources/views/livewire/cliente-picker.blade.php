@@ -31,6 +31,11 @@
         {{-- Abre sozinho quando a opção de entrega escolhida exige endereço
              (evento do EntregaPagamentoPicker); nunca fecha sozinho, para não
              esconder o que o atendente já digitou. --}}
+        {{-- Invólucro com x-data constante (as props nunca mudam depois do mount): decide se o bloco
+             aparece. Só o Atender Pedido o esconde sem entrega; o garçom (entrega) o mantém aberto. --}}
+        <div x-data="{ exige: {{ $requerEndereco ? 'true' : 'false' }} }"
+            x-on:pedido-entrega-pagamento-atualizado.window="exige = !! $event.detail.dados?.requerEndereco"
+            x-show="{{ $enderecoSomenteComEntrega ? 'exige' : 'true' }}" x-cloak>
         <div x-data="{ open: {{ $enderecoRua || $enderecoBairro || $enderecoEntrega || $requerEndereco ? 'true' : 'false' }} }"
             x-on:pedido-entrega-pagamento-atualizado.window="if ($event.detail.dados?.requerEndereco) open = true">
             <button type="button" x-on:click="open = !open"
@@ -88,6 +93,7 @@
                     </div>
                 </div>
             @endif
+        </div>
         </div>
     </div>
 

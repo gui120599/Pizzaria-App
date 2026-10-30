@@ -12,6 +12,7 @@ use App\Filament\Garcom\Pages\MapaMesas;
 use App\Filament\Garcom\Pages\MeuEspelho;
 use App\Filament\Garcom\Pages\MeusRepasses;
 use App\Filament\Garcom\Resources\ChecklistExecucoes\ChecklistExecucaoResource;
+use App\Support\PaletaMarca;
 use Filament\Actions\Action;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -19,12 +20,13 @@ use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Foundation\Vite;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
@@ -45,8 +47,10 @@ class GarcomPanelProvider extends PanelProvider
             ->favicon(asset('favicon.png'))
             ->brandName('Salão')
             ->colors([
-                'primary' => Color::Orange,
+                'primary' => PaletaMarca::brasa(),
             ])
+            // O desenho da pizza de sabores (seletor de produtos) vem de um módulo JS: o viteTheme só carrega CSS.
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => app(Vite::class)('resources/js/pizza-svg-painel.js'))
             ->viteTheme('resources/css/filament/garcom/theme.css')
             ->spa()
             ->topNavigation()

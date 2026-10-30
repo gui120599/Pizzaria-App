@@ -229,6 +229,21 @@ class Pedido extends Model
     }
 
     /**
+     * Link público de acompanhamento, assinado e sem expiração. Só a URL
+     * assinada mostra os dados do pedido; sem assinatura a tela exibe apenas o
+     * status (links enviados antes da assinatura continuam funcionando).
+     */
+    public function linkAcompanhamento(): string
+    {
+        return self::linkAcompanhamentoDoPedido($this->id);
+    }
+
+    public static function linkAcompanhamentoDoPedido(int $pedidoId): string
+    {
+        return URL::signedRoute('pedido.acompanhar', ['id' => $pedidoId]);
+    }
+
+    /**
      * Filtra por tipo de atendimento — a mesma regra de tipoAtendimento(), em
      * SQL: mesa tem prioridade, delivery exige a flag da opção de entrega e
      * retirada é o resto. Aceita um tipo ou vários (OU entre eles).

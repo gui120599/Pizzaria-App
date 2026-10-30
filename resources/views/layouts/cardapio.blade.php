@@ -29,6 +29,8 @@
     <link href="https://fonts.bunny.net/css?family=fraunces:600,700|figtree:400,500,600,700&display=swap" rel="stylesheet">
     <link rel="preload" as="image" href="{{ asset('img/marca/logo.webp') }}" imagesrcset="{{ asset('img/marca/logo.webp') }} 1x, {{ asset('img/marca/logo@2x.webp') }} 2x">
 
+    @stack('head')
+
     @vite(['resources/css/cardapio.css', 'resources/js/app.js'])
     @livewireStyles
 </head>

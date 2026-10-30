@@ -27,6 +27,7 @@ class Empresa extends Model
         'empresa_endereco_complemento_endereco',
         'empresa_endereco_bairro',
         'empresa_endereco',
+        'empresa_google_maps_url',
         'empresa_api_nfeio_conta_id',
         'empresa_api_nfeio_company_id',
         'empresa_api_nfeio_apikey',
@@ -89,6 +90,57 @@ class Empresa extends Model
             'empresa.validade_link_ticket_horas',
             fn (): int => (int) (static::query()->value('empresa_validade_link_ticket_horas') ?: self::VALIDADE_LINK_TICKET_PADRAO_HORAS),
         );
+    }
+
+    /** Domínios aceitos no link da loja no Google Maps (ele aparece numa página pública). */
+    public const DOMINIOS_GOOGLE_MAPS = ['google.com', 'www.google.com', 'maps.google.com', 'maps.app.goo.gl', 'goo.gl'];
+
+    public static function urlGoogleMapsValida(?string $url): bool
+    {
+        $partes = parse_url((string) $url);
+
+        return ($partes['scheme'] ?? null) === 'https'
+            && in_array(strtolower($partes['host'] ?? ''), self::DOMINIOS_GOOGLE_MAPS, true);
+    }
+
+    /**
+     * Onde retirar o pedido: "Rua, número – complemento – bairro – CEP", só
+     * com as partes preenchidas. Sem rua não há endereço.
+     */
+    public function enderecoRetirada(): ?string
+    {
+        if (blank($this->empresa_endereco_rua)) {
+            return null;
+        }
+
+        $logradouro = collect([$this->empresa_endereco_rua, $this->empresa_endereco_numero_endereco])
+            ->filter(fn ($parte) => filled($parte))
+            ->map(fn ($parte) => trim((string) $parte))
+            ->implode(', ');
+
+        return collect([
+            $logradouro,
+            $this->empresa_endereco_complemento_endereco,
+            $this->empresa_endereco_bairro,
+            $this->empresa_endereco_cep,
+        ])
+            ->filter(fn ($parte) => filled($parte))
+            ->map(fn ($parte) => trim((string) $parte))
+            ->implode(' – ');
+    }
+
+    /** Link "Como chegar": o cadastrado; sem ele, uma busca no Google Maps pelo endereço. */
+    public function linkComoChegar(): ?string
+    {
+        if (self::urlGoogleMapsValida($this->empresa_google_maps_url)) {
+            return $this->empresa_google_maps_url;
+        }
+
+        $endereco = $this->enderecoRetirada();
+
+        return $endereco === null
+            ? null
+            : 'https://www.google.com/maps/search/?api=1&query='.rawurlencode($endereco);
     }
 
     /** Certificado A1 (.pfx) + senha já cadastrados, prontos pra autenticar na SEFAZ. */

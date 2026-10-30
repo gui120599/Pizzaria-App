@@ -13,6 +13,7 @@
 @source '../views/components/cardapio/**/*.blade.php';
 @source '../views/layouts/cardapio.blade.php';
 @source '../views/mesa-cliente/**/*.blade.php';
+@source '../views/livewire/acompanhamento-pedido.blade.php';
 
 @layer base {
     html {

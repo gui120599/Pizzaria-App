@@ -1,6 +1,6 @@
 # Plano — Acompanhamento do pedido, telas do Garçom e Atender Pedido
 
-> **Status:** proposta (2026-10-29). Nada implementado além do item 0.
+> **Status:** implementado em 2026-10-30 (ver "Execução" no fim), sem commit. Proposta original de 2026-10-29.
 > Continua o redesign do cardápio (`docs/plano/redesign-cardapio-online-emporio-da-pizza.md`,
 > seções 15 e 16). Itens **[Comprovado]** têm evidência no código ou no banco;
 > **[Hipótese]** precisa de validação.
@@ -210,3 +210,57 @@ D → E → F → G → (I).
 | **A4** | Sim, com **endereço e link do Google Maps no cadastro da empresa** (nova Etapa L): o endereço reaproveita as colunas `empresa_endereco_*` e ganha edição no Filament; a localização é a coluna nova `empresa_google_maps_url`. Sem endereço preenchido, o card mostra só o horário |
 | **A5** | **Autorizado criar um usuário local** (só no banco de desenvolvimento) para fotografar os painéis |
 | **A6** | **Campo de formato na categoria** (nova Etapa K): `categoria_formato_pizza` (redonda/quadrada) editável no cadastro, com a migration marcando como quadrada as categorias que hoje têm "quadrad" no nome; a regra pelo nome sai |
+
+
+---
+
+## 5. Execução (2026-10-30)
+
+Ordem seguida: A → B → L → C (parada para revisão) → H → K → 0 → D → A2 → E+I → F → G.
+Nada foi commitado. Regras de negócio intocadas (`StatusPedidoEnum`/`PedidoStatusService`,
+precificação, estoque, cortesia, PIN, Stone, cupom, frete).
+
+### 5.1 O que foi feito
+| Etapa | Entrega | Onde |
+|---|---|---|
+| **A** | Link assinado (`Pedido::linkAcompanhamento()`, sem expiração). Link sem assinatura mostra só o status (A1). Decisão `completo` vem da assinatura da URL e fica em `#[Locked]`. Checkout devolve `link_acompanhamento`; todos os geradores trocados (cardápio/WhatsApp, painel de pedidos, Atender Pedido, legado, confirmações) | `routes/web.php`, `AcompanhamentoPedido`, `Pedido`, `CardapioCheckoutController` |
+| **B** | `App\Support\Pedido\EtapasAcompanhamento`: etapas por tipo (retirada sem entrega, delivery com/sem estágio de transporte, mesa), horários reais, finalizado e cancelado. Tem a visão do salão (`paraSalao`) para as rodadas do garçom | `app/Support/Pedido/` |
+| **L** | Migration `empresa_google_maps_url`; `Empresa::enderecoRetirada()` e `linkComoChegar()`; seção "Endereço da loja" em Configurações › Pedidos; link só aceita `https` e domínios do Google Maps; o update legado preserva o link | `ConfiguracaoPedidos`, `Empresa` |
+| **C** | Acompanhamento no layout do cardápio ("Forno aceso"): estado em destaque, linha do tempo, "Onde retirar" (também no modo só status, decisão do usuário), itens recolhíveis, pagamento, WhatsApp, avaliações só no fim, `noindex` | `livewire/acompanhamento-pedido.blade.php` |
+| **H** | `requer_endereco` do cardápio vem de `opcaoentrega_requer_endereco`, não do nome | `CardapioService` |
+| **K** | `FormatoPizzaEnum` + `categorias.categoria_formato_pizza` (a migration marca `QUADRADA` nas categorias com "quadrad" no nome); campo "Formato da pizza" no cadastro; a regra pelo nome saiu | `Categoria`, `CategoriaResource`, `CardapioService` |
+| **0** | Auditoria visual dos painéis (antes/depois, 390 e 1440 px, claro e escuro) | capturas fora do repositório |
+| **D** | Grade do seletor com `getMiniaturaUrl(80)` + `loading="lazy"` + `width/height`; textos ≥ 12 px; "+" de 44 px na cor primária; modais e partials com `primary` no lugar de `teal` | `pedido-produto-selector.blade.php`, `perguntas-item`, `pedido-item-linha` |
+| **A2** | Brasa como primária no garçom e no admin (`App\Support\PaletaMarca`); o legado ganhou `--color-primary-*` no `app.css`, porque o seletor é compartilhado | `PaletaMarca`, providers, `app.css` |
+| **E+I** | Desenho da pizza em `resources/js/pizza-svg.js` (cardápio e painéis, mesmo resultado). No modal de sabores, seleção, desenho, contador "2 de 3" e prévia do preço rodam no Alpine; `confirmarSabores(?array $ids)` revalida tudo e cobra pelo preço do servidor | `PedidoProdutoSelector`, `pizza-svg.js`, `pizza-svg-painel.js` |
+| **F** | Garçom: cabeçalho da mesa em dois blocos (info + "Pediu a conta" em destaque / ações), rodadas com passos Enviada → Na cozinha → Pronta → Servida, Conta reorganizada (resumo, por pessoa, cobrança, ações); retirada enviada com a linha do tempo e "Retirado" como passo final (botão "Cliente retirou o pedido") | `atender-mesa`, `mesa-rodadas`, `mesa-conta`, `atender-retirada`, `components/pedido/passos` |
+| **G** | Atender Pedido: tipo de atendimento no topo; retirada sem bloco de endereço e sem "Taxa de entrega"; somente leitura com `fieldset disabled` (sem `opacity`/`pointer-events` inline); carrinho único (o seletor já esconde o dele com `carrinhoTopo`); linha do carrinho com `flex-wrap` na coluna estreita | `AtenderPedido`, `atender-pedido.blade.php`, `ClientePicker` |
+
+### 5.2 Medições
+- **Fotos da grade do seletor** (56 produtos com foto, dev): 19.086 KB (originais) → 463 KB (miniaturas de 80 px), −97,6%.
+- **Toques no modal de sabores** (garçom 390 px e admin 1440 px, 4 toques incluindo desmarcar/remarcar): 0 chamadas do seletor ao servidor (antes: 1 por toque). Responder uma pergunta re-renderiza o seletor e a seleção continua; confirmar lança com o preço do servidor.
+- **Contraste da brasa**: branco sobre `#C2410C` (600) = 5,2:1; botão primário no modo escuro (500, `#CC450E`) = 4,8:1; texto/ícone no modo escuro (400, `#E8673A`) = 5,8:1 sobre gray-900.
+
+### 5.3 Armadilhas encontradas
+- **`x-data` não pode mudar entre renders do Livewire.** Com `modo`/`ids` embutidos no atributo, o morph reiniciava só a raiz do modal e as linhas ficavam presas ao escopo antigo (toques sem efeito). Solução: atributo constante e estado inicial lido do `$wire` no `init()`.
+- **`@php($x = ...)` numa view com `@php ... @endphp` mais adiante** faz o Blade tratar tudo entre os dois como PHP cru. Usar `$loop->last` direto.
+- **Classes do seletor em três CSS** (admin, garçom e legado `app.css`): `primary-*` só existe nos painéis; o legado ganhou os tons no `@theme`.
+- **Achado fora do escopo:** na tela do garçom (retirada nova) o `EntregaPagamentoPicker` dispara `pedido-entrega-pagamento-atualizado` em laço, ~6 requisições/s em repouso (no banco de desenvolvimento). Os arquivos dele não foram alterados nesta rodada; vale uma investigação à parte.
+
+### 5.4 Testes
+Novos: `AcompanhamentoPedidoTest`, `EtapasAcompanhamentoTest`, `EmpresaEnderecoLojaTest`, `CategoriaFormatoPizzaTest`, `PedidoProdutoSelectorSaboresNavegadorTest`, `AtenderPedidoTipoAtendimentoTest`, além de casos em `CardapioRedesignTest` e `CardapioCheckoutPrecoServidorTest`. Ajustados: `RetiradaGarcomTest` e `EntregaGarcomTest` (texto do botão "Cliente retirou o pedido"). Os testes do seletor passam sem alteração. Saída da suíte completa: ver o relatório final da sessão.
+
+### 5.5 Dados locais de QA (somente banco de desenvolvimento)
+- Usuário `qa.redesign@local.test` (id 31, papel Admin). Remover: `User::where('email', 'qa.redesign@local.test')->delete()`.
+- Cliente "QA Maria Teste" e pedidos 59411 a 59415 (e os itens deles). Remover: `ItensPedido::whereIn('item_pedido_pedido_id', [59411,59412,59413,59414,59415])->delete(); Pedido::whereIn('id', [59411,59412,59413,59414,59415])->delete(); Cliente::where('cliente_nome', 'QA Maria Teste')->delete();`
+- Nada disso existe em produção: **não criar usuário nem rodar seeds de QA lá.**
+
+### 5.6 Deploy
+1. `git pull` (o commit inclui `public/build/`).
+2. `php artisan migrate --force` (duas migrations: `empresa_google_maps_url` e `categoria_formato_pizza`; a segunda marca como quadrada as categorias com "quadrad" no nome).
+3. `php artisan view:cache`
+4. `php artisan filament:optimize`
+5. `php artisan queue:restart`
+6. Recarregar o OPcache (reiniciar o PHP-FPM).
+7. **Depois do deploy:** cadastrar o endereço da loja e o link do Google Maps em **Configurações › Pedidos**. Sem endereço, "Onde retirar" mostra só o horário.
+8. Links de acompanhamento já enviados continuam abrindo, só com o status (e "Onde retirar"); os novos saem assinados.

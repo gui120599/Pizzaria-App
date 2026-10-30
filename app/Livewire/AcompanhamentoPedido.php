@@ -2,56 +2,48 @@
 
 namespace App\Livewire;
 
+use App\Enums\TipoAtendimentoEnum;
 use App\Models\AvaliacaoLink;
+use App\Models\Empresa;
+use App\Models\HorarioFuncionamento;
 use App\Models\Pedido;
+use App\Support\Pedido\EtapasAcompanhamento;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class AcompanhamentoPedido extends Component
 {
+    /** Mesmo número do botão de WhatsApp do cardápio (cardapio/script.blade.php). */
+    private const WHATSAPP_LOJA = '5564981380071';
+
     public int $pedidoId;
 
-    private static array $steps = [
-        ['status' => 'INICIADO',      'label' => 'Pedido recebido',   'icon' => 'bx-receipt',       'desc' => 'Aguardando confirmação da loja'],
-        ['status' => 'ABERTO',        'label' => 'Confirmado',        'icon' => 'bx-check-double',  'desc' => 'Pedido confirmado, será preparado em breve'],
-        ['status' => 'PREPARANDO',    'label' => 'Sendo preparado',   'icon' => 'bxs-bowl-hot',     'desc' => 'Nossa equipe está preparando seu pedido'],
-        ['status' => 'PRONTO',        'label' => 'Pronto',            'icon' => 'bx-package',       'desc' => 'Pronto, aguardando saída'],
-        ['status' => 'EM TRANSPORTE', 'label' => 'Saiu para entrega', 'icon' => 'bx-cycling',       'desc' => 'Seu pedido está a caminho!'],
-        ['status' => 'ENTREGUE',      'label' => 'Entregue',          'icon' => 'bxs-home-check',   'desc' => 'Pedido entregue! Bom apetite! 🍕'],
-    ];
+    /**
+     * Definido pela assinatura da URL no primeiro request. Trancado para o
+     * navegador não liberar os dados pessoais nos requests do wire:poll.
+     */
+    #[Locked]
+    public bool $completo = false;
 
     public function render()
     {
-        $pedido = Pedido::with([
-            'cliente',
-            'opcaoEntrega',
-            'item_pedido_pedido_id' => fn ($q) => $q
-                ->where('item_pedido_status', 'INSERIDO')
-                ->with('produto.categoria'),
-        ])->find($this->pedidoId);
+        $pedido = Pedido::query()
+            ->when($this->completo, fn ($q) => $q->with([
+                'cliente',
+                'opcaoEntrega',
+                'item_pedido_pedido_id' => fn ($itens) => $itens
+                    ->where('item_pedido_status', 'INSERIDO')
+                    ->with('produto.categoria'),
+            ]))
+            ->find($this->pedidoId);
 
-        $steps = static::$steps;
-        $stepIndex = null;
-        $cancelado = false;
-        $finalizado = false;
+        $etapas = $pedido ? new EtapasAcompanhamento($pedido) : null;
+        $retirada = $etapas?->tipo() === TipoAtendimentoEnum::RETIRADA;
 
-        if ($pedido) {
-            if ($pedido->pedido_status === 'CANCELADO') {
-                $cancelado = true;
-            } elseif ($pedido->pedido_status === 'FINALIZADO') {
-                $finalizado = true;
-                $stepIndex = count($steps) - 1;
-            } else {
-                foreach ($steps as $i => $step) {
-                    if ($step['status'] === $pedido->pedido_status) {
-                        $stepIndex = $i;
-                        break;
-                    }
-                }
-            }
-        }
+        $deveAtualizar = $etapas && ! $etapas->cancelado() && ! $etapas->concluido();
 
-        $avaliacaoLinks = in_array($pedido?->pedido_status, ['ENTREGUE', 'FINALIZADO'])
+        $avaliacaoLinks = $etapas?->concluido()
             ? AvaliacaoLink::where('avaliacao_link_ativo', true)
                 ->orderBy('avaliacao_link_ordem')
                 ->get()
@@ -63,6 +55,35 @@ class AcompanhamentoPedido extends Component
                 ->all()
             : [];
 
-        return view('livewire.acompanhamento-pedido', compact('pedido', 'steps', 'stepIndex', 'cancelado', 'finalizado', 'avaliacaoLinks'));
+        $empresa = $retirada ? Empresa::first() : null;
+
+        return view('livewire.acompanhamento-pedido', [
+            'pedido' => $pedido,
+            'etapas' => $etapas,
+            'retirada' => $retirada,
+            'deveAtualizar' => $deveAtualizar,
+            'avaliacaoLinks' => $avaliacaoLinks,
+            'enderecoRetirada' => $empresa?->enderecoRetirada(),
+            'linkComoChegar' => $empresa?->linkComoChegar(),
+            'horarioHoje' => $retirada ? $this->horarioDeHoje() : null,
+            'linkWhatsapp' => $pedido ? $this->linkWhatsapp($pedido) : null,
+        ]);
+    }
+
+    /** "18:00 às 23:00" (ou vários turnos) para hoje; null se a loja não abre hoje. */
+    private function horarioDeHoje(): ?string
+    {
+        $turnos = HorarioFuncionamento::where('horario_dia_semana', now()->dayOfWeek)
+            ->where('horario_ativo', true)
+            ->orderBy('horario_abertura')
+            ->get()
+            ->map(fn ($h) => substr($h->horario_abertura, 0, 5).' às '.substr($h->horario_fechamento, 0, 5));
+
+        return $turnos->isEmpty() ? null : $turnos->implode(' e ');
+    }
+
+    private function linkWhatsapp(Pedido $pedido): string
+    {
+        return 'https://wa.me/'.self::WHATSAPP_LOJA.'?text='.rawurlencode("Olá! Sobre o pedido #{$pedido->id}.");
     }
 }

@@ -8,7 +8,8 @@
     $itemId = $item['id'] ?? $item['produto_id'] ?? 0;
     $itemNome = $item['produto_nome'] ?? '—';
 @endphp
-<div wire:key="item-{{ $itemId }}" class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800">
+{{-- flex-wrap: na coluna estreita do Atender Pedido, quantidade, valor e ações descem para a segunda linha em vez de esmagar o nome. --}}
+<div wire:key="item-{{ $itemId }}" class="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 bg-white dark:bg-gray-800">
 
     {{-- Imagem --}}
     @if (!empty($item['produto_foto']))
@@ -22,31 +23,31 @@
     @endif
 
     {{-- Info --}}
-    <div class="flex-1 min-w-0">
+    <div class="flex-1 min-w-[9rem]">
         <div class="flex flex-wrap items-center gap-1 mb-0.5">
             @if (!empty($item['categoria_nome']))
-                <span class="inline-block text-[10px] font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/20 rounded px-1.5 py-0.5">{{ $item['categoria_nome'] }}</span>
+                <span class="inline-block text-xs font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded px-1.5 py-0.5">{{ $item['categoria_nome'] }}</span>
             @endif
             @if (!empty($item['cliente_nome']))
-                <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded px-1.5 py-0.5">
-                    <i class='bx bx-user text-[9px]'></i> {{ $item['cliente_nome'] }}
+                <span class="inline-flex items-center gap-0.5 text-xs font-semibold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded px-1.5 py-0.5">
+                    <i class='bx bx-user text-xs'></i> {{ $item['cliente_nome'] }}
                 </span>
             @endif
             @if (!empty($item['promocao_id']))
-                <span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded px-1.5 py-0.5">
-                    <i class='bx bxs-bolt text-[9px]'></i> RELÂMPAGO
+                <span class="inline-flex items-center gap-0.5 text-xs font-bold text-white bg-red-600 rounded px-1.5 py-0.5">
+                    <i class='bx bxs-bolt text-xs'></i> RELÂMPAGO
                 </span>
             @endif
             @if (!empty($item['cortesia']))
-                <span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-900 bg-amber-200 rounded px-1.5 py-0.5">CORTESIA</span>
+                <span class="inline-flex items-center gap-0.5 text-xs font-bold text-amber-900 bg-amber-200 rounded px-1.5 py-0.5">CORTESIA</span>
             @endif
             @if (!empty($item['item_origem_id']))
-                <span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-pink-600 rounded px-1.5 py-0.5">
-                    <i class='bx bxs-gift text-[9px]'></i> OFERTA
+                <span class="inline-flex items-center gap-0.5 text-xs font-bold text-white bg-pink-600 rounded px-1.5 py-0.5">
+                    <i class='bx bxs-gift text-xs'></i> OFERTA
                 </span>
             @elseif (!empty($item['promocao_adicional_regra_id']))
-                <span class="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-pink-600 rounded px-1.5 py-0.5">
-                    <i class='bx bxs-gift text-[9px]'></i> PROMO
+                <span class="inline-flex items-center gap-0.5 text-xs font-bold text-white bg-pink-600 rounded px-1.5 py-0.5">
+                    <i class='bx bxs-gift text-xs'></i> PROMO
                 </span>
             @endif
         </div>
@@ -105,7 +106,7 @@
     {{-- Cortesia (só onde a página oferece a ação: AtenderPedido de pedido já gravado) --}}
     @if (!empty($cortesiaAcao) && is_numeric($itemId))
         <button wire:click="mountAction('cortesiaItem', { item: {{ $itemId }} })" type="button"
-            class="h-7 rounded-full bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 text-[10px] font-semibold shrink-0 transition-colors"
+            class="h-7 rounded-full bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 text-xs font-semibold shrink-0 transition-colors"
             title="{{ !empty($item['cortesia']) ? 'Desfazer cortesia' : 'Dar item de cortesia' }}">
             {{ !empty($item['cortesia']) ? 'Desfazer' : 'Cortesia' }}
         </button>

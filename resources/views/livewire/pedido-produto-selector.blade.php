@@ -45,7 +45,7 @@
                 wire:model.live.debounce.300ms="busca"
                 type="text"
                 placeholder="Buscar produto..."
-                class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-xl bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-xl bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
         </div>
 
@@ -54,28 +54,28 @@
 
             {{-- Todos --}}
             <button wire:click="$set('categoriaId', null)" type="button"
-                    class="flex flex-col items-center gap-1 shrink-0 w-16 focus:outline-none">
+                    class="flex flex-col items-center gap-1 shrink-0 w-[4.5rem] focus:outline-none">
                 <div class="w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors duration-150 bg-gray-100 dark:bg-gray-900 flex items-center justify-center
                     {{ $categoriaId === null ? 'border-orange-500' : 'border-gray-300 dark:border-white/10 hover:border-gray-400 dark:hover:border-white/20' }}">
                     <svg class="w-7 h-7 text-gray-500 dark:text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
                     </svg>
                 </div>
-                <span class="text-[9px] text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide text-center">TODOS</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase text-center">TODOS</span>
             </button>
 
             @foreach ($this->categorias as $categoria)
                 @php
-                    $imgCat = $categoria->produtos->first(fn($p) => $p->produto_foto)?->getImagemUrl()
+                    $imgCat = $categoria->produtos->first(fn($p) => $p->produto_foto)?->getMiniaturaUrl(56)
                         ?? asset('img/logo Pizzaria Branco Colorido.png');
                 @endphp
                 <button wire:click="$set('categoriaId', {{ $categoria->id }})" type="button"
-                        class="flex flex-col items-center gap-1 shrink-0 w-16 focus:outline-none">
+                        class="flex flex-col items-center gap-1 shrink-0 w-[4.5rem] focus:outline-none">
                     <div class="w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors duration-150 shadow-sm
                         {{ $categoriaId === $categoria->id ? 'border-orange-500' : 'border-gray-300 dark:border-white/10 hover:border-gray-400 dark:hover:border-white/20' }}">
-                        <img src="{{ $imgCat }}" alt="{{ $categoria->categoria_nome }}" class="w-full h-full object-cover">
+                        <img src="{{ $imgCat }}" alt="{{ $categoria->categoria_nome }}" width="56" height="56" loading="lazy" decoding="async" class="w-full h-full object-cover">
                     </div>
-                    <span class="text-[9px] text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide leading-tight text-center line-clamp-2 w-full">{{ $categoria->categoria_nome }}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase leading-tight text-center line-clamp-2 w-full">{{ $categoria->categoria_nome }}</span>
                 </button>
             @endforeach
         </div>
@@ -114,26 +114,27 @@
 
                 {{-- Imagem --}}
                 <div class="relative shrink-0">
-                    <img src="{{ $produto->getImagemUrl() }}"
+                    <img src="{{ $produto->getMiniaturaUrl(80) }}"
                          alt="{{ $produto->produto_descricao }}"
+                         width="80" height="64" loading="lazy" decoding="async"
                          class="w-20 h-16 object-cover rounded-lg bg-gray-100 dark:bg-gray-900"
                          onerror="this.src=''">
                     @if ($temRelampago)
-                        <span class="absolute top-1 left-1 bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5">
-                            <i class='bx bxs-bolt text-[9px]'></i> RELÂMPAGO
+                        <span class="absolute top-1 left-1 bg-red-600 text-white text-xs font-bold px-1 py-0.5 rounded flex items-center gap-0.5">
+                            <i class='bx bxs-bolt text-xs'></i> RELÂMPAGO
                         </span>
                     @elseif ($temPromo)
-                        <span class="absolute top-1 left-1 bg-orange-500 text-white text-[9px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5">
-                            <i class='bx bxs-purchase-tag text-[9px]'></i> PROMO
+                        <span class="absolute top-1 left-1 bg-orange-500 text-white text-xs font-bold px-1 py-0.5 rounded flex items-center gap-0.5">
+                            <i class='bx bxs-purchase-tag text-xs'></i> PROMO
                         </span>
                     @endif
                 </div>
 
                 {{-- Info --}}
-                <div class="flex-1 min-w-0 flex flex-col justify-between pr-10 min-h-[4rem]">
+                <div class="flex-1 min-w-0 flex flex-col justify-between pr-12 min-h-[4rem]">
                     <div>
                         @if ($produto->categoria)
-                            <span class="inline-block text-[9px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10 rounded px-1 mb-0.5">{{ $produto->categoria->categoria_nome }}</span>
+                            <span class="inline-block text-xs font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10 rounded px-1 mb-0.5">{{ $produto->categoria->categoria_nome }}</span>
                         @endif
                         <p class="text-gray-800 dark:text-gray-200 text-sm font-semibold leading-snug line-clamp-2">{{ $produto->produto_descricao }}</p>
                     </div>
@@ -145,11 +146,11 @@
                             <span class="text-gray-800 dark:text-gray-200 text-base font-bold">R$ {{ number_format($precoExibido, 2, ',', '.') }}</span>
                         @endif
                         @if ($produto->produto_codimentacao)
-                            <span class="block text-[9px] text-gray-400 dark:text-gray-500 leading-tight mt-0.5">{{ $produto->produto_codimentacao }}</span>
+                            <span class="block text-xs text-gray-400 dark:text-gray-500 leading-tight mt-0.5">{{ $produto->produto_codimentacao }}</span>
                         @endif
                         @if ($produto->produto_controla_estoque)
                             @php $saldo = (float) $produto->produto_saldo_estoque; @endphp
-                            <span class="inline-flex items-center gap-0.5 text-[9px] font-semibold mt-0.5 {{ $saldo > 0 ? 'text-gray-400 dark:text-gray-500' : 'text-red-500 dark:text-red-400' }}">
+                            <span class="inline-flex items-center gap-0.5 text-xs font-semibold mt-0.5 {{ $saldo > 0 ? 'text-gray-400 dark:text-gray-500' : 'text-red-500 dark:text-red-400' }}">
                                 <i class='bx bxs-package'></i>
                                 {{ $saldo == floor($saldo) ? (int) $saldo : number_format($saldo, 2, ',', '.') }} {{ $produto->produto_unidade_estoque }} em estoque
                             </span>
@@ -163,7 +164,7 @@
                     wire:loading.attr="disabled"
                     wire:target="selecionarProduto({{ $produto->id }})"
                     type="button"
-                    class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-green-500 hover:bg-green-400 active:scale-90 text-white text-xl font-bold flex items-center justify-center shadow transition-all z-10"
+                    class="absolute bottom-1.5 right-1.5 w-11 h-11 rounded-full bg-primary-600 hover:bg-primary-500 active:scale-90 text-white text-2xl font-bold flex items-center justify-center shadow transition-all z-10"
                 >+</button>
             </div>
         @empty
@@ -191,8 +192,8 @@
                 {{-- Botão itens (somente quando há itens) --}}
                 @if (count($itens) > 0)
                     <button @click="drawerOpen = true" type="button"
-                            class="pointer-events-auto py-3 px-4 bg-teal-600 hover:bg-teal-500 active:bg-teal-700 rounded-2xl text-white font-bold flex items-center gap-3 shadow-xl transition-colors">
-                        <span class="bg-teal-800 rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold">{{ count($itens) }}</span>
+                            class="pointer-events-auto py-3 px-4 bg-primary-600 hover:bg-primary-500 active:bg-primary-700 rounded-2xl text-white font-bold flex items-center gap-3 shadow-xl transition-colors">
+                        <span class="bg-primary-800 rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold">{{ count($itens) }}</span>
                         <span class="text-sm uppercase tracking-widest flex items-center gap-1.5">
                             <i class='bx bx-cart'></i> Itens
                         </span>
@@ -228,7 +229,7 @@
                 {{-- Header --}}
                 <div class="flex items-center justify-between px-4 pb-3 border-b border-gray-100 dark:border-white/10 shrink-0">
                     <h3 class="font-bold text-gray-800 dark:text-gray-200 text-lg flex items-center gap-2">
-                        <i class='bx bx-cart text-teal-600'></i> Itens do Pedido
+                        <i class='bx bx-cart text-primary-600'></i> Itens do Pedido
                         <span class="text-sm font-normal text-gray-400 dark:text-gray-500">({{ count($itens) }})</span>
                     </h3>
                     <button @click="drawerOpen = false" type="button" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
@@ -292,8 +293,8 @@
                         <h3 class="text-base font-bold text-gray-800 dark:text-gray-200 leading-snug flex items-center gap-1.5">
                             {{ $produtoSelecionado['nome'] }}
                             @if (!empty($produtoSelecionado['promocao_id']))
-                                <span class="inline-flex items-center gap-0.5 text-[9px] font-bold text-white bg-red-600 rounded px-1 py-0.5 shrink-0">
-                                    <i class='bx bxs-bolt text-[9px]'></i> RELÂMPAGO
+                                <span class="inline-flex items-center gap-0.5 text-xs font-bold text-white bg-red-600 rounded px-1 py-0.5 shrink-0">
+                                    <i class='bx bxs-bolt text-xs'></i> RELÂMPAGO
                                 </span>
                             @endif
                         </h3>
@@ -325,15 +326,15 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quantidade</label>
                         <div class="flex items-center gap-3">
                             <button wire:click="decrementarQuantidadeModal" type="button"
-                                class="w-10 h-10 rounded-full bg-gray-100 hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-500/10 text-gray-700 dark:text-gray-300 font-bold text-xl flex items-center justify-center transition-colors">−</button>
+                                class="w-11 h-11 rounded-full bg-gray-100 hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-500/10 text-gray-700 dark:text-gray-300 font-bold text-xl flex items-center justify-center transition-colors">−</button>
                             <span class="min-w-[3.5rem] text-center text-2xl font-bold text-gray-800 dark:text-gray-200 tabular-nums">
                                 {{ $quantidade == floor($quantidade) ? (int)$quantidade : number_format($quantidade, 2, ',', '') }}
                             </span>
                             <button wire:click="incrementarQuantidadeModal" type="button"
-                                class="w-10 h-10 rounded-full bg-gray-100 hover:bg-green-50 dark:bg-white/5 dark:hover:bg-green-500/10 text-gray-700 dark:text-gray-300 font-bold text-xl flex items-center justify-center transition-colors">+</button>
+                                class="w-11 h-11 rounded-full bg-gray-100 hover:bg-green-50 dark:bg-white/5 dark:hover:bg-green-500/10 text-gray-700 dark:text-gray-300 font-bold text-xl flex items-center justify-center transition-colors">+</button>
                             <div class="flex gap-1.5 ml-1">
-                                <button wire:click="setQuantidadeModal(0.3333)" type="button" class="px-2.5 py-1 bg-gray-100 hover:bg-teal-50 dark:bg-white/5 dark:hover:bg-teal-500/10 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 transition-colors">⅓</button>
-                                <button wire:click="setQuantidadeModal(0.5)"  type="button" class="px-2.5 py-1 bg-gray-100 hover:bg-teal-50 dark:bg-white/5 dark:hover:bg-teal-500/10 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 transition-colors">½</button>
+                                <button wire:click="setQuantidadeModal(0.3333)" type="button" class="px-2.5 py-1 bg-gray-100 hover:bg-primary-50 dark:bg-white/5 dark:hover:bg-primary-500/10 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 transition-colors">⅓</button>
+                                <button wire:click="setQuantidadeModal(0.5)"  type="button" class="px-2.5 py-1 bg-gray-100 hover:bg-primary-50 dark:bg-white/5 dark:hover:bg-primary-500/10 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 transition-colors">½</button>
                             </div>
                         </div>
                     </div>
@@ -342,7 +343,7 @@
                     @if (count($sessaoMesaClientes) > 0)
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                <i class='bx bx-user text-teal-600'></i> Para qual cliente?
+                                <i class='bx bx-user text-primary-600'></i> Para qual cliente?
                             </label>
                             <div class="flex flex-wrap gap-2">
                                 <button wire:click="$set('clienteSelecionadoId', null)" type="button"
@@ -353,7 +354,7 @@
                                 @foreach ($sessaoMesaClientes as $mc)
                                     <button wire:click="$set('clienteSelecionadoId', {{ $mc['id'] }})" type="button"
                                             class="px-3 py-1.5 text-xs font-semibold rounded-full border-2 transition-colors
-                                                {{ $clienteSelecionadoId == $mc['id'] ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-teal-400 dark:hover:border-teal-500/50' }}">
+                                                {{ $clienteSelecionadoId == $mc['id'] ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-primary-400 dark:hover:border-primary-500/50' }}">
                                         {{ $mc['nome'] }}
                                     </button>
                                 @endforeach
@@ -371,12 +372,12 @@
                                 @foreach ($adicionaisDisponiveis as $adicional)
                                     @php $sel = in_array($adicional['id'], $adicionaisSelecionados); @endphp
                                     <label class="flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-colors
-                                        {{ $sel ? 'border-teal-400 dark:border-teal-500/50 bg-teal-50 dark:bg-teal-500/10' : 'border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 hover:border-teal-300 dark:hover:border-teal-500/30' }}">
+                                        {{ $sel ? 'border-primary-400 dark:border-primary-500/50 bg-primary-50 dark:bg-primary-500/10' : 'border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 hover:border-primary-300 dark:hover:border-primary-500/30' }}">
                                         <div class="flex items-center gap-2.5">
                                             <input type="checkbox"
                                                 wire:click="toggleAdicional({{ $adicional['id'] }})"
                                                 @checked($sel)
-                                                class="w-4 h-4 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-teal-600 focus:ring-teal-500" />
+                                                class="w-4 h-4 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-primary-600 focus:ring-primary-500" />
                                             <span class="text-sm text-gray-700 dark:text-gray-300">{{ $adicional['nome'] }}</span>
                                         </div>
                                         <span class="text-sm font-semibold text-green-600 dark:text-green-400">+ R$ {{ number_format($adicional['valor'], 2, ',', '.') }}</span>
@@ -410,7 +411,7 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observação</label>
                         <textarea wire:model="observacao" rows="2"
                             placeholder="Ex: sem cebola, bem passado..."
-                            class="w-full border border-gray-300 dark:border-white/10 rounded-xl p-2.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+                            class="w-full border border-gray-300 dark:border-white/10 rounded-xl p-2.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                         ></textarea>
                     </div>
 
@@ -436,7 +437,7 @@
                             Cancelar
                         </button>
                         <button wire:click="confirmarItem" type="button"
-                            class="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-bold transition-colors shadow-sm">
+                            class="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-bold transition-colors shadow-sm">
                             Adicionar ao Pedido
                         </button>
                     </div>
@@ -471,7 +472,7 @@
                     @if (count($sessaoMesaClientes) > 0)
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                <i class='bx bx-user text-teal-600'></i> Para qual cliente?
+                                <i class='bx bx-user text-primary-600'></i> Para qual cliente?
                             </label>
                             <div class="flex flex-wrap gap-2">
                                 <button wire:click="$set('editClienteId', null)" type="button"
@@ -482,7 +483,7 @@
                                 @foreach ($sessaoMesaClientes as $mc)
                                     <button wire:click="$set('editClienteId', {{ $mc['id'] }})" type="button"
                                             class="px-3 py-1.5 text-xs font-semibold rounded-full border-2 transition-colors
-                                                {{ $editClienteId == $mc['id'] ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-teal-400 dark:hover:border-teal-500/50' }}">
+                                                {{ $editClienteId == $mc['id'] ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-primary-400 dark:hover:border-primary-500/50' }}">
                                         {{ $mc['nome'] }}
                                     </button>
                                 @endforeach
@@ -498,12 +499,12 @@
                                 @foreach ($editAdicionaisDisponiveis as $adicional)
                                     @php $sel = in_array($adicional['id'], $editAdicionaisSelecionados); @endphp
                                     <label class="flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-colors
-                                        {{ $sel ? 'border-teal-400 dark:border-teal-500/50 bg-teal-50 dark:bg-teal-500/10' : 'border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 hover:border-teal-300 dark:hover:border-teal-500/30' }}">
+                                        {{ $sel ? 'border-primary-400 dark:border-primary-500/50 bg-primary-50 dark:bg-primary-500/10' : 'border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 hover:border-primary-300 dark:hover:border-primary-500/30' }}">
                                         <div class="flex items-center gap-2.5">
                                             <input type="checkbox"
                                                 wire:click="toggleEditAdicional({{ $adicional['id'] }})"
                                                 @checked($sel)
-                                                class="w-4 h-4 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-teal-600 focus:ring-teal-500" />
+                                                class="w-4 h-4 rounded border-gray-300 dark:border-white/20 dark:bg-gray-900 text-primary-600 focus:ring-primary-500" />
                                             <span class="text-sm text-gray-700 dark:text-gray-300">{{ $adicional['nome'] }}</span>
                                         </div>
                                         <span class="text-sm font-semibold text-green-600 dark:text-green-400">+ R$ {{ number_format($adicional['valor'], 2, ',', '.') }}</span>
@@ -520,7 +521,7 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observação</label>
                         <textarea wire:model="editObservacao" rows="3"
                             placeholder="Ex: sem cebola, bem passado..."
-                            class="w-full border border-gray-300 dark:border-white/10 rounded-xl p-2.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+                            class="w-full border border-gray-300 dark:border-white/10 rounded-xl p-2.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                         ></textarea>
                     </div>
 
@@ -531,7 +532,7 @@
                             Cancelar
                         </button>
                         <button wire:click="salvarEdicaoItem" type="button"
-                            class="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-bold transition-colors shadow-sm">
+                            class="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-bold transition-colors shadow-sm">
                             Salvar Alterações
                         </button>
                     </div>
@@ -541,16 +542,67 @@
     @endif
 
 
-    {{-- ══ MODAL: sabores ════════════════════════════════════════════════════ --}}
+    {{-- ══ MODAL: sabores ════════════════════════════════════════════════════
+         A seleção (ids), o desenho da pizza, o contador e a prévia do preço vivem
+         no Alpine: tocar num sabor não vai ao servidor (modo "inteira" avisa o
+         servidor, porque perguntas e ofertas dependem do produto). O preço lançado
+         é sempre o do servidor (confirmarSabores recebe só os ids).
+         O atributo x-data NÃO pode mudar entre renders (modo e ids vêm do $wire no
+         init): se mudar, o morph do Livewire reinicia só a raiz e as linhas ficam
+         presas ao escopo antigo. --}}
     @if ($saboresModalAberta && count($saboresProdutos) > 0)
-        @php
-            $numSel = count($saboresSelecionados);
-            $pronto = $numSel === $saboresModo;
-        @endphp
-        <div class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" wire:keydown.escape="fecharSaboresModal">
+        <div class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" wire:keydown.escape="fecharSaboresModal"
+             x-data="{
+                modo: 1,
+                ids: [],
+                sabores: @js(array_map(fn ($s) => ['id' => (int) $s['id'], 'nome' => $s['nome'], 'foto' => $s['fotoPizza'] ?? $s['foto'], 'preco' => (float) $s['preco']], $saboresProdutos)),
+                regra: @js($saboresRegraPreco),
+                formato: @js($saboresFormato),
+                init() {
+                    this.modo = this.$wire.saboresModo;
+                    this.ids = this.$wire.saboresSelecionados.map(s => Number(s.id));
+                },
+                marcado(id) { return this.ids.includes(id); },
+                posicao(id) { return this.ids.indexOf(id) + 1; },
+                get escolhidos() { return this.ids.map(id => this.sabores.find(s => s.id === id)).filter(Boolean); },
+                get pronto() { return this.ids.length === this.modo; },
+                get nomes() { return this.escolhidos.map(s => s.nome).join(' / '); },
+                get previa() {
+                    if (! this.escolhidos.length) { return null; }
+                    const centavos = this.escolhidos.map(s => Math.round(s.preco * 100));
+                    return (this.regra === 'MAIOR' ? Math.max(...centavos) : Math.round(centavos.reduce((a, b) => a + b, 0) / this.escolhidos.length)) / 100;
+                },
+                get regraTexto() {
+                    if (this.modo < 2) { return ''; }
+                    return (this.modo === 2 ? 'Meia a meia' : this.modo + ' sabores') + (this.regra === 'MAIOR' ? ': vale o valor do sabor mais caro' : ': valor pela média dos sabores');
+                },
+                get desenho() {
+                    if (! window.desenharPizza) { return ''; }
+                    return window.desenharPizza({ formato: this.formato, quantidade: this.modo, sabores: this.escolhidos });
+                },
+                dinheiro(v) { return 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+                trocarModo(n) {
+                    if (n === this.modo) { return; }
+                    this.modo = n;
+                    this.ids = [];
+                    this.$wire.setModoSabores(n);
+                },
+                tocar(id) {
+                    if (this.marcado(id)) {
+                        this.ids = this.ids.filter(i => i !== id);
+                    } else if (this.modo === 1) {
+                        this.ids = [id];
+                    } else if (this.ids.length < this.modo) {
+                        this.ids = [...this.ids, id];
+                    } else {
+                        return;
+                    }
+                    if (this.modo === 1) { this.$wire.toggleSabor(id); }
+                },
+             }">
             <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" wire:click="fecharSaboresModal"></div>
 
-            <div class="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh] z-10">
+            <div class="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] z-10">
 
                 {{-- Toast temporário: erro/aviso de estoque (mesmo motivo do modal de item único) --}}
                 @if ($erroEstoque || $avisoEstoque)
@@ -570,15 +622,12 @@
                 <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-white/10 shrink-0">
                     <div>
                         <h3 class="text-gray-800 dark:text-gray-200 font-bold text-base">{{ $saboresCategoriaNome }}</h3>
-                        <p class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
-                            Selecione <span class="text-teal-600 font-semibold">{{ $saboresModo }}</span>
-                            sabor{{ $saboresModo > 1 ? 'es' : '' }}
-                            @if ($numSel > 0)
-                                — <span class="{{ $pronto ? 'text-green-600 dark:text-green-400' : 'text-orange-500 dark:text-orange-400' }} font-semibold">{{ $numSel }}/{{ $saboresModo }}</span>
-                            @endif
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
+                            <span class="font-semibold" :class="pronto ? 'text-green-600 dark:text-green-400' : 'text-primary-600 dark:text-primary-400'" x-text="ids.length + ' de ' + modo"></span>
+                            <span x-text="modo > 1 ? 'sabores escolhidos' : 'sabor escolhido'"></span>
                         </p>
                     </div>
-                    <button wire:click="fecharSaboresModal" type="button" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
+                    <button wire:click="fecharSaboresModal" type="button" class="w-11 h-11 -mr-2 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors" aria-label="Fechar">
                         <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
                     </button>
                 </div>
@@ -587,15 +636,15 @@
                 <div class="px-5 py-3 border-b border-gray-100 dark:border-white/10 shrink-0">
                     <p class="text-gray-500 dark:text-gray-400 text-xs uppercase font-semibold tracking-wide mb-2">Como deseja?</p>
                     <div class="flex gap-2">
-                        <button wire:click="setModoSabores(1)" type="button"
-                            class="flex-1 border rounded-lg py-2 text-sm font-semibold transition-colors
-                                {{ $saboresModo === 1 ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-teal-400 dark:hover:border-teal-500/50' }}">
+                        <button @click="trocarModo(1)" type="button"
+                            :class="modo === 1 ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-primary-400'"
+                            class="flex-1 min-h-11 border rounded-lg py-2 text-sm font-semibold transition-colors">
                             <i class='bx bxs-circle text-xs mr-1'></i> Inteiro
                         </button>
                         @foreach ($saboresOpcoes as $opcaoSabor)
-                            <button wire:click="setModoSabores({{ $opcaoSabor['quantidade'] }})" type="button"
-                                class="flex-1 border rounded-lg py-2 text-sm font-semibold transition-colors
-                                    {{ $saboresModo === $opcaoSabor['quantidade'] ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-teal-400 dark:hover:border-teal-500/50' }}">
+                            <button @click="trocarModo({{ (int) $opcaoSabor['quantidade'] }})" type="button"
+                                :class="modo === {{ (int) $opcaoSabor['quantidade'] }} ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-primary-400'"
+                                class="flex-1 min-h-11 border rounded-lg py-2 text-sm font-semibold transition-colors">
                                 <i class='bx {{ $opcaoSabor['quantidade'] === 2 ? 'bxs-pie-chart-alt-2' : 'bxs-pie-chart' }} text-xs mr-1'></i> {{ $opcaoSabor['descricao'] }}
                             </button>
                         @endforeach
@@ -606,18 +655,18 @@
                 @if (count($sessaoMesaClientes) > 0)
                     <div class="px-5 py-3 border-b border-gray-100 dark:border-white/10 shrink-0">
                         <p class="text-gray-500 dark:text-gray-400 text-xs uppercase font-semibold tracking-wide mb-2">
-                            <i class='bx bx-user text-teal-600'></i> Para qual cliente?
+                            <i class='bx bx-user text-primary-600'></i> Para qual cliente?
                         </p>
                         <div class="flex flex-wrap gap-2">
                             <button wire:click="$set('clienteSelecionadoId', null)" type="button"
-                                    class="px-3 py-1.5 text-xs font-semibold rounded-full border-2 transition-colors
+                                    class="px-3 py-2 min-h-11 text-sm font-semibold rounded-full border-2 transition-colors
                                         {{ $clienteSelecionadoId === null ? 'bg-gray-800 text-white border-gray-800' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-gray-500 dark:hover:border-white/20' }}">
                                 Sem cliente
                             </button>
                             @foreach ($sessaoMesaClientes as $mc)
                                 <button wire:click="$set('clienteSelecionadoId', {{ $mc['id'] }})" type="button"
-                                        class="px-3 py-1.5 text-xs font-semibold rounded-full border-2 transition-colors
-                                            {{ $clienteSelecionadoId == $mc['id'] ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-teal-400 dark:hover:border-teal-500/50' }}">
+                                        class="px-3 py-2 min-h-11 text-sm font-semibold rounded-full border-2 transition-colors
+                                            {{ $clienteSelecionadoId == $mc['id'] ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:border-primary-400' }}">
                                     {{ $mc['nome'] }}
                                 </button>
                             @endforeach
@@ -625,21 +674,28 @@
                     </div>
                 @endif
 
+                {{-- Desenho da pizza (só nas de vários sabores) e a regra de preço --}}
+                <div class="flex items-center gap-4 px-5 py-3 border-b border-gray-100 dark:border-white/10 shrink-0">
+                    <div class="w-24 h-24 shrink-0" x-html="desenho"></div>
+                    <div class="min-w-0 text-sm">
+                        <p class="text-gray-500 dark:text-gray-400" x-show="modo > 1" x-text="regraTexto"></p>
+                        <p class="mt-1 text-gray-800 dark:text-gray-200" x-show="previa !== null">
+                            Prévia: <span class="font-bold tabular-nums" x-text="dinheiro(previa)"></span>
+                            <span class="block text-xs text-gray-400 dark:text-gray-500">O valor final é calculado ao confirmar.</span>
+                        </p>
+                    </div>
+                </div>
+
                 {{-- Lista de sabores --}}
                 <div class="overflow-y-auto flex-1 px-4 py-2">
                     @foreach ($saboresProdutos as $sabor)
-                        @php
-                            $selecionado = collect($saboresSelecionados)->contains('id', $sabor['id']);
-                            $posIdx      = collect($saboresSelecionados)->search(fn($s) => $s['id'] === $sabor['id']);
-                            $posLabel    = $saboresModo > 1 && $selecionado ? ($posIdx + 1) . 'º' : null;
-                        @endphp
                         <div wire:key="sabor-{{ $sabor['id'] }}"
-                             wire:click="toggleSabor({{ $sabor['id'] }})"
+                             @click="tocar({{ (int) $sabor['id'] }})"
                              id="sabor-item-{{ $sabor['id'] }}"
-                             class="flex items-center gap-3 p-3 mb-2 rounded-xl border-2 cursor-pointer transition-colors select-none
-                                {{ $selecionado ? 'border-teal-500 dark:border-teal-500/50 bg-teal-50 dark:bg-teal-500/10' : 'border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 hover:border-teal-300 dark:hover:border-teal-500/30' }}">
+                             :class="marcado({{ (int) $sabor['id'] }}) ? 'border-primary-500 bg-primary-50 dark:border-primary-500/60 dark:bg-primary-500/10' : 'border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 hover:border-primary-300'"
+                             class="flex items-center gap-3 p-3 mb-2 rounded-xl border-2 cursor-pointer transition-colors select-none">
                             @if (!empty($sabor['foto']))
-                                <img src="{{ $sabor['foto'] }}" alt="{{ $sabor['nome'] }}" class="w-14 h-14 object-cover rounded-lg shrink-0 bg-gray-100 dark:bg-gray-900"
+                                <img src="{{ $sabor['foto'] }}" alt="{{ $sabor['nome'] }}" width="56" height="56" loading="lazy" class="w-14 h-14 object-cover rounded-lg shrink-0 bg-gray-100 dark:bg-gray-900"
                                      onerror="this.style.display='none'">
                             @else
                                 <div class="w-14 h-14 rounded-lg bg-gray-100 dark:bg-gray-900 flex items-center justify-center shrink-0">
@@ -650,13 +706,13 @@
                                 <p class="text-gray-800 dark:text-gray-200 text-sm font-semibold leading-tight flex items-center gap-1">
                                     {{ $sabor['nome'] }}
                                     @if (!empty($sabor['temRelampago']))
-                                        <span class="inline-flex items-center gap-0.5 text-[9px] font-bold text-white bg-red-600 rounded px-1 py-0.5 shrink-0">
-                                            <i class='bx bxs-bolt text-[9px]'></i> RELÂMPAGO
+                                        <span class="inline-flex items-center gap-0.5 text-xs font-bold text-white bg-red-600 rounded px-1 py-0.5 shrink-0">
+                                            <i class='bx bxs-bolt text-xs'></i> RELÂMPAGO
                                         </span>
                                     @endif
                                 </p>
                                 @if (!empty($sabor['codimentacao']))
-                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ $sabor['codimentacao'] }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ $sabor['codimentacao'] }}</p>
                                 @endif
                                 <div class="flex items-baseline gap-1.5 mt-0.5">
                                     @if ($sabor['preco'] < $sabor['precoOriginal'])
@@ -668,28 +724,25 @@
                                 </div>
                                 @if (!empty($sabor['controlaEstoque']))
                                     @php $saldoSabor = (float) $sabor['saldoEstoque']; @endphp
-                                    <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold mt-0.5 {{ $saldoSabor > 0 ? 'text-gray-400 dark:text-gray-500' : 'text-red-500 dark:text-red-400' }}">
+                                    <span class="inline-flex items-center gap-0.5 text-xs font-semibold mt-0.5 {{ $saldoSabor > 0 ? 'text-gray-500 dark:text-gray-400' : 'text-red-500 dark:text-red-400' }}">
                                         <i class='bx bxs-package'></i>
                                         {{ $saldoSabor == floor($saldoSabor) ? (int) $saldoSabor : number_format($saldoSabor, 2, ',', '.') }} {{ $sabor['unidadeEstoque'] }}
                                     </span>
                                 @endif
                             </div>
-                            <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors text-white text-xs font-bold
-                                {{ $selecionado ? 'bg-teal-500' : 'bg-gray-200 dark:bg-gray-700' }}">
-                                @if ($selecionado){{ $posLabel ?? '✓' }}@endif
-                            </div>
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors text-white text-sm font-bold"
+                                 :class="marcado({{ (int) $sabor['id'] }}) ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'"
+                                 x-text="marcado({{ (int) $sabor['id'] }}) ? (modo > 1 ? posicao({{ (int) $sabor['id'] }}) + 'º' : '✓') : ''"></div>
                         </div>
                     @endforeach
                 </div>
 
                 {{-- Rodapé --}}
                 <div class="px-5 py-4 border-t border-gray-100 dark:border-white/10 shrink-0 space-y-3">
-                    @if ($numSel > 0)
-                        <p class="text-gray-500 dark:text-gray-400 text-xs">
-                            <span class="font-semibold text-gray-700 dark:text-gray-300">Selecionados:</span>
-                            {{ implode(' / ', array_column($saboresSelecionados, 'nome')) }}
-                        </p>
-                    @endif
+                    <p x-show="ids.length > 0" x-cloak class="text-gray-500 dark:text-gray-400 text-xs">
+                        <span class="font-semibold text-gray-700 dark:text-gray-300">Selecionados:</span>
+                        <span x-text="nomes"></span>
+                    </p>
 
                     @include('livewire.partials.perguntas-item')
 
@@ -714,18 +767,22 @@
 
                     <input type="text" wire:model="saboresObservacao" maxlength="255"
                         placeholder="Observação (ex.: sem cebola, bem assada)"
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-xl bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-xl bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+
+                    @if ($erroPromocao)
+                        <p class="text-sm text-red-600 dark:text-red-400">{{ $erroPromocao }}</p>
+                    @endif
 
                     <div class="flex gap-3">
                         <button wire:click="fecharSaboresModal" type="button"
-                            class="flex-1 py-2.5 border border-gray-300 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                            class="flex-1 min-h-11 py-2.5 border border-gray-300 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                             Cancelar
                         </button>
-                        <button wire:click="confirmarSabores" type="button"
-                            @disabled(!$pronto)
-                            class="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm
-                                {{ $pronto ? 'bg-teal-600 hover:bg-teal-700 text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-gray-600 cursor-not-allowed' }}">
-                            {{ $pronto ? 'Confirmar' : 'Selecione ' . ($saboresModo - $numSel) . ' mais' }}
+                        <button @click="$wire.confirmarSabores(ids)" type="button"
+                            :disabled="! pronto"
+                            :class="pronto ? 'bg-primary-600 hover:bg-primary-700 text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-gray-500 cursor-not-allowed'"
+                            class="flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm"
+                            x-text="pronto ? 'Confirmar' : 'Selecione ' + (modo - ids.length) + ' mais'">
                         </button>
                     </div>
                 </div>

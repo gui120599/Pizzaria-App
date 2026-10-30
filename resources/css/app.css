@@ -3,5 +3,16 @@
 @plugin '@tailwindcss/forms';
 
 @theme {
+    /* Tons da brasa da marca: o seletor de produtos é compartilhado com os painéis Filament, onde `primary` é a brasa. */
+    --color-primary-50: #FFF7ED;
+    --color-primary-100: #FFEDD5;
+    --color-primary-200: #FED7AA;
+    --color-primary-300: #FDBA74;
+    --color-primary-400: #E8673A;
+    --color-primary-500: #CC450E;
+    --color-primary-600: #C2410C;
+    --color-primary-700: #9A3412;
+    --color-primary-800: #7C2D12;
+
     --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
