@@ -116,7 +116,7 @@ class EntregaPagamentoPicker extends Component
         return $id ? OpcoesPagamento::find($id)?->opcaopag_desc_nfe === 'cash' : false;
     }
 
-    /** Preenche o saldo restante (total - soma já digitada) na 1ª linha em branco. */
+    /** Preenche o saldo restante (total - soma já digitada) na 1ª linha em branco; devolve se o valor mudou. */
     private function preencherRestante(): bool
     {
         $indiceEmBranco = null;
@@ -134,8 +134,17 @@ class EntregaPagamentoPicker extends Component
         }
 
         $somaDigitada = $this->somaExceto($indiceEmBranco);
-        $restante = max(0, $this->total - $somaDigitada);
-        $this->pagamentos[$indiceEmBranco]['valor'] = $this->formatarValor($restante);
+        $restante = $this->formatarValor(max(0, $this->total - $somaDigitada));
+
+        // Só conta como mudança se o valor realmente mudou. Sem isso, total 0
+        // (carrinho vazio) regravava "0,00" a cada render e o render emitia o
+        // evento de novo: o pai re-renderizava, o filho (#[Reactive]) também, e
+        // a tela ficava em laço de requisições mesmo parada.
+        if (($this->pagamentos[$indiceEmBranco]['valor'] ?? '') === $restante) {
+            return false;
+        }
+
+        $this->pagamentos[$indiceEmBranco]['valor'] = $restante;
 
         return true;
     }

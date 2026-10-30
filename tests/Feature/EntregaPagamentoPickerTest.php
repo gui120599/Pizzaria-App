@@ -103,4 +103,27 @@ class EntregaPagamentoPickerTest extends TestCase
             ->assertSet('requerEndereco', true)
             ->assertSeeHtml('open: true');
     }
+
+    public function test_total_zero_nao_emite_o_evento_em_laco(): void
+    {
+        // Carrinho vazio: a linha em branco já está em "0,00" e não há o que preencher.
+        // Antes, cada render regravava o valor e emitia o evento (laço de requisições).
+        Livewire::test(EntregaPagamentoPicker::class, ['total' => 0.0])
+            ->assertNotDispatched('pedido-entrega-pagamento-atualizado')
+            ->call('$refresh')
+            ->assertNotDispatched('pedido-entrega-pagamento-atualizado');
+    }
+
+    public function test_preencher_o_restante_emite_uma_vez_e_estabiliza(): void
+    {
+        $dinheiro = OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_desc_nfe' => 'cash']);
+
+        Livewire::test(EntregaPagamentoPicker::class, ['total' => 50.0, 'inicial' => ['pagamentos' => [
+            ['opcaoPagamentoId' => $dinheiro->id, 'valor' => '0,00', 'trocoPara' => null, 'pago' => false, 'pagoInfo' => null],
+        ]]])
+            ->assertDispatched('pedido-entrega-pagamento-atualizado')
+            ->assertSet('pagamentos.0.valor', '50,00')
+            ->call('$refresh')
+            ->assertNotDispatched('pedido-entrega-pagamento-atualizado');
+    }
 }
