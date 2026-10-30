@@ -367,7 +367,7 @@
                     {{-- Adicionais --}}
                     @if (count($adicionaisDisponiveis) > 0)
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Adicionais</label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quer adicionar algo?</label>
                             <div class="space-y-1.5 max-h-40 overflow-y-auto">
                                 @foreach ($adicionaisDisponiveis as $adicional)
                                     @php $sel = in_array($adicional['id'], $adicionaisSelecionados); @endphp
@@ -555,7 +555,9 @@
              x-data="{
                 modo: 1,
                 ids: [],
-                sabores: @js(array_map(fn ($s) => ['id' => (int) $s['id'], 'nome' => $s['nome'], 'foto' => $s['fotoPizza'] ?? $s['foto'], 'preco' => (float) $s['preco']], $saboresProdutos)),
+                adicionaisMarcados: [],
+                etapaAdicionais: false,
+                sabores: @js(array_map(fn ($s) => ['id' => (int) $s['id'], 'nome' => $s['nome'], 'foto' => $s['fotoPizza'] ?? $s['foto'], 'preco' => (float) $s['preco'], 'adicionais' => $s['adicionais'] ?? []], $saboresProdutos)),
                 regra: @js($saboresRegraPreco),
                 formato: @js($saboresFormato),
                 init() {
@@ -567,10 +569,41 @@
                 get escolhidos() { return this.ids.map(id => this.sabores.find(s => s.id === id)).filter(Boolean); },
                 get pronto() { return this.ids.length === this.modo; },
                 get nomes() { return this.escolhidos.map(s => s.nome).join(' / '); },
+                /** Adicionais vinculados a TODOS os sabores escolhidos (a regra do servidor). */
+                get adicionaisComuns() {
+                    const escolhidos = this.escolhidos;
+                    if (! escolhidos.length) { return []; }
+                    return escolhidos
+                        .map(s => s.adicionais)
+                        .reduce((comuns, doSabor) => comuns.filter(a => doSabor.some(b => b.id === a.id)));
+                },
+                get adicionaisValidos() {
+                    const comuns = this.adicionaisComuns.map(a => a.id);
+                    return this.adicionaisMarcados.filter(id => comuns.includes(id));
+                },
+                get valorAdicionais() {
+                    return this.adicionaisComuns.filter(a => this.adicionaisValidos.includes(a.id)).reduce((t, a) => t + a.valor, 0);
+                },
+                /** Pizza sem adicional comum confirma direto; com adicional, abre a pergunta em um segundo modal. */
+                continuar() {
+                    if (! this.pronto) { return; }
+                    if (this.adicionaisComuns.length > 0) { this.etapaAdicionais = true; return; }
+                    this.$wire.confirmarSabores(this.ids, []);
+                },
+                async confirmarComAdicionais(comAdicionais) {
+                    const lista = comAdicionais ? this.adicionaisValidos : [];
+                    this.etapaAdicionais = false;
+                    await this.$wire.confirmarSabores(this.ids, lista);
+                },
+                alternarAdicional(id) {
+                    this.adicionaisMarcados = this.adicionaisMarcados.includes(id)
+                        ? this.adicionaisMarcados.filter(i => i !== id)
+                        : [...this.adicionaisMarcados, id];
+                },
                 get previa() {
                     if (! this.escolhidos.length) { return null; }
                     const centavos = this.escolhidos.map(s => Math.round(s.preco * 100));
-                    return (this.regra === 'MAIOR' ? Math.max(...centavos) : Math.round(centavos.reduce((a, b) => a + b, 0) / this.escolhidos.length)) / 100;
+                    return ((this.regra === 'MAIOR' ? Math.max(...centavos) : Math.round(centavos.reduce((a, b) => a + b, 0) / this.escolhidos.length)) + Math.round(this.valorAdicionais * 100)) / 100;
                 },
                 get regraTexto() {
                     if (this.modo < 2) { return ''; }
@@ -778,12 +811,61 @@
                             class="flex-1 min-h-11 py-2.5 border border-gray-300 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                             Cancelar
                         </button>
-                        <button @click="$wire.confirmarSabores(ids)" type="button"
+                        <button @click="continuar()" type="button"
                             :disabled="! pronto"
                             :class="pronto ? 'bg-primary-600 hover:bg-primary-700 text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-gray-500 cursor-not-allowed'"
                             class="flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm"
-                            x-text="pronto ? 'Confirmar' : 'Selecione ' + (modo - ids.length) + ' mais'">
+                            x-text="pronto ? (adicionaisComuns.length > 0 ? 'Continuar' : 'Confirmar') : 'Selecione ' + (modo - ids.length) + ' mais'">
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Segundo modal: pergunta de adicionais, só quando os sabores escolhidos têm adicional em comum --}}
+            <div x-show="etapaAdicionais" x-cloak x-transition.opacity class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center"
+                 @keydown.escape.window="etapaAdicionais = false">
+                <div class="absolute inset-0 bg-black/60" @click="etapaAdicionais = false"></div>
+                <div class="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh]" role="dialog" aria-modal="true" aria-labelledby="titulo-adicionais-sabores">
+                    <div class="px-5 py-4 border-b border-gray-100 dark:border-white/10 shrink-0">
+                        <h3 id="titulo-adicionais-sabores" class="text-gray-800 dark:text-gray-200 font-bold text-base">Quer adicionar algo?</h3>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5" x-text="nomes"></p>
+                    </div>
+                    <div class="overflow-y-auto flex-1 px-5 py-3 space-y-2">
+                        <template x-for="adicional in adicionaisComuns" :key="adicional.id">
+                            <button type="button" @click="alternarAdicional(adicional.id)"
+                                :aria-pressed="adicionaisValidos.includes(adicional.id)"
+                                :class="adicionaisValidos.includes(adicional.id) ? 'border-primary-400 dark:border-primary-500/50 bg-primary-50 dark:bg-primary-500/10' : 'border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 hover:border-primary-300'"
+                                class="w-full min-h-12 flex items-center justify-between gap-3 p-3 rounded-xl border text-left transition-colors">
+                                <span class="flex items-center gap-3 min-w-0">
+                                    <span class="w-5 h-5 shrink-0 rounded border flex items-center justify-center text-xs text-white"
+                                          :class="adicionaisValidos.includes(adicional.id) ? 'border-primary-600 bg-primary-600' : 'border-gray-300 dark:border-white/20'"
+                                          x-text="adicionaisValidos.includes(adicional.id) ? '✓' : ''"></span>
+                                    <span class="text-sm text-gray-700 dark:text-gray-300 truncate" x-text="adicional.nome"></span>
+                                </span>
+                                <span class="text-sm font-semibold text-green-600 dark:text-green-400 shrink-0" x-text="adicional.valor > 0 ? '+ ' + dinheiro(adicional.valor) : ''"></span>
+                            </button>
+                        </template>
+                    </div>
+                    <div class="px-5 py-4 border-t border-gray-100 dark:border-white/10 shrink-0 space-y-3">
+                        <p class="text-sm text-gray-800 dark:text-gray-200">
+                            Prévia: <span class="font-bold tabular-nums" x-text="dinheiro(previa)"></span>
+                            <span class="block text-xs text-gray-400 dark:text-gray-500">O valor final é calculado ao confirmar.</span>
+                        </p>
+                        <div class="flex gap-3">
+                            <button type="button" @click="etapaAdicionais = false"
+                                class="min-h-11 px-4 border border-gray-300 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                Voltar
+                            </button>
+                            <button type="button" @click="confirmarComAdicionais(false)"
+                                class="flex-1 min-h-11 border border-gray-300 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                Sem adicionais
+                            </button>
+                            <button type="button" @click="confirmarComAdicionais(true)" :disabled="adicionaisValidos.length === 0"
+                                :class="adicionaisValidos.length > 0 ? 'bg-primary-600 hover:bg-primary-700 text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-gray-500 cursor-not-allowed'"
+                                class="flex-1 min-h-11 rounded-xl text-sm font-bold transition-colors shadow-sm">
+                                Adicionar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

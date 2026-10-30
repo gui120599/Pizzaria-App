@@ -6,6 +6,8 @@ use App\Enums\FormatoPizzaEnum;
 use App\Enums\ProdutoTipoEnum;
 use App\Enums\RegraPrecoSaboresEnum;
 use App\Livewire\PedidoProdutoSelector;
+use App\Models\AdicionaisProduto;
+use App\Models\Adicional;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\Pedido;
@@ -156,5 +158,24 @@ class PedidoProdutoSelectorSaboresNavegadorTest extends TestCase
             ->call('confirmarSabores');
 
         $this->assertSame(55.0, (float) ItensPedido::sole()->item_pedido_valor);
+    }
+
+    public function test_adicionais_comuns_aos_sabores_sao_lancados_e_os_nao_comuns_ignorados(): void
+    {
+        $queijo = Adicional::create(['adicional_nome' => 'Queijo extra', 'adicional_valor' => 5]);
+        $bacon = Adicional::create(['adicional_nome' => 'Bacon', 'adicional_valor' => 7]);
+        foreach ([$this->calabresa, $this->mussarela] as $sabor) {
+            AdicionaisProduto::create(['ap_adicional_id' => $queijo->id, 'ap_produto_id' => $sabor->id]);
+        }
+        AdicionaisProduto::create(['ap_adicional_id' => $bacon->id, 'ap_produto_id' => $this->calabresa->id]);
+
+        $componente = $this->seletor(2)
+            ->assertSet('saboresProdutos', fn (array $s) => collect($s)->firstWhere('id', $this->calabresa->id)['adicionais'][0]['nome'] !== null);
+
+        $componente->call('confirmarSabores', [$this->calabresa->id, $this->mussarela->id], [$queijo->id, $bacon->id]);
+
+        $item = ItensPedido::sole();
+        $this->assertSame(5.0, (float) $item->item_pedido_valor_adicionais);
+        $this->assertSame([$queijo->id], $item->adicionaisItemPedido->pluck('aip_adicional_id')->all());
     }
 }
