@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Listeners\DesvincularPushNoLogout;
 use App\Models\Cliente;
 use App\Models\Comissao;
 use App\Models\Cupom;
@@ -15,8 +16,10 @@ use App\Observers\CupomObserver;
 use App\Observers\InfluenciadorObserver;
 use App\Observers\ItensVendaObserver;
 use App\Observers\HistoricoStatusPedidoObserver;
+use App\Observers\NotificacaoGarcomObserver;
 use App\Observers\PedidoObserver;
 use App\Observers\VendaObserver;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -32,6 +35,9 @@ class EventServiceProvider extends ServiceProvider
     protected $listen = [
         Registered::class => [
             SendEmailVerificationNotification::class,
+        ],
+        Logout::class => [
+            DesvincularPushNoLogout::class,
         ],
     ];
 
@@ -55,7 +61,7 @@ class EventServiceProvider extends ServiceProvider
      * Observadores de inserção ou alteração de objetos
      */
     protected $observers = [
-        Pedido::class => [PedidoObserver::class, HistoricoStatusPedidoObserver::class],
+        Pedido::class => [PedidoObserver::class, HistoricoStatusPedidoObserver::class, NotificacaoGarcomObserver::class],
         Venda::class => [VendaObserver::class],
         ItensVenda::class => [ItensVendaObserver::class],
         Cliente::class => [ClienteObserver::class],

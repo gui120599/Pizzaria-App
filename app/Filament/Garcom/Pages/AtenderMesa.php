@@ -10,6 +10,7 @@ use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
 use App\Filament\Concerns\ConcedeCortesiaNoItem;
 use App\Filament\Garcom\Concerns\CarrinhoLateral;
+use App\Filament\Garcom\Concerns\MostraAvisoResolvido;
 use App\Filament\Garcom\Concerns\RestritoAoSalao;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
@@ -54,6 +55,7 @@ class AtenderMesa extends Page
     use AutorizaComPinDeGerente;
     use CarrinhoLateral;
     use ConcedeCortesiaNoItem;
+    use MostraAvisoResolvido;
     use RestritoAoSalao;
 
     protected string $view = 'filament.garcom.pages.atender-mesa';
@@ -90,6 +92,8 @@ class AtenderMesa extends Page
 
     public function mount(int|string $sessao): void
     {
+        $this->avisarSeJaResolvido();
+
         $sessaoMesa = SessaoMesa::find($sessao);
 
         if (! $sessaoMesa || $sessaoMesa->sessao_mesa_status !== 'ABERTA') {

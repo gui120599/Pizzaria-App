@@ -4,6 +4,7 @@ namespace App\Filament\Garcom\Pages;
 
 use App\Enums\TipoMesaEnum;
 use App\Exceptions\MesaIndisponivelException;
+use App\Filament\Garcom\Concerns\MostraAvisoResolvido;
 use App\Models\Mesa;
 use App\Models\Pedido;
 use App\Services\Garcom\MapaMesasService;
@@ -27,6 +28,8 @@ use Livewire\Attributes\Url;
  */
 class MapaMesas extends Page
 {
+    use MostraAvisoResolvido;
+
     protected string $view = 'filament.garcom.pages.mapa-mesas';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;
@@ -66,6 +69,8 @@ class MapaMesas extends Page
 
     public function mount(): void
     {
+        $this->avisarSeJaResolvido();
+
         if (! Auth::user()?->atendeSalao()) {
             $this->redirect(filament()->getHomeUrl());
 

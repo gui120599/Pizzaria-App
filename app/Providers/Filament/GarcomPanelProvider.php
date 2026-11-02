@@ -11,7 +11,10 @@ use App\Filament\Garcom\Pages\ExecutarChecklist;
 use App\Filament\Garcom\Pages\MapaMesas;
 use App\Filament\Garcom\Pages\MeuEspelho;
 use App\Filament\Garcom\Pages\MeusRepasses;
+use App\Filament\Garcom\Pages\NotificacoesCelular;
 use App\Filament\Garcom\Resources\ChecklistExecucoes\ChecklistExecucaoResource;
+use App\Http\Controllers\Garcom\PwaGarcomController;
+use App\Services\Push\DispositivoPushService;
 use App\Support\PaletaMarca;
 use Filament\Actions\Action;
 use Filament\Http\Middleware\Authenticate;
@@ -29,6 +32,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Foundation\Vite;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
@@ -52,6 +56,18 @@ class GarcomPanelProvider extends PanelProvider
             // O desenho da pizza de sabores (seletor de produtos) vem de um módulo JS: o viteTheme só carrega CSS.
             ->renderHook(PanelsRenderHook::BODY_END, fn () => app(Vite::class)('resources/js/pizza-svg-painel.js'))
             ->viteTheme('resources/css/filament/garcom/theme.css')
+            // Push (PWA): manifest e Service Worker sem login (o navegador os busca sozinho); 404 com PIZZARIA_PUSH_ATIVO=false.
+            ->routes(function (): void {
+                Route::get('manifest.webmanifest', [PwaGarcomController::class, 'manifest'])->name('manifest');
+                Route::get('sw.js', [PwaGarcomController::class, 'serviceWorker'])->name('sw');
+            })
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => DispositivoPushService::ativo() ? view('filament.garcom.partials.pwa-head') : '')
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => DispositivoPushService::ativo() && auth()->user()?->atendeSalao()
+                    ? view('filament.garcom.partials.push-boot')
+                    : '',
+            )
             ->spa()
             ->topNavigation()
             ->maxContentWidth(Width::Full)
@@ -76,11 +92,17 @@ class GarcomPanelProvider extends PanelProvider
                 BaterPonto::class,
                 MeuEspelho::class,
                 MeusRepasses::class,
+                NotificacoesCelular::class,
             ])
             ->resources([
                 ChecklistExecucaoResource::class,
             ])
             ->userMenuItems([
+                'notificacoes' => Action::make('notificacoes')
+                    ->label('Notificações no celular')
+                    ->icon(Heroicon::OutlinedBell)
+                    ->url(fn (): string => NotificacoesCelular::getUrl())
+                    ->visible(fn (): bool => NotificacoesCelular::canAccess()),
                 'logout' => fn (Action $action) => $action
                     ->label('Trocar garçom / Sair')
                     ->icon(Heroicon::OutlinedArrowsRightLeft),

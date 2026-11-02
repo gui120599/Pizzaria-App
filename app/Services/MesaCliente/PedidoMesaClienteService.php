@@ -18,6 +18,8 @@ use App\Services\Garcom\AtendimentoMesaService;
 use App\Services\ItemSolicitado;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
+use App\Services\Push\NotificadorGarcom;
+use App\Support\Push\EventoGarcom;
 use App\Support\TotaisPedido;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
@@ -118,6 +120,8 @@ class PedidoMesaClienteService
 
         if ($motivos === []) {
             $this->atendimento->enviarRodada($pedido);
+        } else {
+            app(NotificadorGarcom::class)->notificar(EventoGarcom::aprovacao($pedido));
         }
 
         return $pedido->fresh();

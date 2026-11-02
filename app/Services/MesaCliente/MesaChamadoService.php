@@ -10,6 +10,8 @@ use App\Models\MesaParticipante;
 use App\Models\SessaoMesa;
 use App\Models\User;
 use App\Services\Garcom\AtendimentoMesaService;
+use App\Services\Push\NotificadorGarcom;
+use App\Support\Push\EventoGarcom;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -64,6 +66,9 @@ class MesaChamadoService
             if ($tipo === TipoChamadoMesaEnum::PEDIR_CONTA) {
                 app(AtendimentoMesaService::class)->solicitarConta($sessao);
             }
+
+            // Só chamado novo avisa; o PENDENTE repetido retorna antes.
+            app(NotificadorGarcom::class)->notificar(EventoGarcom::chamado($chamado));
 
             return $chamado;
         });

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DestinoAvisoMesaEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -46,6 +47,10 @@ class Empresa extends Model
         'empresa_sefaz_ultimo_nsu_revisao',
         'empresa_sefaz_ultima_revisao_em',
         'empresa_validade_link_ticket_horas',
+        'empresa_push_destino_mesa',
+        'empresa_push_repetir_ate_atender',
+        'empresa_push_repetir_intervalo_min',
+        'empresa_push_repetir_max',
         'empresa_plano_despesa_taxa_cartao_id',
         'empresa_plano_despesa_quebra_caixa_id',
         'empresa_plano_receita_sobra_caixa_id',
@@ -71,13 +76,18 @@ class Empresa extends Model
         'empresa_influ_teto_percentual' => 'decimal:2',
         'empresa_influ_teto_valor_fixo' => 'decimal:2',
         'empresa_influ_comissao_valor' => 'decimal:2',
+        'empresa_push_destino_mesa' => DestinoAvisoMesaEnum::class,
+        'empresa_push_repetir_ate_atender' => 'boolean',
     ];
 
     public const VALIDADE_LINK_TICKET_PADRAO_HORAS = 24;
 
     protected static function booted(): void
     {
-        static::saved(fn () => Cache::driver('array')->forget('empresa.validade_link_ticket_horas'));
+        static::saved(function (): void {
+            Cache::driver('array')->forget('empresa.validade_link_ticket_horas');
+            Cache::driver('array')->forget('empresa.configuracao_push');
+        });
     }
 
     /**
@@ -90,6 +100,27 @@ class Empresa extends Model
             'empresa.validade_link_ticket_horas',
             fn (): int => (int) (static::query()->value('empresa_validade_link_ticket_horas') ?: self::VALIDADE_LINK_TICKET_PADRAO_HORAS),
         );
+    }
+
+    /**
+     * Parâmetros do push do salão (seção "Notificações do salão" de
+     * ConfiguracaoPedidos), lidos num ponto só. Sem empresa cadastrada vale o padrão.
+     * Memoizada por request, como a validade do ticket.
+     *
+     * @return array{destino: DestinoAvisoMesaEnum, repetir: bool, intervalo_min: int, repetir_max: int}
+     */
+    public static function configuracaoPush(): array
+    {
+        return Cache::driver('array')->rememberForever('empresa.configuracao_push', function (): array {
+            $empresa = static::query()->first();
+
+            return [
+                'destino' => $empresa?->empresa_push_destino_mesa ?? DestinoAvisoMesaEnum::GARCOM_DA_MESA,
+                'repetir' => (bool) ($empresa?->empresa_push_repetir_ate_atender ?? true),
+                'intervalo_min' => max(1, min(30, (int) ($empresa?->empresa_push_repetir_intervalo_min ?: 2))),
+                'repetir_max' => max(1, min(60, (int) ($empresa?->empresa_push_repetir_max ?: 10))),
+            ];
+        });
     }
 
     /** Domínios aceitos no link da loja no Google Maps (ele aparece numa página pública). */

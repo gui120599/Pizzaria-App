@@ -10,6 +10,10 @@
         @include('filament.garcom.partials.sem-conexao')
         @include('filament.garcom.partials.alerta-pronto')
 
+        @if (config('pizzaria.push.ativo'))
+            @include('filament.garcom.partials.convite-push')
+        @endif
+
         @php
             $abas = ['MESA' => 'Mesas'];
             if ($this->temComandas()) {
