@@ -9,6 +9,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -121,11 +122,18 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'password' => 'hashed',
         'user_pin' => 'hashed',
         'preferencias' => 'array',
+        'user_push_preferencias' => 'array',
     ];
 
     public function balancos()
     {
         return $this->hasMany(MovimentacaoBalanco::class, 'mbal_usuario_id');
+    }
+
+    /** Aparelhos inscritos no push do painel do garçom. */
+    public function dispositivosPush(): HasMany
+    {
+        return $this->hasMany(DispositivoPush::class, 'dp_user_id');
     }
 
     /** Cadastro de colaborador da folha de ponto vinculado a este login. */

@@ -196,4 +196,59 @@ return [
         'polling_segundos' => 15,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Notificações push do Painel do Garçom
+    |--------------------------------------------------------------------------
+    |
+    | Web Push (Service Worker + VAPID) adicional ao polling do painel: avisa o
+    | garçom com o celular no bolso. Desligado (padrão), nada muda no painel —
+    | nem script, nem card de convite. Gere as chaves uma única vez com
+    | `php artisan push:gerar-vapid`; trocar as chaves invalida as inscrições.
+    | docs/plano/notificacoes-push-painel-garcom.md
+    |
+    */
+
+    'push' => [
+
+        'ativo' => (bool) env('PIZZARIA_PUSH_ATIVO', false),
+
+        'vapid' => [
+            'publica' => env('PIZZARIA_PUSH_VAPID_PUBLICA'),
+            'privada' => env('PIZZARIA_PUSH_VAPID_PRIVADA'),
+            // mailto: ou URL do site, exigido pelos serviços de push.
+            'subject' => env('PIZZARIA_PUSH_VAPID_SUBJECT'),
+        ],
+
+        // 'after_response' envia depois da resposta HTTP (sem worker);
+        // 'sync' envia na hora (testes e depuração).
+        'envio' => env('PIZZARIA_PUSH_ENVIO', 'after_response'),
+
+        // Validade (s) de cada evento no serviço de push; passado o prazo, a
+        // mensagem retida é descartada em vez de chegar atrasada.
+        'ttl' => [
+            'CHAMOU_GARCOM' => 300,
+            'PEDIU_CONTA' => 600,
+            'APROVAR_PEDIDO' => 600,
+            'PEDIDO_PRONTO' => 900,
+            'ABRIR_MESA' => 300,
+            'TESTE' => 120,
+        ],
+
+        'cooldown_segundos' => 60,
+        'teste_intervalo_segundos' => 30,
+        'max_falhas_consecutivas' => 5,
+
+        // Proteção anti-SSRF: o servidor faz POST na URL informada pelo
+        // navegador, então só hosts de serviços de push conhecidos. `*.` casa
+        // qualquer subdomínio.
+        'hosts_permitidos' => [
+            'fcm.googleapis.com',
+            '*.push.apple.com',
+            'updates.push.services.mozilla.com',
+            '*.push.services.mozilla.com',
+            '*.notify.windows.com',
+        ],
+    ],
+
 ];

@@ -2,10 +2,10 @@
 
 namespace App\Services\Cozinha;
 
-use App\Enums\Ponto\TipoMarcacao;
 use App\Exceptions\ProducaoException;
 use App\Models\PontoMarcacao;
 use App\Models\User;
+use App\Services\Ponto\PontoAbertoService;
 use App\Support\Cozinha\Operador;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -78,7 +78,7 @@ class OperadorCozinhaService
             return $usuarios;
         }
 
-        $comPontoAberto = $this->usuariosComPontoAberto($usuarios->modelKeys());
+        $comPontoAberto = app(PontoAbertoService::class)->usuariosComPontoAberto($usuarios->modelKeys());
 
         return $usuarios->filter(fn (User $user) => in_array($user->id, $comPontoAberto, true))->values();
     }
@@ -112,29 +112,5 @@ class OperadorCozinhaService
     private function ehContaDeEstacao(User $user): bool
     {
         return $user->hasRole(PareamentoDispositivoService::PAPEL_ESTACAO);
-    }
-
-    /**
-     * Última marcação das últimas 16 h é entrada ou volta do intervalo.
-     *
-     * @param  list<int>  $userIds
-     * @return list<int>
-     */
-    private function usuariosComPontoAberto(array $userIds): array
-    {
-        $ultimas = PontoMarcacao::query()
-            ->join('colaboradores', 'colaboradores.id', '=', 'ponto_marcacoes.colaborador_id')
-            ->whereIn('colaboradores.user_id', $userIds)
-            ->where('ponto_marcacoes.registrada_em', '>=', now()->subHours(16))
-            ->orderBy('ponto_marcacoes.registrada_em')
-            ->get(['colaboradores.user_id', 'ponto_marcacoes.tipo_sugerido'])
-            ->keyBy('user_id');
-
-        return $ultimas
-            ->filter(fn (PontoMarcacao $m) => in_array($m->tipo_sugerido, [TipoMarcacao::Entrada, TipoMarcacao::RetornoIntervalo], true))
-            ->keys()
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
     }
 }

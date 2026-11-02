@@ -140,6 +140,21 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // Push do salão (PIZZARIA_PUSH_ATIVO): repete avisos pendentes, reenvia
+        // falhas transitórias e limpa o histórico. Sem este cron o primeiro
+        // aviso funciona, mas não há repetição nem reenvio.
+        $schedule->command('push:lembrar-pendentes')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->command('push:reenviar-falhas')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->command('push:limpar')
+            ->dailyAt('04:30')
+            ->onOneServer();
+
         // Ponto: confere a cadeia de hash das marcações.
         $schedule->command('ponto:verificar-integridade')
             ->weeklyOn(1, '04:00')

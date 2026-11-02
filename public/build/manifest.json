@@ -24,17 +24,17 @@
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-B0nB0m0q.css",
+    "file": "assets/app-BgDQ5HNT.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/cardapio.css": {
-    "file": "assets/cardapio-zBgXeTxv.css",
+    "file": "assets/cardapio-B404XFo3.css",
     "src": "resources/css/cardapio.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-CMEqt_W8.css",
+    "file": "assets/theme-QqWHHkxp.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
@@ -44,7 +44,7 @@
     "isEntry": true
   },
   "resources/css/filament/garcom/theme.css": {
-    "file": "assets/theme-DUgBm-ie.css",
+    "file": "assets/theme-CjJA4aUW.css",
     "src": "resources/css/filament/garcom/theme.css",
     "isEntry": true
   },
@@ -56,6 +56,12 @@
     "imports": [
       "_pizza-svg-D5Qpga6C.js"
     ]
+  },
+  "resources/js/garcom-push.js": {
+    "file": "assets/garcom-push-sNVdRgM_.js",
+    "name": "garcom-push",
+    "src": "resources/js/garcom-push.js",
+    "isEntry": true
   },
   "resources/js/pizza-svg-painel.js": {
     "file": "assets/pizza-svg-painel-CGsh9oY-.js",

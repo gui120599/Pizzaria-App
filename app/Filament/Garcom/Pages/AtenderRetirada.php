@@ -9,6 +9,7 @@ use App\Exceptions\TransicaoPedidoInvalidaException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
 use App\Filament\Concerns\ConcedeCortesiaNoItem;
 use App\Filament\Garcom\Concerns\CarrinhoLateral;
+use App\Filament\Garcom\Concerns\MostraAvisoResolvido;
 use App\Filament\Garcom\Concerns\RestritoAoSalao;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
@@ -40,6 +41,7 @@ class AtenderRetirada extends Page
     use AutorizaComPinDeGerente;
     use CarrinhoLateral;
     use ConcedeCortesiaNoItem;
+    use MostraAvisoResolvido;
     use RestritoAoSalao;
 
     protected string $view = 'filament.garcom.pages.atender-retirada';
@@ -75,6 +77,8 @@ class AtenderRetirada extends Page
 
     public function mount(int|string|null $pedido = null): void
     {
+        $this->avisarSeJaResolvido();
+
         if ($pedido === null || $pedido === '') {
             // Itens do carrinho chegam do seletor (layoutDesktop notifica no mount).
             $this->rascunhoId = app(RetiradaService::class)->rascunho($this->usuario())->id;
