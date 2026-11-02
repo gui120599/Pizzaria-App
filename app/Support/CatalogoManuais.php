@@ -17,6 +17,8 @@ class CatalogoManuais
         'Manual-Checklists-Gerencia.pdf' => ['titulo' => 'Checklists — Gerência', 'descricao' => 'Modelos, aprovação e acompanhamento dos checklists.'],
         'Manual-Compras-Condicoes-Fornecedor.pdf' => ['titulo' => 'Compras — Condições do fornecedor', 'descricao' => 'Prazo, forma de pagamento e data de entrada pré-preenchidos no Confirmar compra.'],
         'Manual-Cozinha-Equipe.pdf' => ['titulo' => 'Cozinha (KDS) — Equipe', 'descricao' => 'Uso do tablet de produção pelos setores da cozinha.'],
+        'Manual-Notificacoes-Equipe.pdf' => ['titulo' => 'Notificações no celular — Equipe', 'descricao' => 'Como ativar as notificações e atender cada aviso do salão.'],
+        'Manual-Notificacoes-Configuracao.pdf' => ['titulo' => 'Notificações no celular — Configuração', 'descricao' => 'Ativação no servidor, parâmetros do Admin e solução de problemas do push.'],
         'Manual-Ponto-Equipe.pdf' => ['titulo' => 'Folha de Ponto — Equipe', 'descricao' => 'Como registrar entrada, intervalo e saída.'],
         'Manual-Ponto-Gerencia.pdf' => ['titulo' => 'Folha de Ponto — Gerência', 'descricao' => 'Espelho de ponto, correções e repasses.'],
         'Instrucoes-Integracao-Stone.pdf' => ['titulo' => 'Integração Connect Stone', 'descricao' => 'Cobrança na maquininha, estorno, cancelamento e conferência.'],
