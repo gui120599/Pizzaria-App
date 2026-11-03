@@ -48,7 +48,7 @@ class GarcomPanelProvider extends PanelProvider
             ->id('garcom')
             ->path('garcom')
             ->login(LoginGarcom::class)
-            ->favicon(asset('img/razelfood/favicon.ico'))
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('components.favicons-razelfood'))
             ->brandName('RazelFood Salão')
             ->brandLogo(fn () => view('components.marca-razelfood', ['modulo' => 'Salão']))
             ->brandLogoHeight('2.4rem')

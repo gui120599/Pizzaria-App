@@ -16,6 +16,7 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -33,7 +34,7 @@ class InfluenciadorPanelProvider extends PanelProvider
             ->authGuard('influenciador')
             ->login()
             ->registration(Register::class)
-            ->favicon(asset('img/razelfood/favicon.ico'))
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('components.favicons-razelfood'))
             ->brandName('RazelFood')
             ->brandLogo(fn () => view('components.marca-razelfood'))
             ->brandLogoHeight('2.25rem')
