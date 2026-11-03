@@ -10,7 +10,7 @@ namespace App\Support\Push;
 final class PayloadPush
 {
     /**
-     * @return array{titulo: string, corpo: string, url: string, tag: string, chave: string, criado_em: int, icone: string, badge: ?string}
+     * @return array{titulo: string, corpo: string, url: string, tag: string, chave: string, criado_em: int, icone: string, badge: string}
      */
     public static function montar(string $titulo, string $corpo, string $url, string $tag, string $chave): array
     {
@@ -21,8 +21,8 @@ final class PayloadPush
             'tag' => $tag,
             'chave' => $chave,
             'criado_em' => now()->getTimestampMs(),
-            'icone' => asset('img/marca/icon-192.png'),
-            'badge' => file_exists(public_path('img/marca/badge-96.png')) ? asset('img/marca/badge-96.png') : null,
+            'icone' => asset('img/razelfood/icon-192.png'),
+            'badge' => asset('img/razelfood/badge-96.png'),
         ];
     }
 }

@@ -28,4 +28,27 @@ class PaletaMarca
             950 => '#431407',
         ];
     }
+
+    /**
+     * Azul-marinho do símbolo e do nome "Razel" da logo RazelFood. Cor de
+     * apoio dos painéis internos (tom 800 = #0B3C5C, o marinho da logo).
+     *
+     * @return array<int, string>
+     */
+    public static function marinho(): array
+    {
+        return [
+            50 => '#EFF8FD',
+            100 => '#D6EEF9',
+            200 => '#B0DDF2',
+            300 => '#7CC4E6',
+            400 => '#3FA3D1',
+            500 => '#1E86B6',
+            600 => '#146A96',
+            700 => '#0F5478',
+            800 => '#0B3C5C',
+            900 => '#092F49',
+            950 => '#061E30',
+        ];
+    }
 }
