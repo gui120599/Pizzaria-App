@@ -16,10 +16,12 @@ use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -89,6 +91,9 @@ class UserResource extends Resource
                             // O cast 'hashed' do User gera o hash; vazio não sobrescreve.
                             ->formatStateUsing(fn (): ?string => null)
                             ->dehydrated(fn (?string $state): bool => filled($state)),
+                        Toggle::make('user_freelancer')
+                            ->label('Garçom freelancer (sem ponto)')
+                            ->helperText('Aparece na lista de plantão do Painel do Garçom: o gerente marca os dias em que ele trabalha e, nesses dias, ele recebe os avisos do salão sem bater ponto.'),
 
                     ]),
                 Section::make('Acesso')
@@ -125,6 +130,10 @@ class UserResource extends Resource
                 TextColumn::make('email')
                     ->label('Email address')
                     ->searchable(),
+                IconColumn::make('user_freelancer')
+                    ->label('Freelancer')
+                    ->boolean()
+                    ->toggleable(),
                 TextColumn::make('roles.name')
                     ->label('Papéis')
                     ->badge()

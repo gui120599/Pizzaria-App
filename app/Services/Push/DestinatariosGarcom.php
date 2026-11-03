@@ -5,19 +5,24 @@ namespace App\Services\Push;
 use App\Enums\DestinoAvisoMesaEnum;
 use App\Models\Empresa;
 use App\Models\User;
+use App\Services\Garcom\PlantaoFreelancerService;
 use App\Services\Ponto\PontoAbertoService;
 use App\Support\Push\EventoGarcom;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Quem recebe cada aviso (plano, seção 8.4): o dono da mesa recebe sempre; no
- * modo "todos em turno" entram também os garçons com ponto aberto; "quer abrir
- * a mesa" ainda não tem dono e vai só para quem está com o ponto aberto.
+ * modo "todos em turno" entram também os garçons com ponto aberto e os
+ * freelancers marcados no plantão do dia; "quer abrir a mesa" ainda não tem
+ * dono e vai só para quem está em turno (ponto aberto ou plantão).
  * Respeita as preferências de cada usuário.
  */
 class DestinatariosGarcom
 {
-    public function __construct(private readonly PontoAbertoService $ponto) {}
+    public function __construct(
+        private readonly PontoAbertoService $ponto,
+        private readonly PlantaoFreelancerService $plantao,
+    ) {}
 
     /**
      * @return Collection<int, User>
@@ -40,7 +45,11 @@ class DestinatariosGarcom
             || Empresa::configuracaoPush()['destino'] === DestinoAvisoMesaEnum::TODOS_EM_TURNO;
 
         if ($todosEmTurno) {
-            $ids = [...$ids, ...$this->ponto->usuariosComPontoAberto($candidatos->keys()->all())];
+            $ids = [
+                ...$ids,
+                ...$this->ponto->usuariosComPontoAberto($candidatos->keys()->all()),
+                ...$this->plantao->marcadosHoje(),
+            ];
         }
 
         return $candidatos

@@ -12,15 +12,18 @@ use App\Filament\Garcom\Pages\MapaMesas;
 use App\Filament\Garcom\Pages\MeuEspelho;
 use App\Filament\Garcom\Pages\MeusRepasses;
 use App\Filament\Garcom\Pages\NotificacoesCelular;
+use App\Filament\Garcom\Pages\PlantaoFreelancers;
 use App\Filament\Garcom\Resources\ChecklistExecucoes\ChecklistExecucaoResource;
 use App\Http\Controllers\Garcom\PwaGarcomController;
 use App\Services\Push\DispositivoPushService;
 use App\Support\PaletaMarca;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Enums\Width;
@@ -96,6 +99,15 @@ class GarcomPanelProvider extends PanelProvider
                 MeuEspelho::class,
                 MeusRepasses::class,
                 NotificacoesCelular::class,
+                PlantaoFreelancers::class,
+            ])
+            // Volta ao painel administrativo para quem tem acesso a ele (mesmo critério do login do /admin).
+            ->navigationItems([
+                NavigationItem::make('Painel administrativo')
+                    ->url(fn (): string => Filament::getPanel('admin')->getUrl())
+                    ->icon(Heroicon::OutlinedComputerDesktop)
+                    ->sort(100)
+                    ->visible(fn (): bool => (bool) auth()->user()?->canAccessPanel(Filament::getPanel('admin'))),
             ])
             ->resources([
                 ChecklistExecucaoResource::class,
