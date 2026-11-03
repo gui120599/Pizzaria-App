@@ -19,28 +19,22 @@ class PwaGarcomController extends Controller
     {
         abort_unless(config('pizzaria.push.ativo'), 404);
 
-        $icones = [['src' => asset('img/marca/icon-192.png'), 'sizes' => '192x192', 'type' => 'image/png']];
-
-        if (file_exists(public_path('img/marca/icon-512.png'))) {
-            $icones[] = ['src' => asset('img/marca/icon-512.png'), 'sizes' => '512x512', 'type' => 'image/png'];
-        } else {
-            $icones[] = ['src' => asset('favicon.png'), 'sizes' => '1080x1080', 'type' => 'image/png'];
-        }
-
-        if (file_exists(public_path('img/marca/icon-maskable-512.png'))) {
-            $icones[] = ['src' => asset('img/marca/icon-maskable-512.png'), 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'];
-        }
+        $icones = [
+            ['src' => asset('img/razelfood/icon-192.png'), 'sizes' => '192x192', 'type' => 'image/png'],
+            ['src' => asset('img/razelfood/icon-512.png'), 'sizes' => '512x512', 'type' => 'image/png'],
+            ['src' => asset('img/razelfood/icon-maskable-512.png'), 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
+        ];
 
         return response()->json([
             'id' => '/garcom/',
-            'name' => config('app.name').' — Salão',
+            'name' => 'RazelFood — Salão',
             'short_name' => 'Salão',
             'start_url' => '/garcom',
             'scope' => '/garcom/',
             'display' => 'standalone',
             'orientation' => 'portrait',
             'background_color' => '#ffffff',
-            'theme_color' => '#c2410c',
+            'theme_color' => '#0b3c5c',
             'icons' => $icones,
         ], headers: ['Content-Type' => 'application/manifest+json']);
     }

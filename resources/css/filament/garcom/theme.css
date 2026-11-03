@@ -1,4 +1,5 @@
 @import '../../../../vendor/filament/filament/resources/css/theme.css';
+@import '../../marca/razelfood.css';
 @import url('/node_modules/boxicons/css/boxicons.min.css');
 
 @source '../../../../app/Filament/Garcom/**/*';

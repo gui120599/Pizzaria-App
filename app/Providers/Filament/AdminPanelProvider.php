@@ -38,10 +38,14 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            // Mesmo favicon dos layouts Blade legados (resources/views/layouts/*.blade.php).
-            ->favicon(asset('favicon.png'))
+            // Marca RazelFood (o Empório da Pizza segue no cardápio e nos documentos do cliente).
+            ->favicon(asset('img/razelfood/favicon.ico'))
+            ->brandName('RazelFood')
+            ->brandLogo(fn () => view('components.marca-razelfood'))
+            ->brandLogoHeight('2.25rem')
             ->colors([
                 'primary' => PaletaMarca::brasa(),
+                'info' => PaletaMarca::marinho(),
             ])
             // O desenho da pizza de sabores (seletor de produtos) vem de um módulo JS: o viteTheme só carrega CSS.
             ->renderHook(PanelsRenderHook::BODY_END, fn () => app(Vite::class)('resources/js/pizza-svg-painel.js'))

@@ -9,6 +9,7 @@ use App\Filament\Cozinha\Pages\ExecutarChecklistCozinha;
 use App\Filament\Cozinha\Pages\Expedicao;
 use App\Http\Controllers\Cozinha\PareamentoController;
 use App\Http\Middleware\IdentificaDispositivoCozinha;
+use App\Support\PaletaMarca;
 use Filament\Actions\Action;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -42,10 +43,13 @@ class CozinhaPanelProvider extends PanelProvider
             ->id('cozinha')
             ->path('cozinha')
             ->login()
-            ->favicon(asset('favicon.png'))
-            ->brandName('Cozinha')
+            ->favicon(asset('img/razelfood/favicon.ico'))
+            ->brandName('RazelFood Cozinha')
+            ->brandLogo(fn () => view('components.marca-razelfood', ['modulo' => 'Cozinha']))
+            ->brandLogoHeight('2.4rem')
             ->colors([
                 'primary' => Color::Orange,
+                'info' => PaletaMarca::marinho(),
             ])
             ->darkMode(true, isForced: true)
             ->viteTheme('resources/css/filament/cozinha/theme.css')
@@ -65,7 +69,7 @@ class CozinhaPanelProvider extends PanelProvider
             ->routes(function (): void {
                 Route::get('parear/{token}', PareamentoController::class)->name('parear');
                 Route::get('manifest.webmanifest', fn (): JsonResponse => response()->json([
-                    'name' => config('app.name').' — Cozinha',
+                    'name' => 'RazelFood — Cozinha',
                     'short_name' => 'Cozinha',
                     'start_url' => '/cozinha',
                     'scope' => '/cozinha',
@@ -73,7 +77,11 @@ class CozinhaPanelProvider extends PanelProvider
                     'orientation' => 'landscape',
                     'background_color' => '#111827',
                     'theme_color' => '#f97316',
-                    'icons' => [['src' => asset('favicon.png'), 'sizes' => '512x512', 'type' => 'image/png']],
+                    'icons' => [
+                        ['src' => asset('img/razelfood/icon-192.png'), 'sizes' => '192x192', 'type' => 'image/png'],
+                        ['src' => asset('img/razelfood/icon-512.png'), 'sizes' => '512x512', 'type' => 'image/png'],
+                        ['src' => asset('img/razelfood/icon-maskable-512.png'), 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
+                    ],
                 ], headers: ['Content-Type' => 'application/manifest+json']))->name('manifest');
             })
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('cozinha.partials.pwa-head'))

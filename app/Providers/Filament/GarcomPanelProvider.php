@@ -48,10 +48,13 @@ class GarcomPanelProvider extends PanelProvider
             ->id('garcom')
             ->path('garcom')
             ->login(LoginGarcom::class)
-            ->favicon(asset('favicon.png'))
-            ->brandName('Salão')
+            ->favicon(asset('img/razelfood/favicon.ico'))
+            ->brandName('RazelFood Salão')
+            ->brandLogo(fn () => view('components.marca-razelfood', ['modulo' => 'Salão']))
+            ->brandLogoHeight('2.4rem')
             ->colors([
                 'primary' => PaletaMarca::brasa(),
+                'info' => PaletaMarca::marinho(),
             ])
             // O desenho da pizza de sabores (seletor de produtos) vem de um módulo JS: o viteTheme só carrega CSS.
             ->renderHook(PanelsRenderHook::BODY_END, fn () => app(Vite::class)('resources/js/pizza-svg-painel.js'))

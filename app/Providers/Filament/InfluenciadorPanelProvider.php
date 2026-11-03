@@ -33,7 +33,10 @@ class InfluenciadorPanelProvider extends PanelProvider
             ->authGuard('influenciador')
             ->login()
             ->registration(Register::class)
-            ->favicon(asset('favicon.png'))
+            ->favicon(asset('img/razelfood/favicon.ico'))
+            ->brandName('RazelFood')
+            ->brandLogo(fn () => view('components.marca-razelfood'))
+            ->brandLogoHeight('2.25rem')
             ->colors([
                 'primary' => Color::Emerald,
             ])

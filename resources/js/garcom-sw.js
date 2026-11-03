@@ -23,7 +23,7 @@ self.addEventListener('push', (event) => {
         body: dados.corpo || '',
         tag: dados.tag || undefined,
         renotify: Boolean(dados.tag),
-        icon: dados.icone || '/img/marca/icon-192.png',
+        icon: dados.icone || '/img/razelfood/icon-192.png',
         timestamp: dados.criado_em || Date.now(),
         vibrate: [200, 100, 200],
         data: { url: dados.url || PAINEL, chave: dados.chave || null },

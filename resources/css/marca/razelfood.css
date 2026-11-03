@@ -1,0 +1,13 @@
+/*
+ * Marca RazelFood nos painéis internos (admin, garçom, cozinha).
+ * O Empório da Pizza segue como identidade do cardápio e dos documentos do
+ * cliente (forno-aceso.css); aqui só entra o apoio azul-marinho da logo do
+ * sistema. Os botões continuam na brasa (contraste do branco 5,2:1).
+ */
+.fi-topbar {
+    border-top: 3px solid #0B3C5C;
+}
+
+.dark .fi-topbar {
+    border-top-color: #1E86B6;
+}
