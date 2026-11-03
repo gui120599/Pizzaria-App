@@ -130,7 +130,7 @@ class ConfiguracaoPedidos extends Page
                             ->options(DestinoAvisoMesaEnum::opcoes())
                             ->native(false)
                             ->required()
-                            ->helperText('O garçom que abriu a mesa sempre recebe. "Quer abrir a mesa" vai sempre para todos com ponto aberto. O ponto aberto vem da folha de ponto: quem não tem cadastro de colaborador não conta como em turno.')
+                            ->helperText('O garçom que abriu a mesa sempre recebe. "Quer abrir a mesa" vai sempre para todos com ponto aberto. Em turno é quem está com o ponto aberto na folha de ponto ou, para garçons freelancers (sem ponto), quem o gerente marcou no Plantão do Painel do Garçom no dia. Quem não tem cadastro de colaborador e não foi marcado no plantão não conta como em turno.')
                             ->columnSpanFull(),
                         Toggle::make('empresa_push_repetir_ate_atender')
                             ->label('Repetir o aviso até o chamado ser atendido')

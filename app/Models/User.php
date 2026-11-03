@@ -54,6 +54,12 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         return $this->hasAnyRole(self::PANEL_ROLES);
     }
 
+    /** Gerência do salão: marca o plantão dos freelancers, entre outras ações. */
+    public function ehGerencia(): bool
+    {
+        return $this->hasAnyRole(['Admin', 'Gerente']);
+    }
+
     /** Opera mesas/comandas/retiradas no /garcom (e não só checklists). */
     public function atendeSalao(): bool
     {
@@ -89,6 +95,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'name_first',
         'avatar',
         'user_pin',
+        'user_freelancer',
     ];
 
     /**
@@ -123,6 +130,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'user_pin' => 'hashed',
         'preferencias' => 'array',
         'user_push_preferencias' => 'array',
+        'user_freelancer' => 'boolean',
     ];
 
     public function balancos()
