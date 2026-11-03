@@ -43,7 +43,7 @@ class CozinhaPanelProvider extends PanelProvider
             ->id('cozinha')
             ->path('cozinha')
             ->login()
-            ->favicon(asset('img/razelfood/favicon.ico'))
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('components.favicons-razelfood'))
             ->brandName('RazelFood Cozinha')
             ->brandLogo(fn () => view('components.marca-razelfood', ['modulo' => 'Cozinha']))
             ->brandLogoHeight('2.4rem')

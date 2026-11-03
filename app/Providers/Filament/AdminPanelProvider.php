@@ -39,7 +39,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             // Marca RazelFood (o Empório da Pizza segue no cardápio e nos documentos do cliente).
-            ->favicon(asset('img/razelfood/favicon.ico'))
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('components.favicons-razelfood'))
             ->brandName('RazelFood')
             ->brandLogo(fn () => view('components.marca-razelfood'))
             ->brandLogoHeight('2.25rem')
