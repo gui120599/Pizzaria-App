@@ -8,18 +8,48 @@
          x-data="{
             carregando: true,
             ocupado: false,
-            suporte: 'indisponivel',
+            suporte: 'pendente',
             permissao: 'default',
             inscrito: false,
             erro: null,
+            falha: null,
+            detalhes: '',
             get ativo() { return this.inscrito && this.permissao === 'granted' && $wire.servidorAtivo; },
+            atualizarDetalhes() {
+                this.detalhes = window.GarcomPush
+                    ? JSON.stringify(window.GarcomPush.diagnostico(), null, 2)
+                    : 'O recurso de notificações (script) não carregou neste aparelho.';
+            },
             async atualizar() {
-                this.suporte = window.GarcomPush.suporte();
-                this.permissao = window.GarcomPush.permissao();
-                this.inscrito = Boolean(this.suporte === 'ok' && await window.GarcomPush.inscricaoAtual());
-                this.carregando = false;
+                try {
+                    this.suporte = window.GarcomPush.suporte();
+                    this.permissao = window.GarcomPush.permissao();
+                    this.inscrito = Boolean(this.suporte === 'ok' && await window.GarcomPush.inscricaoAtual());
+                    this.falha = null;
+                } catch (e) {
+                    this.falha = e.message;
+                } finally {
+                    this.carregando = false;
+                    this.atualizarDetalhes();
+                }
+            },
+            vigiar() {
+                setTimeout(() => {
+                    if (this.carregando) {
+                        this.carregando = false;
+                        this.falha = window.GarcomPush ? 'a verificação demorou demais' : 'o recurso de notificações não carregou';
+                        this.atualizarDetalhes();
+                    }
+                }, 14000);
+            },
+            refazer() {
+                this.carregando = true;
+                this.falha = null;
+                this.vigiar();
+                this.atualizar();
             },
             iniciar() {
+                this.vigiar();
                 const rodar = () => this.atualizar();
                 window.GarcomPush ? rodar() : window.addEventListener('garcom-push:pronto', rodar, { once: true });
             },
@@ -47,6 +77,22 @@
 
         <div x-show="carregando" class="rounded-2xl bg-white p-5 text-sm text-gray-500 ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
             Verificando este aparelho…
+        </div>
+
+        {{-- O app instalado no iPhone não tem botão de recarregar: a tela precisa sair sozinha do "Verificando". --}}
+        <div x-show="falha" x-cloak class="rounded-2xl bg-amber-50 p-5 text-sm text-amber-900 ring-1 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-200">
+            <div class="font-semibold">Não foi possível verificar este aparelho</div>
+            <p class="mt-1">Motivo: <span x-text="falha"></span>.</p>
+            <div class="mt-3 grid grid-cols-2 gap-3">
+                <button type="button" x-on:click="refazer()"
+                        class="rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white active:scale-[.98]">
+                    Tentar de novo
+                </button>
+                <button type="button" x-on:click="window.location.reload()"
+                        class="rounded-xl bg-white py-3 text-sm font-semibold text-gray-800 ring-1 ring-gray-300 active:scale-[.98] dark:bg-white/10 dark:text-gray-100 dark:ring-white/20">
+                    Recarregar a tela
+                </button>
+            </div>
         </div>
 
         <div x-show="! carregando" x-cloak class="space-y-4">
@@ -173,6 +219,17 @@
                     </template>
                 </div>
             </template>
+        </div>
+
+        <div class="space-y-2 pt-2 text-center">
+            <button type="button" x-on:click="window.location.reload()"
+                    class="text-sm font-medium text-gray-500 underline dark:text-gray-400">
+                Recarregar esta tela
+            </button>
+            <details class="text-left text-xs text-gray-500 dark:text-gray-400">
+                <summary class="cursor-pointer text-center">Detalhes técnicos</summary>
+                <pre class="mt-2 whitespace-pre-wrap break-all rounded-xl bg-gray-100 p-3 dark:bg-white/5" x-text="detalhes"></pre>
+            </details>
         </div>
     </div>
 </x-filament-panels::page>
