@@ -55,16 +55,67 @@ function suporte() {
 
 const permissao = () => ('Notification' in window ? Notification.permission : 'denied');
 
-async function registro() {
-    if (! temApis() || ! config().sw) {
+// Nenhuma etapa pode ficar pendente para sempre (no iOS instalado, `serviceWorker.ready` pode não resolver):
+// tudo que depende do navegador tem limite de tempo e o motivo da falha fica em `ultimoErro`.
+let ultimoErro = null;
+let swRegistrado = false;
+let registroEmCurso = null;
+
+const lembrar = (erro) => {
+    ultimoErro = erro && erro.message ? erro.message : String(erro);
+};
+
+function comLimite(promessa, ms, rotulo) {
+    let temporizador;
+    const limite = new Promise((_, rejeitar) => {
+        temporizador = setTimeout(() => rejeitar(new Error(`tempo esgotado ao ${rotulo}`)), ms);
+    });
+
+    return Promise.race([promessa, limite]).finally(() => clearTimeout(temporizador));
+}
+
+async function executarRegistro() {
+    if (! temApis()) {
+        return null;
+    }
+
+    if (! config().sw) {
+        lembrar('endereço do service worker ausente');
+
         return null;
     }
 
     try {
-        await navigator.serviceWorker.register(config().sw, { scope: config().escopo || '/garcom/' });
+        const reg = await comLimite(
+            navigator.serviceWorker.register(config().sw, { scope: config().escopo || '/garcom/' }),
+            5000,
+            'registrar o service worker',
+        );
+        swRegistrado = true;
 
-        return await navigator.serviceWorker.ready;
+        return reg.active ? reg : await comLimite(navigator.serviceWorker.ready, 5000, 'ativar o service worker');
     } catch (e) {
+        lembrar(e);
+
+        return null;
+    }
+}
+
+/** Registro do Service Worker (uma execução por vez, para as chamadas simultâneas não esperarem em dobro). */
+function registro() {
+    registroEmCurso = registroEmCurso || executarRegistro().finally(() => {
+        registroEmCurso = null;
+    });
+
+    return registroEmCurso;
+}
+
+async function lerInscricao(reg) {
+    try {
+        return await comLimite(reg.pushManager.getSubscription(), 3000, 'ler a inscrição');
+    } catch (e) {
+        lembrar(e);
+
         return null;
     }
 }
@@ -72,14 +123,28 @@ async function registro() {
 async function inscricaoAtual() {
     const reg = await registro();
 
-    return reg ? reg.pushManager.getSubscription() : null;
+    return reg ? lerInscricao(reg) : null;
 }
 
 async function inscrever(reg) {
-    return reg.pushManager.subscribe({
+    return comLimite(reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: chaveParaBytes(config().vapid),
-    });
+    }), 20000, 'inscrever no serviço de notificações');
+}
+
+/** Dados para o garçom mandar um print quando algo não funciona (tela Notificações no celular). */
+function diagnostico() {
+    return {
+        suporte: suporte(),
+        permissao: permissao(),
+        instalado: ehStandalone(),
+        ios: ehIos(),
+        https: window.isSecureContext,
+        serviceWorker: swRegistrado,
+        erro: ultimoErro,
+        navegador: navigator.userAgent.slice(0, 120),
+    };
 }
 
 /** Pede a permissão e inscreve. Só chamar a partir de um clique. */
@@ -97,10 +162,10 @@ async function ativar() {
     const reg = await registro();
 
     if (! reg) {
-        throw new Error('Não foi possível iniciar o serviço de notificações.');
+        throw new Error(`Não foi possível iniciar o serviço de notificações${ultimoErro ? ` (${ultimoErro})` : ''}.`);
     }
 
-    let inscricao = await reg.pushManager.getSubscription();
+    let inscricao = await lerInscricao(reg);
 
     if (inscricao && ! mesmaChave(inscricao, config().vapid)) {
         await inscricao.unsubscribe();
@@ -133,7 +198,7 @@ async function sincronizar(wire) {
         return;
     }
 
-    let inscricao = await reg.pushManager.getSubscription();
+    let inscricao = await lerInscricao(reg);
 
     if (! inscricao) {
         return;
@@ -195,6 +260,7 @@ window.GarcomPush = {
     sincronizar,
     fecharResolvidas,
     inscricaoAtual,
+    diagnostico,
     instalado: ehStandalone,
     ios: ehIos,
 };

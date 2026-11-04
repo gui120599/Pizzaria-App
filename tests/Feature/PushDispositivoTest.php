@@ -324,6 +324,17 @@ class PushDispositivoTest extends TestCase
         $this->assertFalse(DispositivoPush::query()->first()->dp_ativo);
     }
 
+    public function test_pagina_de_notificacoes_tem_saida_para_quando_a_verificacao_trava(): void
+    {
+        $this->actingAs($this->garcom());
+
+        Livewire::test(NotificacoesCelular::class)
+            ->assertSee('Recarregar esta tela')
+            ->assertSee('Recarregar a tela')
+            ->assertSee('Tentar de novo')
+            ->assertSee('Detalhes técnicos');
+    }
+
     public function test_pagina_recusa_endpoint_invalido_sem_gravar(): void
     {
         $this->actingAs($this->garcom());
