@@ -74,6 +74,24 @@ class Categoria extends Model
     }
 
     /**
+     * As categorias informadas mais todas as descendentes delas, pra filtrar
+     * "Pizzas" e pegar também "Pizzas Doces".
+     *
+     * @param  array<int|string>  $ids
+     * @return list<int>
+     */
+    public static function idsComSubcategorias(array $ids): array
+    {
+        return static::query()
+            ->whereKey($ids)
+            ->get()
+            ->flatMap(fn (Categoria $categoria): array => [$categoria->id, ...$categoria->idsDescendentes()])
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * IDs de todas as categorias descendentes desta (filhas, netas...). Usado
      * pra impedir escolher a própria categoria (ou uma descendente dela) como
      * pai, o que criaria um ciclo na hierarquia.

@@ -324,6 +324,95 @@ class AdicionalFilamentTest extends TestCase
             ->assertActionHidden(TestAction::make(DetachAction::class)->table($produto));
     }
 
+    public function test_aba_produtos_filtra_por_categoria_tipo_cardapio_e_valor(): void
+    {
+        $adicional = Adicional::factory()->create();
+        $pizzas = Categoria::create(['categoria_nome' => 'Pizzas']);
+        $doces = Categoria::create(['categoria_nome' => 'Pizzas Doces', 'categoria_pai_id' => $pizzas->id]);
+        $bebidas = Categoria::create(['categoria_nome' => 'Bebidas']);
+
+        $calabresa = $this->produto('Pizza Calabresa');
+        $calabresa->update(['produto_cardapio' => true]);
+        $chocolate = $this->produto('Pizza de Chocolate');
+        $chocolate->update(['produto_categoria_id' => $doces->id, 'produto_preco_venda' => 60]);
+        $refrigerante = $this->produto('Refrigerante Lata', ProdutoTipoEnum::REVENDA);
+        $refrigerante->update(['produto_categoria_id' => $bebidas->id, 'produto_preco_venda' => 7]);
+        $adicional->produtos()->attach([$calabresa->id, $chocolate->id, $refrigerante->id]);
+
+        $this->produtosDoAdicional($adicional)
+            ->filterTable('categoria', [$pizzas->id])
+            ->assertCanSeeTableRecords([$calabresa, $chocolate])
+            ->assertCanNotSeeTableRecords([$refrigerante])
+            ->resetTableFilters()
+            ->filterTable('produto_tipo', ProdutoTipoEnum::REVENDA->value)
+            ->assertCanSeeTableRecords([$refrigerante])
+            ->assertCanNotSeeTableRecords([$calabresa, $chocolate])
+            ->resetTableFilters()
+            ->filterTable('produto_cardapio', true)
+            ->assertCanSeeTableRecords([$calabresa])
+            ->assertCanNotSeeTableRecords([$chocolate, $refrigerante])
+            ->resetTableFilters()
+            ->filterTable('faixa_valor', ['valor_min' => 40, 'valor_max' => 50])
+            ->assertCanSeeTableRecords([$calabresa])
+            ->assertCanNotSeeTableRecords([$chocolate, $refrigerante]);
+    }
+
+    public function test_aba_produtos_ordena_por_categoria_e_valor(): void
+    {
+        $adicional = Adicional::factory()->create();
+        $bebidas = Categoria::create(['categoria_nome' => 'Bebidas']);
+        $calabresa = $this->produto('Pizza Calabresa');
+        $refrigerante = $this->produto('Refrigerante Lata', ProdutoTipoEnum::REVENDA);
+        $refrigerante->update(['produto_categoria_id' => $bebidas->id, 'produto_preco_venda' => 7]);
+        $adicional->produtos()->attach([$calabresa->id, $refrigerante->id]);
+
+        $this->produtosDoAdicional($adicional)
+            ->sortTable('categoria.categoria_nome')
+            ->assertCanSeeTableRecords([$refrigerante, $calabresa], inOrder: true)
+            ->sortTable('produto_preco_venda', 'desc')
+            ->assertCanSeeTableRecords([$calabresa, $refrigerante], inOrder: true);
+    }
+
+    public function test_lista_de_adicionais_filtra_por_vinculo_categoria_e_valor(): void
+    {
+        $bebidas = Categoria::create(['categoria_nome' => 'Bebidas']);
+        $refrigerante = $this->produto('Refrigerante Lata', ProdutoTipoEnum::REVENDA);
+        $refrigerante->update(['produto_categoria_id' => $bebidas->id]);
+        $pizza = $this->produto('Pizza Calabresa');
+
+        $borda = Adicional::factory()->create(['adicional_valor' => 8.50]);
+        $gelo = Adicional::factory()->create(['adicional_valor' => 1.00]);
+        $semVinculo = Adicional::factory()->create(['adicional_valor' => 20.00]);
+        $borda->produtos()->attach($pizza);
+        $gelo->produtos()->attach($refrigerante);
+
+        Livewire::test(ListAdicionais::class)
+            ->filterTable('vinculado', false)
+            ->assertCanSeeTableRecords([$semVinculo])
+            ->assertCanNotSeeTableRecords([$borda, $gelo])
+            ->resetTableFilters()
+            ->filterTable('categoria_produto', [$bebidas->id])
+            ->assertCanSeeTableRecords([$gelo])
+            ->assertCanNotSeeTableRecords([$borda, $semVinculo])
+            ->resetTableFilters()
+            ->filterTable('faixa_valor', ['valor_min' => 5, 'valor_max' => 10])
+            ->assertCanSeeTableRecords([$borda])
+            ->assertCanNotSeeTableRecords([$gelo, $semVinculo]);
+    }
+
+    public function test_aba_adicionais_do_produto_filtra_por_valor(): void
+    {
+        $produto = $this->produto();
+        $barato = Adicional::factory()->create(['adicional_valor' => 2.00]);
+        $caro = Adicional::factory()->create(['adicional_valor' => 15.00]);
+        $produto->adicionais()->attach([$barato->id, $caro->id]);
+
+        $this->relationManager($produto)
+            ->filterTable('faixa_valor', ['valor_min' => 10])
+            ->assertCanSeeTableRecords([$caro])
+            ->assertCanNotSeeTableRecords([$barato]);
+    }
+
     public function test_url_da_foto_cai_no_padrao_sem_arquivo_e_resolve_foto_nova(): void
     {
         $legadoSemArquivo = Adicional::factory()->make(['adicional_foto' => 'semarquivo.jpg']);

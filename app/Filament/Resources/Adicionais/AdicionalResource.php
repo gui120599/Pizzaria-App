@@ -7,7 +7,9 @@ use App\Filament\Resources\Adicionais\Pages\CreateAdicional;
 use App\Filament\Resources\Adicionais\Pages\EditAdicional;
 use App\Filament\Resources\Adicionais\Pages\ListAdicionais;
 use App\Filament\Resources\Adicionais\RelationManagers\ProdutosRelationManager;
+use App\Filament\Support\FaixaValorFilter;
 use App\Models\Adicional;
+use App\Models\Categoria;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -25,6 +27,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -149,6 +153,31 @@ class AdicionalResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                TernaryFilter::make('vinculado')
+                    ->label('Vínculo com produtos')
+                    ->placeholder('Todos')
+                    ->trueLabel('Com produto vinculado')
+                    ->falseLabel('Sem nenhum produto')
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->has('produtos'),
+                        false: fn (Builder $query): Builder => $query->doesntHave('produtos'),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
+
+                SelectFilter::make('categoria_produto')
+                    ->label('Vinculado a produtos da categoria')
+                    ->modifyFormFieldUsing(fn (Select $select): Select => $select->helperText('Inclui as subcategorias.'))
+                    ->multiple()
+                    ->searchable()
+                    ->options(fn (): array => Categoria::query()->orderBy('categoria_nome')->pluck('categoria_nome', 'id')->all())
+                    ->query(fn (Builder $query, array $data): Builder => $query->when(
+                        filled($data['values'] ?? null),
+                        fn (Builder $q): Builder => $q->whereHas('produtos', fn (Builder $produtos): Builder => $produtos
+                            ->whereIn('produto_categoria_id', Categoria::idsComSubcategorias($data['values']))),
+                    )),
+
+                FaixaValorFilter::make('adicional_valor'),
+
                 TrashedFilter::make()
                     ->label('Inativos'),
             ])
