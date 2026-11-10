@@ -50,7 +50,9 @@ class AdicionaisRelationManager extends RelationManager
             ->columns([
                 ImageColumn::make('adicional_foto')
                     ->label('')
-                    ->state(fn (Adicional $record): string => $record->getImagemUrl())
+                    // Sem foto vai null: o ImageColumn reprova a URL do padrão (tem espaço) e ficaria quebrada.
+                    ->state(fn (Adicional $record): ?string => $record->temFoto() ? $record->getImagemUrl() : null)
+                    ->defaultImageUrl(asset('Sem Imagem.png'))
                     ->circular()
                     ->size(32),
 
