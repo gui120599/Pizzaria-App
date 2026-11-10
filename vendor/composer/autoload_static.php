@@ -1527,6 +1527,7 @@ class ComposerStaticInit995de2958d06331616ceaf2386bc7b1b
         'App\\Filament\\Support\\CorrecaoPagamentoFormulario' => __DIR__ . '/../..' . '/app/Filament/Support/CorrecaoPagamentoFormulario.php',
         'App\\Filament\\Support\\Cozinha\\LiberarProducaoSemAberturaAction' => __DIR__ . '/../..' . '/app/Filament/Support/Cozinha/LiberarProducaoSemAberturaAction.php',
         'App\\Filament\\Support\\Cozinha\\RotasProducaoRepeater' => __DIR__ . '/../..' . '/app/Filament/Support/Cozinha/RotasProducaoRepeater.php',
+        'App\\Filament\\Support\\FaixaValorFilter' => __DIR__ . '/../..' . '/app/Filament/Support/FaixaValorFilter.php',
         'App\\Filament\\Support\\InsumoFichaSelect' => __DIR__ . '/../..' . '/app/Filament/Support/InsumoFichaSelect.php',
         'App\\Filament\\Support\\MaquininhaQuickCreateForm' => __DIR__ . '/../..' . '/app/Filament/Support/MaquininhaQuickCreateForm.php',
         'App\\Filament\\Support\\PedidoExclusaoActions' => __DIR__ . '/../..' . '/app/Filament/Support/PedidoExclusaoActions.php',

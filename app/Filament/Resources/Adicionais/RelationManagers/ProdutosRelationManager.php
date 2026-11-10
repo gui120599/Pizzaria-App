@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Adicionais\RelationManagers;
 
 use App\Enums\ProdutoTipoEnum;
+use App\Filament\Support\FaixaValorFilter;
 use App\Models\Categoria;
 use App\Models\Produto;
 use Filament\Actions\AttachAction;
@@ -15,6 +16,8 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
@@ -97,14 +100,8 @@ class ProdutosRelationManager extends RelationManager
     /** @return list<int> */
     private function idsVinculaveisDaCategoria(int $categoriaId): array
     {
-        $categoria = Categoria::find($categoriaId);
-
-        if (! $categoria) {
-            return [];
-        }
-
         return $this->produtosVinculaveis()
-            ->whereIn('produto_categoria_id', [$categoria->id, ...$categoria->idsDescendentes()])
+            ->whereIn('produto_categoria_id', Categoria::idsComSubcategorias([$categoriaId]))
             ->pluck('id')
             ->all();
     }
@@ -133,7 +130,8 @@ class ProdutosRelationManager extends RelationManager
                 TextColumn::make('categoria.categoria_nome')
                     ->label('Categoria')
                     ->badge()
-                    ->color('gray'),
+                    ->color('gray')
+                    ->sortable(),
 
                 TextColumn::make('produto_descricao')
                     ->label('Produto')
@@ -144,6 +142,39 @@ class ProdutosRelationManager extends RelationManager
                     ->label('Valor')
                     ->money('BRL')
                     ->sortable(),
+
+                TextColumn::make('produto_tipo')
+                    ->label('Tipo')
+                    ->formatStateUsing(fn (?string $state): string => ProdutoTipoEnum::tryFrom((string) $state)?->label() ?? '—')
+                    ->badge()
+                    ->color('gray')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                SelectFilter::make('categoria')
+                    ->label('Categoria')
+                    ->modifyFormFieldUsing(fn (Select $select): Select => $select->helperText('Inclui as subcategorias.'))
+                    ->multiple()
+                    ->searchable()
+                    ->options(fn (): array => Categoria::query()->orderBy('categoria_nome')->pluck('categoria_nome', 'id')->all())
+                    ->query(fn (Builder $query, array $data): Builder => $query->when(
+                        filled($data['values'] ?? null),
+                        fn (Builder $q): Builder => $q->whereIn('produto_categoria_id', Categoria::idsComSubcategorias($data['values'])),
+                    )),
+
+                SelectFilter::make('produto_tipo')
+                    ->label('Tipo')
+                    ->options(collect(ProdutoTipoEnum::cases())
+                        ->mapWithKeys(fn (ProdutoTipoEnum $tipo): array => [$tipo->value => $tipo->label()])
+                        ->all()),
+
+                TernaryFilter::make('produto_cardapio')
+                    ->label('No cardápio')
+                    ->trueLabel('Só os que aparecem no cardápio')
+                    ->falseLabel('Só os fora do cardápio'),
+
+                FaixaValorFilter::make('produto_preco_venda'),
             ])
             ->headerActions([
                 AttachAction::make()

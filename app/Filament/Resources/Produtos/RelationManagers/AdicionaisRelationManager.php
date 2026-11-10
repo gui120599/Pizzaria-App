@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Produtos\RelationManagers;
 
 use App\Filament\Resources\Adicionais\AdicionalResource;
+use App\Filament\Support\FaixaValorFilter;
 use App\Models\Adicional;
 use Filament\Actions\AttachAction;
 use Filament\Actions\BulkActionGroup;
@@ -65,6 +66,9 @@ class AdicionaisRelationManager extends RelationManager
                     ->label('Valor')
                     ->money('BRL')
                     ->sortable(),
+            ])
+            ->filters([
+                FaixaValorFilter::make('adicional_valor'),
             ])
             ->headerActions([
                 AttachAction::make()

@@ -599,6 +599,7 @@ return array(
     'App\\Filament\\Support\\CorrecaoPagamentoFormulario' => $baseDir . '/app/Filament/Support/CorrecaoPagamentoFormulario.php',
     'App\\Filament\\Support\\Cozinha\\LiberarProducaoSemAberturaAction' => $baseDir . '/app/Filament/Support/Cozinha/LiberarProducaoSemAberturaAction.php',
     'App\\Filament\\Support\\Cozinha\\RotasProducaoRepeater' => $baseDir . '/app/Filament/Support/Cozinha/RotasProducaoRepeater.php',
+    'App\\Filament\\Support\\FaixaValorFilter' => $baseDir . '/app/Filament/Support/FaixaValorFilter.php',
     'App\\Filament\\Support\\InsumoFichaSelect' => $baseDir . '/app/Filament/Support/InsumoFichaSelect.php',
     'App\\Filament\\Support\\MaquininhaQuickCreateForm' => $baseDir . '/app/Filament/Support/MaquininhaQuickCreateForm.php',
     'App\\Filament\\Support\\PedidoExclusaoActions' => $baseDir . '/app/Filament/Support/PedidoExclusaoActions.php',
