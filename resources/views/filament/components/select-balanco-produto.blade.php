@@ -17,6 +17,11 @@
         <div class="font-semibold text-gray-900 dark:text-white text-sm truncate">
             {{ $name }}
         </div>
+        @if (! is_null($valor ?? null))
+            <div class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                {{ $valor }}
+            </div>
+        @endif
         @if (! is_null($saldo ?? null))
             <div class="flex items-center gap-1 mt-0.5">
                 <span class="text-xs font-medium {{ (float) $saldo_raw > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-500 dark:text-red-400' }}">

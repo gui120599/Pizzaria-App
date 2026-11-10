@@ -7,7 +7,7 @@ use App\Enums\Checklist\ChecklistTipo;
 use App\Enums\Cozinha\EscopoIngrediente;
 use App\Enums\Cozinha\TipoSetorProducao;
 use App\Enums\ProdutoTipoEnum;
-use App\Filament\Resources\Adicionais\Pages\ManageAdicionais;
+use App\Filament\Resources\Adicionais\Pages\CreateAdicional;
 use App\Filament\Resources\ChecklistExecucoes\Pages\ListChecklistExecucoes;
 use App\Filament\Resources\ChecklistModelos\Pages\EditChecklistModelo;
 use App\Filament\Resources\DispositivosCozinha\Pages\ManageDispositivosCozinha;
@@ -231,15 +231,16 @@ class CozinhaAdminCadastrosTest extends TestCase
 
     public function test_adicional_grava_a_porcao_da_cozinha(): void
     {
-        Livewire::test(ManageAdicionais::class)
-            ->callAction('create', [
+        Livewire::test(CreateAdicional::class)
+            ->fillForm([
                 'adicional_nome' => 'Bacon',
                 'adicional_valor' => '5,00',
                 'adicional_quantidade_porcao' => 0.04,
                 'adicional_unidade_porcao' => 'KG',
                 'adicional_instrucao_preparo' => 'Antes do forno',
             ])
-            ->assertHasNoActionErrors();
+            ->call('create')
+            ->assertHasNoFormErrors();
 
         $adicional = Adicional::sole();
         $this->assertEquals(0.04, (float) $adicional->adicional_quantidade_porcao);

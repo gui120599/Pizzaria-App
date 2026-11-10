@@ -3,7 +3,10 @@
 namespace App\Filament\Resources\Adicionais;
 
 use App\Enums\ProdutoTipoEnum;
-use App\Filament\Resources\Adicionais\Pages\ManageAdicionais;
+use App\Filament\Resources\Adicionais\Pages\CreateAdicional;
+use App\Filament\Resources\Adicionais\Pages\EditAdicional;
+use App\Filament\Resources\Adicionais\Pages\ListAdicionais;
+use App\Filament\Resources\Adicionais\RelationManagers\ProdutosRelationManager;
 use App\Models\Adicional;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -165,10 +168,19 @@ class AdicionalResource extends Resource
             ]);
     }
 
+    public static function getRelations(): array
+    {
+        return [
+            ProdutosRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
-            'index' => ManageAdicionais::route('/'),
+            'index' => ListAdicionais::route('/'),
+            'create' => CreateAdicional::route('/create'),
+            'edit' => EditAdicional::route('/{record}/edit'),
         ];
     }
 

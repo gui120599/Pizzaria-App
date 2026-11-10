@@ -3,7 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\ProdutoTipoEnum;
-use App\Filament\Resources\Adicionais\Pages\ManageAdicionais;
+use App\Filament\Resources\Adicionais\AdicionalResource;
+use App\Filament\Resources\Adicionais\Pages\CreateAdicional;
+use App\Filament\Resources\Adicionais\Pages\EditAdicional;
+use App\Filament\Resources\Adicionais\Pages\ListAdicionais;
+use App\Filament\Resources\Adicionais\RelationManagers\ProdutosRelationManager;
 use App\Filament\Resources\Produtos\Pages\EditProduto;
 use App\Filament\Resources\Produtos\RelationManagers\AdicionaisRelationManager;
 use App\Models\AdicionaisProduto;
@@ -15,9 +19,9 @@ use Database\Seeders\PermissionSeeder;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DetachAction;
-use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\Testing\TestAction;
+use Filament\Forms\Components\Select;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -33,12 +37,13 @@ class AdicionalFilamentTest extends TestCase
         $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
     }
 
-    private function produto(): Produto
+    private function produto(string $descricao = 'Pizza Calabresa', ProdutoTipoEnum $tipo = ProdutoTipoEnum::PRODUZIDO): Produto
     {
         return Produto::create([
-            'produto_descricao' => 'Pizza Calabresa',
-            'produto_categoria_id' => Categoria::create(['categoria_nome' => 'Pizzas'])->id,
-            'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value,
+            'produto_descricao' => $descricao,
+            'produto_categoria_id' => Categoria::firstOrCreate(['categoria_nome' => 'Pizzas'])->id,
+            'produto_tipo' => $tipo->value,
+            'produto_preco_venda' => 45.90,
         ]);
     }
 
@@ -50,14 +55,24 @@ class AdicionalFilamentTest extends TestCase
         ]);
     }
 
+    private function produtosDoAdicional(Adicional $adicional): mixed
+    {
+        return Livewire::test(ProdutosRelationManager::class, [
+            'ownerRecord' => $adicional,
+            'pageClass' => EditAdicional::class,
+        ]);
+    }
+
     public function test_cria_adicional_pelo_resource(): void
     {
-        Livewire::test(ManageAdicionais::class)
-            ->callAction('create', [
+        Livewire::test(CreateAdicional::class)
+            ->fillForm([
                 'adicional_nome' => 'Borda de catupiry',
                 'adicional_valor' => '8,50',
             ])
-            ->assertHasNoActionErrors();
+            ->call('create')
+            ->assertHasNoFormErrors()
+            ->assertRedirect();
 
         $this->assertDatabaseHas('adicionais', [
             'adicional_nome' => 'Borda de catupiry',
@@ -69,11 +84,10 @@ class AdicionalFilamentTest extends TestCase
     {
         $adicional = Adicional::factory()->create(['adicional_foto' => '1712345678.jpg']);
 
-        Livewire::test(ManageAdicionais::class)
-            ->callAction(TestAction::make(EditAction::class)->table($adicional), [
-                'adicional_nome' => 'Bacon extra',
-            ])
-            ->assertHasNoActionErrors();
+        Livewire::test(EditAdicional::class, ['record' => $adicional->getRouteKey()])
+            ->fillForm(['adicional_nome' => 'Bacon extra'])
+            ->call('save')
+            ->assertHasNoFormErrors();
 
         $adicional->refresh();
         $this->assertSame('Bacon extra', $adicional->adicional_nome);
@@ -84,16 +98,24 @@ class AdicionalFilamentTest extends TestCase
     {
         $adicional = Adicional::factory()->create();
 
-        Livewire::test(ManageAdicionais::class)
-            ->callAction(TestAction::make(DeleteAction::class)->table($adicional));
+        Livewire::test(EditAdicional::class, ['record' => $adicional->getRouteKey()])
+            ->callAction(DeleteAction::class);
 
         $this->assertSoftDeleted($adicional);
 
-        Livewire::test(ManageAdicionais::class)
-            ->filterTable('trashed', true)
-            ->callAction(TestAction::make(RestoreAction::class)->table($adicional));
+        Livewire::test(EditAdicional::class, ['record' => $adicional->getRouteKey()])
+            ->callAction(RestoreAction::class);
 
         $this->assertNotSoftDeleted($adicional);
+    }
+
+    public function test_lista_abre_a_edicao_do_adicional_em_pagina_propria(): void
+    {
+        $adicional = Adicional::factory()->create();
+
+        Livewire::test(ListAdicionais::class)
+            ->assertCanSeeTableRecords([$adicional])
+            ->assertTableActionHasUrl('edit', EditAdicional::getUrl(['record' => $adicional]), $adicional);
     }
 
     public function test_vincula_varios_adicionais_e_o_pdv_enxerga_o_vinculo(): void
@@ -154,6 +176,109 @@ class AdicionalFilamentTest extends TestCase
         $this->relationManager($produto)
             ->assertActionHidden(TestAction::make(AttachAction::class)->table())
             ->assertActionHidden(TestAction::make(DetachAction::class)->table($adicional));
+    }
+
+    public function test_edicao_de_adicional_inativo_abre_com_a_aba_de_produtos(): void
+    {
+        $adicional = Adicional::factory()->create();
+        $adicional->delete();
+
+        $this->get(AdicionalResource::getUrl('edit', ['record' => $adicional]))
+            ->assertOk()
+            ->assertSeeLivewire(ProdutosRelationManager::class);
+    }
+
+    public function test_vincula_varios_produtos_pelo_adicional(): void
+    {
+        $adicional = Adicional::factory()->create();
+        $calabresa = $this->produto('Pizza Calabresa');
+        $refrigerante = $this->produto('Refrigerante Lata', ProdutoTipoEnum::REVENDA);
+
+        $this->produtosDoAdicional($adicional)
+            ->callAction(TestAction::make(AttachAction::class)->table(), [
+                'recordId' => [$calabresa->id, $refrigerante->id],
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertTrue($calabresa->adicionais()->whereKey($adicional->id)->exists());
+        $this->assertTrue($refrigerante->adicionais()->whereKey($adicional->id)->exists());
+    }
+
+    public function test_select_oferece_so_produtos_vendaveis_ainda_nao_vinculados(): void
+    {
+        $adicional = Adicional::factory()->create();
+        $calabresa = $this->produto('Pizza Calabresa');
+        $refrigerante = $this->produto('Refrigerante Lata', ProdutoTipoEnum::REVENDA);
+        $jaVinculada = $this->produto('Pizza Mussarela');
+        $insumo = $this->produto('Queijo Mussarela', ProdutoTipoEnum::INSUMO);
+        $consumoInterno = $this->produto('Detergente', ProdutoTipoEnum::CONSUMO_INTERNO);
+        $adicional->produtos()->attach($jaVinculada);
+
+        $this->produtosDoAdicional($adicional)
+            ->mountAction(TestAction::make(AttachAction::class)->table())
+            ->assertFormFieldExists('recordId', function (Select $select) use ($calabresa, $refrigerante, $jaVinculada, $insumo, $consumoInterno): bool {
+                $ofertados = array_keys($select->getOptions());
+
+                $this->assertEqualsCanonicalizing([$calabresa->id, $refrigerante->id], $ofertados);
+                $this->assertNotContains($jaVinculada->id, $ofertados);
+                $this->assertNotContains($insumo->id, $ofertados);
+                $this->assertNotContains($consumoInterno->id, $ofertados);
+
+                return true;
+            });
+    }
+
+    public function test_opcao_do_select_mostra_categoria_descricao_e_valor(): void
+    {
+        $html = ProdutosRelationManager::renderOpcaoProduto($this->produto('Pizza Calabresa')->load('categoria'));
+
+        $this->assertStringContainsString('Pizzas', $html);
+        $this->assertStringContainsString('Pizza Calabresa', $html);
+        $this->assertStringContainsString('R$ 45,90', $html);
+    }
+
+    public function test_desvincula_produto_pelo_adicional(): void
+    {
+        $adicional = Adicional::factory()->create();
+        $produto = $this->produto();
+        $adicional->produtos()->attach($produto);
+
+        $this->produtosDoAdicional($adicional)
+            ->callAction(TestAction::make(DetachAction::class)->table($produto));
+
+        $this->assertDatabaseMissing('adicionais_produtos', [
+            'ap_produto_id' => $produto->id,
+            'ap_adicional_id' => $adicional->id,
+        ]);
+    }
+
+    public function test_vinculo_inativado_pelo_legado_nao_aparece_no_adicional(): void
+    {
+        $adicional = Adicional::factory()->create();
+        $ativo = $this->produto('Pizza Calabresa');
+        $inativado = $this->produto('Pizza Mussarela');
+        $adicional->produtos()->attach($ativo);
+        AdicionaisProduto::create(['ap_produto_id' => $inativado->id, 'ap_adicional_id' => $adicional->id])->delete();
+
+        $this->produtosDoAdicional($adicional)
+            ->assertCanSeeTableRecords([$ativo])
+            ->assertCanNotSeeTableRecords([$inativado]);
+    }
+
+    public function test_quem_nao_edita_adicional_nao_vincula_nem_desvincula_produto(): void
+    {
+        $this->seed(PermissionSeeder::class);
+        $user = User::factory()->atendente()->create(['name_first' => 'Atendente']);
+        $user->givePermissionTo('view_any:adicional');
+        $this->actingAs($user);
+
+        $adicional = Adicional::factory()->create();
+        $produto = $this->produto();
+        $adicional->produtos()->attach($produto);
+
+        $this->produtosDoAdicional($adicional)
+            ->assertActionHidden(TestAction::make(AttachAction::class)->table())
+            ->assertActionHidden(TestAction::make(DetachAction::class)->table($produto));
     }
 
     public function test_url_da_foto_cai_no_padrao_sem_arquivo_e_resolve_foto_nova(): void
