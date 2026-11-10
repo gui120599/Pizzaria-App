@@ -228,6 +228,49 @@ class AdicionalFilamentTest extends TestCase
             });
     }
 
+    public function test_escolher_categoria_seleciona_os_produtos_dela_e_das_subcategorias(): void
+    {
+        $adicional = Adicional::factory()->create();
+        $pizzas = Categoria::create(['categoria_nome' => 'Pizzas']);
+        $doces = Categoria::create(['categoria_nome' => 'Pizzas Doces', 'categoria_pai_id' => $pizzas->id]);
+        $bebidas = Categoria::create(['categoria_nome' => 'Bebidas']);
+
+        $calabresa = $this->produto('Pizza Calabresa');
+        $chocolate = $this->produto('Pizza de Chocolate');
+        $chocolate->update(['produto_categoria_id' => $doces->id]);
+        $jaVinculada = $this->produto('Pizza Mussarela');
+        $adicional->produtos()->attach($jaVinculada);
+        $this->produto('Massa de Pizza', ProdutoTipoEnum::INSUMO);
+        $refrigerante = $this->produto('Refrigerante Lata', ProdutoTipoEnum::REVENDA);
+        $refrigerante->update(['produto_categoria_id' => $bebidas->id]);
+
+        $this->produtosDoAdicional($adicional)
+            ->mountAction(TestAction::make(AttachAction::class)->table())
+            ->assertFormFieldExists('categoria_para_selecionar', function (Select $select) use ($pizzas, $doces, $bebidas): bool {
+                $this->assertSame([
+                    $bebidas->id => 'Bebidas (1)',
+                    $pizzas->id => 'Pizzas (2)',
+                    $doces->id => 'Pizzas Doces (1)',
+                ], $select->getOptions());
+
+                return true;
+            })
+            ->fillForm(['categoria_para_selecionar' => $pizzas->id])
+            ->assertSchemaStateSet(['categoria_para_selecionar' => null])
+            ->assertFormFieldExists('recordId', function (Select $select) use ($calabresa, $chocolate): bool {
+                $this->assertEqualsCanonicalizing([$calabresa->id, $chocolate->id], array_map('intval', $select->getState()));
+
+                return true;
+            })
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertEqualsCanonicalizing(
+            [$calabresa->id, $chocolate->id, $jaVinculada->id],
+            $adicional->produtos()->pluck('produtos.id')->all(),
+        );
+    }
+
     public function test_opcao_do_select_mostra_categoria_descricao_e_valor(): void
     {
         $html = ProdutosRelationManager::renderOpcaoProduto($this->produto('Pizza Calabresa')->load('categoria'));

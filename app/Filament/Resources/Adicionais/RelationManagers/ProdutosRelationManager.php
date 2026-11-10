@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Adicionais\RelationManagers;
 
 use App\Enums\ProdutoTipoEnum;
+use App\Models\Categoria;
 use App\Models\Produto;
 use Filament\Actions\AttachAction;
 use Filament\Actions\BulkActionGroup;
@@ -10,6 +11,8 @@ use Filament\Actions\DetachAction;
 use Filament\Actions\DetachBulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -42,6 +45,70 @@ class ProdutosRelationManager extends RelationManager
         return Gate::allows('update', $this->getOwnerRecord());
     }
 
+    /** @return list<string> */
+    private static function valoresTiposVendaveis(): array
+    {
+        return array_map(fn (ProdutoTipoEnum $tipo): string => $tipo->value, self::TIPOS_VENDAVEIS);
+    }
+
+    /** Produtos vendáveis que ainda não têm este adicional (vínculo inativado pelo legado não conta). */
+    private function produtosVinculaveis(): Builder
+    {
+        return Produto::query()
+            ->whereIn('produto_tipo', self::valoresTiposVendaveis())
+            ->whereDoesntHave('adicionais', fn (Builder $query) => $query->whereKey($this->getOwnerRecord()->getKey()));
+    }
+
+    /**
+     * Categorias que ainda têm produto a vincular, contando as subcategorias,
+     * no formato "Pizzas (12)".
+     *
+     * @return array<int, string>
+     */
+    private function opcoesCategoria(): array
+    {
+        $disponiveisPorCategoria = $this->produtosVinculaveis()
+            ->selectRaw('produto_categoria_id, COUNT(*) as total')
+            ->groupBy('produto_categoria_id')
+            ->pluck('total', 'produto_categoria_id');
+
+        $categorias = Categoria::query()->orderBy('categoria_nome')->get(['id', 'categoria_nome', 'categoria_pai_id']);
+        $filhasPorPai = $categorias->groupBy('categoria_pai_id');
+
+        $totalComSubcategorias = function (int $categoriaId, array $visitadas = []) use (&$totalComSubcategorias, $filhasPorPai, $disponiveisPorCategoria): int {
+            if (in_array($categoriaId, $visitadas, true)) {
+                return 0;
+            }
+
+            return (int) ($disponiveisPorCategoria[$categoriaId] ?? 0)
+                + ($filhasPorPai[$categoriaId] ?? collect())
+                    ->sum(fn (Categoria $filha): int => $totalComSubcategorias($filha->id, [...$visitadas, $categoriaId]));
+        };
+
+        return $categorias
+            ->mapWithKeys(function (Categoria $categoria) use ($totalComSubcategorias): array {
+                $total = $totalComSubcategorias($categoria->id);
+
+                return $total > 0 ? [$categoria->id => "{$categoria->categoria_nome} ({$total})"] : [];
+            })
+            ->all();
+    }
+
+    /** @return list<int> */
+    private function idsVinculaveisDaCategoria(int $categoriaId): array
+    {
+        $categoria = Categoria::find($categoriaId);
+
+        if (! $categoria) {
+            return [];
+        }
+
+        return $this->produtosVinculaveis()
+            ->whereIn('produto_categoria_id', [$categoria->id, ...$categoria->idsDescendentes()])
+            ->pluck('id')
+            ->all();
+    }
+
     /** Vincula/desvincula produtos; a edição do produto em si fica no ProdutoResource. */
     public function table(Table $table): Table
     {
@@ -57,7 +124,9 @@ class ProdutosRelationManager extends RelationManager
             ->columns([
                 ImageColumn::make('produto_foto')
                     ->label('')
-                    ->state(fn (Produto $record): string => $record->getMiniaturaUrl(32))
+                    // Sem foto vai null: o ImageColumn reprova a URL do padrão (tem espaço) e ficaria quebrada.
+                    ->state(fn (Produto $record): ?string => $record->temFoto() ? $record->getMiniaturaUrl(32) : null)
+                    ->defaultImageUrl(asset('Sem Imagem.png'))
                     ->circular()
                     ->size(32),
 
@@ -81,12 +150,34 @@ class ProdutosRelationManager extends RelationManager
                     ->label('Vincular produtos')
                     ->modalHeading('Vincular produtos ao adicional')
                     ->authorize(fn (): bool => $this->podeEditarAdicional())
+                    ->schema(fn (AttachAction $action): array => [
+                        Select::make('categoria_para_selecionar')
+                            ->label('Selecionar todos de uma categoria')
+                            ->placeholder('Escolha uma categoria...')
+                            ->helperText('Inclui as subcategorias. Os produtos entram na lista abaixo, onde dá pra tirar algum antes de vincular.')
+                            ->options(fn (): array => $this->opcoesCategoria())
+                            ->searchable()
+                            ->live()
+                            ->dehydrated(false)
+                            ->afterStateUpdated(function (mixed $state, Get $get, Set $set): void {
+                                if (blank($state)) {
+                                    return;
+                                }
+
+                                $set('recordId', array_values(array_unique([
+                                    ...array_map('intval', (array) ($get('recordId') ?? [])),
+                                    ...$this->idsVinculaveisDaCategoria((int) $state),
+                                ])));
+                                $set('categoria_para_selecionar', null);
+                            }),
+                        $action->getRecordSelect(),
+                    ])
                     ->preloadRecordSelect()
                     ->multiple()
                     ->recordSelectSearchColumns(['produto_descricao'])
                     ->recordSelectOptionsQuery(fn (Builder $query): Builder => $query
                         ->with('categoria')
-                        ->whereIn('produto_tipo', array_map(fn (ProdutoTipoEnum $tipo): string => $tipo->value, self::TIPOS_VENDAVEIS))
+                        ->whereIn('produto_tipo', self::valoresTiposVendaveis())
                         ->orderBy('produto_descricao'))
                     ->recordSelect(fn (Select $select): Select => $select
                         ->allowHtml()

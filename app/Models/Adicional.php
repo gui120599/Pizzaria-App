@@ -87,6 +87,11 @@ class Adicional extends Model
             : asset('Sem Imagem.png');
     }
 
+    public function temFoto(): bool
+    {
+        return $this->getImagemUrl() !== asset('Sem Imagem.png');
+    }
+
     public function getAdicionalFotoUrlAttribute(): string
     {
         return $this->getImagemUrl();
