@@ -9,6 +9,7 @@ use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Enums\TipoAtendimentoEnum;
 use App\Exceptions\CupomInvalidoException;
+use App\Exceptions\PromocaoIndisponivelException;
 use App\Exceptions\StoneConnectException;
 use App\Exceptions\StoneResultadoDesconhecidoException;
 use App\Filament\Concerns\AutorizaComPinDeGerente;
@@ -24,6 +25,8 @@ use App\Models\OpcoesEntregas;
 use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\Produto;
+use App\Models\PromocaoAdicional;
+use App\Models\PromocaoAdicionalOferta;
 use App\Models\StonePedido;
 use App\Services\ClienteResolverService;
 use App\Services\CortesiaService;
@@ -31,6 +34,7 @@ use App\Services\CupomPedidoService;
 use App\Services\CupomService;
 use App\Services\EstoqueService;
 use App\Services\LancamentoItemPedidoService;
+use App\Services\LinhaPrecificada;
 use App\Services\PagamentosCombinadosService;
 use App\Services\PromocaoAdicionalService;
 use App\Services\Stone\StoneRecebimentoService;
@@ -83,6 +87,9 @@ class AtenderPedido extends Page
     protected Width|string|null $maxContentWidth = Width::Full;
 
     public ?int $pedidoId = null;
+
+    /** Ofertas da prévia que não puderam ser gravadas no último save (aviso). */
+    protected array $avisosOfertas = [];
 
     /** @var array<int, array<string, mixed>> */
     public array $itensCarrinho = [];
@@ -613,18 +620,24 @@ class AtenderPedido extends Page
 
         // Oferta de promoção que só vale para algumas opções de entrega (ex.:
         // delivery/retirada): a opção só é gravada aqui, depois dos itens.
-        if ($this->pedidoId) {
-            $foraDaEntrega = app(PromocaoAdicionalService::class)->campanhasForaDaEntrega(
+        $foraDaEntrega = $this->pedidoId
+            ? app(PromocaoAdicionalService::class)->campanhasForaDaEntrega(
                 $this->pedidoId,
                 $opcaoEntrega?->id,
                 Pedido::whereKey($this->pedidoId)->whereNotNull('pedido_sessao_mesa_id')->exists(),
-            );
+            )
+            : PromocaoAdicional::whereIn('id', collect($this->itensCarrinho)->pluck('promocao_adicional_id')->filter()->unique())
+                ->get()
+                ->filter(fn (PromocaoAdicional $promocao) => $promocao->restringeEntrega()
+                    && ($opcaoEntrega === null || ! $promocao->entregaPermitida($opcaoEntrega->id)))
+                ->pluck('promoad_nome')
+                ->values()
+                ->all();
 
-            if ($foraDaEntrega !== []) {
-                $this->notificarErro('A promoção "'.implode('", "', $foraDaEntrega).'" não vale para esta opção de entrega. Remova o item da promoção ou mude a opção de entrega.', titulo: 'Promoção');
+        if ($foraDaEntrega !== []) {
+            $this->notificarErro('A promoção "'.implode('", "', $foraDaEntrega).'" não vale para esta opção de entrega. Remova o item da promoção ou mude a opção de entrega.', titulo: 'Promoção');
 
-                return null;
-            }
+            return null;
         }
 
         $bloqueios = $this->verificarEstoque();
@@ -711,6 +724,16 @@ class AtenderPedido extends Page
         }
 
         $pedido = Pedido::findOrFail($this->pedidoId);
+
+        if ($this->avisosOfertas !== []) {
+            Notification::make()
+                ->title('Oferta da promoção não aplicada')
+                ->body(implode(' ', array_unique($this->avisosOfertas)))
+                ->warning()
+                ->persistent()
+                ->send();
+            $this->avisosOfertas = [];
+        }
 
         // Pedido novo gravado sem sair da tela (Salvar e cobrar): o carrinho passa a
         // refletir as linhas do banco e o formulário vira o estado salvo.
@@ -838,7 +861,14 @@ class AtenderPedido extends Page
             return;
         }
 
+        $criados = [];
+
         foreach ($this->itensCarrinho as $item) {
+            // Oferta da prévia (brotinho da promoção): gravada abaixo, ligada ao gatilho.
+            if (! empty($item['oferta_id'])) {
+                continue;
+            }
+
             $itemModel = ItensPedido::create([
                 'item_pedido_pedido_id' => $pedido->id,
                 'item_pedido_produto_id' => $item['produto_id'],
@@ -856,6 +886,53 @@ class AtenderPedido extends Page
             ]);
 
             app(LancamentoItemPedidoService::class)->gravarAdicionais($itemModel, $item['adicionais'] ?? []);
+            if (isset($item['id'])) {
+                $criados[(string) $item['id']] = $itemModel;
+            }
+        }
+
+        $this->gravarOfertasDaPrevia($pedido, $criados);
+    }
+
+    /**
+     * Ofertas escolhidas na prévia (pedido novo): revalida no servidor
+     * (vigência, saldo, limite, categoria exigida e opção de entrega) e grava
+     * pelo mesmo caminho dos outros canais. Oferta que não vale mais fica de
+     * fora com aviso — o pedido é salvo do mesmo jeito.
+     *
+     * @param  array<string, ItensPedido>  $criados  id da prévia => item gravado
+     */
+    private function gravarOfertasDaPrevia(Pedido $pedido, array $criados): void
+    {
+        foreach (collect($this->itensCarrinho)->filter(fn (array $item) => ! empty($item['oferta_id'])) as $item) {
+            $gatilho = $criados[(string) ($item['origem_tmp'] ?? '')] ?? null;
+            $oferta = PromocaoAdicionalOferta::with('regra.promocao')->find($item['oferta_id']);
+            $regra = $oferta?->regra;
+
+            if (! $gatilho || ! $regra || (int) $regra->par_produto_gatilho_id !== (int) $gatilho->item_pedido_produto_id) {
+                $this->avisosOfertas[] = 'Oferta de '.($item['produto_nome'] ?? 'promoção').' não aplicada.';
+
+                continue;
+            }
+
+            try {
+                app(PromocaoAdicionalService::class)->validarRequisitos(
+                    $regra->promocao,
+                    [],
+                    $pedido->id,
+                    1,
+                    $pedido->pedido_opcaoentrega_id,
+                    $pedido->pedido_sessao_mesa_id !== null,
+                );
+                $gatilho->load('produto');
+                app(LancamentoItemPedidoService::class)->gravarOferta(
+                    $pedido->id,
+                    $gatilho,
+                    new LinhaPrecificada([], [], $gatilho->produto, $regra, $oferta),
+                );
+            } catch (PromocaoIndisponivelException $e) {
+                $this->avisosOfertas[] = $e->getMessage();
+            }
         }
     }
 
