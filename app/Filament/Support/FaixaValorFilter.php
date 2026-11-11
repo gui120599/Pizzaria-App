@@ -25,13 +25,17 @@ class FaixaValorFilter
                     ->prefix('R$')
                     ->numeric()
                     ->minValue(0)
-                    ->step(0.01),
+                    ->step(0.01)
+                    // Nas tabelas que filtram sem botão "Aplicar", espera parar de digitar.
+                    ->live(debounce: 600),
                 TextInput::make('valor_max')
                     ->label("{$label} até")
                     ->prefix('R$')
                     ->numeric()
                     ->minValue(0)
-                    ->step(0.01),
+                    ->step(0.01)
+                    // Nas tabelas que filtram sem botão "Aplicar", espera parar de digitar.
+                    ->live(debounce: 600),
             ])
             ->columns(2)
             ->query(fn (Builder $query, array $data): Builder => $query

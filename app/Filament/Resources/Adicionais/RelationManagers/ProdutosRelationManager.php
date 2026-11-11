@@ -151,6 +151,7 @@ class ProdutosRelationManager extends RelationManager
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->deferFilters(false)
             ->filters([
                 SelectFilter::make('categoria')
                     ->label('Categoria')
