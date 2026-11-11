@@ -10,6 +10,7 @@ use App\Filament\Resources\Adicionais\RelationManagers\ProdutosRelationManager;
 use App\Filament\Support\FaixaValorFilter;
 use App\Models\Adicional;
 use App\Models\Categoria;
+use App\Models\Produto;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -169,7 +170,10 @@ class AdicionalResource extends Resource
                     ->modifyFormFieldUsing(fn (Select $select): Select => $select->helperText('Inclui as subcategorias.'))
                     ->multiple()
                     ->searchable()
-                    ->options(fn (): array => Categoria::query()->orderBy('categoria_nome')->pluck('categoria_nome', 'id')->all())
+                    // Só as categorias de produtos que têm algum adicional (e as mães delas).
+                    ->options(fn (): array => Categoria::opcoesComAncestrais(
+                        Produto::query()->has('adicionais')->distinct()->pluck('produto_categoria_id')->all(),
+                    ))
                     ->query(fn (Builder $query, array $data): Builder => $query->when(
                         filled($data['values'] ?? null),
                         fn (Builder $q): Builder => $q->whereHas('produtos', fn (Builder $produtos): Builder => $produtos

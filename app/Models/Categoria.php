@@ -92,6 +92,49 @@ class Categoria extends Model
     }
 
     /**
+     * As categorias informadas mais todas as ancestrais delas (mãe, avó...),
+     * pra montar opções de filtro que já incluem subcategorias.
+     *
+     * @param  array<int|string|null>  $ids
+     * @return list<int>
+     */
+    public static function idsComAncestrais(array $ids): array
+    {
+        $resultado = [];
+        $pendentes = array_values(array_unique(array_map('intval', array_filter($ids))));
+
+        while ($pendentes !== []) {
+            $resultado = array_merge($resultado, $pendentes);
+
+            $pais = static::query()
+                ->whereKey($pendentes)
+                ->whereNotNull('categoria_pai_id')
+                ->pluck('categoria_pai_id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+
+            $pendentes = array_values(array_diff(array_unique($pais), $resultado));
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Opções de filtro: só as categorias informadas e as ancestrais delas.
+     *
+     * @param  array<int|string|null>  $ids
+     * @return array<int, string>
+     */
+    public static function opcoesComAncestrais(array $ids): array
+    {
+        return static::query()
+            ->whereKey(static::idsComAncestrais($ids))
+            ->orderBy('categoria_nome')
+            ->pluck('categoria_nome', 'id')
+            ->all();
+    }
+
+    /**
      * IDs de todas as categorias descendentes desta (filhas, netas...). Usado
      * pra impedir escolher a própria categoria (ou uma descendente dela) como
      * pai, o que criaria um ciclo na hierarquia.
