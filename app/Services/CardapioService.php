@@ -31,7 +31,7 @@ class CardapioService
     private const CATEGORIA_COM_SABORES = ['categoria.quantidadesSabores', 'categoria.pai.quantidadesSabores'];
 
     /** @return array<string, mixed> variáveis da view cardapio */
-    public function dados(): array
+    public function dados(bool $mesa = false): array
     {
         // Só categorias de topo entram como seção própria — uma categoria com
         // categoria_pai_id preenchida aparece aninhada dentro da seção da mãe
@@ -109,14 +109,28 @@ class CardapioService
         // Uma regra pode ter N ofertas (o cliente escolhe 1 no modal).
         $regrasAdicionaisAtivas = PromocaoAdicionalRegra::query()
             ->whereHas('promocao', fn ($q) => $q->where('promoad_ativa', true))
-            ->with(['promocao.opcoesPagamento', 'ofertas.produtoOferta.categoria', 'produtoGatilho.categoria'])
+            ->with(['promocao.opcoesPagamento', 'promocao.categoriaExigida', 'ofertas.produtoOferta.categoria', 'produtoGatilho.categoria'])
             ->get()
-            ->filter(fn (PromocaoAdicionalRegra $regra) => $regra->promocao->vigente());
+            ->filter(fn (PromocaoAdicionalRegra $regra) => $regra->promocao->vigente())
+            // Na mesa (QR) não entra campanha restrita a delivery/retirada.
+            ->reject(fn (PromocaoAdicionalRegra $regra) => $mesa && $regra->promocao->restringeEntrega());
+
+        // Produtos da categoria exigida por campanha (ex.: Pizza Grande): o
+        // carrinho só oferece quando há unidade sobrando. O servidor revalida.
+        $produtosExigidos = $regrasAdicionaisAtivas
+            ->pluck('promocao')
+            ->unique('id')
+            ->filter(fn ($promocao) => $promocao->promoad_categoria_exigida_id)
+            ->mapWithKeys(fn ($promocao) => [$promocao->id => Produto::where('produto_categoria_id', $promocao->promoad_categoria_exigida_id)->pluck('id')->all()]);
 
         $promocoesAdicionais = $regrasAdicionaisAtivas
             ->mapWithKeys(fn (PromocaoAdicionalRegra $regra) => [
                 $regra->par_produto_gatilho_id => [
                     'regraId' => $regra->id,
+                    'promocaoId' => $regra->par_promocao_id,
+                    // null = sem exigência; senão, ids dos produtos da categoria exigida.
+                    'produtosExigidos' => $produtosExigidos[$regra->par_promocao_id] ?? null,
+                    'categoriaExigida' => $regra->promocao->categoriaExigida?->categoria_nome,
                     'ofertas' => $regra->ofertas
                         ->filter(fn ($oferta) => ! $oferta->esgotada() && $oferta->produtoOferta?->visivelNoCardapio())
                         ->map(fn ($oferta) => [

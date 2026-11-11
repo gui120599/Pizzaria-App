@@ -32,6 +32,7 @@ use App\Services\CupomService;
 use App\Services\EstoqueService;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\PagamentosCombinadosService;
+use App\Services\PromocaoAdicionalService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Services\TotaisPedidoService;
 use App\Support\TotaisPedido;
@@ -605,6 +606,22 @@ class AtenderPedido extends Page
             if (! $this->enderecoEmTextoLivre()
                 && (blank($this->clienteData['enderecoRua'] ?? null) || blank($this->clienteData['enderecoBairro'] ?? null))) {
                 $this->notificarErro('Esta opção de entrega exige rua e bairro preenchidos.');
+
+                return null;
+            }
+        }
+
+        // Oferta de promoção que só vale para algumas opções de entrega (ex.:
+        // delivery/retirada): a opção só é gravada aqui, depois dos itens.
+        if ($this->pedidoId) {
+            $foraDaEntrega = app(PromocaoAdicionalService::class)->campanhasForaDaEntrega(
+                $this->pedidoId,
+                $opcaoEntrega?->id,
+                Pedido::whereKey($this->pedidoId)->whereNotNull('pedido_sessao_mesa_id')->exists(),
+            );
+
+            if ($foraDaEntrega !== []) {
+                $this->notificarErro('A promoção "'.implode('", "', $foraDaEntrega).'" não vale para esta opção de entrega. Remova o item da promoção ou mude a opção de entrega.', titulo: 'Promoção');
 
                 return null;
             }

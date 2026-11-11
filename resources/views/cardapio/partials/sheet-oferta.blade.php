@@ -8,7 +8,7 @@
          class="relative w-full rounded-t-sheet border-t border-ouro/30 bg-forno-2 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:max-w-sm sm:rounded-sheet sm:border">
         <p class="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.12em] text-ouro"><i class='bx bxs-gift text-base' aria-hidden="true"></i> Oferta especial</p>
         <h2 id="titulo-oferta" class="mt-1 font-display text-xl font-bold">Quer levar junto?</h2>
-        <p class="mt-1 text-[13px] text-farinha">Escolha 1 opção por um valor a mais:</p>
+        <p class="mt-1 text-[13px] text-farinha" x-text="$store.cart.ofertaModal.ofertas.every(o => o.valorAdicional <= 0) ? 'Escolha 1 opção grátis:' : 'Escolha 1 opção por um valor a mais:'"></p>
         <div class="mt-4 max-h-64 space-y-2 overflow-y-auto">
             <template x-for="opcao in $store.cart.ofertaModal.ofertas" :key="opcao.ofertaId">
                 <button type="button" @click="$store.cart.confirmarOferta(true, opcao.ofertaId)"
@@ -17,7 +17,7 @@
                         <img :src="opcao.foto" alt="" width="48" height="48" class="size-12 shrink-0 rounded-xl bg-forno-3 object-cover">
                     </template>
                     <span class="flex-1 text-sm font-semibold leading-snug" x-text="opcao.nomeExibicao"></span>
-                    <span class="num shrink-0 text-sm font-bold text-ouro" x-text="'+' + $store.cart.formatar(opcao.valorAdicional)"></span>
+                    <span class="num shrink-0 text-sm font-bold text-ouro" x-text="opcao.valorAdicional > 0 ? '+' + $store.cart.formatar(opcao.valorAdicional) : 'Grátis'"></span>
                 </button>
             </template>
         </div>

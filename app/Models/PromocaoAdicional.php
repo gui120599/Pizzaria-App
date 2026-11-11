@@ -7,6 +7,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -38,6 +39,8 @@ class PromocaoAdicional extends Model
         'promoad_data_final_recorrencia',
         'promoad_ultimo_reset_em',
         'promoad_aplica_fracionado',
+        'promoad_categoria_exigida_id',
+        'promoad_opcoes_entrega',
         'promoad_ordem',
     ];
 
@@ -54,6 +57,7 @@ class PromocaoAdicional extends Model
             'promoad_hora_fim' => 'datetime:H:i:s',
             'promoad_data_final_recorrencia' => 'date',
             'promoad_ultimo_reset_em' => 'datetime',
+            'promoad_opcoes_entrega' => 'array',
         ];
     }
 
@@ -84,6 +88,40 @@ class PromocaoAdicional extends Model
         }
 
         return $opcaoPagamentoId !== null && $this->opcoesPagamento->contains('id', $opcaoPagamentoId);
+    }
+
+    /** Categoria que precisa estar no pedido: cada aceite exige 1 unidade dela (ex.: Pizza Grande). */
+    public function categoriaExigida(): BelongsTo
+    {
+        return $this->belongsTo(Categoria::class, 'promoad_categoria_exigida_id');
+    }
+
+    /** Opções de entrega aceitas (ids); vazio = todas. */
+    public function restringeEntrega(): bool
+    {
+        return array_filter((array) $this->promoad_opcoes_entrega) !== [];
+    }
+
+    /**
+     * Sem restrição de entrega, tudo vale. Com restrição, pedido de mesa nunca
+     * vale (é consumo no local) e a opção precisa estar na lista — null (opção
+     * ainda não escolhida, balcão antes de salvar) passa: o save revalida.
+     */
+    public function entregaPermitida(?int $opcaoEntregaId, bool $ehMesa = false): bool
+    {
+        if (! $this->restringeEntrega()) {
+            return true;
+        }
+
+        if ($ehMesa) {
+            return false;
+        }
+
+        if ($opcaoEntregaId === null) {
+            return true;
+        }
+
+        return in_array($opcaoEntregaId, array_map('intval', (array) $this->promoad_opcoes_entrega), true);
     }
 
     /**

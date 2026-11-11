@@ -48,7 +48,7 @@ class MesaClienteController extends Controller
             return redirect()->route('mesa-cliente.show', $situacao['codigo_mesa_atual']);
         }
 
-        return view('cardapio', $cardapio->dados() + [
+        return view('cardapio', $cardapio->dados(mesa: true) + [
             'mesaCliente' => [
                 'codigo' => $mesa->mesa_codigo_qr,
                 'estado' => $this->estado->paraTela($mesa, $situacao),

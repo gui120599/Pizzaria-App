@@ -260,9 +260,24 @@
                  * vigente, pergunta antes de adicionar. Sem oferta, adiciona
                  * direto — igual ao comportamento de sempre.
                  */
+                /**
+                 * Campanha com categoria exigida (ex.: Pizza Grande): só oferece
+                 * quando há unidade dessa categoria sobrando no carrinho (uma por
+                 * oferta já aceita da mesma campanha). O servidor revalida.
+                 */
+                atendeExigencia(promo) {
+                    if (!promo.produtosExigidos) return true;
+                    const unidades = this.items
+                        .filter(i => promo.produtosExigidos.includes(i.id))
+                        .reduce((s, i) => s + i.qty, 0);
+                    const aceites = this.items
+                        .filter(i => i.oferta && _promocoesAdicionais[i.id]?.promocaoId === promo.promocaoId)
+                        .length;
+                    return unidades > aceites;
+                },
                 adicionarOuOferecer(itemData) {
                     const promo = _promocoesAdicionais[itemData.id];
-                    if (promo && promo.ofertas.length > 0) {
+                    if (promo && promo.ofertas.length > 0 && this.atendeExigencia(promo)) {
                         this.ofertaModal = { open: true, pending: itemData, ofertas: promo.ofertas };
                         return;
                     }
@@ -784,8 +799,8 @@
                             (i.respostasTexto ?? []).forEach(r => { msg += `  ${r}\n`; });
                             if ((i.adicionaisTexto ?? []).length) msg += `  + ${i.adicionaisTexto.join(', ')}\n`;
                             if (i.oferta) {
-                                const subOferta = i.oferta.valorAdicional.toFixed(2).replace('.', ',');
-                                msg += `  🎉 Promoção: ${i.oferta.nomeExibicao} — R$${subOferta}\n`;
+                                const subOferta = i.oferta.valorAdicional > 0 ? 'R$' + i.oferta.valorAdicional.toFixed(2).replace('.', ',') : 'Grátis';
+                                msg += `  🎉 Promoção: ${i.oferta.nomeExibicao} — ${subOferta}\n`;
                             }
                         });
                         if (data.total_desconto > 0)

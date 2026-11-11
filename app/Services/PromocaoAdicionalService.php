@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\ItensPedido;
+use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
+use App\Models\PromocaoAdicional;
 use App\Models\PromocaoAdicionalConsumo;
 use App\Models\PromocaoAdicionalOferta;
 use App\Models\PromocaoAdicionalRegra;
@@ -146,6 +148,110 @@ class PromocaoAdicionalService
                 "Esta oferta pode ser aceita no máximo {$limite} vez(es) por pedido."
             );
         }
+    }
+
+    /**
+     * Requisitos da campanha para aceitar mais $novosAceites ofertas: opção de
+     * entrega permitida (pedido de mesa nunca vale quando há restrição) e
+     * 1 unidade da categoria exigida no pedido para cada aceite — contando as
+     * linhas novas ($linhas) e o que já está gravado no pedido.
+     *
+     * @param  list<LinhaPrecificada>  $linhas
+     *
+     * @throws PromocaoIndisponivelException
+     */
+    public function validarRequisitos(
+        PromocaoAdicional $promocao,
+        array $linhas,
+        ?int $pedidoId,
+        int $novosAceites,
+        ?int $opcaoEntregaId,
+        bool $ehMesa,
+    ): void {
+        if (! $promocao->entregaPermitida($opcaoEntregaId, $ehMesa)) {
+            throw new PromocaoIndisponivelException($this->mensagemEntrega($promocao));
+        }
+
+        $categoriaId = $promocao->promoad_categoria_exigida_id;
+
+        if (! $categoriaId) {
+            return;
+        }
+
+        $unidades = (float) collect($linhas)
+            ->filter(fn (LinhaPrecificada $linha) => (int) $linha->produto->produto_categoria_id === (int) $categoriaId)
+            ->sum(fn (LinhaPrecificada $linha) => $linha->quantidade());
+        $aceites = $novosAceites;
+
+        if ($pedidoId) {
+            $unidades += (float) ItensPedido::where('item_pedido_pedido_id', $pedidoId)
+                ->where('item_pedido_status', 'INSERIDO')
+                ->whereNull('item_pedido_promocao_adicional_oferta_id')
+                ->whereHas('produto', fn ($q) => $q->where('produto_categoria_id', $categoriaId))
+                ->sum('item_pedido_quantidade');
+            $aceites += $this->aceitesDaCampanhaNoPedido($promocao, $pedidoId);
+        }
+
+        if ($aceites > floor($unidades + 0.001)) {
+            $categoria = $promocao->categoriaExigida?->categoria_nome ?? 'produto exigido';
+
+            throw new PromocaoIndisponivelException(
+                "A promoção \"{$promocao->promoad_nome}\" exige 1 {$categoria} no pedido para cada oferta aceita."
+            );
+        }
+    }
+
+    /** true quando a campanha aceitaria mais 1 oferta neste pedido (usado para mostrar ou esconder a oferta). */
+    public function aceitaMaisUmaOferta(PromocaoAdicional $promocao, ?int $pedidoId): bool
+    {
+        $pedido = $pedidoId ? Pedido::find($pedidoId) : null;
+
+        try {
+            $this->validarRequisitos($promocao, [], $pedidoId, 1, $pedido?->pedido_opcaoentrega_id, $pedido?->pedido_sessao_mesa_id !== null);
+        } catch (PromocaoIndisponivelException) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Nomes das campanhas com oferta aceita neste pedido que NÃO valem para a
+     * opção de entrega escolhida. Estrito: sem opção escolhida também barra.
+     *
+     * @return list<string>
+     */
+    public function campanhasForaDaEntrega(int $pedidoId, ?int $opcaoEntregaId, bool $ehMesa): array
+    {
+        return PromocaoAdicionalConsumo::where('pac_pedido_id', $pedidoId)
+            ->whereNull('pac_revertido_em')
+            ->with('regra.promocao')
+            ->get()
+            ->map(fn (PromocaoAdicionalConsumo $consumo) => $consumo->regra?->promocao)
+            ->filter()
+            ->unique('id')
+            ->filter(fn (PromocaoAdicional $promocao) => $promocao->restringeEntrega()
+                && ($opcaoEntregaId === null || ! $promocao->entregaPermitida($opcaoEntregaId, $ehMesa)))
+            ->map(fn (PromocaoAdicional $promocao) => $promocao->promoad_nome)
+            ->values()
+            ->all();
+    }
+
+    private function aceitesDaCampanhaNoPedido(PromocaoAdicional $promocao, int $pedidoId): int
+    {
+        return PromocaoAdicionalConsumo::where('pac_pedido_id', $pedidoId)
+            ->whereNull('pac_revertido_em')
+            ->whereHas('regra', fn ($q) => $q->where('par_promocao_id', $promocao->id))
+            ->count();
+    }
+
+    private function mensagemEntrega(PromocaoAdicional $promocao): string
+    {
+        $nomes = OpcoesEntregas::whereIn('id', (array) $promocao->promoad_opcoes_entrega)
+            ->pluck('opcaoentrega_nome')
+            ->implode(' e ');
+
+        return "A promoção \"{$promocao->promoad_nome}\" vale só para: {$nomes}.";
     }
 
     private function estornarConsumo(PromocaoAdicionalConsumo $consumo): void
