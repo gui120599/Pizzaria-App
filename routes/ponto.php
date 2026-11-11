@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PontoImpressaoController;
 use App\Http\Controllers\PontoQuiosqueController;
+use App\Http\Controllers\PontoSelfieController;
 use App\Livewire\Ponto\Quiosque;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth')->prefix('ponto')->name('ponto.')->group(function () {
     Route::get('/repasses/{repasse}/recibo', [PontoImpressaoController::class, 'recibo'])->name('repasses.recibo');
     Route::get('/espelho/imprimir', [PontoImpressaoController::class, 'espelho'])->name('espelho.imprimir');
+    Route::get('/marcacoes/{marcacao}/selfie', PontoSelfieController::class)->name('marcacoes.selfie');
 });
 
 /*

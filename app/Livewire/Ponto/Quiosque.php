@@ -14,7 +14,7 @@ use Livewire\Component;
 
 /**
  * Quiosque de ponto (tablet da loja, fora dos painéis e sem login): PIN →
- * nome e próxima marcação → confirmar → comprovante. O tablet é conferido
+ * nome, câmera e próxima marcação → confirmar (com selfie) → comprovante. O tablet é conferido
  * pelo cookie de pareamento a cada requisição, não só no mount.
  */
 #[Layout('layouts.quiosque')]
@@ -73,7 +73,8 @@ class Quiosque extends Component
         $this->pin = '';
     }
 
-    public function confirmar(QuiosquePonto $quiosque): void
+    /** @param  string|null  $selfie  data URL (JPEG) tirado da câmera do tablet */
+    public function confirmar(QuiosquePonto $quiosque, ?string $selfie = null): void
     {
         $this->garantirTablet();
         $colaborador = $this->colaborador();
@@ -84,12 +85,19 @@ class Quiosque extends Component
             return;
         }
 
+        $arquivo = null;
+
         try {
-            $marcacao = $quiosque->registrar($colaborador, request()->ip(), request()->userAgent());
+            $arquivo = filled($selfie) ? $quiosque->selfieDeDataUrl($selfie) : null;
+            $marcacao = $quiosque->registrar($colaborador, request()->ip(), request()->userAgent(), $arquivo);
         } catch (PontoException $e) {
             $this->reiniciar($e->getMessage());
 
             return;
+        } finally {
+            if ($arquivo !== null) {
+                @unlink($arquivo->getPathname());
+            }
         }
 
         $this->comprovante = [
@@ -121,6 +129,7 @@ class Quiosque extends Component
             'proximoTipo' => $colaborador === null ? null : $ponto->proximoTipoEsperado($colaborador),
             'agoraMs' => now()->getTimestampMs(),
             'tamanhoPin' => self::TAMANHO_MAXIMO_PIN,
+            'exigeSelfie' => (bool) config('ponto.quiosque.exigir_selfie'),
         ]);
     }
 

@@ -44,7 +44,7 @@ class PontoService
     ) {}
 
     /**
-     * @param  array{latitude?: float|string|null, longitude?: float|string|null, precisao_m?: int|null, ip?: string|null, user_agent?: string|null, foto?: UploadedFile|null}  $contexto
+     * @param  array{latitude?: float|string|null, longitude?: float|string|null, precisao_m?: int|null, ip?: string|null, user_agent?: string|null, foto?: UploadedFile|null, exigir_selfie?: bool}  $contexto  exigir_selfie sobrepõe config('ponto.exigir_selfie') (o quiosque tem a sua)
      *
      * @throws PontoException
      */
@@ -71,7 +71,7 @@ class PontoService
 
         $foto = $contexto['foto'] ?? null;
 
-        if ($foto === null && config('ponto.exigir_selfie')) {
+        if ($foto === null && ($contexto['exigir_selfie'] ?? config('ponto.exigir_selfie'))) {
             throw new PontoException('Tire a selfie para registrar o ponto.');
         }
 

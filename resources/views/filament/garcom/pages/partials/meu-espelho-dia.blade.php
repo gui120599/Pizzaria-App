@@ -35,7 +35,14 @@
                     @if ($efetiva->corrigida())
                         <x-filament::badge size="sm" color="info" icon="heroicon-m-pencil">incluída por {{ $efetiva->inclusao->aprovadoPor?->name ?? 'gestor' }}</x-filament::badge>
                     @else
-                        <span class="text-xs text-gray-400">NSR {{ $efetiva->marcacao->nsr }}</span>
+                        <span class="flex items-center gap-2">
+                            @if ($efetiva->marcacao->foto_caminho)
+                                <a href="{{ route('ponto.marcacoes.selfie', $efetiva->marcacao) }}" target="_blank" title="Ver selfie">
+                                    <img src="{{ route('ponto.marcacoes.selfie', $efetiva->marcacao) }}" alt="Selfie" loading="lazy" class="h-8 w-8 rounded-full object-cover ring-1 ring-gray-950/10 dark:ring-white/20">
+                                </a>
+                            @endif
+                            <span class="text-xs text-gray-400">NSR {{ $efetiva->marcacao->nsr }}</span>
+                        </span>
                     @endif
                 </div>
             @empty
