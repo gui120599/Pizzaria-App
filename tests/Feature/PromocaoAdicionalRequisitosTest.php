@@ -215,6 +215,23 @@ class PromocaoAdicionalRequisitosTest extends TestCase
         $this->assertSame(['Grande + Refri = Brotinho'], $service->campanhasForaDaEntrega($pedido->id, null, false));
     }
 
+    public function test_cardapio_envia_os_gatilhos_para_sugerir_ao_por_a_pizza(): void
+    {
+        $resposta = $this->get(route('cardapio'))->assertOk();
+        $campanhas = $resposta->viewData('campanhasExigencia');
+
+        // A vitrine da campanha mostra a categoria exigida (pizzas), não os refris.
+        $vitrine = $resposta->viewData('campanhasAdicionaisAtivas')->first()['produtos']->pluck('produto.id')->all();
+        $this->assertContains($this->grande->id, $vitrine);
+        $this->assertNotContains($this->coca->id, $vitrine);
+
+        $this->assertCount(1, $campanhas);
+        $this->assertSame($this->promocao->id, $campanhas[0]['promocaoId']);
+        $this->assertSame('Pizza Grande', $campanhas[0]['categoriaExigida']);
+        $this->assertContains($this->grande->id, $campanhas[0]['produtosExigidos']);
+        $this->assertEqualsCanonicalizing([$this->coca->id, $this->guarana->id], $campanhas[0]['gatilhos']->pluck('id')->all());
+    }
+
     public function test_oferta_com_valor_continua_sem_cortesia(): void
     {
         PromocaoAdicionalRegra::where('par_produto_gatilho_id', $this->coca->id)->firstOrFail()

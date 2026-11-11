@@ -7,7 +7,7 @@
          x-transition:enter="transition duration-300 ease-[cubic-bezier(.2,.8,.2,1)]" x-transition:enter-start="translate-y-full sm:translate-y-4 sm:opacity-0"
          class="relative w-full rounded-t-sheet border-t border-ouro/30 bg-forno-2 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:max-w-sm sm:rounded-sheet sm:border">
         <p class="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.12em] text-ouro"><i class='bx bxs-gift text-base' aria-hidden="true"></i> Oferta especial</p>
-        <h2 id="titulo-oferta" class="mt-1 font-display text-xl font-bold">Quer levar junto?</h2>
+        <h2 id="titulo-oferta" class="mt-1 font-display text-xl font-bold" x-text="$store.cart.ofertaModal.existente ? 'Você ganhou uma oferta!' : 'Quer levar junto?'">Quer levar junto?</h2>
         <p class="mt-1 text-[13px] text-farinha" x-text="$store.cart.ofertaModal.ofertas.every(o => o.valorAdicional <= 0) ? 'Escolha 1 opção grátis:' : 'Escolha 1 opção por um valor a mais:'"></p>
         <div class="mt-4 max-h-64 space-y-2 overflow-y-auto">
             <template x-for="opcao in $store.cart.ofertaModal.ofertas" :key="opcao.ofertaId">

@@ -157,10 +157,22 @@ class CardapioService
             ->map(function ($regras) use ($promocoesAdicionais) {
                 $promocao = $regras->first()->promocao;
 
+                // Campanha com categoria exigida (ex.: Pizza Grande + refri 2L):
+                // a vitrine mostra os produtos da categoria — o carrinho sugere o
+                // gatilho ao pôr a pizza na sacola. A descrição explica a regra.
+                $exigidos = $promocao->promoad_categoria_exigida_id
+                    ? Produto::visivelCardapio()
+                        ->where('produto_categoria_id', $promocao->promoad_categoria_exigida_id)
+                        ->with(self::CATEGORIA_COM_SABORES)
+                        ->orderByDesc('produto_qtd_vendas')
+                        ->get()
+                        ->map(fn (Produto $produto) => ['produto' => $produto, 'ofertas' => null])
+                    : collect();
+
                 return [
                     'nome' => $promocao->promoad_nome,
                     'descricao' => $promocao->promoad_descricao,
-                    'produtos' => $regras
+                    'produtos' => $exigidos->isNotEmpty() ? $exigidos->values() : $regras
                         ->map(fn (PromocaoAdicionalRegra $regra) => [
                             'produto' => $regra->produtoGatilho,
                             'ofertas' => $promocoesAdicionais[$regra->par_produto_gatilho_id]['ofertas'],
@@ -292,10 +304,45 @@ class CardapioService
             ->merge($categorias->flatMap(fn ($c) => $c->produtos->merge($c->filhas->flatMap->produtos)))
             ->merge($promocoesRelampago->flatMap(fn (array $promo) => $promo['produtos']))
             ->merge($campanhasAdicionaisAtivas->flatMap(fn (array $campanha) => $campanha['produtos']->pluck('produto')))
+            // Gatilhos fora da vitrine (campanha com categoria exigida mostra a
+            // categoria): o modal de sugestão ainda precisa deles.
+            ->merge($regrasAdicionaisAtivas->pluck('produtoGatilho')->filter(fn ($produto) => $produto?->visivelNoCardapio()))
             ->merge($promocoes)
             ->merge($maisVendidos));
 
-        return compact('produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
+        // Campanhas com categoria exigida (ex.: Pizza Grande): ao pôr a pizza na
+        // sacola, o carrinho sugere os produtos-gatilho (ex.: refris 2L); com o
+        // gatilho antes da pizza, avisa o que falta. Só gatilhos com oferta agora.
+        $campanhasExigencia = $regrasAdicionaisAtivas
+            ->filter(fn (PromocaoAdicionalRegra $regra) => $regra->promocao->promoad_categoria_exigida_id
+                && $promocoesAdicionais->has($regra->par_produto_gatilho_id)
+                && isset($produtosTela[$regra->par_produto_gatilho_id]))
+            ->groupBy('par_promocao_id')
+            ->map(function ($regras, $promocaoId) use ($produtosExigidos, $produtosTela) {
+                $promocao = $regras->first()->promocao;
+
+                return [
+                    'promocaoId' => (int) $promocaoId,
+                    'nome' => $promocao->promoad_nome,
+                    'descricao' => $promocao->promoad_descricao,
+                    'categoriaExigida' => $promocao->categoriaExigida?->categoria_nome,
+                    'produtosExigidos' => $produtosExigidos[$promocaoId] ?? [],
+                    'gatilhos' => $regras
+                        ->map(fn (PromocaoAdicionalRegra $regra) => $produtosTela[$regra->par_produto_gatilho_id])
+                        ->unique('id')
+                        ->map(fn ($p) => [
+                            'id' => $p->id,
+                            'nome' => $p->nome,
+                            'preco' => $p->preco,
+                            'precoVenda' => $p->precoVenda,
+                            'foto' => $p->temFoto() ? $p->foto(48) : '',
+                        ])
+                        ->values(),
+                ];
+            })
+            ->values();
+
+        return compact('campanhasExigencia', 'produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
     }
 
     /**
