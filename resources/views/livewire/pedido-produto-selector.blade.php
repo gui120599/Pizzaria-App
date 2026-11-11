@@ -11,6 +11,17 @@
         </div>
     @endif
 
+    {{-- Aviso de promoção (ex.: falta a Pizza Grande para ganhar o brotinho) --}}
+    @if ($avisoPromocao)
+        <div class="flex items-start gap-2 px-4 py-3 bg-pink-50 dark:bg-pink-500/10 border-b border-pink-300 dark:border-pink-500/30 text-pink-600 dark:text-pink-400 text-sm">
+            <i class='bx bxs-gift text-base mt-0.5 shrink-0'></i>
+            <span class="flex-1">{{ $avisoPromocao }}</span>
+            <button wire:click="$set('avisoPromocao', null)" type="button" class="shrink-0 opacity-60 hover:opacity-100">
+                <i class='bx bx-x text-lg'></i>
+            </button>
+        </div>
+    @endif
+
     {{-- Erro de estoque insuficiente (modo Bloquear) --}}
     @if ($erroEstoque)
         <div class="flex items-start gap-2 px-4 py-3 bg-red-50 dark:bg-red-500/10 border-b border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm">
@@ -442,6 +453,55 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    @endif
+
+
+    {{-- ══ MODAL: promoção com categoria exigida (sugestão de gatilho / oferta pendente) ══ --}}
+    @if ($promoModal)
+        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" wire:keydown.escape="fecharPromoModal">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" wire:click="fecharPromoModal"></div>
+
+            <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md z-10 max-h-[90vh] overflow-y-auto p-5 space-y-3">
+                <p class="text-xs font-semibold text-pink-600 dark:text-pink-400 flex items-center gap-1">
+                    <i class='bx bxs-gift'></i> {{ $promoModal['tipo'] === 'oferta' ? 'Oferta especial' : 'Promoção' }}
+                </p>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">
+                    {{ $promoModal['tipo'] === 'oferta' ? 'Ganhou com '.$promoModal['gatilho_nome'].'!' : $promoModal['promocao'] }}
+                </h3>
+                @if ($promoModal['descricao'])
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $promoModal['descricao'] }}</p>
+                @endif
+
+                <div class="space-y-1.5">
+                    @if ($promoModal['tipo'] === 'sugestao')
+                        <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Escolha para ganhar:</p>
+                        @foreach ($promoModal['gatilhos'] as $gatilho)
+                            <button type="button" wire:click="escolherGatilhoSugerido({{ $gatilho['id'] }})"
+                                class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 border-dashed border-pink-300 dark:border-pink-500/30 bg-white dark:bg-gray-900 text-left transition-colors">
+                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate min-w-0">{{ $gatilho['nome'] }}</p>
+                                <span class="text-sm font-bold text-pink-600 dark:text-pink-400 shrink-0">R$ {{ number_format($gatilho['preco'], 2, ',', '.') }}</span>
+                            </button>
+                        @endforeach
+                    @else
+                        <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Escolha 1:</p>
+                        @foreach ($promoModal['ofertas'] as $opcao)
+                            <button type="button" wire:click="aceitarOfertaPendente({{ $opcao['oferta_id'] }})"
+                                class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 border-dashed border-pink-300 dark:border-pink-500/30 bg-white dark:bg-gray-900 text-left transition-colors">
+                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate min-w-0">
+                                    {{ $opcao['categoria_nome'] ? $opcao['categoria_nome'].': ' : '' }}{{ $opcao['nome'] }}
+                                </p>
+                                <span class="text-sm font-bold text-pink-600 dark:text-pink-400 shrink-0">{{ $opcao['valor_adicional'] > 0 ? '+ R$ '.number_format($opcao['valor_adicional'], 2, ',', '.') : 'Grátis' }}</span>
+                            </button>
+                        @endforeach
+                    @endif
+                </div>
+
+                <button type="button" wire:click="fecharPromoModal"
+                    class="w-full py-2.5 border border-gray-300 dark:border-white/10 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                    Não, obrigado
+                </button>
             </div>
         </div>
     @endif

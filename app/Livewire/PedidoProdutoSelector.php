@@ -12,7 +12,9 @@ use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\Produto;
+use App\Models\PromocaoAdicional;
 use App\Models\PromocaoAdicionalOferta;
+use App\Models\PromocaoAdicionalRegra;
 use App\Services\ItemSolicitado;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
@@ -135,6 +137,24 @@ class PedidoProdutoSelector extends Component
     public array $ofertasDisponiveis = [];
 
     public ?int $ofertaEscolhidaId = null;
+
+    /**
+     * Promoção com categoria exigida (ex.: Pizza Grande + refri 2L = brotinho):
+     * depois de lançar a pizza, sugere os gatilhos ('sugestao') ou oferece para
+     * um gatilho já lançado antes dela ('oferta'). Null = modal fechado.
+     *
+     * @var array{tipo: string, promocao: string, descricao: ?string, gatilhos?: list<array{id: int, nome: string, foto: ?string, preco: float}>, gatilho_item_id?: int, gatilho_nome?: string, ofertas?: list<array<string, mixed>>}|null
+     */
+    public ?array $promoModal = null;
+
+    /** Itens-gatilho cuja oferta foi recusada no modal: não pergunta de novo. */
+    public array $ofertasRecusadasItens = [];
+
+    /** Aviso informativo de promoção (ex.: "adicione 1 Pizza Grande para ganhar"). */
+    public ?string $avisoPromocao = null;
+
+    /** Último item gravado por lancar() nesta requisição (para os ganchos de promoção). */
+    protected ?ItensPedido $ultimoLancado = null;
 
     // Estoque insuficiente: erro bloqueia a criação do item (modo BLOQUEAR),
     // aviso apenas informa e deixa o item ser criado (modo AVISAR).
@@ -461,7 +481,170 @@ class PedidoProdutoSelector extends Component
             $this->itens[] = $this->itemParaLista($novo->load(['produto.categoria', 'adicionaisItemPedido.adicional']));
         }
 
+        $this->ultimoLancado = $novos[0];
+
         return true;
+    }
+
+    // ── Promoção com categoria exigida (sugestão / oferta pendente) ──────────
+
+    /**
+     * Depois de lançar um item: se ele é da categoria exigida de uma campanha
+     * vigente e ainda cabe uma oferta, oferece para um gatilho já lançado sem
+     * oferta (e não recusado) ou, sem gatilho pendente, sugere os gatilhos.
+     * Se ele é um gatilho lançado sem a categoria exigida, avisa o que falta.
+     */
+    protected function verificarPromocoesExigencia(): void
+    {
+        $item = $this->ultimoLancado;
+
+        if (! $this->pedidoId || ! $item || $item->item_pedido_promocao_adicional_oferta_id) {
+            return;
+        }
+
+        $service = app(PromocaoAdicionalService::class);
+        $categoriaId = (int) $item->produto?->produto_categoria_id;
+        $campanhas = app(PrecificadorService::class)->regrasAdicionaisVigentes()
+            ->filter(fn (PromocaoAdicionalRegra $regra) => $regra->promocao->promoad_categoria_exigida_id)
+            ->groupBy('par_promocao_id');
+
+        foreach ($campanhas as $regras) {
+            /** @var PromocaoAdicional $promocao */
+            $promocao = $regras->first()->promocao;
+            $gatilhoIds = $regras->pluck('par_produto_gatilho_id')->map(fn ($id) => (int) $id)->all();
+
+            if ((int) $promocao->promoad_categoria_exigida_id === $categoriaId) {
+                if (! $service->aceitaMaisUmaOferta($promocao, $this->pedidoId)) {
+                    continue;
+                }
+
+                $gatilhosNoPedido = ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)
+                    ->where('item_pedido_status', 'INSERIDO')
+                    ->whereIn('item_pedido_produto_id', $gatilhoIds)
+                    ->whereNull('item_pedido_promocao_adicional_oferta_id')
+                    ->with('produto')
+                    ->get();
+                $comOferta = ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)
+                    ->where('item_pedido_status', 'INSERIDO')
+                    ->whereNotNull('item_pedido_promocao_adicional_oferta_id')
+                    ->pluck('item_pedido_origem_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
+                $semOferta = $gatilhosNoPedido->reject(fn (ItensPedido $g) => in_array($g->id, $comOferta, true));
+                $pendente = $semOferta->first(fn (ItensPedido $g) => ! in_array($g->id, $this->ofertasRecusadasItens, true));
+
+                if ($pendente) {
+                    $ofertas = $this->montarOfertasDisponiveis($pendente->item_pedido_produto_id);
+
+                    if ($ofertas !== []) {
+                        $this->promoModal = [
+                            'tipo' => 'oferta',
+                            'promocao' => $promocao->promoad_nome,
+                            'descricao' => $promocao->promoad_descricao,
+                            'gatilho_item_id' => $pendente->id,
+                            'gatilho_nome' => $pendente->produto?->produto_descricao ?? '',
+                            'ofertas' => $ofertas,
+                        ];
+
+                        return;
+                    }
+                }
+
+                // Gatilho recusado continua no pedido: não insiste com sugestão.
+                if ($semOferta->isEmpty()) {
+                    $this->promoModal = [
+                        'tipo' => 'sugestao',
+                        'promocao' => $promocao->promoad_nome,
+                        'descricao' => $promocao->promoad_descricao,
+                        'gatilhos' => Produto::whereIn('id', $gatilhoIds)
+                            ->orderBy('produto_descricao')
+                            ->get()
+                            ->map(fn (Produto $p) => [
+                                'id' => $p->id,
+                                'nome' => $p->produto_descricao,
+                                'foto' => $p->getMiniaturaUrl(56),
+                                'preco' => app(PrecificadorService::class)->resolver($p)->valorUnitario,
+                            ])
+                            ->values()
+                            ->all(),
+                    ];
+
+                    return;
+                }
+
+                continue;
+            }
+
+            // Gatilho lançado sem a categoria exigida: avisa o que falta.
+            if (in_array((int) $item->item_pedido_produto_id, $gatilhoIds, true)) {
+                $pedido = $item->pedido;
+
+                if ($promocao->entregaPermitida($pedido?->pedido_opcaoentrega_id, $pedido?->pedido_sessao_mesa_id !== null)
+                    && ! $service->aceitaMaisUmaOferta($promocao, $this->pedidoId)) {
+                    $categoria = $promocao->categoriaExigida?->categoria_nome ?? 'item da promoção';
+                    $this->avisoPromocao = "Adicione 1 {$categoria} para ganhar a promoção \"{$promocao->promoad_nome}\".";
+                }
+            }
+        }
+    }
+
+    /** Escolheu um gatilho na sugestão: segue o fluxo normal do produto (que já mostra a oferta). */
+    public function escolherGatilhoSugerido(int $produtoId): void
+    {
+        $gatilhos = collect($this->promoModal['gatilhos'] ?? [])->pluck('id')->map(fn ($id) => (int) $id);
+        $this->promoModal = null;
+
+        if ($gatilhos->contains($produtoId)) {
+            $this->selecionarProduto($produtoId);
+        }
+    }
+
+    /** Aceitou a oferta para um gatilho que já estava no pedido. */
+    public function aceitarOfertaPendente(int $ofertaId): void
+    {
+        $modal = $this->promoModal;
+        $this->promoModal = null;
+
+        if (($modal['tipo'] ?? null) !== 'oferta' || ! $this->pedidoId) {
+            return;
+        }
+
+        $gatilho = ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->with('produto')
+            ->find($modal['gatilho_item_id'] ?? 0);
+        $regra = $gatilho ? app(PrecificadorService::class)->regraAdicionalDoProduto($gatilho->item_pedido_produto_id) : null;
+        $oferta = $regra?->ofertasDisponiveis()->first(fn (PromocaoAdicionalOferta $o) => $o->id === $ofertaId);
+
+        if (! $gatilho || ! $oferta || ! app(PromocaoAdicionalService::class)->aceitaMaisUmaOferta($regra->promocao, $this->pedidoId)) {
+            $this->erroPromocao = 'A oferta não está mais disponível para este pedido.';
+
+            return;
+        }
+
+        try {
+            $linha = new LinhaPrecificada([], [], $gatilho->produto, $regra, $oferta->setRelation('regra', $regra));
+            $novo = app(LancamentoItemPedidoService::class)->gravarOferta($this->pedidoId, $gatilho, $linha);
+        } catch (PromocaoIndisponivelException $e) {
+            $this->erroPromocao = $e->getMessage();
+
+            return;
+        }
+
+        if ($novo) {
+            $this->itens[] = $this->itemParaLista($novo->load(['produto.categoria', 'adicionaisItemPedido.adicional']));
+            $this->notificarPai();
+        }
+    }
+
+    /** Fechou o modal da promoção sem escolher: oferta pendente recusada não volta. */
+    public function fecharPromoModal(): void
+    {
+        if (($this->promoModal['tipo'] ?? null) === 'oferta') {
+            $this->ofertasRecusadasItens[] = (int) $this->promoModal['gatilho_item_id'];
+        }
+
+        $this->promoModal = null;
     }
 
     // ── Quantidade modal simples ─────────────────────────────────────────────
@@ -715,6 +898,7 @@ class PedidoProdutoSelector extends Component
 
         $this->fecharSaboresModal();
         $this->notificarPai();
+        $this->verificarPromocoesExigencia();
     }
 
     /**
@@ -815,6 +999,7 @@ class PedidoProdutoSelector extends Component
 
         $this->fecharModal();
         $this->notificarPai();
+        $this->verificarPromocoesExigencia();
     }
 
     /** Dispensa o toast de erro/aviso de estoque exibido dentro dos modais. */
