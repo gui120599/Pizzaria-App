@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\ProdutoTipoEnum;
+use App\Livewire\PedidoProdutoSelector;
 use App\Models\Categoria;
 use App\Models\HorarioFuncionamento;
 use App\Models\ItensPedido;
@@ -14,6 +15,7 @@ use App\Models\PromocaoAdicionalRegra;
 use App\Services\PromocaoAdicionalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -230,6 +232,68 @@ class PromocaoAdicionalRequisitosTest extends TestCase
         $this->assertSame('Pizza Grande', $campanhas[0]['categoriaExigida']);
         $this->assertContains($this->grande->id, $campanhas[0]['produtosExigidos']);
         $this->assertEqualsCanonicalizing([$this->coca->id, $this->guarana->id], $campanhas[0]['gatilhos']->pluck('id')->all());
+    }
+
+    private function pedidoBalcao(): Pedido
+    {
+        return Pedido::create(['pedido_status' => 'INICIADO', 'pedido_datahora_abertura' => now()]);
+    }
+
+    public function test_balcao_pizza_primeiro_sugere_os_refris_e_segue_para_a_oferta(): void
+    {
+        $pedido = $this->pedidoBalcao();
+
+        $selector = Livewire::test(PedidoProdutoSelector::class, ['pedidoId' => $pedido->id])
+            ->call('selecionarProduto', $this->grande->id)
+            ->call('confirmarSabores', [$this->grande->id])
+            ->assertSet('promoModal.tipo', 'sugestao');
+
+        $this->assertEqualsCanonicalizing([$this->coca->id, $this->guarana->id], array_column($selector->get('promoModal')['gatilhos'], 'id'));
+
+        $selector->call('escolherGatilhoSugerido', $this->coca->id)
+            ->assertSet('promoModal', null)
+            ->assertSet('modalAberta', true)
+            ->assertCount('ofertasDisponiveis', 1);
+    }
+
+    public function test_balcao_refri_primeiro_avisa_e_oferece_ao_lancar_a_pizza(): void
+    {
+        $pedido = $this->pedidoBalcao();
+
+        $selector = Livewire::test(PedidoProdutoSelector::class, ['pedidoId' => $pedido->id])
+            ->call('selecionarProduto', $this->coca->id)
+            ->assertCount('ofertasDisponiveis', 0)
+            ->call('confirmarItem')
+            ->assertSet('avisoPromocao', 'Adicione 1 Pizza Grande para ganhar a promoção "Grande + Refri = Brotinho".')
+            ->call('selecionarProduto', $this->grande->id)
+            ->call('confirmarSabores', [$this->grande->id])
+            ->assertSet('promoModal.tipo', 'oferta');
+
+        $ofertaId = $selector->get('promoModal')['ofertas'][0]['oferta_id'];
+        $selector->call('aceitarOfertaPendente', $ofertaId)->assertSet('promoModal', null);
+
+        $coca = ItensPedido::where('item_pedido_produto_id', $this->coca->id)->firstOrFail();
+        $brotinho = ItensPedido::where('item_pedido_produto_id', $this->brotinho->id)->firstOrFail();
+        $this->assertSame($coca->id, $brotinho->item_pedido_origem_id);
+        $this->assertTrue($brotinho->item_pedido_cortesia);
+    }
+
+    public function test_balcao_oferta_recusada_nao_volta(): void
+    {
+        $pedido = $this->pedidoBalcao();
+
+        Livewire::test(PedidoProdutoSelector::class, ['pedidoId' => $pedido->id])
+            ->call('selecionarProduto', $this->coca->id)
+            ->call('confirmarItem')
+            ->call('selecionarProduto', $this->grande->id)
+            ->call('confirmarSabores', [$this->grande->id])
+            ->assertSet('promoModal.tipo', 'oferta')
+            ->call('fecharPromoModal')
+            ->call('selecionarProduto', $this->grande->id)
+            ->call('confirmarSabores', [$this->grande->id])
+            ->assertSet('promoModal', null);
+
+        $this->assertSame(0, ItensPedido::where('item_pedido_produto_id', $this->brotinho->id)->count());
     }
 
     public function test_oferta_com_valor_continua_sem_cortesia(): void
