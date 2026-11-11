@@ -176,6 +176,12 @@ class MeuEspelho extends Page
                     'podeSolicitar' => ! $this->periodoAtual->estaTravado(),
                 ]);
             })
+            // Ciente/Contestar/Solicitar abrem por cima do modal do dia: o Filament só
+            // resolve ação aninhada registrada no pai (senão ignora o clique).
+            ->registerModalActions([
+                $this->cienteAction(),
+                $this->solicitarAjusteAction(),
+            ])
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Fechar');
     }

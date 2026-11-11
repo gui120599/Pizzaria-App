@@ -162,6 +162,16 @@ class EspelhoPonto extends Page
                 'detalhe' => app(EspelhoPontoService::class)->detalheDoDia($this->colaboradorDe($arguments), Carbon::parse($arguments['dia'])),
                 'podeCorrigir' => $this->podeCorrigir($this->colaboradorDe($arguments)),
             ]))
+            // Os botões do conteúdo abrem estas ações por cima do modal do dia; o
+            // Filament só resolve ação aninhada registrada no pai (senão ignora o clique).
+            ->registerModalActions([
+                $this->incluirMarcacaoAction(),
+                $this->corrigirHorarioAction(),
+                $this->desconsiderarAction(),
+                $this->lancarDiaAction(),
+                $this->abonarAction(),
+                $this->desfazerCorrecaoAction(),
+            ])
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Fechar');
     }
@@ -224,7 +234,8 @@ class EspelhoPonto extends Page
                 Repeater::make('horarios')
                     ->label('Horários (entrada, saída, entrada, saída…)')
                     ->simple(TimePicker::make('hora')->seconds(false)->required())
-                    ->default([['hora' => null], ['hora' => null]])
+                    // Repeater simples: cada item é o próprio horário (não ['hora' => …]).
+                    ->default([null, null])
                     ->minItems(2)
                     ->reorderable(false)
                     ->addActionLabel('Adicionar horário'),
