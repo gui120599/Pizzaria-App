@@ -94,13 +94,14 @@ class PedidoProdutoSelectorPromocaoAdicionalTest extends TestCase
             ->assertSet('produtoSelecionado.desconto_unit', 20.00);
     }
 
-    public function test_sem_pedido_gravado_oferta_nao_aparece(): void
+    public function test_sem_pedido_gravado_oferta_aparece_na_previa(): void
     {
+        // Pedido novo do Atender Pedido: a oferta vira linha de prévia e o save grava/revalida.
         $this->regra();
 
         Livewire::test(PedidoProdutoSelector::class)
             ->call('selecionarProduto', $this->pizza->id)
-            ->assertSet('ofertasDisponiveis', []);
+            ->assertCount('ofertasDisponiveis', 1);
     }
 
     public function test_aceitar_oferta_grava_as_duas_linhas_e_consome_saldo(): void

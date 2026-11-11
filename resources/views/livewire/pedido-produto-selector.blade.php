@@ -404,6 +404,7 @@
                             <p class="text-xs font-semibold text-pink-600 dark:text-pink-400 flex items-center gap-1">
                                 <i class='bx bxs-gift'></i> Oferta especial — escolha 1 (opcional)
                             </p>
+                            <div class="max-h-64 overflow-y-auto pr-1 space-y-1.5">
                             @foreach ($ofertasDisponiveis as $opcao)
                                 <button type="button" wire:click="selecionarOferta({{ $opcao['oferta_id'] }})"
                                     class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 text-left transition-colors
@@ -414,6 +415,7 @@
                                     <span class="text-sm font-bold text-pink-600 dark:text-pink-400 shrink-0">{{ $opcao['valor_adicional'] > 0 ? '+ R$ '.number_format($opcao['valor_adicional'], 2, ',', '.') : 'Grátis' }}</span>
                                 </button>
                             @endforeach
+                            </div>
                         </div>
                     @endif
 
@@ -474,7 +476,7 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400">{{ $promoModal['descricao'] }}</p>
                 @endif
 
-                <div class="space-y-1.5">
+                <div class="max-h-64 overflow-y-auto pr-1 space-y-1.5">
                     @if ($promoModal['tipo'] === 'sugestao')
                         <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Escolha para ganhar:</p>
                         @foreach ($promoModal['gatilhos'] as $gatilho)
@@ -845,6 +847,7 @@
                             <p class="text-xs font-semibold text-pink-600 dark:text-pink-400 flex items-center gap-1">
                                 <i class='bx bxs-gift'></i> Oferta especial — escolha 1 (opcional)
                             </p>
+                            <div class="max-h-64 overflow-y-auto pr-1 space-y-1.5">
                             @foreach ($ofertasDisponiveis as $opcao)
                                 <button type="button" wire:click="selecionarOferta({{ $opcao['oferta_id'] }})"
                                     class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 text-left transition-colors
@@ -855,6 +858,7 @@
                                     <span class="text-sm font-bold text-pink-600 dark:text-pink-400 shrink-0">{{ $opcao['valor_adicional'] > 0 ? '+ R$ '.number_format($opcao['valor_adicional'], 2, ',', '.') : 'Grátis' }}</span>
                                 </button>
                             @endforeach
+                            </div>
                         </div>
                     @endif
 

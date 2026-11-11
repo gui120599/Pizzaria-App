@@ -11,6 +11,7 @@ use App\Exceptions\PerguntaNaoRespondidaException;
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
+use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\PromocaoAdicional;
 use App\Models\PromocaoAdicionalOferta;
@@ -20,6 +21,7 @@ use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
 use App\Services\PrecificadorService;
 use App\Services\PromocaoAdicionalService;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -153,8 +155,11 @@ class PedidoProdutoSelector extends Component
     /** Aviso informativo de promoção (ex.: "adicione 1 Pizza Grande para ganhar"). */
     public ?string $avisoPromocao = null;
 
-    /** Último item gravado por lancar() nesta requisição (para os ganchos de promoção). */
-    protected ?ItensPedido $ultimoLancado = null;
+    /** Produto do último item lançado nesta requisição (para os ganchos de promoção). */
+    protected ?int $ultimoLancadoProdutoId = null;
+
+    /** O último item lançado já levou oferta (não precisa sugerir/avisar). */
+    protected bool $ultimoLancadoComOferta = false;
 
     // Estoque insuficiente: erro bloqueia a criação do item (modo BLOQUEAR),
     // aviso apenas informa e deixa o item ser criado (modo AVISAR).
@@ -332,9 +337,7 @@ class PedidoProdutoSelector extends Component
             'unidade_estoque' => $produto->produto_unidade_estoque,
         ];
 
-        if ($this->pedidoId) {
-            $this->ofertasDisponiveis = $this->montarOfertasDisponiveis($produtoId);
-        }
+        $this->ofertasDisponiveis = $this->montarOfertasDisponiveis($produtoId);
 
         $this->quantidade = 1;
         $this->observacao = '';
@@ -368,7 +371,12 @@ class PedidoProdutoSelector extends Component
 
         // Requisitos da campanha (opção de entrega, categoria exigida no pedido):
         // sem eles a oferta nem aparece.
-        if (! $regra || ! app(PromocaoAdicionalService::class)->aceitaMaisUmaOferta($regra->promocao, $this->pedidoId)) {
+        if (! $regra || ! $this->podeOfertar($regra->promocao)) {
+            return [];
+        }
+
+        if (! $this->pedidoId && $regra->par_qtd_maxima_por_pedido !== null
+            && $this->previaAceites((int) $regra->par_promocao_id, $regra->id) >= $regra->par_qtd_maxima_por_pedido) {
             return [];
         }
 
@@ -422,7 +430,18 @@ class PedidoProdutoSelector extends Component
     {
         if (! $this->pedidoId) {
             // Prévia já precificada sem promoção: não há onde registrar o consumo.
-            $this->itens[] = $this->itemParaLista($linha->previa(), $linha->adicionais);
+            // A oferta escolhida vira uma linha de prévia ligada ao item; o
+            // Atender Pedido grava e revalida as duas no save.
+            $item = $this->itemParaLista($linha->previa(), $linha->adicionais);
+            $this->itens[] = $item;
+            $oferta = $this->ofertaEscolhidaNaPrevia();
+
+            if ($oferta) {
+                $this->adicionarOfertaNaPrevia($item, $oferta);
+            }
+
+            $this->ultimoLancadoProdutoId = (int) $item['produto_id'];
+            $this->ultimoLancadoComOferta = $oferta !== null;
 
             return true;
         }
@@ -481,12 +500,94 @@ class PedidoProdutoSelector extends Component
             $this->itens[] = $this->itemParaLista($novo->load(['produto.categoria', 'adicionaisItemPedido.adicional']));
         }
 
-        $this->ultimoLancado = $novos[0];
+        $this->ultimoLancadoProdutoId = (int) $novos[0]->item_pedido_produto_id;
+        $this->ultimoLancadoComOferta = count($novos) > 1;
 
         return true;
     }
 
     // ── Promoção com categoria exigida (sugestão / oferta pendente) ──────────
+    //
+    // Funciona nos dois modos do seletor: pedido gravado (balcão em edição,
+    // garçom) conta pelo banco; pedido novo do Atender Pedido (prévia, sem
+    // pedidoId) conta pelos itens da lista, e a oferta vira uma linha de
+    // prévia ligada ao gatilho (origem_tmp) que o Atender Pedido grava no save.
+
+    /**
+     * true quando a campanha aceitaria mais 1 oferta agora. Na prévia, a opção
+     * de entrega ainda não foi escolhida (o save do Atender Pedido revalida).
+     */
+    protected function podeOfertar(PromocaoAdicional $promocao): bool
+    {
+        if ($this->pedidoId) {
+            return app(PromocaoAdicionalService::class)->aceitaMaisUmaOferta($promocao, $this->pedidoId);
+        }
+
+        if (! $promocao->entregaPermitida(null)) {
+            return false;
+        }
+
+        if (! $promocao->promoad_categoria_exigida_id) {
+            return true;
+        }
+
+        return $this->previaAceites($promocao->id) + 1 <= floor($this->previaUnidadesDaCategoria((int) $promocao->promoad_categoria_exigida_id) + 0.001);
+    }
+
+    protected function previaUnidadesDaCategoria(int $categoriaId): float
+    {
+        $itens = collect($this->itens)->filter(fn (array $i) => empty($i['oferta_id']));
+        $categorias = Produto::whereIn('id', $itens->pluck('produto_id')->filter()->unique())->pluck('produto_categoria_id', 'id');
+
+        return (float) $itens
+            ->filter(fn (array $i) => (int) ($categorias[$i['produto_id']] ?? 0) === $categoriaId)
+            ->sum('quantidade');
+    }
+
+    protected function previaAceites(int $promocaoId, ?int $regraId = null): int
+    {
+        return collect($this->itens)
+            ->filter(fn (array $i) => ! empty($i['oferta_id']) && (int) ($i['promocao_adicional_id'] ?? 0) === $promocaoId)
+            ->when($regraId, fn ($c) => $c->filter(fn (array $i) => (int) ($i['promocao_adicional_regra_id'] ?? 0) === $regraId))
+            ->count();
+    }
+
+    /**
+     * Itens-gatilho (dos produtos informados) ainda sem oferta, no banco ou na prévia.
+     *
+     * @param  list<int>  $gatilhoIds
+     * @return Collection<int, array{id: string, produto_id: int, nome: string}>
+     */
+    protected function gatilhosSemOferta(array $gatilhoIds): Collection
+    {
+        if (! $this->pedidoId) {
+            $comOferta = collect($this->itens)->pluck('origem_tmp')->filter()->map(fn ($id) => (string) $id)->all();
+
+            return collect($this->itens)
+                ->filter(fn (array $i) => empty($i['oferta_id'])
+                    && in_array((int) $i['produto_id'], $gatilhoIds, true)
+                    && ! in_array((string) $i['id'], $comOferta, true))
+                ->map(fn (array $i) => ['id' => (string) $i['id'], 'produto_id' => (int) $i['produto_id'], 'nome' => $i['produto_nome']])
+                ->values();
+        }
+
+        $comOferta = ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->whereNotNull('item_pedido_promocao_adicional_oferta_id')
+            ->pluck('item_pedido_origem_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->whereIn('item_pedido_produto_id', $gatilhoIds)
+            ->whereNull('item_pedido_promocao_adicional_oferta_id')
+            ->with('produto')
+            ->get()
+            ->reject(fn (ItensPedido $g) => in_array($g->id, $comOferta, true))
+            ->map(fn (ItensPedido $g) => ['id' => (string) $g->id, 'produto_id' => (int) $g->item_pedido_produto_id, 'nome' => $g->produto?->produto_descricao ?? ''])
+            ->values();
+    }
 
     /**
      * Depois de lançar um item: se ele é da categoria exigida de uma campanha
@@ -496,14 +597,14 @@ class PedidoProdutoSelector extends Component
      */
     protected function verificarPromocoesExigencia(): void
     {
-        $item = $this->ultimoLancado;
+        $produtoId = $this->ultimoLancadoProdutoId;
+        $this->ultimoLancadoProdutoId = null;
 
-        if (! $this->pedidoId || ! $item || $item->item_pedido_promocao_adicional_oferta_id) {
+        if (! $produtoId || $this->ultimoLancadoComOferta) {
             return;
         }
 
-        $service = app(PromocaoAdicionalService::class);
-        $categoriaId = (int) $item->produto?->produto_categoria_id;
+        $categoriaId = (int) Produto::whereKey($produtoId)->value('produto_categoria_id');
         $campanhas = app(PrecificadorService::class)->regrasAdicionaisVigentes()
             ->filter(fn (PromocaoAdicionalRegra $regra) => $regra->promocao->promoad_categoria_exigida_id)
             ->groupBy('par_promocao_id');
@@ -514,35 +615,23 @@ class PedidoProdutoSelector extends Component
             $gatilhoIds = $regras->pluck('par_produto_gatilho_id')->map(fn ($id) => (int) $id)->all();
 
             if ((int) $promocao->promoad_categoria_exigida_id === $categoriaId) {
-                if (! $service->aceitaMaisUmaOferta($promocao, $this->pedidoId)) {
+                if (! $this->podeOfertar($promocao)) {
                     continue;
                 }
 
-                $gatilhosNoPedido = ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)
-                    ->where('item_pedido_status', 'INSERIDO')
-                    ->whereIn('item_pedido_produto_id', $gatilhoIds)
-                    ->whereNull('item_pedido_promocao_adicional_oferta_id')
-                    ->with('produto')
-                    ->get();
-                $comOferta = ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)
-                    ->where('item_pedido_status', 'INSERIDO')
-                    ->whereNotNull('item_pedido_promocao_adicional_oferta_id')
-                    ->pluck('item_pedido_origem_id')
-                    ->map(fn ($id) => (int) $id)
-                    ->all();
-                $semOferta = $gatilhosNoPedido->reject(fn (ItensPedido $g) => in_array($g->id, $comOferta, true));
-                $pendente = $semOferta->first(fn (ItensPedido $g) => ! in_array($g->id, $this->ofertasRecusadasItens, true));
+                $semOferta = $this->gatilhosSemOferta($gatilhoIds);
+                $pendente = $semOferta->first(fn (array $g) => ! in_array($g['id'], $this->ofertasRecusadasItens, true));
 
                 if ($pendente) {
-                    $ofertas = $this->montarOfertasDisponiveis($pendente->item_pedido_produto_id);
+                    $ofertas = $this->montarOfertasDisponiveis($pendente['produto_id']);
 
                     if ($ofertas !== []) {
                         $this->promoModal = [
                             'tipo' => 'oferta',
                             'promocao' => $promocao->promoad_nome,
                             'descricao' => $promocao->promoad_descricao,
-                            'gatilho_item_id' => $pendente->id,
-                            'gatilho_nome' => $pendente->produto?->produto_descricao ?? '',
+                            'gatilho_item_id' => $pendente['id'],
+                            'gatilho_nome' => $pendente['nome'],
                             'ofertas' => $ofertas,
                         ];
 
@@ -576,11 +665,11 @@ class PedidoProdutoSelector extends Component
             }
 
             // Gatilho lançado sem a categoria exigida: avisa o que falta.
-            if (in_array((int) $item->item_pedido_produto_id, $gatilhoIds, true)) {
-                $pedido = $item->pedido;
+            if (in_array($produtoId, $gatilhoIds, true)) {
+                $pedido = $this->pedidoId ? Pedido::find($this->pedidoId) : null;
 
                 if ($promocao->entregaPermitida($pedido?->pedido_opcaoentrega_id, $pedido?->pedido_sessao_mesa_id !== null)
-                    && ! $service->aceitaMaisUmaOferta($promocao, $this->pedidoId)) {
+                    && ! $this->podeOfertar($promocao)) {
                     $categoria = $promocao->categoriaExigida?->categoria_nome ?? 'item da promoção';
                     $this->avisoPromocao = "Adicione 1 {$categoria} para ganhar a promoção \"{$promocao->promoad_nome}\".";
                 }
@@ -599,24 +688,43 @@ class PedidoProdutoSelector extends Component
         }
     }
 
-    /** Aceitou a oferta para um gatilho que já estava no pedido. */
+    /** Aceitou a oferta para um gatilho que já estava no pedido (ou na prévia). */
     public function aceitarOfertaPendente(int $ofertaId): void
     {
         $modal = $this->promoModal;
         $this->promoModal = null;
 
-        if (($modal['tipo'] ?? null) !== 'oferta' || ! $this->pedidoId) {
+        if (($modal['tipo'] ?? null) !== 'oferta') {
+            return;
+        }
+
+        $gatilhoId = (string) ($modal['gatilho_item_id'] ?? '');
+
+        if (! $this->pedidoId) {
+            $gatilho = collect($this->itens)->first(fn (array $i) => (string) $i['id'] === $gatilhoId && empty($i['oferta_id']));
+            $regra = $gatilho ? app(PrecificadorService::class)->regraAdicionalDoProduto((int) $gatilho['produto_id']) : null;
+            $oferta = $regra?->ofertasDisponiveis()->first(fn (PromocaoAdicionalOferta $o) => $o->id === $ofertaId);
+
+            if (! $gatilho || ! $oferta || ! $this->podeOfertar($regra->promocao)) {
+                $this->erroPromocao = 'A oferta não está mais disponível para este pedido.';
+
+                return;
+            }
+
+            $this->adicionarOfertaNaPrevia($gatilho, $oferta->setRelation('regra', $regra));
+            $this->notificarPai();
+
             return;
         }
 
         $gatilho = ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)
             ->where('item_pedido_status', 'INSERIDO')
             ->with('produto')
-            ->find($modal['gatilho_item_id'] ?? 0);
+            ->find((int) $gatilhoId);
         $regra = $gatilho ? app(PrecificadorService::class)->regraAdicionalDoProduto($gatilho->item_pedido_produto_id) : null;
         $oferta = $regra?->ofertasDisponiveis()->first(fn (PromocaoAdicionalOferta $o) => $o->id === $ofertaId);
 
-        if (! $gatilho || ! $oferta || ! app(PromocaoAdicionalService::class)->aceitaMaisUmaOferta($regra->promocao, $this->pedidoId)) {
+        if (! $gatilho || ! $oferta || ! $this->podeOfertar($regra->promocao)) {
             $this->erroPromocao = 'A oferta não está mais disponível para este pedido.';
 
             return;
@@ -641,10 +749,61 @@ class PedidoProdutoSelector extends Component
     public function fecharPromoModal(): void
     {
         if (($this->promoModal['tipo'] ?? null) === 'oferta') {
-            $this->ofertasRecusadasItens[] = (int) $this->promoModal['gatilho_item_id'];
+            $this->ofertasRecusadasItens[] = (string) $this->promoModal['gatilho_item_id'];
         }
 
         $this->promoModal = null;
+    }
+
+    /** Oferta escolhida no modal do produto, para a prévia (sem pedido gravado ainda). */
+    protected function ofertaEscolhidaNaPrevia(): ?PromocaoAdicionalOferta
+    {
+        $opcao = $this->ofertaEscolhidaId ? collect($this->ofertasDisponiveis)->firstWhere('oferta_id', $this->ofertaEscolhidaId) : null;
+
+        if (! $opcao) {
+            return null;
+        }
+
+        $oferta = PromocaoAdicionalOferta::with(['regra.promocao', 'produtoOferta.categoria'])->find($opcao['oferta_id']);
+
+        return $oferta && ! $oferta->esgotada() && $oferta->regra?->promocao?->vigente() ? $oferta : null;
+    }
+
+    /**
+     * Linha de prévia da oferta, ligada ao gatilho por origem_tmp. Grátis vira
+     * cortesia (preço de tabela no unitário, valor 0), igual a gravarOferta().
+     *
+     * @param  array<string, mixed>  $gatilho
+     */
+    protected function adicionarOfertaNaPrevia(array $gatilho, PromocaoAdicionalOferta $oferta): void
+    {
+        $produto = $oferta->produtoOferta()->with('categoria')->first();
+
+        if (! $produto) {
+            return;
+        }
+
+        $gratis = round((float) $oferta->pao_valor_adicional, 2) <= 0.0;
+        $unitario = $gratis ? (float) ItensPedido::precoUnitario($produto)['valor_unitario'] : (float) $oferta->pao_valor_adicional;
+
+        $previa = (new ItensPedido([
+            'item_pedido_produto_id' => $produto->id,
+            'item_pedido_cliente_id' => $gatilho['cliente_id'] ?? null,
+            'item_pedido_quantidade' => 1,
+            'item_pedido_valor_unitario' => $unitario,
+            'item_pedido_valor' => $gratis ? 0 : $unitario,
+            'item_pedido_desconto' => $gratis ? $unitario : 0,
+            'item_pedido_desconto_unitario' => 0,
+            'item_pedido_valor_adicionais' => 0,
+            'item_pedido_promocao_adicional_regra_id' => $oferta->pao_regra_id,
+            'item_pedido_cortesia' => $gratis,
+        ]))->setRelation('produto', $produto);
+
+        $this->itens[] = $this->itemParaLista($previa, []) + [
+            'oferta_id' => $oferta->id,
+            'origem_tmp' => (string) $gatilho['id'],
+            'promocao_adicional_id' => (int) $oferta->regra->par_promocao_id,
+        ];
     }
 
     // ── Quantidade modal simples ─────────────────────────────────────────────
@@ -831,7 +990,7 @@ class PedidoProdutoSelector extends Component
         $this->ofertasDisponiveis = [];
         $this->ofertaEscolhidaId = null;
 
-        if (! $this->pedidoId || $this->saboresModo !== 1 || count($this->saboresSelecionados) !== 1) {
+        if ($this->saboresModo !== 1 || count($this->saboresSelecionados) !== 1) {
             return;
         }
 
@@ -1147,6 +1306,13 @@ class PedidoProdutoSelector extends Component
         }
 
         $idsRemovidos = array_merge([$itemId], array_map('strval', $idsOfertaRemovidos));
+
+        // Prévia: a oferta some junto com o gatilho que a habilitou.
+        foreach ($this->itens as $i) {
+            if ((string) ($i['origem_tmp'] ?? '') === (string) $itemId) {
+                $idsRemovidos[] = (string) $i['id'];
+            }
+        }
 
         $this->itens = array_values(
             array_filter($this->itens, fn ($i) => ! in_array((string) $i['id'], $idsRemovidos, true))

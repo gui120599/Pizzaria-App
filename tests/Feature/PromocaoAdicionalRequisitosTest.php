@@ -3,15 +3,18 @@
 namespace Tests\Feature;
 
 use App\Enums\ProdutoTipoEnum;
+use App\Filament\Pages\AtenderPedido;
 use App\Livewire\PedidoProdutoSelector;
 use App\Models\Categoria;
 use App\Models\HorarioFuncionamento;
 use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
+use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\PromocaoAdicional;
 use App\Models\PromocaoAdicionalRegra;
+use App\Models\User;
 use App\Services\PromocaoAdicionalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -294,6 +297,85 @@ class PromocaoAdicionalRequisitosTest extends TestCase
             ->assertSet('promoModal', null);
 
         $this->assertSame(0, ItensPedido::where('item_pedido_produto_id', $this->brotinho->id)->count());
+    }
+
+    /** Seletor sem pedido gravado (pedido novo do Atender Pedido): monta a prévia com pizza, Coca e o brotinho. */
+    private function previaComPromocao(): array
+    {
+        $selector = Livewire::test(PedidoProdutoSelector::class)
+            ->call('selecionarProduto', $this->grande->id)
+            ->call('confirmarSabores', [$this->grande->id])
+            ->assertSet('promoModal.tipo', 'sugestao')
+            ->call('escolherGatilhoSugerido', $this->coca->id)
+            ->assertCount('ofertasDisponiveis', 1);
+
+        $selector->call('selecionarOferta', $selector->get('ofertasDisponiveis')[0]['oferta_id'])->call('confirmarItem');
+
+        return $selector->get('itens');
+    }
+
+    public function test_previa_pizza_primeiro_gera_a_linha_do_brotinho_ligada_ao_refri(): void
+    {
+        $itens = collect($this->previaComPromocao());
+
+        $coca = $itens->firstWhere('produto_id', $this->coca->id);
+        $brotinho = $itens->firstWhere('produto_id', $this->brotinho->id);
+
+        $this->assertNotNull($brotinho);
+        $this->assertSame((string) $coca['id'], $brotinho['origem_tmp']);
+        $this->assertTrue($brotinho['cortesia']);
+        $this->assertSame(0.0, $brotinho['valor']);
+    }
+
+    public function test_previa_refri_primeiro_avisa_e_oferece_ao_lancar_a_pizza(): void
+    {
+        $selector = Livewire::test(PedidoProdutoSelector::class)
+            ->call('selecionarProduto', $this->coca->id)
+            ->assertCount('ofertasDisponiveis', 0)
+            ->call('confirmarItem')
+            ->assertSet('avisoPromocao', 'Adicione 1 Pizza Grande para ganhar a promoção "Grande + Refri = Brotinho".')
+            ->call('selecionarProduto', $this->grande->id)
+            ->call('confirmarSabores', [$this->grande->id])
+            ->assertSet('promoModal.tipo', 'oferta');
+
+        $selector->call('aceitarOfertaPendente', $selector->get('promoModal')['ofertas'][0]['oferta_id']);
+
+        $this->assertNotNull(collect($selector->get('itens'))->firstWhere('produto_id', $this->brotinho->id));
+    }
+
+    private function salvarNoAtenderPedido(array $itens, OpcoesEntregas $entrega)
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+        $dinheiro = OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_desc_nfe' => 'cash']);
+
+        return Livewire::test(AtenderPedido::class)
+            ->set('itensCarrinho', $itens)
+            ->set('clienteData', ['semCliente' => true])
+            ->set('entregaPagamentoData', [
+                'opcaoEntregaId' => $entrega->id,
+                'pagamentos' => [['opcaoPagamentoId' => $dinheiro->id, 'valor' => '80,00', 'trocoPara' => null]],
+            ])
+            ->call('save');
+    }
+
+    public function test_atender_pedido_novo_grava_o_brotinho_como_cortesia_ligado_ao_refri(): void
+    {
+        $this->salvarNoAtenderPedido($this->previaComPromocao(), $this->retirada)->assertHasNoErrors();
+
+        $pedido = Pedido::latest('id')->firstOrFail();
+        $coca = ItensPedido::where('item_pedido_pedido_id', $pedido->id)->where('item_pedido_produto_id', $this->coca->id)->firstOrFail();
+        $brotinho = ItensPedido::where('item_pedido_pedido_id', $pedido->id)->where('item_pedido_produto_id', $this->brotinho->id)->firstOrFail();
+
+        $this->assertSame($coca->id, $brotinho->item_pedido_origem_id);
+        $this->assertTrue($brotinho->item_pedido_cortesia);
+        $this->assertSame(80.0, (float) $pedido->fresh()->pedido_valor_total);
+    }
+
+    public function test_atender_pedido_novo_bloqueia_comer_no_local_com_o_brotinho(): void
+    {
+        $this->salvarNoAtenderPedido($this->previaComPromocao(), $this->local);
+
+        $this->assertSame(0, Pedido::count());
     }
 
     public function test_oferta_com_valor_continua_sem_cortesia(): void
