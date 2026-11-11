@@ -44,6 +44,13 @@
                         @if ($efetiva->corrigida())
                             <x-filament::badge color="info" icon="heroicon-m-pencil" :tooltip="'Incluída por '.($efetiva->inclusao->aprovadoPor?->name ?? '—').' em '.$efetiva->inclusao->decidido_em?->format('d/m H:i').' — '.$efetiva->inclusao->motivo->getLabel()">corrigida</x-filament::badge>
                         @else
+                            @if ($efetiva->marcacao->foto_caminho)
+                                <a href="{{ route('ponto.marcacoes.selfie', $efetiva->marcacao) }}" target="_blank" title="Ver selfie">
+                                    <img src="{{ route('ponto.marcacoes.selfie', $efetiva->marcacao) }}" alt="Selfie" loading="lazy" class="h-9 w-9 rounded-full object-cover ring-1 ring-gray-950/10 dark:ring-white/20">
+                                </a>
+                            @elseif ($efetiva->marcacao->origem === \App\Enums\Ponto\OrigemMarcacao::Quiosque)
+                                <x-filament::badge color="gray" size="sm">sem selfie</x-filament::badge>
+                            @endif
                             <span class="text-xs text-gray-400">NSR {{ $efetiva->marcacao->nsr }} · {{ $efetiva->marcacao->origem->getLabel() }}</span>
                             @if ($efetiva->foraDaCerca())
                                 <x-filament::badge color="warning" size="sm">fora da cerca</x-filament::badge>

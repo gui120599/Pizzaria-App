@@ -130,6 +130,8 @@ return [
 
     'quiosque' => [
         'tokens' => array_values(array_filter(array_map('trim', explode(',', (string) env('PONTO_QUIOSQUE_TOKENS', ''))))),
+        // Selfie no tablet, independente de PONTO_EXIGIR_SELFIE (que vale para o celular).
+        'exigir_selfie' => (bool) env('PONTO_QUIOSQUE_EXIGIR_SELFIE', true),
         'tentativas_pin' => (int) env('PONTO_QUIOSQUE_TENTATIVAS', 5),
         'bloqueio_minutos' => (int) env('PONTO_QUIOSQUE_BLOQUEIO_MIN', 5),
         // Sem confirmar em tantos segundos, a tela volta ao teclado.

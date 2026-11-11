@@ -1640,6 +1640,7 @@ class ComposerStaticInit995de2958d06331616ceaf2386bc7b1b
         'App\\Http\\Controllers\\PedidoController' => __DIR__ . '/../..' . '/app/Http/Controllers/PedidoController.php',
         'App\\Http\\Controllers\\PontoImpressaoController' => __DIR__ . '/../..' . '/app/Http/Controllers/PontoImpressaoController.php',
         'App\\Http\\Controllers\\PontoQuiosqueController' => __DIR__ . '/../..' . '/app/Http/Controllers/PontoQuiosqueController.php',
+        'App\\Http\\Controllers\\PontoSelfieController' => __DIR__ . '/../..' . '/app/Http/Controllers/PontoSelfieController.php',
         'App\\Http\\Controllers\\ProdutoController' => __DIR__ . '/../..' . '/app/Http/Controllers/ProdutoController.php',
         'App\\Http\\Controllers\\ProfileController' => __DIR__ . '/../..' . '/app/Http/Controllers/ProfileController.php',
         'App\\Http\\Controllers\\ReferenciaInfluenciadorController' => __DIR__ . '/../..' . '/app/Http/Controllers/ReferenciaInfluenciadorController.php',

@@ -712,6 +712,7 @@ return array(
     'App\\Http\\Controllers\\PedidoController' => $baseDir . '/app/Http/Controllers/PedidoController.php',
     'App\\Http\\Controllers\\PontoImpressaoController' => $baseDir . '/app/Http/Controllers/PontoImpressaoController.php',
     'App\\Http\\Controllers\\PontoQuiosqueController' => $baseDir . '/app/Http/Controllers/PontoQuiosqueController.php',
+    'App\\Http\\Controllers\\PontoSelfieController' => $baseDir . '/app/Http/Controllers/PontoSelfieController.php',
     'App\\Http\\Controllers\\ProdutoController' => $baseDir . '/app/Http/Controllers/ProdutoController.php',
     'App\\Http\\Controllers\\ProfileController' => $baseDir . '/app/Http/Controllers/ProfileController.php',
     'App\\Http\\Controllers\\ReferenciaInfluenciadorController' => $baseDir . '/app/Http/Controllers/ReferenciaInfluenciadorController.php',
