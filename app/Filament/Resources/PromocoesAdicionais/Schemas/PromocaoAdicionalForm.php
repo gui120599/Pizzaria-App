@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PromocoesAdicionais\Schemas;
 
+use App\Models\OpcoesEntregas;
 use App\Models\Produto;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
@@ -53,6 +54,17 @@ class PromocaoAdicionalForm
                         ->helperText('Desligado (padrão): só pizza inteira. Ligado: se TODOS os sabores escolhidos tiverem override configurado nesta campanha, o preço anunciado da pizza usa o maior override entre eles.')
                         ->default(false)
                         ->columnSpanFull(),
+                    Select::make('promoad_categoria_exigida_id')
+                        ->label('Categoria exigida no pedido')
+                        ->helperText('Cada oferta aceita exige 1 unidade desta categoria no mesmo pedido (ex.: Pizza Grande). Em branco = sem exigência.')
+                        ->relationship('categoriaExigida', 'categoria_nome')
+                        ->searchable()
+                        ->preload(),
+                    CheckboxList::make('promoad_opcoes_entrega')
+                        ->label('Opções de entrega aceitas')
+                        ->helperText('Em branco = todas. Com restrição, pedido de mesa nunca vale.')
+                        ->options(fn (): array => OpcoesEntregas::whereNull('deleted_at')->pluck('opcaoentrega_nome', 'id')->all())
+                        ->columns(3),
                     CheckboxList::make('opcoesPagamento')
                         ->relationship('opcoesPagamento', 'opcaopag_nome')
                         ->label('Formas de pagamento aceitas')

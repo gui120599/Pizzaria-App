@@ -65,7 +65,7 @@ class PedidoMesaClienteService
 
         $this->lancamento->validarEstoque($linhas);
         $this->lancamento->validarLimitesPromocao($linhas);
-        $this->lancamento->validarLimitesOferta($linhas);
+        $this->lancamento->validarLimitesOferta($linhas, ehMesa: true);
 
         try {
             return DB::transaction(fn () => $this->gravar($participante, $linhas, $chave));

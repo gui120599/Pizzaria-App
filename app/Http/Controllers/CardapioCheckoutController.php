@@ -239,7 +239,7 @@ class CardapioCheckoutController extends Controller
 
             $lancamento->validarEstoque($linhas);
             $lancamento->validarLimitesPromocao($linhas);
-            $lancamento->validarLimitesOferta($linhas);
+            $lancamento->validarLimitesOferta($linhas, opcaoEntregaId: (int) $request->opcao_entrega_id);
         } catch (EstoqueInsuficienteException $e) {
             return response()->json(['message' => 'Item sem estoque suficiente: '.$e->getMessage()], 422);
         } catch (ItemIndisponivelException|ComboSaboresInvalidoException|PerguntaNaoRespondidaException|PromocaoIndisponivelException $e) {

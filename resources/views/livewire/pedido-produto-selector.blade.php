@@ -400,7 +400,7 @@
                                     <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate min-w-0">
                                         Leve também {{ $opcao['categoria_nome'] ? $opcao['categoria_nome'].': ' : '' }}{{ $opcao['nome'] }}
                                     </p>
-                                    <span class="text-sm font-bold text-pink-600 dark:text-pink-400 shrink-0">+ R$ {{ number_format($opcao['valor_adicional'], 2, ',', '.') }}</span>
+                                    <span class="text-sm font-bold text-pink-600 dark:text-pink-400 shrink-0">{{ $opcao['valor_adicional'] > 0 ? '+ R$ '.number_format($opcao['valor_adicional'], 2, ',', '.') : 'Grátis' }}</span>
                                 </button>
                             @endforeach
                         </div>
@@ -792,7 +792,7 @@
                                     <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate min-w-0">
                                         Leve também {{ $opcao['categoria_nome'] ? $opcao['categoria_nome'].': ' : '' }}{{ $opcao['nome'] }}
                                     </p>
-                                    <span class="text-sm font-bold text-pink-600 dark:text-pink-400 shrink-0">+ R$ {{ number_format($opcao['valor_adicional'], 2, ',', '.') }}</span>
+                                    <span class="text-sm font-bold text-pink-600 dark:text-pink-400 shrink-0">{{ $opcao['valor_adicional'] > 0 ? '+ R$ '.number_format($opcao['valor_adicional'], 2, ',', '.') : 'Grátis' }}</span>
                                 </button>
                             @endforeach
                         </div>

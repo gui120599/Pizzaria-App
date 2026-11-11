@@ -26,7 +26,7 @@
                 <div x-show="item.oferta" x-cloak class="mt-1.5 flex items-center gap-2 rounded-lg border border-ouro/30 bg-ouro/10 px-2.5 py-1.5 text-xs">
                     <i class='bx bxs-gift text-ouro' aria-hidden="true"></i>
                     <span class="flex-1" x-text="'+ ' + item.oferta?.nomeExibicao"></span>
-                    <span class="num font-bold text-ouro" x-text="'+' + $store.cart.formatar(item.oferta?.valorAdicional ?? 0)"></span>
+                    <span class="num font-bold text-ouro" x-text="(item.oferta?.valorAdicional ?? 0) > 0 ? '+' + $store.cart.formatar(item.oferta.valorAdicional) : 'Grátis'"></span>
                     <button type="button" @click="$store.cart.removerOferta(item.cartKey)" class="grid size-6 place-items-center text-farinha hover:text-creme" aria-label="Remover oferta">
                         <i class='bx bx-x' aria-hidden="true"></i>
                     </button>

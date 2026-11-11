@@ -17,6 +17,7 @@ use App\Services\ItemSolicitado;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
 use App\Services\PrecificadorService;
+use App\Services\PromocaoAdicionalService;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -345,7 +346,9 @@ class PedidoProdutoSelector extends Component
     {
         $regra = app(PrecificadorService::class)->regraAdicionalDoProduto($produtoGatilhoId);
 
-        if (! $regra) {
+        // Requisitos da campanha (opção de entrega, categoria exigida no pedido):
+        // sem eles a oferta nem aparece.
+        if (! $regra || ! app(PromocaoAdicionalService::class)->aceitaMaisUmaOferta($regra->promocao, $this->pedidoId)) {
             return [];
         }
 

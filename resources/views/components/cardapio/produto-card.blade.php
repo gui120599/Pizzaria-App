@@ -56,10 +56,16 @@
             @if ($ofertas && count($ofertas))
                 <p class="mt-1 text-xs font-medium leading-snug text-ouro">
                     <i class='bx bxs-gift' aria-hidden="true"></i>
-                    Leve também:
-                    @foreach ($ofertas as $oferta)
-                        {{ $oferta['nomeExibicao'] }} (+R$ {{ number_format($oferta['valorAdicional'], 2, ',', '.') }}){{ ! $loop->last ? ' ou ' : '' }}
-                    @endforeach
+                    @if (count($ofertas) > 3)
+                        Leve também: {{ \Illuminate\Support\Str::before($ofertas[0]['nomeExibicao'], ':') }}
+                        {{ collect($ofertas)->every(fn ($o) => $o['valorAdicional'] <= 0) ? 'grátis' : 'a partir de +R$ '.number_format(collect($ofertas)->min('valorAdicional'), 2, ',', '.') }}
+                        ({{ count($ofertas) }} opções)
+                    @else
+                        Leve também:
+                        @foreach ($ofertas as $oferta)
+                            {{ $oferta['nomeExibicao'] }} ({{ $oferta['valorAdicional'] > 0 ? '+R$ '.number_format($oferta['valorAdicional'], 2, ',', '.') : 'grátis' }}){{ ! $loop->last ? ' ou ' : '' }}
+                        @endforeach
+                    @endif
                 </p>
             @endif
             <x-cardapio.preco :produto="$produto" class="mt-2" />

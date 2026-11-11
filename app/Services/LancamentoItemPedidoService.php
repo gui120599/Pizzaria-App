@@ -11,6 +11,7 @@ use App\Exceptions\PerguntaNaoRespondidaException;
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\AdicionaisItemPedido;
 use App\Models\ItensPedido;
+use App\Models\Pedido;
 use App\Models\Pergunta;
 use App\Models\PerguntaOpcao;
 use App\Models\Produto;
@@ -230,11 +231,30 @@ class LancamentoItemPedidoService
      *
      * @throws PromocaoIndisponivelException
      */
-    public function validarLimitesOferta(array $linhas, ?int $pedidoId = null): void
+    public function validarLimitesOferta(array $linhas, ?int $pedidoId = null, ?int $opcaoEntregaId = null, bool $ehMesa = false): void
     {
-        $porRegra = collect($linhas)
-            ->filter(fn (LinhaPrecificada $linha) => $linha->regraOferta !== null)
-            ->groupBy(fn (LinhaPrecificada $linha) => $linha->regraOferta->id);
+        $comOferta = collect($linhas)->filter(fn (LinhaPrecificada $linha) => $linha->regraOferta !== null);
+        $porRegra = $comOferta->groupBy(fn (LinhaPrecificada $linha) => $linha->regraOferta->id);
+
+        // Requisitos da campanha (opção de entrega e categoria exigida): por
+        // campanha, somando todas as linhas do carrinho — a pizza pode vir
+        // depois do refri na lista.
+        if ($comOferta->isNotEmpty()) {
+            $pedido = $pedidoId ? Pedido::find($pedidoId) : null;
+            $ehMesa = $ehMesa || $pedido?->pedido_sessao_mesa_id !== null;
+            $opcaoEntregaId ??= $pedido?->pedido_opcaoentrega_id;
+
+            foreach ($comOferta->groupBy(fn (LinhaPrecificada $linha) => $linha->regraOferta->par_promocao_id) as $daCampanha) {
+                $this->promocoesAdicionais->validarRequisitos(
+                    $daCampanha->first()->regraOferta->promocao,
+                    $linhas,
+                    $pedidoId,
+                    $daCampanha->count(),
+                    $opcaoEntregaId,
+                    $ehMesa,
+                );
+            }
+        }
 
         foreach ($porRegra as $doGrupo) {
             $regra = $doGrupo->first()->regraOferta;
@@ -293,7 +313,23 @@ class LancamentoItemPedidoService
                 $this->promocoesAdicionais->aceitesNoPedido($regra, $pedidoId) + 1,
             );
 
-            $item = ItensPedido::create([
+            // Oferta grátis (R$ 0) vira cortesia: item zerado é rejeitado na
+            // NFC-e, e cortesia fica fora da nota, baixa estoque como CORTESIA
+            // e guarda o preço de tabela no unitário (ver CortesiaService).
+            $gratis = round((float) $oferta->pao_valor_adicional, 2) <= 0.0;
+            $tabela = $gratis && $oferta->produtoOferta
+                ? (float) ItensPedido::precoUnitario($oferta->produtoOferta)['valor_unitario']
+                : 0.0;
+            $cortesia = $gratis ? [
+                'item_pedido_valor_unitario' => $tabela,
+                'item_pedido_valor' => 0,
+                'item_pedido_desconto' => $tabela,
+                'item_pedido_cortesia' => true,
+                'item_pedido_cortesia_motivo' => 'Promoção: '.($regra->promocao?->promoad_nome ?? 'oferta grátis'),
+                'item_pedido_cortesia_em' => now(),
+            ] : [];
+
+            $item = ItensPedido::create($cortesia + [
                 'item_pedido_pedido_id' => $pedidoId,
                 'item_pedido_produto_id' => $oferta->pao_produto_oferta_id,
                 'item_pedido_promocao_adicional_regra_id' => $regra->id,
