@@ -67,6 +67,7 @@ class AdicionaisRelationManager extends RelationManager
                     ->money('BRL')
                     ->sortable(),
             ])
+            ->deferFilters(false)
             ->filters([
                 FaixaValorFilter::make('adicional_valor'),
             ])

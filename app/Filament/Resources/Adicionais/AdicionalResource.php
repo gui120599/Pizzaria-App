@@ -153,6 +153,7 @@ class AdicionalResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->deferFilters(false)
             ->filters([
                 TernaryFilter::make('vinculado')
                     ->label('Vínculo com produtos')

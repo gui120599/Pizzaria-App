@@ -438,6 +438,21 @@ class AdicionalFilamentTest extends TestCase
             ->assertCanNotSeeTableRecords([$barato]);
     }
 
+    public function test_tabelas_filtram_na_selecao_sem_botao_aplicar(): void
+    {
+        $adicional = Adicional::factory()->create();
+
+        $tabelas = [
+            Livewire::test(ListAdicionais::class),
+            $this->produtosDoAdicional($adicional),
+            $this->relationManager($this->produto()),
+        ];
+
+        foreach ($tabelas as $tabela) {
+            $this->assertFalse($tabela->instance()->getTable()->hasDeferredFilters());
+        }
+    }
+
     public function test_url_da_foto_cai_no_padrao_sem_arquivo_e_resolve_foto_nova(): void
     {
         $legadoSemArquivo = Adicional::factory()->make(['adicional_foto' => 'semarquivo.jpg']);
