@@ -22,6 +22,7 @@ use Filament\Actions\DetachAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Forms\Components\Select;
+use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -338,8 +339,19 @@ class AdicionalFilamentTest extends TestCase
         $refrigerante = $this->produto('Refrigerante Lata', ProdutoTipoEnum::REVENDA);
         $refrigerante->update(['produto_categoria_id' => $bebidas->id, 'produto_preco_venda' => 7]);
         $adicional->produtos()->attach([$calabresa->id, $chocolate->id, $refrigerante->id]);
+        $lanches = Categoria::create(['categoria_nome' => 'Lanches']);
+        $this->produto('X-Burguer')->update(['produto_categoria_id' => $lanches->id]);
 
         $this->produtosDoAdicional($adicional)
+            ->assertTableFilterExists('categoria', function (SelectFilter $filtro) use ($pizzas, $doces, $bebidas): bool {
+                $this->assertSame([
+                    $bebidas->id => 'Bebidas',
+                    $pizzas->id => 'Pizzas',
+                    $doces->id => 'Pizzas Doces',
+                ], $filtro->getOptions());
+
+                return true;
+            })
             ->filterTable('categoria', [$pizzas->id])
             ->assertCanSeeTableRecords([$calabresa, $chocolate])
             ->assertCanNotSeeTableRecords([$refrigerante])
@@ -376,9 +388,12 @@ class AdicionalFilamentTest extends TestCase
     public function test_lista_de_adicionais_filtra_por_vinculo_categoria_e_valor(): void
     {
         $bebidas = Categoria::create(['categoria_nome' => 'Bebidas']);
+        $refrigerantes = Categoria::create(['categoria_nome' => 'Refrigerantes', 'categoria_pai_id' => $bebidas->id]);
         $refrigerante = $this->produto('Refrigerante Lata', ProdutoTipoEnum::REVENDA);
-        $refrigerante->update(['produto_categoria_id' => $bebidas->id]);
+        $refrigerante->update(['produto_categoria_id' => $refrigerantes->id]);
         $pizza = $this->produto('Pizza Calabresa');
+        $lanches = Categoria::create(['categoria_nome' => 'Lanches']);
+        $this->produto('X-Burguer')->update(['produto_categoria_id' => $lanches->id]);
 
         $borda = Adicional::factory()->create(['adicional_valor' => 8.50]);
         $gelo = Adicional::factory()->create(['adicional_valor' => 1.00]);
@@ -387,6 +402,16 @@ class AdicionalFilamentTest extends TestCase
         $gelo->produtos()->attach($refrigerante);
 
         Livewire::test(ListAdicionais::class)
+            ->assertTableFilterExists('categoria_produto', function (SelectFilter $filtro) use ($bebidas, $refrigerantes, $pizza): bool {
+                // Bebidas entra como mãe de Refrigerantes; Lanches fica de fora (nenhum produto com adicional).
+                $this->assertSame([
+                    $bebidas->id => 'Bebidas',
+                    $pizza->produto_categoria_id => 'Pizzas',
+                    $refrigerantes->id => 'Refrigerantes',
+                ], $filtro->getOptions());
+
+                return true;
+            })
             ->filterTable('vinculado', false)
             ->assertCanSeeTableRecords([$semVinculo])
             ->assertCanNotSeeTableRecords([$borda, $gelo])

@@ -157,7 +157,10 @@ class ProdutosRelationManager extends RelationManager
                     ->modifyFormFieldUsing(fn (Select $select): Select => $select->helperText('Inclui as subcategorias.'))
                     ->multiple()
                     ->searchable()
-                    ->options(fn (): array => Categoria::query()->orderBy('categoria_nome')->pluck('categoria_nome', 'id')->all())
+                    // Só as categorias dos produtos já vinculados (e as mães delas).
+                    ->options(fn (): array => Categoria::opcoesComAncestrais(
+                        $this->getOwnerRecord()->produtos()->distinct()->pluck('produto_categoria_id')->all(),
+                    ))
                     ->query(fn (Builder $query, array $data): Builder => $query->when(
                         filled($data['values'] ?? null),
                         fn (Builder $q): Builder => $q->whereIn('produto_categoria_id', Categoria::idsComSubcategorias($data['values'])),
