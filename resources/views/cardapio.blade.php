@@ -41,6 +41,7 @@
         @include('cardapio.partials.sheet-sabores')
         @include('cardapio.partials.sheet-montagem')
         @include('cardapio.partials.sheet-oferta')
+        @include('cardapio.partials.sheet-sugestao-promocao')
         @include('cardapio.partials.sheet-troco')
 
         @if ($mesaCliente)

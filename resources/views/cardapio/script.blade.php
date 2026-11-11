@@ -19,6 +19,9 @@
         const _avaliacaoLinks       = @js($avaliacaoLinks);
         // Promoção "leve outro produto por +R$X", indexada pelo produto gatilho.
         const _promocoesAdicionais  = @js($promocoesAdicionais);
+        // Campanhas com categoria exigida (ex.: Pizza Grande + refri 2L): ao pôr
+        // a pizza, sugere os gatilhos; com o gatilho antes, oferece depois.
+        const _campanhasExigencia   = @js($campanhasExigencia ?? []);
         // Perguntas do item (borda, ponto da carne): por produto (item comum e
         // pizza inteira) e por categoria (pizza de sabores). O servidor revalida.
         const _perguntasProdutos    = @js($perguntasProdutos);
@@ -64,6 +67,7 @@
 
                 init() {
                     this._countSalvo = this.count;
+                    _campanhasExigencia.forEach(c => { this._unidadesExigidas[c.promocaoId] = this.unidadesExigidas(c); });
                     setInterval(() => { this.relogio = Date.now(); }, 30000);
                     const produtoId = Number(new URLSearchParams(window.location.search).get('produto'));
                     if (produtoId) this.abrirDetalhe(produtoId);
@@ -87,7 +91,16 @@
                 // pending guarda o item já pronto pra entrar no carrinho; só é
                 // empurrado pra items[] depois que o cliente escolhe uma opção
                 // (ou recusa) — nada é adicionado sozinho.
-                ofertaModal: { open: false, pending: null, ofertas: [] },
+                // existente = a linha já está no carrinho (gatilho entrou antes da
+                // categoria exigida): aceitar só anota a oferta nela.
+                ofertaModal: { open: false, pending: null, ofertas: [], existente: false },
+
+                // ── Sugestão de promoção (pizza na sacola → "leve um refri 2L e
+                // ganhe o brotinho") — escolher um gatilho segue o fluxo normal.
+                sugestaoModal: { open: false, campanha: null },
+                // Unidades da categoria exigida por campanha no último save():
+                // só sugere/oferece quando sobe (não a cada mudança do carrinho).
+                _unidadesExigidas: {},
 
                 // ── Modal de montagem do item (perguntas e adicionais) ──
                 // pending é o item já montado; só entra no carrinho depois da
@@ -278,18 +291,64 @@
                 adicionarOuOferecer(itemData) {
                     const promo = _promocoesAdicionais[itemData.id];
                     if (promo && promo.ofertas.length > 0 && this.atendeExigencia(promo)) {
-                        this.ofertaModal = { open: true, pending: itemData, ofertas: promo.ofertas };
+                        this.ofertaModal = { open: true, pending: itemData, ofertas: promo.ofertas, existente: false };
                         return;
                     }
                     this.items.push(itemData);
                     this.save();
+                    // Gatilho antes da categoria exigida: avisa o que falta. Quando
+                    // ela entrar, verificarExigencias() oferece para esta linha.
+                    if (promo && promo.ofertas.length > 0 && promo.produtosExigidos) {
+                        this.avisar('Adicione 1 ' + (promo.categoriaExigida ?? 'item da promoção') + ' e ganhe a oferta!');
+                    }
+                },
+                unidadesExigidas(campanha) {
+                    return this.items
+                        .filter(i => campanha.produtosExigidos.includes(i.id))
+                        .reduce((s, i) => s + i.qty, 0);
+                },
+                /**
+                 * Chamado no save(): quando entra mais uma unidade da categoria
+                 * exigida e ainda sobra unidade sem oferta, oferece para um
+                 * gatilho já na sacola (sem oferta e não recusado) ou, se não
+                 * houver gatilho pendente, sugere os gatilhos da campanha.
+                 */
+                verificarExigencias() {
+                    for (const campanha of _campanhasExigencia) {
+                        const unidades = this.unidadesExigidas(campanha);
+                        const antes = this._unidadesExigidas[campanha.promocaoId] ?? 0;
+                        this._unidadesExigidas[campanha.promocaoId] = unidades;
+                        if (unidades <= antes) continue;
+                        if (this.ofertaModal.open || this.sugestaoModal.open || this.montagemModal.open || this.saboresModal.open) return;
+                        const daCampanha = this.items.filter(i => _promocoesAdicionais[i.id]?.promocaoId === campanha.promocaoId);
+                        const aceites = daCampanha.filter(i => i.oferta).length;
+                        if (unidades <= aceites) continue;
+                        const pendente = daCampanha.find(i => !i.oferta && !i.ofertaRecusada);
+                        if (pendente) {
+                            this.ofertaModal = { open: true, pending: pendente, ofertas: _promocoesAdicionais[pendente.id].ofertas, existente: true };
+                            return;
+                        }
+                        if (daCampanha.every(i => i.oferta) && campanha.gatilhos.length > 0) {
+                            this.sugestaoModal = { open: true, campanha };
+                            return;
+                        }
+                    }
+                },
+                escolherGatilhoSugerido(gatilho) {
+                    this.sugestaoModal = { open: false, campanha: null };
+                    this.add(gatilho.id, gatilho.nome, gatilho.preco, gatilho.precoVenda, gatilho.foto);
+                },
+                fecharSugestao() {
+                    this.sugestaoModal = { open: false, campanha: null };
                 },
                 /** Escolha de uma opção (ou recusa) no modal — só aqui o item realmente entra no carrinho. */
                 confirmarOferta(aceitar, ofertaId = null) {
                     const itemData = this.ofertaModal.pending;
+                    const existente = this.ofertaModal.existente;
                     const opcao    = aceitar ? this.ofertaModal.ofertas.find(o => o.ofertaId === ofertaId) : null;
-                    this.ofertaModal = { open: false, pending: null, ofertas: [] };
+                    this.ofertaModal = { open: false, pending: null, ofertas: [], existente: false };
                     if (!itemData) return;
+                    if (!opcao) itemData.ofertaRecusada = true;
                     if (opcao) {
                         itemData.oferta = {
                             ofertaId:       opcao.ofertaId,
@@ -300,7 +359,7 @@
                             foto:           opcao.foto,
                         };
                     }
-                    this.items.push(itemData);
+                    if (!existente) this.items.push(itemData);
                     this.save();
                 },
                 /**
@@ -383,8 +442,9 @@
                         if (!this.drawerOpen) this.avisar('Adicionado à sacola');
                     }
                     this._countSalvo = count;
+                    this.verificarExigencias();
                 },
-                clear() { this.items = []; this._countSalvo = 0; this.avisoPagamentoRemovido = []; this.avisoPagamentoRestaurado = []; localStorage.removeItem(_chaveCarrinho); },
+                clear() { this.items = []; this._countSalvo = 0; this._unidadesExigidas = {}; this.avisoPagamentoRemovido = []; this.avisoPagamentoRestaurado = []; localStorage.removeItem(_chaveCarrinho); },
 
                 // ── Frete grátis: mesma conta do getter valorFrete ──
                 /** Quanto falta para a entrega grátis (null quando não há regra de valor mínimo). */
@@ -979,7 +1039,7 @@
 
                 travarRolagem() {
                     const c = Alpine.store('cart');
-                    const aberto = c.saboresModal.open || c.montagemModal.open || c.ofertaModal.open || c.trocoModal.open || !!c.detalhe
+                    const aberto = c.saboresModal.open || c.montagemModal.open || c.ofertaModal.open || c.sugestaoModal.open || c.trocoModal.open || !!c.detalhe
                         || (c.drawerOpen && window.innerWidth < 1024) || (c.drawerOpen && c.step !== 'cart');
                     document.documentElement.style.overflow = aberto ? 'hidden' : '';
                 },
