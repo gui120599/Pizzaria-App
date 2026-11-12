@@ -4,11 +4,15 @@ namespace App\Filament\Resources\StonePedidos\Tables;
 
 use App\Enums\StonePedidoOrigem;
 use App\Enums\StonePedidoStatus;
+use App\Exceptions\StoneConnectException;
 use App\Models\SessaoCaixa;
 use App\Models\StonePedido;
 use App\Services\Stone\StoneConnectService;
+use App\Services\Stone\StoneRecebimentoService;
 use App\Services\Stone\StoneVendaAutomaticaService;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -16,6 +20,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class StonePedidosTable
 {
@@ -120,10 +125,49 @@ class StonePedidosTable
                     ->label('Pagos ainda não fechados na Stone')
                     ->query(fn (Builder $query) => $query->where('stp_status', StonePedidoStatus::Pago->value)->whereNull('stp_fechado_em')),
 
+                Filter::make('abertas_na_maquininha')
+                    ->label('Abertas na maquininha (sem pagamento)')
+                    ->query(fn (Builder $query) => $query
+                        ->whereIn('stp_status', [StonePedidoStatus::Aguardando->value, StonePedidoStatus::Indeterminado->value, StonePedidoStatus::Falha->value])
+                        ->whereNotNull('stp_order_id')
+                        ->whereNull('stp_fechado_em')),
+
                 Filter::make('pagos_sem_venda')
                     ->label('Pagos sem venda')
                     ->query(fn (Builder $query) => $query->whereIn('stp_status', [StonePedidoStatus::Pago->value, StonePedidoStatus::PagoParcial->value])
                         ->whereNull('stp_venda_id')),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('cancelarPedidosStone')
+                        ->label('Cancelar na Stone')
+                        ->icon('heroicon-o-x-mark')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Cancelar na Stone')
+                        ->modalDescription('Retira da lista da maquininha os pedidos selecionados que ainda estão abertos. Os demais são ignorados.')
+                        ->action(function (Collection $records): void {
+                            $recebimento = app(StoneRecebimentoService::class);
+                            $cancelados = 0;
+                            $recusados = [];
+
+                            foreach ($records->filter(fn (StonePedido $registro): bool => $recebimento->podeCancelarNaStone($registro)) as $registro) {
+                                try {
+                                    $recebimento->cancelarNaStone($registro);
+                                    $cancelados++;
+                                } catch (StoneConnectException $e) {
+                                    $recusados[] = "#{$registro->id}: {$e->getMessage()}";
+                                }
+                            }
+
+                            Notification::make()
+                                ->title("{$cancelados} pedido(s) cancelado(s) na Stone.")
+                                ->body($recusados === [] ? null : implode("\n", $recusados))
+                                ->color($recusados === [] ? 'success' : 'warning')
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
             ])
             ->recordActions([
                 Action::make('fecharPedido')
@@ -147,13 +191,14 @@ class StonePedidosTable
                     ->icon('heroicon-o-x-mark')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->visible(fn (StonePedido $record): bool => $record->stp_status === StonePedidoStatus::Aguardando && filled($record->stp_order_id))
+                    ->modalHeading('Cancelar na Stone')
+                    ->modalDescription('Retira o pedido da lista da maquininha. Use quando o cliente pagou de outra forma (ex.: trocou o cartão por dinheiro na entrega).')
+                    ->visible(fn (StonePedido $record): bool => app(StoneRecebimentoService::class)->podeCancelarNaStone($record))
                     ->action(function (StonePedido $record): void {
                         try {
-                            app(StoneConnectService::class)->cancelarPedido($record->stp_order_id);
-                            $record->update(['stp_status' => StonePedidoStatus::Cancelado]);
+                            app(StoneRecebimentoService::class)->cancelarNaStone($record);
                             Notification::make()->success()->title('Pedido cancelado na Stone.')->send();
-                        } catch (\Throwable $e) {
+                        } catch (StoneConnectException $e) {
                             Notification::make()->danger()->title('Falha ao cancelar o pedido')->body($e->getMessage())->send();
                         }
                     }),
