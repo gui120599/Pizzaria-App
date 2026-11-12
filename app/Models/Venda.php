@@ -118,6 +118,12 @@ class Venda extends Model
         return $this->hasMany(PagamentosVenda::class, 'pg_venda_venda_id');
     }
 
+    /** Cobranças na maquininha Stone ligadas a esta venda (PDV), da mais recente para a mais antiga. */
+    public function stonePedidos()
+    {
+        return $this->hasMany(StonePedido::class, 'stp_venda_id')->latest('id');
+    }
+
     public function pedidos()
     {
         return $this->hasMany(Pedido::class, 'pedido_venda_id', 'id');

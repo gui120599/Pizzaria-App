@@ -587,6 +587,7 @@ return array(
     'App\\Filament\\Resources\\Users\\UserResource' => $baseDir . '/app/Filament/Resources/Users/UserResource.php',
     'App\\Filament\\Resources\\Vendas\\Pages\\ListVendas' => $baseDir . '/app/Filament/Resources/Vendas/Pages/ListVendas.php',
     'App\\Filament\\Resources\\Vendas\\Tables\\Actions\\AtualizarStatusNfeEmLoteBulkAction' => $baseDir . '/app/Filament/Resources/Vendas/Tables/Actions/AtualizarStatusNfeEmLoteBulkAction.php',
+    'App\\Filament\\Resources\\Vendas\\Tables\\Actions\\CancelarCobrancasStoneEmLoteBulkAction' => $baseDir . '/app/Filament/Resources/Vendas/Tables/Actions/CancelarCobrancasStoneEmLoteBulkAction.php',
     'App\\Filament\\Resources\\Vendas\\Tables\\Actions\\CancelarVendasEmLoteBulkAction' => $baseDir . '/app/Filament/Resources/Vendas/Tables/Actions/CancelarVendasEmLoteBulkAction.php',
     'App\\Filament\\Resources\\Vendas\\Tables\\Actions\\EnviarNfeEmLoteBulkAction' => $baseDir . '/app/Filament/Resources/Vendas/Tables/Actions/EnviarNfeEmLoteBulkAction.php',
     'App\\Filament\\Resources\\Vendas\\Tables\\Actions\\ExportarVendasCsvBulkAction' => $baseDir . '/app/Filament/Resources/Vendas/Tables/Actions/ExportarVendasCsvBulkAction.php',

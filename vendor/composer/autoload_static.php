@@ -1515,6 +1515,7 @@ class ComposerStaticInit995de2958d06331616ceaf2386bc7b1b
         'App\\Filament\\Resources\\Users\\UserResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Users/UserResource.php',
         'App\\Filament\\Resources\\Vendas\\Pages\\ListVendas' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Pages/ListVendas.php',
         'App\\Filament\\Resources\\Vendas\\Tables\\Actions\\AtualizarStatusNfeEmLoteBulkAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Tables/Actions/AtualizarStatusNfeEmLoteBulkAction.php',
+        'App\\Filament\\Resources\\Vendas\\Tables\\Actions\\CancelarCobrancasStoneEmLoteBulkAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Tables/Actions/CancelarCobrancasStoneEmLoteBulkAction.php',
         'App\\Filament\\Resources\\Vendas\\Tables\\Actions\\CancelarVendasEmLoteBulkAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Tables/Actions/CancelarVendasEmLoteBulkAction.php',
         'App\\Filament\\Resources\\Vendas\\Tables\\Actions\\EnviarNfeEmLoteBulkAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Tables/Actions/EnviarNfeEmLoteBulkAction.php',
         'App\\Filament\\Resources\\Vendas\\Tables\\Actions\\ExportarVendasCsvBulkAction' => __DIR__ . '/../..' . '/app/Filament/Resources/Vendas/Tables/Actions/ExportarVendasCsvBulkAction.php',

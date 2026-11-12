@@ -147,23 +147,12 @@ class StonePedidosTable
                         ->modalHeading('Cancelar na Stone')
                         ->modalDescription('Retira da lista da maquininha os pedidos selecionados que ainda estão abertos. Os demais são ignorados.')
                         ->action(function (Collection $records): void {
-                            $recebimento = app(StoneRecebimentoService::class);
-                            $cancelados = 0;
-                            $recusados = [];
-
-                            foreach ($records->filter(fn (StonePedido $registro): bool => $recebimento->podeCancelarNaStone($registro)) as $registro) {
-                                try {
-                                    $recebimento->cancelarNaStone($registro);
-                                    $cancelados++;
-                                } catch (StoneConnectException $e) {
-                                    $recusados[] = "#{$registro->id}: {$e->getMessage()}";
-                                }
-                            }
+                            $resultado = app(StoneRecebimentoService::class)->cancelarCobrancasNaStone($records);
 
                             Notification::make()
-                                ->title("{$cancelados} pedido(s) cancelado(s) na Stone.")
-                                ->body($recusados === [] ? null : implode("\n", $recusados))
-                                ->color($recusados === [] ? 'success' : 'warning')
+                                ->title("{$resultado['cancelados']} pedido(s) cancelado(s) na Stone.")
+                                ->body($resultado['recusados'] === [] ? null : implode("\n", $resultado['recusados']))
+                                ->color($resultado['recusados'] === [] ? 'success' : 'warning')
                                 ->send();
                         })
                         ->deselectRecordsAfterCompletion(),
