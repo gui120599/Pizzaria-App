@@ -684,6 +684,54 @@ class StoneRecebimentoService
         $pedido->update(['stp_status' => StonePedidoStatus::Cancelado]);
     }
 
+    /** Status em que o pedido pode seguir aberto na lista do POS sem pagamento recebido. */
+    private const STATUS_CANCELAVEIS_NA_STONE = [StonePedidoStatus::Aguardando, StonePedidoStatus::Indeterminado, StonePedidoStatus::Falha];
+
+    public function podeCancelarNaStone(StonePedido $pedido): bool
+    {
+        return filled($pedido->stp_order_id)
+            && $pedido->stp_fechado_em === null
+            && in_array($pedido->stp_status, self::STATUS_CANCELAVEIS_NA_STONE, true);
+    }
+
+    /**
+     * Retira da lista da maquininha um pedido que não será pago ali (ex.: o
+     * cliente trocou cartão por dinheiro na entrega). Além de Aguardando e
+     * Indeterminado, cobre Falha com order_id: o stone:conciliar-pedidos marca
+     * assim o que passou de 2 h, mas o pedido segue aberto na Stone.
+     *
+     * Relê o registro antes da chamada à Stone (fora de transação) e só grava o
+     * cancelamento se o status não mudou nesse meio tempo (ex.: charge.paid).
+     *
+     * @throws StoneConnectException
+     */
+    public function cancelarNaStone(StonePedido $pedido): void
+    {
+        $atual = $pedido->fresh();
+
+        if (! $atual || ! $this->podeCancelarNaStone($atual)) {
+            throw new StoneConnectException('Esta cobrança não está aberta na maquininha: não há o que cancelar.');
+        }
+
+        $this->connect->cancelarPedido($atual->stp_order_id);
+
+        $gravado = StonePedido::whereKey($atual->id)
+            ->where('stp_status', $atual->stp_status->value)
+            ->update(['stp_status' => StonePedidoStatus::Cancelado->value]);
+
+        if ($gravado === 0) {
+            Log::channel('stone')->warning('Cobrança mudou de status durante o cancelamento na Stone', [
+                'stone_pedido_id' => $atual->id, 'status_lido' => $atual->stp_status->value,
+            ]);
+        }
+
+        Log::channel('stone')->info('Cobrança cancelada na Stone pelo back office', [
+            'stone_pedido_id' => $atual->id, 'order_id' => $atual->stp_order_id, 'status_anterior' => $atual->stp_status->value,
+        ]);
+
+        $pedido->refresh();
+    }
+
     /** Ponto de entrada do webhook: encaminha por tipo de evento. */
     public function processarWebhook(StoneWebhook $webhook): void
     {
