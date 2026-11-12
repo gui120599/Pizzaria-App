@@ -11,7 +11,9 @@ use App\Models\OpcoesPagamento;
 use App\Models\Produto;
 use App\Models\PromocaoAdicional;
 use App\Models\User;
+use App\Services\PrecificadorService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -126,6 +128,53 @@ class PromocaoAdicionalFilamentSmokeTest extends TestCase
         $this->assertCount(2, $regra->ofertas);
         $this->assertSame(5.00, (float) $regra->ofertas->firstWhere('pao_produto_oferta_id', $brotinho->id)->pao_valor_adicional);
         $this->assertSame(8.00, (float) $regra->ofertas->firstWhere('pao_produto_oferta_id', $refrigerante->id)->pao_valor_adicional);
+    }
+
+    public function test_preco_do_gatilho_em_branco_salva_nulo_e_nao_zera_o_produto(): void
+    {
+        // O Money mostrava vazio como 0,00 e salvava 0: o refri da campanha saía de graça.
+        $refri = $this->produto('Coca-Cola 2L', 16.00);
+        $brotinho = $this->produto('Pizza Brotinho', 30.00);
+
+        Livewire::test(CreatePromocaoAdicional::class)
+            ->fillForm([
+                'promoad_nome' => 'Grande + Refri',
+                'promoad_inicio' => now()->subHour()->format('Y-m-d H:i:s'),
+                'promoad_fim' => now()->addHour()->format('Y-m-d H:i:s'),
+                'regras' => [[
+                    'par_produto_gatilho_id' => $refri->id,
+                    'par_preco_gatilho_override' => '0,00',
+                    'par_qtd_maxima_por_pedido' => 1,
+                    'ofertas' => [['pao_produto_oferta_id' => $brotinho->id, 'pao_valor_adicional' => '0']],
+                ]],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $promocao = PromocaoAdicional::where('promoad_nome', 'Grande + Refri')->firstOrFail();
+        $this->assertNull($promocao->regras()->firstOrFail()->par_preco_gatilho_override);
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertNull($promocao->regras()->firstOrFail()->par_preco_gatilho_override);
+        $this->assertSame(16.0, app(PrecificadorService::class)->resolver($refri->fresh())->valorUnitario);
+    }
+
+    public function test_override_zero_ja_gravado_e_ignorado_no_preco(): void
+    {
+        $refri = $this->produto('Coca-Cola 2L', 16.00);
+        $promocao = $this->promocao();
+        $regra = $promocao->regras()->create(['par_produto_gatilho_id' => $refri->id, 'par_qtd_maxima_por_pedido' => 1]);
+        $regra->ofertas()->create(['pao_produto_oferta_id' => $this->produto('Brotinho', 30.00)->id, 'pao_valor_adicional' => 0]);
+
+        // Linhas salvas antes da correção ficaram com 0.00 no banco.
+        DB::table('promocao_adicional_regras')->where('id', $regra->id)->update(['par_preco_gatilho_override' => 0]);
+        app(PrecificadorService::class)->esquecerPromocoes();
+
+        $this->assertNull($regra->fresh()->par_preco_gatilho_override);
+        $this->assertSame(16.0, app(PrecificadorService::class)->resolver($refri->fresh())->valorUnitario);
     }
 
     public function test_criacao_de_promocao_recorrente_nao_exige_data_de_fim(): void

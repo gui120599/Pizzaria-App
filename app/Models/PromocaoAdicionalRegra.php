@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,9 +30,22 @@ class PromocaoAdicionalRegra extends Model
     protected function casts(): array
     {
         return [
-            'par_preco_gatilho_override' => 'decimal:2',
             'par_qtd_maxima_por_pedido' => 'integer',
         ];
+    }
+
+    /**
+     * Preço do gatilho na campanha. Vazio ou zero = sem override (o produto
+     * mantém o preço dele): o campo Money do formulário transforma vazio em
+     * 0,00, e um override 0 venderia o gatilho de graça.
+     */
+    protected function parPrecoGatilhoOverride(): Attribute
+    {
+        $normalizar = fn ($valor): ?string => $valor !== null && $valor !== '' && (float) $valor > 0
+            ? number_format((float) $valor, 2, '.', '')
+            : null;
+
+        return Attribute::make(get: $normalizar, set: $normalizar);
     }
 
     public function promocao(): BelongsTo

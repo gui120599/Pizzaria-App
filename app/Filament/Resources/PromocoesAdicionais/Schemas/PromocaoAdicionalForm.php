@@ -149,6 +149,10 @@ class PromocaoAdicionalForm
                                 ->required()
                                 ->columnSpan(2),
                             Money::make('par_preco_gatilho_override')
+                                // Vazio fica vazio (o Money mostraria 0,00) e salva nulo:
+                                // override 0 venderia o gatilho de graça.
+                                ->formatStateUsing(fn ($state): ?string => $state !== null && (float) $state > 0 ? number_format((float) $state, 2, ',', '.') : null)
+                                ->dehydrateStateUsing(fn ($state): ?float => self::overrideOuNulo($state))
                                 ->label('Preço do gatilho nesta campanha (opcional)')
                                 ->helperText('Em branco = o preço não muda; a promoção só soma a oferta escolhida. Quando preenchido, vence qualquer outro preço/promoção do produto.')
                                 ->minValue(0),
@@ -201,6 +205,18 @@ class PromocaoAdicionalForm
                         ]),
                 ]),
         ]);
+    }
+
+    /** "39,90" → 39.9; vazio ou zero → null (sem override). */
+    private static function overrideOuNulo(mixed $state): ?float
+    {
+        if ($state === null || $state === '') {
+            return null;
+        }
+
+        $valor = is_numeric($state) ? (float) $state : (int) preg_replace('/\D/', '', (string) $state) / 100;
+
+        return $valor > 0 ? round($valor, 2) : null;
     }
 
     /** @return array<int, string> */
