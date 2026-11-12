@@ -732,6 +732,34 @@ class StoneRecebimentoService
         $pedido->refresh();
     }
 
+    /**
+     * Cancela na Stone, uma a uma, as cobranças que ainda estão abertas na
+     * maquininha; as demais são ignoradas. Uma recusa da Stone não interrompe as outras.
+     *
+     * @param  iterable<StonePedido>  $cobrancas
+     * @return array{cancelados: int, recusados: list<string>}
+     */
+    public function cancelarCobrancasNaStone(iterable $cobrancas): array
+    {
+        $cancelados = 0;
+        $recusados = [];
+
+        foreach ($cobrancas as $cobranca) {
+            if (! $this->podeCancelarNaStone($cobranca)) {
+                continue;
+            }
+
+            try {
+                $this->cancelarNaStone($cobranca);
+                $cancelados++;
+            } catch (StoneConnectException $e) {
+                $recusados[] = "#{$cobranca->id}: {$e->getMessage()}";
+            }
+        }
+
+        return ['cancelados' => $cancelados, 'recusados' => $recusados];
+    }
+
     /** Ponto de entrada do webhook: encaminha por tipo de evento. */
     public function processarWebhook(StoneWebhook $webhook): void
     {

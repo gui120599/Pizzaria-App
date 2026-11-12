@@ -6,15 +6,18 @@ use App\Exceptions\AlteracaoVendaException;
 use App\Exceptions\NfeIoException;
 use App\Filament\Pages\OperarVenda;
 use App\Filament\Resources\Vendas\Tables\Actions\AtualizarStatusNfeEmLoteBulkAction;
+use App\Filament\Resources\Vendas\Tables\Actions\CancelarCobrancasStoneEmLoteBulkAction;
 use App\Filament\Resources\Vendas\Tables\Actions\CancelarVendasEmLoteBulkAction;
 use App\Filament\Resources\Vendas\Tables\Actions\EnviarNfeEmLoteBulkAction;
 use App\Filament\Resources\Vendas\Tables\Actions\ExportarVendasCsvBulkAction;
 use App\Models\NfEmissao;
+use App\Models\StonePedido;
 use App\Models\Venda;
 use App\Services\AlteracaoVendaService;
 use App\Services\Nfe\CompradorNfceService;
 use App\Services\Nfe\ReenvioNfeService;
 use App\Services\NfeIoService;
+use App\Services\Stone\StoneRecebimentoService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -52,6 +55,7 @@ class VendasTable
             ->modifyQueryUsing(fn (Builder $query) => $query->with([
                 'cliente',
                 'nfEmissaoAtual',
+                'stonePedidos',
                 'sessaoCaixa.user',
                 'sessaoCaixa.caixa',
                 'pagamentos.opcaoPagamento' => fn ($opcao) => $opcao->withTrashed(),
@@ -229,6 +233,24 @@ class VendasTable
 
                     self::acaoAlterarVenda(),
 
+                    Action::make('cancelarCobrancaStone')
+                        ->label('Cancelar cobrança na maquininha')
+                        ->icon('heroicon-o-device-phone-mobile')
+                        ->color('danger')
+                        ->authorize(fn (): bool => auth()->user()?->can('operar:venda') ?? false)
+                        ->visible(fn (Venda $record, StoneRecebimentoService $recebimento): bool => $record->stonePedidos->contains(fn (StonePedido $cobranca): bool => $recebimento->podeCancelarNaStone($cobranca)))
+                        ->requiresConfirmation()
+                        ->modalDescription('Retira da lista da maquininha a cobrança aberta desta venda. A venda não é alterada.')
+                        ->action(function (Venda $record, StoneRecebimentoService $recebimento): void {
+                            $resultado = $recebimento->cancelarCobrancasNaStone($record->stonePedidos);
+
+                            Notification::make()
+                                ->title("{$resultado['cancelados']} cobrança(s) cancelada(s) na maquininha.")
+                                ->body($resultado['recusados'] === [] ? null : implode("\n", $resultado['recusados']))
+                                ->color($resultado['recusados'] === [] ? 'success' : 'warning')
+                                ->send();
+                        }),
+
                     Action::make('cancelarNfe')
                         ->label('Cancelar NFC-e')
                         ->icon('heroicon-o-x-circle')
@@ -266,6 +288,7 @@ class VendasTable
                     AtualizarStatusNfeEmLoteBulkAction::make(),
                     ExportarVendasCsvBulkAction::make(),
                     CancelarVendasEmLoteBulkAction::make(),
+                    CancelarCobrancasStoneEmLoteBulkAction::make(),
                 ]),
             ]);
     }
