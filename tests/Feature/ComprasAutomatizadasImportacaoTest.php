@@ -14,6 +14,7 @@ use App\Enums\Periodicidade;
 use App\Enums\RegraDataEntradaEnum;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
+use App\Filament\Resources\Compras\Pages\EditCompra;
 use App\Models\Caixa;
 use App\Models\Categoria;
 use App\Models\Compra;
@@ -34,8 +35,10 @@ use App\Models\SessaoCaixa;
 use App\Models\User;
 use App\Services\Compras\CompraImportacaoService;
 use App\Services\Compras\PendenciaService;
+use Filament\Actions\DeleteAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ComprasAutomatizadasImportacaoTest extends TestCase
@@ -399,6 +402,39 @@ class ComprasAutomatizadasImportacaoTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+
+    public function test_excluir_rascunho_cancela_os_titulos_descarta_as_pendencias_e_reimportar_nao_duplica(): void
+    {
+        $compra = $this->importar('item-desconhecido');
+        $titulo = $compra->lancamentos()->sole();
+
+        $this->assertTrue($compra->delete());
+
+        $this->assertSoftDeleted($compra);
+        $this->assertSame(StatusLancamento::Cancelado, $titulo->fresh()->status);
+        $this->assertSame(0, CompraPendencia::query()->where('compra_id', $compra->id)->emAberto()->count());
+
+        $nova = $this->importar('item-desconhecido');
+
+        $this->assertNotSame($compra->id, $nova->id);
+        $this->assertSame(1, Lancamento::query()->where('status', '!=', StatusLancamento::Cancelado)->count());
+        $this->assertSame($nova->id, Lancamento::query()->where('status', '!=', StatusLancamento::Cancelado)->sole()->compra_id);
+    }
+
+    public function test_rascunho_com_titulo_pago_nao_pode_ser_excluido(): void
+    {
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+        $this->fornecedorPix(ContaFinanceira::factory()->create(['nome' => 'Stone']));
+        $compra = $this->importar('pix-a-vista');
+        $this->assertTrue($compra->isRascunho());
+
+        Livewire::test(EditCompra::class, ['record' => $compra->getKey()])
+            ->callAction(DeleteAction::class)
+            ->assertNotified('Esta compra tem título com pagamento registrado. Estorne o pagamento antes de excluir.');
+
+        $this->assertNotSoftDeleted($compra);
+        $this->assertSame(StatusLancamento::Pago, $compra->lancamentos()->sole()->status);
+    }
 
     private function importar(string $fixture, ?callable $ajuste = null): Compra
     {

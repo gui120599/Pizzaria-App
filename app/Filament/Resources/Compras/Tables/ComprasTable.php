@@ -123,7 +123,9 @@ class ComprasTable
                 EditAction::make()
                     ->visible(fn (Compra $record): bool => $record->isRascunho()),
                 DeleteAction::make()
-                    ->visible(fn (Compra $record): bool => $record->isRascunho()),
+                    ->visible(fn (Compra $record): bool => $record->isRascunho())
+                    ->modalDescription('Os títulos a pagar gerados para esta compra serão cancelados junto.')
+                    ->failureNotificationTitle('Esta compra tem título com pagamento registrado. Estorne o pagamento antes de excluir.'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
