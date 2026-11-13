@@ -119,7 +119,6 @@ class CondicoesCompraSection
                     ->label('Regra de baixa')
                     ->options(RegraBaixaCompra::class)
                     ->placeholder('Manual (confirmação em lote)')
-                    ->disableOptionWhen(fn (string $value): bool => $value === RegraBaixaCompra::PorConciliacao->value)
                     ->native(false)
                     ->disabled($bloqueado)
                     ->helperText(fn (Get $get): ?string => self::regraBaixa($get('fcc_regra_baixa'))?->getDescription()

@@ -11,10 +11,12 @@ use App\Enums\ProdutoTipoEnum;
 use App\Models\Compra;
 use App\Models\CompraItem;
 use App\Models\CompraPendencia;
+use App\Models\ExtratoBancarioItem;
 use App\Models\FornecedorProduto;
 use App\Models\Lancamento;
 use App\Models\Produto;
 use App\Models\User;
+use App\Services\Financeiro\ConciliacaoBoletoService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -197,7 +199,8 @@ class PendenciaService
     }
 
     /**
-     * Sugestão de lançamento para lançamento ambíguo: sempre aguarda aprovação.
+     * Sugestão de lançamento (lançamento ambíguo ou débito do extrato com
+     * mais de uma parcela possível): sempre aguarda aprovação.
      *
      * @return array{pendencia_id: int, situacao: string, motivo: string}
      *
@@ -207,8 +210,10 @@ class PendenciaService
     {
         $candidatos = collect($pendencia->dados['candidatos'] ?? [])->pluck('lancamento_id')->map(fn ($id): int => (int) $id);
 
-        if ($pendencia->tipo !== TipoPendenciaCompra::LancamentoAmbiguo || ! $candidatos->contains($lancamentoId)) {
-            throw ValidationException::withMessages(['lancamento_id' => 'Só para pendência de lançamento ambíguo, com um dos lançamentos candidatos.']);
+        $escolhe = in_array($pendencia->tipo, [TipoPendenciaCompra::LancamentoAmbiguo, TipoPendenciaCompra::PagamentoAConfirmar], true);
+
+        if (! $escolhe || ! $candidatos->contains($lancamentoId)) {
+            throw ValidationException::withMessages(['lancamento_id' => 'Só para lançamento ambíguo ou pagamento a confirmar com candidatos, escolhendo um deles.']);
         }
 
         $this->registrarSugestao($pendencia, ['acao' => 'lancamento', 'lancamento_id' => $lancamentoId], $confianca, $justificativa);
@@ -257,7 +262,9 @@ class PendenciaService
 
     /**
      * Lançamento ambíguo: vincula à compra o lançamento escolhido entre os
-     * candidatos (ainda sem compra) e resolve a pendência.
+     * candidatos (ainda sem compra). Pagamento a confirmar vindo do extrato
+     * (débito com mais de uma parcela possível): concilia o débito com a
+     * parcela escolhida, baixando-a na data do extrato.
      *
      * @throws ValidationException
      */
@@ -266,14 +273,26 @@ class PendenciaService
         return DB::transaction(function () use ($pendencia, $lancamentoId, $usuario): CompraPendencia {
             $pendencia = CompraPendencia::query()->lockForUpdate()->findOrFail($pendencia->getKey());
             $candidatos = collect($pendencia->dados['candidatos'] ?? [])->pluck('lancamento_id')->map(fn ($id): int => (int) $id);
+            $doExtrato = $pendencia->tipo === TipoPendenciaCompra::PagamentoAConfirmar && filled($pendencia->dados['extrato_item_id'] ?? null);
 
-            if (! $pendencia->estaEmAberto() || $pendencia->tipo !== TipoPendenciaCompra::LancamentoAmbiguo) {
-                throw ValidationException::withMessages(['pendencia' => 'Esta pendência não é de lançamento ambíguo em aberto.']);
+            if (! $pendencia->estaEmAberto() || ($pendencia->tipo !== TipoPendenciaCompra::LancamentoAmbiguo && ! $doExtrato)) {
+                throw ValidationException::withMessages(['pendencia' => 'Esta pendência não é de escolha de lançamento.']);
             }
 
             $lancamento = Lancamento::query()->lockForUpdate()->find($lancamentoId);
-            if ($lancamento === null || ! $candidatos->contains($lancamentoId) || $lancamento->compra_id !== null) {
-                throw ValidationException::withMessages(['lancamento' => 'Escolha um dos lançamentos candidatos que ainda não esteja ligado a outra compra.']);
+            if ($lancamento === null || ! $candidatos->contains($lancamentoId)) {
+                throw ValidationException::withMessages(['lancamento' => 'Escolha um dos lançamentos candidatos.']);
+            }
+
+            if ($doExtrato) {
+                $item = ExtratoBancarioItem::query()->findOrFail((int) $pendencia->dados['extrato_item_id']);
+                app(ConciliacaoBoletoService::class)->conciliarManual($item, $lancamento, $usuario);
+
+                return $pendencia->refresh();
+            }
+
+            if ($lancamento->compra_id !== null) {
+                throw ValidationException::withMessages(['lancamento' => 'Este lançamento já está ligado a outra compra.']);
             }
 
             $lancamento->forceFill(['compra_id' => $pendencia->compra_id])->save();
@@ -281,6 +300,22 @@ class PendenciaService
 
             return $pendencia;
         });
+    }
+
+    /** Débito do extrato conciliado: resolve a pendência de escolha que apontava para ele. */
+    public function resolverDoExtrato(ExtratoBancarioItem $item, Lancamento $titulo, ?User $usuario = null): int
+    {
+        $pendencias = CompraPendencia::query()
+            ->emAberto()
+            ->where('tipo', TipoPendenciaCompra::PagamentoAConfirmar)
+            ->get()
+            ->filter(fn (CompraPendencia $pendencia): bool => (int) ($pendencia->dados['extrato_item_id'] ?? 0) === $item->id);
+
+        foreach ($pendencias as $pendencia) {
+            $this->marcar($pendencia, StatusPendencia::Resolvida, $usuario, ['lancamento_id' => $titulo->id, 'extrato_item_id' => $item->id]);
+        }
+
+        return $pendencias->count();
     }
 
     /**

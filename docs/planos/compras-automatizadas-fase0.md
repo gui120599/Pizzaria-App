@@ -324,3 +324,47 @@ Respostas padrão assumidas (sem objeção): Q6 status derivado, sem coluna nova
 >    - alertas de preço e outros tipos em aberto.
 
 **Recomendação da spec:** deixar todos os fornecedores com autonomia **"sugerir"** por 2 semanas e passar para "vincular" nos que acertarem. **Desligar o agente:** "Revogar acesso do agente" na tela de rodadas.
+
+---
+
+## 10. Fase 4 — extrato do Banco do Brasil e conciliação de boletos (2026-11-13)
+
+**Implementação:**
+- `config/bancos.php` + variáveis `BB_*` no `.env` (exemplo em `.env.example`).
+- `BancoBrasilExtratoClient`: OAuth client credentials com token em cache e extrato paginado. Ignora as linhas de saldo; mTLS é opcional.
+- `ImportacaoExtratoService`: grava em `extrato_bancario_itens` com `hash_unico` (reimportar não duplica) e concilia os débitos pendentes.
+- `ConciliacaoBoletoService`:
+  - parcela única com valor exato e vencimento entre o débito − 5 e + 3 dias → baixa na data do extrato;
+  - 2 ou mais parcelas → débito "ambíguo" e pendência `pagamento_a_confirmar` com as candidatas (o agente pode sugerir; a escolha na caixa de entrada concilia);
+  - saída já registrada à mão → só concilia;
+  - valor diferente (juros/multa) → "sem correspondência", para conciliar à mão com o valor real.
+- Comando `financeiro:importar-extrato-bb` (diário 07:30, D-3 até hoje) e tela Financeiro › **Extrato bancário** (só Admin: conciliar com parcela, ignorar, importar agora).
+- Conta financeira ganhou "Importar extrato por API".
+- "Pagamentos a confirmar" também mostra parcelas "por conciliação" vencidas há mais de 3 dias.
+
+**⚠ Não confirmado na documentação oficial:** o portal do BB não pôde ser lido (renderiza só com JavaScript). Os padrões abaixo vêm da documentação conhecida da API Extratos v1. Todos são sobrescrevíveis no `.env`, sem mudar código:
+- URLs de token e da API (homologação e produção);
+- escopo `extrato-info`;
+- parâmetro `gw-dev-app-key`;
+- path `/conta-corrente/agencia/{agencia}/conta/{conta}`;
+- datas DDMMAAAA sem zero à esquerda;
+- campos `listaLancamento`, `dataLancamento`, `valorLancamento`, `indicadorSinalLancamento`, `textoDescricaoHistorico`, `numeroDocumento` e `numeroPaginaProximo`.
+
+**Checklist de ativação em produção:**
+1. **Portal Developers BB** (responsável pela conta PJ):
+   - criar a aplicação com a API Extratos;
+   - anotar `client_id`, `client_secret` e `developer_application_key` de homologação;
+   - conferir na documentação as URLs, o escopo, o nome do parâmetro da chave e se a produção exige certificado mTLS.
+2. **Homologação:**
+   - no `.env`, preencher `BB_CLIENT_ID`, `BB_CLIENT_SECRET`, `BB_DEVELOPER_APP_KEY` e `BB_AMBIENTE=homologacao` (e `BB_URL_*` se diferirem);
+   - rodar `php artisan config:cache`;
+   - na conta "Banco do Brasil" (Financeiro › Contas), preencher agência e conta e marcar "Importar extrato por API";
+   - rodar `php artisan financeiro:importar-extrato-bb --de=AAAA-MM-DD` e conferir as linhas em Financeiro › Extrato bancário.
+3. **Produção:**
+   - pedir no portal as credenciais de produção;
+   - se exigir mTLS, colocar o certificado em `storage/app/...` e preencher `BB_MTLS_CERT`, `BB_MTLS_KEY` e `BB_MTLS_SENHA`;
+   - definir `BB_AMBIENTE=producao` e rodar `config:cache`.
+4. **Fornecedores de boleto** (Estoque › Fornecedores › Condições de compra): regra de baixa **"Por conciliação com o extrato"** e conta de origem **Banco do Brasil**.
+5. **Acompanhar a primeira semana:**
+   - débitos "sem correspondência" e "ambíguos" no Extrato bancário;
+   - parcelas "por conciliação" vencidas em Pagamentos a confirmar.

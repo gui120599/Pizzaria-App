@@ -3,9 +3,11 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\Compras\TipoPendenciaCompra;
+use App\Enums\Financeiro\StatusConciliacaoExtrato;
 use App\Enums\StatusLancamento;
 use App\Models\Compra;
 use App\Models\CompraPendencia;
+use App\Models\ExtratoBancarioItem;
 use App\Models\Lancamento;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -49,6 +51,11 @@ class ComprasHojeWidget extends StatsOverviewWidget
                 ->color('warning'),
             Stat::make('A pagar em 7 dias', Number::currency($aPagar, 'BRL', 'pt_BR'))
                 ->description('Compras automatizadas, inclui vencidos'),
+            Stat::make('Boletos conciliados hoje', ExtratoBancarioItem::query()
+                ->where('status_conciliacao', StatusConciliacaoExtrato::Conciliado)
+                ->whereDate('updated_at', today())
+                ->count())
+                ->description('Pelo extrato do Banco do Brasil'),
         ];
     }
 }

@@ -28,7 +28,7 @@ enum RegraBaixaCompra: string implements HasDescription, HasLabel
         return match ($this) {
             self::AutomaticaNaEmissao => 'O título nasce pago, na data de emissão, pela conta e forma do fornecedor.',
             self::AutomaticaNoVencimento => 'Um comando diário dá baixa nas parcelas no dia do vencimento. Use só para débito automático.',
-            self::PorConciliacao => 'A baixa acontece quando o débito aparecer no extrato do banco (ainda não disponível).',
+            self::PorConciliacao => 'A baixa acontece quando o débito aparecer no extrato do Banco do Brasil (conta de origem com integração ativa).',
             self::Manual => 'As parcelas ficam abertas para confirmação manual.',
         };
     }

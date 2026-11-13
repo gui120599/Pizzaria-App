@@ -96,6 +96,13 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // Extrato do Banco do Brasil (D-3 até hoje) e conciliação dos boletos
+        // "por conciliação". Sem conta com integração, não faz nada.
+        $schedule->command('financeiro:importar-extrato-bb')
+            ->dailyAt('07:30')
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // Cartão/Pix de maquininha entra no extrato da conta só na data de repasse:
         // liquida os recebíveis vencidos e lança a taxa (ver LiquidacaoRecebiveisService).
         $schedule->command('financeiro:liquidar-recebiveis')

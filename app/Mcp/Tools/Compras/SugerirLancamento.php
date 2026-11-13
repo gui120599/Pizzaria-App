@@ -11,7 +11,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('sugerir_lancamento')]
-#[Description('Para pendências de lançamento ambíguo: sugere qual dos lançamentos candidatos (em pendencia.dados.candidatos) é o desta nota. Sempre fica aguardando aprovação humana; o agente nunca vincula nem dá baixa sozinho.')]
+#[Description('Para pendências de lançamento ambíguo ou de pagamento a confirmar com candidatos (débito do extrato que bate com mais de uma parcela): sugere qual dos lançamentos em pendencia.dados.candidatos é o certo. Sempre fica aguardando aprovação humana; o agente nunca vincula nem dá baixa sozinho.')]
 class SugerirLancamento extends FerramentaCompras
 {
     public function schema(JsonSchema $schema): array

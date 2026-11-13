@@ -79,6 +79,13 @@ class ContaFinanceiraForm
                     TextInput::make('conta')->label('Conta')->maxLength(30),
                     Select::make('tipo_chave_pix')->label('Tipo da chave PIX')->options(TipoChavePix::class),
                     TextInput::make('chave_pix')->label('Chave PIX')->maxLength(140)->columnSpan(2),
+                    Select::make('integracao')
+                        ->label('Importar extrato por API')
+                        ->options(['banco_brasil' => 'Banco do Brasil (API Extratos)'])
+                        ->placeholder('Sem integração')
+                        ->helperText('Importa o extrato todo dia e concilia os boletos dos fornecedores "por conciliação". Credenciais no .env (BB_*).')
+                        ->disabled(fn (): bool => ! (auth()->user()?->can('view:extrato_bancario') ?? false))
+                        ->columnSpan(2),
                 ]),
         ]);
     }

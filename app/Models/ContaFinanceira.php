@@ -44,6 +44,8 @@ class ContaFinanceira extends Model
         'chave_pix',
         'cor',
         'ordem',
+        'integracao',
+        'ultimo_extrato_em',
     ];
 
     protected function casts(): array
@@ -57,6 +59,7 @@ class ContaFinanceira extends Model
             'tipo_chave_pix' => TipoChavePix::class,
             'chave_pix' => 'encrypted',
             'ordem' => 'integer',
+            'ultimo_extrato_em' => 'date',
         ];
     }
 

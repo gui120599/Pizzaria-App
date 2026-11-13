@@ -201,11 +201,16 @@ class CompraPendenciasTable
         return Action::make('escolherLancamento')
             ->label('Escolher lançamento')
             ->icon(Heroicon::OutlinedDocumentCheck)
-            ->visible(fn (CompraPendencia $record): bool => $record->estaEmAberto() && $record->tipo === TipoPendenciaCompra::LancamentoAmbiguo)
+            ->visible(fn (CompraPendencia $record): bool => $record->estaEmAberto() && (
+                $record->tipo === TipoPendenciaCompra::LancamentoAmbiguo
+                || ($record->tipo === TipoPendenciaCompra::PagamentoAConfirmar && filled($record->dados['candidatos'] ?? null))
+            ))
             ->fillForm(fn (CompraPendencia $record): array => ['lancamento_id' => $record->sugestao['lancamento_id'] ?? null])
             ->schema([
                 Select::make('lancamento_id')
-                    ->label('Lançamento já registrado desta compra')
+                    ->label(fn (CompraPendencia $record): string => $record->tipo === TipoPendenciaCompra::PagamentoAConfirmar
+                        ? 'Parcela paga por este débito do extrato'
+                        : 'Lançamento já registrado desta compra')
                     ->options(fn (CompraPendencia $record): array => collect($record->dados['candidatos'] ?? [])
                         ->mapWithKeys(fn (array $c): array => [$c['lancamento_id'] => "#{$c['lancamento_id']} — {$c['descricao']} — "
                             .Number::currency((float) $c['valor'], 'BRL', 'pt_BR').' — vence '.($c['vencimento'] ? date('d/m/Y', strtotime($c['vencimento'])) : '—')])

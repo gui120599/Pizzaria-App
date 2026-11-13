@@ -61,19 +61,29 @@ class PagamentosAConfirmar extends Page implements HasTable
         return auth()->user()?->can('confirmar:pagamento_compra') ?? false;
     }
 
-    /** Títulos em aberto das compras automatizadas que não se baixam sozinhos. */
+    /**
+     * Títulos em aberto das compras automatizadas que não se baixam sozinhos,
+     * mais os "por conciliação" já vencidos há mais dias do que a janela de
+     * conciliação (o débito não apareceu no extrato).
+     */
     public static function consulta(): Builder
     {
+        $limiteConciliacao = today()->subDays((int) config('bancos.conciliacao.dias_depois', 3))->toDateString();
+        $regra = fn (array $regras): \Closure => fn (Builder $condicao): Builder => $condicao->whereIn('fcc_regra_baixa', $regras);
+
         return Lancamento::query()
             ->pagar()
             ->whereIn('status', [StatusLancamento::Pendente, StatusLancamento::Parcial])
-            ->whereHas('compra', fn (Builder $compra): Builder => $compra
-                ->where('compra_importacao_automatica', true)
-                ->where(fn (Builder $regra): Builder => $regra
-                    ->whereDoesntHave('prestador.condicaoCompra')
-                    ->orWhereHas('prestador.condicaoCompra', fn (Builder $condicao): Builder => $condicao->where(fn (Builder $q): Builder => $q
-                        ->whereNull('fcc_regra_baixa')
-                        ->orWhereIn('fcc_regra_baixa', [RegraBaixaCompra::Manual, RegraBaixaCompra::AutomaticaNaEmissao])))));
+            ->whereHas('compra', fn (Builder $compra): Builder => $compra->where('compra_importacao_automatica', true))
+            ->where(fn (Builder $titulo): Builder => $titulo
+                // Sem parâmetros, regra manual (ou vazia) e baixa na emissão que não deu certo.
+                ->whereDoesntHave('compra.prestador.condicaoCompra')
+                ->orWhereHas('compra.prestador.condicaoCompra', fn (Builder $condicao): Builder => $condicao->whereNull('fcc_regra_baixa'))
+                ->orWhereHas('compra.prestador.condicaoCompra', $regra([RegraBaixaCompra::Manual->value, RegraBaixaCompra::AutomaticaNaEmissao->value]))
+                // Por conciliação vencida além da janela: o débito não apareceu no extrato.
+                ->orWhere(fn (Builder $vencida): Builder => $vencida
+                    ->whereDate('vencimento', '<', $limiteConciliacao)
+                    ->whereHas('compra.prestador.condicaoCompra', $regra([RegraBaixaCompra::PorConciliacao->value]))));
     }
 
     public function table(Table $table): Table
