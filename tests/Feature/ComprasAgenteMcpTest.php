@@ -122,6 +122,19 @@ class ComprasAgenteMcpTest extends TestCase
             ->assertSee(['CAIXA PIZZA 35CM PARDA', 'EMB-35', 'Distribuidora Nova Ficticia LTDA']);
     }
 
+    public function test_observacoes_do_fornecedor_chegam_ao_agente(): void
+    {
+        $pendencia = $this->pendenciaDaCaixa(AutonomiaAgente::Sugerir);
+        $orientacao = 'Código EMB-35 é caixa de pizza 35 cm, fator 1.';
+        FornecedorCondicaoCompra::query()->update(['fcc_observacoes' => $orientacao]);
+        $agente = $this->agente();
+
+        ComprasServer::actingAs($agente)->tool(ListarPendencias::class)->assertOk()->assertSee($orientacao);
+        ComprasServer::actingAs($agente)->tool(DetalharCompra::class, ['compra_id' => $pendencia->compra_id])->assertOk()->assertSee($orientacao);
+        ComprasServer::actingAs($agente)->tool(HistoricoVinculosFornecedor::class, ['fornecedor_id' => $pendencia->compra->compra_prestador_id])
+            ->assertOk()->assertSee($orientacao);
+    }
+
     public function test_propor_vinculo_com_autonomia_vincular_e_confianca_alta_executa(): void
     {
         $agente = $this->agente();

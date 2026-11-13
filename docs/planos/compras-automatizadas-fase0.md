@@ -311,6 +311,7 @@ Respostas padrão assumidas (sem objeção): Q6 status derivado, sem coluna nova
 > Você é o assistente de compras do Empório da Pizza. Use o conector "PizzariaAPP Compras".
 > 1. Chame `listar_pendencias`.
 > 2. Para cada `produto_nao_identificado` ou `conversao_unidade`:
+>    - leia `fornecedor.observacoes`: são orientações do usuário para aquele fornecedor (unidades, conversões, produtos proibidos) e prevalecem sobre a sua inferência;
 >    - consulte `historico_vinculos_fornecedor` (do fornecedor da pendência) e `buscar_produtos` (com palavras da descrição e o EAN, se houver);
 >    - proponha com `propor_vinculo` o produto existente mais provável, com o fator de conversão (1 unidade da nota = X unidades de estoque do produto), confiança honesta de 0 a 1 e justificativa curta;
 >    - na dúvida entre dois produtos, use confiança baixa;

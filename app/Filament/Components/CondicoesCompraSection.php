@@ -178,7 +178,9 @@ class CondicoesCompraSection
 
                 Textarea::make('fcc_observacoes')
                     ->label('Observações')
-                    ->rows(2)
+                    ->rows(3)
+                    ->placeholder('Ex.: "CX" de muçarela = 4 KG. Código EMB-35 é caixa de pizza 35 cm. Nunca vincular a "Catchup galão".')
+                    ->helperText('Lidas pelo agente de compras antes de vincular os itens deste fornecedor — escreva aqui orientações de unidade, conversão e produtos.')
                     ->disabled($bloqueado)
                     ->columnSpanFull(),
             ]);

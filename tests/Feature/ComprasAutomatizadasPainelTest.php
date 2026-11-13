@@ -30,6 +30,7 @@ use App\Services\Compras\PendenciaService;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
@@ -80,6 +81,29 @@ class ComprasAutomatizadasPainelTest extends TestCase
 
         $this->assertSame(StatusPendencia::Resolvida, $pendencia->fresh()->status);
         $this->assertSame(OrigemVinculo::Manual, FornecedorProduto::where('fp_codigo_fornecedor', 'EMB-35')->sole()->fp_origem);
+    }
+
+    public function test_resolver_mostra_os_dados_da_nota_e_preenche_o_produto_novo_com_eles(): void
+    {
+        Storage::fake('local');
+        $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
+        $compra = $this->importar('item-desconhecido');
+        $pendencia = $compra->pendencias()->doTipo(TipoPendenciaCompra::ProdutoNaoIdentificado)
+            ->whereHas('item', fn ($q) => $q->where('ci_codigo_fornecedor', 'EMB-35'))->sole();
+
+        Livewire::test(ListCompraPendencias::class)
+            ->mountAction(TestAction::make('resolverVinculo')->table($pendencia))
+            ->assertMountedActionModalSee(['Item na nota fiscal', 'CAIXA PIZZA 35CM PARDA', '21039021', '5102', 'Distribuidora'])
+            ->mountAction([
+                TestAction::make('resolverVinculo')->table($pendencia),
+                TestAction::make('createOption')->schemaComponent('produto_id', 'mountedActionSchema0'),
+            ])
+            ->assertActionDataSet([
+                'produto_descricao' => 'CAIXA PIZZA 35CM PARDA',
+                'produto_codigo_NCM' => '21039021',
+                'produto_codigo_EAN' => null,
+                'produto_codigo_CEST' => '0000000',
+            ]);
     }
 
     public function test_aprovar_sugestoes_em_lote_aplica_so_as_sugeridas(): void

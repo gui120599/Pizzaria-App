@@ -14,7 +14,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('detalhar_compra')]
-#[Description('Detalha uma compra: cabeçalho, itens (com o produto já vinculado), duplicatas da nota, títulos a pagar vinculados e pendências.')]
+#[Description('Detalha uma compra: cabeçalho, fornecedor (com as observações do usuário, que devem ser seguidas), itens (com o produto já vinculado), duplicatas da nota, títulos a pagar vinculados e pendências.')]
 #[IsReadOnly]
 class DetalharCompra extends FerramentaCompras
 {
@@ -28,7 +28,7 @@ class DetalharCompra extends FerramentaCompras
     protected function executar(Request $request): Response
     {
         $dados = $request->validate(['compra_id' => ['required', 'integer']]);
-        $compra = Compra::query()->with(['prestador', 'itens.insumo', 'lancamentos', 'pendencias'])->findOrFail($dados['compra_id']);
+        $compra = Compra::query()->with(['prestador.condicaoCompra', 'itens.insumo', 'lancamentos', 'pendencias'])->findOrFail($dados['compra_id']);
 
         return Response::json([
             'compra_id' => $compra->id,
@@ -40,7 +40,12 @@ class DetalharCompra extends FerramentaCompras
             'entrada' => $compra->compra_data_entrada?->toDateString(),
             'valor_nota' => (float) ($compra->compra_valor_nf ?? $compra->compra_valor_total),
             'operacao' => $compra->compra_operacao,
-            'fornecedor' => ['fornecedor_id' => $compra->compra_prestador_id, 'nome' => $compra->prestador?->nome_exibicao, 'cnpj' => $compra->prestador?->cpf_cnpj],
+            'fornecedor' => [
+                'fornecedor_id' => $compra->compra_prestador_id,
+                'nome' => $compra->prestador?->nome_exibicao,
+                'cnpj' => $compra->prestador?->cpf_cnpj,
+                'observacoes' => $compra->prestador?->condicaoCompra?->fcc_observacoes,
+            ],
             'itens' => $compra->itens->map(fn (CompraItem $item): array => [
                 'compra_item_id' => $item->id,
                 'codigo_fornecedor' => $item->ci_codigo_fornecedor,

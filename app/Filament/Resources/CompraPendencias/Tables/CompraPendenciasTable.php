@@ -4,11 +4,14 @@ namespace App\Filament\Resources\CompraPendencias\Tables;
 
 use App\Enums\Compras\StatusPendencia;
 use App\Enums\Compras\TipoPendenciaCompra;
+use App\Filament\Components\ProdutoCompraSelect;
 use App\Filament\Pages\PagamentosAConfirmar;
 use App\Filament\Resources\Compras\CompraResource;
 use App\Models\CompraPendencia;
 use App\Models\Produto;
+use App\Services\Compras\ItemNotaFiscalResolver;
 use App\Services\Compras\PendenciaService;
+use App\Support\CustoUnitarioFormatter;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -16,7 +19,11 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -24,6 +31,7 @@ use Filament\Tables\Table;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Number;
 use Illuminate\Validation\ValidationException;
+use WeakMap;
 
 class CompraPendenciasTable
 {
@@ -143,21 +151,32 @@ class CompraPendenciasTable
                 'produto_id' => $record->sugestao['produto_id'] ?? null,
                 'fator_conversao' => $record->sugestao['fator_conversao'] ?? 1,
             ])
+            ->modalWidth(Width::FourExtraLarge)
             ->schema([
-                Select::make('produto_id')
+                Section::make('Item na nota fiscal')
+                    ->description(fn (CompraPendencia $record): string => self::cabecalhoNota($record))
+                    ->compact()
+                    ->columns(['default' => 2, 'md' => 4])
+                    ->schema(self::entradasItemNota()),
+                TextEntry::make('sugestao_agente')
+                    ->label('Sugestão do agente')
+                    ->state(fn (CompraPendencia $record): ?string => self::sugestao($record)
+                        ? self::sugestao($record).($record->justificativa ? " — {$record->justificativa}" : '')
+                        : null)
+                    ->visible(fn (CompraPendencia $record): bool => filled($record->sugestao))
+                    ->color('info'),
+                ProdutoCompraSelect::make('produto_id')
                     ->label('Produto do estoque')
-                    ->searchable()
-                    ->getSearchResultsUsing(fn (string $search): array => Produto::query()
-                        ->where('produto_descricao', 'like', "%{$search}%")
-                        ->orderBy('produto_descricao')->limit(50)->pluck('produto_descricao', 'id')->all())
-                    ->getOptionLabelUsing(fn ($value): ?string => Produto::query()->whereKey($value)->value('produto_descricao'))
+                    ->live()
+                    ->preencherNovoProdutoCom(fn (CompraPendencia $record): array => self::dadosNovoProduto($record))
                     ->required(),
                 TextInput::make('fator_conversao')
                     ->label('Fator de conversão')
                     ->numeric()
                     ->minValue(0.0001)
                     ->required()
-                    ->helperText(fn (CompraPendencia $record): string => '1 '.($record->item?->ci_unidade_compra ?: 'unidade da nota').' = X unidades de estoque.'),
+                    ->live(onBlur: true)
+                    ->helperText(fn (CompraPendencia $record, Get $get): string => self::explicacaoFator($record, $get('produto_id'), $get('fator_conversao'))),
             ])
             ->action(function (CompraPendencia $record, array $data, PendenciaService $pendencias, Action $action): void {
                 try {
@@ -171,6 +190,116 @@ class CompraPendenciasTable
 
                 Notification::make()->title('Item vinculado')->success()->send();
             });
+    }
+
+    /** Nota de origem do item: fornecedor, número e emissão. */
+    private static function cabecalhoNota(CompraPendencia $record): string
+    {
+        $compra = $record->compra;
+
+        return collect([
+            $compra?->prestador?->nome_exibicao,
+            $compra?->compra_numero ? 'NF '.$compra->compra_numero : null,
+            $compra?->compra_data_emissao ? 'emitida em '.$compra->compra_data_emissao->format('d/m/Y') : null,
+        ])->filter()->implode(' · ');
+    }
+
+    /**
+     * Dados do item como vieram na NF-e (XML guardado na importação; sem
+     * XML, o que ficou gravado no item). Campos vazios ficam ocultos.
+     *
+     * @return list<TextEntry>
+     */
+    private static function entradasItemNota(): array
+    {
+        $campos = [
+            'nf_descricao' => ['Descrição', 4],
+            'nf_codigo' => ['Código do fornecedor', 1],
+            'nf_ean' => ['EAN/GTIN', 1],
+            'nf_ncm' => ['NCM', 1],
+            'nf_cest' => ['CEST', 1],
+            'nf_cfop' => ['CFOP', 1],
+            'nf_quantidade' => ['Quantidade', 1],
+            'nf_valor_unitario' => ['Valor unitário', 1],
+            'nf_valor_total' => ['Valor total', 1],
+            'nf_unidade_tributavel' => ['Unidade tributável', 1],
+            'nf_lote' => ['Lote / validade', 1],
+        ];
+
+        return collect($campos)->map(fn (array $campo, string $nome): TextEntry => TextEntry::make($nome)
+            ->label($campo[0])
+            ->state(fn (CompraPendencia $record): ?string => self::dadosItemNota($record)[$nome] ?? null)
+            ->visible(fn (CompraPendencia $record): bool => filled(self::dadosItemNota($record)[$nome] ?? null))
+            ->copyable(in_array($nome, ['nf_codigo', 'nf_ean', 'nf_ncm', 'nf_cest'], true))
+            ->columnSpan(['default' => min($campo[1], 2), 'md' => $campo[1]]))
+            ->values()
+            ->all();
+    }
+
+    /** @var WeakMap<CompraPendencia, array<string, string|null>>|null Preso à instância do registro. */
+    private static ?WeakMap $dadosItemNota = null;
+
+    /** @return array<string, string|null> */
+    private static function dadosItemNota(CompraPendencia $record): array
+    {
+        self::$dadosItemNota ??= new WeakMap;
+
+        return self::$dadosItemNota[$record] ??= (function () use ($record): array {
+            $item = $record->item;
+            if ($item === null) {
+                return [];
+            }
+
+            $nf = app(ItemNotaFiscalResolver::class)->resolver($item);
+            $unidade = $nf?->unidadeComercial ?? $item->ci_unidade_compra;
+            $quantidade = $nf?->quantidadeComercial ?? (float) $item->ci_quantidade_compra;
+            $valorUnitario = $nf?->valorUnitarioComercial ?? (float) $item->ci_custo_unitario_compra;
+            $tributavel = $nf?->unidadeTributavel && ($nf->unidadeTributavel !== $nf->unidadeComercial || $nf->quantidadeTributavel != $nf->quantidadeComercial)
+                ? Number::format((float) $nf->quantidadeTributavel, maxPrecision: 4, locale: 'pt_BR').' '.$nf->unidadeTributavel
+                : null;
+            $validade = $nf?->validade ?? $item->ci_validade;
+
+            return [
+                'nf_descricao' => $nf?->descricao ?? $item->ci_descricao_fornecedor,
+                'nf_codigo' => $nf?->codigoFornecedor ?? $item->ci_codigo_fornecedor,
+                'nf_ean' => $nf?->ean ?? $item->ci_ean,
+                'nf_ncm' => $nf?->ncm,
+                'nf_cest' => $nf?->cest,
+                'nf_cfop' => $nf?->cfop ?? $item->ci_cfop,
+                'nf_quantidade' => Number::format($quantidade, maxPrecision: 4, locale: 'pt_BR').($unidade ? " {$unidade}" : ''),
+                'nf_valor_unitario' => CustoUnitarioFormatter::formatar($valorUnitario),
+                'nf_valor_total' => Number::currency($nf?->valorTotalBruto ?? $quantidade * $valorUnitario, 'BRL', 'pt_BR'),
+                'nf_unidade_tributavel' => $tributavel,
+                'nf_lote' => collect([$nf?->loteCodigo ?? $item->ci_lote_codigo, $validade?->format('d/m/Y')])->filter()->implode(' · ') ?: null,
+            ];
+        })();
+    }
+
+    /**
+     * Cadastro de produto novo pré-preenchido com o que a nota informa.
+     *
+     * @return array<string, mixed>
+     */
+    private static function dadosNovoProduto(CompraPendencia $record): array
+    {
+        $dados = self::dadosItemNota($record);
+
+        return [
+            'produto_descricao' => $dados['nf_descricao'] ?? null,
+            'produto_codigo_EAN' => $dados['nf_ean'] ?? null,
+            'produto_codigo_NCM' => $dados['nf_ncm'] ?? null,
+            'produto_codigo_CEST' => $dados['nf_cest'] ?? null,
+        ];
+    }
+
+    /** Lê o fator na unidade do produto escolhido: "1 CX = 12 UN no estoque". */
+    private static function explicacaoFator(CompraPendencia $record, mixed $produtoId, mixed $fator): string
+    {
+        $unidadeNota = $record->item?->ci_unidade_compra ?: 'unidade da nota';
+        $unidadeEstoque = $produtoId ? Produto::query()->whereKey($produtoId)->value('produto_unidade_estoque') : null;
+        $quantidade = is_numeric($fator) ? Number::format((float) $fator, maxPrecision: 4, locale: 'pt_BR') : 'X';
+
+        return "1 {$unidadeNota} da nota = {$quantidade} ".($unidadeEstoque ?: 'unidades de estoque').' no estoque.';
     }
 
     private static function aprovarSugestao(): Action

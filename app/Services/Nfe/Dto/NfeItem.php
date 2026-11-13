@@ -26,6 +26,10 @@ final class NfeItem
         public readonly float $valorFrete = 0.0,
         public readonly float $valorSeguro = 0.0,
         public readonly float $valorOutros = 0.0,
+        public readonly ?string $ncm = null,
+        public readonly ?string $cest = null,
+        public readonly ?string $unidadeTributavel = null,
+        public readonly ?float $quantidadeTributavel = null,
     ) {}
 
     /** Custo unitário já líquido do desconto informado no próprio item. */

@@ -14,7 +14,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('listar_pendencias')]
-#[Description('Lista as pendências ABERTAS da automação de compras com o contexto da nota: fornecedor, item (código, descrição, EAN, unidade, quantidade, valor) e a autonomia do agente para aquele fornecedor.')]
+#[Description('Lista as pendências ABERTAS da automação de compras com o contexto da nota: fornecedor, item (código, descrição, EAN, unidade, quantidade, valor) a autonomia do agente para aquele fornecedor e as observações do fornecedor — orientações do usuário que o agente deve seguir.')]
 #[IsReadOnly]
 class ListarPendencias extends FerramentaCompras
 {
@@ -58,6 +58,7 @@ class ListarPendencias extends FerramentaCompras
                     'nome' => $p->compra?->prestador?->nome_exibicao,
                     'cnpj' => $p->compra?->prestador?->cpf_cnpj,
                     'autonomia_agente' => ($p->compra?->prestador?->condicaoCompra?->autonomiaAgente() ?? AutonomiaAgente::PADRAO)->value,
+                    'observacoes' => $p->compra?->prestador?->condicaoCompra?->fcc_observacoes,
                 ],
                 'item' => $p->item ? [
                     'compra_item_id' => $p->item->id,

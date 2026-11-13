@@ -5,7 +5,7 @@ namespace App\Filament\Resources\Compras\RelationManagers;
 use App\Enums\MovimentacaoOrigemEnum;
 use App\Enums\OperacaoEntradaEnum;
 use App\Filament\Components\MarcaSelect;
-use App\Filament\Resources\Produtos\Schemas\ProdutoForm;
+use App\Filament\Components\ProdutoCompraSelect;
 use App\Filament\Support\CorrecaoEstoquePreview;
 use App\Models\Compra;
 use App\Models\CompraItem;
@@ -21,7 +21,6 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -47,20 +46,6 @@ class ItensRelationManager extends RelationManager
 
     protected static ?string $pluralModelLabel = 'itens';
 
-    private static function renderOpcaoProduto(Produto $p): string
-    {
-        $saldoRaw = (float) $p->produto_saldo_estoque;
-
-        return view('filament.components.select-balanco-produto', [
-            'image' => $p->produto_foto ? asset('storage/'.$p->produto_foto) : null,
-            'name' => $p->nomeExibicao(),
-            'category' => $p->categoria?->categoria_nome ?? '',
-            'saldo' => number_format($saldoRaw, 3, ',', '.'),
-            'saldo_raw' => $saldoRaw,
-            'unidade' => $p->produto_unidade_estoque ?? '',
-        ])->render();
-    }
-
     private function rascunho(): bool
     {
         $owner = $this->getOwnerRecord();
@@ -83,34 +68,7 @@ class ItensRelationManager extends RelationManager
         return $schema
             ->columns(2)
             ->components([
-                Select::make('ci_produto_id')
-                    ->label('Buscar produto / insumo')
-                    ->placeholder('Digite o nome do produto...')
-                    ->searchable()
-                    ->allowHtml()
-                    ->getSearchResultsUsing(fn (string $search): array => Produto::query()
-                        ->where(function (Builder $q) use ($search): void {
-                            $q->where('produto_descricao', 'like', "%{$search}%")
-                                ->orWhereHas('categoria', fn (Builder $c) => $c->where('categoria_nome', 'like', "%{$search}%"));
-                        })
-                        ->with('categoria')
-                        ->orderBy('produto_descricao')
-                        ->limit(30)
-                        ->get()
-                        ->mapWithKeys(fn (Produto $p) => [$p->id => self::renderOpcaoProduto($p)])
-                        ->toArray())
-                    ->getOptionLabelUsing(fn ($value): ?string => ($p = Produto::with('categoria')->find($value))
-                        ? self::renderOpcaoProduto($p)
-                        : null)
-                    ->createOptionForm(fn (Schema $schema) => ProdutoForm::configure($schema))
-                    ->createOptionAction(
-                        fn (Action $action) => $action
-                            ->modalHeading('Cadastrar novo produto')
-                            ->slideOver()
-                    )
-                    ->createOptionUsing(function (array $data): int {
-                        return Produto::create($data)->getKey();
-                    })
+                ProdutoCompraSelect::make('ci_produto_id')
                     ->live()
                     ->columnSpanFull()
                     ->helperText('Deixe em branco para mapear depois — o item fica pendente até você indicar o produto.')
