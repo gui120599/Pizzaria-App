@@ -10,13 +10,11 @@ use App\Exceptions\NfeDestinatarioDivergenteException;
 use App\Exceptions\NfeXmlInvalidoException;
 use App\Models\Compra;
 use App\Models\CompraItem;
-use App\Models\FornecedorProduto;
 use App\Models\Prestador;
-use App\Models\Produto;
 use App\Models\SefazNotaRecebida;
 use App\Services\Compras\CompraFiscalService;
+use App\Services\Compras\ProdutoMatcher;
 use App\Services\CompraService;
-use App\Services\Nfe\Dto\NfeItem;
 use App\Services\Nfe\Dto\NfeParseada;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +34,7 @@ class NfeImportService
         private NfeXmlParser $parser,
         private CompraService $compras,
         private CompraFiscalService $fiscal,
+        private ProdutoMatcher $matcher,
     ) {}
 
     /**
@@ -74,17 +73,22 @@ class NfeImportService
             ]);
 
             foreach ($nfe->itens as $indice => $item) {
-                $dePara = $this->resolverDePara($prestador, $item);
+                $match = $this->matcher->identificar($prestador->id, $item->codigoFornecedor, $item->ean);
 
                 CompraItem::create([
                     'ci_compra_id' => $compra->id,
-                    'ci_produto_id' => $dePara?->fp_produto_id ?? $this->resolverProdutoPorEan($item),
+                    'ci_produto_id' => $match?->produtoId,
+                    'ci_vinculo_id' => $match?->vinculo?->id,
                     'ci_descricao_fornecedor' => $item->descricao,
                     'ci_codigo_fornecedor' => $item->codigoFornecedor,
+                    'ci_ean' => $item->ean !== null ? mb_substr($item->ean, 0, 14) : null,
                     'ci_quantidade_compra' => $item->quantidadeComercial,
                     'ci_unidade_compra' => $item->unidadeComercial,
-                    'ci_fator_conversao' => $dePara ? (float) $dePara->fp_fator_conversao : 1,
+                    'ci_fator_conversao' => $match?->fatorConversao ?? 1,
                     'ci_custo_unitario_compra' => $item->custoUnitarioLiquido(),
+                    'ci_valor_frete' => $item->valorFrete,
+                    'ci_valor_seguro' => $item->valorSeguro,
+                    'ci_valor_outros' => $item->valorOutros,
                     'ci_lote_codigo' => $item->loteCodigo,
                     'ci_validade' => $item->validade?->toDateString(),
                     ...$this->fiscal->atributosItem($item, $classificacao->porItem[$indice]),
@@ -112,7 +116,7 @@ class NfeImportService
      * caixa de entrada da SEFAZ, marca-a como importada — cobre o upload
      * manual de XML, que não passa por SefazDistribuicaoService::importarNota().
      */
-    private function marcarNotaSefazComoImportada(string $chaveAcesso, int $compraId): void
+    public function marcarNotaSefazComoImportada(string $chaveAcesso, int $compraId): void
     {
         SefazNotaRecebida::where('snr_chave_acesso', $chaveAcesso)
             ->where('snr_status', SefazNotaRecebidaStatusEnum::PENDENTE)
@@ -204,35 +208,7 @@ class NfeImportService
         ]);
     }
 
-    /**
-     * Resolve o de-para do fornecedor (fornecedor_produtos por cProd) para o
-     * item, quando existir. Carrega junto o fp_fator_conversao já aprendido
-     * em compras anteriores, para não reiniciar o fator de estoque em 1 a
-     * cada nova importação do mesmo fornecedor/produto.
-     */
-    private function resolverDePara(Prestador $prestador, NfeItem $item): ?FornecedorProduto
-    {
-        return FornecedorProduto::where('fp_prestador_id', $prestador->id)
-            ->where('fp_codigo_fornecedor', $item->codigoFornecedor)
-            ->first();
-    }
-
-    /**
-     * Resolve o insumo do estoque pelo EAN, só quando o XML traz um GTIN de
-     * verdade. Usado apenas como fallback quando não há de-para cadastrado —
-     * nunca cria produto novo (item sem match fica pendente para o usuário
-     * mapear manualmente na revisão).
-     */
-    private function resolverProdutoPorEan(NfeItem $item): ?int
-    {
-        if ($item->ean === null) {
-            return null;
-        }
-
-        return Produto::where('produto_codigo_EAN', $item->ean)->value('id');
-    }
-
-    private function armazenarXml(string $conteudo, string $chave): string
+    public function armazenarXml(string $conteudo, string $chave): string
     {
         $path = 'compras_xml/'.now()->format('Y/m')."/{$chave}.xml";
         Storage::disk('local')->put($path, $conteudo);

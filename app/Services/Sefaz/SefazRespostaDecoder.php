@@ -147,6 +147,7 @@ class SefazRespostaDecoder
                 chaveAcesso: trim((string) $doc->chNFe),
                 isEvento: true,
                 cnpjEmitente: $this->textoOuNull($doc->CNPJ) ?? $this->textoOuNull($doc->CPF),
+                tipoEvento: $this->textoOuNull($doc->tpEvento),
             );
         }
 
@@ -169,6 +170,7 @@ class SefazRespostaDecoder
                 nsu: $nsu,
                 chaveAcesso: trim((string) ($doc->xpath('evento/infEvento/chNFe')[0] ?? '')),
                 isEvento: true,
+                tipoEvento: $this->textoOuNull($doc->xpath('evento/infEvento/tpEvento')[0] ?? null),
             );
         }
 

@@ -70,7 +70,8 @@ class ConfirmarCompraAction
 
                 $schema?->fill([
                     'data_entrada' => $sugestao->dataEntrada->copy()->startOfDay(),
-                    'gerar_conta_pagar' => true,
+                    // Compra da automação já nasce com os títulos (gerados na importação).
+                    'gerar_conta_pagar' => ! $record->lancamentos()->exists(),
                     'data_base' => $sugestao->dataBase->copy()->startOfDay(),
                     'prazo_pagamento_id' => $sugestao->prazoPagamentoId,
                     'parcelas' => array_map(
@@ -101,8 +102,11 @@ class ConfirmarCompraAction
                 self::avisosDaSugestao(),
                 Toggle::make('gerar_conta_pagar')
                     ->label('Gerar conta a pagar')
-                    ->helperText('Cria um título a pagar por parcela para o fornecedor, rateado pelos planos de despesa dos produtos.')
+                    ->helperText(fn (Compra $record): string => $record->lancamentos()->exists()
+                        ? 'Esta compra já tem conta(s) a pagar, geradas na importação automática. Ao confirmar, o rateio por plano de despesa dos títulos em aberto é refeito.'
+                        : 'Cria um título a pagar por parcela para o fornecedor, rateado pelos planos de despesa dos produtos.')
                     ->default(true)
+                    ->disabled(fn (Compra $record): bool => $record->lancamentos()->exists())
                     ->live(),
                 DatePicker::make('data_base')
                     ->label('Data-base')

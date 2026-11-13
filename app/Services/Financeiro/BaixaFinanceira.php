@@ -57,7 +57,9 @@ class BaixaFinanceira
         $sessao = $pagamento->sessao_caixa_id !== null ? SessaoCaixa::query()->find($pagamento->sessao_caixa_id) : null;
 
         if (self::ehSaida($pagamento)) {
-            $sessao = $this->movimentacoes->validarSaida($conta, (float) $pagamento->valor, $sessao);
+            if (! self::semConferirSaldo($pagamento, $conta)) {
+                $sessao = $this->movimentacoes->validarSaida($conta, (float) $pagamento->valor, $sessao);
+            }
         } elseif ($conta->ehCaixaPdv()) {
             $sessao = $this->caixaPdv->sessaoParaMovimentar($sessao);
         }
@@ -96,7 +98,7 @@ class BaixaFinanceira
                 $vinculos,
                 auth()->user(),
                 $sessao,
-                validarSaldo: ! $pagamento->foraDaSessao,
+                validarSaldo: ! $pagamento->foraDaSessao && ! self::semConferirSaldo($pagamento, $conta),
                 registrarNaSessao: ! $pagamento->foraDaSessao,
                 sessaoCaixaId: $pagamento->foraDaSessao ? $lancamento->sessao_caixa_id : null,
             );
@@ -146,6 +148,12 @@ class BaixaFinanceira
             ->where('lancamento_pagamento_id', $pagamento->id)
             ->efetivas()
             ->first();
+    }
+
+    /** Baixa automática de compra numa conta que não é o Caixa PDV: pode ficar negativa. */
+    private static function semConferirSaldo(LancamentoPagamento $pagamento, ContaFinanceira $conta): bool
+    {
+        return $pagamento->ignorarSaldo && ! $conta->ehCaixaPdv();
     }
 
     private static function ehSaida(LancamentoPagamento $pagamento): bool

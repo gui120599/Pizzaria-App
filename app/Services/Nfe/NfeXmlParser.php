@@ -193,6 +193,13 @@ class NfeXmlParser
                 valorSt: $this->extrairValorImposto($det->imposto, 'vICMSST'),
                 valorIpi: $this->extrairValorImposto($det->imposto, 'vIPI'),
                 valorFcpSt: $this->extrairValorImposto($det->imposto, 'vFCPST'),
+                valorFrete: (float) $prod->vFrete,
+                valorSeguro: (float) $prod->vSeg,
+                valorOutros: (float) $prod->vOutro,
+                ncm: $this->textoOuNull($prod->NCM),
+                cest: $this->textoOuNull($prod->CEST),
+                unidadeTributavel: $this->textoOuNull($prod->uTrib),
+                quantidadeTributavel: isset($prod->qTrib) ? (float) $prod->qTrib : null,
             );
         }
 

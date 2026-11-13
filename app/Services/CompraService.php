@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Compras\OrigemVinculo;
 use App\Enums\CompraStatusEnum;
 use App\Enums\FormaPagamento;
 use App\Enums\MovimentacaoOrigemEnum;
@@ -13,8 +14,10 @@ use App\Models\EstoqueLote;
 use App\Models\FornecedorProduto;
 use App\Models\Lancamento;
 use App\Models\LancamentoDespesa;
+use App\Models\PlanoDespesa;
 use App\Models\PrestadorCredito;
 use App\Services\Compras\CompraFiscalService;
+use App\Services\Compras\CustoAquisicaoCalculator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -28,6 +31,7 @@ class CompraService
     public function __construct(
         private EstoqueService $estoque,
         private CompraFiscalService $fiscal,
+        private CustoAquisicaoCalculator $custos,
     ) {}
 
     /** Recalcula os totais da compra a partir dos itens. */
@@ -37,7 +41,7 @@ class CompraService
 
         $compra->forceFill([
             'compra_valor_produtos' => round($produtos, 2),
-            'compra_valor_total' => round($produtos + $compra->valorRateavel(), 2),
+            'compra_valor_total' => round($produtos + $this->custos->acrescimosDaCompra($compra), 2),
         ])->save();
     }
 
@@ -109,13 +113,15 @@ class CompraService
                 throw ValidationException::withMessages(['itens' => 'Todos os itens precisam estar vinculados a um produto do estoque.']);
             }
 
-            $baseRateio = $itens->sum(fn (CompraItem $item) => $item->valorProdutos());
-            $rateavel = $compra->valorRateavel();
+            $custos = $this->custos->calcular($compra, $itens);
 
             foreach ($itens as $item) {
-                // Rateio proporcional ao valor do item.
-                $rateio = ($baseRateio > 0) ? $rateavel * ($item->valorProdutos() / $baseRateio) : 0.0;
-                $item->forceFill(['ci_valor_rateio' => round($rateio, 4)])->save();
+                $custo = $custos[$item->id];
+                $item->forceFill([
+                    'ci_valor_rateio' => $custo['rateio'],
+                    'ci_custo_aquisicao_total' => $custo['total'],
+                    'ci_custo_unitario_aquisicao' => $custo['unitario'],
+                ])->save();
 
                 $movimentacao = $this->estoque->registrarEntrada(
                     $item->insumo,
@@ -148,6 +154,9 @@ class CompraService
                 'compra_status' => CompraStatusEnum::CONFIRMADA,
                 'compra_confirmada_em' => now(),
             ])->save();
+
+            // Títulos gerados na importação automática, antes dos vínculos finais.
+            $this->reratearTitulosEmAberto($compra);
 
             return $compra->refresh();
         });
@@ -310,29 +319,29 @@ class CompraService
                 throw ValidationException::withMessages(['parcelas' => 'Informe ao menos uma parcela.']);
             }
 
-            // Agrega o valor por plano de despesa. Chave '' = produtos sem plano.
-            $porPlano = [];
-            foreach ($compra->itens as $item) {
-                $plano = $item->insumo?->planoDespesa;
-                $chave = $plano?->id ?? '';
-                $porPlano[$chave] ??= [
-                    'plano_despesa_id' => $plano?->id,
-                    'comportamento' => $plano?->comportamento,
-                    'valor' => 0.0,
-                ];
-                // Contribuição do item ao título: produtos + rateio (frete/outros − desconto).
-                $porPlano[$chave]['valor'] += $item->valorProdutos() + (float) $item->ci_valor_rateio;
-            }
+            return $this->criarTitulos($compra, $parcelas, $dados['prazo_pagamento_id'] ?? null);
+        });
+    }
 
-            // Cabeçalho: se houver exatamente um plano (sem remanescente), usa-o no título
-            // (o hook do model faz o snapshot do comportamento). Caso contrário, fica nulo
-            // e a classificação vive nas linhas de rateio. É o mesmo para todas as parcelas.
-            $planosClassificados = array_values(array_filter($porPlano, fn ($l) => $l['plano_despesa_id'] !== null));
-            $planoUnico = (count($planosClassificados) === 1 && ! array_key_exists('', $porPlano))
-                ? $planosClassificados[0]['plano_despesa_id']
-                : null;
+    /**
+     * Cria um título a pagar por parcela, rateado pelos planos de despesa dos
+     * produtos, abatendo créditos de devolução do fornecedor. Usado por
+     * gerarContaPagar() (compra confirmada) e pela automação de compras, que
+     * gera os títulos ainda no rascunho: aí os itens sem plano (ou sem produto)
+     * vão para o $planoPadraoId do fornecedor, e o rateio é refeito na
+     * confirmação (reratearTitulosEmAberto).
+     *
+     * @param  list<array{vencimento: string|\DateTimeInterface, valor: float|string, forma_pagamento?: FormaPagamento|string|null, ja_pago?: bool, conta_financeira_id?: int|string|null, sessao_caixa_id?: int|string|null}>  $parcelas
+     * @return Collection<int, Lancamento>
+     */
+    public function criarTitulos(Compra $compra, array $parcelas, ?int $prazoPagamentoId = null, ?int $planoPadraoId = null): Collection
+    {
+        return DB::transaction(function () use ($compra, $parcelas, $prazoPagamentoId, $planoPadraoId) {
+            $compra->loadMissing(['itens.insumo.planoDespesa', 'prestador']);
 
-            $prazoPagamentoId = $dados['prazo_pagamento_id'] ?? null;
+            $porPlano = $this->rateioPorPlano($compra, $planoPadraoId);
+            $planoUnico = $this->planoUnico($porPlano);
+
             $total = count($parcelas);
             $valorTotalCompra = (float) $compra->compra_valor_total;
 
@@ -418,6 +427,84 @@ class CompraService
     }
 
     /**
+     * Valor da compra por plano de despesa do produto (chave '' = sem plano).
+     * Item sem plano ou sem produto vai para o plano padrão, quando houver.
+     *
+     * @return array<array-key, array{plano_despesa_id: ?int, comportamento: mixed, valor: float}>
+     */
+    private function rateioPorPlano(Compra $compra, ?int $planoPadraoId): array
+    {
+        $padrao = $planoPadraoId !== null ? PlanoDespesa::query()->find($planoPadraoId) : null;
+
+        $porPlano = [];
+        foreach ($compra->itens as $item) {
+            $plano = $item->insumo?->planoDespesa ?? $padrao;
+            $chave = $plano?->id ?? '';
+            $porPlano[$chave] ??= [
+                'plano_despesa_id' => $plano?->id,
+                'comportamento' => $plano?->comportamento,
+                'valor' => 0.0,
+            ];
+            // Contribuição do item ao título: produtos + rateio (frete/outros − desconto).
+            $porPlano[$chave]['valor'] += $item->valorProdutos() + (float) $item->ci_valor_rateio;
+        }
+
+        return $porPlano;
+    }
+
+    /**
+     * Cabeçalho do título: o plano, se houver exatamente um (sem remanescente);
+     * senão nulo e a classificação vive nas linhas de rateio.
+     *
+     * @param  array<array-key, array{plano_despesa_id: ?int, comportamento: mixed, valor: float}>  $porPlano
+     */
+    private function planoUnico(array $porPlano): ?int
+    {
+        $classificados = array_values(array_filter($porPlano, fn ($linha) => $linha['plano_despesa_id'] !== null));
+
+        return count($classificados) === 1 && ! array_key_exists('', $porPlano)
+            ? $classificados[0]['plano_despesa_id']
+            : null;
+    }
+
+    /**
+     * Refaz o rateio por plano dos títulos ainda em aberto (pendente/parcial)
+     * da compra — os gerados na importação automática, antes de todos os itens
+     * terem produto. Títulos pagos, cancelados ou lançados à mão ficam como estão.
+     */
+    public function reratearTitulosEmAberto(Compra $compra): int
+    {
+        // Só títulos com rateio de compra: um título lançado à mão e vinculado
+        // depois (FinanceiroCompraService) mantém o plano que o usuário escolheu.
+        $titulos = $compra->lancamentos()
+            ->whereIn('status', [StatusLancamento::Pendente, StatusLancamento::Parcial])
+            ->whereHas('despesas')
+            ->get();
+
+        if ($titulos->isEmpty()) {
+            return 0;
+        }
+
+        $compra->load(['itens.insumo.planoDespesa', 'prestador.condicaoCompra']);
+        $porPlano = $this->rateioPorPlano($compra, $compra->prestador?->condicaoCompra?->fcc_plano_despesa_id);
+        $planoUnico = $this->planoUnico($porPlano);
+        $valorTotalCompra = (float) $compra->compra_valor_total;
+
+        foreach ($titulos as $titulo) {
+            $titulo->despesas()->delete();
+            $fator = $valorTotalCompra > 0 ? ((float) $titulo->valor / $valorTotalCompra) : 0.0;
+            $this->gravarRateio($titulo, $this->escalarRateio($porPlano, $fator));
+
+            $titulo->forceFill([
+                'plano_despesa_id' => $planoUnico,
+                'comportamento' => $planoUnico !== null ? PlanoDespesa::query()->find($planoUnico)?->comportamento : null,
+            ])->save();
+        }
+
+        return $titulos->count();
+    }
+
+    /**
      * Escala o rateio-por-plano da compra por um fator (valor_parcela/compra_valor_total),
      * gerando as linhas de despesa proporcionais de uma parcela específica.
      *
@@ -489,17 +576,34 @@ class CompraService
             return;
         }
 
-        FornecedorProduto::updateOrCreate(
-            [
-                'fp_prestador_id' => $compra->compra_prestador_id,
-                'fp_codigo_fornecedor' => $item->ci_codigo_fornecedor,
-            ],
-            [
-                'fp_produto_id' => $item->ci_produto_id,
-                'fp_descricao_fornecedor' => $item->ci_descricao_fornecedor,
-                'fp_unidade_compra' => $item->ci_unidade_compra,
-                'fp_fator_conversao' => $item->ci_fator_conversao,
-            ],
-        );
+        // withTrashed: a unique (fornecedor, código) vale também para vínculos
+        // excluídos; confirmar a compra com esse código restaura o vínculo.
+        $vinculo = FornecedorProduto::withTrashed()->firstOrNew([
+            'fp_prestador_id' => $compra->compra_prestador_id,
+            'fp_codigo_fornecedor' => $item->ci_codigo_fornecedor,
+        ]);
+        $vinculo->deleted_at = null;
+
+        $vinculo->fill([
+            'fp_produto_id' => $item->ci_produto_id,
+            'fp_descricao_fornecedor' => $item->ci_descricao_fornecedor,
+            'fp_unidade_compra' => $item->ci_unidade_compra,
+            'fp_fator_conversao' => $item->ci_fator_conversao,
+            'fp_ultimo_custo_unitario' => $item->ci_custo_unitario_aquisicao,
+        ]);
+
+        if (filled($item->ci_ean)) {
+            $vinculo->fp_ean = $item->ci_ean;
+        }
+
+        if (! $vinculo->exists) {
+            $vinculo->fp_origem = OrigemVinculo::Manual;
+        }
+
+        $vinculo->save();
+
+        if ((int) $item->ci_vinculo_id !== (int) $vinculo->id) {
+            $item->forceFill(['ci_vinculo_id' => $vinculo->id])->save();
+        }
     }
 }

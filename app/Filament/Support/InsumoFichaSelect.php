@@ -32,6 +32,7 @@ class InsumoFichaSelect
                 return Produto::query()
                     ->when($produtoId > 0, fn ($q) => $q->where('id', '!=', $produtoId)) // não pode se referenciar
                     ->where('produto_tipo', '!=', ProdutoTipoEnum::PRODUZIDO->value) // vendido ao cliente, não é insumo de outra ficha
+                    ->where('produto_cadastro_pendente_revisao', false) // cadastrado pela automação, ainda sem revisão
                     ->where('produto_descricao', 'like', "%{$search}%")
                     ->with('categoria')
                     ->orderBy('produto_descricao')

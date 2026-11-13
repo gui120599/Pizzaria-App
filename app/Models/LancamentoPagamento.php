@@ -33,6 +33,13 @@ class LancamentoPagamento extends Model
      */
     public bool $foraDaSessao = false;
 
+    /**
+     * Baixa automática da automação de compras: numa conta que não é o Caixa
+     * PDV, a saída não confere o saldo e pode deixá-lo negativo (decisão de
+     * 2026-11-13). O Caixa PDV continua exigindo dinheiro na gaveta.
+     */
+    public bool $ignorarSaldo = false;
+
     protected $fillable = [
         'lancamento_id',
         'sessao_caixa_id',

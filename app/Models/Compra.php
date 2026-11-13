@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\Compras\StatusPendencia;
 use App\Enums\CompraStatusEnum;
 use App\Enums\ConfiancaOperacaoEnum;
 use App\Enums\EfeitoEstoqueEnum;
 use App\Enums\OperacaoEntradaEnum;
 use App\Enums\VencimentoOrigemEnum;
+use App\Services\Compras\CustoAquisicaoCalculator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -61,6 +63,7 @@ class Compra extends Model
         'compra_operacao_definida_por',
         'compra_operacao_definida_em',
         'compra_operacao_motivo',
+        'compra_importacao_automatica',
     ];
 
     protected function casts(): array
@@ -87,6 +90,7 @@ class Compra extends Model
             'compra_operacao_confianca' => ConfiancaOperacaoEnum::class,
             'compra_operacao_criterios' => 'array',
             'compra_operacao_definida_em' => 'datetime',
+            'compra_importacao_automatica' => 'boolean',
         ];
     }
 
@@ -124,6 +128,34 @@ class Compra extends Model
     public function lancamentos(): HasMany
     {
         return $this->hasMany(Lancamento::class, 'compra_id');
+    }
+
+    /** Pendências da automação de compras (ver PendenciaService). */
+    public function pendencias(): HasMany
+    {
+        return $this->hasMany(CompraPendencia::class, 'compra_id');
+    }
+
+    /** Pendências ainda abertas ou com sugestão aguardando aprovação. */
+    public function pendenciasEmAberto(): HasMany
+    {
+        return $this->pendencias()->whereIn('status', StatusPendencia::emAberto());
+    }
+
+    /**
+     * Situação da importação, derivada do status e das pendências (sem
+     * coluna própria): conferida = confirmada; com pendências = rascunho com
+     * pendência em aberto; importada = rascunho sem pendência.
+     */
+    public function situacaoImportacao(): string
+    {
+        return match (true) {
+            $this->compra_status === CompraStatusEnum::CONFIRMADA => 'conferida',
+            $this->compra_status === CompraStatusEnum::CANCELADA => 'cancelada',
+            $this->compra_status === CompraStatusEnum::RASCUNHO && $this->pendenciasEmAberto()->exists() => 'com_pendencias',
+            $this->compra_status === CompraStatusEnum::RASCUNHO => 'importada',
+            default => $this->compra_status->value,
+        };
     }
 
     /** Devolução registrada a partir desta compra, quando ela é a nota fiscal de uma devolução. */
@@ -195,11 +227,12 @@ class Compra extends Model
         return $this->compra_status === CompraStatusEnum::RASCUNHO;
     }
 
-    /** Acréscimos rateáveis sobre os itens (frete + outros - desconto). */
+    /**
+     * Acréscimos rateáveis sobre os itens (frete + outros − desconto e, com a
+     * chave compras.custo.incluir_tributos_nao_recuperaveis, seguro e tributos).
+     */
     public function valorRateavel(): float
     {
-        return (float) $this->compra_valor_frete
-            + (float) $this->compra_valor_outros
-            - (float) $this->compra_valor_desconto;
+        return app(CustoAquisicaoCalculator::class)->acrescimosDaCompra($this);
     }
 }

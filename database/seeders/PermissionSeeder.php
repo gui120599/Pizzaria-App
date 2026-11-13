@@ -26,6 +26,9 @@ class PermissionSeeder extends Seeder
             // A exportação da lista de pedidos leva nome e celular do cliente.
             'export:pedido',
             'estornar:pagamento', 'approve:lancamento', 'confirm:compra', 'registrar:devolucao_compra', 'corrigir:data_entrada_compra',
+            // Automação de compras: tratar pendências e confirmar pagamentos. Configurar a automação do
+            // fornecedor (configurar:automacao_compra) fica só com o Admin.
+            'resolver:pendencia_compra', 'confirmar:pagamento_compra',
             'corrigir:movimentacao_estoque',
             'abrir:sessao_caixa', 'fechar:sessao_caixa', 'sangrar:sessao_caixa', 'view:relatorio_financeiro',
             'importar_caixa:lancamento', 'liquidar_recebivel:lancamento', 'conciliar:lancamento', 'view:recebiveis_adquirentes_widget', 'view:fechamento_caixa_contabilizacao_widget',

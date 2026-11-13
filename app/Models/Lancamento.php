@@ -341,10 +341,11 @@ class Lancamento extends Model
         ?int $maquininhaId = null,
         ?int $contaFinanceiraId = null,
         bool $foraDaSessao = false,
+        bool $ignorarSaldo = false,
     ): LancamentoPagamento {
         // Em transação: o evento do pagamento gera a movimentação na conta
         // financeira, e uma falha nela não pode deixar o pagamento gravado.
-        return DB::transaction(function () use ($valor, $data, $forma, $observacoes, $sessaoCaixaId, $cartaoId, $numeroAutorizacaoCartao, $maquininhaId, $contaFinanceiraId, $foraDaSessao): LancamentoPagamento {
+        return DB::transaction(function () use ($valor, $data, $forma, $observacoes, $sessaoCaixaId, $cartaoId, $numeroAutorizacaoCartao, $maquininhaId, $contaFinanceiraId, $foraDaSessao, $ignorarSaldo): LancamentoPagamento {
             $pagamento = $this->pagamentos()->make([
                 'valor' => $valor,
                 'data_pagamento' => $data ?? now(),
@@ -357,6 +358,7 @@ class Lancamento extends Model
                 'conta_financeira_id' => $contaFinanceiraId,
             ]);
             $pagamento->foraDaSessao = $foraDaSessao;
+            $pagamento->ignorarSaldo = $ignorarSaldo;
             $pagamento->save();
 
             return $pagamento;

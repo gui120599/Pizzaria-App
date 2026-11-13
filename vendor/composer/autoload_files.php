@@ -130,6 +130,7 @@ return array(
     '0174385c3be07e86008907d06ee66531' => $vendorDir . '/sabberworm/php-css-parser/src/Rule/Rule.php',
     '98aea6e41b9cb79b379b10f37ba1f0b7' => $vendorDir . '/sabberworm/php-css-parser/src/RuleSet/RuleContainer.php',
     '2f30183c514e54487278ac3cdc1039cb' => $vendorDir . '/archtechx/helpers/src/helpers.php',
+    '5897ea0ac4cccf14d323035e65887801' => $vendorDir . '/symfony/polyfill-php82/bootstrap.php',
     '218061b2b41f65982dff640bd08d0405' => $vendorDir . '/archtechx/money/src/helpers.php',
     '01036e290f39f55e7bf73cfba127c005' => $vendorDir . '/archtechx/money/src/Wireable.php',
     '801c31d8ed748cfa537fa45402288c95' => $vendorDir . '/psy/psysh/src/functions.php',

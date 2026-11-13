@@ -228,3 +228,144 @@ Usam `FakeSefazClient`, `Http::fake()` e fixtures em `tests/Fixtures/nfe-entrada
 - **Q12** — O upload manual de XML e o "Buscar por chave" também passam pela automação (pendências, financeiro, baixa), ou só a importação DF-e e o comando `compras:importar-xml`? *Recomendo* só DF-e e comando na Fase 1.
 - **Q13** — Posso criar um índice em `produtos.produto_codigo_EAN` (não é coluna nova)?
 - **Q14** — Fixtures: você manda XMLs reais para eu anonimizar, ou gero XMLs sintéticos a partir dos que já existem em `tests/Fixtures/nfe-entrada/`?
+
+---
+
+## 6. Decisões do Checkpoint 0 (2026-11-13)
+
+| # | Decisão | Efeito no plano da Fase 1 |
+|---|---|---|
+| Q1 | **Autorizado**: o título a pagar nasce na importação | `FinanceiroCompraService` gera os lançamentos com a compra ainda em rascunho. Rateio pelo plano do produto e, nos itens sem vínculo, pelo `fcc_plano_despesa_id` do fornecedor. Ao confirmar, o rateio dos títulos **em aberto** é refeito com os vínculos finais. `CompraService::gerarContaPagar()` continua exigindo compra confirmada no fluxo manual. |
+| Q2 | **Parâmetro no fornecedor**: entra no mesmo dia da emissão ou N dias depois | Colunas novas `fcc_entrada_automatica` (bool, default false) e `fcc_entrada_dias_apos_emissao` (smallint, default 0 = mesmo dia). Com a entrada automática ligada, a compra é confirmada sozinha com data = emissão + N, se todos os itens estiverem resolvidos e a operação for `COMPRA` com confiança ALTA. Se essa data ainda não chegou, o comando agendado `compras:conferir-automaticas` confirma no dia. Sem o parâmetro, nada muda: fica em rascunho para o "Confirmar" manual. A data nunca é futura nem anterior à emissão (mesma validação de `CompraService::validarDataEntrada`). |
+| Q3 | **Aguardando o contador** | `CustoAquisicaoCalculator` é implementado, mas o que entra no custo é controlado por `config('compras.custo.incluir_tributos_nao_recuperaveis')`, **padrão `false`**: o custo do estoque continua exatamente como hoje (vProd − desconto + rateio de frete e outros). As colunas `ci_custo_aquisicao_*` são gravadas com o cálculo vigente. Quando o contador responder, basta virar a chave. O título usa o valor real da nota (duplicatas ou vNF), não o custo. |
+| Q4 | Sem objeção registrada; segue a recomendação | Estender `fornecedor_condicoes_compra` e `fornecedor_produtos`. |
+| Q5 | **Autorizado**: baixa automática para `regra_baixa = automatica_na_emissao` | `FinanceiroCompraService::aplicarRegraBaixa` registra o pagamento pela conta e forma do fornecedor, com data = emissão. |
+| Q7 | **Pode trabalhar com saldo negativo** | A baixa automática não valida o saldo de contas banco/digitais/cofre (pode ficar negativo). Caixa PDV continua exigindo sessão aberta e dinheiro na gaveta; se faltar, o título fica aberto e abre a pendência `caixa_pdv_fechado`. Não muda a configuração `permite_saldo_negativo` das contas, nem a baixa manual. |
+| Q8 | Cron do `schedule:run` **ativo** em produção | A ativação depende de `empresa_sefaz_auto_importacao_ativa` estar ligada (a confirmar no servidor). |
+
+Respostas padrão assumidas (sem objeção): Q6 status derivado, sem coluna nova; Q9 baixas automáticas com `registrado_por = null` e observação "Baixa automática (compras)"; Q11 PHPUnit; Q12 automação só para DF-e e `compras:importar-xml`; Q14 fixtures sintéticas a partir de `tests/Fixtures/nfe-entrada/`. Q10: commits direto em `prod-new` (fluxo atual do projeto). Q13: sem índice novo em `produtos` por enquanto.
+
+---
+
+## 7. Fase 1 — implementada (Checkpoint 1, 2026-11-13)
+
+**Banco (aditivo):** `2026_11_13_100001..100005`
+- colunas `fcc_*` de automação (regra de baixa, plano padrão, autonomia, tolerância, entrada automática + dias, observações);
+- `fp_ean`, `fp_ultimo_custo_unitario`, `fp_origem`, `fp_confirmado_por`;
+- `compras.compra_importacao_automatica`;
+- `ci_ean`, `ci_vinculo_id`, `ci_valor_frete/seguro/outros`, `ci_custo_aquisicao_total`, `ci_custo_unitario_aquisicao`;
+- tabela `compra_pendencias`;
+- permissões `configurar:automacao_compra` e `resolver:pendencia_compra`.
+
+**Código:**
+- enums em `app/Enums/Compras/`;
+- serviços em `app/Services/Compras/`: `ProdutoMatcher`, `CustoAquisicaoCalculator`, `PendenciaService`, `FinanceiroCompraService`, `ConferenciaCompraService`, `CompraImportacaoService`, `CancelamentoNfeService`, `UsuarioAutomacaoCompras`;
+- comandos `compras:importar-xml`, `compras:conferir-automaticas` (00:30) e `compras:baixar-vencimentos` (06:10);
+- Filament: campos de automação na seção "Condições de compra" e resource "De-para de fornecedores".
+
+**Desvios da spec:**
+- Tipo de pendência extra `operacao_fiscal`: nota que não é COMPRA não gera título nem entra sozinha.
+- Usuário técnico "Automação de Compras" (`automacao.compras@sistema.local`, sem papel), criado sob demanda. Motivo: `movimentacao_produtos.mov_user_id` é obrigatório e o agendador roda sem usuário.
+- `prazo_dias_padrao`/`condicao`/`usar_duplicatas_xml` não foram criados: o prazo do fornecedor (`PrazoPagamento`) e a regra "duplicatas prevalecem" já cobrem.
+- Testes em PHPUnit.
+
+---
+
+## 8. Fase 2 — implementada (2026-11-13)
+
+**Telas:**
+- Estoque › **Caixa de entrada de compras**: abas por tipo com contador; ações Resolver (produto + fator), Escolher lançamento, Aprovar sugestão (individual e em lote), Marcar como resolvida e Descartar; widget com o resumo.
+- Financeiro › **Pagamentos a confirmar**: individual com valor editável, ou em lote.
+- Estoque › **Revisão de produtos**: só Admin; produto pendente fica fora do seletor de insumo da ficha.
+
+**Permissões:** `resolver:pendencia_compra` e `confirmar:pagamento_compra` (Gerente, via `PermissionSeeder`); `revisar:produto_automacao` (Admin).
+
+---
+
+## 9. Fase 3 — servidor MCP do agente (2026-11-13)
+
+**Implementação:**
+- `laravel/mcp` ^1.2 e `laravel/passport` ^13.10 em `require`.
+- `symfony/psr-http-message-bridge` fixado na linha 7: a v8 exige PHP 8.4.1 e a produção exige 8.3.
+- O `User` usa o `HasApiTokens` do Passport. O Sanctum continua instalado, mas não tinha uso além da rota padrão `/api/user`.
+- Guard `api` (passport).
+- Servidor `App\Mcp\Servers\ComprasServer` com 9 tools. Nenhuma faz baixa, estorno, parâmetros ou exclusão.
+- Middleware `GarantirAgenteCompras` exige o papel **Agente**. A checagem é pelo papel, não por Gate, porque o Admin passaria pelo `Gate::before`.
+- Toda chamada vai para `storage/logs/agente-compras-*.log`.
+- Rodadas ficam em `agente_execucoes` (Estoque › Agente de compras), com a ação "Revogar acesso do agente".
+
+**Ativação em produção (servidor):**
+1. `git pull` e `php artisan migrate`: tabelas `oauth_*`, `agente_execucoes` e o papel Agente.
+2. `php artisan passport:keys`: gera `storage/oauth-*.key`, que fica fora do Git. Confira a permissão 600.
+3. `php artisan compras:criar-agente`: mostra login e senha do usuário "Agente Compras". Guarde.
+4. `php artisan config:cache`, `route:cache` (se usar) e resetar o OPcache.
+5. Teste: `https://<domínio>/.well-known/oauth-authorization-server` deve responder JSON.
+
+**Cadastrar o conector no Claude** (Configurações › Conectores › Adicionar conector personalizado):
+- Nome: `PizzariaAPP Compras`.
+- URL: `https://<domínio-do-pizzariaapp>/mcp/compras`.
+- Ao conectar, o Claude abre o login do PizzariaAPP: entre com o usuário **Agente Compras** (não com o seu) e clique em **Autorizar**.
+
+**Tarefa agendada** (uma vez por dia, ~9h40; opcional 16h40). Prompt:
+
+> Você é o assistente de compras do Empório da Pizza. Use o conector "PizzariaAPP Compras".
+> 1. Chame `listar_pendencias`.
+> 2. Para cada `produto_nao_identificado` ou `conversao_unidade`:
+>    - leia `fornecedor.observacoes`: são orientações do usuário para aquele fornecedor (unidades, conversões, produtos proibidos) e prevalecem sobre a sua inferência;
+>    - consulte `historico_vinculos_fornecedor` (do fornecedor da pendência) e `buscar_produtos` (com palavras da descrição e o EAN, se houver);
+>    - proponha com `propor_vinculo` o produto existente mais provável, com o fator de conversão (1 unidade da nota = X unidades de estoque do produto), confiança honesta de 0 a 1 e justificativa curta;
+>    - na dúvida entre dois produtos, use confiança baixa;
+>    - só use `propor_novo_produto` se nenhum produto existente servir.
+> 3. Para `lancamento_ambiguo`: veja os candidatos em `dados.candidatos` e use `sugerir_lancamento` com o mais provável, explicando o porquê.
+> 4. Não tente resolver outros tipos; apenas cite-os no resumo.
+> 5. Chame `listar_pagamentos_a_confirmar` (7 dias) e termine com `registrar_resumo`, em português e curto, cobrindo:
+>    - pendências tratadas (executadas e sugeridas);
+>    - o que aguarda aprovação;
+>    - pagamentos a confirmar nos próximos 7 dias (quantidade e valor);
+>    - alertas de preço e outros tipos em aberto.
+
+**Recomendação da spec:** deixar todos os fornecedores com autonomia **"sugerir"** por 2 semanas e passar para "vincular" nos que acertarem. **Desligar o agente:** "Revogar acesso do agente" na tela de rodadas.
+
+---
+
+## 10. Fase 4 — extrato do Banco do Brasil e conciliação de boletos (2026-11-13)
+
+**Implementação:**
+- `config/bancos.php` + variáveis `BB_*` no `.env` (exemplo em `.env.example`).
+- `BancoBrasilExtratoClient`: OAuth client credentials com token em cache e extrato paginado. Ignora as linhas de saldo; mTLS é opcional.
+- `ImportacaoExtratoService`: grava em `extrato_bancario_itens` com `hash_unico` (reimportar não duplica) e concilia os débitos pendentes.
+- `ConciliacaoBoletoService`:
+  - parcela única com valor exato e vencimento entre o débito − 5 e + 3 dias → baixa na data do extrato;
+  - 2 ou mais parcelas → débito "ambíguo" e pendência `pagamento_a_confirmar` com as candidatas (o agente pode sugerir; a escolha na caixa de entrada concilia);
+  - saída já registrada à mão → só concilia;
+  - valor diferente (juros/multa) → "sem correspondência", para conciliar à mão com o valor real.
+- Comando `financeiro:importar-extrato-bb` (diário 07:30, D-3 até hoje) e tela Financeiro › **Extrato bancário** (só Admin: conciliar com parcela, ignorar, importar agora).
+- Conta financeira ganhou "Importar extrato por API".
+- "Pagamentos a confirmar" também mostra parcelas "por conciliação" vencidas há mais de 3 dias.
+
+**⚠ Não confirmado na documentação oficial:** o portal do BB não pôde ser lido (renderiza só com JavaScript). Os padrões abaixo vêm da documentação conhecida da API Extratos v1. Todos são sobrescrevíveis no `.env`, sem mudar código:
+- URLs de token e da API (homologação e produção);
+- escopo `extrato-info`;
+- parâmetro `gw-dev-app-key`;
+- path `/conta-corrente/agencia/{agencia}/conta/{conta}`;
+- datas DDMMAAAA sem zero à esquerda;
+- campos `listaLancamento`, `dataLancamento`, `valorLancamento`, `indicadorSinalLancamento`, `textoDescricaoHistorico`, `numeroDocumento` e `numeroPaginaProximo`.
+
+**Checklist de ativação em produção:**
+1. **Portal Developers BB** (responsável pela conta PJ):
+   - criar a aplicação com a API Extratos;
+   - anotar `client_id`, `client_secret` e `developer_application_key` de homologação;
+   - conferir na documentação as URLs, o escopo, o nome do parâmetro da chave e se a produção exige certificado mTLS.
+2. **Homologação:**
+   - no `.env`, preencher `BB_CLIENT_ID`, `BB_CLIENT_SECRET`, `BB_DEVELOPER_APP_KEY` e `BB_AMBIENTE=homologacao` (e `BB_URL_*` se diferirem);
+   - rodar `php artisan config:cache`;
+   - na conta "Banco do Brasil" (Financeiro › Contas), preencher agência e conta e marcar "Importar extrato por API";
+   - rodar `php artisan financeiro:importar-extrato-bb --de=AAAA-MM-DD` e conferir as linhas em Financeiro › Extrato bancário.
+3. **Produção:**
+   - pedir no portal as credenciais de produção;
+   - se exigir mTLS, colocar o certificado em `storage/app/...` e preencher `BB_MTLS_CERT`, `BB_MTLS_KEY` e `BB_MTLS_SENHA`;
+   - definir `BB_AMBIENTE=producao` e rodar `config:cache`.
+4. **Fornecedores de boleto** (Estoque › Fornecedores › Condições de compra): regra de baixa **"Por conciliação com o extrato"** e conta de origem **Banco do Brasil**.
+5. **Acompanhar a primeira semana:**
+   - débitos "sem correspondência" e "ambíguos" no Extrato bancário;
+   - parcelas "por conciliação" vencidas em Pagamentos a confirmar.

@@ -81,6 +81,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Toda chamada do agente de compras ao servidor MCP (tool, argumentos, resultado).
+        'agente_compras' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/agente-compras.log'),
+            'level' => 'info',
+            'days' => 90,
+            'replace_placeholders' => true,
+        ],
+
         'stone' => [
             'driver' => 'daily',
             'path' => storage_path('logs/stone.log'),
