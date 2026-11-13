@@ -1,5 +1,15 @@
 <?php
 
+use App\Providers\AppServiceProvider;
+use App\Providers\AuthServiceProvider;
+use App\Providers\EventServiceProvider;
+use App\Providers\Filament\AdminPanelProvider;
+use App\Providers\Filament\CozinhaPanelProvider;
+use App\Providers\Filament\GarcomPanelProvider;
+use App\Providers\Filament\InfluenciadorPanelProvider;
+use App\Providers\RouteServiceProvider;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\ServiceProvider;
 
@@ -163,15 +173,15 @@ return [
         /*
          * Application Service Providers...
          */
-        App\Providers\AppServiceProvider::class,
-        App\Providers\AuthServiceProvider::class,
+        AppServiceProvider::class,
+        AuthServiceProvider::class,
         // App\Providers\BroadcastServiceProvider::class,
-        App\Providers\EventServiceProvider::class,
-        App\Providers\Filament\AdminPanelProvider::class,
-        App\Providers\Filament\InfluenciadorPanelProvider::class,
-        App\Providers\Filament\GarcomPanelProvider::class,
-        App\Providers\Filament\CozinhaPanelProvider::class,
-        App\Providers\RouteServiceProvider::class,
+        EventServiceProvider::class,
+        AdminPanelProvider::class,
+        InfluenciadorPanelProvider::class,
+        GarcomPanelProvider::class,
+        CozinhaPanelProvider::class,
+        RouteServiceProvider::class,
         Barryvdh\DomPDF\ServiceProvider::class,
     ])->toArray(),
 
@@ -188,8 +198,8 @@ return [
 
     'aliases' => Facade::defaultAliases()->merge([
         // 'Example' => App\Facades\Example::class,
-        'PDF' => Barryvdh\DomPDF\Facade\Pdf::class,
-        'Auth' => Illuminate\Support\Facades\Auth::class,
+        'PDF' => Pdf::class,
+        'Auth' => Auth::class,
     ])->toArray(),
 
 ];

@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Influenciador;
+use App\Models\User;
+
 return [
 
     /*
@@ -67,7 +70,7 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => App\Models\User::class,
+            'model' => User::class,
         ],
 
         // 'users' => [
@@ -77,7 +80,7 @@ return [
 
         'influenciadores' => [
             'driver' => 'eloquent',
-            'model' => App\Models\Influenciador::class,
+            'model' => Influenciador::class,
         ],
     ],
 

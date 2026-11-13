@@ -118,6 +118,15 @@
             'aliases' => array(),
             'dev_requirement' => false,
         ),
+        'composer/semver' => array(
+            'pretty_version' => '3.4.4',
+            'version' => '3.4.4.0',
+            'reference' => '198166618906cb2de69b95d7d47e5fa8aa1b2b95',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/./semver',
+            'aliases' => array(),
+            'dev_requirement' => true,
+        ),
         'cordoval/hamcrest-php' => array(
             'dev_requirement' => true,
             'replaced' => array(
@@ -658,6 +667,15 @@
                 0 => '*',
             ),
         ),
+        'laravel/boost' => array(
+            'pretty_version' => 'v2.9.1',
+            'version' => '2.9.1.0',
+            'reference' => '2da6cbfdc6399d69b49a2dfb1e4f4eaf6bb419f0',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../laravel/boost',
+            'aliases' => array(),
+            'dev_requirement' => true,
+        ),
         'laravel/breeze' => array(
             'pretty_version' => 'v2.4.2',
             'version' => '2.4.2.0',
@@ -685,6 +703,15 @@
             'aliases' => array(),
             'dev_requirement' => false,
         ),
+        'laravel/mcp' => array(
+            'pretty_version' => 'v1.0.0',
+            'version' => '1.0.0.0',
+            'reference' => 'cfa4f38f82873eeb6848527883545f98f871e229',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../laravel/mcp',
+            'aliases' => array(),
+            'dev_requirement' => true,
+        ),
         'laravel/pint' => array(
             'pretty_version' => 'v1.30.4',
             'version' => '1.30.4.0',
@@ -702,6 +729,15 @@
             'install_path' => __DIR__ . '/../laravel/prompts',
             'aliases' => array(),
             'dev_requirement' => false,
+        ),
+        'laravel/roster' => array(
+            'pretty_version' => 'v1.0.0',
+            'version' => '1.0.0.0',
+            'reference' => '89e518bd88ae98ff50f6082f6b517c8d8e8245fa',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../laravel/roster',
+            'aliases' => array(),
+            'dev_requirement' => true,
         ),
         'laravel/sail' => array(
             'pretty_version' => 'v1.65.0',
