@@ -300,6 +300,12 @@ Respostas padrão assumidas (sem objeção): Q6 status derivado, sem coluna nova
 3. `php artisan compras:criar-agente`: mostra login e senha do usuário "Agente Compras". Guarde.
 4. `php artisan config:cache`, `route:cache` (se usar) e resetar o OPcache.
 5. Teste: `https://<domínio>/.well-known/oauth-authorization-server` deve responder JSON.
+6. **HostGator/cPanel:** a pasta física `public_html/.well-known/` (AutoSSL) faz o servidor não aplicar a reescrita da raiz para `/public/`, e o `/.well-known/oauth-*` cai no 404 da hospedagem. Correção aplicada em produção em 2026-11-13 (arquivo fora do Git), `public_html/.well-known/.htaccess`:
+   ```
+   RewriteEngine On
+   RewriteRule ^(oauth-authorization-server|oauth-protected-resource)(/.*)?$ /public/index.php [L]
+   ```
+   A `acme-challenge` continua servida normalmente. Teste: `curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "Accept: application/json, text/event-stream" https://<domínio>/mcp/compras` deve dar 401 com `WWW-Authenticate` (um POST sem `Accept` dá 406 na HostGator e não quer dizer nada).
 
 **Cadastrar o conector no Claude** (Configurações › Conectores › Adicionar conector personalizado):
 - Nome: `PizzariaAPP Compras`.
