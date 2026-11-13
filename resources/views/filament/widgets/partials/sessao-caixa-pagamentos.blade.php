@@ -12,6 +12,13 @@
             @if ($pagamento['maquininha'])
                 <span class="text-gray-500 dark:text-gray-400">· {{ $pagamento['maquininha'] }}</span>
             @endif
+            @if ($pagamento['autorizacao_obrigatoria'])
+                @if ($pagamento['autorizacao'])
+                    <span class="text-gray-500 dark:text-gray-400">· aut. {{ $pagamento['autorizacao'] }}</span>
+                @else
+                    <span class="text-danger-600 dark:text-danger-400">· aut. não informada</span>
+                @endif
+            @endif
             @if ($pagamento['troco'] > 0)
                 <span class="text-warning-600 dark:text-warning-400">· troco {{ $brl($pagamento['troco']) }} ({{ $pagamento['forma_troco'] }})</span>
             @endif

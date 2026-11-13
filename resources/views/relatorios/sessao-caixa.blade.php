@@ -107,7 +107,7 @@
                             <td class="border p-1">{{ implode(', ', $venda['origens']) ?: 'Direto no PDV' }}</td>
                             <td class="border p-1">
                                 @forelse ($venda['pagamentos'] as $pagamento)
-                                    <div>{{ $pagamento['forma'] }} {{ $brl($pagamento['valor']) }}@if ($pagamento['troco'] > 0) · troco {{ $brl($pagamento['troco']) }} ({{ $pagamento['forma_troco'] }})@endif</div>
+                                    <div>{{ $pagamento['forma'] }} {{ $brl($pagamento['valor']) }}@if ($pagamento['autorizacao_obrigatoria']) · aut. {{ $pagamento['autorizacao'] ?? 'não informada' }}@endif @if ($pagamento['troco'] > 0) · troco {{ $brl($pagamento['troco']) }} ({{ $pagamento['forma_troco'] }})@endif</div>
                                 @empty
                                     —
                                 @endforelse

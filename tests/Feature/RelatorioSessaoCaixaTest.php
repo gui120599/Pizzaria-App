@@ -230,6 +230,23 @@ class RelatorioSessaoCaixaTest extends TestCase
         $this->assertSame([737.77, 86.0], [$relatorio->resumo()['fiado_gerado'], $relatorio->resumo()['fiado_recebido']]);
     }
 
+    public function test_mostra_o_numero_de_autorizacao_so_nas_formas_que_exigem(): void
+    {
+        $exige = OpcoesPagamento::create(['opcaopag_nome' => 'Cartão Débito', 'opcaopag_desc_nfe' => 'debitCard', 'opcaopag_requer_autorizacao' => true]);
+        $naoExige = $this->opcao('Pix QRCode', 'InstantPayment');
+        $comNumero = $this->venda(50.00);
+        $this->pagar($comNumero, $exige, 50.00)->update(['pg_venda_numero_autorizacao_cartao' => '123456']);
+        $semNumero = $this->venda(30.00);
+        $this->pagar($semNumero, $exige, 30.00);
+        $pix = $this->venda(20.00);
+        $this->pagar($pix, $naoExige, 20.00)->update(['pg_venda_numero_autorizacao_cartao' => '999888']);
+
+        Livewire::test(SessaoCaixaVendasWidget::class, ['pageFilters' => ['sessoes' => [$this->sessao->id]]])
+            ->assertSeeText('aut. 123456')
+            ->assertSeeText('aut. não informada')
+            ->assertDontSeeText('999888');
+    }
+
     public function test_pagina_e_widgets_renderizam_para_o_gerente_e_a_impressao_para_o_admin(): void
     {
         $venda = $this->venda(95.70);

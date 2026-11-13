@@ -60,7 +60,7 @@ class RelatorioSessaoCaixaService
     /**
      * Uma linha por venda FINALIZADA do recorte, já com os filtros extras.
      *
-     * @return Collection<int, array{key: string, venda_id: int, sessao_id: ?int, finalizada_em: ?Carbon, cliente_id: ?int, cliente: string, origens: array<int, string>, origens_valores: array<int, string>, total: float, pago: float, troco: float, fiado: float, status_nfe: ?string, pagamentos: array<int, array{id: int, opcao_id: ?int, forma: string, desc_nfe: ?string, valor: float, troco: float, forma_troco: ?string, maquininha_id: ?int, maquininha: ?string}>, formas_pedido: array<int, string>, formas_pedido_nomes: array<int, string>, formas_pedido_ids: array<int, int>, formas_pedido_estruturadas: bool, observacoes_pedido: array<int, string>, avisos: array<int, array{tipo: string, texto: string}>, correcoes: array<int, string>}>
+     * @return Collection<int, array{key: string, venda_id: int, sessao_id: ?int, finalizada_em: ?Carbon, cliente_id: ?int, cliente: string, origens: array<int, string>, origens_valores: array<int, string>, total: float, pago: float, troco: float, fiado: float, status_nfe: ?string, pagamentos: array<int, array{id: int, opcao_id: ?int, forma: string, desc_nfe: ?string, valor: float, troco: float, forma_troco: ?string, maquininha_id: ?int, maquininha: ?string, autorizacao_obrigatoria: bool, autorizacao: ?string}>, formas_pedido: array<int, string>, formas_pedido_nomes: array<int, string>, formas_pedido_ids: array<int, int>, formas_pedido_estruturadas: bool, observacoes_pedido: array<int, string>, avisos: array<int, array{tipo: string, texto: string}>, correcoes: array<int, string>}>
      */
     public function vendas(): Collection
     {
@@ -101,6 +101,9 @@ class RelatorioSessaoCaixaService
                             : null,
                         'maquininha_id' => $maquininhaId,
                         'maquininha' => $maquininhaId ? ($maquininhas[$maquininhaId] ?? null) : null,
+                        // Só nas formas que exigem nº de autorização (opcaopag_requer_autorizacao).
+                        'autorizacao_obrigatoria' => (bool) $pagamento->opcaoPagamento?->opcaopag_requer_autorizacao,
+                        'autorizacao' => filled($pagamento->pg_venda_numero_autorizacao_cartao) ? (string) $pagamento->pg_venda_numero_autorizacao_cartao : null,
                     ];
                 })->values()->all();
 
