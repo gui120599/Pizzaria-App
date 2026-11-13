@@ -86,10 +86,13 @@ class Produto extends Model
         'produto_qtd_vendas',
         'produto_destaque_mais_vendidos',
         'produto_dispensa_producao',
+        'produto_cadastro_pendente_revisao',
+        'produto_origem_cadastro',
     ];
 
     protected $casts = [
         'produto_cardapio_garcom' => 'boolean',
+        'produto_cadastro_pendente_revisao' => 'boolean',
         'produto_requer_aprovacao_mesa' => 'boolean',
         'produto_exibe_categoria' => 'boolean',
         'produto_controla_lote' => 'boolean',

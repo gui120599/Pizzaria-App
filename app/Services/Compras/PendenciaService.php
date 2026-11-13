@@ -6,10 +6,12 @@ use App\Enums\Compras\OrigemVinculo;
 use App\Enums\Compras\StatusPendencia;
 use App\Enums\Compras\TipoPendenciaCompra;
 use App\Enums\CompraStatusEnum;
+use App\Enums\ProdutoTipoEnum;
 use App\Models\Compra;
 use App\Models\CompraItem;
 use App\Models\CompraPendencia;
 use App\Models\FornecedorProduto;
+use App\Models\Lancamento;
 use App\Models\Produto;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -105,6 +107,163 @@ class PendenciaService
         }
 
         return $resolvida->refresh();
+    }
+
+    /**
+     * Guarda a sugestão (do agente) e deixa a pendência aguardando aprovação.
+     *
+     * Formatos de $sugestao:
+     * - ['acao' => 'vincular', 'produto_id' => int, 'fator_conversao' => float]
+     * - ['acao' => 'novo_produto', 'produto' => [atributos do Produto], 'fator_conversao' => float]
+     * - ['acao' => 'lancamento', 'lancamento_id' => int]
+     *
+     * @param  array<string, mixed>  $sugestao
+     *
+     * @throws ValidationException
+     */
+    public function registrarSugestao(CompraPendencia $pendencia, array $sugestao, ?float $confianca = null, ?string $justificativa = null): CompraPendencia
+    {
+        if (! $pendencia->estaEmAberto()) {
+            throw ValidationException::withMessages(['pendencia' => 'Esta pendência não está mais em aberto.']);
+        }
+
+        $pendencia->forceFill([
+            'status' => StatusPendencia::Sugerida,
+            'sugestao' => $sugestao,
+            'confianca' => $confianca !== null ? max(0, min(1, round($confianca, 3))) : null,
+            'justificativa' => $justificativa,
+        ])->save();
+
+        return $pendencia;
+    }
+
+    /**
+     * Aplica a sugestão registrada (aprovação humana ou execução direta do
+     * agente, quando a autonomia permite). O vínculo fica com origem
+     * "agente"; quem aprovou fica como confirmado_por.
+     *
+     * @throws ValidationException
+     */
+    public function aprovarSugestao(CompraPendencia $pendencia, ?User $usuario = null): CompraPendencia
+    {
+        $sugestao = $pendencia->sugestao ?? [];
+
+        return match ($sugestao['acao'] ?? null) {
+            'vincular' => $this->resolverVinculo($pendencia, (int) ($sugestao['produto_id'] ?? 0), (float) ($sugestao['fator_conversao'] ?? 1), $usuario, OrigemVinculo::Agente),
+            'novo_produto' => $this->resolverComProdutoNovo($pendencia, (array) ($sugestao['produto'] ?? []), (float) ($sugestao['fator_conversao'] ?? 1), $usuario),
+            'lancamento' => $this->resolverLancamento($pendencia, (int) ($sugestao['lancamento_id'] ?? 0), $usuario),
+            default => throw ValidationException::withMessages(['pendencia' => 'Esta pendência não tem sugestão para aprovar.']),
+        };
+    }
+
+    /**
+     * Lançamento ambíguo: vincula à compra o lançamento escolhido entre os
+     * candidatos (ainda sem compra) e resolve a pendência.
+     *
+     * @throws ValidationException
+     */
+    public function resolverLancamento(CompraPendencia $pendencia, int $lancamentoId, ?User $usuario = null): CompraPendencia
+    {
+        return DB::transaction(function () use ($pendencia, $lancamentoId, $usuario): CompraPendencia {
+            $pendencia = CompraPendencia::query()->lockForUpdate()->findOrFail($pendencia->getKey());
+            $candidatos = collect($pendencia->dados['candidatos'] ?? [])->pluck('lancamento_id')->map(fn ($id): int => (int) $id);
+
+            if (! $pendencia->estaEmAberto() || $pendencia->tipo !== TipoPendenciaCompra::LancamentoAmbiguo) {
+                throw ValidationException::withMessages(['pendencia' => 'Esta pendência não é de lançamento ambíguo em aberto.']);
+            }
+
+            $lancamento = Lancamento::query()->lockForUpdate()->find($lancamentoId);
+            if ($lancamento === null || ! $candidatos->contains($lancamentoId) || $lancamento->compra_id !== null) {
+                throw ValidationException::withMessages(['lancamento' => 'Escolha um dos lançamentos candidatos que ainda não esteja ligado a outra compra.']);
+            }
+
+            $lancamento->forceFill(['compra_id' => $pendencia->compra_id])->save();
+            $this->marcar($pendencia, StatusPendencia::Resolvida, $usuario, ['lancamento_id' => $lancamentoId]);
+
+            return $pendencia;
+        });
+    }
+
+    /**
+     * Pagamento confirmado por outra tela: resolve as pendências de baixa
+     * (caixa fechado, pagamento a confirmar) que citam o título.
+     */
+    public function resolverDoLancamento(Lancamento $lancamento, ?User $usuario = null): int
+    {
+        if ($lancamento->compra_id === null) {
+            return 0;
+        }
+
+        $pendencias = CompraPendencia::query()
+            ->emAberto()
+            ->where('compra_id', $lancamento->compra_id)
+            ->whereIn('tipo', [TipoPendenciaCompra::CaixaPdvFechado, TipoPendenciaCompra::PagamentoAConfirmar])
+            ->get()
+            ->filter(fn (CompraPendencia $pendencia): bool => (int) ($pendencia->dados['lancamento_id'] ?? 0) === $lancamento->id
+                || in_array($lancamento->id, array_map('intval', $pendencia->dados['lancamentos'] ?? []), true));
+
+        foreach ($pendencias as $pendencia) {
+            $this->marcar($pendencia, StatusPendencia::Resolvida, $usuario, ['lancamento_id' => $lancamento->id, 'pagamento_confirmado' => true]);
+        }
+
+        return $pendencias->count();
+    }
+
+    /**
+     * Cadastra o produto sugerido (marcado para revisão, fora das fichas
+     * técnicas) e vincula o item a ele.
+     *
+     * @param  array<string, mixed>  $dados
+     *
+     * @throws ValidationException
+     */
+    public function resolverComProdutoNovo(CompraPendencia $pendencia, array $dados, float $fatorConversao, ?User $usuario = null): CompraPendencia
+    {
+        $produto = $this->cadastrarProdutoParaRevisao($pendencia, $dados);
+
+        return $this->resolverVinculo($pendencia, $produto->id, $fatorConversao, $usuario, OrigemVinculo::Agente);
+    }
+
+    /**
+     * @param  array<string, mixed>  $dados
+     *
+     * @throws ValidationException
+     */
+    private function cadastrarProdutoParaRevisao(CompraPendencia $pendencia, array $dados): Produto
+    {
+        $descricao = trim((string) ($dados['produto_descricao'] ?? ''));
+        if ($descricao === '') {
+            throw ValidationException::withMessages(['produto' => 'Informe o nome do produto novo.']);
+        }
+
+        $categoriaId = $dados['produto_categoria_id'] ?? $this->categoriaSugerida($pendencia);
+        if ($categoriaId === null) {
+            throw ValidationException::withMessages(['produto' => 'Não há categoria para o produto novo: informe produto_categoria_id.']);
+        }
+
+        return Produto::create([
+            'produto_descricao' => mb_substr($descricao, 0, 255),
+            'produto_categoria_id' => (int) $categoriaId,
+            'produto_tipo' => $dados['produto_tipo'] ?? ProdutoTipoEnum::INSUMO->value,
+            'produto_unidade_estoque' => $dados['produto_unidade_estoque'] ?? $pendencia->item?->ci_unidade_compra,
+            'produto_codigo_EAN' => $dados['produto_codigo_EAN'] ?? ($pendencia->item?->ci_ean ?: 'SEM GTIN'),
+            'produto_plano_despesa_id' => $dados['produto_plano_despesa_id'] ?? $pendencia->compra?->prestador?->condicaoCompra?->fcc_plano_despesa_id,
+            'produto_cadastro_pendente_revisao' => true,
+            'produto_origem_cadastro' => 'agente',
+        ]);
+    }
+
+    /** Categoria do último produto vinculado a este fornecedor; senão a primeira com insumos. */
+    private function categoriaSugerida(CompraPendencia $pendencia): ?int
+    {
+        $prestadorId = $pendencia->compra?->compra_prestador_id;
+
+        $doFornecedor = $prestadorId === null ? null : Produto::query()
+            ->whereIn('id', FornecedorProduto::query()->where('fp_prestador_id', $prestadorId)->select('fp_produto_id'))
+            ->latest('id')
+            ->value('produto_categoria_id');
+
+        return $doFornecedor ?? Produto::query()->where('produto_tipo', ProdutoTipoEnum::INSUMO->value)->value('produto_categoria_id');
     }
 
     /**

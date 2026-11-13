@@ -13,9 +13,12 @@ use App\Models\Compra;
 use App\Models\ContaFinanceira;
 use App\Models\FornecedorCondicaoCompra;
 use App\Models\Lancamento;
+use App\Models\User;
 use App\Services\CompraService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Contas a pagar das compras importadas pela automação (regras 3 a 8 da spec
@@ -149,6 +152,46 @@ class FinanceiroCompraService
         }
 
         return $baixados;
+    }
+
+    /**
+     * Confirmação humana de pagamento (página "Pagamentos a confirmar"): baixa
+     * normal, com validação de saldo e sessão, e resolve as pendências de
+     * baixa do título. Sem valor, paga o que falta; com valor maior (juros,
+     * multa), registra o que saiu de fato.
+     *
+     * @throws FinanceiroException
+     * @throws ValidationException
+     */
+    public function confirmarPagamento(
+        Lancamento $titulo,
+        ?float $valor,
+        Carbon $data,
+        ?FormaPagamento $forma,
+        int $contaFinanceiraId,
+        ?int $sessaoCaixaId = null,
+        ?User $usuario = null,
+    ): Lancamento {
+        return DB::transaction(function () use ($titulo, $valor, $data, $forma, $contaFinanceiraId, $sessaoCaixaId, $usuario): Lancamento {
+            $titulo = Lancamento::query()->lockForUpdate()->findOrFail($titulo->getKey());
+
+            if (! in_array($titulo->status, [StatusLancamento::Pendente, StatusLancamento::Parcial], true)) {
+                throw ValidationException::withMessages(['lancamento' => 'Este título já foi pago ou cancelado.']);
+            }
+
+            $titulo->registrarPagamento(
+                valor: round($valor ?? (float) $titulo->valorRestante, 2),
+                data: $data,
+                forma: $forma,
+                observacoes: 'Pagamento confirmado (compras)',
+                sessaoCaixaId: $sessaoCaixaId,
+                contaFinanceiraId: $contaFinanceiraId,
+            );
+
+            $this->pendencias->resolverDoLancamento($titulo, $usuario);
+
+            return $titulo->refresh();
+        });
     }
 
     public function valorDaNota(Compra $compra): float
