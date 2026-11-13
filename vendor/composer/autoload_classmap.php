@@ -24,6 +24,7 @@ return array(
     'App\\Console\\Commands\\ComprasCriarAgente' => $baseDir . '/app/Console/Commands/ComprasCriarAgente.php',
     'App\\Console\\Commands\\ComprasDiagnosticarOperacoes' => $baseDir . '/app/Console/Commands/ComprasDiagnosticarOperacoes.php',
     'App\\Console\\Commands\\ComprasImportarXml' => $baseDir . '/app/Console/Commands/ComprasImportarXml.php',
+    'App\\Console\\Commands\\ComprasReprocessarRascunhos' => $baseDir . '/app/Console/Commands/ComprasReprocessarRascunhos.php',
     'App\\Console\\Commands\\ContabilizarFechamentos' => $baseDir . '/app/Console/Commands/ContabilizarFechamentos.php',
     'App\\Console\\Commands\\ContratosGerarLancamentosMensais' => $baseDir . '/app/Console/Commands/ContratosGerarLancamentosMensais.php',
     'App\\Console\\Commands\\CozinhaAlertarAtrasos' => $baseDir . '/app/Console/Commands/CozinhaAlertarAtrasos.php',

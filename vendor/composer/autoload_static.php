@@ -1022,6 +1022,7 @@ class ComposerStaticInit5ab1db59f69ab376e1219686675b6f06
         'App\\Console\\Commands\\ComprasCriarAgente' => __DIR__ . '/../..' . '/app/Console/Commands/ComprasCriarAgente.php',
         'App\\Console\\Commands\\ComprasDiagnosticarOperacoes' => __DIR__ . '/../..' . '/app/Console/Commands/ComprasDiagnosticarOperacoes.php',
         'App\\Console\\Commands\\ComprasImportarXml' => __DIR__ . '/../..' . '/app/Console/Commands/ComprasImportarXml.php',
+        'App\\Console\\Commands\\ComprasReprocessarRascunhos' => __DIR__ . '/../..' . '/app/Console/Commands/ComprasReprocessarRascunhos.php',
         'App\\Console\\Commands\\ContabilizarFechamentos' => __DIR__ . '/../..' . '/app/Console/Commands/ContabilizarFechamentos.php',
         'App\\Console\\Commands\\ContratosGerarLancamentosMensais' => __DIR__ . '/../..' . '/app/Console/Commands/ContratosGerarLancamentosMensais.php',
         'App\\Console\\Commands\\CozinhaAlertarAtrasos' => __DIR__ . '/../..' . '/app/Console/Commands/CozinhaAlertarAtrasos.php',

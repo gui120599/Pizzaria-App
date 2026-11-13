@@ -11,10 +11,12 @@ use App\Models\Compra;
 use App\Models\CompraItem;
 use App\Models\FornecedorProduto;
 use App\Models\Prestador;
+use App\Services\Nfe\Dto\NfeItem;
 use App\Services\Nfe\Dto\NfeParseada;
 use App\Services\Nfe\NfeImportService;
 use App\Services\Nfe\NfeXmlParser;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -40,6 +42,8 @@ class CompraImportacaoService
         private FinanceiroCompraService $financeiro,
         private ConferenciaCompraService $conferencia,
         private UsuarioAutomacaoCompras $usuarioAutomacao,
+        private CompraFiscalService $fiscal,
+        private ProdutoMatcher $matcher,
     ) {}
 
     /**
@@ -81,7 +85,114 @@ class CompraImportacaoService
         return $compra->refresh();
     }
 
-    private function processar(Compra $compra, bool $fornecedorNovo): void
+    /**
+     * Rascunho importado de XML antes da automação: passa pelo mesmo fluxo de
+     * uma nota nova — dados fiscais que faltarem, colunas novas dos itens a
+     * partir do XML guardado, reconhecimento pelo de-para atual, pendências,
+     * custo, contas a pagar e baixa pela regra do fornecedor e, se o
+     * fornecedor tiver entrada automática, a confirmação no estoque.
+     *
+     * Produto já escolhido no rascunho é mantido; o de-para dele continua
+     * sendo gravado na confirmação, como antes.
+     *
+     * @throws ValidationException compra que não pode ser reprocessada
+     * @throws NfeXmlInvalidoException
+     */
+    public function reprocessarRascunho(Compra $compra): Compra
+    {
+        $motivo = self::motivoNaoReprocessavel($compra);
+        if ($motivo !== null) {
+            throw ValidationException::withMessages(['compra' => $motivo]);
+        }
+
+        $xml = Storage::disk('local')->get($compra->compra_xml_path);
+        if (blank($xml)) {
+            throw ValidationException::withMessages(['compra' => 'O XML guardado desta compra não foi encontrado no servidor.']);
+        }
+
+        $nfe = $this->parser->parse($xml);
+
+        DB::transaction(function () use ($compra, $nfe): void {
+            $this->fiscal->classificarSeFaltar($compra);
+            $this->completarItens($compra, $nfe);
+            $compra->forceFill(['compra_importacao_automatica' => true])->save();
+
+            $this->processar($compra->refresh(), false, gravarDeParaDoProdutoEscolhido: false);
+        });
+
+        $this->conferencia->tentarConferir($compra);
+
+        return $compra->refresh();
+    }
+
+    /** Null quando a compra pode passar pelo reprocessamento. */
+    public static function motivoNaoReprocessavel(Compra $compra): ?string
+    {
+        return match (true) {
+            $compra->trashed() => 'A compra está excluída.',
+            ! $compra->isRascunho() => 'Só rascunhos podem ser reprocessados.',
+            $compra->compra_importacao_automatica => 'A compra já passou pela automação.',
+            blank($compra->compra_chave_nfe) || blank($compra->compra_xml_path) => 'A compra não veio de XML de NF-e.',
+            default => null,
+        };
+    }
+
+    /**
+     * Preenche nos itens o que o importador antigo não gravava (EAN, frete,
+     * seguro e outras despesas do item) e reconhece pelo de-para atual os
+     * itens que ficaram sem produto. Itens do XML casam pelo código do
+     * fornecedor (e descrição, no empate), cada um usado uma vez só.
+     */
+    private function completarItens(Compra $compra, NfeParseada $nfe): void
+    {
+        $disponiveis = $nfe->itens;
+
+        foreach ($compra->itens()->get() as $item) {
+            $indice = $this->indiceDoItemNaNota($item, $disponiveis);
+            $itemNfe = $indice !== null ? $disponiveis[$indice] : null;
+            if ($indice !== null) {
+                unset($disponiveis[$indice]);
+            }
+
+            $atributos = $itemNfe === null ? [] : [
+                'ci_ean' => $item->ci_ean ?? ($itemNfe->ean !== null ? mb_substr($itemNfe->ean, 0, 14) : null),
+                'ci_valor_frete' => $itemNfe->valorFrete,
+                'ci_valor_seguro' => $itemNfe->valorSeguro,
+                'ci_valor_outros' => $itemNfe->valorOutros,
+            ];
+
+            if ($item->ci_produto_id === null && $compra->compra_prestador_id !== null) {
+                $match = $this->matcher->identificar($compra->compra_prestador_id, $item->ci_codigo_fornecedor, $atributos['ci_ean'] ?? $item->ci_ean);
+                if ($match !== null) {
+                    $atributos += [
+                        'ci_produto_id' => $match->produtoId,
+                        'ci_vinculo_id' => $match->vinculo?->id,
+                        'ci_fator_conversao' => $match->fatorConversao,
+                    ];
+                }
+            }
+
+            if ($atributos !== []) {
+                $item->forceFill($atributos)->save();
+            }
+        }
+    }
+
+    /** @param  array<int, NfeItem>  $itensNota */
+    private function indiceDoItemNaNota(CompraItem $item, array $itensNota): ?int
+    {
+        $mesmoCodigo = array_filter($itensNota, fn (NfeItem $itemNfe): bool => $itemNfe->codigoFornecedor === (string) $item->ci_codigo_fornecedor);
+
+        foreach ($mesmoCodigo as $indice => $itemNfe) {
+            if ($itemNfe->descricao === (string) $item->ci_descricao_fornecedor) {
+                return $indice;
+            }
+        }
+
+        return array_key_first($mesmoCodigo);
+    }
+
+    private function processar(Compra $compra, bool $fornecedorNovo, bool $gravarDeParaDoProdutoEscolhido = true): void
     {
         $compra->load(['itens.vinculo', 'prestador.condicaoCompra']);
         $condicao = $compra->prestador?->condicaoCompra;
@@ -109,7 +220,7 @@ class CompraImportacaoService
         }
 
         foreach ($compra->itens as $item) {
-            $this->reconhecerItem($compra, $item);
+            $this->reconhecerItem($compra, $item, $gravarDeParaDoProdutoEscolhido);
         }
 
         $this->gravarCustos($compra);
@@ -120,8 +231,12 @@ class CompraImportacaoService
         }
     }
 
-    /** Item sem produto vira pendência; reconhecido pelo EAN do cadastro ganha de-para. */
-    private function reconhecerItem(Compra $compra, CompraItem $item): void
+    /**
+     * Item sem produto vira pendência; reconhecido pelo EAN do cadastro ganha
+     * de-para. No reprocessamento de rascunho antigo o produto pode ter sido
+     * escolhido à mão — aí o de-para fica para a confirmação, como antes.
+     */
+    private function reconhecerItem(Compra $compra, CompraItem $item, bool $gravarDeParaDoProdutoEscolhido = true): void
     {
         if ($item->ci_produto_id === null) {
             $this->pendencias->abrir(TipoPendenciaCompra::ProdutoNaoIdentificado, $compra, $item, [
@@ -136,7 +251,7 @@ class CompraImportacaoService
             return;
         }
 
-        if ($item->ci_vinculo_id !== null || blank($item->ci_codigo_fornecedor) || $compra->compra_prestador_id === null) {
+        if (! $gravarDeParaDoProdutoEscolhido || $item->ci_vinculo_id !== null || blank($item->ci_codigo_fornecedor) || $compra->compra_prestador_id === null) {
             return;
         }
 
