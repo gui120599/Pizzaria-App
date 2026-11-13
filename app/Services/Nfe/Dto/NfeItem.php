@@ -23,6 +23,9 @@ final class NfeItem
         public readonly float $valorSt = 0.0,
         public readonly float $valorIpi = 0.0,
         public readonly float $valorFcpSt = 0.0,
+        public readonly float $valorFrete = 0.0,
+        public readonly float $valorSeguro = 0.0,
+        public readonly float $valorOutros = 0.0,
     ) {}
 
     /** Custo unitário já líquido do desconto informado no próprio item. */

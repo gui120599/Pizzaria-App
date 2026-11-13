@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CompraItem extends Model
@@ -33,6 +34,13 @@ class CompraItem extends Model
         'ci_valor_st',
         'ci_valor_ipi',
         'ci_valor_fcp_st',
+        'ci_ean',
+        'ci_vinculo_id',
+        'ci_valor_frete',
+        'ci_valor_seguro',
+        'ci_valor_outros',
+        'ci_custo_aquisicao_total',
+        'ci_custo_unitario_aquisicao',
     ];
 
     protected function casts(): array
@@ -46,6 +54,11 @@ class CompraItem extends Model
             'ci_valor_st' => 'decimal:4',
             'ci_valor_ipi' => 'decimal:4',
             'ci_valor_fcp_st' => 'decimal:4',
+            'ci_valor_frete' => 'decimal:4',
+            'ci_valor_seguro' => 'decimal:4',
+            'ci_valor_outros' => 'decimal:4',
+            'ci_custo_aquisicao_total' => 'decimal:2',
+            'ci_custo_unitario_aquisicao' => 'decimal:4',
         ];
     }
 
@@ -57,6 +70,16 @@ class CompraItem extends Model
     public function insumo(): BelongsTo
     {
         return $this->belongsTo(Produto::class, 'ci_produto_id');
+    }
+
+    public function vinculo(): BelongsTo
+    {
+        return $this->belongsTo(FornecedorProduto::class, 'ci_vinculo_id');
+    }
+
+    public function pendencias(): HasMany
+    {
+        return $this->hasMany(CompraPendencia::class, 'compra_item_id');
     }
 
     public function marca(): BelongsTo

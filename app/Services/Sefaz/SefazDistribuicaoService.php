@@ -15,6 +15,8 @@ use App\Models\Compra;
 use App\Models\Empresa;
 use App\Models\SefazDocumentoPendente;
 use App\Models\SefazNotaRecebida;
+use App\Services\Compras\CancelamentoNfeService;
+use App\Services\Compras\CompraImportacaoService;
 use App\Services\Nfe\Dto\NfeParseada;
 use App\Services\Nfe\NfeImportService;
 use App\Services\Nfe\NfeXmlParser;
@@ -33,9 +35,11 @@ use Illuminate\Validation\ValidationException;
  * Orquestrador da integração SEFAZ: busca avulsa por chave, polling
  * agendado por NSU (auto-importação) e a caixa de entrada de revisão manual
  * (sincronizarNotasRecebidas/visualizarNota/importarNota/ignorarNota). Só
- * produz XML — quem persiste Compra/CompraItem continua sendo o
- * NfeImportService já existente (nenhuma lógica de fornecedor/produto/
- * estoque é duplicada aqui).
+ * produz XML. A busca por chave e a caixa de entrada persistem pelo
+ * NfeImportService (rascunho para revisão manual); o polling usa a
+ * automação de compras (CompraImportacaoService: pendências, contas a pagar,
+ * baixa e entrada pelo perfil do fornecedor) e trata o evento de
+ * cancelamento (CancelamentoNfeService).
  */
 class SefazDistribuicaoService
 {
@@ -44,6 +48,8 @@ class SefazDistribuicaoService
         private NfeImportService $importador,
         private NfeXmlParser $parser,
         private SefazControleConsumo $controle,
+        private CompraImportacaoService $automacao,
+        private CancelamentoNfeService $cancelamentos,
     ) {}
 
     /**
@@ -314,6 +320,13 @@ class SefazDistribuicaoService
 
     private function processarResumo(SefazResumoDocumento $item, ?int $userId, SefazPollingResultado $resultado): SefazPollingResultado
     {
+        if ($item->ehCancelamento()) {
+            $desfecho = $this->cancelamentos->processar($item->chaveAcesso);
+            Log::channel('sefaz')->info("Polling: cancelamento da NF-e {$item->chaveAcesso} — {$desfecho}");
+
+            return $resultado->comIncremento('puladas');
+        }
+
         if ($item->isEvento) {
             return $resultado->comIncremento('puladas');
         }
@@ -328,7 +341,7 @@ class SefazDistribuicaoService
             $completo = $this->tentarConsultar($item->chaveAcesso);
 
             if ($completo instanceof SefazDocumentoCompleto) {
-                $this->importador->importar($completo->xmlCompleto, $userId);
+                $this->automacao->importar($completo->xmlCompleto, $userId);
 
                 return $resultado->comIncremento('importadas');
             }
@@ -369,7 +382,7 @@ class SefazDistribuicaoService
             $completo = $this->tentarConsultar($pendente->sdp_chave_acesso);
 
             if ($completo instanceof SefazDocumentoCompleto) {
-                $this->importador->importar($completo->xmlCompleto, $userId);
+                $this->automacao->importar($completo->xmlCompleto, $userId);
                 $pendente->delete();
 
                 return $resultado->comIncremento('importadas');

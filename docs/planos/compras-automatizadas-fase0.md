@@ -228,3 +228,43 @@ Usam `FakeSefazClient`, `Http::fake()` e fixtures em `tests/Fixtures/nfe-entrada
 - **Q12** — O upload manual de XML e o "Buscar por chave" também passam pela automação (pendências, financeiro, baixa), ou só a importação DF-e e o comando `compras:importar-xml`? *Recomendo* só DF-e e comando na Fase 1.
 - **Q13** — Posso criar um índice em `produtos.produto_codigo_EAN` (não é coluna nova)?
 - **Q14** — Fixtures: você manda XMLs reais para eu anonimizar, ou gero XMLs sintéticos a partir dos que já existem em `tests/Fixtures/nfe-entrada/`?
+
+---
+
+## 6. Decisões do Checkpoint 0 (2026-11-13)
+
+| # | Decisão | Efeito no plano da Fase 1 |
+|---|---|---|
+| Q1 | **Autorizado**: o título a pagar nasce na importação | `FinanceiroCompraService` gera os lançamentos com a compra ainda em rascunho. Rateio pelo plano do produto e, nos itens sem vínculo, pelo `fcc_plano_despesa_id` do fornecedor. Ao confirmar, o rateio dos títulos **em aberto** é refeito com os vínculos finais. `CompraService::gerarContaPagar()` continua exigindo compra confirmada no fluxo manual. |
+| Q2 | **Parâmetro no fornecedor**: entra no mesmo dia da emissão ou N dias depois | Colunas novas `fcc_entrada_automatica` (bool, default false) e `fcc_entrada_dias_apos_emissao` (smallint, default 0 = mesmo dia). Com a entrada automática ligada, a compra é confirmada sozinha com data = emissão + N, se todos os itens estiverem resolvidos e a operação for `COMPRA` com confiança ALTA. Se essa data ainda não chegou, o comando agendado `compras:conferir-automaticas` confirma no dia. Sem o parâmetro, nada muda: fica em rascunho para o "Confirmar" manual. A data nunca é futura nem anterior à emissão (mesma validação de `CompraService::validarDataEntrada`). |
+| Q3 | **Aguardando o contador** | `CustoAquisicaoCalculator` é implementado, mas o que entra no custo é controlado por `config('compras.custo.incluir_tributos_nao_recuperaveis')`, **padrão `false`**: o custo do estoque continua exatamente como hoje (vProd − desconto + rateio de frete e outros). As colunas `ci_custo_aquisicao_*` são gravadas com o cálculo vigente. Quando o contador responder, basta virar a chave. O título usa o valor real da nota (duplicatas ou vNF), não o custo. |
+| Q4 | Sem objeção registrada; segue a recomendação | Estender `fornecedor_condicoes_compra` e `fornecedor_produtos`. |
+| Q5 | **Autorizado**: baixa automática para `regra_baixa = automatica_na_emissao` | `FinanceiroCompraService::aplicarRegraBaixa` registra o pagamento pela conta e forma do fornecedor, com data = emissão. |
+| Q7 | **Pode trabalhar com saldo negativo** | A baixa automática não valida o saldo de contas banco/digitais/cofre (pode ficar negativo). Caixa PDV continua exigindo sessão aberta e dinheiro na gaveta; se faltar, o título fica aberto e abre a pendência `caixa_pdv_fechado`. Não muda a configuração `permite_saldo_negativo` das contas, nem a baixa manual. |
+| Q8 | Cron do `schedule:run` **ativo** em produção | A ativação depende de `empresa_sefaz_auto_importacao_ativa` estar ligada (a confirmar no servidor). |
+
+Respostas padrão assumidas (sem objeção): Q6 status derivado, sem coluna nova; Q9 baixas automáticas com `registrado_por = null` e observação "Baixa automática (compras)"; Q11 PHPUnit; Q12 automação só para DF-e e `compras:importar-xml`; Q14 fixtures sintéticas a partir de `tests/Fixtures/nfe-entrada/`. Q10: commits direto em `prod-new` (fluxo atual do projeto). Q13: sem índice novo em `produtos` por enquanto.
+
+---
+
+## 7. Fase 1 — implementada (Checkpoint 1, 2026-11-13)
+
+**Banco (aditivo):** `2026_11_13_100001..100005`
+- colunas `fcc_*` de automação (regra de baixa, plano padrão, autonomia, tolerância, entrada automática + dias, observações);
+- `fp_ean`, `fp_ultimo_custo_unitario`, `fp_origem`, `fp_confirmado_por`;
+- `compras.compra_importacao_automatica`;
+- `ci_ean`, `ci_vinculo_id`, `ci_valor_frete/seguro/outros`, `ci_custo_aquisicao_total`, `ci_custo_unitario_aquisicao`;
+- tabela `compra_pendencias`;
+- permissões `configurar:automacao_compra` e `resolver:pendencia_compra`.
+
+**Código:**
+- enums em `app/Enums/Compras/`;
+- serviços em `app/Services/Compras/`: `ProdutoMatcher`, `CustoAquisicaoCalculator`, `PendenciaService`, `FinanceiroCompraService`, `ConferenciaCompraService`, `CompraImportacaoService`, `CancelamentoNfeService`, `UsuarioAutomacaoCompras`;
+- comandos `compras:importar-xml`, `compras:conferir-automaticas` (00:30) e `compras:baixar-vencimentos` (06:10);
+- Filament: campos de automação na seção "Condições de compra" e resource "De-para de fornecedores".
+
+**Desvios da spec:**
+- Tipo de pendência extra `operacao_fiscal`: nota que não é COMPRA não gera título nem entra sozinha.
+- Usuário técnico "Automação de Compras" (`automacao.compras@sistema.local`, sem papel), criado sob demanda. Motivo: `movimentacao_produtos.mov_user_id` é obrigatório e o agendador roda sem usuário.
+- `prazo_dias_padrao`/`condicao`/`usar_duplicatas_xml` não foram criados: o prazo do fornecedor (`PrazoPagamento`) e a regra "duplicatas prevalecem" já cobrem.
+- Testes em PHPUnit.

@@ -210,7 +210,7 @@ class SugestaoPagamentoCompra
     }
 
     /** Prazo padrão que ainda pode ser usado: existe, está ativo e tem parcelas. */
-    private function prazoValido(?FornecedorCondicaoCompra $condicao): ?PrazoPagamento
+    public function prazoValido(?FornecedorCondicaoCompra $condicao): ?PrazoPagamento
     {
         $prazo = $condicao?->prazoPagamento()->with('parcelas')->first();
 

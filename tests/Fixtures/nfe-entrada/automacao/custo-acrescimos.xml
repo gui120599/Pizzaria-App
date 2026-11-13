@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture sintética (dados fictícios) para a automação de compras. vNF = 422.50 -->
+<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+    <infNFe versao="4.00" Id="NFe52261155666777000188550010000005041000005040">
+      <ide>
+        <cUF>52</cUF>
+        <natOp>Venda de mercadoria adquirida de terceiros</natOp>
+        <mod>55</mod>
+        <serie>1</serie>
+        <nNF>504</nNF>
+        <dhEmi>2026-11-10T09:00:00-03:00</dhEmi>
+        <tpNF>1</tpNF>
+        <finNFe>1</finNFe>
+      </ide>
+      <emit>
+        <CNPJ>55666777000188</CNPJ>
+        <xNome>Atacado Ficticio LTDA</xNome>
+        <enderEmit><xLgr>Rua Fictícia</xLgr><nro>100</nro><xBairro>Centro</xBairro><xMun>Goiânia</xMun><UF>GO</UF><CEP>74000000</CEP></enderEmit>
+        <IE>101010101</IE>
+      </emit>
+      <dest>
+        <CNPJ>11222333000181</CNPJ>
+        <xNome>Pizzaria Teste LTDA</xNome>
+      </dest>
+      <det nItem="1">
+        <prod>
+          <cProd>MOL-1</cProd>
+          <cEAN>SEM GTIN</cEAN>
+          <xProd>MOLHO TOMATE 2KG</xProd>
+          <NCM>21039021</NCM>
+          <CFOP>5102</CFOP>
+          <uCom>UN</uCom>
+          <qCom>10.0000</qCom>
+          <vUnCom>10.0000000000</vUnCom>
+          <vProd>100.00</vProd>
+          <vFrete>5.00</vFrete><vDesc>10.00</vDesc>
+          <indTot>1</indTot>
+        </prod>
+        <imposto><ICMS><ICMSSN202><orig>0</orig><CSOSN>202</CSOSN><vBCST>0.00</vBCST><vICMSST>8.00</vICMSST></ICMSSN202></ICMS><IPI><cEnq>999</cEnq><IPITrib><CST>50</CST><vIPI>4.50</vIPI></IPITrib></IPI></imposto>
+      </det>
+      <det nItem="2">
+        <prod>
+          <cProd>AZE-1</cProd>
+          <cEAN>SEM GTIN</cEAN>
+          <xProd>AZEITONA 2KG</xProd>
+          <NCM>21039021</NCM>
+          <CFOP>5102</CFOP>
+          <uCom>UN</uCom>
+          <qCom>3.0000</qCom>
+          <vUnCom>100.0000000000</vUnCom>
+          <vProd>300.00</vProd>
+          <vFrete>15.00</vFrete>
+          <indTot>1</indTot>
+        </prod>
+        <imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto>
+      </det>
+      <total>
+        <ICMSTot>
+          <vBC>0.00</vBC>
+          <vICMS>0.00</vICMS>
+          <vST>8.00</vST>
+          <vFCPST>0.00</vFCPST>
+          <vProd>400.00</vProd>
+          <vFrete>20.00</vFrete>
+          <vSeg>0.00</vSeg>
+          <vDesc>10.00</vDesc>
+          <vIPI>4.50</vIPI>
+          <vOutro>0.00</vOutro>
+          <vNF>422.50</vNF>
+        </ICMSTot>
+      </total>
+      
+      <pag>
+        <detPag><tPag>17</tPag><vPag>422.50</vPag></detPag>
+      </pag>
+    </infNFe>
+  </NFe>
+  <protNFe versao="4.00">
+    <infProt>
+      <tpAmb>2</tpAmb>
+      <chNFe>52261155666777000188550010000005041000005040</chNFe>
+      <nProt>152260000099999</nProt>
+      <cStat>100</cStat>
+      <xMotivo>Autorizado o uso da NF-e</xMotivo>
+    </infProt>
+  </protNFe>
+</nfeProc>

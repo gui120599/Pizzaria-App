@@ -83,6 +83,19 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // Compras automatizadas: entrada no estoque na data do fornecedor (emissão
+        // + N dias) e baixa das parcelas de débito automático. Ver
+        // App\Services\Compras\ConferenciaCompraService e FinanceiroCompraService.
+        $schedule->command('compras:conferir-automaticas')
+            ->dailyAt('00:30')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        $schedule->command('compras:baixar-vencimentos')
+            ->dailyAt('06:10')
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // Cartão/Pix de maquininha entra no extrato da conta só na data de repasse:
         // liquida os recebíveis vencidos e lança a taxa (ver LiquidacaoRecebiveisService).
         $schedule->command('financeiro:liquidar-recebiveis')

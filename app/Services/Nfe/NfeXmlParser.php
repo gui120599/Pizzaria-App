@@ -193,6 +193,9 @@ class NfeXmlParser
                 valorSt: $this->extrairValorImposto($det->imposto, 'vICMSST'),
                 valorIpi: $this->extrairValorImposto($det->imposto, 'vIPI'),
                 valorFcpSt: $this->extrairValorImposto($det->imposto, 'vFCPST'),
+                valorFrete: (float) $prod->vFrete,
+                valorSeguro: (float) $prod->vSeg,
+                valorOutros: (float) $prod->vOutro,
             );
         }
 

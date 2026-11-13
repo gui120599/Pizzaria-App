@@ -15,5 +15,12 @@ final class SefazResumoDocumento
         public readonly ?string $nomeEmitente = null,
         public readonly ?float $valor = null,
         public readonly ?Carbon $dataEmissao = null,
+        public readonly ?string $tipoEvento = null,
     ) {}
+
+    /** Evento de cancelamento da NF-e pelo emitente. */
+    public function ehCancelamento(): bool
+    {
+        return $this->isEvento && $this->tipoEvento === '110111';
+    }
 }

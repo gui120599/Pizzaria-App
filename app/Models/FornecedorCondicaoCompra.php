@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\BaseVencimentoEnum;
+use App\Enums\Compras\AutonomiaAgente;
+use App\Enums\Compras\RegraBaixaCompra;
 use App\Enums\FormaPagamento;
 use App\Enums\RegraDataEntradaEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,9 +13,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * Condições comerciais de compra de um fornecedor (1:1 com Prestador). Só
- * sugerem valores no modal "Confirmar compra": nada daqui paga ou confirma
- * sozinho.
+ * Condições comerciais de compra de um fornecedor (1:1 com Prestador). As
+ * condições originais (prazo, forma, conta, data de entrada) só sugerem
+ * valores no modal "Confirmar compra". Os campos de automação (regra de
+ * baixa, entrada automática...) só valem para as notas que passam pela
+ * automação de compras (ver App\Services\Compras\CompraImportacaoService).
  */
 class FornecedorCondicaoCompra extends Model
 {
@@ -28,6 +32,13 @@ class FornecedorCondicaoCompra extends Model
         'fcc_forma_pagamento',
         'fcc_conta_financeira_id',
         'fcc_data_entrada_regra',
+        'fcc_regra_baixa',
+        'fcc_plano_despesa_id',
+        'fcc_autonomia_agente',
+        'fcc_tolerancia_preco_pct',
+        'fcc_entrada_automatica',
+        'fcc_entrada_dias_apos_emissao',
+        'fcc_observacoes',
     ];
 
     protected function casts(): array
@@ -36,6 +47,11 @@ class FornecedorCondicaoCompra extends Model
             'fcc_prazo_base' => BaseVencimentoEnum::class,
             'fcc_forma_pagamento' => FormaPagamento::class,
             'fcc_data_entrada_regra' => RegraDataEntradaEnum::class,
+            'fcc_regra_baixa' => RegraBaixaCompra::class,
+            'fcc_autonomia_agente' => AutonomiaAgente::class,
+            'fcc_tolerancia_preco_pct' => 'decimal:2',
+            'fcc_entrada_automatica' => 'boolean',
+            'fcc_entrada_dias_apos_emissao' => 'integer',
         ];
     }
 
@@ -52,6 +68,36 @@ class FornecedorCondicaoCompra extends Model
     public function contaFinanceira(): BelongsTo
     {
         return $this->belongsTo(ContaFinanceira::class, 'fcc_conta_financeira_id');
+    }
+
+    public function planoDespesa(): BelongsTo
+    {
+        return $this->belongsTo(PlanoDespesa::class, 'fcc_plano_despesa_id');
+    }
+
+    /** Regra de baixa efetiva: sem regra cadastrada, manual. */
+    public function regraBaixa(): RegraBaixaCompra
+    {
+        return $this->fcc_regra_baixa ?? RegraBaixaCompra::Manual;
+    }
+
+    public function autonomiaAgente(): AutonomiaAgente
+    {
+        return $this->fcc_autonomia_agente ?? AutonomiaAgente::PADRAO;
+    }
+
+    /**
+     * Data da entrada automática no estoque: emissão + N dias, nunca antes
+     * da emissão. Pode ser futura (a compra espera o dia em rascunho). Null
+     * sem entrada automática ou sem emissão.
+     */
+    public function dataEntradaAutomatica(?Carbon $emissao): ?Carbon
+    {
+        if (! $this->fcc_entrada_automatica || $emissao === null) {
+            return null;
+        }
+
+        return $emissao->copy()->startOfDay()->addDays(max(0, (int) $this->fcc_entrada_dias_apos_emissao));
     }
 
     public function usaDataDeEmissao(): bool
