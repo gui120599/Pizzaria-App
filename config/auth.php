@@ -48,6 +48,12 @@ return [
             'driver' => 'session',
             'provider' => 'influenciadores',
         ],
+
+        // Tokens OAuth do Passport: hoje só o agente de compras (servidor MCP, routes/ai.php).
+        'api' => [
+            'driver' => 'passport',
+            'provider' => 'users',
+        ],
     ],
 
     /*

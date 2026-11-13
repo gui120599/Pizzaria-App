@@ -10,6 +10,7 @@ use App\Services\Sefaz\Contracts\SefazClient;
 use App\Services\Sefaz\SefazNfephpClient;
 use App\Services\Sefaz\SefazRespostaDecoder;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passport\Passport;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Tela de "Autorizar" do OAuth (conector do agente de compras no Claude).
+        Passport::authorizationView('mcp.authorize');
     }
 }

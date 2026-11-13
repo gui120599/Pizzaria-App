@@ -2,6 +2,7 @@
 
 namespace App\Services\Compras;
 
+use App\Enums\Compras\AutonomiaAgente;
 use App\Enums\Compras\OrigemVinculo;
 use App\Enums\Compras\StatusPendencia;
 use App\Enums\Compras\TipoPendenciaCompra;
@@ -135,6 +136,104 @@ class PendenciaService
         ])->save();
 
         return $pendencia;
+    }
+
+    /**
+     * Proposta de vínculo do agente: executa se a autonomia do fornecedor não
+     * for "sugerir" e a confiança atingir o limite (compras.agente.limite_confianca);
+     * senão fica como sugestão para aprovação humana.
+     *
+     * @return array{pendencia_id: int, situacao: string, motivo: string}
+     *
+     * @throws ValidationException
+     */
+    public function proporVinculo(CompraPendencia $pendencia, int $produtoId, float $fatorConversao, float $confianca, string $justificativa, ?User $agente = null): array
+    {
+        $this->garantirPendenciaDeItem($pendencia);
+
+        if (! Produto::query()->whereKey($produtoId)->exists()) {
+            throw ValidationException::withMessages(['produto_id' => 'Produto não encontrado: use buscar_produtos.']);
+        }
+
+        $this->registrarSugestao($pendencia, ['acao' => 'vincular', 'produto_id' => $produtoId, 'fator_conversao' => $fatorConversao], $confianca, $justificativa);
+
+        $autonomia = $this->autonomia($pendencia);
+        $limite = (float) config('compras.agente.limite_confianca', 0.9);
+
+        if ($autonomia === AutonomiaAgente::Sugerir || $confianca < $limite) {
+            return $this->resultadoProposta($pendencia, 'sugerida', $autonomia === AutonomiaAgente::Sugerir
+                ? 'O fornecedor está com autonomia "sugerir": aguarda aprovação.'
+                : "Confiança abaixo de {$limite}: aguarda aprovação.");
+        }
+
+        $this->aprovarSugestao($pendencia->fresh(), $agente);
+
+        return $this->resultadoProposta($pendencia, 'executada', 'Vínculo gravado no de-para.');
+    }
+
+    /**
+     * Proposta de produto novo: só executa com autonomia "completa" e
+     * confiança no limite; o produto nasce para revisão.
+     *
+     * @param  array<string, mixed>  $dadosProduto
+     * @return array{pendencia_id: int, situacao: string, motivo: string}
+     *
+     * @throws ValidationException
+     */
+    public function proporNovoProduto(CompraPendencia $pendencia, array $dadosProduto, float $fatorConversao, float $confianca, string $justificativa, ?User $agente = null): array
+    {
+        $this->garantirPendenciaDeItem($pendencia);
+
+        $this->registrarSugestao($pendencia, ['acao' => 'novo_produto', 'produto' => $dadosProduto, 'fator_conversao' => $fatorConversao], $confianca, $justificativa);
+
+        $limite = (float) config('compras.agente.limite_confianca', 0.9);
+        if ($this->autonomia($pendencia) !== AutonomiaAgente::Completa || $confianca < $limite) {
+            return $this->resultadoProposta($pendencia, 'sugerida', 'Produto novo só é cadastrado sozinho com autonomia "completa" e confiança alta: aguarda aprovação.');
+        }
+
+        $this->aprovarSugestao($pendencia->fresh(), $agente);
+
+        return $this->resultadoProposta($pendencia, 'executada', 'Produto cadastrado (pendente de revisão) e vinculado.');
+    }
+
+    /**
+     * Sugestão de lançamento para lançamento ambíguo: sempre aguarda aprovação.
+     *
+     * @return array{pendencia_id: int, situacao: string, motivo: string}
+     *
+     * @throws ValidationException
+     */
+    public function sugerirLancamento(CompraPendencia $pendencia, int $lancamentoId, ?float $confianca, string $justificativa): array
+    {
+        $candidatos = collect($pendencia->dados['candidatos'] ?? [])->pluck('lancamento_id')->map(fn ($id): int => (int) $id);
+
+        if ($pendencia->tipo !== TipoPendenciaCompra::LancamentoAmbiguo || ! $candidatos->contains($lancamentoId)) {
+            throw ValidationException::withMessages(['lancamento_id' => 'Só para pendência de lançamento ambíguo, com um dos lançamentos candidatos.']);
+        }
+
+        $this->registrarSugestao($pendencia, ['acao' => 'lancamento', 'lancamento_id' => $lancamentoId], $confianca, $justificativa);
+
+        return $this->resultadoProposta($pendencia, 'sugerida', 'Lançamentos sempre aguardam aprovação humana.');
+    }
+
+    /** @throws ValidationException */
+    private function garantirPendenciaDeItem(CompraPendencia $pendencia): void
+    {
+        if (! $pendencia->estaEmAberto()
+            || ! in_array($pendencia->tipo, [TipoPendenciaCompra::ProdutoNaoIdentificado, TipoPendenciaCompra::ConversaoUnidade], true)) {
+            throw ValidationException::withMessages(['pendencia_id' => 'Só para pendências em aberto de produto não identificado ou conversão de unidade.']);
+        }
+    }
+
+    private function autonomia(CompraPendencia $pendencia): AutonomiaAgente
+    {
+        return $pendencia->compra?->prestador?->condicaoCompra?->autonomiaAgente() ?? AutonomiaAgente::PADRAO;
+    }
+
+    /** @return array{pendencia_id: int, situacao: string, motivo: string} */
+    private function resultadoProposta(CompraPendencia $pendencia, string $situacao, string $motivo): array
+    {
+        return ['pendencia_id' => $pendencia->id, 'situacao' => $situacao, 'motivo' => $motivo];
     }
 
     /**

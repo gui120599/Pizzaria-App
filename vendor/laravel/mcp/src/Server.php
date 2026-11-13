@@ -7,6 +7,7 @@ namespace Laravel\Mcp;
 use Illuminate\Container\Container;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
+use JsonException;
 use Laravel\Mcp\Enums\ErrorCode;
 use Laravel\Mcp\Enums\Extension;
 use Laravel\Mcp\Enums\MetaKey;
@@ -210,7 +211,11 @@ abstract class Server
                 throw new JsonRpcException('Parse error: Invalid JSON was received by the server.', ErrorCode::PARSE_ERROR->value);
             }
 
-            $request = isset($jsonRequest['id'])
+            if (! is_array($jsonRequest) || ($jsonRequest !== [] && array_is_list($jsonRequest))) {
+                throw new JsonRpcException('Invalid Request: The request must be a JSON object.', ErrorCode::INVALID_REQUEST->value);
+            }
+
+            $request = array_key_exists('id', $jsonRequest)
                 ? JsonRpcRequest::from($jsonRequest)
                 : JsonRpcNotification::from($jsonRequest);
 
@@ -262,11 +267,11 @@ abstract class Server
             supportedProtocolVersions: $this->supportedProtocolVersion ?: ProtocolVersion::serverSupported(),
             serverCapabilities: $this->resolvedCapabilities(),
             implementation: new Implementation(
-                name: $name !== null ? $name->value : $this->name,
-                version: $version !== null ? $version->value : $this->version,
+                name: $name->value ?? $this->name,
+                version: $version->value ?? $this->version,
                 icons: $this->resolvedIcons(),
             ),
-            instructions: $instructions !== null ? $instructions->value : $this->instructions,
+            instructions: $instructions->value ?? $this->instructions,
             maxPaginationLength: $this->maxPaginationLength,
             defaultPaginationLength: $this->defaultPaginationLength,
             tools: $this->tools,
@@ -353,7 +358,23 @@ abstract class Server
             ];
         }
 
-        $this->transport->send($response->toJson());
+        try {
+            $message = $response->toJson();
+        } catch (JsonException $jsonException) {
+            report($jsonException);
+
+            if (! array_key_exists('id', $response->content)) {
+                return;
+            }
+
+            $message = JsonRpcResponse::error(
+                $response->content['id'],
+                ErrorCode::INTERNAL_ERROR->value,
+                config('app.debug', false) ? $jsonException->getMessage() : 'Something went wrong while processing the request.',
+            )->toJson();
+        }
+
+        $this->transport->send($message);
     }
 
     /**

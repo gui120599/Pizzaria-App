@@ -268,3 +268,59 @@ Respostas padrão assumidas (sem objeção): Q6 status derivado, sem coluna nova
 - Usuário técnico "Automação de Compras" (`automacao.compras@sistema.local`, sem papel), criado sob demanda. Motivo: `movimentacao_produtos.mov_user_id` é obrigatório e o agendador roda sem usuário.
 - `prazo_dias_padrao`/`condicao`/`usar_duplicatas_xml` não foram criados: o prazo do fornecedor (`PrazoPagamento`) e a regra "duplicatas prevalecem" já cobrem.
 - Testes em PHPUnit.
+
+---
+
+## 8. Fase 2 — implementada (2026-11-13)
+
+**Telas:**
+- Estoque › **Caixa de entrada de compras**: abas por tipo com contador; ações Resolver (produto + fator), Escolher lançamento, Aprovar sugestão (individual e em lote), Marcar como resolvida e Descartar; widget com o resumo.
+- Financeiro › **Pagamentos a confirmar**: individual com valor editável, ou em lote.
+- Estoque › **Revisão de produtos**: só Admin; produto pendente fica fora do seletor de insumo da ficha.
+
+**Permissões:** `resolver:pendencia_compra` e `confirmar:pagamento_compra` (Gerente, via `PermissionSeeder`); `revisar:produto_automacao` (Admin).
+
+---
+
+## 9. Fase 3 — servidor MCP do agente (2026-11-13)
+
+**Implementação:**
+- `laravel/mcp` ^1.2 e `laravel/passport` ^13.10 em `require`.
+- `symfony/psr-http-message-bridge` fixado na linha 7: a v8 exige PHP 8.4.1 e a produção exige 8.3.
+- O `User` usa o `HasApiTokens` do Passport. O Sanctum continua instalado, mas não tinha uso além da rota padrão `/api/user`.
+- Guard `api` (passport).
+- Servidor `App\Mcp\Servers\ComprasServer` com 9 tools. Nenhuma faz baixa, estorno, parâmetros ou exclusão.
+- Middleware `GarantirAgenteCompras` exige o papel **Agente**. A checagem é pelo papel, não por Gate, porque o Admin passaria pelo `Gate::before`.
+- Toda chamada vai para `storage/logs/agente-compras-*.log`.
+- Rodadas ficam em `agente_execucoes` (Estoque › Agente de compras), com a ação "Revogar acesso do agente".
+
+**Ativação em produção (servidor):**
+1. `git pull` e `php artisan migrate`: tabelas `oauth_*`, `agente_execucoes` e o papel Agente.
+2. `php artisan passport:keys`: gera `storage/oauth-*.key`, que fica fora do Git. Confira a permissão 600.
+3. `php artisan compras:criar-agente`: mostra login e senha do usuário "Agente Compras". Guarde.
+4. `php artisan config:cache`, `route:cache` (se usar) e resetar o OPcache.
+5. Teste: `https://<domínio>/.well-known/oauth-authorization-server` deve responder JSON.
+
+**Cadastrar o conector no Claude** (Configurações › Conectores › Adicionar conector personalizado):
+- Nome: `PizzariaAPP Compras`.
+- URL: `https://<domínio-do-pizzariaapp>/mcp/compras`.
+- Ao conectar, o Claude abre o login do PizzariaAPP: entre com o usuário **Agente Compras** (não com o seu) e clique em **Autorizar**.
+
+**Tarefa agendada** (uma vez por dia, ~9h40; opcional 16h40). Prompt:
+
+> Você é o assistente de compras do Empório da Pizza. Use o conector "PizzariaAPP Compras".
+> 1. Chame `listar_pendencias`.
+> 2. Para cada `produto_nao_identificado` ou `conversao_unidade`:
+>    - consulte `historico_vinculos_fornecedor` (do fornecedor da pendência) e `buscar_produtos` (com palavras da descrição e o EAN, se houver);
+>    - proponha com `propor_vinculo` o produto existente mais provável, com o fator de conversão (1 unidade da nota = X unidades de estoque do produto), confiança honesta de 0 a 1 e justificativa curta;
+>    - na dúvida entre dois produtos, use confiança baixa;
+>    - só use `propor_novo_produto` se nenhum produto existente servir.
+> 3. Para `lancamento_ambiguo`: veja os candidatos em `dados.candidatos` e use `sugerir_lancamento` com o mais provável, explicando o porquê.
+> 4. Não tente resolver outros tipos; apenas cite-os no resumo.
+> 5. Chame `listar_pagamentos_a_confirmar` (7 dias) e termine com `registrar_resumo`, em português e curto, cobrindo:
+>    - pendências tratadas (executadas e sugeridas);
+>    - o que aguarda aprovação;
+>    - pagamentos a confirmar nos próximos 7 dias (quantidade e valor);
+>    - alertas de preço e outros tipos em aberto.
+
+**Recomendação da spec:** deixar todos os fornecedores com autonomia **"sugerir"** por 2 semanas e passar para "vincular" nos que acertarem. **Desligar o agente:** "Revogar acesso do agente" na tela de rodadas.

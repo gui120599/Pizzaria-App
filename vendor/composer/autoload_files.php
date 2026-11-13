@@ -131,6 +131,7 @@ return array(
     '98aea6e41b9cb79b379b10f37ba1f0b7' => $vendorDir . '/sabberworm/php-css-parser/src/RuleSet/RuleContainer.php',
     '2f30183c514e54487278ac3cdc1039cb' => $vendorDir . '/archtechx/helpers/src/helpers.php',
     '3bd81c9b8fcc150b69d8b63b4d2ccf23' => $vendorDir . '/spatie/flare-client-php/src/helpers.php',
+    '5897ea0ac4cccf14d323035e65887801' => $vendorDir . '/symfony/polyfill-php82/bootstrap.php',
     '218061b2b41f65982dff640bd08d0405' => $vendorDir . '/archtechx/money/src/helpers.php',
     '01036e290f39f55e7bf73cfba127c005' => $vendorDir . '/archtechx/money/src/Wireable.php',
     '6124b4c8570aa390c21fafd04a26c69f' => $vendorDir . '/myclabs/deep-copy/src/DeepCopy/deep_copy.php',
