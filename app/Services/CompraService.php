@@ -18,6 +18,7 @@ use App\Models\PlanoDespesa;
 use App\Models\PrestadorCredito;
 use App\Services\Compras\CompraFiscalService;
 use App\Services\Compras\CustoAquisicaoCalculator;
+use App\Services\Compras\PendenciaService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -321,6 +322,38 @@ class CompraService
 
             return $this->criarTitulos($compra, $parcelas, $dados['prazo_pagamento_id'] ?? null);
         });
+    }
+
+    /**
+     * Ao excluir uma compra em rascunho: a importação automática já gera os
+     * títulos no rascunho, então eles são cancelados junto (senão ficariam
+     * em aberto no contas a pagar e, numa reimportação da nota, em dobro) e
+     * as pendências em aberto são descartadas. Título com pagamento barra a
+     * exclusão — estorne o pagamento antes.
+     *
+     * @return bool false quando a exclusão deve ser barrada
+     */
+    public function prepararExclusaoRascunho(Compra $compra): bool
+    {
+        if (! $compra->isRascunho()) {
+            return true;
+        }
+
+        $titulos = $compra->lancamentos()->where('status', '!=', StatusLancamento::Cancelado)->get();
+
+        if ($titulos->contains(fn (Lancamento $titulo): bool => $titulo->pagamentos()->exists())) {
+            return false;
+        }
+
+        DB::transaction(function () use ($compra, $titulos): void {
+            foreach ($titulos as $titulo) {
+                $titulo->forceFill(['status' => StatusLancamento::Cancelado])->save();
+            }
+
+            app(PendenciaService::class)->descartarDaCompra($compra, 'Compra excluída.', auth()->user());
+        });
+
+        return true;
     }
 
     /**

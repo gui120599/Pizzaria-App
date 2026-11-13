@@ -38,7 +38,9 @@ class EditCompra extends EditRecord
                 ->after(fn () => $this->refreshFormData(['compra_data_entrada', 'compra_observacao'])),
             ImprimirDanfeAction::make(),
             DeleteAction::make()
-                ->visible(fn (): bool => $this->record instanceof Compra && $this->record->isRascunho()),
+                ->visible(fn (): bool => $this->record instanceof Compra && $this->record->isRascunho())
+                ->modalDescription('Os títulos a pagar gerados para esta compra serão cancelados junto.')
+                ->failureNotificationTitle('Esta compra tem título com pagamento registrado. Estorne o pagamento antes de excluir.'),
         ];
     }
 

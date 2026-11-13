@@ -9,6 +9,7 @@ use App\Enums\EfeitoEstoqueEnum;
 use App\Enums\OperacaoEntradaEnum;
 use App\Enums\VencimentoOrigemEnum;
 use App\Services\Compras\CustoAquisicaoCalculator;
+use App\Services\CompraService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,19 @@ class Compra extends Model
     use SoftDeletes;
 
     protected $table = 'compras';
+
+    protected static function booted(): void
+    {
+        // Rascunho com título pago não pode ser excluído; o resto é limpo
+        // (títulos cancelados, pendências descartadas) — ver CompraService.
+        static::deleting(function (Compra $compra): ?bool {
+            if ($compra->isForceDeleting()) {
+                return null;
+            }
+
+            return app(CompraService::class)->prepararExclusaoRascunho($compra) ? null : false;
+        });
+    }
 
     protected $fillable = [
         'compra_prestador_id',
