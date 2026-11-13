@@ -35,9 +35,11 @@ use App\Models\SessaoCaixa;
 use App\Models\User;
 use App\Services\Compras\CompraImportacaoService;
 use App\Services\Compras\PendenciaService;
+use App\Services\Nfe\NfeImportService;
 use Filament\Actions\DeleteAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -434,6 +436,107 @@ class ComprasAutomatizadasImportacaoTest extends TestCase
 
         $this->assertNotSoftDeleted($compra);
         $this->assertSame(StatusLancamento::Pago, $compra->lancamentos()->sole()->status);
+    }
+
+    public function test_reprocessar_rascunho_antigo_reconhece_pelo_de_para_atual_paga_e_da_entrada(): void
+    {
+        $stone = ContaFinanceira::factory()->create(['nome' => 'Stone']);
+        $fornecedor = $this->fornecedor(self::CNPJ_PIX, 'Laticínios', [
+            'fcc_forma_pagamento' => FormaPagamento::Pix,
+            'fcc_conta_financeira_id' => $stone->id,
+            'fcc_regra_baixa' => RegraBaixaCompra::AutomaticaNaEmissao,
+            'fcc_entrada_automatica' => true,
+            'fcc_entrada_dias_apos_emissao' => 0,
+        ]);
+        $rascunho = $this->rascunhoAntigo('pix-a-vista');
+        $this->assertSame(2, $rascunho->itens()->whereNull('ci_produto_id')->count());
+        // O de-para foi cadastrado depois da importação antiga.
+        $this->dePara($fornecedor, 'MUS-4KG', $this->insumo('Muçarela'), 4);
+        $this->dePara($fornecedor, 'ORE-1KG', $this->insumo('Orégano'), 1);
+
+        $this->artisan('compras:reprocessar-rascunhos')->assertSuccessful();
+
+        $compra = $rascunho->fresh();
+        $this->assertTrue($compra->compra_importacao_automatica);
+        $this->assertSame('compra', $compra->compra_operacao);
+        $this->assertSame(CompraStatusEnum::CONFIRMADA, $compra->compra_status);
+        $this->assertSame('2026-11-10', $compra->compra_data_entrada->toDateString());
+        $this->assertEquals(4, $compra->itens()->where('ci_codigo_fornecedor', 'MUS-4KG')->sole()->ci_fator_conversao);
+
+        $titulo = $compra->lancamentos()->sole();
+        $this->assertSame(StatusLancamento::Pago, $titulo->status);
+        $this->assertSame('2026-11-10', $titulo->data_pagamento->toDateString());
+
+        // Já automatizado: rodar de novo não pega a compra outra vez.
+        $this->artisan('compras:reprocessar-rascunhos')->expectsOutput('Nenhum rascunho para reprocessar.')->assertSuccessful();
+        $this->assertSame(1, Lancamento::count());
+    }
+
+    public function test_reprocessar_abre_as_pendencias_e_mantem_o_produto_escolhido_a_mao_sem_gravar_de_para(): void
+    {
+        $rascunho = $this->rascunhoAntigo('item-desconhecido');
+        $escolhido = $this->insumo('Catchup sachê');
+        $rascunho->itens()->where('ci_codigo_fornecedor', 'CAT-200')->update(['ci_produto_id' => $escolhido->id, 'ci_fator_conversao' => 200]);
+
+        $compra = app(CompraImportacaoService::class)->reprocessarRascunho($rascunho->fresh());
+
+        $tipos = $compra->pendencias()->emAberto()->get()->map(fn (CompraPendencia $p) => $p->tipo)->all();
+        $this->assertContains(TipoPendenciaCompra::FornecedorSemParametros, $tipos);
+        $this->assertNotContains(TipoPendenciaCompra::FornecedorNovo, $tipos);
+        $this->assertSame(['EMB-35'], $compra->pendencias()->doTipo(TipoPendenciaCompra::ProdutoNaoIdentificado)->with('item')->get()->pluck('item.ci_codigo_fornecedor')->all());
+
+        $catchup = $compra->itens()->where('ci_codigo_fornecedor', 'CAT-200')->sole();
+        $this->assertSame($escolhido->id, $catchup->ci_produto_id);
+        $this->assertEquals(200, $catchup->ci_fator_conversao);
+        $this->assertSame('7891234567895', $catchup->ci_ean);
+        $this->assertSame(0, FornecedorProduto::count());
+
+        $this->assertSame(StatusLancamento::Pendente, $compra->lancamentos()->sole()->status);
+        $this->assertSame(CompraStatusEnum::RASCUNHO, $compra->compra_status);
+    }
+
+    public function test_simular_reprocessamento_nao_grava_nada(): void
+    {
+        $rascunho = $this->rascunhoAntigo('item-desconhecido');
+
+        $this->artisan('compras:reprocessar-rascunhos', ['--simular' => true])
+            ->expectsOutputToContain('SIMULAÇÃO')
+            ->assertSuccessful();
+
+        $this->assertFalse($rascunho->fresh()->compra_importacao_automatica);
+        $this->assertNull($rascunho->fresh()->compra_operacao);
+        $this->assertSame(0, Lancamento::count());
+        $this->assertSame(0, CompraPendencia::count());
+    }
+
+    public function test_compra_ja_confirmada_ou_automatizada_nao_e_reprocessada(): void
+    {
+        $compra = $this->importar('item-desconhecido');
+
+        $this->expectException(ValidationException::class);
+        app(CompraImportacaoService::class)->reprocessarRascunho($compra);
+    }
+
+    /**
+     * Rascunho como o importador deixava antes da automação: sem dados
+     * fiscais (pré 23/10), sem EAN nem de-para nos itens e sem título.
+     */
+    private function rascunhoAntigo(string $fixture): Compra
+    {
+        $compra = app(NfeImportService::class)->importar(
+            file_get_contents(base_path("tests/Fixtures/nfe-entrada/automacao/{$fixture}.xml")),
+            User::factory()->create(['name_first' => 'Operador'])->id,
+        );
+        $compra->forceFill([
+            'compra_operacao' => null,
+            'compra_operacao_confianca' => null,
+            'compra_pagamentos_nf' => null,
+            'compra_duplicatas_nf' => null,
+            'compra_valor_nf' => null,
+        ])->save();
+        $compra->itens()->update(['ci_ean' => null, 'ci_vinculo_id' => null]);
+
+        return $compra->fresh();
     }
 
     private function importar(string $fixture, ?callable $ajuste = null): Compra

@@ -375,3 +375,18 @@ Respostas padrão assumidas (sem objeção): Q6 status derivado, sem coluna nova
 5. **Acompanhar a primeira semana:**
    - débitos "sem correspondência" e "ambíguos" no Extrato bancário;
    - parcelas "por conciliação" vencidas em Pagamentos a confirmar.
+
+---
+
+## 11. Rascunhos importados antes da automação (2026-11-13)
+
+Rascunhos de XML importados pelo fluxo antigo não têm pendências, então o agente não os enxerga. O comando `compras:reprocessar-rascunhos` passa cada um pelo mesmo fluxo de uma nota nova (`CompraImportacaoService::reprocessarRascunho`):
+- dados fiscais que faltarem (rascunhos de antes de 23/10) e colunas novas dos itens (EAN, frete, seguro, outras despesas), a partir do XML guardado;
+- itens sem produto reconhecidos pelo de-para atual; produto escolhido à mão no rascunho é mantido (o de-para dele continua nascendo na confirmação);
+- pendências, custo, contas a pagar e baixa pela regra do fornecedor e, com entrada automática, a confirmação no estoque na data emissão + N dias.
+
+Decisão do usuário: reprocessamento **completo** (com financeiro); os rascunhos não têm títulos.
+
+Uso no servidor: primeiro `php artisan compras:reprocessar-rascunhos --simular` (roda tudo e desfaz), depois sem `--simular`. Opções: `--compra=ID` (repetível), `--fornecedor=ID`, `--limite=N`. Só pega rascunho de XML ainda não automatizado; rodar de novo não repete.
+
+Efeitos a esperar em notas antigas: baixa "na emissão" grava o pagamento na data da emissão; parcelas "no vencimento" já vencidas são baixadas pelo `compras:baixar-vencimentos` das 06:10; a entrada no estoque fica com a data emissão + N dias.
