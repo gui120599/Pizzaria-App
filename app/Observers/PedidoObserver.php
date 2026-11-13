@@ -9,13 +9,21 @@ use App\Models\Pedido;
 use App\Models\Produto;
 use App\Services\ComissaoService;
 use App\Services\EstoqueService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class PedidoObserver
 {
-    // Statuses que indicam que a baixa de estoque já foi realizada
+    /**
+     * Statuses que indicam que a baixa de estoque já foi realizada.
+     *
+     * Mantida como const porque StatusPedidoParidadeTest usa esta lista como
+     * referência e garante que ela não divirja de
+     * StatusPedidoEnum::consomeEstoque() — que é quem o Painel de Pedidos
+     * consulta.
+     */
     private const STATUSES_COM_BAIXA = ['PREPARANDO', 'PRONTO', 'EM TRANSPORTE', 'ENTREGUE', 'FINALIZADO'];
 
     /**
@@ -189,7 +197,7 @@ class PedidoObserver
         return $consumos;
     }
 
-    private function carregarItens(Pedido $pedido): \Illuminate\Database\Eloquent\Collection
+    private function carregarItens(Pedido $pedido): Collection
     {
         return $pedido->item_pedido_pedido_id()
             ->where('item_pedido_status', 'INSERIDO')
