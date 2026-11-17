@@ -109,6 +109,9 @@ class CardapioService
         // Uma regra pode ter N ofertas (o cliente escolhe 1 no modal).
         $regrasAdicionaisAtivas = PromocaoAdicionalRegra::query()
             ->whereHas('promocao', fn ($q) => $q->where('promoad_ativa', true))
+            // Ordem definida no formulário da campanha: é a dos gatilhos na vitrine.
+            ->orderBy('par_ordem')
+            ->orderBy('id')
             ->with(['promocao.opcoesPagamento', 'promocao.categoriaExigida', 'ofertas.produtoOferta.categoria', 'produtoGatilho.categoria'])
             ->get()
             // Teto da campanha esgotado: sai do cardápio, como a relâmpago (comSaldo()).
