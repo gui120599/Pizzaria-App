@@ -4,10 +4,12 @@ namespace App\Services\Garcom;
 
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
+use App\Models\Cliente;
 use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
 use App\Models\User;
 use App\Services\ClienteResolverService;
+use App\Services\FiadoPedidoService;
 use App\Services\PagamentosCombinadosService;
 use App\Services\PedidoStatusService;
 use App\Support\JanelaOperacional;
@@ -52,35 +54,38 @@ class RetiradaService
     /**
      * Envia a retirada para a cozinha (INICIADO → ABERTO), vinculando o cliente.
      * Pagamento opcional: sem nenhuma forma escolhida o cliente paga no
-     * caixa; com forma, a soma precisa bater com o total.
+     * caixa; com forma, a soma precisa bater com o total. Fiado / a prazo
+     * dispensa a forma, mas exige cliente com crédito que cubra o total.
      *
      * @param  ?int  $opcaoEntregaId  opção sem endereço escolhida pelo garçom (null = padrão de retirada)
      * @param  array<int, array{opcaoPagamentoId?: ?int, valor?: ?string, trocoPara?: ?string, pago?: bool}>  $pagamentos
+     * @param  ?int  $clienteId  cliente escolhido na busca por nome (dispensa o celular)
      * @return bool false quando a retirada já tinha sido enviada (reenvio)
      *
      * @throws RuntimeException quando faltam itens, nome/celular ou opção de retirada, ou o pagamento não bate
      */
-    public function enviar(Pedido $rascunho, string $nome, string $celular, ?int $opcaoEntregaId = null, array $pagamentos = []): bool
+    public function enviar(Pedido $rascunho, string $nome, string $celular, ?int $opcaoEntregaId = null, array $pagamentos = [], bool $fiado = false, ?int $clienteId = null): bool
     {
         $nome = trim($nome);
         $digitosCelular = preg_replace('/\D/', '', $celular);
+        $clienteEscolhido = $this->clienteEscolhido($clienteId);
 
         if ($nome === '') {
             throw new RuntimeException('Informe o nome do cliente.');
         }
 
-        if (strlen($digitosCelular) < 10) {
-            throw new RuntimeException('Informe o celular do cliente com DDD.');
+        if (! $clienteEscolhido && strlen($digitosCelular) < 10) {
+            throw new RuntimeException('Informe o celular do cliente com DDD (ou busque um cliente pelo nome).');
         }
 
-        $pagamentos = array_values($pagamentos);
+        $pagamentos = $fiado ? [] : array_values($pagamentos);
         $informouPagamento = collect($pagamentos)->contains(fn (array $p): bool => filled($p['opcaoPagamentoId'] ?? null));
 
         if ($informouPagamento && collect($pagamentos)->contains(fn (array $p): bool => blank($p['opcaoPagamentoId'] ?? null) || blank($p['valor'] ?? null))) {
             throw new RuntimeException('Escolha a forma e informe o valor de cada pagamento (ou deixe sem forma para pagar no caixa).');
         }
 
-        return DB::transaction(function () use ($rascunho, $nome, $digitosCelular, $opcaoEntregaId, $pagamentos, $informouPagamento) {
+        return DB::transaction(function () use ($rascunho, $nome, $digitosCelular, $opcaoEntregaId, $pagamentos, $informouPagamento, $fiado, $clienteEscolhido) {
             $pedido = Pedido::whereKey($rascunho->getKey())->lockForUpdate()->firstOrFail();
 
             if ($pedido->pedido_status !== StatusPedidoEnum::INICIADO->value) {
@@ -94,16 +99,24 @@ class RetiradaService
             }
 
             $opcao = $this->opcaoEntregaRetirada($opcaoEntregaId);
-            $cliente = $this->clientes->resolverOuCriar(['nome' => $nome, 'celular' => $digitosCelular]);
+            $cliente = $clienteEscolhido && strlen($digitosCelular) < 10
+                ? $clienteEscolhido
+                : $this->clientes->resolverOuCriar(['nome' => $nome, 'celular' => $digitosCelular]);
             $totais = TotaisPedido::paraItens($itens, $opcao);
 
             if ($informouPagamento) {
                 $this->exigirSomaDoTotal($pagamentos, $totais['total']);
             }
 
+            if ($fiado) {
+                app(FiadoPedidoService::class)->exigirCredito($cliente, $totais['total']);
+            }
+
             $pedido->fill([
                 'pedido_cliente_id' => $cliente->id,
                 'pedido_opcaoentrega_id' => $opcao->id,
+                'pedido_fiado' => $fiado,
+                'pedido_descricao_pagamento' => $fiado ? FiadoPedidoService::DESCRICAO : $pedido->pedido_descricao_pagamento,
                 'pedido_valor_itens' => $totais['itens'],
                 'pedido_valor_desconto' => $totais['desconto'],
                 'pedido_valor_frete' => $totais['frete'],
@@ -119,6 +132,12 @@ class RetiradaService
 
             return true;
         });
+    }
+
+    /** Cliente escolhido na busca da tela (não avulso), se ainda existir. */
+    private function clienteEscolhido(?int $clienteId): ?Cliente
+    {
+        return $clienteId ? Cliente::naoAvulsos()->find($clienteId) : null;
     }
 
     /**
@@ -143,10 +162,11 @@ class RetiradaService
      * Envia uma ENTREGA para a cozinha: mesma validação do AtenderPedido —
      * cliente com nome e celular, endereço (rua e bairro) para opção que exige
      * endereço e formas de pagamento combinadas somando o total com frete. O
-     * entregador cobra no Painel do Entregador.
+     * entregador cobra no Painel do Entregador. Fiado / a prazo dispensa as
+     * formas, mas exige cliente com crédito que cubra o total com frete.
      *
      * @param  array{clienteId?: ?int, nome?: string, celular?: string, enderecoRua?: string, enderecoNumero?: string, enderecoBairro?: string, enderecoCidade?: string, enderecoUf?: string, enderecoCep?: string}  $cliente
-     * @param  array{opcaoEntregaId?: ?int, pagamentos?: array<int, array{opcaoPagamentoId?: ?int, valor?: ?string, trocoPara?: ?string}>}  $entregaPagamento
+     * @param  array{opcaoEntregaId?: ?int, pagamentos?: array<int, array{opcaoPagamentoId?: ?int, valor?: ?string, trocoPara?: ?string}>, fiado?: bool}  $entregaPagamento
      * @return bool false quando a entrega já tinha sido enviada (reenvio)
      *
      * @throws RuntimeException
@@ -174,13 +194,16 @@ class RetiradaService
             throw new RuntimeException('Informe rua e bairro da entrega.');
         }
 
-        $pagamentos = array_values($entregaPagamento['pagamentos'] ?? []);
+        $fiado = (bool) ($entregaPagamento['fiado'] ?? false);
+        $pagamentos = $fiado ? [] : array_values($entregaPagamento['pagamentos'] ?? []);
 
-        if ($pagamentos === [] || collect($pagamentos)->contains(fn (array $p): bool => blank($p['opcaoPagamentoId'] ?? null) || blank($p['valor'] ?? null))) {
+        if (! $fiado && ($pagamentos === [] || collect($pagamentos)->contains(fn (array $p): bool => blank($p['opcaoPagamentoId'] ?? null) || blank($p['valor'] ?? null)))) {
             throw new RuntimeException('Escolha a forma de pagamento e o valor de cada uma.');
         }
 
-        return DB::transaction(function () use ($rascunho, $cliente, $nome, $digitosCelular, $opcao, $pagamentos) {
+        $clienteEscolhido = $this->clienteEscolhido(filled($cliente['clienteId'] ?? null) ? (int) $cliente['clienteId'] : null);
+
+        return DB::transaction(function () use ($rascunho, $cliente, $nome, $digitosCelular, $opcao, $pagamentos, $fiado, $clienteEscolhido) {
             $pedido = Pedido::whereKey($rascunho->getKey())->lockForUpdate()->firstOrFail();
 
             if ($pedido->pedido_status !== StatusPedidoEnum::INICIADO->value) {
@@ -196,7 +219,7 @@ class RetiradaService
             $totais = TotaisPedido::paraItens($itens, $opcao);
             $somaPagamentos = collect($pagamentos)->sum(fn (array $p): float => PagamentosCombinadosService::valorDigitado($p['valor']));
 
-            if (abs($somaPagamentos - $totais['total']) > 0.01) {
+            if (! $fiado && abs($somaPagamentos - $totais['total']) > 0.01) {
                 throw new RuntimeException(sprintf(
                     'A soma das formas de pagamento (R$ %s) precisa bater com o total com frete (R$ %s).',
                     number_format($somaPagamentos, 2, ',', '.'),
@@ -204,7 +227,9 @@ class RetiradaService
                 ));
             }
 
-            $clienteModel = $this->clientes->resolverOuCriar([
+            // Cliente escolhido na busca e sem celular: usa o cadastro dele em
+            // vez de criar outro só com o nome.
+            $clienteModel = $clienteEscolhido && strlen($digitosCelular) < 10 ? $clienteEscolhido : $this->clientes->resolverOuCriar([
                 'nome' => $nome,
                 'celular' => $digitosCelular !== '' ? $digitosCelular : null,
                 'endereco' => $cliente['enderecoRua'] ?? null,
@@ -215,8 +240,14 @@ class RetiradaService
                 'cep' => $cliente['enderecoCep'] ?? null,
             ]);
 
+            if ($fiado) {
+                app(FiadoPedidoService::class)->exigirCredito($clienteModel, $totais['total']);
+            }
+
             $pedido->fill([
                 'pedido_cliente_id' => $clienteModel->id,
+                'pedido_fiado' => $fiado,
+                'pedido_descricao_pagamento' => $fiado ? FiadoPedidoService::DESCRICAO : $pedido->pedido_descricao_pagamento,
                 'pedido_opcaoentrega_id' => $opcao->id,
                 'pedido_endereco_entrega' => collect([
                     $cliente['enderecoRua'] ?? null,

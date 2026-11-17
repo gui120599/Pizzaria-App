@@ -97,7 +97,9 @@
         </div>
     </div>
 
+    {{-- No body: dentro da coluna lateral (sticky) o modal ficava atrás dos botões "+" do cardápio. --}}
     @if ($buscaModalAberta)
+        @teleport('body')
         <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4"
             x-trap.noscroll="true" wire:click.self="$set('buscaModalAberta', false)">
             <div class="w-full sm:max-w-md bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl p-4 space-y-3">
@@ -124,5 +126,6 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 </div>

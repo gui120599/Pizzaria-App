@@ -49,7 +49,13 @@
 
             {{-- Cliente --}}
             <div class="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
-                <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cliente</h2>
+                <div class="flex items-center justify-between">
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cliente</h2>
+                    <button type="button" wire:click="$set('buscaClienteAberta', true)"
+                            class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
+                        Buscar cliente
+                    </button>
+                </div>
                 <div>
                     <label class="text-xs text-gray-500 dark:text-gray-400" for="retirada-celular">Celular</label>
                     <input id="retirada-celular" type="tel" inputmode="tel" autocomplete="off"
@@ -69,9 +75,44 @@
                 </div>
             </div>
 
+            {{-- Busca por nome ou telefone (mesmo modal da entrega), no body para
+                 ficar à frente do cardápio. --}}
+            @if ($buscaClienteAberta)
+                @teleport('body')
+                <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+                     x-trap.noscroll="true" wire:click.self="$set('buscaClienteAberta', false)">
+                    <div class="w-full sm:max-w-md bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Buscar cliente</h4>
+                            <button type="button" wire:click="$set('buscaClienteAberta', false)" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                <x-heroicon-o-x-mark class="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <input type="text" wire:model.live.debounce.300ms="buscaCliente" placeholder="Nome ou telefone..."
+                               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
+
+                        <div class="max-h-64 overflow-y-auto divide-y divide-gray-100 dark:divide-white/10">
+                            @forelse ($this->resultadosBuscaCliente() as $resultado)
+                                <button type="button" wire:click="selecionarCliente({{ $resultado->id }})"
+                                        class="w-full text-left px-2 py-2 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg">
+                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $resultado->cliente_nome }}</p>
+                                    <p class="text-xs text-gray-400">{{ $resultado->cliente_celular ?? 'sem telefone' }}</p>
+                                </button>
+                            @empty
+                                <p class="text-xs text-gray-400 py-4 text-center">{{ trim($buscaCliente) === '' ? 'Digite o nome ou o telefone.' : 'Nenhum resultado.' }}</p>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+                @endteleport
+            @endif
+
             {{-- Pagamento opcional: sem forma escolhida, o cliente paga no caixa. --}}
             @livewire('entrega-pagamento-picker', ['inicial' => $entregaPagamentoData, 'total' => $this->totaisRetirada()['total'], 'semOpcaoEntrega' => true], key('retirada-pagamento-'.$rascunhoId))
-            <p class="-mt-2 px-1 text-xs text-gray-500 dark:text-gray-400">Opcional: sem forma escolhida, o cliente paga no caixa.</p>
+            @unless ($entregaPagamentoData['fiado'] ?? false)
+                <p class="-mt-2 px-1 text-xs text-gray-500 dark:text-gray-400">Opcional: sem forma escolhida, o cliente paga no caixa.</p>
+            @endunless
 
             @else
                 {{-- Entrega: mesmos componentes do AtenderPedido (cliente com
@@ -210,7 +251,12 @@
                                 @endif
                             </p>
                         @endforeach
-                        <p class="pt-1 text-xs text-gray-500">O entregador leva e cobra pelo Painel do Entregador.</p>
+                        @if ($retirada->pedido_fiado)
+                            <p class="font-medium text-amber-700 dark:text-amber-400">Fiado / a prazo</p>
+                            <p class="pt-1 text-xs text-gray-500">O entregador só leva: não cobra. O caixa fecha a venda como fiado.</p>
+                        @else
+                            <p class="pt-1 text-xs text-gray-500">O entregador leva e cobra pelo Painel do Entregador.</p>
+                        @endif
                     </div>
                 @endif
 
@@ -239,7 +285,12 @@
                     </button>
                 @endif
 
-                @if (! $pago && $status !== \App\Enums\StatusPedidoEnum::CANCELADO && ! $retirada->exigeEntrega())
+                @if ($retirada->pedido_fiado && ! $retirada->exigeEntrega())
+                    <div class="space-y-1 rounded-2xl bg-white p-4 text-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
+                        <p class="font-semibold text-amber-700 dark:text-amber-400">Fiado / a prazo</p>
+                        <p class="text-xs text-gray-500">Sem cobrança na retirada: o caixa fecha a venda deste pedido como fiado.</p>
+                    </div>
+                @elseif (! $pago && $status !== \App\Enums\StatusPedidoEnum::CANCELADO && ! $retirada->exigeEntrega())
                     @livewire('mesa-stone-cobranca', ['pedidoId' => $retirada->id], key('stone-retirada-'.$retirada->id))
 
                     <p class="text-xs text-gray-500 dark:text-gray-400">

@@ -42,12 +42,20 @@ class EntregaPagamentoPicker extends Component
     /** Só as formas de pagamento, sem a opção de entrega (retirada do garçom, que escolhe a opção à parte). */
     public bool $semOpcaoEntrega = false;
 
+    /**
+     * Fiado / a prazo: cliente com crédito leva sem pagar agora. Esconde as
+     * formas (continuam no estado, voltam ao desligar) e quem salva dispensa
+     * o pagamento e confere o limite (FiadoPedidoService).
+     */
+    public bool $fiado = false;
+
     public function mount(array $inicial = [], float $total = 0, bool $somenteComEndereco = false, bool $semOpcaoEntrega = false): void
     {
         $this->somenteComEndereco = $somenteComEndereco;
         $this->semOpcaoEntrega = $semOpcaoEntrega;
         $this->opcaoEntregaId = $inicial['opcaoEntregaId'] ?? null;
         $this->pagamentos = $inicial['pagamentos'] ?? [];
+        $this->fiado = (bool) ($inicial['fiado'] ?? false);
         $this->total = $total;
         $this->ultimoTotalSincronizado = $total;
 
@@ -77,6 +85,12 @@ class EntregaPagamentoPicker extends Component
             $this->pagamentos[] = $this->linhaEmBranco();
         }
 
+        $this->emitirMudanca();
+    }
+
+    public function alternarFiado(): void
+    {
+        $this->fiado = ! $this->fiado;
         $this->emitirMudanca();
     }
 
@@ -225,6 +239,7 @@ class EntregaPagamentoPicker extends Component
         $this->dispatch('pedido-entrega-pagamento-atualizado', dados: [
             'opcaoEntregaId' => $this->opcaoEntregaId,
             'pagamentos' => $this->pagamentos,
+            'fiado' => $this->fiado,
             // O ClientePicker abre o bloco de endereço quando a opção exige.
             'requerEndereco' => (bool) ($this->opcaoEntregaId ? OpcoesEntregas::find($this->opcaoEntregaId)?->opcaoentrega_requer_endereco : false),
         ]);

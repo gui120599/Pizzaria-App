@@ -41,6 +41,7 @@ class Pedido extends Model
         'pedido_venda_id',
         'pedido_descricao_pagamento',
         'pedido_observacao_pagamento',
+        'pedido_fiado',
         'pedido_endereco_entrega',
         'pedido_valor_itens',
         'pedido_valor_desconto',
@@ -77,6 +78,7 @@ class Pedido extends Model
 
     protected $casts = [
         'pedido_origem' => PedidoOrigemEnum::class,
+        'pedido_fiado' => 'boolean',
         'pedido_aprovacao_status' => StatusAprovacaoPedidoEnum::class,
         'pedido_aprovacao_motivos' => AsEnumCollection::class.':'.MotivoAprovacaoMesaEnum::class,
         'pedido_aprovado_em' => 'datetime',
