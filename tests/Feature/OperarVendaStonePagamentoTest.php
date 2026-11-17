@@ -242,7 +242,48 @@ class OperarVendaStonePagamentoTest extends TestCase
             ->assertSet('stoneStatusModal', 'pago')
             ->assertNoRedirect();
 
+        // "Concluir" no modal: a venda segue em tela para lançar o restante.
+        $component->call('fecharModalStone')
+            ->assertSet('modalStoneAberta', false)
+            ->assertSet('vendaId', $this->venda->id)
+            ->assertNoRedirect();
+
         $this->assertSame('INICIADA', $this->venda->fresh()->venda_status);
+    }
+
+    public function test_pagamento_integrado_stone_nao_pode_ser_removido_nem_editado(): void
+    {
+        $this->fakeStoneOk();
+
+        $component = Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('opcaoPagamentoSelecionadaId', $this->opcao->id)
+            ->set('modoRecebimento', 'stone')
+            ->set('stoneMaquininhaId', $this->maquininha->id)
+            ->set('valorPagamento', 5.00)
+            ->call('registrarPagamento');
+
+        $pedido = StonePedido::sole();
+
+        $this->postJson('/api/webhook/stone-connect', [
+            'id' => 'hook_3',
+            'type' => 'charge.paid',
+            'data' => [
+                'id' => 'ch_3', 'code' => '997', 'amount' => 500, 'paid_amount' => 500, 'status' => 'paid',
+                'order' => ['id' => $pedido->stp_order_id, 'code' => $pedido->stp_order_code],
+                'metadata' => ['authorization_code' => 'A3'],
+            ],
+        ])->assertOk();
+
+        $pagamento = PagamentosVenda::where('pg_venda_venda_id', $this->venda->id)->sole();
+
+        $component->call('removerPagamento', $pagamento->id)
+            ->assertNotified()
+            ->call('editarPagamento', $pagamento->id)
+            ->assertSet('modalPagamentoAberta', false)
+            ->assertSet('pagamentoEmEdicaoId', null);
+
+        $this->assertModelExists($pagamento);
+        $this->assertEquals(5.00, (float) $this->venda->fresh()->venda_valor_pago);
     }
 
     public function test_cancelar_cobranca_stone_marca_pedido_como_cancelado(): void
