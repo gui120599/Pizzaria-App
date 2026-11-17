@@ -1932,8 +1932,11 @@ class OperarVenda extends Page
 
         $this->recarregarPagamentos();
 
-        if ($pago) {
-            $this->redirect(static::getUrl());
+        // Pagamento parcial: a venda segue em tela para o caixa lançar o
+        // restante. Só sai para a próxima venda pelo caminho da finalização
+        // (NFC-e automática e redirect), nunca por um redirect solto.
+        if ($pago && $this->vendaQuitada()) {
+            $this->finalizarVenda();
         }
     }
 
@@ -1967,6 +1970,12 @@ class OperarVenda extends Page
     {
         $pagamento = PagamentosVenda::find($pagamentoId);
         if (! $pagamento) {
+            return;
+        }
+
+        if ($pagamento->pg_venda_tipo_integracao === 'integrated') {
+            Notification::make()->title('Pagamento da maquininha Stone não se edita')->body('O valor e a forma vêm da maquininha. Para desfazer, estorne na Stone.')->warning()->send();
+
             return;
         }
 
@@ -2236,6 +2245,12 @@ class OperarVenda extends Page
     {
         $pagamento = PagamentosVenda::find($pagamentoId);
         if (! $pagamento) {
+            return;
+        }
+
+        if ($pagamento->pg_venda_tipo_integracao === 'integrated') {
+            Notification::make()->title('Pagamento da maquininha Stone não pode ser excluído')->body('O valor já foi recebido na maquininha. Para desfazer, estorne na Stone.')->warning()->send();
+
             return;
         }
 

@@ -504,12 +504,16 @@
                             </span>
                             <div class="flex items-center gap-3">
                                 <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">R$ {{ number_format((float) $pagamento->pg_venda_valor_pagamento, 2, ',', '.') }}</span>
-                                <button wire:click="editarPagamento({{ $pagamento->id }})" type="button" class="text-gray-400 dark:text-gray-500 hover:text-primary-600 dark:hover:text-primary-400">
-                                    <x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4" />
-                                </button>
-                                <button wire:click="removerPagamento({{ $pagamento->id }})" type="button" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400">
-                                    <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4" />
-                                </button>
+                                @if ($pagamento->pg_venda_tipo_integracao === 'integrated')
+                                    <span title="Recebido na maquininha Stone. Para desfazer, estorne na Stone." class="inline-flex rounded bg-success-50 px-1.5 py-0.5 text-[10px] font-medium text-success-700 dark:bg-success-500/10 dark:text-success-400">Stone · confirmado</span>
+                                @else
+                                    <button wire:click="editarPagamento({{ $pagamento->id }})" type="button" class="text-gray-400 dark:text-gray-500 hover:text-primary-600 dark:hover:text-primary-400">
+                                        <x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4" />
+                                    </button>
+                                    <button wire:click="removerPagamento({{ $pagamento->id }})" type="button" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400">
+                                        <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4" />
+                                    </button>
+                                @endif
                             </div>
                         </div>
                     @empty
