@@ -653,10 +653,14 @@
                     const adicionais = sel
                         .map(s => _adicionaisProdutos[s.id] ?? [])
                         .reduce((comuns, doSabor) => comuns.filter(a => doSabor.some(b => b.id === a.id)));
-                    // Só pizza inteira (1 sabor) participa da promoção adicional —
-                    // meia a meia/terços ficam fora do escopo (mesma regra do servidor).
+                    // Pizza inteira participa da promoção adicional; meia a meia/
+                    // terços só quando todos os sabores são gatilho da mesma
+                    // campanha e ela vale para meia a meia (mesma regra do servidor).
+                    const promos = sel.map(s => _promocoesAdicionais[s.id]);
+                    const comboComOferta = sel.length > 1
+                        && promos.every(p => p && p.aplicaFracionado && p.promocaoId === promos[0].promocaoId);
                     const seguir = (item) => {
-                        if (sel.length === 1) {
+                        if (sel.length === 1 || comboComOferta) {
                             this.adicionarOuOferecer(item);
                         } else {
                             this.items.push(item);

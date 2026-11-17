@@ -27,7 +27,8 @@ final class ItemSolicitado
 
     /**
      * Linha do carrinho do cardápio público (delivery e mesa), já validada no
-     * formato. Um sabor só é item comum; a oferta não vale na pizza de sabores.
+     * formato. Um sabor só é item comum. Na pizza de sabores a oferta só vale
+     * se a campanha aceitar (ver PrecificadorService::regraOfertaDoCombo()).
      *
      * @param  array{id: int|string, qty: int|string, sabores?: ?array<int, array{id: int|string}>, adicionais?: ?array<int, int|string>, observacao?: ?string, oferta_produto_id?: int|string|null, respostas?: ?array<int|string, array<int, int|string>>}  $item
      */
@@ -42,7 +43,7 @@ final class ItemSolicitado
             saboresIds: $ehMultiSabor ? $sabores : [],
             adicionaisIds: array_map('intval', $item['adicionais'] ?? []),
             observacao: $item['observacao'] ?? null,
-            ofertaProdutoId: ! $ehMultiSabor && ! empty($item['oferta_produto_id']) ? (int) $item['oferta_produto_id'] : null,
+            ofertaProdutoId: ! empty($item['oferta_produto_id']) ? (int) $item['oferta_produto_id'] : null,
             respostas: collect($item['respostas'] ?? [])
                 ->mapWithKeys(fn ($opcoes, $perguntaId) => [(int) $perguntaId => array_map('intval', (array) $opcoes)])
                 ->all(),

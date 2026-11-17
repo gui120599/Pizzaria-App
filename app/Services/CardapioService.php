@@ -129,6 +129,9 @@ class CardapioService
                 $regra->par_produto_gatilho_id => [
                     'regraId' => $regra->id,
                     'promocaoId' => $regra->par_promocao_id,
+                    // Pizza de sabores ganha a oferta se todos os sabores forem
+                    // gatilho desta campanha e ela valer para meia a meia.
+                    'aplicaFracionado' => (bool) $regra->promocao->promoad_aplica_fracionado,
                     // null = sem exigência; senão, ids dos produtos da categoria exigida.
                     'produtosExigidos' => $produtosExigidos[$regra->par_promocao_id] ?? null,
                     'categoriaExigida' => $regra->promocao->categoriaExigida?->categoria_nome,
