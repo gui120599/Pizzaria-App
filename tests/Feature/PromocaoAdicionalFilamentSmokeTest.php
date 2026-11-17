@@ -331,6 +331,12 @@ class PromocaoAdicionalFilamentSmokeTest extends TestCase
         $this->assertNull($regras[$frango->id]->par_qtd_maxima_por_pedido);
         $this->assertCount(2, $regras[$portuguesa->id]->ofertas);
 
+        // Regras novas entram depois das existentes, na ordem da categoria.
+        $this->assertSame(
+            [$calabresa->id, $frango->id, $portuguesa->id],
+            $promocao->regras()->whereIn('par_produto_gatilho_id', [$calabresa->id, $frango->id, $portuguesa->id])->orderBy('par_ordem')->pluck('par_produto_gatilho_id')->all(),
+        );
+
         // Gatilho existente: ganha só o brotinho; o refri e o limite não mudam.
         $ofertasCalabresa = $regras[$calabresa->id]->ofertas->keyBy('pao_produto_oferta_id');
         $this->assertCount(2, $ofertasCalabresa);
@@ -403,5 +409,31 @@ class PromocaoAdicionalFilamentSmokeTest extends TestCase
                 (string) $action->getModalDescription(),
                 '1 brinde(s) já concedido(s) perdem o vínculo com a promoção',
             ));
+    }
+
+    public function test_ordem_das_regras_no_formulario_e_gravada(): void
+    {
+        $portuguesa = $this->produto('Portuguesa', 64.90);
+        $calabresa = $this->produto('Calabresa', 59.90);
+        $refri = $this->produto('Guaraná Kuat 2L', 12.00);
+        $oferta = [['pao_produto_oferta_id' => $refri->id, 'pao_valor_adicional' => '0']];
+
+        Livewire::test(CreatePromocaoAdicional::class)
+            ->fillForm([
+                'promoad_nome' => 'Pizza + Kuat',
+                'promoad_inicio' => now()->subHour()->format('Y-m-d H:i:s'),
+                'promoad_fim' => now()->addHour()->format('Y-m-d H:i:s'),
+                'regras' => [
+                    ['par_produto_gatilho_id' => $portuguesa->id, 'ofertas' => $oferta],
+                    ['par_produto_gatilho_id' => $calabresa->id, 'ofertas' => $oferta],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $ordem = PromocaoAdicional::where('promoad_nome', 'Pizza + Kuat')->sole()
+            ->regras()->pluck('par_ordem', 'par_produto_gatilho_id')->all();
+
+        $this->assertSame([$portuguesa->id => 1, $calabresa->id => 2], $ordem);
     }
 }

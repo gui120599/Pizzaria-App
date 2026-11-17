@@ -189,4 +189,26 @@ class CardapioPromocaoAdicionalViewTest extends TestCase
 
         $this->assertSame([$pix->id], $entrada['opcoesPagamentoPermitidas']);
     }
+
+    public function test_vitrine_da_campanha_mostra_os_gatilhos_na_ordem_definida(): void
+    {
+        $promocao = $this->regra();
+        $promocao->regras()->update(['par_ordem' => 3]);
+        $frango = Produto::create([
+            'produto_descricao' => 'Frango',
+            'produto_categoria_id' => $this->categoria->id,
+            'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value,
+            'produto_preco_venda' => 62.90,
+            'produto_cardapio' => true,
+        ]);
+        $promocao->regras()->create(['par_produto_gatilho_id' => $frango->id, 'par_ordem' => 1])
+            ->ofertas()->create(['pao_produto_oferta_id' => $this->brotinho->id, 'pao_valor_adicional' => 5.00]);
+
+        $campanha = $this->get(route('cardapio'))->assertOk()->viewData('campanhasAdicionaisAtivas')->sole();
+
+        $this->assertSame(
+            [$frango->id, $this->pizza->id],
+            $campanha['produtos']->map(fn (array $item) => $item['produto']->id)->all(),
+        );
+    }
 }

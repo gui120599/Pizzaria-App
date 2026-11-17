@@ -25,12 +25,14 @@ class PromocaoAdicionalRegra extends Model
         'par_produto_gatilho_id',
         'par_preco_gatilho_override',
         'par_qtd_maxima_por_pedido',
+        'par_ordem',
     ];
 
     protected function casts(): array
     {
         return [
             'par_qtd_maxima_por_pedido' => 'integer',
+            'par_ordem' => 'integer',
         ];
     }
 

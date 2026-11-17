@@ -154,7 +154,7 @@ class PromocaoAdicionalForm
                 ]),
 
             Section::make('Regras (produto gatilho → ofertas)')
-                ->description('Cada regra é um produto-gatilho da campanha. Dentro dela, cadastre as opções de produto que podem ser oferecidas — o cliente escolhe 1 dentre elas.')
+                ->description('Cada regra é um produto-gatilho da campanha. Dentro dela, cadastre as opções de produto que podem ser oferecidas — o cliente escolhe 1 dentre elas. Arraste (ou use as setas) para definir a ordem dos gatilhos no cardápio.')
                 ->columnSpanFull()
                 ->collapsible()
                 ->schema([
@@ -169,6 +169,9 @@ class PromocaoAdicionalForm
                         // e mostra no título o gatilho e quantas ofertas tem.
                         ->collapsible()
                         ->collapsed(fn (string $operation): bool => $operation === 'edit')
+                        // A ordem das regras é a ordem dos gatilhos no cardápio.
+                        ->orderColumn('par_ordem')
+                        ->reorderableWithButtons()
                         ->itemLabel(fn (array $state): string => self::tituloDaRegra($state))
                         ->schema([
                             Select::make('par_produto_gatilho_id')

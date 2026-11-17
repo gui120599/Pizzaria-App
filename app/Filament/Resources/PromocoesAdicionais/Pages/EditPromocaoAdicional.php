@@ -179,10 +179,15 @@ class EditPromocaoAdicional extends EditRecord
             ->unique('pao_produto_oferta_id')
             ->values();
 
-        $produtos = Produto::where('produto_categoria_id', $data['categoria_id'])->pluck('id');
+        // Mesma ordem da categoria no cardápio; as regras novas entram no fim.
+        $produtos = Produto::where('produto_categoria_id', $data['categoria_id'])
+            ->orderBy('produto_ordem')
+            ->orderBy('produto_descricao')
+            ->pluck('id');
+        $ordem = (int) $promocao->regras()->max('par_ordem');
         $existentes = $promocao->regras()->with('ofertas')->get()->keyBy('par_produto_gatilho_id');
 
-        return DB::transaction(function () use ($promocao, $produtos, $existentes, $ofertas, $data): array {
+        return DB::transaction(function () use ($promocao, $produtos, $existentes, $ofertas, $data, &$ordem): array {
             $contagem = ['regras' => 0, 'ofertas' => 0];
 
             foreach ($produtos as $produtoId) {
@@ -192,6 +197,7 @@ class EditPromocaoAdicional extends EditRecord
                     $regra = $promocao->regras()->create([
                         'par_produto_gatilho_id' => $produtoId,
                         'par_qtd_maxima_por_pedido' => filled($data['qtd_maxima_por_pedido'] ?? null) ? (int) $data['qtd_maxima_por_pedido'] : null,
+                        'par_ordem' => ++$ordem,
                     ]);
                     $contagem['regras']++;
                 }
