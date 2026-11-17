@@ -10,6 +10,7 @@ use App\Exceptions\CupomInvalidoException;
 use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\ItemIndisponivelException;
 use App\Exceptions\PerguntaNaoRespondidaException;
+use App\Exceptions\PromocaoAdicionalEsgotadaException;
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\Cliente;
 use App\Models\HorarioFuncionamento;
@@ -246,6 +247,17 @@ class CardapioCheckoutController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        // Brinde pedido pelo cliente que já não está disponível (teto da
+        // campanha ou da oferta acabou enquanto ele montava o carrinho): o
+        // item segue sem o brinde e o cliente fica sabendo. índice => aviso.
+        $semBrinde = [];
+
+        foreach ($linhas as $indice => $linha) {
+            if (! empty($request->itens[$indice]['oferta_produto_id']) && ! $linha->oferta) {
+                $semBrinde[$indice] = "O brinde de {$linha->produto->produto_descricao} não está mais disponível e não foi incluído.";
+            }
+        }
+
         // Busca ou cria o cliente
         $cliente = $clienteResolver->resolverOuCriar([
             'nome' => $request->nome,
@@ -304,7 +316,8 @@ class CardapioCheckoutController extends Controller
             $pedido = DB::transaction(function () use (
                 $linhas, $lancamento, $request, $cliente, $descricaoPagamento,
                 $observacaoPagamento, $totalBruto, $totalDesconto, $valorFrete, $somaLiquido,
-                $cupomAplicado, $valorDescontoCupom, $cupomService, $cupomPedidoService, $opcaoEntrega, $influenciadorRefId
+                $cupomAplicado, $valorDescontoCupom, $cupomService, $cupomPedidoService, $opcaoEntrega, $influenciadorRefId,
+                &$semBrinde
             ) {
                 if ($cupomAplicado) {
                     $cupomService->consumir($cupomAplicado, $somaLiquido, $cliente);
@@ -328,16 +341,37 @@ class CardapioCheckoutController extends Controller
                     'pedido_datahora_abertura' => now(),
                 ]);
 
-                foreach ($linhas as $linha) {
+                // Concessão parcial: se o teto da campanha acabar no meio do
+                // pedido (ex.: restava 1 brinde e vieram 2 pizzas), as primeiras
+                // linhas levam o brinde e as demais seguem sem ele, anotado no item.
+                $valorBrindesNaoConcedidos = 0.0;
+
+                foreach ($linhas as $indice => $linha) {
                     $item = $lancamento->gravar($pedido->id, $linha);
-                    $lancamento->gravarOferta($pedido->id, $item, $linha);
+
+                    try {
+                        $lancamento->gravarOferta($pedido->id, $item, $linha);
+                    } catch (PromocaoAdicionalEsgotadaException $e) {
+                        $semBrinde[$indice] = $e->getMessage();
+                        $valorBrindesNaoConcedidos += (float) $linha->oferta?->pao_valor_adicional;
+                    }
+
+                    if (isset($semBrinde[$indice])) {
+                        $item->update([
+                            'item_pedido_observacao' => trim(($item->item_pedido_observacao ? $item->item_pedido_observacao.' | ' : '').'SEM BRINDE: '.$semBrinde[$indice]),
+                        ]);
+                    }
                 }
 
                 if ($cupomAplicado) {
                     // O desconto vai para as linhas e o total passa a vir delas (a regra do
                     // frete mínimo olha o líquido já com o cupom).
                     $cupomPedidoService->aplicar($pedido, $cupomAplicado);
+                }
 
+                // Brinde pago que não foi concedido já estava no total calculado
+                // antes da transação: o total passa a vir das linhas gravadas.
+                if ($cupomAplicado || $valorBrindesNaoConcedidos > 0) {
                     $totais = TotaisPedido::paraItens(
                         $pedido->item_pedido_pedido_id()->where('item_pedido_status', 'INSERIDO')->get(),
                         $opcaoEntrega,
@@ -371,8 +405,12 @@ class CardapioCheckoutController extends Controller
             'pedido_id' => $pedido->id,
             'link_acompanhamento' => $pedido->linkAcompanhamento(),
             'cliente_id' => $cliente->id,
-            'total_bruto' => $cupomAplicado ? (float) $pedido->pedido_valor_itens : $totalBruto,
-            'total_desconto' => $cupomAplicado ? (float) $pedido->pedido_valor_desconto : $totalDesconto,
+            // Com brinde não concedido, o pedido pode ter sido recalculado.
+            'total_bruto' => $cupomAplicado || $semBrinde !== [] ? (float) $pedido->pedido_valor_itens : $totalBruto,
+            'total_desconto' => $cupomAplicado || $semBrinde !== [] ? (float) $pedido->pedido_valor_desconto : $totalDesconto,
+            // Itens (índice do carrinho) que seguiram sem o brinde, e por quê.
+            'itens_sem_brinde' => array_keys($semBrinde),
+            'avisos' => array_values(array_unique($semBrinde)),
             'valor_desconto_cupom' => (float) $pedido->pedido_valor_desconto_cupom,
             'valor_frete' => (float) $pedido->pedido_valor_frete,
             'total_final' => (float) $pedido->pedido_valor_total,

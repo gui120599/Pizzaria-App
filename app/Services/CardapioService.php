@@ -111,7 +111,8 @@ class CardapioService
             ->whereHas('promocao', fn ($q) => $q->where('promoad_ativa', true))
             ->with(['promocao.opcoesPagamento', 'promocao.categoriaExigida', 'ofertas.produtoOferta.categoria', 'produtoGatilho.categoria'])
             ->get()
-            ->filter(fn (PromocaoAdicionalRegra $regra) => $regra->promocao->vigente())
+            // Teto da campanha esgotado: sai do cardápio, como a relâmpago (comSaldo()).
+            ->filter(fn (PromocaoAdicionalRegra $regra) => $regra->promocao->vigente() && ! $regra->promocao->esgotada())
             // Na mesa (QR) não entra campanha restrita a delivery/retirada.
             ->reject(fn (PromocaoAdicionalRegra $regra) => $mesa && $regra->promocao->restringeEntrega());
 
@@ -172,6 +173,8 @@ class CardapioService
                 return [
                     'nome' => $promocao->promoad_nome,
                     'descricao' => $promocao->promoad_descricao,
+                    // Brindes restantes no teto da campanha; null = sem limite (não exibe).
+                    'saldo' => $promocao->saldoDisponivel(),
                     'produtos' => $exigidos->isNotEmpty() ? $exigidos->values() : $regras
                         ->map(fn (PromocaoAdicionalRegra $regra) => [
                             'produto' => $regra->produtoGatilho,

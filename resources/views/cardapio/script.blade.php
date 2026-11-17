@@ -848,11 +848,16 @@
                             return;
                         }
 
+                        // Brinde que o servidor não concedeu (promoção esgotou no
+                        // caminho) sai da mensagem; o aviso vai junto.
+                        const semBrinde = data.itens_sem_brinde ?? [];
+                        const avisos    = data.avisos ?? [];
+
                         // Abre WhatsApp com a mensagem + número do pedido
                         const tel     = '5564981380071';
                         const opcao   = _opcoesEntregas.find(o => o.id === this.form.opcaoEntregaId);
                         let msg = `Olá! Gostaria de confirmar meu pedido *#${data.pedido_id}*:\n\n`;
-                        this.items.forEach(i => {
+                        this.items.map((i, indice) => semBrinde.includes(indice) ? { ...i, oferta: null } : i).forEach(i => {
                             const precoExib = (i.precoOriginal ?? i.preco);
                             const sub = (precoExib * i.qty).toFixed(2).replace('.', ',');
                             msg += `• ${i.qty}x ${i.nome} — R$${sub}\n`;
@@ -863,6 +868,8 @@
                                 msg += `  🎉 Promoção: ${i.oferta.nomeExibicao} — ${subOferta}\n`;
                             }
                         });
+                        avisos.forEach(a => { msg += `\n⚠️ ${a}`; });
+                        if (avisos.length) msg += '\n';
                         if (data.total_desconto > 0)
                             msg += `\nDesconto: -R$${data.total_desconto.toFixed(2).replace('.', ',')}`;
                         if (this.cupom.aplicado && data.valor_desconto_cupom > 0)
@@ -890,6 +897,7 @@
                             recebimento:  opcao?.nome ?? '',
                             linkWhatsapp,
                             linkAcompanhar: data.link_acompanhamento,
+                            avisos,
                         };
 
                         // Limpa tudo
