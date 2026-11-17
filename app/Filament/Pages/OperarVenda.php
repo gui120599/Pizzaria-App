@@ -983,10 +983,33 @@ class OperarVenda extends Page
         );
 
         app(VendaService::class)->atualizarValoresdaVenda($this->vendaId);
+        $this->marcarFiadoSePedidoFiado($itens->pluck('item_pedido_pedido_id')->unique());
         $this->lancarPagamentosDosPedidos($itens->pluck('item_pedido_pedido_id')->unique());
         $this->limparCachesDoCarrinho();
 
         return $itens->count();
+    }
+
+    /**
+     * Pedido combinado como fiado / a prazo no atendimento (pedido_fiado): a
+     * venda já abre como fiado. O caixa ainda pode desmarcar se o cliente
+     * resolver pagar; o limite é revalidado na finalização.
+     *
+     * @param  Collection<int, int>  $pedidoIds
+     */
+    private function marcarFiadoSePedidoFiado(Collection $pedidoIds): void
+    {
+        if ($this->vendaFiado || ! Pedido::whereIn('id', $pedidoIds->filter())->where('pedido_fiado', true)->exists()) {
+            return;
+        }
+
+        $this->vendaFiado = true;
+
+        Notification::make()
+            ->title('Pedido fiado / a prazo')
+            ->body('A venda foi marcada como fiado: o saldo vira título a receber do cliente ao finalizar.')
+            ->info()
+            ->send();
     }
 
     /**

@@ -29,7 +29,11 @@
                 <div class="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-left space-y-2">
                     <p class="font-semibold text-gray-800">{{ $pedido->cliente?->cliente_nome ?? 'Cliente não identificado' }}</p>
                     <p class="text-gray-600 text-sm">{{ $pedido->pedido_endereco_entrega ?? '—' }}</p>
-                    <p class="font-bold text-gray-900">Total a cobrar: R$ {{ number_format($pedido->pedido_valor_total, 2, ',', '.') }}</p>
+                    @if ($pedido->pedido_fiado)
+                        <p class="font-bold text-gray-900">Fiado / a prazo — não cobrar (total R$ {{ number_format($pedido->pedido_valor_total, 2, ',', '.') }})</p>
+                    @else
+                        <p class="font-bold text-gray-900">Total a cobrar: R$ {{ number_format($pedido->pedido_valor_total, 2, ',', '.') }}</p>
+                    @endif
                 </div>
 
                 <form method="POST" action="{{ route('entregador.scan.confirmar', $pedido) }}" class="w-full">

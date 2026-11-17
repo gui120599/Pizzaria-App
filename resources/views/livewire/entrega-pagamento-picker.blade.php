@@ -19,6 +19,22 @@
     </div>
     @endif
 
+    {{-- Fiado / a prazo: cliente com limite de crédito leva sem pagar agora. --}}
+    <button type="button" wire:click="alternarFiado"
+        @class([
+            'w-full flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition',
+            'border-amber-200 bg-amber-50 text-amber-700 dark:border-white/10 dark:bg-amber-500/10 dark:text-amber-400' => $fiado,
+            'border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5' => ! $fiado,
+        ])>
+        <x-heroicon-o-banknotes class="h-4 w-4" />
+        {{ $fiado ? 'Fiado / a prazo — toque para voltar a combinar pagamento' : 'Fiado / a prazo (cliente com crédito)' }}
+    </button>
+
+    @if ($fiado)
+        <p class="text-xs text-amber-700 dark:text-amber-400">
+            Sem forma de pagamento agora: o caixa fecha a venda deste pedido como fiado e o saldo vira título a receber. Exige cliente com limite de crédito que cubra o total.
+        </p>
+    @else
     <div class="space-y-2">
         <div class="flex items-center justify-between">
             <label class="text-xs text-gray-500 dark:text-gray-400">Forma(s) de pagamento combinada(s)</label>
@@ -76,4 +92,5 @@
             </div>
         @endforeach
     </div>
+    @endif
 </div>

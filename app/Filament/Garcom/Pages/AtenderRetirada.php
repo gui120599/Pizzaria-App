@@ -61,6 +61,13 @@ class AtenderRetirada extends Page
 
     public bool $clienteEncontrado = false;
 
+    /** Cliente escolhido na busca por nome (pode não ter celular). */
+    public ?int $clienteId = null;
+
+    public bool $buscaClienteAberta = false;
+
+    public string $buscaCliente = '';
+
     public bool $prontoAvisado = false;
 
     /** 'retirada' | 'entrega' — só no modo de montagem. */
@@ -137,17 +144,60 @@ class AtenderRetirada extends Page
         $digitos = preg_replace('/\D/', '', $this->celular);
 
         if (strlen($digitos) < 10) {
-            $this->clienteEncontrado = false;
+            $this->clienteEncontrado = $this->clienteId !== null;
 
             return;
         }
 
         $cliente = Cliente::where('cliente_celular', 'like', "%{$digitos}%")->first();
         $this->clienteEncontrado = $cliente !== null;
+        $this->clienteId = $cliente?->id;
 
         if ($cliente) {
             $this->nome = (string) $cliente->cliente_nome;
         }
+    }
+
+    /**
+     * Busca por nome ou telefone, como o "Buscar cliente" da entrega
+     * (ClientePicker).
+     *
+     * @return Collection<int, Cliente>
+     */
+    public function resultadosBuscaCliente(): Collection
+    {
+        $termo = trim($this->buscaCliente);
+
+        if ($termo === '') {
+            return collect();
+        }
+
+        $digitos = preg_replace('/\D/', '', $termo) ?? '';
+
+        return Cliente::query()
+            ->naoAvulsos()
+            ->where(fn ($q) => $q
+                ->where('cliente_nome', 'like', "%{$termo}%")
+                ->when($digitos !== '', fn ($q) => $q->orWhere('cliente_celular', 'like', "%{$digitos}%")))
+            ->orderBy('cliente_nome')
+            ->limit(10)
+            ->get(['id', 'cliente_nome', 'cliente_celular']);
+    }
+
+    public function selecionarCliente(int $clienteId): void
+    {
+        $cliente = Cliente::naoAvulsos()->find($clienteId);
+
+        if (! $cliente) {
+            return;
+        }
+
+        $this->clienteId = $cliente->id;
+        $this->nome = (string) $cliente->cliente_nome;
+        $this->celular = (string) ($cliente->cliente_celular ?? '');
+        $this->clienteEncontrado = true;
+        $this->buscaClienteAberta = false;
+        $this->buscaCliente = '';
     }
 
     /** @return Collection<int, OpcoesEntregas> */
@@ -221,7 +271,15 @@ class AtenderRetirada extends Page
             $rascunho = Pedido::findOrFail($this->rascunhoId);
             $enviada = $this->tipo === 'entrega'
                 ? app(RetiradaService::class)->enviarEntrega($rascunho, $this->clienteData, $this->entregaPagamentoData)
-                : app(RetiradaService::class)->enviar($rascunho, $this->nome, $this->celular, $this->opcaoRetiradaId, $this->entregaPagamentoData['pagamentos'] ?? []);
+                : app(RetiradaService::class)->enviar(
+                    $rascunho,
+                    $this->nome,
+                    $this->celular,
+                    $this->opcaoRetiradaId,
+                    $this->entregaPagamentoData['pagamentos'] ?? [],
+                    (bool) ($this->entregaPagamentoData['fiado'] ?? false),
+                    $this->clienteId,
+                );
         } catch (RuntimeException $e) {
             Notification::make()->title($e->getMessage())->warning()->send();
 

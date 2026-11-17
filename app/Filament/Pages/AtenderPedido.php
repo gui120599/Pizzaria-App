@@ -9,6 +9,7 @@ use App\Enums\StonePedidoModo;
 use App\Enums\StonePedidoStatus;
 use App\Enums\TipoAtendimentoEnum;
 use App\Exceptions\CupomInvalidoException;
+use App\Exceptions\FiadoNaoPermitidoException;
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Exceptions\StoneConnectException;
 use App\Exceptions\StoneResultadoDesconhecidoException;
@@ -33,6 +34,7 @@ use App\Services\CortesiaService;
 use App\Services\CupomPedidoService;
 use App\Services\CupomService;
 use App\Services\EstoqueService;
+use App\Services\FiadoPedidoService;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
 use App\Services\PagamentosCombinadosService;
@@ -256,6 +258,7 @@ class AtenderPedido extends Page
                 'pago' => $p->pg_pedido_pago,
                 'pagoInfo' => $p->pg_pedido_pago ? $this->descreverConfirmacao($p) : null,
             ])->all(),
+            'fiado' => (bool) $pedido->pedido_fiado,
         ];
 
         $this->estadoSalvo = $this->impressaoDoFormulario();
@@ -528,7 +531,7 @@ class AtenderPedido extends Page
     #[Computed]
     public function pagamentoDivergente(): bool
     {
-        if (! $this->pedidoId || $this->somenteLeitura) {
+        if (! $this->pedidoId || $this->somenteLeitura || ($this->entregaPagamentoData['fiado'] ?? false)) {
             return false;
         }
 
@@ -580,8 +583,24 @@ class AtenderPedido extends Page
             return null;
         }
 
-        $pagamentos = $this->entregaPagamentoData['pagamentos'] ?? [];
-        if (empty($pagamentos) || collect($pagamentos)->contains(fn (array $p): bool => blank($p['opcaoPagamentoId'] ?? null) || blank($p['valor'] ?? null))) {
+        // Fiado / a prazo: sem forma de pagamento agora; o limite de crédito do
+        // cliente é conferido dentro da transação, depois de resolvido o cliente.
+        $fiado = (bool) ($this->entregaPagamentoData['fiado'] ?? false);
+        $pagamentos = $fiado ? [] : ($this->entregaPagamentoData['pagamentos'] ?? []);
+
+        if ($fiado && $semCliente) {
+            $this->notificarErro('Pedido fiado / a prazo exige um cliente cadastrado — desmarque "Pedido sem cliente".');
+
+            return null;
+        }
+
+        if ($fiado && $this->pedidoId && PagamentosPedido::where('pg_pedido_pedido_id', $this->pedidoId)->where('pg_pedido_pago', true)->exists()) {
+            $this->notificarErro('Este pedido já tem pagamento efetuado. Desmarque o "Pagamento já efetuado" antes de mudar para fiado.');
+
+            return null;
+        }
+
+        if (! $fiado && (empty($pagamentos) || collect($pagamentos)->contains(fn (array $p): bool => blank($p['opcaoPagamentoId'] ?? null) || blank($p['valor'] ?? null)))) {
             $this->notificarErro('Escolha ao menos uma forma de pagamento e informe o valor de cada uma.');
 
             return null;
@@ -589,7 +608,7 @@ class AtenderPedido extends Page
 
         $total = $this->totalPreview;
         $somaPagamentos = collect($pagamentos)->sum(fn (array $p): float => $this->parseValor($p['valor']));
-        if (abs($somaPagamentos - $total) > 0.01) {
+        if (! $fiado && abs($somaPagamentos - $total) > 0.01) {
             $this->notificarErro(sprintf(
                 'A soma das formas de pagamento (R$ %s) precisa bater com o total do pedido (R$ %s).',
                 number_format($somaPagamentos, 2, ',', '.'),
@@ -648,8 +667,12 @@ class AtenderPedido extends Page
         }
 
         try {
-            DB::transaction(function () use ($semCliente, $opcaoEntrega, $pagamentos): void {
+            DB::transaction(function () use ($semCliente, $opcaoEntrega, $pagamentos, $fiado, $total): void {
                 $clienteId = $semCliente ? null : $this->resolverCliente();
+
+                if ($fiado) {
+                    app(FiadoPedidoService::class)->exigirCredito(Cliente::find($clienteId), $total);
+                }
 
                 $pedido = $this->pedidoId ? Pedido::findOrFail($this->pedidoId) : new Pedido;
 
@@ -659,6 +682,7 @@ class AtenderPedido extends Page
                     'pedido_cliente_id' => $clienteId,
                     'pedido_opcaoentrega_id' => $opcaoEntrega?->id,
                     'pedido_observacao_pagamento' => $this->observacao !== '' ? $this->observacao : null,
+                    'pedido_fiado' => $fiado,
                 ];
 
                 if (! $this->enderecoEmTextoLivre()) {
@@ -715,10 +739,18 @@ class AtenderPedido extends Page
 
                 $this->sincronizarPagamentos($pedido, $pagamentos);
 
+                if ($fiado) {
+                    $pedido->update(['pedido_descricao_pagamento' => FiadoPedidoService::DESCRICAO]);
+                }
+
                 $this->pedidoId = $pedido->id;
             });
         } catch (CupomInvalidoException $e) {
             $this->notificarErro($e->getMessage(), titulo: 'Cupom não aplicado');
+
+            return null;
+        } catch (FiadoNaoPermitidoException $e) {
+            $this->notificarErro($e->getMessage(), titulo: 'Fiado / a prazo');
 
             return null;
         }
@@ -998,6 +1030,7 @@ class AtenderPedido extends Page
             collect($this->entregaPagamentoData['pagamentos'] ?? [])->map(fn (array $p): array => [
                 $p['opcaoPagamentoId'] ?? null, $p['valor'] ?? null, $p['trocoPara'] ?? null,
             ])->all(),
+            (bool) ($this->entregaPagamentoData['fiado'] ?? false),
             $this->observacao,
             $this->statusSelecionado,
         ]));
