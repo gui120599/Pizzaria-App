@@ -7,6 +7,7 @@ use App\Filament\Resources\PromocoesAdicionais\Schemas\PromocaoAdicionalForm;
 use App\Models\Categoria;
 use App\Models\Produto;
 use App\Models\PromocaoAdicional;
+use App\Models\PromocaoAdicionalConsumo;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
@@ -27,6 +28,7 @@ class EditPromocaoAdicional extends EditRecord
     {
         return [
             $this->adicionarGatilhosPorCategoriaAction(),
+            $this->removerTodosOsGatilhosAction(),
             DeleteAction::make(),
             RestoreAction::make(),
             ForceDeleteAction::make(),
@@ -112,6 +114,49 @@ class EditPromocaoAdicional extends EditRecord
                     ->title($regras === 0 && $ofertas === 0
                         ? 'Nada novo: os produtos já eram gatilho com essas ofertas.'
                         : "{$regras} regra(s) criada(s), {$ofertas} oferta(s) adicionada(s).")
+                    ->success()
+                    ->send();
+
+                $this->redirect(static::getResource()::getUrl('edit', ['record' => $promocao]));
+            });
+    }
+
+    /**
+     * Apaga todas as regras da campanha (e as ofertas delas, em cascata).
+     * Mesmo efeito de remover uma a uma no Repeater, inclusive o histórico de
+     * brindes concedidos, que a confirmação avisa quando existe.
+     */
+    private function removerTodosOsGatilhosAction(): Action
+    {
+        return Action::make('removerTodosOsGatilhos')
+            ->label('Remover todos os gatilhos')
+            ->icon(Heroicon::OutlinedTrash)
+            ->color('danger')
+            ->visible(fn (): bool => $this->getRecord()->regras()->exists())
+            ->requiresConfirmation()
+            ->modalHeading('Remover todos os produtos gatilho?')
+            ->modalDescription(function (): string {
+                /** @var PromocaoAdicional $promocao */
+                $promocao = $this->getRecord();
+                $regras = $promocao->regras()->count();
+                $brindes = PromocaoAdicionalConsumo::whereHas('regra', fn ($q) => $q->where('par_promocao_id', $promocao->id))->count();
+
+                $texto = "Apaga as {$regras} regra(s) desta campanha e os produtos oferecidos de cada uma. Alterações não salvas no formulário são descartadas.";
+
+                if ($brindes > 0) {
+                    $texto .= " Atenção: {$brindes} brinde(s) já concedido(s) perdem o vínculo com a promoção — cancelar esses pedidos não devolverá o saldo.";
+                }
+
+                return $texto;
+            })
+            ->modalSubmitActionLabel('Remover todos')
+            ->action(function (): void {
+                /** @var PromocaoAdicional $promocao */
+                $promocao = $this->getRecord();
+                $removidas = DB::transaction(fn (): int => $promocao->regras()->delete());
+
+                Notification::make()
+                    ->title("{$removidas} regra(s) removida(s).")
                     ->success()
                     ->send();
 
