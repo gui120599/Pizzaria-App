@@ -63,9 +63,16 @@ class PromocaoAdicionalRegra extends Model
         return $this->hasMany(PromocaoAdicionalOferta::class, 'pao_regra_id');
     }
 
-    /** Ofertas desta regra que ainda têm saldo — as opções que o cliente pode escolher agora. */
+    /**
+     * Ofertas desta regra que ainda têm saldo — as opções que o cliente pode
+     * escolher agora. Campanha com o teto esgotado não oferece nada.
+     */
     public function ofertasDisponiveis()
     {
+        if ($this->promocao?->esgotada()) {
+            return $this->ofertas->take(0);
+        }
+
         return $this->ofertas->reject(fn (PromocaoAdicionalOferta $oferta) => $oferta->esgotada());
     }
 }

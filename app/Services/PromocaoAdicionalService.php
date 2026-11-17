@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\PromocaoAdicionalEsgotadaException;
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
@@ -13,11 +14,12 @@ use App\Models\PromocaoAdicionalRegra;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Controla o saldo (teto agregado por opção de produto ofertado) da promoção
- * adicional e o limite de aceites por pedido (por regra/gatilho). Mesmo
- * padrão de PromocaoRelampagoService: contador materializado
- * (pao_qtd_vendida) + débito atômico via UPDATE condicional + ledger
- * idempotente (promocao_adicional_consumos).
+ * Controla o saldo da promoção adicional — teto da campanha inteira
+ * (promoad_qtd_total, opcional) e teto por opção de produto ofertado
+ * (pao_qtd_total) — e o limite de aceites por pedido (por regra/gatilho).
+ * Mesmo padrão de PromocaoRelampagoService: contadores materializados
+ * (promoad_qtd_vendida, pao_qtd_vendida) + débito atômico via UPDATE
+ * condicional + ledger idempotente (promocao_adicional_consumos).
  */
 class PromocaoAdicionalService
 {
@@ -28,9 +30,10 @@ class PromocaoAdicionalService
      * item_pedido_promocao_adicional_oferta_id e item_pedido_origem_id
      * preenchidos (ver PrecificadorService/quem cria o item).
      *
+     * @throws PromocaoAdicionalEsgotadaException quando o teto da campanha acabou.
      * @throws PromocaoIndisponivelException quando a promoção não está mais
      *                                       vigente, o produto não bate com
-     *                                       a oferta, ou o saldo acabou.
+     *                                       a oferta, ou o saldo da oferta acabou.
      */
     public function consumir(ItensPedido $itemOferta): void
     {
@@ -66,6 +69,7 @@ class PromocaoAdicionalService
         $regraId = $oferta->pao_regra_id;
 
         DB::transaction(function () use ($itemOferta, $oferta, $ofertaId, $regraId, $itemGatilhoId, $quantidade) {
+            $this->debitarCampanha($oferta->regra->promocao, $quantidade);
             $this->debitarOferta($ofertaId, $quantidade);
 
             PromocaoAdicionalConsumo::create([
@@ -277,7 +281,41 @@ class PromocaoAdicionalService
                   WHERE id = ?',
                 [(float) $consumo->pac_quantidade, now(), $consumo->pac_oferta_id]
             );
+
+            DB::update(
+                'UPDATE promocoes_adicionais
+                    SET promoad_qtd_vendida = GREATEST(promoad_qtd_vendida - ?, 0), updated_at = ?
+                  WHERE id = (SELECT par_promocao_id FROM promocao_adicional_regras WHERE id = ?)',
+                [(float) $consumo->pac_quantidade, now(), $consumo->pac_regra_id]
+            );
         });
+    }
+
+    /**
+     * Débito atômico do teto da campanha, igual ao debitarPool() da
+     * relâmpago: o WHERE carrega a regra e a linha fica travada até o fim da
+     * transação, então dois pedidos disputando o último brinde não passam
+     * juntos. Campanha sem teto também soma (o contador fica certo se o teto
+     * for ligado depois).
+     *
+     * @throws PromocaoAdicionalEsgotadaException
+     */
+    private function debitarCampanha(PromocaoAdicional $promocao, float $quantidade): void
+    {
+        $afetadas = DB::update(
+            'UPDATE promocoes_adicionais
+                SET promoad_qtd_vendida = promoad_qtd_vendida + ?, updated_at = ?
+              WHERE id = ?
+                AND promoad_ativa = 1
+                AND (promoad_qtd_total IS NULL OR promoad_qtd_vendida + ? <= promoad_qtd_total)',
+            [$quantidade, now(), $promocao->id, $quantidade]
+        );
+
+        if ($afetadas === 0) {
+            throw new PromocaoAdicionalEsgotadaException(
+                "A promoção \"{$promocao->promoad_nome}\" esgotou: este item seguiu sem o brinde."
+            );
+        }
     }
 
     /**

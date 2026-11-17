@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\PromocaoAdicional;
 use App\Models\PromocaoRelampago;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,10 @@ use Illuminate\Support\Facades\DB;
  * recorrentes assim que uma nova ocorrência começa (dia da semana certo, já
  * passou da hora de início, ainda não resetou hoje). Pensado para rodar a
  * cada minuto via schedule — ver App\Console\Kernel.
+ *
+ * Também zera o teto de brindes (promoad_qtd_vendida) das campanhas de
+ * promoção adicional recorrentes com quantidade limitada. O saldo por oferta
+ * (pao_qtd_vendida) continua como sempre foi: não reseta.
  */
 class ResetarPromocoesRecorrentes extends Command
 {
@@ -43,6 +48,25 @@ class ResetarPromocoesRecorrentes extends Command
 
             $resetadas++;
             $this->info("Promoção #{$promocao->id} ({$promocao->promocao_nome}) resetada para nova ocorrência.");
+        }
+
+        $campanhas = PromocaoAdicional::where('promoad_ativa', true)
+            ->where('promoad_recorrente', true)
+            ->whereNotNull('promoad_qtd_total')
+            ->get();
+
+        foreach ($campanhas as $campanha) {
+            if (! $campanha->deveResetarAgora($agora)) {
+                continue;
+            }
+
+            $campanha->update([
+                'promoad_qtd_vendida' => 0,
+                'promoad_ultimo_reset_em' => $agora,
+            ]);
+
+            $resetadas++;
+            $this->info("Promoção adicional #{$campanha->id} ({$campanha->promoad_nome}) resetada para nova ocorrência.");
         }
 
         if ($resetadas === 0) {
