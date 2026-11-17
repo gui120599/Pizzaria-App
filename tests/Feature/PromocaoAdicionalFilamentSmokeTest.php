@@ -83,6 +83,15 @@ class PromocaoAdicionalFilamentSmokeTest extends TestCase
             ->assertFormSet(['promoad_nome' => 'Dia do Cliente']);
     }
 
+    public function test_edicao_mostra_cada_regra_com_o_gatilho_e_a_quantidade_de_ofertas_no_titulo(): void
+    {
+        $promocao = $this->promocao();
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->assertOk()
+            ->assertSee('Calabresa — 1 oferta');
+    }
+
     public function test_acao_encerrar_desativa_a_promocao(): void
     {
         $promocao = $this->promocao();

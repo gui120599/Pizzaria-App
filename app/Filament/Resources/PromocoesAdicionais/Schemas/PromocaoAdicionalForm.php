@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PromocoesAdicionais\Schemas;
 use App\Models\OpcoesEntregas;
 use App\Models\Produto;
 use App\Models\PromocaoAdicional;
+use App\Models\PromocaoAdicionalOferta;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
@@ -155,6 +156,7 @@ class PromocaoAdicionalForm
             Section::make('Regras (produto gatilho → ofertas)')
                 ->description('Cada regra é um produto-gatilho da campanha. Dentro dela, cadastre as opções de produto que podem ser oferecidas — o cliente escolhe 1 dentre elas.')
                 ->columnSpanFull()
+                ->collapsible()
                 ->schema([
                     Repeater::make('regras')
                         ->relationship()
@@ -162,6 +164,12 @@ class PromocaoAdicionalForm
                         ->addActionLabel('Adicionar produto-gatilho')
                         ->columns(3)
                         ->minItems(1)
+                        // Com dezenas de regras (ex.: todas as pizzas grandes) a
+                        // página fica enorme: na edição, cada regra abre recolhida
+                        // e mostra no título o gatilho e quantas ofertas tem.
+                        ->collapsible()
+                        ->collapsed(fn (string $operation): bool => $operation === 'edit')
+                        ->itemLabel(fn (array $state): string => self::tituloDaRegra($state))
                         ->schema([
                             Select::make('par_produto_gatilho_id')
                                 ->label('Produto gatilho')
@@ -261,6 +269,31 @@ class PromocaoAdicionalForm
         return number_format((float) $record->promoad_qtd_vendida, 0, ',', '.')
             .' de '.number_format($record->promoad_qtd_total, 0, ',', '.')
             .' (restam '.number_format($record->saldoDisponivel(), 0, ',', '.').')';
+    }
+
+    /**
+     * "Calabresa Grande — 2 ofertas", título da regra recolhida no Repeater.
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private static function tituloDaRegra(array $state): string
+    {
+        static $nomes = [];
+
+        $produtoId = $state['par_produto_gatilho_id'] ?? null;
+
+        if (! $produtoId) {
+            return 'Novo produto-gatilho';
+        }
+
+        $nomes[$produtoId] ??= Produto::with('categoria')->find($produtoId)?->nomeExibicao() ?? 'Produto removido';
+        // Na primeira renderização da edição o Repeater aninhado ainda não
+        // entrou no estado do item: conta pelo banco.
+        $ofertas = array_key_exists('ofertas', $state)
+            ? count(array_filter((array) $state['ofertas'], fn ($oferta) => ! empty($oferta['pao_produto_oferta_id'])))
+            : (! empty($state['id']) ? PromocaoAdicionalOferta::where('pao_regra_id', $state['id'])->count() : 0);
+
+        return $nomes[$produtoId].' — '.$ofertas.' '.($ofertas === 1 ? 'oferta' : 'ofertas');
     }
 
     /** "39,90" → 39.9; vazio ou zero → null (sem override). */
