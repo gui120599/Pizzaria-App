@@ -281,35 +281,65 @@ class PromocaoAdicionalFilamentSmokeTest extends TestCase
             ->assertTableColumnStateSet('saldo', '5 de 20', $promocao);
     }
 
-    public function test_adicionar_gatilhos_por_categoria_cria_uma_regra_por_produto_sem_duplicar(): void
+    public function test_adicionar_gatilhos_por_categoria_cria_regras_com_varias_ofertas_sem_duplicar(): void
     {
         $promocao = $this->promocao();
         $grande = Categoria::create(['categoria_nome' => 'Pizza Grande']);
         $refri = $this->produto('Guaraná Kuat 2L', 12.00);
-        $produtosGrande = collect(['Calabresa Grande', 'Frango Grande', 'Portuguesa Grande'])
+        $brotinho = $this->produto('Brotinho Chocolate', 25.00);
+        [$calabresa, $frango, $portuguesa] = collect(['Calabresa Grande', 'Frango Grande', 'Portuguesa Grande'])
             ->map(fn (string $nome) => Produto::create([
                 'produto_descricao' => $nome,
                 'produto_categoria_id' => $grande->id,
                 'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value,
                 'produto_preco_venda' => 60.00,
-            ]));
-        $promocao->regras()->create(['par_produto_gatilho_id' => $produtosGrande[0]->id]);
+            ]))
+            ->all();
+        $promocao->regras()->create(['par_produto_gatilho_id' => $calabresa->id, 'par_qtd_maxima_por_pedido' => 1])
+            ->ofertas()->create(['pao_produto_oferta_id' => $refri->id, 'pao_valor_adicional' => 3.00]);
 
         Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
             ->callAction('adicionarGatilhosPorCategoria', [
                 'categoria_id' => $grande->id,
-                'produto_oferta_id' => $refri->id,
-                'valor_adicional' => 0,
+                'ofertas' => [
+                    ['pao_produto_oferta_id' => $refri->id, 'pao_valor_adicional' => 0, 'pao_qtd_total' => null],
+                    ['pao_produto_oferta_id' => $brotinho->id, 'pao_valor_adicional' => 5, 'pao_qtd_total' => 10],
+                ],
             ])
             ->assertHasNoActionErrors()
-            ->assertNotified('2 regra(s) criada(s).');
+            ->assertNotified('2 regra(s) criada(s), 5 oferta(s) adicionada(s).');
 
-        $novas = $promocao->regras()->with('ofertas')->whereIn('par_produto_gatilho_id', [$produtosGrande[1]->id, $produtosGrande[2]->id])->get();
+        $regras = $promocao->regras()->with('ofertas')->get()->keyBy('par_produto_gatilho_id');
 
-        $this->assertCount(2, $novas);
-        $this->assertSame(1, $promocao->regras()->where('par_produto_gatilho_id', $produtosGrande[0]->id)->count());
-        $this->assertNull($novas[0]->par_qtd_maxima_por_pedido);
-        $this->assertSame($refri->id, $novas[0]->ofertas->sole()->pao_produto_oferta_id);
-        $this->assertSame('0.00', $novas[0]->ofertas->sole()->pao_valor_adicional);
+        // Regra nova: as duas ofertas, com os valores informados.
+        $ofertasFrango = $regras[$frango->id]->ofertas->keyBy('pao_produto_oferta_id');
+        $this->assertSame(['0.00', '5.00'], [$ofertasFrango[$refri->id]->pao_valor_adicional, $ofertasFrango[$brotinho->id]->pao_valor_adicional]);
+        $this->assertSame(10, $ofertasFrango[$brotinho->id]->pao_qtd_total);
+        $this->assertNull($regras[$frango->id]->par_qtd_maxima_por_pedido);
+        $this->assertCount(2, $regras[$portuguesa->id]->ofertas);
+
+        // Gatilho existente: ganha só o brotinho; o refri e o limite não mudam.
+        $ofertasCalabresa = $regras[$calabresa->id]->ofertas->keyBy('pao_produto_oferta_id');
+        $this->assertCount(2, $ofertasCalabresa);
+        $this->assertSame('3.00', $ofertasCalabresa[$refri->id]->pao_valor_adicional);
+        $this->assertSame(1, $regras[$calabresa->id]->par_qtd_maxima_por_pedido);
+    }
+
+    public function test_adicionar_gatilhos_por_categoria_recusa_produto_oferecido_repetido(): void
+    {
+        $promocao = $this->promocao();
+        $refri = $this->produto('Guaraná Kuat 2L', 12.00);
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->callAction('adicionarGatilhosPorCategoria', [
+                'categoria_id' => Categoria::firstOrFail()->id,
+                'ofertas' => [
+                    ['pao_produto_oferta_id' => $refri->id, 'pao_valor_adicional' => 0],
+                    ['pao_produto_oferta_id' => $refri->id, 'pao_valor_adicional' => 2],
+                ],
+            ])
+            ->assertHasActionErrors(['ofertas.1.pao_produto_oferta_id']);
+
+        $this->assertSame(0, $promocao->regras()->whereHas('ofertas', fn ($q) => $q->where('pao_produto_oferta_id', $refri->id))->count());
     }
 }
