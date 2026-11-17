@@ -90,6 +90,29 @@ class PrecificadorService
     }
 
     /**
+     * Regra que oferece produto para uma pizza de sabores (meia a meia, três
+     * sabores): todos os sabores são gatilho, com oferta disponível, da MESMA
+     * campanha, e a campanha marca promoad_aplica_fracionado. Devolve a regra
+     * do 1º sabor, que é o produto gravado na linha da pizza.
+     *
+     * @param  list<int>  $saboresIds
+     */
+    public function regraOfertaDoCombo(array $saboresIds, ?int $opcaoPagamentoId = null): ?PromocaoAdicionalRegra
+    {
+        if (count($saboresIds) < 2) {
+            return null;
+        }
+
+        $regras = collect($saboresIds)->map(fn (int $id) => $this->regraAdicionalDoProduto($id, $opcaoPagamentoId));
+
+        if ($regras->contains(null) || $regras->pluck('par_promocao_id')->unique()->count() !== 1) {
+            return null;
+        }
+
+        return $regras->first()->promocao->promoad_aplica_fracionado ? $regras->first() : null;
+    }
+
+    /**
      * As opções de produto que podem ser oferecidas para este gatilho agora
      * (com saldo, respeitando forma de pagamento) — o cliente escolhe 1.
      *

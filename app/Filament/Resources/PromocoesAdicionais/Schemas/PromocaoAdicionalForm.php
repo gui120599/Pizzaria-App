@@ -54,7 +54,7 @@ class PromocaoAdicionalForm
                 ->schema([
                     Toggle::make('promoad_aplica_fracionado')
                         ->label('Vale também para meia a meia / três sabores')
-                        ->helperText('Desligado (padrão): só pizza inteira. Ligado: se TODOS os sabores escolhidos tiverem override configurado nesta campanha, o preço anunciado da pizza usa o maior override entre eles.')
+                        ->helperText('Desligado (padrão): só pizza inteira. Ligado: se TODOS os sabores escolhidos forem produto gatilho desta campanha, a pizza também ganha o produto oferecido; e, se todos tiverem preço do gatilho preenchido, a pizza usa o maior entre eles.')
                         ->default(false)
                         ->columnSpanFull(),
                     Select::make('promoad_categoria_exigida_id')

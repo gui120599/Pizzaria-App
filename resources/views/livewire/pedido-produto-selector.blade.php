@@ -692,7 +692,10 @@
                     } else {
                         return;
                     }
-                    if (this.modo === 1) { this.$wire.toggleSabor(id); }
+                    if (this.modo === 1) { this.$wire.toggleSabor(id); return; }
+                    // Meia a meia: só completa (ou deixando de estar) vai ao
+                    // servidor, para mostrar as ofertas da promoção adicional.
+                    if (this.ids.length === this.modo || this.ids.length === this.modo - 1) { this.$wire.sincronizarSabores(this.ids); }
                 },
              }">
             <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" wire:click="fecharSaboresModal"></div>
@@ -841,7 +844,7 @@
 
                     @include('livewire.partials.perguntas-item')
 
-                    {{-- Oferta de promoção adicional (só pizza inteira) --}}
+                    {{-- Oferta de promoção adicional (pizza inteira, ou de sabores quando a campanha vale para meia a meia) --}}
                     @if (count($ofertasDisponiveis) > 0)
                         <div class="space-y-1.5">
                             <p class="text-xs font-semibold text-pink-600 dark:text-pink-400 flex items-center gap-1">

@@ -363,11 +363,14 @@ class PedidoProdutoSelector extends Component
      * adiciona nada ao pedido sozinha — só popula o que o modal precisa para
      * perguntar.
      *
+     * @param  list<int>  $saboresIds  pizza de sabores completa (vazio = produto/pizza inteira)
      * @return array<int, array{regra_id: int, oferta_id: int, produto_id: int, nome: string, categoria_nome: string, foto: ?string, valor_adicional: float}>
      */
-    protected function montarOfertasDisponiveis(int $produtoGatilhoId): array
+    protected function montarOfertasDisponiveis(int $produtoGatilhoId, array $saboresIds = []): array
     {
-        $regra = app(PrecificadorService::class)->regraAdicionalDoProduto($produtoGatilhoId);
+        $regra = count($saboresIds) > 1
+            ? app(PrecificadorService::class)->regraOfertaDoCombo($saboresIds)
+            : app(PrecificadorService::class)->regraAdicionalDoProduto($produtoGatilhoId);
 
         // Requisitos da campanha (opção de entrega, categoria exigida no pedido):
         // sem eles a oferta nem aparece.
@@ -980,21 +983,47 @@ class PedidoProdutoSelector extends Component
     }
 
     /**
-     * A oferta de promoção adicional só faz sentido para pizza inteira (um
-     * único sabor) — meia a meia/terços têm sua própria regra de rateio e
-     * ficam fora do escopo desta promoção. Recalculada a cada mudança de modo
-     * ou seleção de sabor.
+     * Ofertas da pizza: inteira (um sabor) usa a regra do sabor; meia a meia/
+     * terços, só com a pizza completa e se a campanha valer para meia a meia
+     * (PrecificadorService::regraOfertaDoCombo()). Recalculada a cada mudança
+     * de modo ou seleção de sabor.
      */
     protected function atualizarOfertaSaborUnico(): void
     {
         $this->ofertasDisponiveis = [];
         $this->ofertaEscolhidaId = null;
 
-        if ($this->saboresModo !== 1 || count($this->saboresSelecionados) !== 1) {
+        $ids = array_map(fn (array $sabor) => (int) $sabor['id'], $this->saboresSelecionados);
+
+        if ($ids === [] || count($ids) !== $this->saboresModo) {
             return;
         }
 
-        $this->ofertasDisponiveis = $this->montarOfertasDisponiveis($this->saboresSelecionados[0]['id']);
+        $this->ofertasDisponiveis = $this->montarOfertasDisponiveis($ids[0], count($ids) > 1 ? $ids : []);
+    }
+
+    /**
+     * Meia a meia/terços: o Alpine escolhe os sabores sem ida ao servidor e
+     * só avisa quando a pizza fica completa (ou deixa de estar), para o modal
+     * mostrar as ofertas da campanha.
+     *
+     * @param  array<int, int|string>  $ids
+     */
+    public function sincronizarSabores(array $ids): void
+    {
+        if (count($ids) === $this->saboresModo) {
+            $this->aplicarSaboresDoNavegador($ids);
+
+            return;
+        }
+
+        $porId = collect($this->saboresProdutos)->keyBy('id');
+        $this->saboresSelecionados = collect($ids)
+            ->map(fn ($id) => is_numeric($id) ? $porId->get((int) $id) : null)
+            ->filter()
+            ->values()
+            ->all();
+        $this->atualizarOfertaSaborUnico();
     }
 
     /**
@@ -1041,7 +1070,7 @@ class PedidoProdutoSelector extends Component
                 saboresIds: count($ids) > 1 ? $ids : [],
                 adicionaisIds: array_map('intval', $this->adicionaisSelecionados),
                 observacao: $this->saboresObservacao,
-                ofertaProdutoId: count($ids) === 1 ? $this->ofertaProdutoEscolhido() : null,
+                ofertaProdutoId: $this->ofertaProdutoEscolhido(),
                 clienteId: $this->clienteSelecionadoId ?: null,
                 respostas: $this->respostas,
             ), CanalLancamentoEnum::SALAO, comPromocoes: (bool) $this->pedidoId);

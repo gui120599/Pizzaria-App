@@ -93,7 +93,10 @@ class LancamentoItemPedidoService
                 $comPromocoes,
             );
 
-            // Pizza de sabores não recebe oferta de promoção adicional.
+            // Pizza de sabores só recebe oferta quando todos os sabores são
+            // gatilho de uma campanha que vale para meia a meia.
+            $oferta = $comPromocoes ? $this->ofertaEscolhida($produtos[0], $item->ofertaProdutoId, $canal, $opcaoPagamentoId, $item->saboresIds) : null;
+
             return new LinhaPrecificada([
                 'item_pedido_produto_id' => $combo['produto_id'],
                 'item_pedido_promocao_id' => $combo['promocao_id'],
@@ -104,7 +107,7 @@ class LancamentoItemPedidoService
                 'item_pedido_desconto' => $combo['desconto'],
                 'item_pedido_desconto_unitario' => $combo['desconto_unitario'],
                 'item_pedido_sabores' => $combo['sabores'],
-            ] + $comum, $adicionais, $this->produtoDaLinha($produtos, $combo['produto_id']));
+            ] + $comum, $adicionais, $this->produtoDaLinha($produtos, $combo['produto_id']), $oferta?->regra, $oferta);
         }
 
         $produto = $produtos[0];
@@ -665,14 +668,18 @@ class LancamentoItemPedidoService
      * Oferta de promoção adicional escolhida para o item, se ela ainda é uma
      * das opções vigentes com saldo (e permitida pela forma de pagamento).
      * Nunca confia em id de regra/oferta vindo da tela: só no produto.
+     *
+     * @param  list<int>  $saboresIds  sabores da pizza de sabores (vazio = item comum)
      */
-    private function ofertaEscolhida(Produto $gatilho, ?int $ofertaProdutoId, CanalLancamentoEnum $canal, ?int $opcaoPagamentoId): ?PromocaoAdicionalOferta
+    private function ofertaEscolhida(Produto $gatilho, ?int $ofertaProdutoId, CanalLancamentoEnum $canal, ?int $opcaoPagamentoId, array $saboresIds = []): ?PromocaoAdicionalOferta
     {
         if ($ofertaProdutoId === null) {
             return null;
         }
 
-        $regra = $this->precificador->regraAdicionalDoProduto($gatilho->id, $opcaoPagamentoId);
+        $regra = count($saboresIds) > 1
+            ? $this->precificador->regraOfertaDoCombo($saboresIds, $opcaoPagamentoId)
+            : $this->precificador->regraAdicionalDoProduto($gatilho->id, $opcaoPagamentoId);
         $oferta = $regra?->ofertasDisponiveis()
             ->first(fn (PromocaoAdicionalOferta $oferta) => (int) $oferta->pao_produto_oferta_id === $ofertaProdutoId);
 
