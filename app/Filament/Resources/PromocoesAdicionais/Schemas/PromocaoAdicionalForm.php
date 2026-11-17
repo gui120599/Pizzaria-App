@@ -4,6 +4,7 @@ namespace App\Filament\Resources\PromocoesAdicionais\Schemas;
 
 use App\Models\OpcoesEntregas;
 use App\Models\Produto;
+use App\Models\PromocaoAdicional;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
@@ -12,6 +13,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -72,6 +74,30 @@ class PromocaoAdicionalForm
                         ->columns(2)
                         ->bulkToggleable()
                         ->columnSpanFull(),
+                ]),
+
+            Section::make('Quantidade limitada')
+                ->description('Teto de brindes da campanha inteira, somando todas as regras e ofertas: 1 unidade por oferta aceita. Ao esgotar, a promoção para de ser oferecida.')
+                ->columns(2)
+                ->columnSpanFull()
+                ->schema([
+                    Toggle::make('promoad_quantidade_limitada')
+                        ->label('Quantidade limitada')
+                        ->helperText('Desligado = sem limite.')
+                        ->afterStateHydrated(fn (Toggle $component, ?PromocaoAdicional $record) => $component->state($record?->promoad_qtd_total !== null))
+                        ->live()
+                        ->columnSpanFull(),
+                    TextInput::make('promoad_qtd_total')
+                        ->label('Quantidade disponível')
+                        ->helperText('Ex.: 20 = só os 20 primeiros brindes.')
+                        ->integer()
+                        ->minValue(1)
+                        ->required(fn (Get $get): bool => (bool) $get('promoad_quantidade_limitada'))
+                        ->visible(fn (Get $get): bool => (bool) $get('promoad_quantidade_limitada')),
+                    TextEntry::make('promoad_uso')
+                        ->label('Quantidade utilizada')
+                        ->state(fn (?PromocaoAdicional $record): string => self::descreverUso($record))
+                        ->visible(fn (Get $get, ?PromocaoAdicional $record): bool => $record !== null && (bool) $get('promoad_quantidade_limitada')),
                 ]),
 
             Section::make('Vigência')
@@ -205,6 +231,36 @@ class PromocaoAdicionalForm
                         ]),
                 ]),
         ]);
+    }
+
+    /**
+     * O toggle não é coluna: desligado grava o teto como null (sem limite).
+     * Chamado pelas páginas de criar/editar — campo escondido não é enviado,
+     * então desligar o toggle sozinho não limparia o teto antigo.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function normalizarQuantidadeLimitada(array $data): array
+    {
+        if (! ($data['promoad_quantidade_limitada'] ?? false)) {
+            $data['promoad_qtd_total'] = null;
+        }
+
+        unset($data['promoad_quantidade_limitada']);
+
+        return $data;
+    }
+
+    private static function descreverUso(?PromocaoAdicional $record): string
+    {
+        if (! $record || $record->promoad_qtd_total === null) {
+            return 'Sem limite salvo ainda.';
+        }
+
+        return number_format((float) $record->promoad_qtd_vendida, 0, ',', '.')
+            .' de '.number_format($record->promoad_qtd_total, 0, ',', '.')
+            .' (restam '.number_format($record->saldoDisponivel(), 0, ',', '.').')';
     }
 
     /** "39,90" → 39.9; vazio ou zero → null (sem override). */

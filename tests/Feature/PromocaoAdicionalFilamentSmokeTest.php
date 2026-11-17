@@ -235,4 +235,49 @@ class PromocaoAdicionalFilamentSmokeTest extends TestCase
         $this->assertTrue($promocao->promoad_aplica_fracionado);
         $this->assertSame([$pix->id], $promocao->opcoesPagamento->pluck('id')->all());
     }
+
+    public function test_quantidade_limitada_ligada_salva_o_teto_e_desligada_volta_a_ilimitado(): void
+    {
+        $promocao = $this->promocao();
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->assertFormSet(['promoad_quantidade_limitada' => false])
+            ->fillForm(['promoad_quantidade_limitada' => true, 'promoad_qtd_total' => 20])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(20, $promocao->fresh()->promoad_qtd_total);
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->assertFormSet(['promoad_quantidade_limitada' => true])
+            ->fillForm(['promoad_quantidade_limitada' => false])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertNull($promocao->fresh()->promoad_qtd_total);
+    }
+
+    public function test_quantidade_limitada_exige_quantidade_de_pelo_menos_1(): void
+    {
+        $promocao = $this->promocao();
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->fillForm(['promoad_quantidade_limitada' => true, 'promoad_qtd_total' => 0])
+            ->call('save')
+            ->assertHasFormErrors(['promoad_qtd_total' => 'min']);
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->fillForm(['promoad_quantidade_limitada' => true, 'promoad_qtd_total' => null])
+            ->call('save')
+            ->assertHasFormErrors(['promoad_qtd_total' => 'required']);
+    }
+
+    public function test_listagem_mostra_o_saldo_restante_da_campanha(): void
+    {
+        $promocao = $this->promocao();
+        $promocao->update(['promoad_qtd_total' => 20, 'promoad_qtd_vendida' => 15]);
+
+        Livewire::test(ListPromocoesAdicionais::class)
+            ->assertTableColumnStateSet('saldo', '5 de 20', $promocao);
+    }
 }
