@@ -193,6 +193,7 @@ return array(
     'App\\Exceptions\\PerguntaNaoRespondidaException' => $baseDir . '/app/Exceptions/PerguntaNaoRespondidaException.php',
     'App\\Exceptions\\PontoException' => $baseDir . '/app/Exceptions/PontoException.php',
     'App\\Exceptions\\ProducaoException' => $baseDir . '/app/Exceptions/ProducaoException.php',
+    'App\\Exceptions\\PromocaoAdicionalEsgotadaException' => $baseDir . '/app/Exceptions/PromocaoAdicionalEsgotadaException.php',
     'App\\Exceptions\\PromocaoIndisponivelException' => $baseDir . '/app/Exceptions/PromocaoIndisponivelException.php',
     'App\\Exceptions\\PushException' => $baseDir . '/app/Exceptions/PushException.php',
     'App\\Exceptions\\RegistroImutavelException' => $baseDir . '/app/Exceptions/RegistroImutavelException.php',

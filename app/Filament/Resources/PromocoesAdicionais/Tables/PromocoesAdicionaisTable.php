@@ -32,7 +32,7 @@ class PromocoesAdicionaisTable
                     ->searchable()
                     ->sortable(),
 
-                // Derivado de promoad_ativa + vigência; não há coluna no banco.
+                // Derivado de promoad_ativa + vigência + teto; não há coluna no banco.
                 TextColumn::make('status')
                     ->label('Status')
                     ->state(fn (PromocaoAdicional $record) => $record->status())
@@ -58,6 +58,24 @@ class PromocoesAdicionaisTable
                         return $diasLabel.', '.$horario;
                     })
                     ->wrap(),
+
+                TextColumn::make('saldo')
+                    ->label('Restam')
+                    ->state(function (PromocaoAdicional $record): string {
+                        if ($record->promoad_qtd_total === null) {
+                            return 'Ilimitado';
+                        }
+
+                        return number_format($record->saldoDisponivel(), 0, ',', '.')
+                            .' de '.number_format($record->promoad_qtd_total, 0, ',', '.');
+                    })
+                    ->badge()
+                    ->color(fn (PromocaoAdicional $record) => match (true) {
+                        $record->promoad_qtd_total === null => 'gray',
+                        $record->esgotada() => 'danger',
+                        $record->saldoDisponivel() <= ($record->promoad_qtd_total * 0.2) => 'warning',
+                        default => 'success',
+                    }),
 
                 TextColumn::make('regras_count')
                     ->label('Regras')

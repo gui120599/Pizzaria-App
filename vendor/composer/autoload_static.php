@@ -1191,6 +1191,7 @@ class ComposerStaticInit5ab1db59f69ab376e1219686675b6f06
         'App\\Exceptions\\PerguntaNaoRespondidaException' => __DIR__ . '/../..' . '/app/Exceptions/PerguntaNaoRespondidaException.php',
         'App\\Exceptions\\PontoException' => __DIR__ . '/../..' . '/app/Exceptions/PontoException.php',
         'App\\Exceptions\\ProducaoException' => __DIR__ . '/../..' . '/app/Exceptions/ProducaoException.php',
+        'App\\Exceptions\\PromocaoAdicionalEsgotadaException' => __DIR__ . '/../..' . '/app/Exceptions/PromocaoAdicionalEsgotadaException.php',
         'App\\Exceptions\\PromocaoIndisponivelException' => __DIR__ . '/../..' . '/app/Exceptions/PromocaoIndisponivelException.php',
         'App\\Exceptions\\PushException' => __DIR__ . '/../..' . '/app/Exceptions/PushException.php',
         'App\\Exceptions\\RegistroImutavelException' => __DIR__ . '/../..' . '/app/Exceptions/RegistroImutavelException.php',

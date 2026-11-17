@@ -766,7 +766,7 @@ class PedidoProdutoSelector extends Component
 
         $oferta = PromocaoAdicionalOferta::with(['regra.promocao', 'produtoOferta.categoria'])->find($opcao['oferta_id']);
 
-        return $oferta && ! $oferta->esgotada() && $oferta->regra?->promocao?->vigente() ? $oferta : null;
+        return $oferta && ! $oferta->esgotada() && $oferta->regra?->promocao?->vigente() && ! $oferta->regra->promocao->esgotada() ? $oferta : null;
     }
 
     /**

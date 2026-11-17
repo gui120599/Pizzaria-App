@@ -9,9 +9,17 @@
     <section id="{{ $loop->first ? 'secao_promocao_adicional' : 'secao_promocao_adicional_'.$loop->index }}"
              data-secao data-ocultar-na-busca class="px-4 pt-6 lg:px-0">
         <div class="rounded-card border border-ouro/30 bg-[linear-gradient(135deg,rgb(242_179_61/.10),transparent_60%)] p-4">
-            <h2 class="flex items-center gap-2 font-display text-2xl font-bold tracking-tight">
-                <i class='bx bxs-gift text-[22px] text-ouro' aria-hidden="true"></i>{{ $campanha['nome'] }}
-            </h2>
+            <div class="flex items-start gap-2">
+                <h2 class="flex items-center gap-2 font-display text-2xl font-bold tracking-tight">
+                    <i class='bx bxs-gift text-[22px] text-ouro' aria-hidden="true"></i>{{ $campanha['nome'] }}
+                </h2>
+                @if (($campanha['saldo'] ?? null) !== null)
+                    <span class="ml-auto flex shrink-0 flex-col items-center rounded-xl bg-ouro px-2.5 py-1 text-forno lg:ml-4">
+                        <span class="num text-lg font-extrabold leading-none">{{ number_format($campanha['saldo'], 0, ',', '.') }}</span>
+                        <span class="text-[10px] font-bold uppercase tracking-wide">restam</span>
+                    </span>
+                @endif
+            </div>
             @if ($campanha['descricao'])
                 <p class="mt-0.5 text-[13.5px] text-farinha">{{ $campanha['descricao'] }}</p>
             @endif

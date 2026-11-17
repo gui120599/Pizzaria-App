@@ -16,7 +16,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Campanha "leve outro produto por +R$X" (ex.: Dia do Cliente). Uma campanha
  * tem N regras (PromocaoAdicionalRegra), cada uma com seu próprio par
  * produto-gatilho → produto-oferta → valor adicional — ver
- * PromocaoAdicionalRegra para onde vivem preço e saldo.
+ * PromocaoAdicionalRegra para onde vivem preço e saldo por oferta.
+ * promoad_qtd_total (opcional) é o teto de brindes da campanha inteira.
  */
 class PromocaoAdicional extends Model
 {
@@ -41,6 +42,8 @@ class PromocaoAdicional extends Model
         'promoad_aplica_fracionado',
         'promoad_categoria_exigida_id',
         'promoad_opcoes_entrega',
+        'promoad_qtd_total',
+        'promoad_qtd_vendida',
         'promoad_ordem',
     ];
 
@@ -58,6 +61,8 @@ class PromocaoAdicional extends Model
             'promoad_data_final_recorrencia' => 'date',
             'promoad_ultimo_reset_em' => 'datetime',
             'promoad_opcoes_entrega' => 'array',
+            'promoad_qtd_total' => 'integer',
+            'promoad_qtd_vendida' => 'decimal:2',
         ];
     }
 
@@ -141,6 +146,32 @@ class PromocaoAdicional extends Model
         return $query->whereIn('promocoes_adicionais.id', $ids);
     }
 
+    /** Ainda tem brindes no teto da campanha. Campanha sem teto sempre passa. */
+    public function scopeComSaldo(Builder $query): Builder
+    {
+        return $query->where(
+            fn (Builder $q) => $q->whereNull('promoad_qtd_total')
+                ->orWhereColumn('promoad_qtd_vendida', '<', 'promoad_qtd_total')
+        );
+    }
+
+    /** Brindes restantes no teto da campanha; null quando não há teto. */
+    public function saldoDisponivel(): ?float
+    {
+        if ($this->promoad_qtd_total === null) {
+            return null;
+        }
+
+        return max(0.0, (float) $this->promoad_qtd_total - (float) $this->promoad_qtd_vendida);
+    }
+
+    public function esgotada(): bool
+    {
+        $saldo = $this->saldoDisponivel();
+
+        return $saldo !== null && $saldo <= 0;
+    }
+
     // ── Implementação dos acessores de TemVigenciaRecorrente ────────────────
 
     protected function vigAtiva(): bool
@@ -189,13 +220,11 @@ class PromocaoAdicional extends Model
     }
 
     /**
-     * A campanha não tem pool próprio — o saldo vive por regra
-     * (PromocaoAdicionalRegra::esgotada()). O status da campanha nunca é
-     * "Esgotada"; quem decide se uma oferta específica pode ser aceita é
-     * PromocaoAdicionalService, checando a regra.
+     * Esgotada só pelo teto da campanha (promoad_qtd_total). O saldo de cada
+     * opção de oferta (pao_qtd_total) não esgota a campanha inteira.
      */
     protected function vigEsgotada(): bool
     {
-        return false;
+        return $this->esgotada();
     }
 }
