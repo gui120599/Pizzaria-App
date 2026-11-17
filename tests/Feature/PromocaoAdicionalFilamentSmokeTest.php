@@ -7,11 +7,15 @@ use App\Filament\Resources\PromocoesAdicionais\Pages\CreatePromocaoAdicional;
 use App\Filament\Resources\PromocoesAdicionais\Pages\EditPromocaoAdicional;
 use App\Filament\Resources\PromocoesAdicionais\Pages\ListPromocoesAdicionais;
 use App\Models\Categoria;
+use App\Models\ItensPedido;
 use App\Models\OpcoesPagamento;
+use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\PromocaoAdicional;
+use App\Models\PromocaoAdicionalConsumo;
 use App\Models\User;
 use App\Services\PrecificadorService;
+use Filament\Actions\Action;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -350,5 +354,54 @@ class PromocaoAdicionalFilamentSmokeTest extends TestCase
             ->assertHasActionErrors(['ofertas.1.pao_produto_oferta_id']);
 
         $this->assertSame(0, $promocao->regras()->whereHas('ofertas', fn ($q) => $q->where('pao_produto_oferta_id', $refri->id))->count());
+    }
+
+    public function test_remover_todos_os_gatilhos_apaga_so_as_regras_desta_campanha(): void
+    {
+        $promocao = $this->promocao();
+        $outra = $this->promocao();
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->callAction('removerTodosOsGatilhos')
+            ->assertNotified('1 regra(s) removida(s).');
+
+        $this->assertSame(0, $promocao->regras()->count());
+        $this->assertSame(0, DB::table('promocao_adicional_ofertas')->whereNotIn('pao_regra_id', $outra->regras()->pluck('id'))->count());
+        $this->assertSame(1, $outra->regras()->count());
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->assertActionHidden('removerTodosOsGatilhos');
+    }
+
+    public function test_remover_todos_os_gatilhos_avisa_quando_ja_ha_brinde_concedido(): void
+    {
+        $promocao = $this->promocao();
+        $regra = $promocao->regras()->with('ofertas')->sole();
+        $pedido = Pedido::create(['pedido_status' => 'INICIADO', 'pedido_datahora_abertura' => now()]);
+        $item = fn (int $produtoId) => ItensPedido::create([
+            'item_pedido_pedido_id' => $pedido->id,
+            'item_pedido_produto_id' => $produtoId,
+            'item_pedido_quantidade' => 1,
+            'item_pedido_valor_unitario' => 0,
+            'item_pedido_valor' => 0,
+            'item_pedido_desconto' => 0,
+            'item_pedido_valor_adicionais' => 0,
+            'item_pedido_status' => 'INSERIDO',
+        ]);
+        PromocaoAdicionalConsumo::create([
+            'pac_regra_id' => $regra->id,
+            'pac_oferta_id' => $regra->ofertas->sole()->id,
+            'pac_item_pedido_gatilho_id' => $item($regra->par_produto_gatilho_id)->id,
+            'pac_item_pedido_oferta_id' => $item($regra->ofertas->sole()->pao_produto_oferta_id)->id,
+            'pac_pedido_id' => $pedido->id,
+            'pac_valor_adicional_cobrado' => 5.00,
+            'pac_quantidade' => 1,
+        ]);
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->assertActionExists('removerTodosOsGatilhos', fn (Action $action): bool => str_contains(
+                (string) $action->getModalDescription(),
+                '1 brinde(s) já concedido(s) perdem o vínculo com a promoção',
+            ));
     }
 }
