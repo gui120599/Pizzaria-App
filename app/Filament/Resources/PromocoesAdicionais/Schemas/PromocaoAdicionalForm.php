@@ -276,7 +276,7 @@ class PromocaoAdicionalForm
     }
 
     /** @return array<int, string> */
-    private static function opcoesProduto(string $search): array
+    public static function opcoesProduto(string $search): array
     {
         return Produto::query()
             ->where('produto_descricao', 'like', "%{$search}%")
@@ -288,7 +288,7 @@ class PromocaoAdicionalForm
             ->toArray();
     }
 
-    private static function opcaoProdutoSelecionado($value): ?string
+    public static function opcaoProdutoSelecionado($value): ?string
     {
         $produto = Produto::with('categoria')->find($value);
 

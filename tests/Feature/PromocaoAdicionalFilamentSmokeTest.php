@@ -280,4 +280,36 @@ class PromocaoAdicionalFilamentSmokeTest extends TestCase
         Livewire::test(ListPromocoesAdicionais::class)
             ->assertTableColumnStateSet('saldo', '5 de 20', $promocao);
     }
+
+    public function test_adicionar_gatilhos_por_categoria_cria_uma_regra_por_produto_sem_duplicar(): void
+    {
+        $promocao = $this->promocao();
+        $grande = Categoria::create(['categoria_nome' => 'Pizza Grande']);
+        $refri = $this->produto('Guaraná Kuat 2L', 12.00);
+        $produtosGrande = collect(['Calabresa Grande', 'Frango Grande', 'Portuguesa Grande'])
+            ->map(fn (string $nome) => Produto::create([
+                'produto_descricao' => $nome,
+                'produto_categoria_id' => $grande->id,
+                'produto_tipo' => ProdutoTipoEnum::PRODUZIDO->value,
+                'produto_preco_venda' => 60.00,
+            ]));
+        $promocao->regras()->create(['par_produto_gatilho_id' => $produtosGrande[0]->id]);
+
+        Livewire::test(EditPromocaoAdicional::class, ['record' => $promocao->id])
+            ->callAction('adicionarGatilhosPorCategoria', [
+                'categoria_id' => $grande->id,
+                'produto_oferta_id' => $refri->id,
+                'valor_adicional' => 0,
+            ])
+            ->assertHasNoActionErrors()
+            ->assertNotified('2 regra(s) criada(s).');
+
+        $novas = $promocao->regras()->with('ofertas')->whereIn('par_produto_gatilho_id', [$produtosGrande[1]->id, $produtosGrande[2]->id])->get();
+
+        $this->assertCount(2, $novas);
+        $this->assertSame(1, $promocao->regras()->where('par_produto_gatilho_id', $produtosGrande[0]->id)->count());
+        $this->assertNull($novas[0]->par_qtd_maxima_por_pedido);
+        $this->assertSame($refri->id, $novas[0]->ofertas->sole()->pao_produto_oferta_id);
+        $this->assertSame('0.00', $novas[0]->ofertas->sole()->pao_valor_adicional);
+    }
 }
