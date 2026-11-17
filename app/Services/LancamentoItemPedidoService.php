@@ -471,11 +471,15 @@ class LancamentoItemPedidoService
             // Este item é um gatilho com oferta(s) vinculada(s)?
             if (! $item->item_pedido_origem_id) {
                 $idsOfertaRemovidos = $this->promocoesAdicionais->estornarItensDoGatilho($item);
-                ItensPedido::whereIn('id', $idsOfertaRemovidos)->delete();
             } elseif ($item->item_pedido_promocao_adicional_regra_id) {
                 // A própria linha de oferta removida isoladamente (o gatilho continua).
                 $this->promocoesAdicionais->estornarItemOferta($item);
             }
+
+            // A FK de adicionais_item_pedidos não tem cascata: os adicionais
+            // saem antes das linhas, senão o banco recusa o delete.
+            AdicionaisItemPedido::whereIn('aip_item_pedido_id', [$item->id, ...$idsOfertaRemovidos])->delete();
+            ItensPedido::whereIn('id', $idsOfertaRemovidos)->delete();
 
             $item->delete();
 

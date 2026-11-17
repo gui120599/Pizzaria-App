@@ -278,6 +278,27 @@ class PedidoProdutoSelectorLancamentoTest extends TestCase
         $this->assertSame(8.5, (float) $componente->get('itens')[0]['valor']);
     }
 
+    public function test_remover_item_com_adicionais_apaga_o_item_e_os_adicionais(): void
+    {
+        $pedido = $this->pedido();
+        $lanche = $this->produto('X-Burguer', 30.00);
+        $bacon = $this->adicionalDoProduto($lanche, 'Bacon', 6.00);
+
+        $tela = Livewire::test(PedidoProdutoSelector::class, ['pedidoId' => $pedido->id])
+            ->call('selecionarProduto', $lanche->id)
+            ->call('toggleAdicional', $bacon->id)
+            ->call('confirmarItem');
+
+        $item = ItensPedido::sole();
+        $this->assertSame(1, AdicionaisItemPedido::where('aip_item_pedido_id', $item->id)->count());
+
+        $tela->call('removerItem', (string) $item->id)
+            ->assertSet('itens', []);
+
+        $this->assertSame(0, ItensPedido::count());
+        $this->assertSame(0, AdicionaisItemPedido::count());
+    }
+
     private function pedido(): Pedido
     {
         return Pedido::create([
