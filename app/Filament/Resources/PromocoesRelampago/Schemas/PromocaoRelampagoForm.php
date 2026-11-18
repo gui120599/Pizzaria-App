@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PromocoesRelampago\Schemas;
 
+use App\Models\OpcoesEntregas;
 use App\Models\Produto;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
@@ -110,6 +111,12 @@ class PromocaoRelampagoForm
                         ->helperText('Em branco = sem limite por cliente.')
                         ->numeric()
                         ->minValue(1),
+                    CheckboxList::make('promocao_opcoes_entrega')
+                        ->label('Opções de entrega aceitas')
+                        ->helperText('Em branco = todas. Com restrição, pedido de mesa sai pelo preço normal e as outras opções são recusadas no envio.')
+                        ->options(fn (): array => OpcoesEntregas::whereNull('deleted_at')->pluck('opcaoentrega_nome', 'id')->all())
+                        ->columns(3)
+                        ->columnSpanFull(),
                 ]),
 
             Section::make('Sabores')

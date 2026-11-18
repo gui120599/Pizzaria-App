@@ -39,6 +39,7 @@ use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
 use App\Services\PagamentosCombinadosService;
 use App\Services\PromocaoAdicionalService;
+use App\Services\PromocaoRelampagoService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Services\TotaisPedidoService;
 use App\Support\TotaisPedido;
@@ -652,6 +653,16 @@ class AtenderPedido extends Page
                 ->pluck('promoad_nome')
                 ->values()
                 ->all();
+
+        // Relâmpago restrita a delivery/retirada: só a edição tem itens com
+        // promoção (a prévia do pedido novo é precificada sem relâmpago).
+        if ($this->pedidoId) {
+            $foraDaEntrega = [...$foraDaEntrega, ...app(PromocaoRelampagoService::class)->promocoesForaDaEntrega(
+                ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)->where('item_pedido_status', 'INSERIDO')->pluck('item_pedido_promocao_id'),
+                $opcaoEntrega?->id,
+                Pedido::whereKey($this->pedidoId)->whereNotNull('pedido_sessao_mesa_id')->exists(),
+            )];
+        }
 
         if ($foraDaEntrega !== []) {
             $this->notificarErro('A promoção "'.implode('", "', $foraDaEntrega).'" não vale para esta opção de entrega. Remova o item da promoção ou mude a opção de entrega.', titulo: 'Promoção');

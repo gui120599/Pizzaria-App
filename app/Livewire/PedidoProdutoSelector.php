@@ -181,6 +181,27 @@ class PedidoProdutoSelector extends Component
 
     public ?int $saboresCategoriaId = null;
 
+    /**
+     * Pedido de mesa (garçom na mesa ou edição no admin): relâmpago restrita
+     * a delivery/retirada não vale. Liga o contexto do precificador neste
+     * request (cardápio da tela e lançamento) e desliga ao terminar.
+     */
+    public function booted(): void
+    {
+        app(PrecificadorService::class)->definirContextoMesa($this->ehPedidoDeMesa());
+    }
+
+    public function dehydrate(): void
+    {
+        app(PrecificadorService::class)->definirContextoMesa(false);
+    }
+
+    protected function ehPedidoDeMesa(): bool
+    {
+        return $this->pedidoId !== null
+            && Pedido::whereKey($this->pedidoId)->whereNotNull('pedido_sessao_mesa_id')->exists();
+    }
+
     public function mount(?int $pedidoId = null, array $itensIniciais = [], ?int $clientePadraoId = null, bool $layoutDesktop = false): void
     {
         $this->pedidoId = $pedidoId;
