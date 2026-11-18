@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\ItensPedido;
+use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
 use App\Models\PromocaoConsumo;
 use App\Models\PromocaoRelampago;
@@ -153,6 +154,55 @@ class PromocaoRelampagoService
                 "A promoção \"{$promocao->promocao_nome}\" permite no máximo {$limite} unidade(s) por pedido."
             );
         }
+    }
+
+    /**
+     * Nomes das promoções (dos itens informados) que não valem para a opção de
+     * entrega escolhida. Estrito: sem opção escolhida também barra.
+     *
+     * @param  iterable<int|null>  $promocaoIds  item_pedido_promocao_id dos itens
+     * @return list<string>
+     */
+    public function promocoesForaDaEntrega(iterable $promocaoIds, ?int $opcaoEntregaId, bool $ehMesa = false): array
+    {
+        $ids = collect($promocaoIds)->filter()->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return PromocaoRelampago::withTrashed()
+            ->whereIn('id', $ids)
+            ->get()
+            ->reject(fn (PromocaoRelampago $promocao) => $promocao->entregaPermitida($opcaoEntregaId, $ehMesa))
+            ->map(fn (PromocaoRelampago $promocao) => $promocao->promocao_nome)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  iterable<int|null>  $promocaoIds
+     *
+     * @throws PromocaoIndisponivelException
+     */
+    public function exigirEntregaPermitida(iterable $promocaoIds, ?int $opcaoEntregaId, bool $ehMesa = false): void
+    {
+        $fora = $this->promocoesForaDaEntrega($promocaoIds, $opcaoEntregaId, $ehMesa);
+
+        if ($fora === []) {
+            return;
+        }
+
+        $opcoes = PromocaoRelampago::withTrashed()
+            ->whereIn('promocao_nome', $fora)
+            ->get()
+            ->flatMap(fn (PromocaoRelampago $promocao) => (array) $promocao->promocao_opcoes_entrega)
+            ->unique();
+        $nomes = OpcoesEntregas::whereIn('id', $opcoes)->pluck('opcaoentrega_nome')->implode(' e ');
+
+        throw new PromocaoIndisponivelException(
+            'A promoção "'.implode('", "', $fora)."\" vale só para: {$nomes}. Mude a opção de entrega ou remova o item da promoção."
+        );
     }
 
     private function estornarConsumo(PromocaoConsumo $consumo): void

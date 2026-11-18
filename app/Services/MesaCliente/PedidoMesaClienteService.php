@@ -18,6 +18,7 @@ use App\Services\Garcom\AtendimentoMesaService;
 use App\Services\ItemSolicitado;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
+use App\Services\PrecificadorService;
 use App\Services\Push\NotificadorGarcom;
 use App\Support\Push\EventoGarcom;
 use App\Support\TotaisPedido;
@@ -58,10 +59,11 @@ class PedidoMesaClienteService
         $this->garantirQuePodePedir($participante, $itens);
 
         // O item é sempre lançado para o cliente identificado no celular.
-        $linhas = array_map(
+        // Mesa: relâmpago restrita a delivery/retirada não vale (preço normal).
+        $linhas = app(PrecificadorService::class)->noContextoMesa(fn (): array => array_map(
             fn (ItemSolicitado $item) => $this->lancamento->precificar($item->paraCliente($participante->mp_cliente_id), CanalLancamentoEnum::MESA_QR),
             $itens,
-        );
+        ));
 
         $this->lancamento->validarEstoque($linhas);
         $this->lancamento->validarLimitesPromocao($linhas);

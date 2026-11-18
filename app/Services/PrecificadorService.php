@@ -41,6 +41,39 @@ class PrecificadorService
     /** @var Collection<int, PromocaoAdicionalRegra>|null */
     private ?Collection $regrasAdicionais = null;
 
+    /**
+     * Pedido/cardápio de mesa (garçom na mesa ou QR do cliente): promoção
+     * relâmpago restrita a opções de entrega (ex.: só delivery/retirada) não
+     * vale — o produto sai pelo preço normal.
+     */
+    private bool $contextoMesa = false;
+
+    public function definirContextoMesa(bool $mesa): void
+    {
+        if ($this->contextoMesa !== $mesa) {
+            $this->contextoMesa = $mesa;
+            $this->esquecerPromocoes();
+        }
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public function noContextoMesa(callable $callback, bool $mesa = true): mixed
+    {
+        $anterior = $this->contextoMesa;
+        $this->definirContextoMesa($mesa);
+
+        try {
+            return $callback();
+        } finally {
+            $this->definirContextoMesa($anterior);
+        }
+    }
+
     /** @return Collection<int, PromocaoRelampago> */
     public function promocoesVigentes(): Collection
     {
@@ -49,7 +82,9 @@ class PrecificadorService
             ->comSaldo()
             ->with(['promocaoProdutos'])
             ->orderBy('promocao_ordem')
-            ->get();
+            ->get()
+            ->reject(fn (PromocaoRelampago $promocao) => $this->contextoMesa && $promocao->restringeEntrega())
+            ->values();
     }
 
     /**

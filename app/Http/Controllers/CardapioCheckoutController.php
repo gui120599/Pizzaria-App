@@ -25,6 +25,7 @@ use App\Services\CupomService;
 use App\Services\ItemSolicitado;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
+use App\Services\PromocaoRelampagoService;
 use App\Support\TotaisPedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -241,6 +242,10 @@ class CardapioCheckoutController extends Controller
             $lancamento->validarEstoque($linhas);
             $lancamento->validarLimitesPromocao($linhas);
             $lancamento->validarLimitesOferta($linhas, opcaoEntregaId: (int) $request->opcao_entrega_id);
+            app(PromocaoRelampagoService::class)->exigirEntregaPermitida(
+                array_map(fn (LinhaPrecificada $linha) => $linha->atributos['item_pedido_promocao_id'] ?? null, $linhas),
+                (int) $request->opcao_entrega_id,
+            );
         } catch (EstoqueInsuficienteException $e) {
             return response()->json(['message' => 'Item sem estoque suficiente: '.$e->getMessage()], 422);
         } catch (ItemIndisponivelException|ComboSaboresInvalidoException|PerguntaNaoRespondidaException|PromocaoIndisponivelException $e) {

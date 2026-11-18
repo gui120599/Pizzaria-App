@@ -30,8 +30,19 @@ class CardapioService
      */
     private const CATEGORIA_COM_SABORES = ['categoria.quantidadesSabores', 'categoria.pai.quantidadesSabores'];
 
-    /** @return array<string, mixed> variáveis da view cardapio */
+    /**
+     * Na mesa (QR), promoção relâmpago restrita a delivery/retirada não entra
+     * nos preços nem na vitrine (PrecificadorService::noContextoMesa()).
+     *
+     * @return array<string, mixed> variáveis da view cardapio
+     */
     public function dados(bool $mesa = false): array
+    {
+        return app(PrecificadorService::class)->noContextoMesa(fn (): array => $this->montarDados($mesa), $mesa);
+    }
+
+    /** @return array<string, mixed> */
+    private function montarDados(bool $mesa): array
     {
         // Só categorias de topo entram como seção própria — uma categoria com
         // categoria_pai_id preenchida aparece aninhada dentro da seção da mãe
@@ -88,6 +99,7 @@ class CardapioService
             ->orderBy('promocao_ordem')
             ->orderBy('promocao_nome')
             ->get()
+            ->reject(fn (PromocaoRelampago $promo) => $mesa && $promo->restringeEntrega())
             ->map(fn (PromocaoRelampago $promo) => [
                 'id' => $promo->id,
                 'nome' => $promo->promocao_nome,

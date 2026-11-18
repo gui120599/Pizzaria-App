@@ -12,6 +12,7 @@ use App\Services\ClienteResolverService;
 use App\Services\FiadoPedidoService;
 use App\Services\PagamentosCombinadosService;
 use App\Services\PedidoStatusService;
+use App\Services\PromocaoRelampagoService;
 use App\Support\JanelaOperacional;
 use App\Support\TotaisPedido;
 use Illuminate\Support\Carbon;
@@ -99,6 +100,7 @@ class RetiradaService
             }
 
             $opcao = $this->opcaoEntregaRetirada($opcaoEntregaId);
+            app(PromocaoRelampagoService::class)->exigirEntregaPermitida($itens->pluck('item_pedido_promocao_id'), $opcao->id);
             $cliente = $clienteEscolhido && strlen($digitosCelular) < 10
                 ? $clienteEscolhido
                 : $this->clientes->resolverOuCriar(['nome' => $nome, 'celular' => $digitosCelular]);
@@ -215,6 +217,8 @@ class RetiradaService
             if ($itens->isEmpty()) {
                 throw new RuntimeException('Adicione pelo menos um item antes de enviar.');
             }
+
+            app(PromocaoRelampagoService::class)->exigirEntregaPermitida($itens->pluck('item_pedido_promocao_id'), $opcao->id);
 
             $totais = TotaisPedido::paraItens($itens, $opcao);
             $somaPagamentos = collect($pagamentos)->sum(fn (array $p): float => PagamentosCombinadosService::valorDigitado($p['valor']));

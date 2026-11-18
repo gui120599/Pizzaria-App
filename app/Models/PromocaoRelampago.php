@@ -39,6 +39,7 @@ class PromocaoRelampago extends Model
         'promocao_permite_sabores',
         'promocao_max_sabores',
         'promocao_ordem',
+        'promocao_opcoes_entrega',
     ];
 
     protected function casts(): array
@@ -51,6 +52,7 @@ class PromocaoRelampago extends Model
             'promocao_inicio' => 'datetime',
             'promocao_fim' => 'datetime',
             'promocao_dias_semana' => 'array',
+            'promocao_opcoes_entrega' => 'array',
             'promocao_hora_inicio' => 'datetime:H:i:s',
             'promocao_hora_fim' => 'datetime:H:i:s',
             'promocao_data_final_recorrencia' => 'date',
@@ -101,6 +103,30 @@ class PromocaoRelampago extends Model
             ->pluck('id');
 
         return $query->whereIn('promocoes_relampago.id', $ids);
+    }
+
+    /** Opções de entrega aceitas (ids); vazio = todas. */
+    public function restringeEntrega(): bool
+    {
+        return array_filter((array) $this->promocao_opcoes_entrega) !== [];
+    }
+
+    /**
+     * Mesma regra da promoção adicional: sem restrição tudo vale; com
+     * restrição, mesa nunca vale e a opção precisa estar na lista. Null
+     * (opção ainda não escolhida) não passa: quem chama confere no envio.
+     */
+    public function entregaPermitida(?int $opcaoEntregaId, bool $ehMesa = false): bool
+    {
+        if (! $this->restringeEntrega()) {
+            return true;
+        }
+
+        if ($ehMesa || $opcaoEntregaId === null) {
+            return false;
+        }
+
+        return in_array($opcaoEntregaId, array_map('intval', (array) $this->promocao_opcoes_entrega), true);
     }
 
     /** Ainda tem unidades no pool. Promoção sem teto sempre passa. */
