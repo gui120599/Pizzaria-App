@@ -9,6 +9,7 @@ use App\Exceptions\EstoqueInsuficienteException;
 use App\Exceptions\ItemIndisponivelException;
 use App\Exceptions\PerguntaNaoRespondidaException;
 use App\Exceptions\PromocaoIndisponivelException;
+use App\Livewire\Concerns\ConvidaPromocaoCombo;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\Pedido;
@@ -28,6 +29,8 @@ use Livewire\Component;
 
 class PedidoProdutoSelector extends Component
 {
+    use ConvidaPromocaoCombo;
+
     public ?int $pedidoId = null;
 
     public array $itensIniciais = [];
@@ -215,6 +218,9 @@ class PedidoProdutoSelector extends Component
             $this->itens = $itensIniciais;
         }
 
+        // Estado inicial da Promoção Combo: abrir a tela não comemora nem convida.
+        $this->sincronizarPromocaoCombo(convidar: false);
+
         // No desktop o carrinho é um painel da página (Painel do Garçom):
         // ela precisa dos itens já gravados no rascunho desde o início.
         if ($layoutDesktop) {
@@ -265,6 +271,8 @@ class PedidoProdutoSelector extends Component
                 : ($quantidade > 0 ? round((float) $item->item_pedido_desconto / $quantidade, 4) : 0),
             'valor' => (float) $item->item_pedido_valor,
             'desconto' => $item->descontoTotal(),
+            // Parte da Promoção Combo (já dentro de 'valor' e de 'desconto').
+            'desconto_combo' => (float) $item->item_pedido_desconto_combo,
             'adicionais_valor' => (float) $item->item_pedido_valor_adicionais,
             'observacao' => $item->item_pedido_observacao ?? '',
             'promocao_id' => $item->item_pedido_promocao_id,
@@ -1296,6 +1304,8 @@ class PedidoProdutoSelector extends Component
             $item['desconto'] = round(($item['desconto_unit'] ?? 0) * $novaQtd, 2);
             $item['adicionais_valor'] = $lancamento->valorDosAdicionais($item['adicionais'] ?? [], $novaQtd);
             $item['valor'] = round(($item['valor_unitario'] * $novaQtd) - $item['desconto'] + $item['adicionais_valor'], 2);
+            // Valor voltou ao da tabela: a parte do combo é refeita em notificarPai().
+            $item['desconto_combo'] = 0;
             break;
         }
         unset($item);
@@ -1456,7 +1466,10 @@ class PedidoProdutoSelector extends Component
                 fn (array $adicional) => in_array((int) $adicional['id'], $adicionaisIds, true),
             ));
             $valorAdicionais = $lancamento->valorDosAdicionais($adicionais, (float) $item['quantidade']);
-            $baseSemAdicionais = round((float) $item['valor'] - (float) ($item['adicionais_valor'] ?? 0), 2);
+            // Sem a parte do combo: ela é refeita em notificarPai().
+            $baseSemAdicionais = round((float) $item['valor'] + (float) ($item['desconto_combo'] ?? 0) - (float) ($item['adicionais_valor'] ?? 0), 2);
+            $item['desconto'] = round((float) ($item['desconto'] ?? 0) - (float) ($item['desconto_combo'] ?? 0), 2);
+            $item['desconto_combo'] = 0;
 
             $item['observacao'] = $this->editObservacao;
             $item['adicionais'] = $adicionais;
@@ -1484,6 +1497,7 @@ class PedidoProdutoSelector extends Component
 
     protected function notificarPai(): void
     {
+        $this->sincronizarPromocaoCombo();
         $this->dispatch('itens-pedido-atualizados', itens: $this->itens);
     }
 

@@ -40,6 +40,7 @@ use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
 use App\Services\PagamentosCombinadosService;
 use App\Services\PromocaoAdicionalService;
+use App\Services\PromocaoCombo\PromocaoComboService;
 use App\Services\PromocaoRelampagoService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Services\TotaisPedidoService;
@@ -737,6 +738,11 @@ class AtenderPedido extends Page
 
                 $this->sincronizarItens($pedido, $souNovo);
 
+                if ($souNovo) {
+                    // Antes do cupom: ele incide sobre o líquido do combo.
+                    app(PromocaoComboService::class)->reaplicar($pedido);
+                }
+
                 if ($souNovo && $this->cupomId !== null) {
                     $cupom = Cupom::findOrFail($this->cupomId);
                     $base = round((float) collect($this->itensCarrinho)->sum('valor'), 2);
@@ -961,8 +967,10 @@ class AtenderPedido extends Page
                 'item_pedido_produto_id' => $item['produto_id'],
                 'item_pedido_quantidade' => $item['quantidade'],
                 'item_pedido_valor_unitario' => $item['valor_unitario'],
-                'item_pedido_valor' => $item['valor'],
-                'item_pedido_desconto' => $item['desconto'] ?? 0,
+                // A parte da Promoção Combo da prévia volta ao valor: reaplicar() a
+                // refaz no banco, já com a opção de entrega do pedido.
+                'item_pedido_valor' => round((float) $item['valor'] + (float) ($item['desconto_combo'] ?? 0), 2),
+                'item_pedido_desconto' => round((float) ($item['desconto'] ?? 0) - (float) ($item['desconto_combo'] ?? 0), 2),
                 'item_pedido_valor_adicionais' => $item['adicionais_valor'] ?? 0,
                 'item_pedido_desconto_unitario' => $item['desconto_unit'] ?? null,
                 'item_pedido_promocao_id' => $item['promocao_id'] ?? null,

@@ -38,11 +38,45 @@ class PromocaoComboService
      */
     public function reaplicar(Pedido $pedido, ?int $opcaoEntregaId = null): void
     {
+        $contexto = $this->contexto($pedido, $opcaoEntregaId, travar: true);
+
+        if ($contexto === null) {
+            return;
+        }
+
+        ['plano' => $plano, 'aplicacoes' => $aplicacoes, 'congeladas' => $congeladas, 'livres' => $livres, 'descontoCongelado' => $descontoCongelado] = $contexto;
+
+        PedidoComboAplicacao::whereKey($aplicacoes->diff($congeladas)->modelKeys())->delete();
+        $this->gravarAplicacoes($pedido, $plano);
+
+        $novos = $plano->descontoPorLinha();
+
+        foreach ($livres as $chave => $item) {
+            $this->gravarDescontoNaLinha($item, (($novos[$chave] ?? 0) + ($descontoCongelado[$item->id] ?? 0)) / 100);
+        }
+    }
+
+    /**
+     * O que reaplicar() decidiria agora para o pedido, sem gravar: base do
+     * convite ("falta 1") nas telas de atendimento. Chaves = id da linha.
+     */
+    public function planoDoPedido(Pedido $pedido): PlanoCombo
+    {
+        return $this->contexto($pedido, null, travar: false)['plano'] ?? new PlanoCombo;
+    }
+
+    /**
+     * Linhas, aplicações congeladas (com linha vendida) e o plano para as livres.
+     *
+     * @return array{plano: PlanoCombo, aplicacoes: \Illuminate\Database\Eloquent\Collection<int, PedidoComboAplicacao>, congeladas: \Illuminate\Database\Eloquent\Collection<int, PedidoComboAplicacao>, livres: array<string, ItensPedido>, descontoCongelado: array<int, int>}|null
+     */
+    private function contexto(Pedido $pedido, ?int $opcaoEntregaId, bool $travar): ?array
+    {
         $vigentes = PromocaoCombo::query()->vigente()->get();
         $aplicacoes = PedidoComboAplicacao::where('pca_pedido_id', $pedido->id)->with('itens')->get();
 
         if ($vigentes->isEmpty() && $aplicacoes->isEmpty()) {
-            return;
+            return null;
         }
 
         /** @var Collection<int, ItensPedido> $itens */
@@ -50,7 +84,7 @@ class PromocaoComboService
             ->where('item_pedido_status', 'INSERIDO')
             ->withCount(['itensOferta' => fn ($q) => $q->where('item_pedido_status', 'INSERIDO')])
             ->orderBy('id')
-            ->lockForUpdate()
+            ->when($travar, fn ($q) => $q->lockForUpdate())
             ->get();
 
         $vendidos = $itens->whereNotNull('item_pedido_venda_id')->pluck('id')->all();
@@ -88,14 +122,7 @@ class PromocaoComboService
             unidadesOcupadas: array_combine(array_map('strval', array_keys($unidadesCongeladas)), $unidadesCongeladas),
         );
 
-        PedidoComboAplicacao::whereKey($aplicacoes->diff($congeladas)->modelKeys())->delete();
-        $this->gravarAplicacoes($pedido, $plano);
-
-        $novos = $plano->descontoPorLinha();
-
-        foreach ($livres as $chave => $item) {
-            $this->gravarDescontoNaLinha($item, (($novos[$chave] ?? 0) + ($descontoCongelado[$item->id] ?? 0)) / 100);
-        }
+        return compact('plano', 'aplicacoes', 'congeladas', 'livres', 'descontoCongelado');
     }
 
     /**

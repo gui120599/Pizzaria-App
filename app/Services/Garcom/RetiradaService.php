@@ -5,6 +5,7 @@ namespace App\Services\Garcom;
 use App\Enums\PedidoOrigemEnum;
 use App\Enums\StatusPedidoEnum;
 use App\Models\Cliente;
+use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
 use App\Models\User;
@@ -12,6 +13,7 @@ use App\Services\ClienteResolverService;
 use App\Services\FiadoPedidoService;
 use App\Services\PagamentosCombinadosService;
 use App\Services\PedidoStatusService;
+use App\Services\PromocaoCombo\PromocaoComboService;
 use App\Services\PromocaoRelampagoService;
 use App\Support\JanelaOperacional;
 use App\Support\Telefone;
@@ -102,6 +104,7 @@ class RetiradaService
 
             $opcao = $this->opcaoEntregaRetirada($opcaoEntregaId);
             app(PromocaoRelampagoService::class)->exigirEntregaPermitida($itens->pluck('item_pedido_promocao_id'), $opcao->id);
+            $itens = $this->comComboDaOpcao($pedido, $opcao->id);
             $cliente = $clienteEscolhido && Telefone::canonico($digitosCelular) === null
                 ? $clienteEscolhido
                 : $this->clientes->resolverOuCriar(['nome' => $nome, 'celular' => $digitosCelular]);
@@ -138,6 +141,19 @@ class RetiradaService
     }
 
     /** Cliente escolhido na busca da tela (não avulso), se ainda existir. */
+    /**
+     * O rascunho ganhou a Promoção Combo sem opção de entrega: com a opção
+     * escolhida, o combo restrito a outras opções cai e o total acompanha.
+     *
+     * @return Collection<int, ItensPedido>
+     */
+    private function comComboDaOpcao(Pedido $pedido, int $opcaoEntregaId): Collection
+    {
+        app(PromocaoComboService::class)->reaplicar($pedido, $opcaoEntregaId);
+
+        return $pedido->item_pedido_pedido_id()->where('item_pedido_status', 'INSERIDO')->get();
+    }
+
     private function clienteEscolhido(?int $clienteId): ?Cliente
     {
         return $clienteId ? Cliente::naoAvulsos()->find($clienteId) : null;
@@ -220,6 +236,7 @@ class RetiradaService
             }
 
             app(PromocaoRelampagoService::class)->exigirEntregaPermitida($itens->pluck('item_pedido_promocao_id'), $opcao->id);
+            $itens = $this->comComboDaOpcao($pedido, $opcao->id);
 
             $totais = TotaisPedido::paraItens($itens, $opcao);
             $somaPagamentos = collect($pagamentos)->sum(fn (array $p): float => PagamentosCombinadosService::valorDigitado($p['valor']));

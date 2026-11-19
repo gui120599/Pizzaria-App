@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\ClienteResolverService;
 use App\Services\PedidoStatusService;
 use App\Services\PromocaoAdicionalService;
+use App\Services\PromocaoCombo\PromocaoComboService;
 use App\Services\PromocaoRelampagoService;
 use App\Services\SessaoMesaService;
 use App\Support\TotaisPedido;
@@ -178,6 +179,8 @@ class AtendimentoMesaService
                 'item_pedido_usuario_removeu' => $solicitante->id,
             ]));
 
+            // Item cancelado pode desfazer um combo: refaz antes de somar.
+            app(PromocaoComboService::class)->reaplicar($pedido);
             $restantes = $pedido->item_pedido_pedido_id()->where('item_pedido_status', 'INSERIDO')->get();
 
             if ($restantes->isEmpty()) {

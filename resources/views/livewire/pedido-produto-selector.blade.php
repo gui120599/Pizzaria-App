@@ -509,6 +509,81 @@
     @endif
 
 
+    {{-- ══ MODAL: Promoção Combo (combo fechado / convite para completar) ═════ --}}
+    {{-- Espera o modal da Promoção Adicional fechar para não empilhar dois. --}}
+    @if ($comboModal && ! $promoModal)
+        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" wire:keydown.escape="recusarCombo">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" wire:click="recusarCombo"></div>
+
+            @if ($comboModal['tipo'] === 'conquista')
+                <style>
+                    @keyframes combo-confete { 0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; } 100% { transform: translate3d(var(--deriva), 100vh, 0) rotate(540deg); opacity: .9; } }
+                    .combo-confete { position: absolute; top: 0; width: 8px; height: 14px; border-radius: 2px; animation: combo-confete var(--duracao) cubic-bezier(.25,.6,.45,1) var(--atraso) both; }
+                    @media (prefers-reduced-motion: reduce) { .combo-confete { display: none; } }
+                </style>
+                <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+                    @for ($n = 1; $n <= 36; $n++)
+                        <span class="combo-confete" style="left: {{ ($n * 37) % 100 }}%; background: {{ ['#F2B33D', '#E8673A', '#10B981', '#EC4899', '#C2410C', '#3B82F6'][$n % 6] }}; --atraso: {{ ($n % 7) * 0.12 }}s; --duracao: {{ 2.2 + ($n % 5) * 0.35 }}s; --deriva: {{ (($n * 53) % 120) - 60 }}px;"></span>
+                    @endfor
+                </div>
+
+                <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm z-10 p-6 text-center space-y-3">
+                    <div class="text-4xl" aria-hidden="true">🎉</div>
+                    <h3 class="text-lg font-extrabold uppercase text-gray-900 dark:text-white leading-tight">Promoção aplicada!</h3>
+                    <p class="text-sm font-bold uppercase text-emerald-600 dark:text-emerald-400">{{ $comboModal['nome'] }}</p>
+                    <ul class="text-sm text-gray-700 dark:text-gray-300 space-y-0.5">
+                        @foreach ($comboModal['itens'] as $nomeItem)
+                            <li>🍕 {{ $nomeItem }}</li>
+                        @endforeach
+                    </ul>
+                    <div class="rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-white/10 px-4 py-3">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            De <span class="line-through">R$ {{ number_format($comboModal['valor_cheio'], 2, ',', '.') }}</span>
+                            por <span class="text-base font-bold text-gray-900 dark:text-white">R$ {{ number_format($comboModal['preco'], 2, ',', '.') }}</span>
+                        </p>
+                        <p class="mt-1 text-sm font-extrabold uppercase text-emerald-600 dark:text-emerald-400">Economia de R$ {{ number_format($comboModal['desconto'], 2, ',', '.') }}</p>
+                    </div>
+                    <p class="text-xs text-gray-400">Bordas e adicionais são cobrados à parte.</p>
+                    <button type="button" wire:click="recusarCombo"
+                        class="w-full py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-bold transition-colors">
+                        Continuar
+                    </button>
+                </div>
+            @else
+                <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md z-10 max-h-[90vh] overflow-y-auto p-5 space-y-3">
+                    <p class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <i class='bx bxs-offer'></i> Promoção combo
+                    </p>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $comboModal['nome'] }}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">
+                        {{ $comboModal['combos_fechados'] > 0 ? 'Mais um combo à vista!' : 'Item participante da promoção!' }}
+                        Mais <b>{{ $comboModal['faltam'] }}</b> e o cliente leva <b>{{ $comboModal['quantidade'] }}</b>
+                        por <b class="text-emerald-600 dark:text-emerald-400">R$ {{ number_format($comboModal['preco'], 2, ',', '.') }}</b>.
+                    </p>
+
+                    <div class="max-h-72 overflow-y-auto pr-1 space-y-1.5">
+                        @foreach ($comboModal['produtos'] as $produtoCombo)
+                            <button type="button" wire:click="escolherDoCombo({{ $produtoCombo['id'] }})"
+                                class="w-full flex items-center gap-3 p-2.5 rounded-xl border-2 border-dashed border-emerald-300 dark:border-emerald-500/30 bg-white dark:bg-gray-900 text-left transition-colors hover:border-emerald-500">
+                                @if ($produtoCombo['foto'])
+                                    <img src="{{ $produtoCombo['foto'] }}" alt="" class="w-10 h-10 rounded-lg object-cover shrink-0">
+                                @endif
+                                <p class="flex-1 text-sm font-semibold text-gray-800 dark:text-gray-200 truncate min-w-0">{{ $produtoCombo['nome'] }}</p>
+                                <span class="text-sm font-bold text-gray-700 dark:text-gray-300 shrink-0">R$ {{ number_format($produtoCombo['preco'], 2, ',', '.') }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+
+                    <button type="button" wire:click="recusarCombo"
+                        class="w-full py-2.5 border border-gray-300 dark:border-white/10 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                        Continuar sem a promoção
+                    </button>
+                </div>
+            @endif
+        </div>
+    @endif
+
+
     {{-- ══ MODAL: editar item existente ══════════════════════════════════════ --}}
     @if ($editModalAberta && $editItemId)
         @php $editItem = collect($itens)->firstWhere('id', $editItemId); @endphp
