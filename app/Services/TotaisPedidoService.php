@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\StatusPedidoEnum;
 use App\Models\ItensPedido;
 use App\Models\Pedido;
+use App\Services\PromocaoCombo\PromocaoComboService;
 use App\Support\TotaisPedido;
 
 /**
@@ -34,6 +35,10 @@ class TotaisPedidoService
     public function recalcular(Pedido|int $pedido, bool $inclusiveRascunho = false): array
     {
         $pedido = $this->travar($pedido instanceof Pedido ? $pedido->getKey() : $pedido);
+
+        // Promoção combo vale também no rascunho: o garçom e o checkout veem o
+        // preço da linha já com ela. Vem antes do cupom, que incide sobre o líquido.
+        app(PromocaoComboService::class)->reaplicar($pedido);
 
         if (! $inclusiveRascunho && $pedido->pedido_status === StatusPedidoEnum::INICIADO->value) {
             return [

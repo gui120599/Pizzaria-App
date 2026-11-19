@@ -19,6 +19,7 @@ use App\Models\OpcoesEntregas;
 use App\Models\OpcoesPagamento;
 use App\Models\Pedido;
 use App\Notifications\CupomUtilizadoNotification;
+use App\Rules\TelefoneBrasileiro;
 use App\Services\ClienteResolverService;
 use App\Services\CupomPedidoService;
 use App\Services\CupomService;
@@ -26,6 +27,7 @@ use App\Services\ItemSolicitado;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
 use App\Services\PromocaoRelampagoService;
+use App\Support\Telefone;
 use App\Support\TotaisPedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,10 +74,7 @@ class CardapioCheckoutController extends Controller
                 ))
                 ->all();
 
-            $telefone = preg_replace('/\D/', '', (string) $request->string('telefone'));
-            $cliente = strlen($telefone) >= 8
-                ? Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first()
-                : null;
+            $cliente = app(ClienteResolverService::class)->buscarPorCelular((string) $request->string('telefone'));
 
             $resultado = $cupomService->validar((string) $request->string('codigo_cupom'), $this->somaLiquido($linhas), $cliente);
         } catch (CupomInvalidoException|ItemIndisponivelException|ComboSaboresInvalidoException|PerguntaNaoRespondidaException|PromocaoIndisponivelException) {
@@ -102,15 +101,19 @@ class CardapioCheckoutController extends Controller
         return round($soma + $ofertas, 2);
     }
 
-    public function lookupCliente(Request $request)
+    /**
+     * Só reconhece o número completo (qualquer formato equivalente): trecho de
+     * número não identifica ninguém nem expõe o cadastro de outra pessoa.
+     */
+    public function lookupCliente(Request $request, ClienteResolverService $clienteResolver)
     {
-        $telefone = preg_replace('/\D/', '', $request->string('telefone'));
+        $telefone = (string) $request->string('telefone');
 
-        if (strlen($telefone) < 8) {
+        if (Telefone::canonico($telefone) === null) {
             return response()->json(['encontrado' => false]);
         }
 
-        $cliente = Cliente::where('cliente_celular', 'like', "%{$telefone}%")->first();
+        $cliente = $clienteResolver->buscarPorCelular($telefone);
 
         if (! $cliente) {
             return response()->json(['encontrado' => false]);
@@ -177,7 +180,7 @@ class CardapioCheckoutController extends Controller
         // comprar, e o servidor decide quanto custa (ver LancamentoItemPedidoService).
         $request->validate([
             'nome' => 'required|string|max:255',
-            'telefone' => 'required|string|min:8',
+            'telefone' => ['required', 'string', 'max:30', new TelefoneBrasileiro],
             'opcao_entrega_id' => 'required|integer|exists:opcoes_entregas,id',
             'pagamento_nome' => 'required|string|max:100',
             'opcao_pagamento_id' => 'nullable|integer|exists:opcoes_pagamentos,id',

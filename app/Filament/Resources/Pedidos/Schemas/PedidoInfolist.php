@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Pedidos\Schemas;
 
 use App\Enums\StatusPedidoEnum;
 use App\Models\Pedido;
+use App\Support\Telefone;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Section;
@@ -74,7 +75,7 @@ class PedidoInfolist
                         ->placeholder('Não informado'),
                     TextEntry::make('cliente_celular')
                         ->label('Celular')
-                        ->state(fn (Pedido $record): ?string => $record->pedido_cliente_id ? $record->cliente?->cliente_celular : null)
+                        ->state(fn (Pedido $record): ?string => $record->pedido_cliente_id ? Telefone::formatar($record->cliente?->cliente_celular) : null)
                         ->placeholder('—'),
                     TextEntry::make('pedido_endereco_entrega')->label('Endereço de entrega')->placeholder('—'),
                 ]),

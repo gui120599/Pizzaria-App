@@ -15,7 +15,9 @@ use App\Models\Pedido;
 use App\Models\SessaoCaixa;
 use App\Models\SessaoMesa;
 use App\Models\Venda;
+use App\Rules\TelefoneBrasileiro;
 use App\Support\ContaMesa;
+use App\Support\Telefone;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -188,7 +190,7 @@ class FinalizacaoVendaService
     {
         $cpf = ! empty($dados['cpf']) ? str_replace(['.', '-', ' '], '', $dados['cpf']) : null;
         $cnpj = ! empty($dados['cnpj']) ? str_replace(['.', '-', '/', ' '], '', $dados['cnpj']) : null;
-        $celular = ! empty($dados['telefone']) ? str_replace(['(', ')', '-', ' '], '', $dados['telefone']) : null;
+        $celular = Telefone::digitos($dados['telefone'] ?? null);
 
         $cliente = null;
         if ($cpf) {
@@ -207,18 +209,25 @@ class FinalizacaoVendaService
             'cliente_cnpj' => $cnpj,
             'cliente_celular' => $celular,
             'cliente_email' => $dados['email'] ?? null,
-            'cliente_tipo' => $cpf ? 'Física' : 'Jurídica',
+            'cliente_tipo' => $cnpj ? 'Jurídica' : 'Física',
         ];
 
         $rules = (new StoreClienteRequest)->rules();
         unset($rules['cliente_cpf'], $rules['cliente_cnpj']);
+        $rules['cliente_celular'] = ['nullable', 'string', 'max:30', new TelefoneBrasileiro];
 
         $validator = Validator::make($clienteData, $rules);
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
 
-        return Cliente::create($clienteData);
+        $resolver = app(ClienteResolverService::class);
+
+        // Sem CPF/CNPJ, o celular identifica: mesmo número (em qualquer formato) = mesmo cliente.
+        return $resolver->comLockDoCelular(
+            $celular,
+            fn (): Cliente => ($celular ? $resolver->buscarPorCelular($celular) : null) ?? Cliente::create($clienteData),
+        );
     }
 
     /**

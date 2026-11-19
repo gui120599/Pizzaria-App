@@ -701,7 +701,7 @@
                 // ── Lookup de cliente por telefone ──
                 async lookupCliente() {
                     const tel = this.form.telefone.replace(/\D/g, '');
-                    if (tel.length < 8) { this.clienteEncontrado = false; return; }
+                    if (tel.length < 10) { this.clienteEncontrado = false; return; }
 
                     this.lookingUp = true;
                     try {
@@ -726,8 +726,8 @@
                 // ── Validação do formulário ──
                 validar() {
                     const e = {};
-                    if (!this.form.telefone || this.form.telefone.replace(/\D/g, '').length < 8)
-                        e.telefone = 'Informe um telefone válido.';
+                    if (!this.form.telefone || this.form.telefone.replace(/\D/g, '').length < 10)
+                        e.telefone = 'Informe seu WhatsApp com DDD.';
                     if (!this.form.nome?.trim())
                         e.nome = 'Informe seu nome.';
                     if (!this.form.opcaoEntregaId)
@@ -848,7 +848,9 @@
                         const data = await res.json();
 
                         if (!res.ok) {
-                            this.erros = { geral: data.message || 'Erro ao registrar pedido. Tente novamente.' };
+                            this.erros = data.errors?.telefone
+                                ? { telefone: data.errors.telefone[0] }
+                                : { geral: data.message || 'Erro ao registrar pedido. Tente novamente.' };
                             return;
                         }
 

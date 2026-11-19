@@ -6,7 +6,7 @@ use App\Models\Cliente;
 use Illuminate\Console\Command;
 
 /**
- * Normaliza (dígitos puros) celular/CPF/CNPJ/CEP dos clientes já cadastrados
+ * Normaliza (dígitos puros) CPF/CNPJ/CEP dos clientes já cadastrados
  * antes desta feature existir — daqui pra frente isso é feito automaticamente
  * por ClienteObserver a cada save(). Sem esse backfill, registros antigos
  * salvos com máscara (ex.: pelo ClienteForm) não batem por igualdade exata
@@ -18,10 +18,10 @@ class NormalizarDocumentosClientes extends Command
 {
     protected $signature = 'clientes:normalizar-documentos';
 
-    protected $description = 'Normaliza celular/CPF/CNPJ/CEP dos clientes já cadastrados para dígitos puros';
+    protected $description = 'Normaliza CPF/CNPJ/CEP dos clientes já cadastrados para dígitos puros';
 
+    /** Celular fica com clientes:normalizar-telefones (forma canônica, com relatório antes). */
     private const CAMPOS_SOMENTE_DIGITOS = [
-        'cliente_celular',
         'cliente_cpf',
         'cliente_cnpj',
         'cliente_cep',

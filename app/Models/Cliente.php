@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Telefone;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -56,6 +57,28 @@ class Cliente extends Model
     public function scopeNaoAvulsos(Builder $query): Builder
     {
         return $query->where('cliente_avulso', false);
+    }
+
+    /**
+     * Busca pelo celular comparando a chave normalizada (App\Support\Telefone):
+     * número completo bate com qualquer formato equivalente já gravado;
+     * pedaço de número (busca enquanto digita) bate por trecho.
+     */
+    public function scopeBuscarPorTelefone(Builder $query, string $termo): Builder
+    {
+        if ($canonico = Telefone::canonico($termo)) {
+            return $query->where('cliente_celular_normalizado', $canonico);
+        }
+
+        $digitos = Telefone::digitos($termo);
+
+        if ($digitos === null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(fn (Builder $q) => $q
+            ->where('cliente_celular_normalizado', 'like', "%{$digitos}%")
+            ->orWhere('cliente_celular', 'like', "%{$digitos}%"));
     }
 
     public function pedidos()

@@ -12,6 +12,7 @@ use App\Filament\Concerns\ConcedeCortesiaNoItem;
 use App\Filament\Garcom\Concerns\CarrinhoLateral;
 use App\Filament\Garcom\Concerns\MostraAvisoResolvido;
 use App\Filament\Garcom\Concerns\RestritoAoSalao;
+use App\Filament\Support\CampoTelefone;
 use App\Models\Cliente;
 use App\Models\ItensPedido;
 use App\Models\Mesa;
@@ -28,6 +29,7 @@ use App\Services\MesaCliente\ParticipanteMesaService;
 use App\Services\MesaCliente\QrCodeMesaService;
 use App\Services\PedidosSessaoMesaService;
 use App\Support\ContaMesa;
+use App\Support\Telefone;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
@@ -196,11 +198,11 @@ class AtenderMesa extends Page
                             ->naoAvulsos()
                             ->where(fn ($q) => $q
                                 ->where('cliente_nome', 'like', "%{$busca}%")
-                                ->when(strlen($digitos) >= 4, fn ($qq) => $qq->orWhere('cliente_celular', 'like', "%{$digitos}%")))
+                                ->when(strlen($digitos) >= 4, fn ($qq) => $qq->orWhere(fn ($w) => $w->buscarPorTelefone($digitos))))
                             ->orderBy('cliente_nome')
                             ->limit(20)
                             ->get(['id', 'cliente_nome', 'cliente_celular'])
-                            ->mapWithKeys(fn (Cliente $c) => [$c->id => trim($c->cliente_nome.' '.($c->cliente_celular ? '· '.$c->cliente_celular : ''))])
+                            ->mapWithKeys(fn (Cliente $c) => [$c->id => trim($c->cliente_nome.' '.($c->cliente_celular ? '· '.Telefone::formatar($c->cliente_celular) : ''))])
                             ->all();
                     })
                     ->getOptionLabelUsing(fn ($value): ?string => Cliente::find($value)?->cliente_nome)
@@ -211,10 +213,8 @@ class AtenderMesa extends Page
                     ->maxLength(120)
                     ->visible(fn (Get $get): bool => $get('modo') !== 'buscar')
                     ->required(fn (Get $get): bool => $get('modo') !== 'buscar'),
-                TextInput::make('celular')
+                CampoTelefone::make('celular')
                     ->label('Celular (opcional)')
-                    ->tel()
-                    ->mask('(99) 99999-9999')
                     ->visible(fn (Get $get): bool => $get('modo') === 'cadastrar'),
             ])
             ->action(function (array $data): void {

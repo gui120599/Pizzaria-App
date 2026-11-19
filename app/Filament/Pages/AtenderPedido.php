@@ -43,6 +43,7 @@ use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoRelampagoService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Services\TotaisPedidoService;
+use App\Support\Telefone;
 use App\Support\TotaisPedido;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -581,6 +582,12 @@ class AtenderPedido extends Page
 
         if (! $semCliente && ! $temClienteJaVinculado && blank($this->clienteData['celular'] ?? null)) {
             $this->notificarErro('Informe o telefone do cliente (ou busque um já cadastrado), ou marque "Pedido sem cliente".');
+
+            return null;
+        }
+
+        if (! $semCliente && ! $temClienteJaVinculado && Telefone::canonico($this->clienteData['celular'] ?? null) === null) {
+            $this->notificarErro('Telefone do cliente incompleto ou inválido: informe DDD + número, ex.: (62) 99999-9999.');
 
             return null;
         }

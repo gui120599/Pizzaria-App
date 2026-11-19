@@ -60,7 +60,7 @@
                     <label class="text-xs text-gray-500 dark:text-gray-400" for="retirada-celular">Celular</label>
                     <input id="retirada-celular" type="tel" inputmode="tel" autocomplete="off"
                            wire:model.live.debounce.500ms="celular"
-                           x-mask:dynamic="$input.replace(/\D/g, '').length > 10 ? '(99) 99999-9999' : '(99) 9999-99999'"
+                           x-mask:dynamic="{{ \App\Support\Telefone::MASCARA_ALPINE }}"
                            placeholder="(00) 00000-0000"
                            class="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-3 text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-white/10 dark:bg-gray-800 dark:text-white">
                 </div>
@@ -97,7 +97,7 @@
                                 <button type="button" wire:click="selecionarCliente({{ $resultado->id }})"
                                         class="w-full text-left px-2 py-2 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg">
                                     <p class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $resultado->cliente_nome }}</p>
-                                    <p class="text-xs text-gray-400">{{ $resultado->cliente_celular ?? 'sem telefone' }}</p>
+                                    <p class="text-xs text-gray-400">{{ \App\Support\Telefone::formatar($resultado->cliente_celular) ?? 'sem telefone' }}</p>
                                 </button>
                             @empty
                                 <p class="text-xs text-gray-400 py-4 text-center">{{ trim($buscaCliente) === '' ? 'Digite o nome ou o telefone.' : 'Nenhum resultado.' }}</p>
@@ -166,7 +166,7 @@
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ $retirada->cliente?->cliente_nome }}</p>
-                            <p class="text-sm text-gray-500">{{ preg_replace('/^(\d{2})(\d{4,5})(\d{4})$/', '($1) $2-$3', (string) $retirada->cliente?->cliente_celular) }} · {{ $retirada->garcom?->name_first ?: $retirada->garcom?->name }}</p>
+                            <p class="text-sm text-gray-500">{{ \App\Support\Telefone::formatar($retirada->cliente?->cliente_celular) }} · {{ $retirada->garcom?->name_first ?: $retirada->garcom?->name }}</p>
                         </div>
                         <span @class([
                             'shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold',

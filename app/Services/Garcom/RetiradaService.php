@@ -14,6 +14,7 @@ use App\Services\PagamentosCombinadosService;
 use App\Services\PedidoStatusService;
 use App\Services\PromocaoRelampagoService;
 use App\Support\JanelaOperacional;
+use App\Support\Telefone;
 use App\Support\TotaisPedido;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -75,7 +76,7 @@ class RetiradaService
             throw new RuntimeException('Informe o nome do cliente.');
         }
 
-        if (! $clienteEscolhido && strlen($digitosCelular) < 10) {
+        if (! $clienteEscolhido && Telefone::canonico($digitosCelular) === null) {
             throw new RuntimeException('Informe o celular do cliente com DDD (ou busque um cliente pelo nome).');
         }
 
@@ -101,7 +102,7 @@ class RetiradaService
 
             $opcao = $this->opcaoEntregaRetirada($opcaoEntregaId);
             app(PromocaoRelampagoService::class)->exigirEntregaPermitida($itens->pluck('item_pedido_promocao_id'), $opcao->id);
-            $cliente = $clienteEscolhido && strlen($digitosCelular) < 10
+            $cliente = $clienteEscolhido && Telefone::canonico($digitosCelular) === null
                 ? $clienteEscolhido
                 : $this->clientes->resolverOuCriar(['nome' => $nome, 'celular' => $digitosCelular]);
             $totais = TotaisPedido::paraItens($itens, $opcao);
@@ -182,7 +183,7 @@ class RetiradaService
             throw new RuntimeException('Informe o nome do cliente.');
         }
 
-        if (blank($cliente['clienteId'] ?? null) && strlen($digitosCelular) < 10) {
+        if (blank($cliente['clienteId'] ?? null) && Telefone::canonico($digitosCelular) === null) {
             throw new RuntimeException('Informe o celular do cliente com DDD.');
         }
 
@@ -233,7 +234,7 @@ class RetiradaService
 
             // Cliente escolhido na busca e sem celular: usa o cadastro dele em
             // vez de criar outro só com o nome.
-            $clienteModel = $clienteEscolhido && strlen($digitosCelular) < 10 ? $clienteEscolhido : $this->clientes->resolverOuCriar([
+            $clienteModel = $clienteEscolhido && Telefone::canonico($digitosCelular) === null ? $clienteEscolhido : $this->clientes->resolverOuCriar([
                 'nome' => $nome,
                 'celular' => $digitosCelular !== '' ? $digitosCelular : null,
                 'endereco' => $cliente['enderecoRua'] ?? null,

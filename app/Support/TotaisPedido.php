@@ -30,10 +30,12 @@ class TotaisPedido
     {
         $liquido = round((float) $itens->sum('item_pedido_valor'), 2);
         $cortesia = round((float) $itens->where('item_pedido_cortesia', true)->sum('item_pedido_desconto'), 2);
-        // O cupom já está rateado nos itens (item_pedido_desconto_cupom) e o valor
-        // da linha já o descontou: entra no desconto, não é subtraído de novo.
+        // Cupom e promoção combo já estão rateados nos itens (item_pedido_desconto_cupom
+        // e _combo) e o valor da linha já os descontou: entram no desconto, não são
+        // subtraídos de novo.
         $descontoCupom = round((float) $itens->sum('item_pedido_desconto_cupom'), 2);
-        $desconto = round((float) $itens->sum('item_pedido_desconto') - $cortesia + $descontoCupom, 2);
+        $descontoCombo = round((float) $itens->sum('item_pedido_desconto_combo'), 2);
+        $desconto = round((float) $itens->sum('item_pedido_desconto') - $cortesia + $descontoCombo + $descontoCupom, 2);
         $frete = self::frete($opcao, $liquido);
 
         return [

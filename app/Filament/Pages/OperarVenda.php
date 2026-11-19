@@ -1428,7 +1428,7 @@ class OperarVenda extends Page
         return Cliente::where('cliente_nome', 'like', "%{$this->buscaCliente}%")
             ->orWhere('cliente_cpf', 'like', "%{$this->buscaCliente}%")
             ->orWhere('cliente_cnpj', 'like', "%{$this->buscaCliente}%")
-            ->when($somenteDigitos !== '', fn ($q) => $q->orWhere('cliente_celular', 'like', "%{$somenteDigitos}%"))
+            ->when($somenteDigitos !== '', fn ($q) => $q->orWhere(fn ($w) => $w->buscarPorTelefone($somenteDigitos)))
             ->orderBy('cliente_nome')
             ->limit(20)
             ->get();

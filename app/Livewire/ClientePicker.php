@@ -3,7 +3,9 @@
 namespace App\Livewire;
 
 use App\Models\Cliente;
+use App\Services\ClienteResolverService;
 use App\Services\IBGEServices;
+use App\Support\Telefone;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -78,7 +80,7 @@ class ClientePicker extends Component
     {
         $this->enderecoSomenteComEntrega = $enderecoSomenteComEntrega;
         $this->clienteId = $inicial['clienteId'] ?? null;
-        $this->celular = $inicial['celular'] ?? '';
+        $this->celular = (string) Telefone::formatar($inicial['celular'] ?? null);
         $this->nome = $inicial['nome'] ?? '';
         $this->enderecoRua = $inicial['enderecoRua'] ?? '';
         $this->enderecoNumero = $inicial['enderecoNumero'] ?? '';
@@ -94,10 +96,8 @@ class ClientePicker extends Component
 
     public function updatedCelular(): void
     {
-        $normalizado = $this->normalizarTelefone($this->celular);
-
-        if (strlen($normalizado) >= 10) {
-            $this->buscarPorCelular($normalizado);
+        if (Telefone::canonico($this->celular) !== null) {
+            $this->buscarPorCelular($this->celular);
         } else {
             $this->clienteEncontrado = false;
             $this->clienteId = null;
@@ -106,9 +106,9 @@ class ClientePicker extends Component
         $this->emitirMudanca();
     }
 
-    private function buscarPorCelular(string $normalizado): void
+    private function buscarPorCelular(string $celular): void
     {
-        $cliente = Cliente::naoAvulsos()->where('cliente_celular', 'like', "%{$normalizado}%")->first();
+        $cliente = app(ClienteResolverService::class)->buscarPorCelular($celular);
 
         if (! $cliente) {
             $this->clienteEncontrado = false;
@@ -150,7 +150,7 @@ class ClientePicker extends Component
         }
 
         $this->preencherDoCliente($cliente);
-        $this->celular = (string) ($cliente->cliente_celular ?? '');
+        $this->celular = (string) Telefone::formatar($cliente->cliente_celular);
         $this->buscaModalAberta = false;
         $this->buscaQuery = '';
         $this->emitirMudanca();
@@ -201,7 +201,7 @@ class ClientePicker extends Component
             ->naoAvulsos()
             ->where(fn ($query) => $query
                 ->where('cliente_nome', 'like', "%{$this->buscaQuery}%")
-                ->when($digitos !== '', fn ($q) => $q->orWhere('cliente_celular', 'like', "%{$digitos}%")))
+                ->when($digitos !== '', fn ($q) => $q->orWhere(fn ($w) => $w->buscarPorTelefone($digitos))))
             ->limit(10)
             ->get();
     }
@@ -248,11 +248,6 @@ class ClientePicker extends Component
         if ($name === 'nome' || str_starts_with($name, 'endereco')) {
             $this->emitirMudanca();
         }
-    }
-
-    private function normalizarTelefone(string $valor): string
-    {
-        return preg_replace('/\D/', '', $valor) ?? '';
     }
 
     /** Nome do estado a partir da UF, mesma tabela usada em ClienteForm — sem chamada de API a cada digitação. */

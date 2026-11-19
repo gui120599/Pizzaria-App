@@ -16,7 +16,7 @@
     <div class="space-y-2 {{ $semCliente ? 'opacity-40 pointer-events-none' : '' }}">
         <div class="relative">
             <input type="tel" wire:model.live.debounce.500ms="celular" placeholder="(11) 99999-9999"
-                x-mask:dynamic="$input.replace(/\D/g, '').length > 10 ? '(99) 99999-9999' : '(99) 9999-99999'"
+                x-mask:dynamic="{{ \App\Support\Telefone::MASCARA_ALPINE }}"
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
             @if ($clienteEncontrado)
                 <span class="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-500" title="Cliente encontrado">
@@ -118,7 +118,7 @@
                         <button type="button" wire:click="selecionarDaBusca({{ $resultado->id }})"
                             class="w-full text-left px-2 py-2 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg">
                             <p class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $resultado->cliente_nome }}</p>
-                            <p class="text-xs text-gray-400">{{ $resultado->cliente_celular ?? 'sem telefone' }}</p>
+                            <p class="text-xs text-gray-400">{{ \App\Support\Telefone::formatar($resultado->cliente_celular) ?? 'sem telefone' }}</p>
                         </button>
                     @empty
                         <p class="text-xs text-gray-400 py-4 text-center">Nenhum resultado.</p>

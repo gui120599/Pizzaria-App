@@ -9,6 +9,7 @@ use App\Models\SessaoMesa;
 use App\Models\SessaoMesaCliente;
 use App\Models\User;
 use App\Services\ClienteResolverService;
+use App\Support\Telefone;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -65,13 +66,13 @@ class ParticipanteMesaService
     public function entrar(Mesa $mesa, string $nome, string $celular, ?string $pin, ?string $ip = null, ?string $userAgent = null): array
     {
         $nome = trim($nome);
-        $celular = (string) preg_replace('/\D/', '', $celular);
+        $celular = (string) Telefone::canonico($celular);
 
         if ($nome === '') {
             throw new RuntimeException('Informe seu nome.');
         }
 
-        if (! in_array(strlen($celular), [10, 11], true)) {
+        if ($celular === '') {
             throw new RuntimeException('Informe o celular com DDD.');
         }
 
