@@ -38,7 +38,7 @@ class AuditarTotaisPedidos extends Command
 
         foreach ($pedidos as $pedido) {
             $itens = $this->itensInseridos($pedido);
-            $bruto = round((float) $itens->sum('item_pedido_valor') + (float) $itens->sum('item_pedido_desconto') + (float) $itens->sum('item_pedido_desconto_cupom'), 2);
+            $bruto = round((float) $itens->sum('item_pedido_valor') + (float) $itens->sum('item_pedido_desconto') + (float) $itens->sum('item_pedido_desconto_combo') + (float) $itens->sum('item_pedido_desconto_cupom'), 2);
             $gravado = round((float) $pedido->pedido_valor_itens, 2);
 
             if (abs($bruto - $gravado) > 0.009) {
@@ -81,7 +81,7 @@ class AuditarTotaisPedidos extends Command
 
             $liquido = round((float) $itens->sum('item_pedido_valor'), 2);
             $descontoItens = round((float) $itens->sum('item_pedido_desconto'), 2);
-            $cupom = round((float) $itens->sum('item_pedido_desconto_cupom'), 2);
+            $cupom = round((float) $itens->sum('item_pedido_desconto_cupom') + (float) $itens->sum('item_pedido_desconto_combo'), 2);
             $frete = (float) $pedido->pedido_valor_frete;
 
             $antes = $pedido->only(['pedido_valor_itens', 'pedido_valor_desconto', 'pedido_valor_frete', 'pedido_valor_total']);

@@ -24,6 +24,7 @@ class ItemPedidoProducaoObserver
         'item_pedido_desconto',
         'item_pedido_desconto_unitario',
         'item_pedido_desconto_cupom',
+        'item_pedido_desconto_combo',
         'item_pedido_valor_adicionais',
         'item_pedido_valor',
         'item_pedido_venda_id',
