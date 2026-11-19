@@ -8,6 +8,7 @@
     <script>
         const _checkoutRoute        = @js(route('cardapio.checkout'));
         const _cupomRoute           = @js(route('cardapio.cupom.validar'));
+        const _comboRoute           = @js(route('cardapio.carrinho.precificar'));
         const _lookupRoute          = @js(route('cardapio.lookup_cliente'));
         const _csrfToken            = @js(csrf_token());
         const _opcoesEntregas       = @js($opcoesEntregas);
@@ -22,6 +23,9 @@
         // Campanhas com categoria exigida (ex.: Pizza Grande + refri 2L): ao pôr
         // a pizza, sugere os gatilhos; com o gatilho antes, oferece depois.
         const _campanhasExigencia   = @js($campanhasExigencia ?? []);
+        // Promoção Combo ("2 grandes por R$ 87,99"): produtos participantes de
+        // cada uma, para o convite de completar. O preço vem do servidor.
+        const _promocoesCombo       = @js($promocoesCombo ?? []);
         // Perguntas do item (borda, ponto da carne): por produto (item comum e
         // pizza inteira) e por categoria (pizza de sabores). O servidor revalida.
         const _perguntasProdutos    = @js($perguntasProdutos);
@@ -69,6 +73,7 @@
                     this._countSalvo = this.count;
                     _campanhasExigencia.forEach(c => { this._unidadesExigidas[c.promocaoId] = this.unidadesExigidas(c); });
                     setInterval(() => { this.relogio = Date.now(); }, 30000);
+                    this.atualizarCombo(true);
                     const produtoId = Number(new URLSearchParams(window.location.search).get('produto'));
                     if (produtoId) this.abrirDetalhe(produtoId);
                 },
@@ -117,6 +122,22 @@
 
                 // ── Modal de troco ──
                 trocoModal: { open: false },
+
+                // ── Promoção Combo ──
+                // Prévia calculada no servidor (/cardapio/carrinho/precificar) a
+                // cada mudança da sacola; o checkout recalcula do zero.
+                // linhas: cartKey => desconto; assinatura: sacola que gerou a resposta.
+                combo: { desconto: 0, linhas: {}, aplicacoes: [], pendencias: [], assinatura: '' },
+                _comboSeq: 0,
+                _comboTimer: null,
+                // Combos e pendências por promoção na última resposta. null = ainda
+                // não houve resposta (a sacola restaurada não comemora nem convida).
+                _comboPorPromocao: null,
+                // Unidades participantes de cada promoção na última resposta: o
+                // convite só aparece quando o cliente adiciona (nunca ao remover).
+                _comboUnidades: {},
+                comboOportunidade: { open: false, promocao: null, faltam: 0, combosFechados: 0 },
+                comboConquista: { open: false, aplicacao: null },
 
                 // ── Estado do formulário ──
                 form: {
@@ -398,6 +419,7 @@
                     this.avisoPagamentoRemovido = removidos;
                     this.avisoPagamentoRestaurado = restaurados;
                     if (removidos.length > 0 || restaurados.length > 0) this.save();
+                    else this.agendarCombo();
                 },
                 increment(cartKey) {
                     const item = this.items.find(i => i.cartKey === String(cartKey));
@@ -420,7 +442,8 @@
                     if (item) { item.oferta = null; this.save(); }
                 },
                 qty(id) { return this.items.filter(i => i.id === id).reduce((s, i) => s + i.qty, 0); },
-                get total()        { return this.items.reduce((s, i) => s + i.preco * i.qty + (i.oferta ? i.oferta.valorAdicional : 0), 0); },
+                get subtotalItens() { return this.items.reduce((s, i) => s + i.preco * i.qty + (i.oferta ? i.oferta.valorAdicional : 0), 0); },
+                get total()        { return Math.max(0, Math.round((this.subtotalItens - this.comboDesconto) * 100) / 100); },
                 get totalOriginal() { return this.items.reduce((s, i) => s + (i.precoOriginal ?? i.preco) * i.qty + (i.oferta ? i.oferta.valorAdicional : 0), 0); },
                 get totalDesconto() { return Math.max(0, this.totalOriginal - this.total); },
                 get cupomVigente() { return this.cupom.aplicado && Math.abs(this.cupom.totalBase - this.total) < 0.005; },
@@ -436,6 +459,7 @@
                 get totalComFrete() { return this.total - this.cupomDesconto + this.valorFrete; },
                 save()  {
                     localStorage.setItem(_chaveCarrinho, JSON.stringify(this.items));
+                    this.agendarCombo();
                     const count = this.count;
                     if (count > this._countSalvo) {
                         this.pulso++;
@@ -444,7 +468,154 @@
                     this._countSalvo = count;
                     this.verificarExigencias();
                 },
-                clear() { this.items = []; this._countSalvo = 0; this._unidadesExigidas = {}; this.avisoPagamentoRemovido = []; this.avisoPagamentoRestaurado = []; localStorage.removeItem(_chaveCarrinho); },
+                clear() { this.items = []; this._countSalvo = 0; this._unidadesExigidas = {}; this.combo = { desconto: 0, linhas: {}, aplicacoes: [], pendencias: [], assinatura: '' }; this._comboPorPromocao = {}; this._comboUnidades = {}; this.avisoPagamentoRemovido = []; this.avisoPagamentoRestaurado = []; localStorage.removeItem(_chaveCarrinho); },
+
+                // ── Promoção Combo: prévia do servidor e convites ──
+                /** O que o servidor precisa para precificar (nunca preço). */
+                itensParaServidor(itens = this.items) {
+                    return itens.map(i => ({
+                        id: i.id, qty: i.qty, sabores: i.sabores ?? null, respostas: i.respostas ?? null,
+                        adicionais: i.adicionais ?? null, oferta_produto_id: i.oferta?.produtoId ?? null,
+                    }));
+                },
+                assinaturaCombo(itens = this.items) {
+                    return JSON.stringify(this.itensParaServidor(itens));
+                },
+                /** Desconto da prévia, só enquanto ela é da sacola atual. */
+                get comboVigente() { return this.combo.assinatura !== '' && this.combo.assinatura === this.assinaturaCombo(); },
+                get comboDesconto() { return this.comboVigente ? this.combo.desconto : 0; },
+                comboDaLinha(cartKey) { return this.comboVigente ? (this.combo.linhas[cartKey] ?? 0) : 0; },
+                get combosAplicados() { return this.comboVigente ? this.combo.aplicacoes : []; },
+                /** Pendências com convite ligado: "falta 1 para levar 2 por R$ 87,99". */
+                get combosPendentes() {
+                    if (!this.comboVigente) return [];
+                    return this.combo.pendencias
+                        .map(p => ({ ...p, promocao: _promocoesCombo.find(c => c.promocaoId === p.promocao_id) }))
+                        .filter(p => p.promocao?.sugerir);
+                },
+                agendarCombo() {
+                    clearTimeout(this._comboTimer);
+                    this._comboTimer = setTimeout(() => this.atualizarCombo(), 300);
+                },
+                async atualizarCombo(inicial = false) {
+                    const itens = this.items.slice();
+                    const seq = ++this._comboSeq;
+                    if (_promocoesCombo.length === 0 || itens.length === 0) {
+                        this.aplicarRespostaCombo(null, itens, inicial);
+                        return;
+                    }
+                    const assinatura = this.assinaturaCombo(itens);
+                    try {
+                        const res = await fetch(_comboRoute, {
+                            method:  'POST',
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': _csrfToken },
+                            body: JSON.stringify({
+                                itens: this.itensParaServidor(itens),
+                                opcao_entrega_id: this.form.opcaoEntregaId,
+                                opcao_pagamento_id: this.form.pagamentoId,
+                                mesa: !!_mesaCliente,
+                            }),
+                        });
+                        if (seq !== this._comboSeq) return;
+                        this.aplicarRespostaCombo(res.ok ? await res.json() : null, itens, inicial, assinatura);
+                    } catch (_) {
+                        // Sem conexão: a sacola segue sem a prévia; o checkout aplica o combo.
+                    }
+                },
+                /**
+                 * Guarda a prévia e decide o convite: combo novo comemora; item
+                 * participante sem par (o 1º, o 3º, o 5º...) convida a completar,
+                 * no máximo uma vez até o cliente fechar outro combo.
+                 */
+                aplicarRespostaCombo(data, itens, inicial, assinatura = '') {
+                    const linhas = {};
+                    Object.entries(data?.linhas ?? {}).forEach(([indice, desconto]) => {
+                        const item = itens[Number(indice)];
+                        if (item) linhas[item.cartKey] = (linhas[item.cartKey] ?? 0) + desconto;
+                    });
+                    const aplicacoes = (data?.aplicacoes ?? []).map(a => ({
+                        ...a,
+                        nomesItens: a.itens.map(indice => itens[indice]?.nome).filter(Boolean),
+                    }));
+                    const pendencias = data?.pendencias ?? [];
+                    this.combo = { desconto: data?.desconto ?? 0, linhas, aplicacoes, pendencias, assinatura };
+
+                    const porPromocao = {};
+                    aplicacoes.forEach(a => { porPromocao[a.promocao_id] = (porPromocao[a.promocao_id] ?? 0) + 1; });
+                    const unidades = Object.fromEntries(_promocoesCombo.map(promo => [
+                        promo.promocaoId,
+                        itens.filter(i => promo.produtos.includes(i.id)).reduce((s, i) => s + i.qty, 0),
+                    ]));
+                    const antes = this._comboPorPromocao;
+                    const unidadesAntes = this._comboUnidades;
+                    this._comboPorPromocao = porPromocao;
+                    this._comboUnidades = unidades;
+                    if (inicial || antes === null) return;
+
+                    const nova = aplicacoes.filter(a => (porPromocao[a.promocao_id] ?? 0) > (antes[a.promocao_id] ?? 0)).pop();
+                    if (nova) {
+                        this.quandoLivre(() => { this.comboConquista = { open: true, aplicacao: nova }; });
+                        return;
+                    }
+                    for (const p of this.combosPendentes) {
+                        if ((unidades[p.promocao_id] ?? 0) <= (unidadesAntes[p.promocao_id] ?? 0)) continue;
+                        if (this.comboRecusado(p.promocao_id, porPromocao[p.promocao_id] ?? 0)) continue;
+                        this.quandoLivre(() => this.abrirOportunidadeCombo(p.promocao_id));
+                        return;
+                    }
+                },
+                /** Convite e comemoração esperam o cliente terminar o que está fazendo (sabores, montagem, oferta). */
+                quandoLivre(mostrar, tentativas = 0) {
+                    const ocupado = this.saboresModal.open || this.montagemModal.open || this.ofertaModal.open || this.sugestaoModal.open
+                        || this.trocoModal.open || this.comboOportunidade.open || this.comboConquista.open || !!this.detalhe;
+                    if (!ocupado) { mostrar(); return; }
+                    if (tentativas < 40) setTimeout(() => this.quandoLivre(mostrar, tentativas + 1), 500);
+                },
+                abrirOportunidadeCombo(promocaoId) {
+                    const pendencia = this.combosPendentes.find(p => p.promocao_id === promocaoId);
+                    if (!pendencia) return;
+                    this.comboOportunidade = {
+                        open: true,
+                        promocao: pendencia.promocao,
+                        faltam: pendencia.faltam,
+                        combosFechados: this._comboPorPromocao?.[promocaoId] ?? 0,
+                    };
+                },
+                /** Produtos exibidos no cardápio que fecham o combo. */
+                elegiveisCombo(promocao) {
+                    return (promocao?.produtos ?? []).map(id => _produtosTela[id]).filter(Boolean);
+                },
+                /** Escolha no convite segue o fluxo normal do produto (sabores, montagem, oferta). */
+                escolherDoCombo(produto) {
+                    this.comboOportunidade = { ...this.comboOportunidade, open: false };
+                    if (produto.permiteSabores) {
+                        this.abrirSabores(produto.categoriaId, produto.categoriaNome, produto.maxSabores, produto.id);
+                    } else {
+                        this.add(produto.id, produto.nome, produto.preco, produto.precoVenda, produto.foto ?? '');
+                    }
+                },
+                recusarCombo() {
+                    const { promocao, combosFechados } = this.comboOportunidade;
+                    this.comboOportunidade = { open: false, promocao: null, faltam: 0, combosFechados: 0 };
+                    if (!promocao) return;
+                    try {
+                        const recusas = JSON.parse(sessionStorage.getItem('combo_recusas') || '{}');
+                        recusas[promocao.promocaoId] = combosFechados;
+                        sessionStorage.setItem('combo_recusas', JSON.stringify(recusas));
+                    } catch (_) {}
+                },
+                /** Recusado nesta sessão e o cliente ainda não fechou outro combo da mesma promoção. */
+                comboRecusado(promocaoId, combosFechados) {
+                    try {
+                        const recusa = JSON.parse(sessionStorage.getItem('combo_recusas') || '{}')[promocaoId];
+                        return recusa !== undefined && combosFechados <= recusa;
+                    } catch (_) {
+                        return false;
+                    }
+                },
+                fecharConquista() {
+                    this.comboConquista = { open: false, aplicacao: null };
+                },
 
                 // ── Frete grátis: mesma conta do getter valorFrete ──
                 /** Quanto falta para a entrega grátis (null quando não há regra de valor mínimo). */
@@ -874,6 +1045,10 @@
                                 msg += `  🎉 Promoção: ${i.oferta.nomeExibicao} — ${subOferta}\n`;
                             }
                         });
+                        (data.combos ?? []).forEach(c => {
+                            msg += `\n🎉 ${c.nome}: de R$${c.valor_cheio.toFixed(2).replace('.', ',')} por R$${c.preco.toFixed(2).replace('.', ',')}`;
+                        });
+                        if ((data.combos ?? []).length) msg += '\n';
                         avisos.forEach(a => { msg += `\n⚠️ ${a}`; });
                         if (avisos.length) msg += '\n';
                         if (data.total_desconto > 0)
@@ -904,6 +1079,7 @@
                             linkWhatsapp,
                             linkAcompanhar: data.link_acompanhamento,
                             avisos,
+                            combos:       data.combos ?? [],
                         };
 
                         // Limpa tudo
@@ -1054,6 +1230,7 @@
                 travarRolagem() {
                     const c = Alpine.store('cart');
                     const aberto = c.saboresModal.open || c.montagemModal.open || c.ofertaModal.open || c.sugestaoModal.open || c.trocoModal.open || !!c.detalhe
+                        || c.comboOportunidade.open || c.comboConquista.open
                         || (c.drawerOpen && window.innerWidth < 1024) || (c.drawerOpen && c.step !== 'cart');
                     document.documentElement.style.overflow = aberto ? 'hidden' : '';
                 },

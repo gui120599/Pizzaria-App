@@ -139,6 +139,52 @@ class PromocaoComboService
     }
 
     /**
+     * Promoções vigentes para o cardápio, com os produtos exibidos que
+     * participam de cada uma (base do convite "adicione mais 1 e leve 2 por
+     * R$ X"). Só exibição: quem decide o preço é planejar().
+     *
+     * @param  array<int, array{categoria_id: ?int, relampago: bool}>  $produtos  produto exibido => categoria e se está em relâmpago
+     * @return list<array{promocaoId: int, nome: string, descricao: ?string, quantidade: int, preco: float, sugerir: bool, produtos: list<int>}>
+     */
+    public function paraCardapio(array $produtos, bool $mesa = false): array
+    {
+        $promocoes = PromocaoCombo::query()->vigente()->orderByDesc('promocombo_prioridade')->orderBy('id')->get()
+            ->filter(fn (PromocaoCombo $p): bool => $p->entregaPermitida(null, $mesa));
+
+        if ($promocoes->isEmpty() || $produtos === []) {
+            return [];
+        }
+
+        $descricoes = $promocoes->pluck('promocombo_descricao', 'id');
+
+        return collect($this->regras($promocoes))
+            ->map(function (RegraCombo $regra) use ($produtos, $descricoes): array {
+                $participantes = [];
+
+                foreach ($produtos as $id => $produto) {
+                    $linha = new LinhaCombo((string) $id, 0, 1, 0, [['produto_id' => (int) $id, 'categoria_id' => $produto['categoria_id']]], $produto['relampago']);
+
+                    if ($regra->aceita($linha)) {
+                        $participantes[] = (int) $id;
+                    }
+                }
+
+                return [
+                    'promocaoId' => $regra->promocaoId,
+                    'nome' => $regra->nome,
+                    'descricao' => $descricoes[$regra->promocaoId] ?? null,
+                    'quantidade' => $regra->quantidade,
+                    'preco' => $regra->precoCentavos / 100,
+                    'sugerir' => $regra->sugerir,
+                    'produtos' => $participantes,
+                ];
+            })
+            ->filter(fn (array $promocao): bool => $promocao['produtos'] !== [])
+            ->values()
+            ->all();
+    }
+
+    /**
      * Valor da linha sem combo e sem cupom: o que `calcularLinha()` daria.
      * Cortesia não cobra nada.
      */

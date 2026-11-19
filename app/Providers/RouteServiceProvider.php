@@ -44,6 +44,9 @@ class RouteServiceProvider extends ServiceProvider
         // Cupom do cardápio: tentativas por IP, contra adivinhação de códigos.
         RateLimiter::for('cardapio-cupom', fn (Request $request) => Limit::perMinute(10)->by('cupom:'.$request->ip()));
 
+        // Prévia da sacola (promoção combo): chamada a cada mudança do carrinho.
+        RateLimiter::for('cardapio-carrinho', fn (Request $request) => Limit::perMinute(120)->by('carrinho:'.$request->ip()));
+
         // Link rastreável do influenciador: por IP, contra inflar cliques.
         RateLimiter::for('referencia-influenciador', fn (Request $request) => Limit::perMinute(30)->by('ref:'.$request->ip()));
 

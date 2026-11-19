@@ -4,6 +4,7 @@ use App\Http\Controllers\AdicionaisItemPedidoController;
 use App\Http\Controllers\AdicionaisProdutoController;
 use App\Http\Controllers\AdicionalController;
 use App\Http\Controllers\CaixaController;
+use App\Http\Controllers\CardapioCarrinhoController;
 use App\Http\Controllers\CardapioCheckoutController;
 use App\Http\Controllers\CardapioController;
 use App\Http\Controllers\CategoriaController;
@@ -70,6 +71,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/resgates-carteira/{resgate}/comprovante', [ResgateCarteiraDocumentoController::class, 'comprovante'])->name('resgates-carteira.comprovante');
 });
 Route::get('/r/{slug}', ReferenciaInfluenciadorController::class)->middleware('throttle:referencia-influenciador')->name('referencia.influenciador');
+Route::post('/cardapio/carrinho/precificar', [CardapioCarrinhoController::class, 'precificar'])->middleware('throttle:cardapio-carrinho')->name('cardapio.carrinho.precificar');
 Route::post('/cardapio/cupom/validar', [CardapioCheckoutController::class, 'validarCupom'])->middleware('throttle:cardapio-cupom')->name('cardapio.cupom.validar');
 // Link assinado (Pedido::linkAcompanhamento) mostra o pedido completo; sem assinatura (links antigos) só o status.
 Route::get('/acompanhar/{id}', fn (Request $request, $id) => view('app.acompanhamento.index', [

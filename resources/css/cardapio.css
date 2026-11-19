@@ -163,6 +163,25 @@
     animation: raio 700ms ease-in-out 2;
 }
 
+/* Confete do modal de conquista da Promoção Combo (some com movimento reduzido). */
+@keyframes confete-cai {
+    0% { transform: translate3d(0, -12vh, 0) rotate(0deg); opacity: 1; }
+    100% { transform: translate3d(var(--deriva, 0), 105vh, 0) rotate(var(--giro, 540deg)); opacity: .9; }
+}
+
+.confete {
+    position: absolute;
+    top: 0;
+    width: 8px;
+    height: 14px;
+    border-radius: 2px;
+    animation: confete-cai var(--duracao, 2.6s) cubic-bezier(.25, .6, .45, 1) var(--atraso, 0s) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .confete { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: 1ms !important;
