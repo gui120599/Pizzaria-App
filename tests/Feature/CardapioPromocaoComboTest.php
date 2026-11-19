@@ -137,6 +137,7 @@ class CardapioPromocaoComboTest extends TestCase
         $this->get(route('cardapio'))
             ->assertOk()
             ->assertSee('id="secao_combo"', false)
+            ->assertSee('aria-label="Próximos"', false)
             ->assertSee('<source media="(min-width: 1024px)" srcset="'.asset('storage/promocoes_combo/banner.jpg').'"', false)
             ->assertSee('src="'.asset('storage/promocoes_combo/quadrada.jpg').'"', false)
             ->assertSee('Toda quinta à noite')

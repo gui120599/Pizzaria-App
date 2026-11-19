@@ -22,18 +22,31 @@
                          class="{{ $combo['imagem_mobile'] ? 'aspect-square' : 'aspect-[21/8]' }} w-full bg-forno-3 object-cover lg:aspect-[21/8]">
                 </picture>
             @endif
-            <div class="px-4 pt-4">
-                <p class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[.12em] text-ouro">
-                    <i class='bx bxs-offer text-base' aria-hidden="true"></i> Promoção combo
-                </p>
-                <h2 class="mt-0.5 font-display text-2xl font-bold tracking-tight lg:text-[26px]">{{ $combo['nome'] }}</h2>
-                <p class="mt-0.5 text-[14px] text-creme">
-                    Leve <b>{{ $combo['composicao'] }}</b> por <b class="num text-ouro">R$ {{ number_format($combo['preco'], 2, ',', '.') }}</b>
-                    <span class="text-[12.5px] text-farinha">· bordas e adicionais à parte</span>
-                </p>
-                @if ($combo['descricao'])
-                    <p class="mt-1 text-[13.5px] text-farinha">{{ $combo['descricao'] }}</p>
-                @endif
+            <div class="flex items-end gap-3 px-4 pt-4">
+                <div class="min-w-0">
+                    <p class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[.12em] text-ouro">
+                        <i class='bx bxs-offer text-base' aria-hidden="true"></i> Promoção combo
+                    </p>
+                    <h2 class="mt-0.5 font-display text-2xl font-bold tracking-tight lg:text-[26px]">{{ $combo['nome'] }}</h2>
+                    <p class="mt-0.5 text-[14px] text-creme">
+                        Leve <b>{{ $combo['composicao'] }}</b> por <b class="num text-ouro">R$ {{ number_format($combo['preco'], 2, ',', '.') }}</b>
+                        <span class="text-[12.5px] text-farinha">· bordas e adicionais à parte</span>
+                    </p>
+                    @if ($combo['descricao'])
+                        <p class="mt-1 text-[13.5px] text-farinha">{{ $combo['descricao'] }}</p>
+                    @endif
+                </div>
+                {{-- Setas do trilho (só no desktop, como em x-cardapio.carrossel; no celular é arrastar). --}}
+                <div x-show="podeVoltar || podeAvancar" class="ml-auto hidden shrink-0 gap-2 lg:flex">
+                    <button type="button" @click="rolar(-1)" :disabled="!podeVoltar"
+                            class="grid size-9 place-items-center rounded-full border border-linha text-xl text-farinha hover:text-creme disabled:opacity-30" aria-label="Anteriores">
+                        <i class='bx bx-chevron-left' aria-hidden="true"></i>
+                    </button>
+                    <button type="button" @click="rolar(1)" :disabled="!podeAvancar"
+                            class="grid size-9 place-items-center rounded-full border border-linha text-xl text-farinha hover:text-creme disabled:opacity-30" aria-label="Próximos">
+                        <i class='bx bx-chevron-right' aria-hidden="true"></i>
+                    </button>
+                </div>
             </div>
             <div x-ref="trilho" @scroll.passive="medir()" class="rolagem-x mt-3 flex snap-x gap-3 scroll-px-4 px-4 pb-4">
                 @foreach (array_slice($combo['produtos'], 0, 12) as $produtoId)
