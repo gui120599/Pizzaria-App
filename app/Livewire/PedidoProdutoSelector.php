@@ -336,11 +336,11 @@ class PedidoProdutoSelector extends Component
         // Mesma resolução de preço do cardápio, incluindo promoção relâmpago e
         // promoção adicional (preço de gatilho) vigentes com saldo — o balcão
         // debita os contadores ao confirmar (ver confirmarItem()), igual ao
-        // checkout público. Sem pedido gravado ainda não há onde registrar o
-        // consumo, então as duas promoções ficam de fora.
+        // checkout público. Sem pedido gravado (prévia do Atender Pedido) vale
+        // só a relâmpago: o save consome o saldo; a promoção adicional fica de fora.
         $preco = $this->pedidoId
             ? app(PrecificadorService::class)->resolver($produto)
-            : app(PrecificadorService::class)->resolver($produto, considerarRelampago: false, considerarPromoAdicional: false);
+            : app(PrecificadorService::class)->resolver($produto, considerarPromoAdicional: false);
 
         $this->produtoSelecionadoId = $produtoId;
         $this->produtoSelecionado = [
@@ -453,9 +453,9 @@ class PedidoProdutoSelector extends Component
     protected function lancar(LinhaPrecificada $linha): bool
     {
         if (! $this->pedidoId) {
-            // Prévia já precificada sem promoção: não há onde registrar o consumo.
-            // A oferta escolhida vira uma linha de prévia ligada ao item; o
-            // Atender Pedido grava e revalida as duas no save.
+            // Prévia: já vem com o preço da relâmpago (o Atender Pedido consome
+            // o saldo no save), sem promoção adicional. A oferta escolhida vira
+            // uma linha de prévia ligada ao item; o save grava e revalida tudo.
             $item = $this->itemParaLista($linha->previa(), $linha->adicionais);
             $this->itens[] = $item;
             $oferta = $this->ofertaEscolhidaNaPrevia();
@@ -884,12 +884,12 @@ class PedidoProdutoSelector extends Component
                 // Preço da fração respeita a mesma regra do cardápio: promoção
                 // relâmpago "só inteira" volta ao preço normal na fração (ver
                 // Produto::precoFracaoCardapio()). Na prévia (sem pedido
-                // gravado) não há promoção, como em confirmarSabores().
+                // gravado) vale só a relâmpago, como em confirmarSabores().
                 'preco' => $this->pedidoId
                     ? $p->precoFracaoCardapio()
-                    : app(PrecificadorService::class)->resolver($p, considerarRelampago: false, considerarPromoAdicional: false)->precoFinal(),
+                    : app(PrecificadorService::class)->resolver($p, considerarRelampago: ! $p->relampagoSoInteiraCardapio(), considerarPromoAdicional: false)->precoFinal(),
                 'precoOriginal' => (float) $p->produto_preco_venda,
-                'temRelampago' => $this->pedidoId && app(PrecificadorService::class)->promocoesVigentesDoProduto($p->id)->isNotEmpty(),
+                'temRelampago' => app(PrecificadorService::class)->promocoesVigentesDoProduto($p->id)->isNotEmpty(),
                 'controlaEstoque' => (bool) $p->produto_controla_estoque,
                 'saldoEstoque' => (float) $p->produto_saldo_estoque,
                 'unidadeEstoque' => $p->produto_unidade_estoque,
@@ -1084,7 +1084,7 @@ class PedidoProdutoSelector extends Component
         // Pizza inteira (um sabor) é o próprio item, com relâmpago e oferta;
         // dois ou mais sabores viram UMA linha com os sabores congelados,
         // igual ao checkout público (ver LancamentoItemPedidoService). Sem
-        // pedido gravado, sem promoção — como no item avulso (confirmarItem).
+        // pedido gravado, só a relâmpago — como no item avulso (confirmarItem).
         try {
             $linha = app(LancamentoItemPedidoService::class)->precificar(new ItemSolicitado(
                 produtoId: $ids[0],
@@ -1094,7 +1094,7 @@ class PedidoProdutoSelector extends Component
                 ofertaProdutoId: $this->ofertaProdutoEscolhido(),
                 clienteId: $this->clienteSelecionadoId ?: null,
                 respostas: $this->respostas,
-            ), CanalLancamentoEnum::SALAO, comPromocoes: (bool) $this->pedidoId);
+            ), CanalLancamentoEnum::SALAO, comPromocoes: (bool) $this->pedidoId, comRelampago: true);
         } catch (ItemIndisponivelException|ComboSaboresInvalidoException|PerguntaNaoRespondidaException $e) {
             $this->erroPromocao = $e->getMessage();
 
@@ -1184,8 +1184,8 @@ class PedidoProdutoSelector extends Component
         $this->erroEstoque = null;
         $this->avisoEstoque = null;
 
-        // Sem pedido gravado o preço fica sem promoção (não há onde registrar o
-        // consumo) — a mesma regra da grade em selecionarProduto().
+        // Sem pedido gravado vale só a relâmpago (o Atender Pedido consome o
+        // saldo no save) — a mesma regra da grade em selecionarProduto().
         try {
             $linha = app(LancamentoItemPedidoService::class)->precificar(new ItemSolicitado(
                 produtoId: (int) $this->produtoSelecionadoId,
@@ -1195,7 +1195,7 @@ class PedidoProdutoSelector extends Component
                 ofertaProdutoId: $this->ofertaProdutoEscolhido(),
                 clienteId: $this->clienteSelecionadoId ?: null,
                 respostas: $this->respostas,
-            ), CanalLancamentoEnum::SALAO, comPromocoes: (bool) $this->pedidoId);
+            ), CanalLancamentoEnum::SALAO, comPromocoes: (bool) $this->pedidoId, comRelampago: true);
         } catch (ItemIndisponivelException|PerguntaNaoRespondidaException $e) {
             $this->erroPromocao = $e->getMessage();
 

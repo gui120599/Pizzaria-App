@@ -107,16 +107,17 @@ class PedidoProdutoSelectorPrecoTest extends TestCase
             ->assertSeeText('39,90');
     }
 
-    public function test_grade_da_previa_sem_pedido_exibe_o_preco_sem_relampago(): void
+    public function test_grade_da_previa_sem_pedido_exibe_o_preco_da_relampago(): void
     {
+        // Prévia do Atender Pedido (pedido novo): a relâmpago vale e o saldo é
+        // consumido no save (antes ficava de fora por não ter onde registrar).
         $marguerita = $this->produto('Marguerita', 55.00);
         $this->promocao(produtos: [$marguerita]);
 
         Livewire::test(PedidoProdutoSelector::class)
             ->assertOk()
-            ->assertDontSeeText('RELÂMPAGO')
-            ->assertDontSeeText('39,90')
-            ->assertSeeText('55,00');
+            ->assertSeeText('RELÂMPAGO')
+            ->assertSeeText('39,90');
     }
 
     public function test_confirmar_item_promocional_debita_o_contador_e_congela_o_preco(): void
@@ -222,7 +223,7 @@ class PedidoProdutoSelectorPrecoTest extends TestCase
         $this->assertSame(39.90, (float) $item->item_pedido_valor);
     }
 
-    public function test_previa_sem_pedido_cobra_pizza_inteira_dos_sabores_sem_relampago(): void
+    public function test_previa_sem_pedido_cobra_a_relampago_e_so_consome_o_saldo_no_save(): void
     {
         $this->categoria->update(['categoria_permite_sabores' => true]);
         $this->categoria->sincronizarQuantidadesSabores(2);
@@ -233,8 +234,8 @@ class PedidoProdutoSelectorPrecoTest extends TestCase
             ->call('selecionarProduto', $marguerita->id)
             ->call('confirmarSabores');
 
-        $this->assertSame(55.0, $componente->get('itens')[0]['valor']);
-        $this->assertNull($componente->get('itens')[0]['promocao_id']);
+        $this->assertSame(39.9, $componente->get('itens')[0]['valor']);
+        $this->assertSame($promocao->id, $componente->get('itens')[0]['promocao_id']);
         $this->assertSame(0, (int) $promocao->fresh()->promocao_qtd_vendida);
     }
 

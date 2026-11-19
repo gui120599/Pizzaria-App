@@ -28,6 +28,7 @@ use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\PromocaoAdicional;
 use App\Models\PromocaoAdicionalOferta;
+use App\Models\PromocaoRelampago;
 use App\Models\StonePedido;
 use App\Services\ClienteResolverService;
 use App\Services\CortesiaService;
@@ -654,18 +655,24 @@ class AtenderPedido extends Page
                 ->values()
                 ->all();
 
-        // Relâmpago restrita a delivery/retirada: só a edição tem itens com
-        // promoção (a prévia do pedido novo é precificada sem relâmpago).
-        if ($this->pedidoId) {
-            $foraDaEntrega = [...$foraDaEntrega, ...app(PromocaoRelampagoService::class)->promocoesForaDaEntrega(
-                ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)->where('item_pedido_status', 'INSERIDO')->pluck('item_pedido_promocao_id'),
-                $opcaoEntrega?->id,
-                Pedido::whereKey($this->pedidoId)->whereNotNull('pedido_sessao_mesa_id')->exists(),
-            )];
-        }
+        // Relâmpago restrita a delivery/retirada: itens gravados (edição) ou da
+        // prévia (pedido novo, que já vem com o preço da relâmpago).
+        $foraDaEntrega = [...$foraDaEntrega, ...app(PromocaoRelampagoService::class)->promocoesForaDaEntrega(
+            $this->pedidoId
+                ? ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)->where('item_pedido_status', 'INSERIDO')->pluck('item_pedido_promocao_id')
+                : collect($this->itensCarrinho)->pluck('promocao_id'),
+            $opcaoEntrega?->id,
+            $this->pedidoId !== null && Pedido::whereKey($this->pedidoId)->whereNotNull('pedido_sessao_mesa_id')->exists(),
+        )];
 
         if ($foraDaEntrega !== []) {
             $this->notificarErro('A promoção "'.implode('", "', $foraDaEntrega).'" não vale para esta opção de entrega. Remova o item da promoção ou mude a opção de entrega.', titulo: 'Promoção');
+
+            return null;
+        }
+
+        if (! $this->pedidoId && ($limite = $this->limiteDaRelampagoExcedido()) !== null) {
+            $this->notificarErro($limite, titulo: 'Promoção');
 
             return null;
         }
@@ -762,6 +769,11 @@ class AtenderPedido extends Page
             return null;
         } catch (FiadoNaoPermitidoException $e) {
             $this->notificarErro($e->getMessage(), titulo: 'Fiado / a prazo');
+
+            return null;
+        } catch (PromocaoIndisponivelException $e) {
+            // Saldo da relâmpago acabou entre a prévia e o save: nada foi gravado.
+            $this->notificarErro($e->getMessage().' Remova o item e lance de novo para cobrar o preço normal.', titulo: 'Promoção');
 
             return null;
         }
@@ -896,6 +908,31 @@ class AtenderPedido extends Page
         return trim((string) $this->clienteData['enderecoEntrega']) !== trim((string) $this->enderecoEntregaCarregado);
     }
 
+    /**
+     * Limite por pedido das relâmpagos da prévia (pedido novo), somando as
+     * quantidades de cada promoção. Null = dentro do limite.
+     */
+    private function limiteDaRelampagoExcedido(): ?string
+    {
+        $porPromocao = collect($this->itensCarrinho)
+            ->filter(fn (array $item) => ! empty($item['promocao_id']))
+            ->groupBy('promocao_id');
+
+        foreach ($porPromocao as $promocaoId => $itens) {
+            if (! $promocao = PromocaoRelampago::find($promocaoId)) {
+                continue;
+            }
+
+            try {
+                app(PromocaoRelampagoService::class)->validarLimitePorPedido($promocao, (float) $itens->sum('quantidade'));
+            } catch (PromocaoIndisponivelException $e) {
+                return $e->getMessage();
+            }
+        }
+
+        return null;
+    }
+
     private function sincronizarItens(Pedido $pedido, bool $souNovo): void
     {
         if (! $souNovo) {
@@ -921,6 +958,7 @@ class AtenderPedido extends Page
                 'item_pedido_desconto' => $item['desconto'] ?? 0,
                 'item_pedido_valor_adicionais' => $item['adicionais_valor'] ?? 0,
                 'item_pedido_desconto_unitario' => $item['desconto_unit'] ?? null,
+                'item_pedido_promocao_id' => $item['promocao_id'] ?? null,
                 'item_pedido_observacao' => ($item['observacao'] ?? '') !== '' ? $item['observacao'] : null,
                 // Pizza de sabores: uma linha com os sabores congelados.
                 'item_pedido_sabores' => $item['sabores'] ?? null,
@@ -929,6 +967,13 @@ class AtenderPedido extends Page
             ]);
 
             app(LancamentoItemPedidoService::class)->gravarAdicionais($itemModel, $item['adicionais'] ?? []);
+
+            // Preço da relâmpago veio da prévia: debita o saldo aqui, na
+            // transação do save (esgotou = PromocaoIndisponivelException, rollback).
+            if ($itemModel->item_pedido_promocao_id) {
+                app(PromocaoRelampagoService::class)->consumir($itemModel);
+            }
+
             if (isset($item['id'])) {
                 $criados[(string) $item['id']] = $itemModel;
             }

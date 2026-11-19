@@ -411,13 +411,14 @@ class PrecificadorService
      * @param  ?QuantidadeSabor  $opcao  Opção da categoria (percentuais); null = percentuais iguais
      * @param  ?int  $opcaoPagamentoId  Ver resolver() — só o checkout público sabe a forma de pagamento neste momento.
      * @param  bool  $considerarPromocoes  false = sem combo relâmpago nem promoção adicional (prévia sem pedido gravado)
+     * @param  ?bool  $considerarRelampago  separa a relâmpago de $considerarPromocoes (null = segue $considerarPromocoes)
      * @return array{produto_id: int, quantidade: int, valor_unitario: float, desconto: float, desconto_unitario: float, valor: float, promocao_id: ?int, promocao_adicional_regra_id: ?int, sabores: array<int, array{produto_id: int, nome: string, percentual: float, rotulo: string, valor_unitario: float, valor_fatia: float, desconto_fatia: float, promocao_adicional_regra_id: ?int}>}
      */
-    public function precificarCombo(array $produtos, int $qtd, ?QuantidadeSabor $opcao = null, ?int $opcaoPagamentoId = null, bool $considerarPromocoes = true): array
+    public function precificarCombo(array $produtos, int $qtd, ?QuantidadeSabor $opcao = null, ?int $opcaoPagamentoId = null, bool $considerarPromocoes = true, ?bool $considerarRelampago = null): array
     {
         $produtos = array_values($produtos);
         $numSabores = count($produtos);
-        $promocao = $considerarPromocoes ? $this->promocaoDoCombo($produtos) : null;
+        $promocao = ($considerarRelampago ?? $considerarPromocoes) ? $this->promocaoDoCombo($produtos) : null;
         // Só entra em jogo quando não há combo relâmpago cobrindo os mesmos
         // sabores — relâmpago tem prioridade, igual ao item avulso.
         $regrasAdicionais = $considerarPromocoes && $promocao === null ? $this->regrasAdicionaisDoCombo($produtos, $opcaoPagamentoId) : null;
