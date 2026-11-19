@@ -49,6 +49,8 @@ class LancamentoItemPedidoService
     /**
      * @param  bool  $comPromocoes  false = preço sem relâmpago nem promoção adicional, e sem oferta
      *                              (prévia sem pedido gravado, onde não há como registrar o consumo)
+     * @param  ?bool  $comRelampago  relâmpago à parte de $comPromocoes (null = segue $comPromocoes). A
+     *                               prévia do Atender Pedido usa true: o saldo é consumido no save.
      *
      * @throws ItemIndisponivelException|ComboSaboresInvalidoException|PerguntaNaoRespondidaException
      */
@@ -57,7 +59,10 @@ class LancamentoItemPedidoService
         CanalLancamentoEnum $canal,
         ?int $opcaoPagamentoId = null,
         bool $comPromocoes = true,
+        ?bool $comRelampago = null,
     ): LinhaPrecificada {
+        $comRelampago ??= $comPromocoes;
+
         $ids = $item->ehMultiSabor() ? $item->saboresIds : [$item->produtoId];
         $produtos = $this->produtosNaOrdem($ids, $canal);
 
@@ -91,6 +96,7 @@ class LancamentoItemPedidoService
                 $this->precificador->opcaoDoCombo($produtos),
                 $opcaoPagamentoId,
                 $comPromocoes,
+                $comRelampago,
             );
 
             // Pizza de sabores só recebe oferta quando todos os sabores são
@@ -113,7 +119,7 @@ class LancamentoItemPedidoService
         $produto = $produtos[0];
         $preco = $this->precificador->resolver(
             $produto,
-            considerarRelampago: $comPromocoes,
+            considerarRelampago: $comRelampago,
             considerarPromoAdicional: $comPromocoes,
             opcaoPagamentoId: $opcaoPagamentoId,
         );

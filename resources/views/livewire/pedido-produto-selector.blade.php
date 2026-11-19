@@ -106,11 +106,11 @@
                 // Mesma resolução de preço do cardápio — inclui promoção relâmpago
                 // vigente com saldo (ver Produto::precoResolvido()). O balcão vende
                 // pelo mesmo preço exibido: confirmarItem()/confirmarSabores() debitam
-                // o contador da promoção ao gravar o item. Sem pedido gravado (prévia)
-                // não há promoção, então o preço exibido também fica sem ela.
+                // o contador da promoção ao gravar o item. Sem pedido gravado (prévia
+                // do Atender Pedido) vale só a relâmpago, consumida no save.
                 $preco        = $pedidoId
                     ? $produto->precoResolvido()
-                    : app(\App\Services\PrecificadorService::class)->resolver($produto, considerarRelampago: false, considerarPromoAdicional: false);
+                    : app(\App\Services\PrecificadorService::class)->resolver($produto, considerarPromoAdicional: false);
                 $precoVenda   = $preco->valorUnitario;
                 $precoExibido = $preco->precoFinal();
                 $temDesconto  = $preco->descontoUnitario > 0;
