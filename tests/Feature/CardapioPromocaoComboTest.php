@@ -126,15 +126,19 @@ class CardapioPromocaoComboTest extends TestCase
     {
         PromocaoCombo::factory()->daCategoria($this->grande)->create([
             'promocombo_imagem' => 'promocoes_combo/banner.jpg',
+            'promocombo_imagem_mobile' => 'promocoes_combo/quadrada.jpg',
             'promocombo_descricao' => 'Toda quinta à noite',
         ]);
 
-        $this->assertSame(asset('storage/promocoes_combo/banner.jpg'), app(CardapioService::class)->dados()['promocoesCombo'][0]['imagem']);
+        $combo = app(CardapioService::class)->dados()['promocoesCombo'][0];
+        $this->assertSame(asset('storage/promocoes_combo/banner.jpg'), $combo['imagem']);
+        $this->assertSame(asset('storage/promocoes_combo/quadrada.jpg'), $combo['imagem_mobile']);
 
         $this->get(route('cardapio'))
             ->assertOk()
             ->assertSee('id="secao_combo"', false)
-            ->assertSee(asset('storage/promocoes_combo/banner.jpg'), false)
+            ->assertSee('<source media="(min-width: 1024px)" srcset="'.asset('storage/promocoes_combo/banner.jpg').'"', false)
+            ->assertSee('src="'.asset('storage/promocoes_combo/quadrada.jpg').'"', false)
             ->assertSee('Toda quinta à noite')
             ->assertSee('Promoção de hoje');
     }
@@ -183,6 +187,29 @@ class CardapioPromocaoComboTest extends TestCase
             ->assertOk()
             ->assertJsonPath('valor_desconto_cupom', 8)
             ->assertJsonPath('total_final', 72);
+    }
+
+    public function test_grande_mais_brotinho_convida_so_para_o_grupo_que_falta_e_fecha_no_checkout(): void
+    {
+        $brotinhos = Categoria::create(['categoria_nome' => 'Pizza Brotinho', 'categoria_cardapio' => true]);
+        $brotinho = $this->produto('Brotinho Calabresa', 30.00, $brotinhos);
+        $promocao = PromocaoCombo::factory()->comGrupos([['Pizza Grande', 1, $this->grande], ['Pizza Brotinho', 1, $brotinhos]])
+            ->create(['promocombo_nome' => 'Grande + Brotinho', 'promocombo_preco' => 60.00]);
+        $grupoBrotinho = $promocao->grupos()->where('pcg_nome', 'Pizza Brotinho')->value('id');
+
+        $combo = app(CardapioService::class)->dados()['promocoesCombo'][0];
+        $this->assertSame('1× Pizza Grande + 1× Pizza Brotinho', $combo['composicao']);
+        $this->assertSame([$brotinho->id], collect($combo['grupos'])->firstWhere('id', $grupoBrotinho)['produtos']);
+
+        $this->previa([$this->calabresa, $this->frango])
+            ->assertOk()
+            ->assertJsonPath('aplicacoes', [])
+            ->assertJsonPath('pendencias.0.grupos', [['grupo_id' => $grupoBrotinho, 'faltam' => 1]]);
+
+        $this->checkout([['id' => $this->calabresa->id, 'qty' => 1], ['id' => $brotinho->id, 'qty' => 1]])
+            ->assertOk()
+            ->assertJsonPath('total_final', 60)
+            ->assertJsonPath('combos.0.nome', 'Grande + Brotinho');
     }
 
     public function test_checkout_com_opcao_fora_da_lista_sai_pelo_preco_normal(): void

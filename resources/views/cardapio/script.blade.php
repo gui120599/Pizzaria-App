@@ -137,7 +137,7 @@
                 // Unidades participantes de cada promoção na última resposta: o
                 // convite só aparece quando o cliente adiciona (nunca ao remover).
                 _comboUnidades: {},
-                comboOportunidade: { open: false, promocao: null, faltam: 0, combosFechados: 0 },
+                comboOportunidade: { open: false, promocao: null, faltam: 0, grupos: [], combosFechados: 0 },
                 comboConquista: { open: false, aplicacao: null },
                 // Aviso da promoção ao abrir o cardápio (uma vez por sessão).
                 comboAnuncio: { open: false, promocao: null },
@@ -581,12 +581,28 @@
                         open: true,
                         promocao: pendencia.promocao,
                         faltam: pendencia.faltam,
+                        grupos: pendencia.grupos ?? [],
                         combosFechados: this._comboPorPromocao?.[promocaoId] ?? 0,
                     };
                 },
-                /** Produtos exibidos no cardápio que fecham o combo. */
-                elegiveisCombo(promocao) {
-                    return (promocao?.produtos ?? []).map(id => _produtosTela[id]).filter(Boolean);
+                /**
+                 * Produtos exibidos no cardápio que completam o combo: só os dos
+                 * grupos que ainda faltam (pizza grande na sacola → só brotinhos).
+                 */
+                elegiveisCombo(promocao, gruposFaltando = []) {
+                    const faltando = gruposFaltando.map(g => g.grupo_id);
+                    const ids = faltando.length === 0
+                        ? (promocao?.produtos ?? [])
+                        : (promocao?.grupos ?? []).filter(g => faltando.includes(g.id)).flatMap(g => g.produtos);
+                    return [...new Set(ids)].map(id => _produtosTela[id]).filter(Boolean);
+                },
+                /** "1× Pizza Brotinho" — o que falta, pelos nomes dos grupos. */
+                textoFaltam(promocao, gruposFaltando = [], faltam = 0) {
+                    const nomes = gruposFaltando
+                        .map(g => ({ ...g, grupo: (promocao?.grupos ?? []).find(x => x.id === g.grupo_id) }))
+                        .filter(g => g.grupo)
+                        .map(g => g.faltam + '× ' + g.grupo.nome);
+                    return nomes.length > 0 ? nomes.join(' + ') : faltam + (faltam > 1 ? ' itens' : ' item');
                 },
                 /** Escolha no convite segue o fluxo normal do produto (sabores, montagem, oferta). */
                 escolherDoCombo(produto) {
@@ -599,7 +615,7 @@
                 },
                 recusarCombo() {
                     const { promocao, combosFechados } = this.comboOportunidade;
-                    this.comboOportunidade = { open: false, promocao: null, faltam: 0, combosFechados: 0 };
+                    this.comboOportunidade = { open: false, promocao: null, faltam: 0, grupos: [], combosFechados: 0 };
                     if (!promocao) return;
                     try {
                         const recusas = JSON.parse(sessionStorage.getItem('combo_recusas') || '{}');

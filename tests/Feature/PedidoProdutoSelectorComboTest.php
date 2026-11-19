@@ -85,6 +85,26 @@ class PedidoProdutoSelectorComboTest extends TestCase
         $this->assertSame([11.99, 10.02], collect($seletor->get('itens'))->pluck('desconto_combo')->all());
     }
 
+    public function test_convite_da_grande_mais_brotinho_lista_so_os_brotinhos(): void
+    {
+        $brotinhos = Categoria::create(['categoria_nome' => 'Pizza Brotinho', 'categoria_cardapio_garcom' => true]);
+        $brotinho = $this->produto('Brotinho Calabresa', 30.00, $brotinhos);
+        PromocaoCombo::factory()->comGrupos([['Pizza Grande', 1, $this->grande], ['Pizza Brotinho', 1, $brotinhos]])
+            ->create(['promocombo_nome' => 'Grande + Brotinho', 'promocombo_preco' => 60.00]);
+        $rascunho = app(RetiradaService::class)->rascunho(User::factory()->garcom()->create(['name_first' => 'Bia']));
+        $seletor = Livewire::test(PedidoProdutoSelector::class, ['pedidoId' => $rascunho->id]);
+
+        $this->lancar($seletor, $this->calabresa)
+            ->assertSet('comboModal.tipo', 'convite')
+            ->assertSet('comboModal.faltam_texto', '1× Pizza Brotinho')
+            ->assertSet('comboModal.composicao', '1× Pizza Grande + 1× Pizza Brotinho');
+        $this->assertSame([$brotinho->id], collect($seletor->get('comboModal.produtos'))->pluck('id')->all());
+
+        $seletor->call('escolherDoCombo', $brotinho->id)->call('confirmarItem')
+            ->assertSet('comboModal.tipo', 'conquista')
+            ->assertSet('comboModal.desconto', 29.9);
+    }
+
     public function test_convite_recusado_so_volta_depois_de_fechar_outro_combo(): void
     {
         PromocaoCombo::factory()->daCategoria($this->grande)->create();

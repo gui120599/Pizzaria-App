@@ -380,10 +380,15 @@ Celular primeiro: bottom-sheet como os modais atuais, botões de 48 px, lista co
    Limitação conhecida: no rascunho do garçom e na prévia do Atender Pedido a opção de entrega ainda não existe, então uma promoção restrita aparece aplicada e cai no envio/save se a opção escolhida não for aceita (o total é recalculado; na retirada do garçom, se o pagamento já foi digitado, o envio pede para ajustar a soma).
 
 ### Ajustes pós-Fase 3 (19/11/2026)
-- Imagem da promoção (`promocombo_imagem`, disco `public/promocoes_combo`, 16:9): card de destaque "Promoção combo" no topo do cardápio (banner, regra, descrição e participantes) com aba "Combo".
+- Imagens da promoção no disco `public/promocoes_combo`: `promocombo_imagem` (computador, 1680 × 640, 21:8) e `promocombo_imagem_mobile` (celular, 1080 × 1080, 1:1; também no aviso ao abrir); sem uma, vale a outra: card de destaque "Promoção combo" no topo do cardápio (banner, regra, descrição e participantes) com aba "Combo".
 - Aviso ao abrir o cardápio (uma vez por sessão, só com a loja aberta e sem link direto de produto): banner, regra, descrição e "Ver itens da promoção".
 - Atender Pedido: a comemoração traz a mensagem da promoção para o WhatsApp (itens do combo com valor, De/Por e economia; sem saudação nem total), editável, com botão Copiar. O painel do garçom comemora sem a mensagem.
 - Atender Pedido: card "Mensagem para o cliente confirmar o pedido" (acompanha a tela: itens, totais, entrega, endereço, pagamento, observação; pedido gravado leva número e link de acompanhamento) e, depois de salvar, modal com a mensagem de pedido confirmado e o link (`App\Support\Pedido\MensagemPedidoWhatsapp`, componente `x-pedido.mensagem-whatsapp`). As três mensagens abrem com o primeiro nome do cliente quando informado ("Maria, seu pedido…"), sem saudação.
+
+### Combo por grupos (19/11/2026)
+- `promocao_combo_grupos` (nome, quantidade, ordem) + `pcp_grupo_id` nos participantes: "1 Pizza Grande + 1 Pizza Brotinho por R$ 60,00" são dois grupos; o combo fecha quando todos completam. Participante sem grupo vale para a promoção inteira. A migration transforma cada promoção existente num grupo único (nome = 1ª categoria participante, quantidade = `promocombo_quantidade`), sem mudar o comportamento; `promocombo_quantidade` passa a ser a soma dos grupos (sincronizada no Create/Edit).
+- Motor: vagas por grupo preenchidas na ordem de inclusão com emparelhamento (caminho aumentante), então um item que serve em dois grupos é remanejado; a pendência traz `faltamPorGrupo`.
+- Convite (cardápio e atendimento) e selo da sacola mostram só os produtos dos grupos que faltam ("Adicione 1× Pizza Brotinho"); textos usam a composição ("1× Pizza Grande + 1× Pizza Brotinho"); a vitrine do destaque intercala um produto de cada grupo.
 
 ### Fase 4: saldo (Q7) e relatório
 - Quantidade limitada com UPDATE condicional + estorno nos pontos de cancelamento, limite por pedido no checkout, relatório de combos por período e reset da recorrência no `promocoes:resetar-recorrentes`.

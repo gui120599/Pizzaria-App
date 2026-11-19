@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Services\PromocaoCombo;
 
+use App\Services\PromocaoCombo\GrupoCombo;
 use App\Services\PromocaoCombo\LinhaCombo;
 use App\Services\PromocaoCombo\PromocaoComboMotor;
 use App\Services\PromocaoCombo\RegraCombo;
@@ -17,15 +18,31 @@ class PromocaoComboMotorTest extends TestCase
 
     private const BEBIDA = 2;
 
-    private function regra(array $extra = []): RegraCombo
+    private const BROTINHO = 3;
+
+    /** "2 Grandes por R$ 87,99": um grupo só; $grupo ajusta os participantes dele. */
+    private function regra(array $extra = [], array $grupo = []): RegraCombo
     {
         return new RegraCombo(...$extra + [
             'promocaoId' => 1,
             'nome' => '2 Grandes por 87,99',
-            'quantidade' => 2,
             'precoCentavos' => 8799,
-            'categoriasIncluidas' => [self::GRANDE],
+            'grupos' => [new GrupoCombo(...$grupo + ['id' => 11, 'nome' => 'Pizza Grande', 'quantidade' => 2, 'categoriasIncluidas' => [self::GRANDE]])],
         ]);
+    }
+
+    /** "1 Grande + 1 Brotinho por R$ 60,00". */
+    private function grandeMaisBrotinho(): RegraCombo
+    {
+        return new RegraCombo(promocaoId: 5, nome: 'Grande + Brotinho', precoCentavos: 6000, grupos: [
+            new GrupoCombo(21, 'Pizza Grande', 1, [self::GRANDE]),
+            new GrupoCombo(22, 'Pizza Brotinho', 1, [self::BROTINHO]),
+        ]);
+    }
+
+    private function brotinho(string $chave, int $base, int $unidades = 1): LinhaCombo
+    {
+        return new LinhaCombo($chave, (int) $chave, $unidades, $base, [['produto_id' => 30 + (int) $chave, 'categoria_id' => self::BROTINHO]]);
     }
 
     /** @param  list<int>  $sabores  produtos (todos da categoria Grande) */
@@ -127,7 +144,7 @@ class PromocaoComboMotorTest extends TestCase
 
     public function test_produto_excluido_e_produto_de_outra_categoria_ficam_fora(): void
     {
-        $regra = $this->regra(['produtosExcluidos' => [10], 'produtosIncluidos' => [50]]);
+        $regra = $this->regra(grupo: ['produtosExcluidos' => [10], 'produtosIncluidos' => [50]]);
         $refri = new LinhaCombo('3', 3, 1, 6000, [['produto_id' => 50, 'categoria_id' => self::BEBIDA]]);
         $suco = new LinhaCombo('4', 4, 1, 6000, [['produto_id' => 51, 'categoria_id' => self::BEBIDA]]);
 
@@ -155,6 +172,37 @@ class PromocaoComboMotorTest extends TestCase
 
         $this->assertCount(2, $motor->planejar([$this->pizza('1', 5000, unidades: 6)], [$regra])->aplicacoes);
         $this->assertCount(1, $motor->planejar([$this->pizza('1', 5000, unidades: 6)], [$regra], jaAplicadas: [1 => 1])->aplicacoes);
+    }
+
+    public function test_grande_mais_brotinho_fecha_com_um_de_cada_e_a_pendencia_aponta_o_grupo_que_falta(): void
+    {
+        $motor = new PromocaoComboMotor;
+
+        $duasGrandes = $motor->planejar([$this->pizza('1', 5990), $this->pizza('2', 5990)], [$this->grandeMaisBrotinho()]);
+        $this->assertSame([], $duasGrandes->aplicacoes);
+        $this->assertSame([22 => 1], $duasGrandes->pendencias[0]->faltamPorGrupo);
+
+        $soBrotinho = $motor->planejar([$this->brotinho('1', 3000)], [$this->grandeMaisBrotinho()]);
+        $this->assertSame([21 => 1], $soBrotinho->pendencias[0]->faltamPorGrupo);
+
+        $plano = $motor->planejar([$this->pizza('1', 5990), $this->pizza('2', 5990), $this->brotinho('3', 3000)], [$this->grandeMaisBrotinho()]);
+        $this->assertSame(['1' => 1993, '3' => 997], $plano->descontoPorLinha());
+        $this->assertSame([22 => 1], $plano->pendencias[0]->faltamPorGrupo);
+    }
+
+    public function test_item_que_serve_em_dois_grupos_e_remanejado_para_fechar_o_combo(): void
+    {
+        // Grupo 1 aceita grande ou brotinho; grupo 2 só brotinho. O brotinho entra
+        // primeiro no grupo 1 e é remanejado quando chega a grande.
+        $regra = new RegraCombo(promocaoId: 6, nome: 'Qualquer + Brotinho', precoCentavos: 6000, grupos: [
+            new GrupoCombo(31, 'Qualquer pizza', 1, [self::GRANDE, self::BROTINHO]),
+            new GrupoCombo(32, 'Pizza Brotinho', 1, [self::BROTINHO]),
+        ]);
+
+        $plano = (new PromocaoComboMotor)->planejar([$this->brotinho('1', 3000), $this->pizza('2', 5990)], [$regra]);
+
+        $this->assertCount(1, $plano->aplicacoes);
+        $this->assertSame(2, $plano->aplicacoes[0]->quantidade);
     }
 
     public function test_mesma_entrada_gera_o_mesmo_plano(): void

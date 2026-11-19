@@ -20,4 +20,10 @@ class EditPromocaoCombo extends EditRecord
             ForceDeleteAction::make(),
         ];
     }
+
+    /** Itens por combo = soma dos grupos (os grupos são gravados depois do registro). */
+    protected function afterSave(): void
+    {
+        $this->record->sincronizarQuantidade();
+    }
 }

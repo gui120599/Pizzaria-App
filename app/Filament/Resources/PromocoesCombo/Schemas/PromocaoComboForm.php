@@ -9,12 +9,14 @@ use Closure;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Field;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -46,19 +48,31 @@ class PromocaoComboForm
                         ->maxLength(255)
                         ->columnSpanFull(),
                     FileUpload::make('promocombo_imagem')
-                        ->label('Imagem da promoção')
-                        ->helperText('Aparece no card de destaque e no aviso ao abrir o cardápio. Horizontal (16:9), JPG ou PNG, até 5MB.')
+                        ->label('Imagem para computador')
+                        ->helperText('1680 × 640 px (faixa larga, 21:8). Card de destaque em telas grandes. JPG ou PNG, até 5MB.')
                         ->disk('public')
                         ->directory('promocoes_combo')
                         ->visibility('public')
                         ->image()
                         ->imageEditor()
                         ->imageResizeMode('cover')
-                        ->imageCropAspectRatio('16:9')
-                        ->imageResizeTargetWidth(1200)
-                        ->imageResizeTargetHeight(675)
-                        ->maxSize(5120)
-                        ->columnSpanFull(),
+                        ->imageCropAspectRatio('21:8')
+                        ->imageResizeTargetWidth(1680)
+                        ->imageResizeTargetHeight(640)
+                        ->maxSize(5120),
+                    FileUpload::make('promocombo_imagem_mobile')
+                        ->label('Imagem para celular')
+                        ->helperText('1080 × 1080 px (quadrada, 1:1). Card de destaque no celular e aviso ao abrir o cardápio. Sem ela, vale a de computador (e vice-versa).')
+                        ->disk('public')
+                        ->directory('promocoes_combo')
+                        ->visibility('public')
+                        ->image()
+                        ->imageEditor()
+                        ->imageResizeMode('cover')
+                        ->imageCropAspectRatio('1:1')
+                        ->imageResizeTargetWidth(1080)
+                        ->imageResizeTargetHeight(1080)
+                        ->maxSize(5120),
                     Toggle::make('promocombo_ativa')
                         ->label('Ativa')
                         ->helperText('Desligue para encerrar a promoção imediatamente, sem apagá-la. Pedidos que já têm o combo o mantêm.')
@@ -66,17 +80,9 @@ class PromocaoComboForm
                 ]),
 
             Section::make('Regra do combo')
-                ->columns(3)
+                ->columns(2)
                 ->columnSpanFull()
                 ->schema([
-                    TextInput::make('promocombo_quantidade')
-                        ->label('Quantidade de itens')
-                        ->helperText('Ex.: 2 para "2 pizzas por R$ 87,99".')
-                        ->numeric()
-                        ->minValue(2)
-                        ->maxValue(10)
-                        ->default(2)
-                        ->required(),
                     Money::make('promocombo_preco')
                         ->label('Preço do conjunto')
                         ->helperText('Bordas e adicionais são cobrados à parte.')
@@ -167,56 +173,96 @@ class PromocaoComboForm
                         ->columnSpanFull(),
                 ]),
 
-            Section::make('Itens participantes')
-                ->description('Escolha categorias (as subcategorias entram junto) ou produtos. Marque "Fora da promoção" para excluir um item de uma categoria incluída.')
+            Section::make('Itens do combo')
+                ->description('Cada grupo é uma posição do combo, com quantidade e participantes próprios. Ex.: "1 Pizza Grande" + "1 Pizza Brotinho" por R$ 60,00, ou um grupo só, "2 Pizza Grande", por R$ 87,99. O combo fecha quando todos os grupos estão completos, e o convite mostra só os itens dos grupos que faltam.')
                 ->columnSpanFull()
                 ->schema([
-                    Repeater::make('participantes')
+                    Repeater::make('grupos')
                         ->relationship()
                         ->label('')
-                        ->addActionLabel('Adicionar participante')
-                        ->columns(3)
-                        ->minItems(1)
+                        ->addActionLabel('Adicionar grupo')
+                        ->orderColumn('pcg_ordem')
+                        ->reorderableWithButtons()
                         ->collapsible()
-                        ->itemLabel(fn (array $state): ?string => self::tituloDoParticipante($state))
+                        ->minItems(1)
+                        ->columns(2)
+                        ->itemLabel(fn (array $state): ?string => filled($state['pcg_nome'] ?? null)
+                            ? ((int) ($state['pcg_quantidade'] ?? 1)).'× '.$state['pcg_nome']
+                            : null)
                         ->schema([
-                            Select::make('pcp_categoria_id')
-                                ->label('Categoria')
-                                ->options(fn (): array => Categoria::orderBy('categoria_nome')->pluck('categoria_nome', 'id')->all())
-                                ->searchable()
-                                ->live()
-                                ->requiredWithout('pcp_produto_id')
-                                ->validationMessages(['required_without' => 'Escolha uma categoria ou um produto.']),
-                            Select::make('pcp_produto_id')
-                                ->label('Produto')
-                                ->placeholder('Digite o nome do produto...')
-                                ->searchable()
-                                ->allowHtml()
-                                ->live()
-                                ->getSearchResultsUsing(fn (string $search): array => Produto::query()
-                                    ->where('produto_descricao', 'like', "%{$search}%")
-                                    ->with('categoria')
-                                    ->orderBy('produto_descricao')
-                                    ->limit(20)
-                                    ->get()
-                                    ->mapWithKeys(fn (Produto $p) => [$p->id => self::renderOpcaoProduto($p)])
-                                    ->toArray())
-                                ->getOptionLabelUsing(fn ($value): ?string => ($p = Produto::with('categoria')->find($value))
-                                    ? self::renderOpcaoProduto($p)
-                                    : null)
-                                ->native(false)
-                                ->rule(fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
-                                    if (filled($value) && filled($get('pcp_categoria_id'))) {
-                                        $fail('Escolha a categoria OU o produto, não os dois.');
-                                    }
-                                }),
-                            Toggle::make('pcp_excluir')
-                                ->label('Fora da promoção')
-                                ->inline(false)
-                                ->default(false),
+                            TextInput::make('pcg_nome')
+                                ->label('Nome do grupo')
+                                ->helperText('Aparece para o cliente: "Adicione 1× Pizza Brotinho".')
+                                ->placeholder('Pizza Brotinho')
+                                ->required()
+                                ->maxLength(60)
+                                ->live(onBlur: true),
+                            TextInput::make('pcg_quantidade')
+                                ->label('Quantidade')
+                                ->numeric()
+                                ->minValue(1)
+                                ->maxValue(10)
+                                ->default(1)
+                                ->required()
+                                ->live(onBlur: true),
+                            Repeater::make('participantes')
+                                ->relationship()
+                                ->label('Participantes do grupo')
+                                ->addActionLabel('Adicionar participante')
+                                ->columns(3)
+                                ->minItems(1)
+                                ->collapsible()
+                                ->itemLabel(fn (array $state): ?string => self::tituloDoParticipante($state))
+                                ->columnSpanFull()
+                                ->schema(self::camposDoParticipante()),
                         ]),
                 ]),
         ]);
+    }
+
+    /**
+     * Categoria (com subcategorias) OU produto, e se fica fora do grupo.
+     *
+     * @return array<int, Component|Field>
+     */
+    private static function camposDoParticipante(): array
+    {
+        return [
+            Select::make('pcp_categoria_id')
+                ->label('Categoria')
+                ->options(fn (): array => Categoria::orderBy('categoria_nome')->pluck('categoria_nome', 'id')->all())
+                ->searchable()
+                ->live()
+                ->requiredWithout('pcp_produto_id')
+                ->validationMessages(['required_without' => 'Escolha uma categoria ou um produto.']),
+            Select::make('pcp_produto_id')
+                ->label('Produto')
+                ->placeholder('Digite o nome do produto...')
+                ->searchable()
+                ->allowHtml()
+                ->live()
+                ->getSearchResultsUsing(fn (string $search): array => Produto::query()
+                    ->where('produto_descricao', 'like', "%{$search}%")
+                    ->with('categoria')
+                    ->orderBy('produto_descricao')
+                    ->limit(20)
+                    ->get()
+                    ->mapWithKeys(fn (Produto $p) => [$p->id => self::renderOpcaoProduto($p)])
+                    ->toArray())
+                ->getOptionLabelUsing(fn ($value): ?string => ($p = Produto::with('categoria')->find($value))
+                    ? self::renderOpcaoProduto($p)
+                    : null)
+                ->native(false)
+                ->rule(fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                    if (filled($value) && filled($get('pcp_categoria_id'))) {
+                        $fail('Escolha a categoria OU o produto, não os dois.');
+                    }
+                }),
+            Toggle::make('pcp_excluir')
+                ->label('Fora da promoção')
+                ->inline(false)
+                ->default(false),
+        ];
     }
 
     /** @param  array<string, mixed>  $state */

@@ -9,6 +9,7 @@ use App\Models\PedidoComboAplicacao;
 use App\Models\Produto;
 use App\Services\PrecificadorService;
 use App\Services\PromocaoCombo\AplicacaoCombo;
+use App\Services\PromocaoCombo\PendenciaCombo;
 use App\Services\PromocaoCombo\PlanoCombo;
 use App\Services\PromocaoCombo\PromocaoComboService;
 use App\Support\Pedido\MensagemPedidoWhatsapp;
@@ -105,9 +106,9 @@ trait ConvidaPromocaoCombo
                 continue;
             }
 
-            $produtos = $this->produtosDoCombo($pendencia->promocaoId);
+            $convite = $this->conviteDoCombo($pendencia);
 
-            if ($produtos !== []) {
+            if ($convite['produtos'] !== []) {
                 $this->comboModal = [
                     'tipo' => 'convite',
                     'promocao_id' => $pendencia->promocaoId,
@@ -116,8 +117,7 @@ trait ConvidaPromocaoCombo
                     'preco' => $pendencia->precoCentavos / 100,
                     'faltam' => $pendencia->faltam,
                     'combos_fechados' => $fechados,
-                    'produtos' => $produtos,
-                ];
+                ] + $convite;
 
                 return;
             }
@@ -277,11 +277,13 @@ trait ConvidaPromocaoCombo
     }
 
     /**
-     * Produtos do cardápio do garçom que fecham o combo, com o preço atual.
+     * Produtos do cardápio do garçom que completam o combo — só os dos grupos
+     * que ainda faltam (pizza grande lançada → só brotinhos) —, com o preço
+     * atual, o que falta ("1× Pizza Brotinho") e a composição da promoção.
      *
-     * @return list<array{id: int, nome: string, foto: ?string, preco: float}>
+     * @return array{produtos: list<array{id: int, nome: string, foto: ?string, preco: float}>, faltam_texto: string, composicao: string}
      */
-    private function produtosDoCombo(int $promocaoId): array
+    private function conviteDoCombo(PendenciaCombo $pendencia): array
     {
         $produtos = Produto::with('categoria')
             ->whereIn('produto_tipo', [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value])
@@ -295,19 +297,31 @@ trait ConvidaPromocaoCombo
         $promocao = collect(app(PromocaoComboService::class)->paraCardapio(
             $produtos->map(fn (Produto $p): array => ['categoria_id' => $p->produto_categoria_id, 'relampago' => false])->all(),
             $this->pedidoId !== null && Pedido::whereKey($this->pedidoId)->whereNotNull('pedido_sessao_mesa_id')->exists(),
-        ))->firstWhere('promocaoId', $promocaoId);
+        ))->firstWhere('promocaoId', $pendencia->promocaoId);
+
+        $grupos = collect($promocao['grupos'] ?? [])->keyBy('id');
+        $faltando = collect($pendencia->faltamPorGrupo)->filter(fn (int $faltam, int $grupoId): bool => $grupos->has($grupoId));
+        $ids = $faltando->isEmpty()
+            ? ($promocao['produtos'] ?? [])
+            : $faltando->keys()->flatMap(fn (int $grupoId): array => $grupos[$grupoId]['produtos'])->unique()->values()->all();
 
         $precificador = app(PrecificadorService::class);
 
-        return collect($promocao['produtos'] ?? [])
-            ->take(40)
-            ->map(fn (int $id): array => [
-                'id' => $id,
-                'nome' => $produtos[$id]->produto_descricao,
-                'foto' => $produtos[$id]->getMiniaturaUrl(56),
-                'preco' => $precificador->resolver($produtos[$id], considerarPromoAdicional: false)->precoFinal(),
-            ])
-            ->values()
-            ->all();
+        return [
+            'produtos' => collect($ids)
+                ->take(40)
+                ->map(fn (int $id): array => [
+                    'id' => $id,
+                    'nome' => $produtos[$id]->produto_descricao,
+                    'foto' => $produtos[$id]->getMiniaturaUrl(56),
+                    'preco' => $precificador->resolver($produtos[$id], considerarPromoAdicional: false)->precoFinal(),
+                ])
+                ->values()
+                ->all(),
+            'faltam_texto' => $faltando->isEmpty()
+                ? $pendencia->faltam.($pendencia->faltam > 1 ? ' itens' : ' item')
+                : $faltando->map(fn (int $faltam, int $grupoId): string => "{$faltam}× {$grupos[$grupoId]['nome']}")->implode(' + '),
+            'composicao' => $promocao['composicao'] ?? $pendencia->quantidade.' itens',
+        ];
     }
 }

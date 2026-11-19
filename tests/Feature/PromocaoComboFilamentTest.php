@@ -26,6 +26,33 @@ class PromocaoComboFilamentTest extends TestCase
         $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
     }
 
+    public function test_cria_grande_mais_brotinho_com_um_grupo_por_categoria(): void
+    {
+        $grande = Categoria::create(['categoria_nome' => 'Pizza Grande']);
+        $brotinho = Categoria::create(['categoria_nome' => 'Pizza Brotinho']);
+
+        Livewire::test(CreatePromocaoCombo::class)
+            ->fillForm([
+                'promocombo_nome' => 'Grande + Brotinho',
+                'promocombo_preco' => '60,00',
+                'promocombo_inicio' => now()->format('Y-m-d H:i:s'),
+                'promocombo_fim' => now()->addDay()->format('Y-m-d H:i:s'),
+                'grupos' => [
+                    ['pcg_nome' => 'Pizza Grande', 'pcg_quantidade' => 1, 'participantes' => [['pcp_categoria_id' => $grande->id, 'pcp_produto_id' => null, 'pcp_excluir' => false]]],
+                    ['pcg_nome' => 'Pizza Brotinho', 'pcg_quantidade' => 1, 'participantes' => [['pcp_categoria_id' => $brotinho->id, 'pcp_produto_id' => null, 'pcp_excluir' => false]]],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $promocao = PromocaoCombo::with('grupos.participantes')->sole();
+        $this->assertSame(2, $promocao->promocombo_quantidade);
+        $this->assertSame('1× Pizza Grande + 1× Pizza Brotinho', $promocao->composicao());
+        $this->assertSame([$grande->id], $promocao->grupos[0]->participantes->pluck('pcp_categoria_id')->all());
+        $this->assertSame([$brotinho->id], $promocao->grupos[1]->participantes->pluck('pcp_categoria_id')->all());
+        $this->assertSame([$promocao->id], $promocao->participantes()->pluck('pcp_promocao_combo_id')->unique()->values()->all());
+    }
+
     public function test_cria_a_promocao_com_categoria_participante_e_produto_excluido(): void
     {
         $grande = Categoria::create(['categoria_nome' => 'Pizza Grande']);
@@ -39,16 +66,19 @@ class PromocaoComboFilamentTest extends TestCase
         Livewire::test(CreatePromocaoCombo::class)
             ->fillForm([
                 'promocombo_nome' => '2 Grandes por 87,99',
-                'promocombo_quantidade' => 2,
                 // Money::make() espera o formato BR (vírgula decimal).
                 'promocombo_preco' => '87,99',
                 'promocombo_inicio' => now()->format('Y-m-d H:i:s'),
                 'promocombo_fim' => now()->addDays(7)->format('Y-m-d H:i:s'),
                 'promocombo_aplica_fracionado' => false,
-                'participantes' => [
-                    ['pcp_categoria_id' => $grande->id, 'pcp_produto_id' => null, 'pcp_excluir' => false],
-                    ['pcp_categoria_id' => null, 'pcp_produto_id' => $camarao->id, 'pcp_excluir' => true],
-                ],
+                'grupos' => [[
+                    'pcg_nome' => 'Pizza Grande',
+                    'pcg_quantidade' => 2,
+                    'participantes' => [
+                        ['pcp_categoria_id' => $grande->id, 'pcp_produto_id' => null, 'pcp_excluir' => false],
+                        ['pcp_categoria_id' => null, 'pcp_produto_id' => $camarao->id, 'pcp_excluir' => true],
+                    ],
+                ]],
             ])
             ->call('create')
             ->assertHasNoFormErrors();
@@ -63,7 +93,7 @@ class PromocaoComboFilamentTest extends TestCase
         Livewire::test(EditPromocaoCombo::class, ['record' => $promocao->id])->assertOk();
     }
 
-    public function test_imagem_da_promocao_e_gravada_no_disco_publico(): void
+    public function test_imagens_de_computador_e_de_celular_sao_gravadas_no_disco_publico(): void
     {
         Storage::fake('public');
         $grande = Categoria::create(['categoria_nome' => 'Pizza Grande']);
@@ -71,19 +101,24 @@ class PromocaoComboFilamentTest extends TestCase
         Livewire::test(CreatePromocaoCombo::class)
             ->fillForm([
                 'promocombo_nome' => 'Combo com banner',
-                'promocombo_quantidade' => 2,
                 'promocombo_preco' => '87,99',
                 'promocombo_inicio' => now()->format('Y-m-d H:i:s'),
                 'promocombo_fim' => now()->addDay()->format('Y-m-d H:i:s'),
-                'promocombo_imagem' => UploadedFile::fake()->image('banner.jpg', 1200, 675),
-                'participantes' => [['pcp_categoria_id' => $grande->id, 'pcp_produto_id' => null, 'pcp_excluir' => false]],
+                'promocombo_imagem' => UploadedFile::fake()->image('banner.jpg', 1680, 640),
+                'promocombo_imagem_mobile' => UploadedFile::fake()->image('quadrada.jpg', 1080, 1080),
+                'grupos' => [['pcg_nome' => 'Pizza Grande', 'pcg_quantidade' => 2, 'participantes' => [['pcp_categoria_id' => $grande->id, 'pcp_produto_id' => null, 'pcp_excluir' => false]]]],
             ])
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $caminho = PromocaoCombo::sole()->promocombo_imagem;
-        $this->assertStringStartsWith('promocoes_combo/', $caminho);
-        Storage::disk('public')->assertExists($caminho);
+        $promocao = PromocaoCombo::sole();
+
+        foreach ([$promocao->promocombo_imagem, $promocao->promocombo_imagem_mobile] as $caminho) {
+            $this->assertStringStartsWith('promocoes_combo/', $caminho);
+            Storage::disk('public')->assertExists($caminho);
+        }
+
+        $this->assertNotSame($promocao->promocombo_imagem, $promocao->promocombo_imagem_mobile);
     }
 
     public function test_participante_precisa_de_categoria_ou_produto_e_nao_dos_dois(): void
@@ -105,7 +140,7 @@ class PromocaoComboFilamentTest extends TestCase
 
         foreach ([[null, null], [$grande->id, $produto->id]] as [$categoria, $produtoId]) {
             Livewire::test(CreatePromocaoCombo::class)
-                ->fillForm($base + ['participantes' => [['pcp_categoria_id' => $categoria, 'pcp_produto_id' => $produtoId, 'pcp_excluir' => false]]])
+                ->fillForm($base + ['grupos' => [['pcg_nome' => 'Pizza Grande', 'pcg_quantidade' => 2, 'participantes' => [['pcp_categoria_id' => $categoria, 'pcp_produto_id' => $produtoId, 'pcp_excluir' => false]]]]])
                 ->call('create')
                 ->assertHasFormErrors();
         }
