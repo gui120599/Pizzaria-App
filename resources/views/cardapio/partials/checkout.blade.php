@@ -14,7 +14,7 @@
         <div class="grid gap-2 {{ count($opcoesEntregas) > 1 ? 'grid-cols-2' : '' }}">
             @foreach ($opcoesEntregas as $opcao)
                 <button type="button"
-                        @click="$store.cart.form.opcaoEntregaId = {{ $opcao['id'] }}; $store.cart.form.requerEndereco = {{ $opcao['requer_endereco'] ? 'true' : 'false' }}"
+                        @click="$store.cart.form.opcaoEntregaId = {{ $opcao['id'] }}; $store.cart.form.requerEndereco = {{ $opcao['requer_endereco'] ? 'true' : 'false' }}; $store.cart.agendarCombo()"
                         :aria-pressed="$store.cart.form.opcaoEntregaId === {{ $opcao['id'] }}"
                         :class="$store.cart.form.opcaoEntregaId === {{ $opcao['id'] }} ? 'border-brasa bg-brasa/10' : 'border-linha bg-forno hover:border-farinha/50'"
                         class="flex min-h-[76px] flex-col items-start gap-1 rounded-2xl border p-3 text-left transition-colors">

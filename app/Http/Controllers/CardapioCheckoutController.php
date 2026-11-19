@@ -26,6 +26,7 @@ use App\Services\CupomService;
 use App\Services\ItemSolicitado;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
+use App\Services\PromocaoCombo\PromocaoComboService;
 use App\Services\PromocaoRelampagoService;
 use App\Support\Telefone;
 use App\Support\TotaisPedido;
@@ -76,7 +77,7 @@ class CardapioCheckoutController extends Controller
 
             $cliente = app(ClienteResolverService::class)->buscarPorCelular((string) $request->string('telefone'));
 
-            $resultado = $cupomService->validar((string) $request->string('codigo_cupom'), $this->somaLiquido($linhas), $cliente);
+            $resultado = $cupomService->validar((string) $request->string('codigo_cupom'), $this->somaLiquido($linhas) - $this->descontoCombo($linhas), $cliente);
         } catch (CupomInvalidoException|ItemIndisponivelException|ComboSaboresInvalidoException|PerguntaNaoRespondidaException|PromocaoIndisponivelException) {
             return response()->json(['message' => self::MENSAGEM_CUPOM_INVALIDO], 422);
         }
@@ -85,6 +86,25 @@ class CardapioCheckoutController extends Controller
             'codigo' => $resultado['cupom']->cupom_codigo,
             'valor_desconto' => $resultado['valor_desconto'],
         ]);
+    }
+
+    /**
+     * Desconto das promoções combo sobre as linhas precificadas (prévia, sem
+     * gravar): o cupom e o frete mínimo olham o líquido já com ele.
+     *
+     * @param  array<int, LinhaPrecificada>  $linhas
+     */
+    private function descontoCombo(array $linhas, ?int $opcaoEntregaId = null): float
+    {
+        $previas = [];
+
+        foreach (array_values($linhas) as $indice => $linha) {
+            $previa = $linha->previa();
+            $previa->setAttribute('itens_oferta_count', $linha->oferta ? 1 : 0);
+            $previas[(string) $indice] = $previa;
+        }
+
+        return app(PromocaoComboService::class)->planejar($previas, opcaoEntregaId: $opcaoEntregaId)->descontoTotalCentavos() / 100;
     }
 
     /**
@@ -282,8 +302,12 @@ class CardapioCheckoutController extends Controller
 
         // Totais derivados das próprias linhas (total == soma exata dos itens),
         // incluindo o valor das ofertas aceitas (sem desconto — é acréscimo).
-        $somaLiquido = $this->somaLiquido($linhas);
-        $totalDesconto = round(array_sum(array_map(fn (LinhaPrecificada $linha) => $linha->desconto(), $linhas)), 2);
+        // Promoção combo: o desconto é rateado nas linhas quando elas são
+        // gravadas (TotaisPedidoService::recalcular); aqui só entra na base do
+        // cupom e do frete mínimo.
+        $descontoCombo = $this->descontoCombo($linhas, (int) $request->opcao_entrega_id);
+        $somaLiquido = round($this->somaLiquido($linhas) - $descontoCombo, 2);
+        $totalDesconto = round(array_sum(array_map(fn (LinhaPrecificada $linha) => $linha->desconto(), $linhas)) + $descontoCombo, 2);
         $totalBruto = round($somaLiquido + $totalDesconto, 2);
 
         // Cupom de desconto: validação otimista antes da transação, só para dar
@@ -377,21 +401,19 @@ class CardapioCheckoutController extends Controller
                     $cupomPedidoService->aplicar($pedido, $cupomAplicado);
                 }
 
-                // Brinde pago que não foi concedido já estava no total calculado
-                // antes da transação: o total passa a vir das linhas gravadas.
-                if ($cupomAplicado || $valorBrindesNaoConcedidos > 0) {
-                    $totais = TotaisPedido::paraItens(
-                        $pedido->item_pedido_pedido_id()->where('item_pedido_status', 'INSERIDO')->get(),
-                        $opcaoEntrega,
-                    );
+                // O total vem sempre das linhas gravadas: elas já têm o combo, a
+                // parte do cupom e só os brindes concedidos.
+                $totais = TotaisPedido::paraItens(
+                    $pedido->item_pedido_pedido_id()->where('item_pedido_status', 'INSERIDO')->get(),
+                    $opcaoEntrega,
+                );
 
-                    $pedido->update([
-                        'pedido_valor_itens' => $totais['itens'],
-                        'pedido_valor_desconto' => $totais['desconto'],
-                        'pedido_valor_frete' => $totais['frete'],
-                        'pedido_valor_total' => $totais['total'],
-                    ]);
-                }
+                $pedido->update([
+                    'pedido_valor_itens' => $totais['itens'],
+                    'pedido_valor_desconto' => $totais['desconto'],
+                    'pedido_valor_frete' => $totais['frete'],
+                    'pedido_valor_total' => $totais['total'],
+                ]);
 
                 return $pedido;
             });
@@ -413,9 +435,15 @@ class CardapioCheckoutController extends Controller
             'pedido_id' => $pedido->id,
             'link_acompanhamento' => $pedido->linkAcompanhamento(),
             'cliente_id' => $cliente->id,
-            // Com brinde não concedido, o pedido pode ter sido recalculado.
-            'total_bruto' => $cupomAplicado || $semBrinde !== [] ? (float) $pedido->pedido_valor_itens : $totalBruto,
-            'total_desconto' => $cupomAplicado || $semBrinde !== [] ? (float) $pedido->pedido_valor_desconto : $totalDesconto,
+            'total_bruto' => (float) $pedido->pedido_valor_itens,
+            'total_desconto' => (float) $pedido->pedido_valor_desconto,
+            // Promoções combo aplicadas (tela de sucesso e mensagem do WhatsApp).
+            'combos' => $pedido->combosAplicados()->get()->map(fn ($combo): array => [
+                'nome' => $combo->pca_nome,
+                'valor_cheio' => (float) $combo->pca_valor_cheio,
+                'preco' => (float) $combo->pca_preco,
+                'desconto' => (float) $combo->pca_desconto,
+            ])->values(),
             // Itens (índice do carrinho) que seguiram sem o brinde, e por quê.
             'itens_sem_brinde' => array_keys($semBrinde),
             'avisos' => array_values(array_unique($semBrinde)),

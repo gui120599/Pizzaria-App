@@ -1,7 +1,7 @@
 # Promoções Combo Inteligentes ("2 pizzas grandes por R$ 87,99")
 
 > Origem: pedido do usuário em 19/11/2026. A promoção deve reconhecer sozinha quando o carrinho tem itens participantes, sugerir o item que falta e aplicar o preço promocional com uma tela de comemoração, no Cardápio Web e no atendimento (Filament).
-> Status: **aprovado em 19/11/2026 (decisões na seção 2). Fase 1 implementada (sem commit); Fases 2–4 pendentes.**
+> Status: **aprovado em 19/11/2026 (decisões na seção 2). Fases 1 (`f0b105fd`), 2 (`4544923a`) e 3 implementadas; Fase 4 (quantidade limitada) pendente.**
 > Execução: por fases (seção 10). **Cada fase é uma entrega independente**, com testes e commit próprios. Não comece a fase seguinte sem que a anterior esteja verde e homologada.
 
 ---
@@ -370,11 +370,14 @@ Celular primeiro: bottom-sheet como os modais atuais, botões de 48 px, lista co
 2. Store Alpine: chamada com debounce no `save()`, preços do servidor na sacola, modais de oportunidade e conquista, `sessionStorage`.
 3. Checkout: `simular()` antes do cupom, total vindo das linhas e resposta com os combos. Tela de sucesso e WhatsApp.
 4. `npm run build` + `public/build/` no commit (o servidor não tem npm).
+5. **Implementada em 19/11/2026.** Endpoint `cardapio.carrinho.precificar` (throttle `cardapio-carrinho`, 120/min por IP), `PromocaoComboService::paraCardapio()` no payload (`_promocoesCombo`), checkout com o combo na base do cupom e do frete e total sempre das linhas gravadas, `validarCupom` idem, resposta com `combos`. Convite só quando entra item participante (nunca ao remover), recusa vale até o cliente fechar outro combo (`sessionStorage`), selo "falta N" na sacola, comemoração quando o número de combos da promoção sobe.
 
 ### Fase 3: atendimento
 1. `PedidoProdutoSelector`: prévia via `simular()`, `combo_sugestao`, `combo_conquista` e `combosRecusados`.
 2. `AtenderPedido::save()`/`sincronizarItens()`, `RetiradaService::enviar`/`enviarEntrega` (validação de entrega) e mesa (por rodada, se Q6 aprovar).
 3. Auditoria dos caminhos que mexem em linhas fora do `LancamentoItemPedidoService`: `DivisaoItemPedidoService`, `PedidosSessaoMesaService`, `CortesiaService`, `ItensPedidoController` (legado).
+4. **Implementada em 19/11/2026.** Trait `App\Livewire\Concerns\ConvidaPromocaoCombo` no seletor (`comboModal` convite/conquista, `combosRecusados`, lista relida do banco com o combo; na prévia o motor roda sobre a lista e cada item guarda `desconto_combo`). `AtenderPedido::save()` devolve a parte da prévia ao valor e reaplica antes do cupom; `RetiradaService::enviar`/`enviarEntrega` reaplicam com a opção escolhida antes de somar; `AtendimentoMesaService` (cancelar item com PIN) reaplica antes de somar. Auditoria: `DivisaoItemPedidoService` e `CortesiaService` já cobertos (Fase 1 / `recalcular`); **telas legadas (`ItensPedidoController`, `SessaoMesaController`) não aplicam o combo**.
+   Limitação conhecida: no rascunho do garçom e na prévia do Atender Pedido a opção de entrega ainda não existe, então uma promoção restrita aparece aplicada e cai no envio/save se a opção escolhida não for aceita (o total é recalculado; na retirada do garçom, se o pagamento já foi digitado, o envio pede para ajustar a soma).
 
 ### Fase 4: saldo (Q7) e relatório
 - Quantidade limitada com UPDATE condicional + estorno nos pontos de cancelamento, limite por pedido no checkout, relatório de combos por período e reset da recorrência no `promocoes:resetar-recorrentes`.

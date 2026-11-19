@@ -24,6 +24,21 @@
         </div>
     </div>
 
+    {{-- Promoção Combo confirmada pelo servidor no pedido gravado. --}}
+    <template x-if="($store.cart.ultimoPedido?.combos ?? []).length">
+        <div class="mt-4 w-full max-w-sm space-y-1.5 rounded-2xl border border-manjericao/30 bg-forno p-4 text-left text-sm">
+            <template x-for="(combo, indice) in $store.cart.ultimoPedido.combos" :key="indice">
+                <p class="flex items-start gap-2">
+                    <span aria-hidden="true">🎉</span>
+                    <span class="flex-1">
+                        <b x-text="combo.nome"></b><br>
+                        <span class="text-farinha">Você economizou <b class="num text-manjericao" x-text="$store.cart.formatar(combo.desconto)"></b></span>
+                    </span>
+                </p>
+            </template>
+        </div>
+    </template>
+
     {{-- Promoção que esgotou enquanto o cliente finalizava: item foi sem o brinde. --}}
     <template x-if="($store.cart.ultimoPedido?.avisos ?? []).length">
         <div class="mt-4 w-full max-w-sm rounded-2xl border border-ouro/30 bg-forno p-4 text-left text-sm">

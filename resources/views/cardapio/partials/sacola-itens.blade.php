@@ -33,6 +33,10 @@
                 </div>
                 <p x-show="(item.precoOriginal ?? item.preco) > item.preco" x-cloak class="mt-0.5 text-xs font-semibold text-ouro"
                    x-text="'Promoção · economia de ' + $store.cart.formatar(((item.precoOriginal ?? item.preco) - item.preco) * item.qty)"></p>
+                <p x-show="$store.cart.comboDaLinha(item.cartKey) > 0" x-cloak class="mt-0.5 flex items-center gap-1 text-xs font-semibold text-manjericao">
+                    <i class='bx bxs-offer' aria-hidden="true"></i>
+                    <span x-text="'Combo · −' + $store.cart.formatar($store.cart.comboDaLinha(item.cartKey))"></span>
+                </p>
 
                 <button type="button" x-show="!obsAberta" @click="obsAberta = true; $nextTick(() => $refs.obs.focus())"
                         class="mt-1.5 inline-flex items-center gap-1 text-[13px] font-semibold text-brasa-viva">
@@ -47,9 +51,9 @@
             </div>
             <div class="flex shrink-0 flex-col items-end justify-between gap-2">
                 <div class="text-right">
-                    <p x-show="(item.precoOriginal ?? item.preco) > item.preco" x-cloak class="num text-xs text-farinha line-through"
+                    <p x-show="(item.precoOriginal ?? item.preco) > item.preco || $store.cart.comboDaLinha(item.cartKey) > 0" x-cloak class="num text-xs text-farinha line-through"
                        x-text="$store.cart.formatar((item.precoOriginal ?? item.preco) * item.qty)"></p>
-                    <p class="num text-[15px] font-bold" x-text="$store.cart.formatar(item.preco * item.qty)"></p>
+                    <p class="num text-[15px] font-bold" x-text="$store.cart.formatar(item.preco * item.qty - $store.cart.comboDaLinha(item.cartKey))"></p>
                 </div>
                 <div class="flex h-9 items-center rounded-full border border-linha bg-forno">
                     <button type="button" @click="$store.cart.decrement(item.cartKey)" class="grid size-9 place-items-center text-lg text-farinha hover:text-creme"

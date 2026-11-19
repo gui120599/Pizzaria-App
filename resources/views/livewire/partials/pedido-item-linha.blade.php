@@ -38,6 +38,11 @@
                     <i class='bx bxs-bolt text-xs'></i> RELÂMPAGO
                 </span>
             @endif
+            @if (($item['desconto_combo'] ?? 0) > 0)
+                <span class="inline-flex items-center gap-0.5 text-xs font-bold text-white bg-emerald-600 rounded px-1.5 py-0.5">
+                    <i class='bx bxs-offer text-xs'></i> COMBO −R$ {{ number_format($item['desconto_combo'], 2, ',', '.') }}
+                </span>
+            @endif
             @if (!empty($item['cortesia']))
                 <span class="inline-flex items-center gap-0.5 text-xs font-bold text-amber-900 bg-amber-200 rounded px-1.5 py-0.5">CORTESIA</span>
             @endif

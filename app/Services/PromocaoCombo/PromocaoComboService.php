@@ -38,11 +38,45 @@ class PromocaoComboService
      */
     public function reaplicar(Pedido $pedido, ?int $opcaoEntregaId = null): void
     {
+        $contexto = $this->contexto($pedido, $opcaoEntregaId, travar: true);
+
+        if ($contexto === null) {
+            return;
+        }
+
+        ['plano' => $plano, 'aplicacoes' => $aplicacoes, 'congeladas' => $congeladas, 'livres' => $livres, 'descontoCongelado' => $descontoCongelado] = $contexto;
+
+        PedidoComboAplicacao::whereKey($aplicacoes->diff($congeladas)->modelKeys())->delete();
+        $this->gravarAplicacoes($pedido, $plano);
+
+        $novos = $plano->descontoPorLinha();
+
+        foreach ($livres as $chave => $item) {
+            $this->gravarDescontoNaLinha($item, (($novos[$chave] ?? 0) + ($descontoCongelado[$item->id] ?? 0)) / 100);
+        }
+    }
+
+    /**
+     * O que reaplicar() decidiria agora para o pedido, sem gravar: base do
+     * convite ("falta 1") nas telas de atendimento. Chaves = id da linha.
+     */
+    public function planoDoPedido(Pedido $pedido): PlanoCombo
+    {
+        return $this->contexto($pedido, null, travar: false)['plano'] ?? new PlanoCombo;
+    }
+
+    /**
+     * Linhas, aplicações congeladas (com linha vendida) e o plano para as livres.
+     *
+     * @return array{plano: PlanoCombo, aplicacoes: \Illuminate\Database\Eloquent\Collection<int, PedidoComboAplicacao>, congeladas: \Illuminate\Database\Eloquent\Collection<int, PedidoComboAplicacao>, livres: array<string, ItensPedido>, descontoCongelado: array<int, int>}|null
+     */
+    private function contexto(Pedido $pedido, ?int $opcaoEntregaId, bool $travar): ?array
+    {
         $vigentes = PromocaoCombo::query()->vigente()->get();
         $aplicacoes = PedidoComboAplicacao::where('pca_pedido_id', $pedido->id)->with('itens')->get();
 
         if ($vigentes->isEmpty() && $aplicacoes->isEmpty()) {
-            return;
+            return null;
         }
 
         /** @var Collection<int, ItensPedido> $itens */
@@ -50,7 +84,7 @@ class PromocaoComboService
             ->where('item_pedido_status', 'INSERIDO')
             ->withCount(['itensOferta' => fn ($q) => $q->where('item_pedido_status', 'INSERIDO')])
             ->orderBy('id')
-            ->lockForUpdate()
+            ->when($travar, fn ($q) => $q->lockForUpdate())
             ->get();
 
         $vendidos = $itens->whereNotNull('item_pedido_venda_id')->pluck('id')->all();
@@ -88,14 +122,7 @@ class PromocaoComboService
             unidadesOcupadas: array_combine(array_map('strval', array_keys($unidadesCongeladas)), $unidadesCongeladas),
         );
 
-        PedidoComboAplicacao::whereKey($aplicacoes->diff($congeladas)->modelKeys())->delete();
-        $this->gravarAplicacoes($pedido, $plano);
-
-        $novos = $plano->descontoPorLinha();
-
-        foreach ($livres as $chave => $item) {
-            $this->gravarDescontoNaLinha($item, (($novos[$chave] ?? 0) + ($descontoCongelado[$item->id] ?? 0)) / 100);
-        }
+        return compact('plano', 'aplicacoes', 'congeladas', 'livres', 'descontoCongelado');
     }
 
     /**
@@ -136,6 +163,52 @@ class PromocaoComboService
         }
 
         return $this->motor->planejar($entrada, $regras, $jaAplicadas);
+    }
+
+    /**
+     * Promoções vigentes para o cardápio, com os produtos exibidos que
+     * participam de cada uma (base do convite "adicione mais 1 e leve 2 por
+     * R$ X"). Só exibição: quem decide o preço é planejar().
+     *
+     * @param  array<int, array{categoria_id: ?int, relampago: bool}>  $produtos  produto exibido => categoria e se está em relâmpago
+     * @return list<array{promocaoId: int, nome: string, descricao: ?string, quantidade: int, preco: float, sugerir: bool, produtos: list<int>}>
+     */
+    public function paraCardapio(array $produtos, bool $mesa = false): array
+    {
+        $promocoes = PromocaoCombo::query()->vigente()->orderByDesc('promocombo_prioridade')->orderBy('id')->get()
+            ->filter(fn (PromocaoCombo $p): bool => $p->entregaPermitida(null, $mesa));
+
+        if ($promocoes->isEmpty() || $produtos === []) {
+            return [];
+        }
+
+        $descricoes = $promocoes->pluck('promocombo_descricao', 'id');
+
+        return collect($this->regras($promocoes))
+            ->map(function (RegraCombo $regra) use ($produtos, $descricoes): array {
+                $participantes = [];
+
+                foreach ($produtos as $id => $produto) {
+                    $linha = new LinhaCombo((string) $id, 0, 1, 0, [['produto_id' => (int) $id, 'categoria_id' => $produto['categoria_id']]], $produto['relampago']);
+
+                    if ($regra->aceita($linha)) {
+                        $participantes[] = (int) $id;
+                    }
+                }
+
+                return [
+                    'promocaoId' => $regra->promocaoId,
+                    'nome' => $regra->nome,
+                    'descricao' => $descricoes[$regra->promocaoId] ?? null,
+                    'quantidade' => $regra->quantidade,
+                    'preco' => $regra->precoCentavos / 100,
+                    'sugerir' => $regra->sugerir,
+                    'produtos' => $participantes,
+                ];
+            })
+            ->filter(fn (array $promocao): bool => $promocao['produtos'] !== [])
+            ->values()
+            ->all();
     }
 
     /**

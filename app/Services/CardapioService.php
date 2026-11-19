@@ -12,6 +12,7 @@ use App\Models\Pergunta;
 use App\Models\Produto;
 use App\Models\PromocaoAdicionalRegra;
 use App\Models\PromocaoRelampago;
+use App\Services\PromocaoCombo\PromocaoComboService;
 use App\Support\Cardapio\ProdutoCardapio;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -363,7 +364,14 @@ class CardapioService
             })
             ->values();
 
-        return compact('campanhasExigencia', 'produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
+        // Promoção Combo ("2 grandes por R$ 87,99"): os produtos exibidos que
+        // participam, para o convite de completar o combo na sacola.
+        $promocoesCombo = app(PromocaoComboService::class)->paraCardapio(
+            collect($produtosTela)->map(fn ($p): array => ['categoria_id' => $p->categoriaId, 'relampago' => $p->relampago])->all(),
+            $mesa,
+        );
+
+        return compact('promocoesCombo', 'campanhasExigencia', 'produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
     }
 
     /**

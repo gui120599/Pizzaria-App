@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -177,6 +178,12 @@ class Pedido extends Model
     public function item_pedido_pedido_id()
     {
         return $this->hasMany(ItensPedido::class, 'item_pedido_pedido_id');
+    }
+
+    /** Promoções combo aplicadas neste pedido, com o retrato de cada uma. */
+    public function combosAplicados(): HasMany
+    {
+        return $this->hasMany(PedidoComboAplicacao::class, 'pca_pedido_id')->orderBy('id');
     }
 
     public function vendas()
