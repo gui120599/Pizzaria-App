@@ -19,7 +19,7 @@
         <div>
             <label for="mesa-celular" class="text-creme text-xs font-semibold uppercase tracking-wide block mb-1">Celular com DDD</label>
             <input id="mesa-celular" type="tel" inputmode="numeric" x-model="$store.mesa.form.celular"
-                   @input="$store.mesa.mascararCelular($event)" placeholder="(64) 9 9999-9999" autocomplete="tel"
+                   x-mask:dynamic="{{ \App\Support\Telefone::MASCARA_ALPINE }}" placeholder="(64) 99999-9999" autocomplete="tel"
                    class="w-full bg-forno border border-linha text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-brasa-viva">
         </div>
         <div x-show="$store.mesa.estado.pede_pin">
@@ -221,17 +221,9 @@
                 this.erroIdentificacao = '';
                 this.identOpen = true;
             },
-            mascararCelular(e) {
-                const d = e.target.value.replace(/\D/g, '').slice(0, 11);
-                let m = d;
-                if (d.length > 2) m = '(' + d.slice(0, 2) + ') ' + d.slice(2);
-                if (d.length > 6) m = '(' + d.slice(0, 2) + ') ' + d.slice(2, d.length - 4) + '-' + d.slice(d.length - 4);
-                this.form.celular = m;
-                e.target.value = m;
-            },
             async entrar() {
                 if (!this.form.nome.trim()) { this.erroIdentificacao = 'Informe seu nome.'; return; }
-                if (![10, 11].includes(this.form.celular.replace(/\D/g, '').length)) { this.erroIdentificacao = 'Informe o celular com DDD.'; return; }
+                if (this.form.celular.replace(/\D/g, '').length < 10) { this.erroIdentificacao = 'Informe o celular com DDD.'; return; }
                 if (this.estado.pede_pin && this.form.pin.length !== 4) { this.erroIdentificacao = 'Informe o PIN de 4 números. Peça ao garçom.'; return; }
                 this.ocupado = true;
                 try {

@@ -105,7 +105,7 @@ class ClientePickerTest extends TestCase
             ->call('selecionarDaBusca', $cliente->id)
             ->assertSet('clienteId', $cliente->id)
             ->assertSet('nome', 'João da Silva')
-            ->assertSet('celular', '11966665555')
+            ->assertSet('celular', '(11) 96666-5555')
             ->assertSet('buscaModalAberta', false);
     }
 
@@ -139,5 +139,15 @@ class ClientePickerTest extends TestCase
             ->call('usarEnderecoDoCadastro')
             ->assertSet('enderecoEntrega', 'Rua do Cadastro, 1, Centro')
             ->assertDispatched('pedido-cliente-atualizado', fn (string $name, array $params): bool => $params['dados']['enderecoEntrega'] === 'Rua do Cadastro, 1, Centro');
+    }
+
+    public function test_celular_digitado_sem_nono_digito_encontra_o_cadastro(): void
+    {
+        $cliente = Cliente::create(['cliente_nome' => 'Maria Souza', 'cliente_celular' => '62981234567', 'cliente_tipo' => 'Física']);
+
+        Livewire::test(ClientePicker::class)
+            ->set('celular', '(62) 8123-4567')
+            ->assertSet('clienteEncontrado', true)
+            ->assertSet('clienteId', $cliente->id);
     }
 }

@@ -16,6 +16,7 @@ use App\Filament\Support\PedidoStatusActions;
 use App\Filament\Support\PedidoStoneActions;
 use App\Models\Maquininha;
 use App\Models\Pedido;
+use App\Support\Telefone;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -93,12 +94,12 @@ class PedidosTable
                 TextColumn::make('cliente')
                     ->label('Cliente')
                     ->state(fn (Pedido $record): string => $record->pedido_cliente_id ? $record->cliente->cliente_nome : 'Não informado')
-                    ->description(fn (Pedido $record): ?string => $record->pedido_cliente_id ? $record->cliente->cliente_celular : null)
+                    ->description(fn (Pedido $record): ?string => $record->pedido_cliente_id ? Telefone::formatar($record->cliente->cliente_celular) : null)
                     ->searchable(query: fn (Builder $query, string $search): Builder => $query->whereHas(
                         'cliente',
                         fn (Builder $cliente) => $cliente
                             ->where('cliente_nome', 'like', "%{$search}%")
-                            ->orWhere('cliente_celular', 'like', "%{$search}%"),
+                            ->orWhere(fn (Builder $telefone) => $telefone->buscarPorTelefone($search)),
                     )),
                 TextColumn::make('pedido_valor_total')
                     ->label('Valor do pedido')

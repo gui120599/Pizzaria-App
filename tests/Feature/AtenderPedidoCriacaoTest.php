@@ -199,4 +199,28 @@ class AtenderPedidoCriacaoTest extends TestCase
         Livewire::test(AtenderPedido::class, ['pedido' => $pedido])
             ->assertSet('somenteLeitura', true);
     }
+
+    public function test_cliente_com_celular_em_outro_formato_e_reaproveitado_e_sem_ddd_e_bloqueado(): void
+    {
+        $produto = $this->produto(30.0);
+        $retirada = OpcoesEntregas::create(['opcaoentrega_nome' => 'Retirada']);
+        $dinheiro = OpcoesPagamento::create(['opcaopag_nome' => 'Dinheiro', 'opcaopag_desc_nfe' => 'cash']);
+        $existente = Cliente::create(['cliente_nome' => 'Maria', 'cliente_tipo' => 'Física', 'cliente_celular' => '62981234567']);
+
+        $salvar = fn (string $celular) => Livewire::test(AtenderPedido::class)
+            ->set('itensCarrinho', [$this->itemCarrinho($produto)])
+            ->set('clienteData', ['semCliente' => false, 'celular' => $celular, 'nome' => 'Maria'])
+            ->set('entregaPagamentoData', [
+                'opcaoEntregaId' => $retirada->id,
+                'pagamentos' => [['opcaoPagamentoId' => $dinheiro->id, 'valor' => '30,00', 'trocoPara' => null]],
+            ])
+            ->call('save');
+
+        $salvar('98123-4567');
+        $this->assertSame(0, Pedido::count());
+
+        $salvar('(62) 8123-4567');
+        $this->assertSame($existente->id, Pedido::sole()->pedido_cliente_id);
+        $this->assertSame(1, Cliente::count());
+    }
 }

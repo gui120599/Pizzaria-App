@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SessoesMesa\RelationManagers;
 
+use App\Filament\Support\CampoTelefone;
 use App\Services\ClienteResolverService;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -40,9 +41,8 @@ class ClientesRelationManager extends RelationManager
                         ->label('Nome')
                         ->required()
                         ->maxLength(150),
-                    TextInput::make('cliente_celular')
-                        ->label('Celular')
-                        ->tel(),
+                    CampoTelefone::make('cliente_celular')
+                        ->label('Celular'),
                 ])
                 ->createOptionUsing(fn (array $data): int => app(ClienteResolverService::class)
                     ->resolverOuCriar([

@@ -41,9 +41,10 @@
         <div class="relative">
             <input id="checkout-telefone" type="tel" inputmode="tel" autocomplete="tel"
                    x-model="$store.cart.form.telefone"
+                   x-mask:dynamic="{{ \App\Support\Telefone::MASCARA_ALPINE }}"
                    @input="$store.cart.resetCamposCliente()"
                    @input.debounce.600ms="$store.cart.lookupCliente()"
-                   placeholder="(64) 9 9999-9999"
+                   placeholder="(64) 99999-9999"
                    class="campo pr-10" :class="$store.cart.erros.telefone && 'border-tomate'">
             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-lg">
                 <i x-show="$store.cart.lookingUp" x-cloak class='bx bx-loader-alt bx-spin text-farinha' aria-hidden="true"></i>

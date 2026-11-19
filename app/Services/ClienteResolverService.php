@@ -3,6 +3,10 @@
 namespace App\Services;
 
 use App\Models\Cliente;
+use App\Support\Telefone;
+use Closure;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Ponto único de busca-ou-criação de Cliente, usado por todos os fluxos que
@@ -12,6 +16,11 @@ use App\Models\Cliente;
  * CPF/CNPJ), o que deixava fácil duplicar cadastro. Não trata o caso de
  * "cliente já selecionado por id" — isso é seleção direta, não dedupe, e
  * continua sendo responsabilidade de cada chamador antes de cair aqui.
+ *
+ * O celular é comparado pela chave normalizada (App\Support\Telefone): o
+ * mesmo número com máscara, +55, zero do DDD ou sem o nono dígito encontra o
+ * mesmo cadastro. A busca + criação roda sob lock da chave, para dois envios
+ * simultâneos do mesmo número novo não criarem dois clientes.
  */
 class ClienteResolverService
 {
@@ -30,11 +39,67 @@ class ClienteResolverService
     public function resolverOuCriar(array $dados): Cliente
     {
         $nome = trim((string) ($dados['nome'] ?? ''));
-        $celular = $this->digitos($dados['celular'] ?? null);
+        $celular = Telefone::normalizar($dados['celular'] ?? null);
         $cpf = $this->digitos($dados['cpf'] ?? null);
         $cnpj = $this->digitos($dados['cnpj'] ?? null);
         $cep = $this->digitos($dados['cep'] ?? null);
 
+        return $this->comLockDoCelular(
+            $celular,
+            fn (): Cliente => $this->resolverComChaves($dados, $nome, $cpf, $cnpj, $celular, $cep),
+        );
+    }
+
+    /**
+     * Roda a busca + criação de cliente com exclusividade para o celular
+     * (qualquer formato equivalente): um segundo envio simultâneo do mesmo
+     * número espera o primeiro e encontra o cadastro já criado.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $acao
+     * @return T
+     */
+    public function comLockDoCelular(?string $celular, Closure $acao): mixed
+    {
+        $chave = Telefone::normalizar($celular);
+
+        if ($chave === null) {
+            return $acao();
+        }
+
+        try {
+            return Cache::lock('cliente-celular:'.$chave, 10)->block(5, $acao);
+        } catch (LockTimeoutException) {
+            // Melhor atender com risco mínimo de duplicar do que travar o atendimento.
+            return $acao();
+        }
+    }
+
+    /**
+     * Cliente (não avulso) com este celular em qualquer formato equivalente, ou
+     * null. Se houver mais de um, fica o cadastro mais antigo — juntar os demais
+     * é decisão do administrador (Clientes › Duplicidades por celular).
+     */
+    public function buscarPorCelular(?string $celular): ?Cliente
+    {
+        $chave = Telefone::normalizar($celular);
+
+        if ($chave === null) {
+            return null;
+        }
+
+        return Cliente::naoAvulsos()
+            ->where('cliente_celular_normalizado', $chave)
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $dados
+     */
+    private function resolverComChaves(array $dados, string $nome, ?string $cpf, ?string $cnpj, ?string $celular, ?string $cep): Cliente
+    {
         $cliente = $this->buscar($cpf, $cnpj, $celular);
 
         $novosValores = array_filter(array_merge(
@@ -85,7 +150,7 @@ class ClienteResolverService
             return $cliente;
         }
         if ($celular) {
-            return Cliente::where('cliente_celular', $celular)->first();
+            return $this->buscarPorCelular($celular);
         }
 
         return null;
@@ -93,12 +158,7 @@ class ClienteResolverService
 
     private function digitos(?string $valor): ?string
     {
-        if ($valor === null) {
-            return null;
-        }
-        $digitos = preg_replace('/\D/', '', $valor) ?? '';
-
-        return $digitos !== '' ? $digitos : null;
+        return Telefone::digitos($valor);
     }
 
     private function presente(?string $valor): ?string

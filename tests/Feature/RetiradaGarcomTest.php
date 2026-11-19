@@ -343,4 +343,22 @@ class RetiradaGarcomTest extends TestCase
         $this->assertSame($gerente->id, $item->fresh()->item_pedido_cortesia_user_id);
         $this->assertEqualsWithDelta(0.0, (float) $pedido->fresh()->pedido_valor_total, 0.001);
     }
+
+    public function test_celular_em_outro_formato_encontra_o_cliente_na_tela_e_no_envio(): void
+    {
+        $existente = Cliente::create(['cliente_nome' => 'João', 'cliente_celular' => '64999991234', 'cliente_tipo' => 'Física']);
+
+        $this->actingAs($this->garcom);
+        Livewire::test(AtenderRetirada::class)
+            ->set('celular', '+55 64 99999-1234')
+            ->assertSet('clienteId', $existente->id)
+            ->assertSet('nome', 'João');
+
+        $rascunho = $this->service->rascunho($this->garcom);
+        $this->item($rascunho);
+
+        $this->assertTrue($this->service->enviar($rascunho, 'João', '0 64 99999-1234'));
+        $this->assertSame($existente->id, $rascunho->fresh()->pedido_cliente_id);
+        $this->assertSame(1, Cliente::count());
+    }
 }

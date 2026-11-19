@@ -150,4 +150,54 @@ class OperarVendaClienteTest extends TestCase
 
         $this->assertNull($this->venda->fresh()->venda_cliente_id);
     }
+
+    public function test_cadastrar_cliente_ad_hoc_reaproveita_cliente_existente_pelo_celular_em_outro_formato(): void
+    {
+        $existente = Cliente::create(['cliente_nome' => 'Já Cadastrado', 'cliente_celular' => '62981234567', 'cliente_tipo' => 'Física']);
+
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('clienteAdHocNome', 'Outro nome')
+            ->set('clienteAdHocTelefone', '(62) 8123-4567')
+            ->call('salvarClienteAdHoc');
+
+        $this->assertSame($existente->id, $this->venda->fresh()->venda_cliente_id);
+        $this->assertSame(1, Cliente::count());
+    }
+
+    public function test_cadastrar_cliente_ad_hoc_so_com_celular_cria_pessoa_fisica_com_celular_canonico(): void
+    {
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('clienteAdHocNome', 'Cliente Novo')
+            ->set('clienteAdHocTelefone', '+55 62 98123-4567')
+            ->call('salvarClienteAdHoc');
+
+        $cliente = Cliente::sole();
+        $this->assertSame($cliente->id, $this->venda->fresh()->venda_cliente_id);
+        $this->assertSame('62981234567', $cliente->cliente_celular);
+        $this->assertSame('Física', $cliente->cliente_tipo);
+    }
+
+    public function test_cadastrar_cliente_ad_hoc_com_celular_sem_ddd_mostra_erro_no_campo(): void
+    {
+        Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('clienteAdHocNome', 'Cliente Novo')
+            ->set('clienteAdHocTelefone', '98123-4567')
+            ->call('salvarClienteAdHoc')
+            ->assertHasErrors(['cliente_celular']);
+
+        $this->assertSame(0, Cliente::count());
+    }
+
+    public function test_busca_cliente_por_telefone_com_codigo_do_pais(): void
+    {
+        $cliente = Cliente::create(['cliente_nome' => 'Maria', 'cliente_celular' => '6232123456', 'cliente_tipo' => 'Física']);
+        Cliente::create(['cliente_nome' => 'Outra', 'cliente_celular' => '62981234567', 'cliente_tipo' => 'Física']);
+
+        $encontrados = Livewire::test(OperarVenda::class, ['venda' => $this->venda])
+            ->set('buscaCliente', '+55 (62) 3212-3456')
+            ->instance()
+            ->clientesEncontrados;
+
+        $this->assertSame([$cliente->id], $encontrados->pluck('id')->all());
+    }
 }

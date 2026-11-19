@@ -137,4 +137,25 @@ class ClientesDaMesaGarcomTest extends TestCase
         $this->assertTrue($cliente->cliente_avulso);
         $tela->assertSet('clientePadraoId', $cliente->id);
     }
+
+    public function test_cadastrar_pessoa_com_celular_ja_cadastrado_em_outro_formato_reaproveita_o_cliente(): void
+    {
+        $existente = Cliente::create(['cliente_nome' => 'Marcos', 'cliente_celular' => '64991112222', 'cliente_tipo' => 'Física']);
+
+        $cliente = $this->service->adicionarClienteNaMesa($this->sessao, null, 'Marcos', '+55 64 9111-2222');
+
+        $this->assertSame($existente->id, $cliente->id);
+        $this->assertSame(1, Cliente::count());
+    }
+
+    public function test_tela_recusa_celular_sem_ddd_ao_cadastrar_pessoa(): void
+    {
+        $this->actingAs($this->garcom);
+
+        Livewire::test(AtenderMesa::class, ['sessao' => $this->sessao->id])
+            ->callAction('adicionarPessoa', ['modo' => 'cadastrar', 'nome' => 'Joana', 'celular' => '99333-4444'])
+            ->assertHasActionErrors(['celular']);
+
+        $this->assertSame(0, Cliente::where('cliente_nome', 'Joana')->count());
+    }
 }

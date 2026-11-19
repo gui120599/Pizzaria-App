@@ -804,7 +804,7 @@ class PainelPedidos extends Page implements HasActions
 
             $inner->orWhereHas('cliente', function (Builder $clienteQuery) use ($termo): void {
                 $clienteQuery->where('cliente_nome', 'like', "%{$termo}%")
-                    ->orWhere('cliente_celular', 'like', "%{$termo}%");
+                    ->orWhere(fn (Builder $telefone) => $telefone->buscarPorTelefone($termo));
             });
         });
     }

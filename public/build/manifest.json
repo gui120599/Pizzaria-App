@@ -24,7 +24,7 @@
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-Bw-g260x.css",
+    "file": "assets/app-CI22gkmf.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -34,22 +34,22 @@
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-CD7lQtu6.css",
+    "file": "assets/theme-tPAvEfhV.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
   "resources/css/filament/cozinha/theme.css": {
-    "file": "assets/theme-f8qtRcOH.css",
+    "file": "assets/theme-DqFjMtUT.css",
     "src": "resources/css/filament/cozinha/theme.css",
     "isEntry": true
   },
   "resources/css/filament/garcom/theme.css": {
-    "file": "assets/theme-C0M3YAFb.css",
+    "file": "assets/theme-CJE6MRXK.css",
     "src": "resources/css/filament/garcom/theme.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-C9-ZsP6-.js",
+    "file": "assets/app-BId1WUGD.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,

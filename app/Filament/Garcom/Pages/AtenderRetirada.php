@@ -16,8 +16,10 @@ use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
 use App\Models\User;
+use App\Services\ClienteResolverService;
 use App\Services\Garcom\AtendimentoMesaService;
 use App\Services\Garcom\RetiradaService;
+use App\Support\Telefone;
 use App\Support\TotaisPedido;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
@@ -141,15 +143,13 @@ class AtenderRetirada extends Page
     /** Preenche o nome quando o celular já tem cadastro. */
     public function updatedCelular(): void
     {
-        $digitos = preg_replace('/\D/', '', $this->celular);
-
-        if (strlen($digitos) < 10) {
+        if (Telefone::canonico($this->celular) === null) {
             $this->clienteEncontrado = $this->clienteId !== null;
 
             return;
         }
 
-        $cliente = Cliente::where('cliente_celular', 'like', "%{$digitos}%")->first();
+        $cliente = app(ClienteResolverService::class)->buscarPorCelular($this->celular);
         $this->clienteEncontrado = $cliente !== null;
         $this->clienteId = $cliente?->id;
 
@@ -178,7 +178,7 @@ class AtenderRetirada extends Page
             ->naoAvulsos()
             ->where(fn ($q) => $q
                 ->where('cliente_nome', 'like', "%{$termo}%")
-                ->when($digitos !== '', fn ($q) => $q->orWhere('cliente_celular', 'like', "%{$digitos}%")))
+                ->when($digitos !== '', fn ($q) => $q->orWhere(fn ($w) => $w->buscarPorTelefone($digitos))))
             ->orderBy('cliente_nome')
             ->limit(10)
             ->get(['id', 'cliente_nome', 'cliente_celular']);
@@ -194,7 +194,7 @@ class AtenderRetirada extends Page
 
         $this->clienteId = $cliente->id;
         $this->nome = (string) $cliente->cliente_nome;
-        $this->celular = (string) ($cliente->cliente_celular ?? '');
+        $this->celular = (string) Telefone::formatar($cliente->cliente_celular);
         $this->clienteEncontrado = true;
         $this->buscaClienteAberta = false;
         $this->buscaCliente = '';

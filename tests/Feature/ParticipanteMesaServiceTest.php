@@ -227,4 +227,16 @@ class ParticipanteMesaServiceTest extends TestCase
 
         $this->fail('Era esperado AcessoMesaNegadoException.');
     }
+
+    public function test_entrar_com_celular_em_outro_formato_usa_o_cadastro_existente(): void
+    {
+        $existente = Cliente::create(['cliente_nome' => 'Ana', 'cliente_celular' => '64999991234', 'cliente_tipo' => 'Física']);
+        $mesa = $this->mesaAberta();
+
+        ['participante' => $participante] = $this->servico()->entrar($mesa, 'Ana', '+55 64 9999-1234', $mesa->sessaoAtual?->sessao_mesa_pin);
+
+        $this->assertSame($existente->id, $participante->mp_cliente_id);
+        $this->assertSame('64999991234', $participante->mp_celular);
+        $this->assertSame(1, Cliente::count());
+    }
 }

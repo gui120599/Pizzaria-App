@@ -3,6 +3,7 @@
 namespace App\Filament\Tables;
 
 use App\Models\Cliente;
+use App\Support\Telefone;
 use Filament\Actions\Action as ActionsAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -32,7 +33,7 @@ class Clientes
 
                 TextColumn::make('cliente_nome')
                     ->label('Cliente')
-                    ->searchable(['cliente_nome', 'cliente_cpf', 'cliente_cnpj', 'cliente_celular'])
+                    ->searchable(['cliente_nome', 'cliente_cpf', 'cliente_cnpj'])
                     ->sortable(),
 
                 TextColumn::make('cliente_tipo')
@@ -57,8 +58,10 @@ class Clientes
 
                 TextColumn::make('cliente_celular')
                     ->label('Celular')
-                    ->searchable()
+                    ->formatStateUsing(fn (?string $state): ?string => Telefone::formatar($state))
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->buscarPorTelefone($search))
                     ->copyable()
+                    ->copyableState(fn (Cliente $record): ?string => Telefone::formatar($record->cliente_celular))
                     ->copyMessage('Celular copiado'),
 
                 TextColumn::make('cliente_cidade')
@@ -183,8 +186,7 @@ class Clientes
 
     private static function whatsAppUrl(string $celular): string
     {
-        $digits = preg_replace('/\D+/', '', $celular) ?: '';
-        $phone = str_starts_with($digits, '55') ? $digits : ('55'.$digits);
+        $phone = Telefone::whatsApp($celular) ?? (preg_replace('/\D+/', '', $celular) ?: '');
 
         return "https://wa.me/{$phone}";
     }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Clientes\Pages;
 
+use App\Filament\Resources\Clientes\Actions\DuplicidadesCelularAction;
 use App\Filament\Resources\Clientes\ClienteResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
@@ -13,6 +14,7 @@ class ListClientes extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            DuplicidadesCelularAction::make(),
             CreateAction::make(),
         ];
     }

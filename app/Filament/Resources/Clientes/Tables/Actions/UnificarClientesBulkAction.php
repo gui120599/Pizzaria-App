@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Clientes\Tables\Actions;
 
 use App\Models\Cliente;
 use App\Services\ClienteMergeService;
+use App\Support\Telefone;
 use Filament\Actions\BulkAction;
 use Filament\Forms\Components\Radio;
 use Filament\Notifications\Notification;
@@ -45,53 +46,67 @@ class UnificarClientesBulkAction
                     )
                     ->required(),
             ])
-            ->action(function (Collection $records, array $data, ClienteMergeService $service): void {
-                if ($records->count() < 2) {
-                    Notification::make()
-                        ->title('Selecione ao menos 2 clientes para unificar')
-                        ->warning()
-                        ->send();
-
-                    return;
-                }
-
-                $principal = $records->firstWhere('id', (int) $data['cliente_principal_id']);
-
-                if (! $principal) {
-                    Notification::make()->title('Cadastro principal inválido')->danger()->send();
-
-                    return;
-                }
-
-                $perdedores = $records->reject(fn (Cliente $c): bool => $c->id === $principal->id);
-
-                try {
-                    $service->unificar($principal, $perdedores);
-                } catch (\Throwable $e) {
-                    report($e);
-                    Notification::make()
-                        ->title('Falha ao unificar clientes')
-                        ->body($e->getMessage())
-                        ->danger()
-                        ->persistent()
-                        ->send();
-
-                    return;
-                }
-
-                Notification::make()
-                    ->title('Clientes unificados com sucesso')
-                    ->body("Cadastro #{$principal->id} passa a concentrar os dados dos ".$perdedores->count().' cadastro(s) unificado(s).')
-                    ->success()
-                    ->send();
+            ->action(function (Collection $records, array $data): void {
+                self::unificar($records, (int) $data['cliente_principal_id']);
             })
             ->deselectRecordsAfterCompletion();
     }
 
-    private static function descricaoOpcao(Cliente $cliente): string
+    /**
+     * Execução compartilhada pela bulk action e pelo modal de duplicidades por
+     * celular (DuplicidadesCelularAction): valida a escolha, delega para
+     * ClienteMergeService e avisa o resultado.
+     *
+     * @param  Collection<int, Cliente>  $records
+     */
+    public static function unificar(Collection $records, int $principalId): bool
+    {
+        if ($records->count() < 2) {
+            Notification::make()
+                ->title('Selecione ao menos 2 clientes para unificar')
+                ->warning()
+                ->send();
+
+            return false;
+        }
+
+        $principal = $records->firstWhere('id', $principalId);
+
+        if (! $principal) {
+            Notification::make()->title('Cadastro principal inválido')->danger()->send();
+
+            return false;
+        }
+
+        $perdedores = $records->reject(fn (Cliente $c): bool => $c->id === $principal->id);
+
+        try {
+            app(ClienteMergeService::class)->unificar($principal, $perdedores);
+        } catch (\Throwable $e) {
+            report($e);
+            Notification::make()
+                ->title('Falha ao unificar clientes')
+                ->body($e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+
+            return false;
+        }
+
+        Notification::make()
+            ->title('Clientes unificados com sucesso')
+            ->body("Cadastro #{$principal->id} passa a concentrar os dados dos ".$perdedores->count().' cadastro(s) unificado(s).')
+            ->success()
+            ->send();
+
+        return true;
+    }
+
+    public static function descricaoOpcao(Cliente $cliente): string
     {
         $documento = $cliente->cliente_cpf ?: ($cliente->cliente_cnpj ?: 'sem documento');
-        $celular = $cliente->cliente_celular ?: 'sem celular';
+        $celular = Telefone::formatar($cliente->cliente_celular) ?: 'sem celular';
         $pedidos = $cliente->pedidos_count ?? 0;
 
         return "#{$cliente->id} — {$cliente->cliente_nome} | doc: {$documento} | cel: {$celular} | {$pedidos} pedido(s)";

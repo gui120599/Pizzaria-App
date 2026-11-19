@@ -790,7 +790,7 @@
                                         class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5"
                                     >
                                         <span class="font-medium text-gray-800 dark:text-gray-200">{{ $cliente->cliente_nome }}</span>
-                                        <span class="text-xs text-gray-400 dark:text-gray-500">{{ $cliente->cliente_cpf ?? $cliente->cliente_cnpj ?? $cliente->cliente_celular }}</span>
+                                        <span class="text-xs text-gray-400 dark:text-gray-500">{{ $cliente->cliente_cpf ?? $cliente->cliente_cnpj ?? \App\Support\Telefone::formatar($cliente->cliente_celular) }}</span>
                                     </button>
                                 @endforeach
                             </div>
@@ -814,7 +814,8 @@
                                 <input wire:model="clienteAdHocCnpj" type="text" placeholder="CNPJ" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" />
                             </div>
                             <div>
-                                <input wire:model="clienteAdHocTelefone" type="text" placeholder="Telefone" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                                <input wire:model="clienteAdHocTelefone" type="tel" inputmode="tel" placeholder="Celular (62) 99999-9999" x-mask:dynamic="{{ \App\Support\Telefone::MASCARA_ALPINE }}" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                                @error('cliente_celular') <span class="text-xs text-red-600 dark:text-red-400">{{ $message }}</span> @enderror
                             </div>
                             <div>
                                 <input wire:model="clienteAdHocEmail" type="email" placeholder="E-mail" class="w-full text-sm border border-gray-300 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" />

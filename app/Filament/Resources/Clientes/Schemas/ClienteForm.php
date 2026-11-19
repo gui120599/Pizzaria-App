@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Clientes\Schemas;
 
+use App\Filament\Support\CampoTelefone;
 use App\Models\Cliente;
 use App\Services\IBGEServices;
 use Filament\Forms\Components\DatePicker;
@@ -117,11 +118,8 @@ class ClienteForm
                                     ->dehydrated(fn ($get): bool => self::normalizarTipo((string) $get('cliente_tipo')) === 'PF')
                                     ->columnSpan(2),
 
-                                TextInput::make('cliente_celular')
+                                CampoTelefone::make('cliente_celular')
                                     ->label('Celular / WhatsApp')
-                                    ->tel()
-                                    ->mask('(99) 99999-9999')
-                                    ->placeholder('(00) 00000-0000')
                                     ->prefixIcon('heroicon-o-device-phone-mobile')
                                     ->columnSpan(2),
 
