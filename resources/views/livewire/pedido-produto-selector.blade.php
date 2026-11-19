@@ -562,7 +562,7 @@
                     <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $comboModal['nome'] }}</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-300">
                         {{ $comboModal['combos_fechados'] > 0 ? 'Mais um combo à vista!' : 'Item participante da promoção!' }}
-                        Mais <b>{{ $comboModal['faltam'] }}</b> e o cliente leva <b>{{ $comboModal['quantidade'] }}</b>
+                        Mais <b>{{ $comboModal['faltam_texto'] }}</b> e o cliente leva <b>{{ $comboModal['composicao'] }}</b>
                         por <b class="text-emerald-600 dark:text-emerald-400">R$ {{ number_format($comboModal['preco'], 2, ',', '.') }}</b>.
                     </p>
 

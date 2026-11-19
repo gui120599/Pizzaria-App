@@ -3,61 +3,52 @@
 namespace App\Services\PromocaoCombo;
 
 /**
- * Promoção combo já resolvida para o motor: participantes com as
- * subcategorias expandidas e valores em centavos.
+ * Promoção combo já resolvida para o motor: os grupos (posições) e as
+ * condições, com valores em centavos.
  */
 final readonly class RegraCombo
 {
     /**
-     * @param  list<int>  $categoriasIncluidas
-     * @param  list<int>  $produtosIncluidos
-     * @param  list<int>  $categoriasExcluidas
-     * @param  list<int>  $produtosExcluidos
+     * @param  list<GrupoCombo>  $grupos
      */
     public function __construct(
         public int $promocaoId,
         public string $nome,
-        public int $quantidade,
         public int $precoCentavos,
+        public array $grupos,
         public int $prioridade = 0,
         public ?int $limitePorPedido = null,
         public bool $aplicaFracionado = true,
         public bool $cumulaRelampago = true,
         public bool $cumulaPromoAdicional = true,
         public bool $sugerir = true,
-        public array $categoriasIncluidas = [],
-        public array $produtosIncluidos = [],
-        public array $categoriasExcluidas = [],
-        public array $produtosExcluidos = [],
     ) {}
 
-    /** A linha entra nesta promoção (na pizza de sabores, todos os sabores precisam participar). */
-    public function aceita(LinhaCombo $linha): bool
+    /** Itens por combo: a soma das quantidades dos grupos. */
+    public function quantidade(): int
     {
-        if ($linha->produtos === []
-            || ($linha->multiSabor() && ! $this->aplicaFracionado)
-            || ($linha->relampago && ! $this->cumulaRelampago)
-            || ($linha->promoAdicional && ! $this->cumulaPromoAdicional)) {
-            return false;
-        }
-
-        foreach ($linha->produtos as $produto) {
-            if (! $this->participa($produto['produto_id'], $produto['categoria_id'])) {
-                return false;
-            }
-        }
-
-        return true;
+        return array_sum(array_map(fn (GrupoCombo $grupo): int => $grupo->quantidade, $this->grupos));
     }
 
-    private function participa(int $produtoId, ?int $categoriaId): bool
+    /** A linha pode entrar em algum grupo desta promoção. */
+    public function aceita(LinhaCombo $linha): bool
     {
-        if (in_array($produtoId, $this->produtosExcluidos, true)
-            || ($categoriaId !== null && in_array($categoriaId, $this->categoriasExcluidas, true))) {
-            return false;
+        return $this->gruposQueAceitam($linha) !== [];
+    }
+
+    /**
+     * Índices dos grupos em que a linha cabe (as condições da promoção valem para todos).
+     *
+     * @return list<int>
+     */
+    public function gruposQueAceitam(LinhaCombo $linha): array
+    {
+        if (($linha->multiSabor() && ! $this->aplicaFracionado)
+            || ($linha->relampago && ! $this->cumulaRelampago)
+            || ($linha->promoAdicional && ! $this->cumulaPromoAdicional)) {
+            return [];
         }
 
-        return in_array($produtoId, $this->produtosIncluidos, true)
-            || ($categoriaId !== null && in_array($categoriaId, $this->categoriasIncluidas, true));
+        return array_keys(array_filter($this->grupos, fn (GrupoCombo $grupo): bool => $grupo->quantidade > 0 && $grupo->aceita($linha)));
     }
 }

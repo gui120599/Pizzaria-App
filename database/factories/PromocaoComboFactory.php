@@ -29,7 +29,23 @@ class PromocaoComboFactory extends Factory
         ];
     }
 
-    /** Participação por categoria (com subcategorias). */
+    /**
+     * Combo por grupos: [['Pizza Grande', 1, $categoria], ...].
+     *
+     * @param  list<array{0: string, 1: int, 2: Categoria}>  $grupos
+     */
+    public function comGrupos(array $grupos): static
+    {
+        return $this->state(['promocombo_quantidade' => array_sum(array_column($grupos, 1))])
+            ->afterCreating(function (PromocaoCombo $promocao) use ($grupos): void {
+                foreach ($grupos as $ordem => [$nome, $quantidade, $categoria]) {
+                    $promocao->grupos()->create(['pcg_nome' => $nome, 'pcg_quantidade' => $quantidade, 'pcg_ordem' => $ordem + 1])
+                        ->participantes()->create(['pcp_categoria_id' => $categoria->id]);
+                }
+            });
+    }
+
+    /** Participação por categoria (com subcategorias), num grupo único com a quantidade da promoção. */
     public function daCategoria(Categoria $categoria): static
     {
         return $this->afterCreating(fn (PromocaoCombo $promocao) => $promocao->participantes()->create([

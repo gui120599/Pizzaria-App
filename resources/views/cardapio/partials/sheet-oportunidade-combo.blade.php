@@ -10,14 +10,14 @@
         <h2 id="titulo-oportunidade-combo" class="mt-1 font-display text-xl font-bold leading-tight">Que tal aproveitar nossa promoção? 🍕</h2>
         <p class="mt-1.5 text-[14px] leading-snug text-farinha">
             <span x-text="$store.cart.comboOportunidade.combosFechados > 0 ? 'Mais um combo à vista!' : 'Você escolheu um item participante da promoção!'"></span>
-            Adicione mais <b class="text-creme" x-text="$store.cart.comboOportunidade.faltam"></b>
-            e leve <b class="text-creme" x-text="$store.cart.comboOportunidade.promocao?.quantidade"></b>
+            Adicione <b class="text-creme" x-text="$store.cart.textoFaltam($store.cart.comboOportunidade.promocao, $store.cart.comboOportunidade.grupos, $store.cart.comboOportunidade.faltam)"></b>
+            e leve <b class="text-creme" x-text="$store.cart.comboOportunidade.promocao?.composicao"></b>
             por <b class="num text-ouro" x-text="$store.cart.formatar($store.cart.comboOportunidade.promocao?.preco)"></b>.
         </p>
         <p x-show="$store.cart.comboOportunidade.promocao?.descricao" class="mt-1 text-[13px] text-farinha" x-text="$store.cart.comboOportunidade.promocao?.descricao"></p>
 
         <div class="-mx-1 mt-3 flex-1 space-y-2 overflow-y-auto px-1">
-            <template x-for="produto in $store.cart.elegiveisCombo($store.cart.comboOportunidade.promocao)" :key="produto.id">
+            <template x-for="produto in $store.cart.elegiveisCombo($store.cart.comboOportunidade.promocao, $store.cart.comboOportunidade.grupos)" :key="produto.id">
                 <button type="button" @click="$store.cart.escolherDoCombo(produto)"
                         class="flex w-full items-center gap-3 rounded-2xl border border-linha bg-forno p-2.5 text-left transition-colors hover:border-ouro/50">
                     <template x-if="$store.cart.temFoto(produto.foto)">

@@ -6,9 +6,14 @@
     <div x-show="$store.cart.comboAnuncio.open"
          x-transition:enter="transition duration-300 ease-[cubic-bezier(.2,.8,.2,1)]" x-transition:enter-start="translate-y-full sm:translate-y-4 sm:opacity-0"
          class="relative w-full overflow-hidden rounded-t-sheet border-t border-ouro/30 bg-forno-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-sheet sm:border">
-        <template x-if="$store.cart.comboAnuncio.promocao?.imagem">
-            <img :src="$store.cart.comboAnuncio.promocao.imagem" :alt="$store.cart.comboAnuncio.promocao.nome" width="1200" height="675"
-                 class="aspect-video w-full bg-forno-3 object-cover">
+        {{-- Modal estreito em qualquer tela: usa a arte quadrada; sem ela, a de computador. --}}
+        <template x-if="$store.cart.comboAnuncio.promocao?.imagem_mobile">
+            <img :src="$store.cart.comboAnuncio.promocao.imagem_mobile" :alt="$store.cart.comboAnuncio.promocao.nome" width="1080" height="1080"
+                 class="aspect-square max-h-[55dvh] w-full bg-forno-3 object-cover">
+        </template>
+        <template x-if="!$store.cart.comboAnuncio.promocao?.imagem_mobile && $store.cart.comboAnuncio.promocao?.imagem">
+            <img :src="$store.cart.comboAnuncio.promocao.imagem" :alt="$store.cart.comboAnuncio.promocao.nome" width="1680" height="640"
+                 class="aspect-[21/8] w-full bg-forno-3 object-cover">
         </template>
         <button type="button" @click="$store.cart.fecharAnuncioCombo()" aria-label="Fechar"
                 class="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-black/50 text-xl text-white backdrop-blur hover:bg-black/70">
@@ -18,7 +23,7 @@
             <p class="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.12em] text-ouro"><i class='bx bxs-offer text-base' aria-hidden="true"></i> Promoção de hoje</p>
             <h2 id="titulo-anuncio-combo" class="mt-1 font-display text-2xl font-bold leading-tight" x-text="$store.cart.comboAnuncio.promocao?.nome"></h2>
             <p class="mt-1.5 text-[15px]">
-                Leve <b x-text="$store.cart.comboAnuncio.promocao?.quantidade"></b>
+                Leve <b x-text="$store.cart.comboAnuncio.promocao?.composicao"></b>
                 por <b class="num text-ouro" x-text="$store.cart.formatar($store.cart.comboAnuncio.promocao?.preco)"></b>
             </p>
             <p x-show="$store.cart.comboAnuncio.promocao?.descricao" class="mt-1.5 text-[14px] leading-snug text-farinha" x-text="$store.cart.comboAnuncio.promocao?.descricao"></p>

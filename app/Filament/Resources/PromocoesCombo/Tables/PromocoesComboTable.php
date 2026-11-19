@@ -25,7 +25,7 @@ class PromocoesComboTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->withCount(['participantes', 'aplicacoes']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('grupos')->withCount(['participantes', 'aplicacoes']))
             ->columns([
                 TextColumn::make('promocombo_nome')
                     ->label('Promoção')
@@ -39,7 +39,8 @@ class PromocoesComboTable
 
                 TextColumn::make('regra')
                     ->label('Regra')
-                    ->state(fn (PromocaoCombo $record): string => $record->promocombo_quantidade.' por R$ '.number_format((float) $record->promocombo_preco, 2, ',', '.')),
+                    ->state(fn (PromocaoCombo $record): string => $record->composicao().' por R$ '.number_format((float) $record->promocombo_preco, 2, ',', '.'))
+                    ->wrap(),
 
                 TextColumn::make('vigencia')
                     ->label('Vigência')

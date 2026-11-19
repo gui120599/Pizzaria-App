@@ -84,6 +84,12 @@ class CardapioCarrinhoController extends Controller
             'pendencias' => array_map(fn (PendenciaCombo $pendencia): array => [
                 'promocao_id' => $pendencia->promocaoId,
                 'faltam' => $pendencia->faltam,
+                // O convite mostra só os produtos dos grupos que faltam.
+                'grupos' => array_map(
+                    fn (int $grupoId, int $faltam): array => ['grupo_id' => $grupoId, 'faltam' => $faltam],
+                    array_keys($pendencia->faltamPorGrupo),
+                    $pendencia->faltamPorGrupo,
+                ),
             ], $plano->pendencias),
         ]);
     }

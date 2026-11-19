@@ -25,8 +25,8 @@
                 class="flex w-full items-center gap-2.5 rounded-xl border border-ouro/30 bg-ouro/10 px-3 py-2.5 text-left text-[13px]">
             <i class='bx bxs-offer text-lg text-ouro' aria-hidden="true"></i>
             <span class="flex-1">
-                Falta <b x-text="pendencia.faltam"></b> para levar
-                <b x-text="pendencia.promocao.quantidade"></b> por <b class="num" x-text="$store.cart.formatar(pendencia.promocao.preco)"></b>
+                Falta <b x-text="$store.cart.textoFaltam(pendencia.promocao, pendencia.grupos, pendencia.faltam)"></b> para levar
+                <b x-text="pendencia.promocao.composicao"></b> por <b class="num" x-text="$store.cart.formatar(pendencia.promocao.preco)"></b>
             </span>
             <span class="shrink-0 font-semibold text-ouro">Ver opções</span>
         </button>

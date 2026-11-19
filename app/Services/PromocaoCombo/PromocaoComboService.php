@@ -9,6 +9,7 @@ use App\Models\PedidoComboAplicacao;
 use App\Models\PedidoComboItem;
 use App\Models\Produto;
 use App\Models\PromocaoCombo;
+use App\Models\PromocaoComboGrupo;
 use App\Models\PromocaoComboParticipante;
 use Illuminate\Support\Collection;
 
@@ -171,7 +172,7 @@ class PromocaoComboService
      * R$ X"). Só exibição: quem decide o preço é planejar().
      *
      * @param  array<int, array{categoria_id: ?int, relampago: bool}>  $produtos  produto exibido => categoria e se está em relâmpago
-     * @return list<array{promocaoId: int, nome: string, descricao: ?string, imagem: ?string, quantidade: int, preco: float, sugerir: bool, produtos: list<int>}>
+     * @return list<array{promocaoId: int, nome: string, descricao: ?string, imagem: ?string, imagem_mobile: ?string, quantidade: int, composicao: string, preco: float, sugerir: bool, produtos: list<int>, grupos: list<array{id: int, nome: string, quantidade: int, produtos: list<int>}>}>
      */
     public function paraCardapio(array $produtos, bool $mesa = false): array
     {
@@ -183,17 +184,23 @@ class PromocaoComboService
         }
 
         $descricoes = $promocoes->pluck('promocombo_descricao', 'id');
-        $imagens = $promocoes->mapWithKeys(fn (PromocaoCombo $p): array => [$p->id => $p->urlImagem()]);
+        $imagens = $promocoes->mapWithKeys(fn (PromocaoCombo $p): array => [$p->id => ['desktop' => $p->urlImagem(), 'mobile' => $p->urlImagemMobile()]]);
 
         return collect($this->regras($promocoes))
             ->map(function (RegraCombo $regra) use ($produtos, $descricoes, $imagens): array {
                 $participantes = [];
+                $porGrupo = array_fill_keys(array_keys($regra->grupos), []);
 
                 foreach ($produtos as $id => $produto) {
                     $linha = new LinhaCombo((string) $id, 0, 1, 0, [['produto_id' => (int) $id, 'categoria_id' => $produto['categoria_id']]], $produto['relampago']);
+                    $grupos = $regra->gruposQueAceitam($linha);
 
-                    if ($regra->aceita($linha)) {
+                    if ($grupos !== []) {
                         $participantes[] = (int) $id;
+                    }
+
+                    foreach ($grupos as $indiceGrupo) {
+                        $porGrupo[$indiceGrupo][] = (int) $id;
                     }
                 }
 
@@ -201,11 +208,20 @@ class PromocaoComboService
                     'promocaoId' => $regra->promocaoId,
                     'nome' => $regra->nome,
                     'descricao' => $descricoes[$regra->promocaoId] ?? null,
-                    'imagem' => $imagens[$regra->promocaoId] ?? null,
-                    'quantidade' => $regra->quantidade,
+                    'imagem' => $imagens[$regra->promocaoId]['desktop'] ?? null,
+                    'imagem_mobile' => $imagens[$regra->promocaoId]['mobile'] ?? null,
+                    'quantidade' => $regra->quantidade(),
+                    'composicao' => self::composicao($regra),
                     'preco' => $regra->precoCentavos / 100,
                     'sugerir' => $regra->sugerir,
-                    'produtos' => $participantes,
+                    // Intercalados entre os grupos: a vitrine do destaque mostra um de cada.
+                    'produtos' => self::intercalar($porGrupo, $participantes),
+                    'grupos' => array_map(fn (int $indice): array => [
+                        'id' => $regra->grupos[$indice]->id,
+                        'nome' => $regra->grupos[$indice]->nome,
+                        'quantidade' => $regra->grupos[$indice]->quantidade,
+                        'produtos' => $porGrupo[$indice],
+                    ], array_keys($regra->grupos)),
                 ];
             })
             ->filter(fn (array $promocao): bool => $promocao['produtos'] !== [])
@@ -292,28 +308,83 @@ class PromocaoComboService
     {
         $participantes = PromocaoComboParticipante::whereIn('pcp_promocao_combo_id', $promocoes->modelKeys())->get()
             ->groupBy('pcp_promocao_combo_id');
+        $grupos = PromocaoComboGrupo::whereIn('pcg_promocao_combo_id', $promocoes->modelKeys())
+            ->orderBy('pcg_ordem')->orderBy('id')->get()
+            ->groupBy('pcg_promocao_combo_id');
 
-        return $promocoes->map(function (PromocaoCombo $promocao) use ($participantes): RegraCombo {
+        return $promocoes->map(function (PromocaoCombo $promocao) use ($participantes, $grupos): RegraCombo {
             $lista = $participantes->get($promocao->id, collect());
-            [$excluidos, $incluidos] = $lista->partition(fn (PromocaoComboParticipante $p): bool => $p->pcp_excluir);
+            // Participante sem grupo vale para a promoção inteira (inclusive exclusões).
+            $globais = $lista->whereNull('pcp_grupo_id');
+            $doCadastro = $grupos->get($promocao->id, collect());
+
+            $gruposDaRegra = $doCadastro->isEmpty()
+                ? [$this->grupo(0, 'Itens da promoção', (int) $promocao->promocombo_quantidade, $lista)]
+                : $doCadastro->map(fn (PromocaoComboGrupo $grupo): GrupoCombo => $this->grupo(
+                    $grupo->id,
+                    $grupo->pcg_nome,
+                    (int) $grupo->pcg_quantidade,
+                    $lista->where('pcp_grupo_id', $grupo->id)->merge($globais),
+                ))->values()->all();
 
             return new RegraCombo(
                 promocaoId: $promocao->id,
                 nome: $promocao->promocombo_nome,
-                quantidade: (int) $promocao->promocombo_quantidade,
                 precoCentavos: self::centavos($promocao->promocombo_preco),
+                grupos: $gruposDaRegra,
                 prioridade: (int) $promocao->promocombo_prioridade,
                 limitePorPedido: $promocao->promocombo_limite_por_pedido,
                 aplicaFracionado: (bool) $promocao->promocombo_aplica_fracionado,
                 cumulaRelampago: (bool) $promocao->promocombo_cumula_relampago,
                 cumulaPromoAdicional: (bool) $promocao->promocombo_cumula_promo_adicional,
                 sugerir: (bool) $promocao->promocombo_sugerir,
-                categoriasIncluidas: Categoria::idsComSubcategorias($incluidos->pluck('pcp_categoria_id')->filter()->all()),
-                produtosIncluidos: $incluidos->pluck('pcp_produto_id')->filter()->map(fn ($id): int => (int) $id)->values()->all(),
-                categoriasExcluidas: Categoria::idsComSubcategorias($excluidos->pluck('pcp_categoria_id')->filter()->all()),
-                produtosExcluidos: $excluidos->pluck('pcp_produto_id')->filter()->map(fn ($id): int => (int) $id)->values()->all(),
             );
         })->values()->all();
+    }
+
+    /** @param  Collection<int, PromocaoComboParticipante>  $participantes */
+    private function grupo(int $id, string $nome, int $quantidade, Collection $participantes): GrupoCombo
+    {
+        [$excluidos, $incluidos] = $participantes->partition(fn (PromocaoComboParticipante $p): bool => $p->pcp_excluir);
+
+        return new GrupoCombo(
+            id: $id,
+            nome: $nome,
+            quantidade: $quantidade,
+            categoriasIncluidas: Categoria::idsComSubcategorias($incluidos->pluck('pcp_categoria_id')->filter()->all()),
+            produtosIncluidos: $incluidos->pluck('pcp_produto_id')->filter()->map(fn ($id): int => (int) $id)->values()->all(),
+            categoriasExcluidas: Categoria::idsComSubcategorias($excluidos->pluck('pcp_categoria_id')->filter()->all()),
+            produtosExcluidos: $excluidos->pluck('pcp_produto_id')->filter()->map(fn ($id): int => (int) $id)->values()->all(),
+        );
+    }
+
+    /**
+     * Um produto de cada grupo por vez ("grande, brotinho, grande, ..."), sem repetir.
+     *
+     * @param  array<int, list<int>>  $porGrupo
+     * @param  list<int>  $todos
+     * @return list<int>
+     */
+    private static function intercalar(array $porGrupo, array $todos): array
+    {
+        $ordem = [];
+        $maior = max(array_map('count', $porGrupo) ?: [0]);
+
+        for ($i = 0; $i < $maior; $i++) {
+            foreach ($porGrupo as $produtos) {
+                if (isset($produtos[$i])) {
+                    $ordem[$produtos[$i]] = $produtos[$i];
+                }
+            }
+        }
+
+        return array_values($ordem + array_combine($todos, $todos));
+    }
+
+    /** "1× Pizza Grande + 1× Pizza Brotinho" — o que a promoção pede. */
+    public static function composicao(RegraCombo $regra): string
+    {
+        return implode(' + ', array_map(fn (GrupoCombo $g): string => "{$g->quantidade}× {$g->nome}", $regra->grupos));
     }
 
     private function gravarAplicacoes(Pedido $pedido, PlanoCombo $plano): void

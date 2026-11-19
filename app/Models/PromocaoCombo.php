@@ -31,6 +31,7 @@ class PromocaoCombo extends Model
         'promocombo_nome',
         'promocombo_descricao',
         'promocombo_imagem',
+        'promocombo_imagem_mobile',
         'promocombo_ativa',
         'promocombo_tipo_beneficio',
         'promocombo_quantidade',
@@ -82,6 +83,32 @@ class PromocaoCombo extends Model
         return $this->hasMany(PromocaoComboParticipante::class, 'pcp_promocao_combo_id');
     }
 
+    /** Posições do combo ("1 Pizza Grande", "1 Pizza Brotinho"), na ordem do cadastro. */
+    public function grupos(): HasMany
+    {
+        return $this->hasMany(PromocaoComboGrupo::class, 'pcg_promocao_combo_id')->orderBy('pcg_ordem')->orderBy('id');
+    }
+
+    /** "1× Pizza Grande + 1× Pizza Brotinho" (cadastro, tabela). */
+    public function composicao(): string
+    {
+        $grupos = $this->grupos;
+
+        return $grupos->isEmpty()
+            ? $this->promocombo_quantidade.' itens'
+            : $grupos->map(fn (PromocaoComboGrupo $g): string => "{$g->pcg_quantidade}× {$g->pcg_nome}")->implode(' + ');
+    }
+
+    /** Mantém promocombo_quantidade (itens por combo) igual à soma dos grupos. */
+    public function sincronizarQuantidade(): void
+    {
+        $total = (int) $this->grupos()->sum('pcg_quantidade');
+
+        if ($total > 0 && $total !== (int) $this->promocombo_quantidade) {
+            $this->update(['promocombo_quantidade' => $total]);
+        }
+    }
+
     public function aplicacoes(): HasMany
     {
         return $this->hasMany(PedidoComboAplicacao::class, 'pca_promocao_combo_id');
@@ -103,10 +130,16 @@ class PromocaoCombo extends Model
         return $query->whereIn('promocoes_combo.id', $ids);
     }
 
-    /** URL pública do banner (disco public), ou null sem imagem. */
+    /** URL pública da arte de computador (disco public), ou null sem imagem. */
     public function urlImagem(): ?string
     {
         return filled($this->promocombo_imagem) ? asset('storage/'.$this->promocombo_imagem) : null;
+    }
+
+    /** URL pública da arte de celular (quadrada), ou null sem imagem. */
+    public function urlImagemMobile(): ?string
+    {
+        return filled($this->promocombo_imagem_mobile) ? asset('storage/'.$this->promocombo_imagem_mobile) : null;
     }
 
     public function restringeEntrega(): bool

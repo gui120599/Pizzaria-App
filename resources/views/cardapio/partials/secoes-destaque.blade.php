@@ -10,10 +10,17 @@
     <section id="{{ $loop->first ? 'secao_combo' : 'secao_combo_'.$combo['promocaoId'] }}"
              data-secao data-ocultar-na-busca x-data="trilhoRolavel" class="px-4 pt-6 lg:px-0">
         <div class="overflow-hidden rounded-card border border-ouro/30 bg-[linear-gradient(135deg,rgb(242_179_61/.10),transparent_60%)]">
-            @if ($combo['imagem'])
-                <img src="{{ $combo['imagem'] }}" alt="{{ $combo['nome'] }}" width="1200" height="675"
-                     @if (! $loop->first) loading="lazy" @endif
-                     class="aspect-video w-full bg-forno-3 object-cover lg:aspect-[21/8]">
+            {{-- Celular: arte quadrada (1080²); computador: faixa 21:8 (1680 × 640). Sem uma, vale a outra. --}}
+            @if ($combo['imagem'] || $combo['imagem_mobile'])
+                <picture>
+                    @if ($combo['imagem'] && $combo['imagem_mobile'])
+                        <source media="(min-width: 1024px)" srcset="{{ $combo['imagem'] }}" width="1680" height="640">
+                    @endif
+                    <img src="{{ $combo['imagem_mobile'] ?? $combo['imagem'] }}" alt="{{ $combo['nome'] }}"
+                         width="{{ $combo['imagem_mobile'] ? 1080 : 1680 }}" height="{{ $combo['imagem_mobile'] ? 1080 : 640 }}"
+                         @if (! $loop->first) loading="lazy" @endif
+                         class="{{ $combo['imagem_mobile'] ? 'aspect-square' : 'aspect-[21/8]' }} w-full bg-forno-3 object-cover lg:aspect-[21/8]">
+                </picture>
             @endif
             <div class="px-4 pt-4">
                 <p class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[.12em] text-ouro">
@@ -21,7 +28,7 @@
                 </p>
                 <h2 class="mt-0.5 font-display text-2xl font-bold tracking-tight lg:text-[26px]">{{ $combo['nome'] }}</h2>
                 <p class="mt-0.5 text-[14px] text-creme">
-                    Leve <b>{{ $combo['quantidade'] }}</b> por <b class="num text-ouro">R$ {{ number_format($combo['preco'], 2, ',', '.') }}</b>
+                    Leve <b>{{ $combo['composicao'] }}</b> por <b class="num text-ouro">R$ {{ number_format($combo['preco'], 2, ',', '.') }}</b>
                     <span class="text-[12.5px] text-farinha">· bordas e adicionais à parte</span>
                 </p>
                 @if ($combo['descricao'])
