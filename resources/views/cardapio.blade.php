@@ -44,6 +44,7 @@
         @include('cardapio.partials.sheet-sugestao-promocao')
         @include('cardapio.partials.sheet-oportunidade-combo')
         @include('cardapio.partials.sheet-conquista-combo')
+        @include('cardapio.partials.sheet-anuncio-combo')
         @include('cardapio.partials.sheet-troco')
 
         @if ($mesaCliente)

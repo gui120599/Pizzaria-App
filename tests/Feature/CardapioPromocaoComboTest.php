@@ -122,6 +122,23 @@ class CardapioPromocaoComboTest extends TestCase
         $this->assertSame('Só hoje', $combos[0]['descricao']);
     }
 
+    public function test_card_de_destaque_e_anuncio_mostram_a_imagem_e_os_participantes(): void
+    {
+        PromocaoCombo::factory()->daCategoria($this->grande)->create([
+            'promocombo_imagem' => 'promocoes_combo/banner.jpg',
+            'promocombo_descricao' => 'Toda quinta à noite',
+        ]);
+
+        $this->assertSame(asset('storage/promocoes_combo/banner.jpg'), app(CardapioService::class)->dados()['promocoesCombo'][0]['imagem']);
+
+        $this->get(route('cardapio'))
+            ->assertOk()
+            ->assertSee('id="secao_combo"', false)
+            ->assertSee(asset('storage/promocoes_combo/banner.jpg'), false)
+            ->assertSee('Toda quinta à noite')
+            ->assertSee('Promoção de hoje');
+    }
+
     public function test_pagina_do_cardapio_monta_com_o_convite_e_a_comemoracao(): void
     {
         PromocaoCombo::factory()->daCategoria($this->grande)->create();

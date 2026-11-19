@@ -171,7 +171,7 @@ class PromocaoComboService
      * R$ X"). Só exibição: quem decide o preço é planejar().
      *
      * @param  array<int, array{categoria_id: ?int, relampago: bool}>  $produtos  produto exibido => categoria e se está em relâmpago
-     * @return list<array{promocaoId: int, nome: string, descricao: ?string, quantidade: int, preco: float, sugerir: bool, produtos: list<int>}>
+     * @return list<array{promocaoId: int, nome: string, descricao: ?string, imagem: ?string, quantidade: int, preco: float, sugerir: bool, produtos: list<int>}>
      */
     public function paraCardapio(array $produtos, bool $mesa = false): array
     {
@@ -183,9 +183,10 @@ class PromocaoComboService
         }
 
         $descricoes = $promocoes->pluck('promocombo_descricao', 'id');
+        $imagens = $promocoes->mapWithKeys(fn (PromocaoCombo $p): array => [$p->id => $p->urlImagem()]);
 
         return collect($this->regras($promocoes))
-            ->map(function (RegraCombo $regra) use ($produtos, $descricoes): array {
+            ->map(function (RegraCombo $regra) use ($produtos, $descricoes, $imagens): array {
                 $participantes = [];
 
                 foreach ($produtos as $id => $produto) {
@@ -200,6 +201,7 @@ class PromocaoComboService
                     'promocaoId' => $regra->promocaoId,
                     'nome' => $regra->nome,
                     'descricao' => $descricoes[$regra->promocaoId] ?? null,
+                    'imagem' => $imagens[$regra->promocaoId] ?? null,
                     'quantidade' => $regra->quantidade,
                     'preco' => $regra->precoCentavos / 100,
                     'sugerir' => $regra->sugerir,

@@ -527,7 +527,7 @@
                     @endfor
                 </div>
 
-                <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm z-10 p-6 text-center space-y-3">
+                <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full {{ isset($comboModal['mensagem']) ? 'max-w-md' : 'max-w-sm' }} z-10 max-h-[92vh] overflow-y-auto p-6 text-center space-y-3">
                     <div class="text-4xl" aria-hidden="true">🎉</div>
                     <h3 class="text-lg font-extrabold uppercase text-gray-900 dark:text-white leading-tight">Promoção aplicada!</h3>
                     <p class="text-sm font-bold uppercase text-emerald-600 dark:text-emerald-400">{{ $comboModal['nome'] }}</p>
@@ -544,6 +544,11 @@
                         <p class="mt-1 text-sm font-extrabold uppercase text-emerald-600 dark:text-emerald-400">Economia de R$ {{ number_format($comboModal['desconto'], 2, ',', '.') }}</p>
                     </div>
                     <p class="text-xs text-gray-400">Bordas e adicionais são cobrados à parte.</p>
+
+                    @isset($comboModal['mensagem'])
+                        <x-pedido.mensagem-whatsapp id="mensagem-combo" :texto="$comboModal['mensagem']" linhas="8" />
+                    @endisset
+
                     <button type="button" wire:click="recusarCombo"
                         class="w-full py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-bold transition-colors">
                         Continuar

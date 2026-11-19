@@ -38,7 +38,7 @@
     <fieldset @disabled($somenteLeitura) class="m-0 min-w-0 border-0 p-0 [&_:disabled]:cursor-not-allowed">
     <div class="grid grid-cols-1 xl:grid-cols-5 gap-4">
         <div class="xl:col-span-3">
-            @livewire('pedido-produto-selector', ['pedidoId' => $pedidoId, 'itensIniciais' => $itensCarrinho, 'carrinhoTopo' => true], key('selector-'.($pedidoId ?? 'novo')))
+            @livewire('pedido-produto-selector', ['pedidoId' => $pedidoId, 'itensIniciais' => $itensCarrinho, 'carrinhoTopo' => true, 'mensagemWhatsapp' => true, 'nomeClienteCombo' => ($clienteData['semCliente'] ?? false) ? null : ($clienteData['nome'] ?? null)], key('selector-'.($pedidoId ?? 'novo')))
         </div>
 
         <div class="xl:col-span-2 space-y-4">
@@ -165,9 +165,48 @@
                     @endif
                 @endif
             </div>
+
+            {{-- Conferência do pedido para o cliente confirmar pelo WhatsApp (acompanha a tela). --}}
+            @if (! empty($itensCarrinho))
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/10 p-4">
+                    <x-pedido.mensagem-whatsapp id="mensagem-confirmacao" :texto="$this->mensagemConfirmacao" :editavel="false" linhas="12"
+                        rotulo="Mensagem para o cliente confirmar o pedido" />
+                </div>
+            @endif
         </div>
     </div>
     </fieldset>
+
+    {{-- Pedido salvo: mensagem final com o link de acompanhamento para o WhatsApp do cliente. --}}
+    @if ($mensagemFinal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" wire:keydown.escape="fecharMensagemFinal">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md max-h-[92vh] overflow-y-auto">
+                <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-white/10">
+                    <h3 class="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        <x-heroicon-o-check-circle class="h-5 w-5 text-green-600" />
+                        Pedido nº {{ $mensagemFinal['pedido_id'] }} salvo
+                    </h3>
+                    <button type="button" wire:click="fecharMensagemFinal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Fechar">
+                        <x-heroicon-o-x-mark class="h-5 w-5" />
+                    </button>
+                </div>
+                <div class="p-4 space-y-3">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Envie para o cliente: resumo do pedido e o link para ele acompanhar em tempo real.</p>
+                    <x-pedido.mensagem-whatsapp id="mensagem-final" :texto="$mensagemFinal['mensagem']" linhas="14" rotulo="Mensagem do pedido confirmado" />
+                    <div class="flex gap-2">
+                        <a href="{{ static::getUrl(['pedido' => $mensagemFinal['pedido_id']]) }}"
+                            class="flex-1 py-2 rounded-lg text-center text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5">
+                            Abrir pedido
+                        </a>
+                        <button type="button" wire:click="fecharMensagemFinal"
+                            class="flex-1 py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
+                            Novo atendimento
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- Modal Cobrança na maquininha Stone --}}
     @if ($modalStoneAberta)

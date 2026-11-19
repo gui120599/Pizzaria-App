@@ -5,6 +5,40 @@
     quantidade vendida).
 --}}
 
+{{-- Promoção Combo: banner (quando cadastrado), a regra e os itens participantes. --}}
+@foreach ($promocoesCombo ?? [] as $combo)
+    <section id="{{ $loop->first ? 'secao_combo' : 'secao_combo_'.$combo['promocaoId'] }}"
+             data-secao data-ocultar-na-busca x-data="trilhoRolavel" class="px-4 pt-6 lg:px-0">
+        <div class="overflow-hidden rounded-card border border-ouro/30 bg-[linear-gradient(135deg,rgb(242_179_61/.10),transparent_60%)]">
+            @if ($combo['imagem'])
+                <img src="{{ $combo['imagem'] }}" alt="{{ $combo['nome'] }}" width="1200" height="675"
+                     @if (! $loop->first) loading="lazy" @endif
+                     class="aspect-video w-full bg-forno-3 object-cover lg:aspect-[21/8]">
+            @endif
+            <div class="px-4 pt-4">
+                <p class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[.12em] text-ouro">
+                    <i class='bx bxs-offer text-base' aria-hidden="true"></i> Promoção combo
+                </p>
+                <h2 class="mt-0.5 font-display text-2xl font-bold tracking-tight lg:text-[26px]">{{ $combo['nome'] }}</h2>
+                <p class="mt-0.5 text-[14px] text-creme">
+                    Leve <b>{{ $combo['quantidade'] }}</b> por <b class="num text-ouro">R$ {{ number_format($combo['preco'], 2, ',', '.') }}</b>
+                    <span class="text-[12.5px] text-farinha">· bordas e adicionais à parte</span>
+                </p>
+                @if ($combo['descricao'])
+                    <p class="mt-1 text-[13.5px] text-farinha">{{ $combo['descricao'] }}</p>
+                @endif
+            </div>
+            <div x-ref="trilho" @scroll.passive="medir()" class="rolagem-x mt-3 flex snap-x gap-3 scroll-px-4 px-4 pb-4">
+                @foreach (array_slice($combo['produtos'], 0, 12) as $produtoId)
+                    @isset($produtosTela[$produtoId])
+                        <x-cardapio.produto-card variante="vitrine" :produto="$produtosTela[$produtoId]" :selo="['texto' => 'COMBO', 'icone' => 'bxs-offer']" />
+                    @endisset
+                @endforeach
+            </div>
+        </div>
+    </section>
+@endforeach
+
 @foreach ($campanhasAdicionaisAtivas as $campanha)
     <section id="{{ $loop->first ? 'secao_promocao_adicional' : 'secao_promocao_adicional_'.$loop->index }}"
              data-secao data-ocultar-na-busca class="px-4 pt-6 lg:px-0">

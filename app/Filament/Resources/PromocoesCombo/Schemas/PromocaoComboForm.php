@@ -9,6 +9,7 @@ use Closure;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -43,6 +44,20 @@ class PromocaoComboForm
                         ->label('Descrição')
                         ->helperText('Texto mostrado ao cliente no convite para aproveitar a promoção.')
                         ->maxLength(255)
+                        ->columnSpanFull(),
+                    FileUpload::make('promocombo_imagem')
+                        ->label('Imagem da promoção')
+                        ->helperText('Aparece no card de destaque e no aviso ao abrir o cardápio. Horizontal (16:9), JPG ou PNG, até 5MB.')
+                        ->disk('public')
+                        ->directory('promocoes_combo')
+                        ->visibility('public')
+                        ->image()
+                        ->imageEditor()
+                        ->imageResizeMode('cover')
+                        ->imageCropAspectRatio('16:9')
+                        ->imageResizeTargetWidth(1200)
+                        ->imageResizeTargetHeight(675)
+                        ->maxSize(5120)
                         ->columnSpanFull(),
                     Toggle::make('promocombo_ativa')
                         ->label('Ativa')

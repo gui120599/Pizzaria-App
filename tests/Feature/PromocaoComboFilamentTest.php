@@ -11,6 +11,8 @@ use App\Models\Produto;
 use App\Models\PromocaoCombo;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -59,6 +61,29 @@ class PromocaoComboFilamentTest extends TestCase
 
         Livewire::test(ListPromocoesCombo::class)->assertCanSeeTableRecords([$promocao]);
         Livewire::test(EditPromocaoCombo::class, ['record' => $promocao->id])->assertOk();
+    }
+
+    public function test_imagem_da_promocao_e_gravada_no_disco_publico(): void
+    {
+        Storage::fake('public');
+        $grande = Categoria::create(['categoria_nome' => 'Pizza Grande']);
+
+        Livewire::test(CreatePromocaoCombo::class)
+            ->fillForm([
+                'promocombo_nome' => 'Combo com banner',
+                'promocombo_quantidade' => 2,
+                'promocombo_preco' => '87,99',
+                'promocombo_inicio' => now()->format('Y-m-d H:i:s'),
+                'promocombo_fim' => now()->addDay()->format('Y-m-d H:i:s'),
+                'promocombo_imagem' => UploadedFile::fake()->image('banner.jpg', 1200, 675),
+                'participantes' => [['pcp_categoria_id' => $grande->id, 'pcp_produto_id' => null, 'pcp_excluir' => false]],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $caminho = PromocaoCombo::sole()->promocombo_imagem;
+        $this->assertStringStartsWith('promocoes_combo/', $caminho);
+        Storage::disk('public')->assertExists($caminho);
     }
 
     public function test_participante_precisa_de_categoria_ou_produto_e_nao_dos_dois(): void

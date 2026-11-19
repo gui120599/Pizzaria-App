@@ -30,6 +30,7 @@ class PromocaoCombo extends Model
     protected $fillable = [
         'promocombo_nome',
         'promocombo_descricao',
+        'promocombo_imagem',
         'promocombo_ativa',
         'promocombo_tipo_beneficio',
         'promocombo_quantidade',
@@ -100,6 +101,12 @@ class PromocaoCombo extends Model
             ->pluck('id');
 
         return $query->whereIn('promocoes_combo.id', $ids);
+    }
+
+    /** URL pública do banner (disco public), ou null sem imagem. */
+    public function urlImagem(): ?string
+    {
+        return filled($this->promocombo_imagem) ? asset('storage/'.$this->promocombo_imagem) : null;
     }
 
     public function restringeEntrega(): bool

@@ -127,6 +127,38 @@ class PedidoProdutoSelectorComboTest extends TestCase
         $this->assertSame(['0.00', '0.00'], ItensPedido::orderBy('id')->pluck('item_pedido_desconto')->all());
     }
 
+    public function test_atender_pedido_traz_a_mensagem_da_promocao_para_o_whatsapp(): void
+    {
+        PromocaoCombo::factory()->daCategoria($this->grande)->create();
+        $seletor = Livewire::test(PedidoProdutoSelector::class, ['mensagemWhatsapp' => true])
+            ->dispatch('pedido-cliente-atualizado', dados: ['semCliente' => false, 'nome' => 'MARIA DA SILVA']);
+
+        $this->lancar($seletor, $this->calabresa);
+        $this->lancar($seletor, $this->frango);
+
+        $this->assertSame(implode("\n", [
+            'Maria, seu pedido ganhou a promoção *2 Pizzas Grandes por R$ 87,99* 🎉',
+            '',
+            '🍕 Pizza Grande — Calabresa — R$ 59,90',
+            '🍕 Pizza Grande — Frango — R$ 50,10',
+            '',
+            'De ~R$ 110,00~ por *R$ 87,99*',
+            'Você economizou *R$ 22,01*! 🙌',
+        ]), $seletor->get('comboModal.mensagem'));
+    }
+
+    public function test_painel_do_garcom_comemora_sem_a_mensagem_do_whatsapp(): void
+    {
+        PromocaoCombo::factory()->daCategoria($this->grande)->create();
+        $rascunho = app(RetiradaService::class)->rascunho(User::factory()->garcom()->create(['name_first' => 'Bia']));
+        $seletor = Livewire::test(PedidoProdutoSelector::class, ['pedidoId' => $rascunho->id]);
+
+        $this->lancar($seletor, $this->calabresa);
+        $this->lancar($seletor, $this->frango)->assertSet('comboModal.tipo', 'conquista');
+
+        $this->assertArrayNotHasKey('mensagem', $seletor->get('comboModal'));
+    }
+
     public function test_retirada_enviada_tira_o_combo_restrito_a_delivery(): void
     {
         $delivery = OpcoesEntregas::create(['opcaoentrega_nome' => 'Delivery', 'opcaoentrega_valor_frete' => 0, 'opcaoentrega_min_valor_frete' => 0, 'opcaoentrega_requer_endereco' => true]);
