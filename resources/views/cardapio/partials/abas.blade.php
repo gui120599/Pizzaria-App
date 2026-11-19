@@ -5,6 +5,7 @@
 --}}
 @php
     $atalhos = collect()
+        ->when(! empty($promocoesCombo), fn ($c) => $c->push(['alvo' => 'secao_combo', 'nome' => 'Combo', 'icone' => 'bxs-offer']))
         ->when($promocoesRelampago->isNotEmpty(), fn ($c) => $c->push(['alvo' => 'secao_relampago', 'nome' => 'Relâmpago', 'icone' => 'bxs-bolt']))
         ->when($campanhasAdicionaisAtivas->isNotEmpty(), fn ($c) => $c->push(['alvo' => 'secao_promocao_adicional', 'nome' => 'Ofertas', 'icone' => 'bxs-gift']))
         ->when($promocoes->isNotEmpty(), fn ($c) => $c->push(['alvo' => 'secao_promocoes', 'nome' => 'Promoções', 'icone' => 'bxs-purchase-tag']))

@@ -11,6 +11,8 @@ use App\Services\PrecificadorService;
 use App\Services\PromocaoCombo\AplicacaoCombo;
 use App\Services\PromocaoCombo\PlanoCombo;
 use App\Services\PromocaoCombo\PromocaoComboService;
+use App\Support\Pedido\MensagemPedidoWhatsapp;
+use Livewire\Attributes\On;
 
 /**
  * Promoção Combo no PedidoProdutoSelector (garçom e Atender Pedido).
@@ -43,6 +45,18 @@ trait ConvidaPromocaoCombo
 
     /** @var array<int, int> promoção => combos fechados quando o convite foi recusado */
     public array $combosRecusados = [];
+
+    /** Atender Pedido: a comemoração traz a mensagem pronta para o WhatsApp do cliente. */
+    public bool $mensagemWhatsapp = false;
+
+    /** Nome do cliente do pedido (vem do ClientePicker), no topo da mensagem. */
+    public ?string $nomeClienteCombo = null;
+
+    #[On('pedido-cliente-atualizado')]
+    public function onClienteDoPedidoCombo(array $dados): void
+    {
+        $this->nomeClienteCombo = ($dados['semCliente'] ?? false) ? null : ($dados['nome'] ?? null);
+    }
 
     /** Atualiza valores (combo nas linhas) e decide comemoração/convite. */
     protected function sincronizarPromocaoCombo(bool $convidar = true): void
@@ -207,19 +221,59 @@ trait ConvidaPromocaoCombo
     /** @return array<string, mixed> */
     private function dadosDaConquista(AplicacaoCombo $aplicacao): array
     {
-        $nomes = collect($this->itens)->keyBy(fn (array $i): string => (string) $i['id']);
+        $porId = collect($this->itens)->keyBy(fn (array $i): string => (string) $i['id']);
+        $nome = fn (string $chave): string => ($parte = $aplicacao->partes[$chave])['unidades'] > 1
+            ? $parte['unidades'].'x '.$this->nomeDoItemCombo($porId[$chave] ?? [])
+            : $this->nomeDoItemCombo($porId[$chave] ?? []);
 
-        return [
+        $dados = [
             'tipo' => 'conquista',
             'nome' => $aplicacao->nome,
             'preco' => $aplicacao->precoCentavos / 100,
             'valor_cheio' => $aplicacao->valorCheioCentavos() / 100,
             'desconto' => $aplicacao->descontoCentavos() / 100,
-            'itens' => collect($aplicacao->partes)
-                ->map(fn (array $parte, string $chave): string => ($parte['unidades'] > 1 ? $parte['unidades'].'x ' : '').($nomes[$chave]['produto_nome'] ?? 'Item'))
-                ->values()
-                ->all(),
+            'itens' => array_map($nome, array_map('strval', array_keys($aplicacao->partes))),
         ];
+
+        if ($this->mensagemWhatsapp) {
+            $dados['mensagem'] = $this->mensagemDaConquista($aplicacao, $nome);
+        }
+
+        return $dados;
+    }
+
+    /** "Pizza Grande — Calabresa" (categoria + produto ou sabores). */
+    private function nomeDoItemCombo(array $item): string
+    {
+        $produto = $item['produto_nome'] ?? 'Item';
+
+        return filled($item['categoria_nome'] ?? null) ? $item['categoria_nome'].' — '.$produto : $produto;
+    }
+
+    /**
+     * Texto pronto para o atendente colar na conversa do WhatsApp (o cliente
+     * já foi saudado e o total vai na mensagem de confirmação do pedido):
+     * primeiro nome do cliente (se informado), itens do combo com o valor de
+     * cada um, o De/Por e a economia.
+     *
+     * @param  callable(string): string  $nome
+     */
+    private function mensagemDaConquista(AplicacaoCombo $aplicacao, callable $nome): string
+    {
+        $reais = fn (float $valor): string => 'R$ '.number_format($valor, 2, ',', '.');
+        $nomeCliente = MensagemPedidoWhatsapp::primeiroNome($this->nomeClienteCombo);
+        $linhas = [($nomeCliente !== null ? "{$nomeCliente}, seu" : 'Seu')." pedido ganhou a promoção *{$aplicacao->nome}* 🎉", ''];
+
+        foreach ($aplicacao->partes as $chave => $parte) {
+            $linhas[] = '🍕 '.$nome((string) $chave).' — '.$reais($parte['cheio'] / 100);
+        }
+
+        return implode("\n", [
+            ...$linhas,
+            '',
+            'De ~'.$reais($aplicacao->valorCheioCentavos() / 100).'~ por *'.$reais($aplicacao->precoCentavos / 100).'*',
+            'Você economizou *'.$reais($aplicacao->descontoCentavos() / 100).'*! 🙌',
+        ]);
     }
 
     /**

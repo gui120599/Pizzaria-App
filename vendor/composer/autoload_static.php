@@ -2302,6 +2302,7 @@ class ComposerStaticInit5ab1db59f69ab376e1219686675b6f06
         'App\\Support\\JanelaOperacional' => __DIR__ . '/../..' . '/app/Support/JanelaOperacional.php',
         'App\\Support\\PaletaMarca' => __DIR__ . '/../..' . '/app/Support/PaletaMarca.php',
         'App\\Support\\Pedido\\EtapasAcompanhamento' => __DIR__ . '/../..' . '/app/Support/Pedido/EtapasAcompanhamento.php',
+        'App\\Support\\Pedido\\MensagemPedidoWhatsapp' => __DIR__ . '/../..' . '/app/Support/Pedido/MensagemPedidoWhatsapp.php',
         'App\\Support\\Push\\EventoGarcom' => __DIR__ . '/../..' . '/app/Support/Push/EventoGarcom.php',
         'App\\Support\\Push\\PayloadPush' => __DIR__ . '/../..' . '/app/Support/Push/PayloadPush.php',
         'App\\Support\\Push\\PendenciaPush' => __DIR__ . '/../..' . '/app/Support/Push/PendenciaPush.php',

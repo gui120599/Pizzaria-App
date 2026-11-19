@@ -23,6 +23,7 @@ use App\Models\Cupom;
 use App\Models\ItensPedido;
 use App\Models\Maquininha;
 use App\Models\OpcoesEntregas;
+use App\Models\OpcoesPagamento;
 use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\Produto;
@@ -44,6 +45,7 @@ use App\Services\PromocaoCombo\PromocaoComboService;
 use App\Services\PromocaoRelampagoService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Services\TotaisPedidoService;
+use App\Support\Pedido\MensagemPedidoWhatsapp;
 use App\Support\Telefone;
 use App\Support\TotaisPedido;
 use BackedEnum;
@@ -147,6 +149,14 @@ class AtenderPedido extends Page
     public string $estadoSalvo = '';
 
     /**
+     * Pedido que acabou de ser salvo: mensagem final para o WhatsApp do
+     * cliente, aberta num modal na tela em branco depois do redirect.
+     *
+     * @var array{pedido_id: int, mensagem: string}|null
+     */
+    public ?array $mensagemFinal = null;
+
+    /**
      * Status a partir dos quais o conteúdo do pedido não faz mais sentido
      * editar. Mais restritivo que StatusPedidoEnum::ehEditavelQuantoAoConteudo()
      * de propósito: aqui a tela inteira vira leitura, porque mexer no conteúdo
@@ -213,6 +223,7 @@ class AtenderPedido extends Page
         // Última maquininha usada por este operador — reduz o risco de
         // mandar a cobrança pro aparelho errado (ver Maquininha::scopeStoneDisponivel).
         $this->stoneMaquininhaId = session('stone_ultima_maquininha_id.'.Auth::id());
+        $this->mensagemFinal = session('atender_pedido_mensagem_final');
 
         if (! $pedido?->exists) {
             return;
@@ -820,6 +831,12 @@ class AtenderPedido extends Page
             return;
         }
 
+        // A mensagem final vai junto para a tela em branco (modal com o link de acompanhamento).
+        session()->flash('atender_pedido_mensagem_final', [
+            'pedido_id' => $this->pedidoId,
+            'mensagem' => $this->mensagemDoPedidoSalvo(),
+        ]);
+
         // Salvou, a tela volta em branco para o próximo atendimento — o
         // balcão lança um pedido atrás do outro. O link da notificação reabre
         // o que acabou de ser salvo (ex.: para cobrar na maquininha).
@@ -834,6 +851,103 @@ class AtenderPedido extends Page
             ->send();
 
         $this->redirect(static::getUrl());
+    }
+
+    public function fecharMensagemFinal(): void
+    {
+        $this->mensagemFinal = null;
+    }
+
+    /**
+     * Para o cliente conferir antes de confirmar (pedido gravado leva número
+     * e link de acompanhamento). Acompanha a tela: itens, entrega, pagamento.
+     */
+    #[Computed]
+    public function mensagemConfirmacao(): string
+    {
+        return MensagemPedidoWhatsapp::confirmacao($this->dadosDaMensagem() + [
+            'totais' => $this->resumoTotais,
+            'pedido_id' => $this->pedidoId,
+            'link' => $this->pedidoId ? Pedido::linkAcompanhamentoDoPedido($this->pedidoId) : null,
+        ]);
+    }
+
+    /** Mensagem de pedido confirmado, com os totais gravados e o link de acompanhamento. */
+    private function mensagemDoPedidoSalvo(): string
+    {
+        $pedido = Pedido::findOrFail($this->pedidoId);
+
+        return MensagemPedidoWhatsapp::confirmado($this->dadosDaMensagem() + [
+            'totais' => [
+                'itens' => (float) $pedido->pedido_valor_itens,
+                'desconto' => (float) $pedido->pedido_valor_desconto,
+                'frete' => (float) $pedido->pedido_valor_frete,
+                'total' => (float) $pedido->pedido_valor_total,
+            ],
+            'pedido_id' => $pedido->id,
+            'link' => $pedido->linkAcompanhamento(),
+        ]);
+    }
+
+    /**
+     * Itens, entrega, endereço, pagamento e observação como estão na tela.
+     *
+     * @return array{itens: list<array<string, mixed>>, cliente: ?string, entrega: ?string, endereco: ?string, pagamento: ?string, observacao: ?string}
+     */
+    private function dadosDaMensagem(): array
+    {
+        $opcaoId = $this->entregaPagamentoData['opcaoEntregaId'] ?? null;
+        $endereco = null;
+
+        if ($this->tipoAtendimento === TipoAtendimentoEnum::DELIVERY) {
+            $endereco = $this->enderecoEmTextoLivre()
+                ? (filled($this->clienteData['enderecoEntrega']) ? trim((string) $this->clienteData['enderecoEntrega']) : null)
+                : $this->montarEnderecoSnapshot();
+        }
+
+        return [
+            'itens' => array_values($this->itensCarrinho),
+            'cliente' => ($this->clienteData['semCliente'] ?? false) ? null : ($this->clienteData['nome'] ?? null),
+            'entrega' => $opcaoId ? OpcoesEntregas::find($opcaoId)?->opcaoentrega_nome : null,
+            'endereco' => $endereco,
+            'pagamento' => $this->pagamentoParaMensagem(),
+            'observacao' => $this->observacao !== '' ? $this->observacao : null,
+        ];
+    }
+
+    /** "Dinheiro (troco para R$ 100,00)", "Pix R$ 50,00 + Crédito R$ 37,99" ou fiado. */
+    private function pagamentoParaMensagem(): ?string
+    {
+        if ($this->entregaPagamentoData['fiado'] ?? false) {
+            return FiadoPedidoService::DESCRICAO;
+        }
+
+        $pagamentos = collect($this->entregaPagamentoData['pagamentos'] ?? [])->filter(fn (array $p): bool => filled($p['opcaoPagamentoId'] ?? null));
+
+        if ($pagamentos->isEmpty()) {
+            return null;
+        }
+
+        $nomes = OpcoesPagamento::whereKey($pagamentos->pluck('opcaoPagamentoId')->all())->pluck('opcaopag_nome', 'id');
+        $reais = fn (float $valor): string => 'R$ '.number_format($valor, 2, ',', '.');
+
+        $descricoes = $pagamentos->map(function (array $p) use ($nomes, $reais, $pagamentos): string {
+            $texto = (string) ($nomes[$p['opcaoPagamentoId']] ?? 'Pagamento');
+
+            if ($pagamentos->count() > 1) {
+                $texto .= ' '.$reais(PagamentosCombinadosService::valorDigitado($p['valor'] ?? null));
+            }
+
+            $troco = PagamentosCombinadosService::valorDigitado($p['trocoPara'] ?? null);
+
+            if ($troco > 0) {
+                $texto .= ' (troco para '.$reais($troco).')';
+            }
+
+            return ! empty($p['pago']) ? $texto.' (já pago)' : $texto;
+        });
+
+        return $descricoes->implode(' + ');
     }
 
     private function verificarEstoque(): array

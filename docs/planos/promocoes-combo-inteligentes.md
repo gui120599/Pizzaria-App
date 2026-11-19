@@ -379,6 +379,12 @@ Celular primeiro: bottom-sheet como os modais atuais, botões de 48 px, lista co
 4. **Implementada em 19/11/2026.** Trait `App\Livewire\Concerns\ConvidaPromocaoCombo` no seletor (`comboModal` convite/conquista, `combosRecusados`, lista relida do banco com o combo; na prévia o motor roda sobre a lista e cada item guarda `desconto_combo`). `AtenderPedido::save()` devolve a parte da prévia ao valor e reaplica antes do cupom; `RetiradaService::enviar`/`enviarEntrega` reaplicam com a opção escolhida antes de somar; `AtendimentoMesaService` (cancelar item com PIN) reaplica antes de somar. Auditoria: `DivisaoItemPedidoService` e `CortesiaService` já cobertos (Fase 1 / `recalcular`); **telas legadas (`ItensPedidoController`, `SessaoMesaController`) não aplicam o combo**.
    Limitação conhecida: no rascunho do garçom e na prévia do Atender Pedido a opção de entrega ainda não existe, então uma promoção restrita aparece aplicada e cai no envio/save se a opção escolhida não for aceita (o total é recalculado; na retirada do garçom, se o pagamento já foi digitado, o envio pede para ajustar a soma).
 
+### Ajustes pós-Fase 3 (19/11/2026)
+- Imagem da promoção (`promocombo_imagem`, disco `public/promocoes_combo`, 16:9): card de destaque "Promoção combo" no topo do cardápio (banner, regra, descrição e participantes) com aba "Combo".
+- Aviso ao abrir o cardápio (uma vez por sessão, só com a loja aberta e sem link direto de produto): banner, regra, descrição e "Ver itens da promoção".
+- Atender Pedido: a comemoração traz a mensagem da promoção para o WhatsApp (itens do combo com valor, De/Por e economia; sem saudação nem total), editável, com botão Copiar. O painel do garçom comemora sem a mensagem.
+- Atender Pedido: card "Mensagem para o cliente confirmar o pedido" (acompanha a tela: itens, totais, entrega, endereço, pagamento, observação; pedido gravado leva número e link de acompanhamento) e, depois de salvar, modal com a mensagem de pedido confirmado e o link (`App\Support\Pedido\MensagemPedidoWhatsapp`, componente `x-pedido.mensagem-whatsapp`). As três mensagens abrem com o primeiro nome do cliente quando informado ("Maria, seu pedido…"), sem saudação.
+
 ### Fase 4: saldo (Q7) e relatório
 - Quantidade limitada com UPDATE condicional + estorno nos pontos de cancelamento, limite por pedido no checkout, relatório de combos por período e reset da recorrência no `promocoes:resetar-recorrentes`.
 

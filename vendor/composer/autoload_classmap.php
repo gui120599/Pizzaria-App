@@ -1304,6 +1304,7 @@ return array(
     'App\\Support\\JanelaOperacional' => $baseDir . '/app/Support/JanelaOperacional.php',
     'App\\Support\\PaletaMarca' => $baseDir . '/app/Support/PaletaMarca.php',
     'App\\Support\\Pedido\\EtapasAcompanhamento' => $baseDir . '/app/Support/Pedido/EtapasAcompanhamento.php',
+    'App\\Support\\Pedido\\MensagemPedidoWhatsapp' => $baseDir . '/app/Support/Pedido/MensagemPedidoWhatsapp.php',
     'App\\Support\\Push\\EventoGarcom' => $baseDir . '/app/Support/Push/EventoGarcom.php',
     'App\\Support\\Push\\PayloadPush' => $baseDir . '/app/Support/Push/PayloadPush.php',
     'App\\Support\\Push\\PendenciaPush' => $baseDir . '/app/Support/Push/PendenciaPush.php',

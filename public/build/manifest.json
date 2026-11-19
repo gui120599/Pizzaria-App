@@ -24,27 +24,27 @@
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-c8sR3d1b.css",
+    "file": "assets/app-D0lSPZEG.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/cardapio.css": {
-    "file": "assets/cardapio-Cft_hnyg.css",
+    "file": "assets/cardapio-Cjmg9keD.css",
     "src": "resources/css/cardapio.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-CWfZ6C50.css",
+    "file": "assets/theme-C74gW-PX.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
   "resources/css/filament/cozinha/theme.css": {
-    "file": "assets/theme-DOUXOiZZ.css",
+    "file": "assets/theme-CZ59Tzjc.css",
     "src": "resources/css/filament/cozinha/theme.css",
     "isEntry": true
   },
   "resources/css/filament/garcom/theme.css": {
-    "file": "assets/theme-BMRWvOyN.css",
+    "file": "assets/theme-CIuQr00G.css",
     "src": "resources/css/filament/garcom/theme.css",
     "isEntry": true
   },
