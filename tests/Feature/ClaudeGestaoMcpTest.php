@@ -2,30 +2,52 @@
 
 namespace Tests\Feature;
 
+use App\Enums\MovimentacaoOrigemEnum;
+use App\Enums\Ponto\OrigemMarcacao;
 use App\Enums\StatusLancamento;
+use App\Enums\StonePedidoStatus;
 use App\Enums\TipoLancamento;
 use App\Filament\Widgets\FinanceiroStatsOverview;
 use App\Mcp\Servers\GestaoServer;
+use App\Mcp\Tools\Gestao\ChecklistsHoje;
 use App\Mcp\Tools\Gestao\ContasPagarReceber;
+use App\Mcp\Tools\Gestao\CortesiasPeriodo;
+use App\Mcp\Tools\Gestao\CustoInsumoHistorico;
 use App\Mcp\Tools\Gestao\DebitosClientes;
+use App\Mcp\Tools\Gestao\DesempenhoPromocoes;
+use App\Mcp\Tools\Gestao\ExcecoesPedidos;
 use App\Mcp\Tools\Gestao\FechamentoCaixa;
+use App\Mcp\Tools\Gestao\MargemProduto;
+use App\Mcp\Tools\Gestao\NotasFiscaisSituacao;
+use App\Mcp\Tools\Gestao\QuemEstaNoTurno;
+use App\Mcp\Tools\Gestao\RankingInfluenciadores;
 use App\Mcp\Tools\Gestao\RankingProdutos;
 use App\Mcp\Tools\Gestao\ResumoVendas;
+use App\Mcp\Tools\Gestao\SaldoEstoque;
 use App\Mcp\Tools\Gestao\SaldosContas;
 use App\Mcp\Tools\Gestao\SituacaoCaixaAgora;
+use App\Mcp\Tools\Gestao\TransacoesStonePendentes;
 use App\Models\Caixa;
 use App\Models\Categoria;
 use App\Models\Cliente;
+use App\Models\Colaborador;
+use App\Models\Escala;
 use App\Models\ContaFinanceira;
+use App\Models\FichaTecnicaItem;
 use App\Models\ItensVenda;
 use App\Models\Lancamento;
+use App\Models\MovimentacaoProduto;
+use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\SessaoCaixa;
+use App\Models\StonePedido;
 use App\Models\User;
 use App\Models\Venda;
+use App\Services\Ponto\PontoService;
 use App\Services\RelatorioFechamentoCaixaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Laravel\Passport\Passport;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -197,6 +219,78 @@ class ClaudeGestaoMcpTest extends TestCase
             ->assertSee('8877')
             ->assertDontSee('62999998877')
             ->assertSee('"vencido":80');
+    }
+
+    public function test_gerente_ve_estoque_equipe_e_fiscal_mas_nao_custo_historico_nem_stone(): void
+    {
+        foreach (['view_any:produto', 'view_any:ficha_tecnica', 'view:relatorio_excecoes_pedidos', 'conceder_cortesia:pedido', 'view_espelho:ponto', 'view:checklists_dashboard', 'view_any:nota_fiscal', 'view:custo_medio_historico', 'view_any:stone_pedido'] as $nome) {
+            Permission::firstOrCreate(['name' => $nome, 'guard_name' => 'web']);
+        }
+        Role::findByName('Gerente', 'web')->givePermissionTo(['view_any:produto', 'view_any:ficha_tecnica', 'view:relatorio_excecoes_pedidos', 'conceder_cortesia:pedido', 'view_espelho:ponto', 'view:checklists_dashboard', 'view_any:nota_fiscal']);
+        $gerente = User::factory()->gerente()->create(['name_first' => 'Gerente']);
+
+        Passport::actingAs($gerente, [], 'api');
+        $this->postJson('/mcp/gestao', ['jsonrpc' => '2.0', 'id' => 4, 'method' => 'tools/list'])
+            ->assertOk()
+            ->assertSee(['saldo_estoque', 'margem_produto', 'excecoes_pedidos', 'cortesias_periodo', 'quem_esta_no_turno', 'checklists_hoje', 'notas_fiscais_situacao', 'desempenho_promocoes'])
+            ->assertDontSee('custo_insumo_historico')
+            ->assertDontSee('transacoes_stone_pendentes');
+    }
+
+    public function test_estoque_custo_historico_e_margem_pela_ficha_tecnica(): void
+    {
+        $admin = User::factory()->admin()->create(['name_first' => 'Admin']);
+        $categoria = Categoria::create(['categoria_nome' => 'Insumos']);
+        $queijo = Produto::create(['produto_descricao' => 'Muçarela', 'produto_categoria_id' => $categoria->id, 'produto_tipo' => 'insumo', 'produto_unidade_estoque' => 'KG', 'produto_controla_estoque' => true, 'produto_saldo_estoque' => 4, 'produto_custo_medio' => 30]);
+        $pizza = Produto::create(['produto_descricao' => 'Pizza Muçarela', 'produto_categoria_id' => $categoria->id, 'produto_tipo' => 'produzido', 'produto_preco_venda' => 60]);
+        FichaTecnicaItem::create(['fti_produto_id' => $pizza->id, 'fti_insumo_id' => $queijo->id, 'fti_quantidade' => 0.4]);
+        MovimentacaoProduto::create(['mov_produto_id' => $queijo->id, 'mov_quantidade' => 2, 'mov_custo_unitario' => 25, 'mov_custo_total' => 50, 'mov_tipo' => 'ENTRADA', 'mov_origem' => MovimentacaoOrigemEnum::COMPRA, 'mov_saldo_apos' => 2, 'mov_custo_medio_apos' => 25, 'mov_data' => now()->subDays(20), 'mov_user_id' => $admin->id]);
+        MovimentacaoProduto::create(['mov_produto_id' => $queijo->id, 'mov_quantidade' => 2, 'mov_custo_unitario' => 35, 'mov_custo_total' => 70, 'mov_tipo' => 'ENTRADA', 'mov_origem' => MovimentacaoOrigemEnum::COMPRA, 'mov_saldo_apos' => 4, 'mov_custo_medio_apos' => 30, 'mov_data' => now()->subDays(2), 'mov_user_id' => $admin->id]);
+
+        GestaoServer::actingAs($admin)->tool(SaldoEstoque::class, ['busca' => 'Muçarela'])
+            ->assertOk()->assertSee('"saldo":4')->assertSee('"valor_em_estoque":120');
+
+        GestaoServer::actingAs($admin)->tool(CustoInsumoHistorico::class, ['busca' => 'Muçarela', 'inicio' => '2026-11-10'])
+            ->assertOk()->assertSee('"custo_medio_inicio":25')->assertSee('"custo_medio_fim":30')->assertSee('"variacao_pct":20');
+
+        GestaoServer::actingAs($admin)->tool(MargemProduto::class, ['busca' => 'pizza'])
+            ->assertOk()->assertSee('"custo_unitario":12')->assertSee('"margem":48')->assertSee('"cmv_pct":20');
+    }
+
+    public function test_promocoes_nfce_e_stone(): void
+    {
+        $admin = User::factory()->admin()->create(['name_first' => 'Admin']);
+        $pedido = Pedido::create(['pedido_status' => 'ENTREGUE', 'pedido_valor_total' => 89.9, 'pedido_datahora_abertura' => now()->subHour()]);
+        DB::table('pedido_combo_aplicacoes')->insert([
+            'pca_pedido_id' => $pedido->id, 'pca_chave' => 'combo-1', 'pca_nome' => '2 pizzas grandes', 'pca_quantidade' => 2,
+            'pca_preco' => 89.9, 'pca_valor_cheio' => 110, 'pca_desconto' => 20.1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        GestaoServer::actingAs($admin)->tool(DesempenhoPromocoes::class)
+            ->assertOk()->assertSee('2 pizzas grandes')->assertSee('"desconto":20.1');
+
+        $this->venda(50)->update(['venda_status_nfe' => 'Issued']);
+        $this->venda(30)->update(['venda_status_nfe' => 'Error']);
+
+        GestaoServer::actingAs($admin)->tool(NotasFiscaisSituacao::class)
+            ->assertOk()->assertSee('"autorizada":1')->assertSee('"falha":1')->assertSee('"status_nfe":"Error"');
+
+        StonePedido::create(['stp_valor_solicitado' => 42, 'stp_status' => StonePedidoStatus::Falha, 'stp_erro' => 'Maquininha offline']);
+        GestaoServer::actingAs($admin)->tool(TransacoesStonePendentes::class)
+            ->assertOk()->assertSee('Maquininha offline')->assertSee('"total":1');
+    }
+
+    public function test_equipe_checklists_excecoes_cortesias_e_influenciadores_respondem(): void
+    {
+        $admin = User::factory()->admin()->create(['name_first' => 'Admin']);
+        $colaborador = Colaborador::factory()->comEscala(Escala::factory()->livre()->create())->create(['nome' => 'Ana Pizzaiola']);
+        app(PontoService::class)->registrarMarcacao($colaborador, OrigemMarcacao::App);
+
+        GestaoServer::actingAs($admin)->tool(QuemEstaNoTurno::class)->assertOk()->assertSee('Ana Pizzaiola');
+        GestaoServer::actingAs($admin)->tool(ChecklistsHoje::class)->assertOk()->assertSee('nao_conformidades_pendentes');
+        GestaoServer::actingAs($admin)->tool(ExcecoesPedidos::class)->assertOk()->assertSee('cancelamentos_por_motivo');
+        GestaoServer::actingAs($admin)->tool(CortesiasPeriodo::class)->assertOk()->assertSee('totais');
+        GestaoServer::actingAs($admin)->tool(RankingInfluenciadores::class)->assertOk()->assertSee('influenciadores');
     }
 
     private function venda(float $total, ?Carbon $quando = null, string $status = 'FINALIZADA'): Venda

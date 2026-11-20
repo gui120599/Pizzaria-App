@@ -2,6 +2,7 @@
 
 namespace App\Mcp\Tools\Gestao;
 
+use App\Models\Produto;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -76,6 +77,35 @@ abstract class FerramentaGestao extends Tool
         }
 
         return [$inicio, $fim];
+    }
+
+    /**
+     * Produto pelo `produto_id` ou pela `busca` (nome). Nome ambíguo devolve
+     * os candidatos para o Claude perguntar qual é.
+     *
+     * @throws ValidationException
+     */
+    protected function produto(Request $request): Produto
+    {
+        $dados = $request->validate([
+            'produto_id' => ['nullable', 'integer', 'required_without:busca'],
+            'busca' => ['nullable', 'string', 'min:2', 'max:100'],
+        ], ['produto_id.required_without' => 'Informe produto_id ou busca (nome do produto).']);
+
+        if (filled($dados['produto_id'] ?? null)) {
+            return Produto::query()->findOr($dados['produto_id'], fn () => throw ValidationException::withMessages(['produto_id' => 'Produto não encontrado.']));
+        }
+
+        $candidatos = Produto::query()->where('produto_descricao', 'like', '%'.$dados['busca'].'%')->orderBy('produto_descricao')->limit(10)->get();
+        $exato = $candidatos->first(fn (Produto $p): bool => mb_strtolower($p->produto_descricao) === mb_strtolower((string) $dados['busca']));
+
+        return match (true) {
+            $exato !== null => $exato,
+            $candidatos->count() === 1 => $candidatos->first(),
+            $candidatos->isEmpty() => throw ValidationException::withMessages(['busca' => 'Nenhum produto com esse nome.']),
+            default => throw ValidationException::withMessages(['busca' => 'Mais de um produto encontrado — chame de novo com produto_id: '
+                .$candidatos->map(fn (Produto $p): string => "{$p->id} = {$p->produto_descricao}")->implode('; ')]),
+        };
     }
 
     /** @return array{inicio: string, fim: string} */

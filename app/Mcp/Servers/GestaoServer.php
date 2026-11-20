@@ -2,13 +2,24 @@
 
 namespace App\Mcp\Servers;
 
+use App\Mcp\Tools\Gestao\ChecklistsHoje;
 use App\Mcp\Tools\Gestao\ContasPagarReceber;
+use App\Mcp\Tools\Gestao\CortesiasPeriodo;
+use App\Mcp\Tools\Gestao\CustoInsumoHistorico;
 use App\Mcp\Tools\Gestao\DebitosClientes;
+use App\Mcp\Tools\Gestao\DesempenhoPromocoes;
+use App\Mcp\Tools\Gestao\ExcecoesPedidos;
 use App\Mcp\Tools\Gestao\FechamentoCaixa;
+use App\Mcp\Tools\Gestao\MargemProduto;
+use App\Mcp\Tools\Gestao\NotasFiscaisSituacao;
+use App\Mcp\Tools\Gestao\QuemEstaNoTurno;
+use App\Mcp\Tools\Gestao\RankingInfluenciadores;
 use App\Mcp\Tools\Gestao\RankingProdutos;
 use App\Mcp\Tools\Gestao\ResumoVendas;
+use App\Mcp\Tools\Gestao\SaldoEstoque;
 use App\Mcp\Tools\Gestao\SaldosContas;
 use App\Mcp\Tools\Gestao\SituacaoCaixaAgora;
+use App\Mcp\Tools\Gestao\TransacoesStonePendentes;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
@@ -33,5 +44,16 @@ class GestaoServer extends Server
         ContasPagarReceber::class,
         SaldosContas::class,
         DebitosClientes::class,
+        SaldoEstoque::class,
+        CustoInsumoHistorico::class,
+        MargemProduto::class,
+        ExcecoesPedidos::class,
+        CortesiasPeriodo::class,
+        QuemEstaNoTurno::class,
+        ChecklistsHoje::class,
+        DesempenhoPromocoes::class,
+        RankingInfluenciadores::class,
+        NotasFiscaisSituacao::class,
+        TransacoesStonePendentes::class,
     ];
 }
