@@ -2,6 +2,7 @@
 
 namespace App\Mcp\Servers;
 
+use App\Mcp\Prompts\Compras\LancarCompraAvulsa;
 use App\Mcp\Tools\Compras\Avulsa\BuscarFornecedores;
 use App\Mcp\Tools\Compras\Avulsa\ConfirmarCompraAvulsa;
 use App\Mcp\Tools\Compras\Avulsa\DescartarRascunho;
@@ -31,5 +32,10 @@ class CompraAvulsaServer extends Server
         PrepararCompraAvulsa::class,
         ConfirmarCompraAvulsa::class,
         DescartarRascunho::class,
+    ];
+
+    /** Atalho no menu do Claude (G4). */
+    protected array $prompts = [
+        LancarCompraAvulsa::class,
     ];
 }

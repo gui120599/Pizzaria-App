@@ -85,7 +85,7 @@ Para os resumos das rotinas, reaproveitar o padrão `registrar_resumo` + tela de
 | G1 | Servidor `/mcp/gestao` com as tools da seção A, começando por vendas, caixa, financeiro e fiado | G0 (reaproveita auth e middleware de humano) |
 | G2 | Rotinas da seção C (resumo do dia e sugestão de compras) + "relatórios do Claude" | G1 |
 | G3 | Ações confirmadas da seção B (despesa avulsa, cardápio, promoção, aprovar sugestões, contagem) — **implementado** | G1 + padrão rascunho da Fase 5 |
-| G4 | Prompts MCP e, se fizer sentido, MCP Apps | G1 |
+| G4 | Prompts MCP e, se fizer sentido, MCP Apps — **implementado** | G1 |
 
 Cada etapa vira uma fase com checkpoint, no padrão dos planos de `docs/planos/`. Este documento é o roteiro.
 
@@ -288,4 +288,36 @@ No Claude, o conector "PizzariaAPP Gestão" já existente passa a listar as tool
 - "Quais sugestões do agente estão esperando? Aprova as de confiança acima de 90%."
 - (foto da folha de contagem) "Lança essa contagem do estoque de frios."
 
-**Próxima etapa:** G4 (prompts MCP prontos no menu do Claude e, se fizer sentido, cartões interativos/MCP Apps).
+---
+
+## G4 — atalhos no menu e cartão interativo: implementado (2026-11-24)
+
+**Atalhos (prompts MCP).** No Claude, aparecem no menu "+" › conector (ou digitando `/`). Cada atalho só aparece para quem pode usar as ferramentas que ele chama, e só monta o roteiro da conversa: não lê nem grava nada sozinho.
+
+| Atalho | Conector | Quem vê | O que faz |
+|---|---|---|---|
+| Fechamento do dia (`data`) | Gestão | quem vê alguma seção do resumo_do_dia | resumo_do_dia + anomalias → vendas, caixa e pontos de atenção |
+| Análise da semana (`semana`) | Gestão | `view:financeiro_dashboard` | semana × anterior: números, produtos, promoções, controle e 3 recomendações |
+| Lista de compras (`dias`) | Gestão | `view_any:compra` | sugestao_compras por fornecedor + versão para WhatsApp |
+| Lançar despesa | Gestão | ação Despesa | foto do boleto → opcoes_despesa → preparar_despesa → "sim" |
+| Produto acabou (`produto`, `ate`) | Gestão | ação Pausa | acha os produtos → preparar_pausa_produto → "sim" |
+| Contagem de estoque | Gestão | ação Contagem | foto da folha → confere unidades → preparar_contagem_estoque → "sim" |
+| Revisar sugestões do agente | Gestão | ação Aprovar sugestões | sugestoes_agente em tabela → escolhe → preparar_aprovacao_sugestoes → "sim" |
+| Lançar compra avulsa | Compras Avulsas | `compras.avulsa` | cupom → preparar_compra_avulsa → "sim" → link do comprovante |
+
+**Cartão "Painel do dia" (MCP App).**
+- A tool `painel_do_dia(data)` devolve os mesmos dados e permissões do resumo_do_dia (padrão: hoje, parcial) e pede ao Claude para mostrar o cartão `ui://painel-do-dia` (`App\Mcp\Apps\PainelDoDiaApp`, view `resources/views/mcp/painel-do-dia.blade.php`).
+- **O cartão mostra:**
+  - faturamento com ▲/▼ contra a semana passada;
+  - vendas, ticket médio, margem e os mais vendidos;
+  - caixa (recebido e fiado);
+  - pontos de atenção: diferença de caixa, NFC-e, Stone, compras a confirmar, contas e cancelamentos.
+- **Botões:** ◀ ▶ para navegar entre os dias, "Atualizar", "Pedir análise ao Claude" (manda a pergunta no chat) e "Abrir no painel" (dashboard financeiro).
+- É HTML autocontido, sem CDN, e segue o tema claro/escuro do Claude. Se o app do Claude não exibir cartões, a tool responde normalmente em texto/JSON.
+- **Exemplo:** "me mostra o painel de hoje" / "como está o dia?".
+
+**Testes:** `tests/Feature/ClaudeGestaoAtalhosTest.php`.
+
+**Deploy:** só código (sem migration): `git pull`, `config:cache`, `view:clear` e reset do OPcache. No Claude, reconecte os conectores "PizzariaAPP Gestão" e "PizzariaAPP Compras Avulsas" se os atalhos não aparecerem.
+
+**Roteiro G0–G4 concluído.**

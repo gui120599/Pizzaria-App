@@ -38,17 +38,28 @@ class ResumoDoDia extends FerramentaGestao
 
     protected function permitido(User $usuario): bool
     {
-        return collect(self::SECOES)->contains(fn (string $permissao): bool => Gate::forUser($usuario)->allows($permissao));
+        return self::algumaSecao($usuario);
     }
 
     protected function executar(Request $request): Response
     {
         $data = $request->validate(['data' => ['nullable', 'date_format:Y-m-d']])['data'] ?? null;
-        $dia = $data ? Carbon::parse($data) : today()->subDay();
-        $rotinas = app(RotinasGestaoService::class);
-        $pode = fn (string $secao): bool => Gate::forUser($request->user())->allows(self::SECOES[$secao]);
 
-        return Response::json(array_filter([
+        return Response::json(self::pacote($data ? Carbon::parse($data) : today()->subDay(), $request->user()));
+    }
+
+    /**
+     * Pacote do dia com só as seções que o perfil pode ver (também usado pelo
+     * cartão painel_do_dia).
+     *
+     * @return array<string, mixed>
+     */
+    public static function pacote(Carbon $dia, User $usuario): array
+    {
+        $rotinas = app(RotinasGestaoService::class);
+        $pode = fn (string $secao): bool => Gate::forUser($usuario)->allows(self::SECOES[$secao]);
+
+        return array_filter([
             'data' => $dia->toDateString(),
             'dia_da_semana' => $dia->locale('pt_BR')->dayName,
             'vendas' => $pode('vendas') ? $rotinas->vendasDoDia($dia) : null,
@@ -58,6 +69,12 @@ class ResumoDoDia extends FerramentaGestao
             'stone_travadas_7_dias' => $pode('stone') ? $rotinas->stoneTravadas() : null,
             'compras' => $pode('compras') ? $rotinas->comprasEmAberto() : null,
             'contas_a_pagar' => $pode('contas') ? $rotinas->contasProximas() : null,
-        ], fn (mixed $valor): bool => $valor !== null));
+        ], fn (mixed $valor): bool => $valor !== null);
+    }
+
+    /** O perfil vê alguma seção do resumo. */
+    public static function algumaSecao(User $usuario): bool
+    {
+        return collect(self::SECOES)->contains(fn (string $permissao): bool => Gate::forUser($usuario)->allows($permissao));
     }
 }
