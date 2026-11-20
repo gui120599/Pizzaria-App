@@ -146,9 +146,39 @@ Cada etapa vira uma fase com checkpoint, no padrão dos planos de `docs/planos/`
    - "O que vence esta semana e quanto tenho nas contas?"
    - "Quem me deve fiado há mais tempo?"
 
-**Próximo lote da G1** (mesmo padrão):
-- estoque e CMV (`saldo_estoque`, `custo_insumo_historico`, `margem_produto`);
-- exceções (`excecoes_pedidos`, `cortesias_periodo`);
-- equipe (ponto e checklists);
-- promoções e influenciadores;
-- fiscal e Stone.
+## G1 — segundo lote: implementado (2026-11-21)
+
+| Tool | O que responde | Mesma conta de | Permissão |
+|---|---|---|---|
+| `saldo_estoque(busca, tipo, somente_zerados, limite)` | saldo, custo médio e valor em estoque, do menor saldo para o maior | cadastro de produtos | `view_any:produto` |
+| `custo_insumo_historico(produto_id/busca, inicio, fim)` | custo médio no início e no fim do período + compras do período | página Custo médio histórico (`mov_custo_medio_apos`) | `view:custo_medio_historico` |
+| `margem_produto(produto_id/busca)` | custo pela ficha técnica (custo médio atual), preço, margem e CMV % | `Produto::custoUnitario()` | `view_any:ficha_tecnica` |
+| `excecoes_pedidos(inicio, fim)` | cancelamentos por motivo e por usuário, itens removidos, descontos, cortesias, excluídos e não pagos | `RelatorioExcecoesPedidosService` | `view:relatorio_excecoes_pedidos` |
+| `cortesias_periodo(inicio, fim, busca)` | cortesias com produto, valor de tabela, custo, motivo e autorizador | `RelatorioCortesiasService` | `conceder_cortesia:pedido` |
+| `quem_esta_no_turno()` | ponto aberto agora + escalados que ainda não bateram a entrada | widget "Trabalhando agora" + escala | `view_espelho:ponto` |
+| `checklists_hoje()` | checklists do dia (status, progresso, quem iniciou) + não conformidades pendentes | widget "Checklists de hoje" | `view:checklists_dashboard` |
+| `desempenho_promocoes(inicio, fim)` | Relâmpago e Produto Adicional (itens e valor) e Combo (aplicações, valor e desconto) em pedidos não cancelados | itens dos pedidos e `pedido_combo_aplicacoes` | `view:financeiro_dashboard` |
+| `ranking_influenciadores(inicio, fim)` | cliques, pedidos, vendas, comissões e saldo de cada influenciador | `RelatorioInfluenciadoresService` | `view:relatorio_influenciadores` |
+| `notas_fiscais_situacao(inicio, fim)` | NFC-e por situação + vendas com falha ou pendentes de envio | `Venda::scopeSituacaoNfe` | `view_any:nota_fiscal` |
+| `transacoes_stone_pendentes(dias)` | cobranças Stone com falha, indeterminadas ou aguardando há mais de 30 min | pedidos Stone | `view_any:stone_pedido` |
+
+**Base das tools:** `FerramentaGestao::produto()` aceita `produto_id` ou o nome. Quando o nome é ambíguo, devolve os candidatos para o Claude perguntar qual é.
+
+**Com as permissões de produção:**
+- o **Gerente** vê estoque, margem, exceções, cortesias, equipe, checklists, NFC-e, promoções e influenciadores;
+- **custo histórico**, **Stone**, **contas** e **saldos** ficam só com o Admin, como no painel.
+
+**Testes:** `ClaudeGestaoMcpTest`, com 10 testes no total.
+
+**Perguntas para testar:**
+- "Quais insumos estão zerados?"
+- "Quanto subiu a muçarela nos últimos 3 meses?"
+- "Quanto me custa uma pizza calabresa grande e qual a margem?"
+- "Quem cancelou mais pedidos esta semana?"
+- "Quem está trabalhando agora e quem faltou?"
+- "Os checklists de abertura foram feitos?"
+- "Quanto vendeu o combo de 2 pizzas este mês?"
+- "Tem NFC-e com erro hoje?"
+- "Alguma cobrança da Stone travada?"
+
+A G1 está completa. A próxima etapa é a **G2**: rotinas automáticas (resumo do dia, sugestão de compras, anomalias e relatórios no Cowork).
