@@ -2,8 +2,10 @@
 
 > **Para o Claude Code.** Este arquivo é autocontido: a **Parte A** diz como trabalhar e o que entregar em cada fase; a **Parte B** é a especificação completa do módulo. Leia o arquivo inteiro antes de começar.
 >
-> Salvar no repositório em `docs/planos/compras-automatizadas.md` e iniciar a sessão com:
-> *"Leia `docs/planos/compras-automatizadas.md` e execute a Fase 0."*
+> Salvar no repositório em `docs/planos/compras-automatizadas.md` (substituindo a versão anterior) e iniciar a sessão com:
+> *"Leia `docs/planos/compras-automatizadas.md` e execute a Fase 5."* (ou a próxima fase ainda não implementada)
+>
+> **Revisão 3 (13/11/2026):** acesso a compras só para admin e gerente (Gates); permissões por perfil ficam para o futuro. **Revisão 2:** nova **Fase 5 — compras avulsas sem NF-e** pelo MCP (Parte B §14 e §9.2). Se as Fases 0–3 já estiverem implementadas, comece direto pela Fase 5: rode só a verificação 5.0 antes de codificar.
 
 ---
 
@@ -95,6 +97,27 @@ Investigar e responder, citando arquivos e linhas:
 
 ➡️ **CHECKPOINT 4** — entregar checklist de ativação em produção (homologação → produção BB, `regra_baixa = por_conciliacao` nos fornecedores de boleto).
 
+### Fase 5 — Compras avulsas sem NF-e (independe da Fase 4)
+
+**5.0 Verificação rápida (somente leitura)** — registrar em `docs/planos/compras-automatizadas-fase5.md`:
+- o que das Fases 1–3 já existe e os nomes reais usados (ex.: o código pode chamar lançamento de "título a pagar" — seguir o nome real);
+- `fornecedores.cnpj` aceita null? como o `produto_fornecedor_vinculos` e o `ProdutoMatcher` ficaram implementados;
+- como o servidor MCP autentica hoje e se dá para filtrar tools por permissão do usuário autenticado (`shouldRegister` ou autorização por tool no `laravel/mcp` instalado);
+- fluxo real de baixa e do `CaixaPdvBridge` (sessão aberta, retirada vinculada);
+- plano ajustado + perguntas. ➡️ **CHECKPOINT 5.0**.
+
+**5.1 Implementação**
+- Migrations/enums de B §6–§7 marcados "Fase 5" (`compra_rascunhos`, `compra_anexos`, `tipo_chave` no de-para, `avulso`/`cnpj` nullable em fornecedores, `origem = avulsa`).
+- `NormalizadorDescricao`, `ProdutoMatcher::identificarPorDescricao()`, `CompraAvulsaService` (preparar / confirmar / descartar) com as regras de B §14.3 e a transação de B §14.4.
+- **Novo servidor** `CompraAvulsaServer` em `/mcp/compras-avulsa` (B §9.2 — "Dois servidores, dois conectores"), com as tools de B §9.2 em `app/Mcp/Tools/Compras/Avulsa/` + `buscar_produtos` reaproveitada, protegido por `auth:api` + Gate `compras.avulsa` e recusando tokens do usuário `Agente Compras`. O `ComprasServer` (`/mcp/compras`) fica **intacto**, sem nenhuma tool nova. `instructions` do novo servidor com o texto de B §9.2.
+- Gates de compras da B §8 (admin e gerente nesta versão), definidos num único `ComprasGateServiceProvider` (ou no provider de auth existente); tools, resources e páginas checam só o Gate. Garantir que o usuário `Agente Compras` **não** passa em `compras.avulsa` nem em `compras.pagamentos.confirmar`. Permissões configuráveis por perfil **não** fazem parte desta fase.
+- Página de anexo de comprovante (link assinado 24 h, mobile-first, só imagem até 10 MB) e ajustes do Filament de B §14.5.
+- Testes de B §14.6.
+
+**Critério de aceite:** com um usuário gerente autenticado no conector, a sequência `buscar_fornecedores` → `preparar_compra_avulsa` → `confirmar_compra_avulsa` gera exatamente uma compra `avulsa`, um título pago e uma movimentação na conta escolhida (com retirada na sessão quando for Caixa PDV); o usuário `Agente Compras` recebe 403 e não vê essas tools.
+
+➡️ **CHECKPOINT 5** — incluir um roteiro de teste pelo Claude no celular (foto de cupom → confirmação → anexo).
+
 ## A.4 Formato de cada checkpoint
 
 Ao parar, responder com:
@@ -110,7 +133,9 @@ Ao parar, responder com:
 
 # Módulo Compras Automatizadas (NF-e de entrada + Agente) — PizzariaAPP
 
-> Objetivo: as notas de compra entram sozinhas no sistema, os produtos são reconhecidos, o contas a pagar é gerado e baixado conforme o **perfil de pagamento de cada fornecedor**, e só o que for ambíguo vai para o agente (Claude) ou para o Guilherme.
+> Objetivo: as notas de compra entram sozinhas no sistema, os produtos são reconhecidos, o contas a pagar é gerado e baixado conforme o **perfil de pagamento de cada fornecedor**, e só o que for ambíguo vai para o agente (Claude) ou para o Guilherme. **Compras avulsas sem NF-e** (mercado, feira, açougue, pagas em dinheiro) são lançadas conversando com o Claude: foto do cupom/recibo ou mensagem → rascunho → confirmação → compra + título financeiro (§14).
+>
+> **Revisão 3 (13/11/2026):** acesso a compras só para admin e gerente, via Gates (§8); permissões configuráveis por perfil ficam para o futuro (§13). **Revisão 2:** compras avulsas via MCP (§14, RF18–RF25, §9.2).
 > Pré-requisitos: **Módulo Contas Financeiras** (baixa com conta de origem + `MovimentacaoService`) e a integração de **Manifestação do Destinatário / Distribuição DF-e** já existente.
 > Stack: Laravel 12 · Filament 4 · Livewire 3 · MySQL · `laravel/mcp` + `laravel/passport` · Pest. Mesmas regras de código das specs de ponto e contas financeiras (SoftDeletes, Observers de auditoria, enums em `app/Enums/`, nomes em português).
 
@@ -126,8 +151,10 @@ Ao parar, responder com:
 | **Agente** | Claude, rodando como tarefa agendada, que lê e resolve pendências por um conector MCP do sistema | Vincula "MUSS FAT 4KG" à Muçarela com 97% de confiança |
 | **Regra de baixa** | Quando o contas a pagar da compra é considerado pago | PIX à vista → pago na emissão; boleto BB → quando aparecer no extrato |
 | **Extrato bancário** | Linhas do extrato do Banco do Brasil importadas pela API, usadas para conciliar boletos pagos | "PAGTO COBRANCA – R$ 1.284,50 – 12/11" |
+| **Compra avulsa** | Compra sem NF-e, informada por foto ou mensagem, normalmente paga em dinheiro na hora | "Açougue do Zé: 5 kg calabresa R$ 140, 3 kg bacon R$ 105 — pago do Cofre" |
+| **Rascunho de compra** | Prévia calculada pelo sistema (produtos reconhecidos, custos, alertas) que só vira compra quando um humano confirma | Rascunho válido por 30 min, confirmado na conversa |
 
-**Princípio central:** o que é regra fica no sistema (determinístico, testável); o que é julgamento fica com o agente; **o agente nunca movimenta dinheiro** — baixa só acontece por regra do fornecedor, por conciliação com o extrato ou por confirmação humana.
+**Princípio central:** o que é regra fica no sistema (determinístico, testável); o que é julgamento fica com o agente; **o agente nunca movimenta dinheiro por conta própria** — baixa só acontece por regra do fornecedor, por conciliação com o extrato ou por **confirmação humana explícita** (no painel ou, na compra avulsa, na própria conversa, autenticada como o usuário humano). A tarefa agendada (usuário `Agente Compras`) nunca tem acesso às tools de compra avulsa.
 
 ---
 
@@ -146,6 +173,7 @@ Ao parar, responder com:
 | Dar baixa | ✅ por regra do fornecedor ou conciliação exata | ❌ nunca | ✅ confirma em lote o que sobrar |
 | Configurar fornecedor | — | ❌ | ✅ |
 | Resumo diário | — | ✅ | lê |
+| Compra avulsa (sem NF-e) | ✅ calcula rascunho, grava compra, título e baixa | ✅ lê foto/mensagem, monta itens, pergunta o que faltar | ✅ confirma o resumo na conversa |
 
 ---
 
@@ -197,6 +225,14 @@ Ao parar, responder com:
 | RF15 | Entrada no estoque só quando todos os itens da compra estiverem resolvidos, com **custo de aquisição completo** (§8.12) |
 | RF16 | Importação diária do extrato da conta Banco do Brasil pela API Extratos, idempotente |
 | RF17 | Conciliação automática de parcelas `por_conciliacao` com o extrato quando a correspondência for única e exata |
+| RF18 | Lançar compra avulsa (sem NF-e) pelo Claude a partir de foto de cupom/recibo/lista ou mensagem de texto, com fornecedor, itens, quantidades e valores |
+| RF19 | Toda compra avulsa passa por **rascunho** (prévia com produtos reconhecidos, custos e alertas) antes de ser gravada |
+| RF20 | A confirmação grava, numa única transação: compra (`origem = avulsa`), itens, título financeiro (lançamento a pagar) e, se `pago`, a baixa com a conta de origem escolhida |
+| RF21 | Pagamento em dinheiro do **Caixa PDV** exige sessão aberta e registra a retirada na sessão (para o fechamento bater); do **Cofre** ou outra conta, não toca a sessão |
+| RF22 | Fornecedor avulso (sem CNPJ) pode ser cadastrado na própria conversa, com confirmação |
+| RF23 | Itens reconhecidos por de-para de **descrição** por fornecedor; cada confirmação ensina o sistema para a próxima compra |
+| RF24 | Alerta de possível duplicidade (mesmo fornecedor, mesmo total, mesma data) antes de confirmar |
+| RF25 | Só usuários humanos com a permissão `compras.avulsa` usam essas tools; cada compra fica registrada no nome de quem confirmou |
 
 ---
 
@@ -477,6 +513,11 @@ sequenceDiagram
 | `StatusCompraImportada` | `importada`, `com_pendencias`, `conferida`, `cancelada` |
 | `OrigemVinculo` | `manual`, `agente`, `ean` |
 | `StatusConciliacaoExtrato` (`app/Enums/Financeiro/`) | `pendente`, `conciliado`, `ambiguo`, `sem_correspondencia`, `ignorado` |
+| `OrigemCompra` | `manual`, `dfe`, `avulsa` |
+| `TipoChaveVinculo` | `codigo` (cProd da NF-e), `descricao` (texto normalizado da compra avulsa) |
+| `SituacaoPagamentoAvulsa` | `pago` (baixa na confirmação), `a_pagar` (título em aberto com vencimento — ex.: "fiado" no açougue) |
+| `StatusRascunhoCompra` | `aberto`, `confirmado`, `expirado`, `descartado` |
+| `OrigemInformacaoAvulsa` | `imagem`, `mensagem`, `misto` |
 
 ---
 
@@ -494,12 +535,19 @@ sequenceDiagram
 
 **Passport** — migrations `oauth_*` do `laravel/passport` (Fase 3).
 
+**`compra_rascunhos`** (Fase 5) — `uuid` char(36) unique; `user_id` FK users (quem está na conversa); `fornecedor_id` FK nullable; `fornecedor_novo` json nullable (nome, telefone, observação — para fornecedor avulso ainda não cadastrado); `entrada` json (o que o Claude enviou); `previa` json (o que o sistema calculou: itens com produto/fator/custo, totais, alertas); `status` string(15); `expira_em` datetime; `confirmado_em` datetime nullable; `compra_id` FK nullable; timestamps. Sem softDeletes (rascunho expirado é descartável; job limpa após 30 dias).
+
+**`compra_anexos`** (Fase 5) — `compra_id` FK; `caminho` string; `mime` string(60); `tamanho` int; `enviado_por` FK users; `token_upload` char(40) unique nullable + `token_expira_em`; timestamps + softDeletes. Guarda a foto do cupom/recibo.
+
 **Alterações em tabelas existentes** (somente colunas nullable novas, nomes reais a confirmar na Fase 0):
 - `compras`: `chave_acesso` char(44) **unique** nullable, `status_importacao` string(20), `xml_path` string, `origem` string(10) (`manual`/`dfe`).
 - `compra_itens`: `codigo_fornecedor`, `ean`, `descricao_fornecedor`, `unidade_fornecedor`, `quantidade_fornecedor`, `vinculo_id` FK nullable, `custo_aquisicao_total` decimal(12,2), `custo_unitario_aquisicao` decimal(12,4).
 - `lancamentos`: `compra_id` FK nullable (se ainda não existir vínculo).
 - `produtos`: `ean` (se não existir), `cadastro_pendente_revisao` bool default false, `origem_cadastro` string(10).
 - `contas_financeiras`: `integracao` string(20) nullable (`banco_brasil`), `ultimo_extrato_em` date nullable.
+- `produto_fornecedor_vinculos` (Fase 5): `tipo_chave` string(10) default `codigo`; trocar o unique para (`fornecedor_id`, `tipo_chave`, `codigo_fornecedor`) — na compra avulsa, `codigo_fornecedor` guarda a **descrição normalizada** (minúsculas, sem acento, sem pontuação, espaços únicos).
+- `fornecedores` (Fase 5): confirmar na leitura se `cnpj` aceita null; se não, permitir (nullable) para fornecedor avulso + coluna `avulso` bool default false.
+- `compras` (Fase 5): `origem` passa a aceitar `avulsa`; `registrado_por` FK users (se não existir); `origem_informacao` string(10) nullable.
 
 **Usuário técnico** `Agente Compras` (seeder), papel `agente`: tudo que o agente fizer fica com `registrado_por`/`resolvida_por` = esse usuário, auditado pelos Observers existentes.
 
@@ -540,15 +588,20 @@ sequenceDiagram
 
 ### Permissões
 
-| Ação | admin | gerente | agente |
-|---|---|---|---|
-| Editar parâmetros de fornecedor | ✅ | ❌ | ❌ |
-| Ver/resolver pendências | ✅ | ✅ | ✅ (via MCP) |
-| Aprovar sugestões do agente | ✅ | ✅ | ❌ |
-| Confirmar pagamentos em lote | ✅ | ✅ | ❌ |
-| Editar de-para | ✅ | ✅ | só criar (via sugestão) |
-| Revisar produtos criados pelo agente | ✅ | ❌ | ❌ |
-| Configurar integração BB / ver extrato | ✅ | ❌ | ❌ |
+Nesta versão, só **admin** e **gerente** acessam o módulo de compras. O código checa **Gates** com nome de permissão (`Gate::define('compras.avulsa', fn (User $u) => $u->temPerfil(['admin', 'gerente']))` — usar o helper real de perfis do projeto), nunca o nome do perfil espalhado pelo código. Assim, no futuro, basta trocar a definição dos Gates por permissões configuráveis (§13).
+
+| Gate | O que libera | admin | gerente | Agente Compras |
+|---|---|---|---|---|
+| `compras.ver` | Ver compras, itens, anexos, caixa de entrada | ✅ | ✅ | via MCP (leitura) |
+| `compras.pendencias.resolver` | Resolver pendências e aprovar sugestões do agente | ✅ | ✅ | só propor (MCP) |
+| `compras.avulsa` | Lançar compra avulsa pelo Claude ou pelo painel | ✅ | ✅ | ❌ nunca |
+| `compras.pagamentos.confirmar` | Confirmar pagamentos em lote / baixa de títulos de compra | ✅ | ✅ | ❌ nunca |
+| `compras.devpara.editar` | Editar/excluir de-para | ✅ | ✅ | só criar (via sugestão) |
+| `compras.fornecedores.parametros` | Editar parâmetros de compra do fornecedor | ✅ | ❌ | ❌ |
+| `compras.produtos.revisar` | Revisar produtos criados pelo agente | ✅ | ❌ | ❌ |
+| `financeiro.extrato` | Configurar integração BB / ver extrato | ✅ | ❌ | ❌ |
+
+Regra fixa: o usuário `Agente Compras` nunca passa em `compras.avulsa` nem em `compras.pagamentos.confirmar`; um teste garante isso.
 
 ---
 
@@ -598,6 +651,60 @@ Mcp::web('/mcp/compras', ComprasServer::class)
 
 Horário sugerido: uma vez por dia antes da rotina de compras (ex.: 9h40), e opcionalmente às 16h40.
 
+### 9.2 Tools de compra avulsa (Fase 5)
+
+**Quem usa:** usuários **humanos** que conectam o mesmo conector no próprio Claude (celular ou desktop) e fazem login com **o próprio usuário do PizzariaAPP** (OAuth). Cada tool abaixo exige o Gate `compras.avulsa` (nesta versão: admin e gerente). O usuário `Agente Compras` **não** recebe essa permissão — a tarefa agendada nunca lança compra nem movimenta caixa. A lista de tools que o servidor anuncia é filtrada pela permissão do usuário autenticado (`shouldRegister`/autorização por tool), então a tarefa agendada nem enxerga estas tools.
+
+**Dois servidores, dois conectores.** Uma conta do Claude guarda **um login por conector**. Se as tools de avulsa ficassem no mesmo `/mcp/compras` usado pela tarefa agendada (logado como `Agente Compras`), o Guilherme não conseguiria usá-las com o próprio usuário; e se ele logasse como admin nesse conector, a tarefa agendada passaria a rodar como admin. Por isso:
+
+| Servidor | Rota | Login no conector | Tools |
+|---|---|---|---|
+| `ComprasServer` (existente) | `/mcp/compras` | `Agente Compras` | só as da §9 (pendências, sugestões, resumo) |
+| `CompraAvulsaServer` (novo) | `/mcp/compras-avulsa` | usuário humano (admin/gerente) | as desta seção + `buscar_produtos` (reaproveitada) |
+
+- O `/mcp/compras-avulsa` recusa (403) qualquer token do usuário `Agente Compras`, e o `/mcp/compras` continua sem nenhuma tool que grave compra ou movimente dinheiro.
+- **Risco residual:** a tarefa agendada roda na mesma conta do Claude e poderia, em tese, enxergar o conector de avulsa. Mitigações: o prompt da tarefa manda usar só o conector "PizzariaAPP Compras (Agente)"; `confirmar_compra_avulsa` exige um `rascunho_uuid` preparado pelo mesmo usuário; toda compra avulsa fica auditada com quem a confirmou e pode ser estornada pelo painel. Se a tarefa agendada puder ser configurada com só um conector, configurar só o do agente.
+
+| Tool | Tipo | O que faz |
+|---|---|---|
+| `buscar_fornecedores(termo)` | leitura | Por nome, apelido, telefone ou CNPJ; devolve parâmetros de compra e observações |
+| `listar_contas_pagamento()` | leitura | Contas financeiras ativas que podem pagar em dinheiro/PIX (Caixa PDV com indicação de sessão aberta, Cofre, contas digitais), com saldo |
+| `preparar_compra_avulsa(...)` | escrita (só rascunho) | Recebe fornecedor, data, itens, pagamento; devolve `rascunho_uuid` + **prévia** (ver abaixo). Pode ser chamada de novo com o mesmo `rascunho_uuid` para corrigir |
+| `confirmar_compra_avulsa(rascunho_uuid)` | escrita (grava e movimenta) | Só aceita rascunho `aberto`, não expirado, do **mesmo usuário**; grava tudo numa transação (§14.4); idempotente (confirmar de novo devolve a mesma compra) |
+| `descartar_rascunho(rascunho_uuid)` | escrita | Descarta sem gravar nada |
+
+**Entrada de `preparar_compra_avulsa`:**
+
+```json
+{
+  "rascunho_uuid": null,
+  "fornecedor_id": 12,
+  "fornecedor_novo": null,
+  "data_compra": "2026-11-13",
+  "origem_informacao": "imagem",
+  "itens": [
+    {"descricao": "Calabresa defumada", "quantidade": 5, "unidade": "KG", "valor_total": 140.00, "produto_id": null, "fator_conversao": null},
+    {"descricao": "Bacon manta", "quantidade": 3, "unidade": "KG", "valor_total": 105.00, "produto_id": null, "fator_conversao": null}
+  ],
+  "valor_total_informado": 245.00,
+  "desconto": 0,
+  "situacao_pagamento": "pago",
+  "forma_pagamento": "dinheiro",
+  "conta_financeira_id": 2,
+  "vencimento": null,
+  "plano_despesa_id": null,
+  "observacao": "Compra de reposição — sexta à noite"
+}
+```
+
+`fornecedor_novo` (quando não existe): `{"nome": "Açougue do Zé", "telefone": "...", "observacao": "..."}` — só é criado na confirmação, como fornecedor `avulso`, sem CNPJ.
+
+**Prévia devolvida:** fornecedor (existente ou "será criado"); para cada item: produto reconhecido (ou `null`), como foi reconhecido (`vinculo_descricao`, `produto_informado`, `nao_identificado`), fator, quantidade em estoque, custo unitário de aquisição, variação vs último custo; totais (soma dos itens, desconto, total final, diferença para `valor_total_informado`); pagamento (conta, forma, situação, vencimento); plano de despesa; **alertas** (`possivel_duplicidade`, `caixa_pdv_fechado`, `saldo_insuficiente`, `itens_nao_identificados`, `total_divergente`, `preco_fora_padrao`, `data_futura`); `pode_confirmar` (bool) e `resumo_texto` pronto para mostrar ao usuário.
+
+**Instruções do servidor para o Claude (texto do `instructions` do `ComprasServer`, parte de compra avulsa):**
+
+> Para lançar uma compra sem nota: leia a foto ou a mensagem e extraia fornecedor, data, itens (descrição, quantidade, unidade, valor) e forma de pagamento. Se faltar algo essencial — fornecedor, valor de algum item, ou de onde saiu o dinheiro — pergunte antes de preparar. Use `buscar_fornecedores` e `buscar_produtos`; nunca invente ids. Chame `preparar_compra_avulsa`, mostre ao usuário o `resumo_texto` e os alertas, e **só chame `confirmar_compra_avulsa` depois que o usuário responder confirmando explicitamente**. Valores lidos de foto com baixa legibilidade devem ser destacados para conferência. Depois de confirmar, envie o link para anexar a foto do comprovante.
+
 ---
 
 ## 10. Filament (painel admin, grupos **Compras** e **Financeiro**)
@@ -641,6 +748,7 @@ Horário sugerido: uma vez por dia antes da rotina de compras (ex.: 9h40), e opc
 3. **Fase 2 — pendências no Filament**: caixa de entrada, pagamentos a confirmar (lote), revisão de produtos, widget.
 4. **Fase 3 — agente**: `laravel/mcp` + `laravel/passport`, usuário técnico, `ComprasServer` e tools, conector personalizado no Claude, tarefa agendada, `agente_execucoes`. Começar com todos os fornecedores em `sugerir` por 2 semanas; subir para `vincular` nos que acertarem.
 5. **Fase 4 — extrato Banco do Brasil + conciliação de boletos**: credenciais no Portal Developers BB (client_id, client_secret, developer_application_key — o cadastro deve ser feito pelo responsável pela conta PJ), `BancoBrasilExtratoClient` (API Extratos, OAuth client credentials, homologação → produção), `ImportarExtratoBbJob`, `extrato_bancario_itens`, `ConciliacaoBoletoService`, regra `por_conciliacao` ativada nos fornecedores de boleto. Base reaproveitável para uma futura conciliação bancária completa (hoje toda manual).
+6. **Fase 5 — compras avulsas sem NF-e** (§14, §9.2): independe da Fase 4; depende das Fases 1 e 3 (de-para, `CustoAquisicaoCalculator`, servidor MCP com OAuth) e do módulo de contas financeiras.
 
 ---
 
@@ -651,7 +759,97 @@ Horário sugerido: uma vez por dia antes da rotina de compras (ex.: 9h40), e opc
 - **Hospedagem:** PizzariaAPP publicado com HTTPS → servidor MCP dentro do próprio sistema, OAuth via Passport — §9.
 - **Boletos pagos pelo Banco do Brasil**; o BB tem API, ainda não integrada; conciliação bancária hoje é toda manual → Fase 4 integra a API Extratos e concilia boletos — §8.17–18.
 - **Custo de aquisição entra no custo unitário** (frete, seguro, outras despesas, IPI, ICMS-ST e FCP-ST; menos desconto) — §8.12.
+- **Compras sem NF-e entram no escopo** como compras avulsas lançadas pelo Claude (foto ou mensagem → rascunho → confirmação humana → compra + título + baixa) — §14 e §9.2.
 
 ### Em aberto
 - Créditos de ICMS/PIS/COFINS: confirmar com a contabilidade se o regime tributário permite aproveitá-los (no Simples Nacional, em regra, não — e então `deduzir_creditos_icms` fica `false`, como no padrão).
-- Compras sem NF-e (mercado, feira) ficam fora deste fluxo — continuam pelo lançamento manual.
+- **Futuro — permissões configuráveis:** liberar compras para outros perfis (ex.: um perfil "comprador"), com permissões atribuíveis pelo painel e limites por perfil/usuário (contas permitidas, valor máximo por compra e por dia, revisão acima do limite, fiado só para quem for liberado). Fora do escopo desta versão; o uso de Gates já deixa o caminho pronto.
+- Compra avulsa pelo WhatsApp (agente da Evolution API) no futuro: reaproveitar o `CompraAvulsaService` com o mesmo fluxo rascunho → confirmação.
+
+---
+
+## 14. Compras avulsas sem NF-e (Fase 5)
+
+### 14.1 Fluxo
+
+```mermaid
+sequenceDiagram
+    actor U as Usuário (Claude no celular)
+    participant C as Claude
+    participant M as Servidor MCP
+    participant R as CompraAvulsaService
+    participant MS as MovimentacaoService
+    participant CB as CaixaPdvBridge
+
+    U->>C: foto do cupom + "paguei do cofre"
+    C->>C: lê itens, quantidades, valores, fornecedor
+    C->>M: buscar_fornecedores("açougue do zé")
+    C->>M: buscar_produtos("calabresa") ...
+    C->>M: preparar_compra_avulsa(itens, conta=Cofre, pago)
+    M->>R: calcular prévia (vínculos, custos, alertas)
+    R-->>C: rascunho_uuid + resumo + alertas
+    C->>U: "Açougue do Zé · 13/11 · 2 itens · R$ 245,00 · pago do Cofre. Confirmo?"
+    U->>C: "sim"
+    C->>M: confirmar_compra_avulsa(rascunho_uuid)
+    M->>R: confirmar (DB::transaction)
+    R->>R: compra (origem avulsa) + itens + título a pagar
+    R->>MS: saida(Cofre, 245,00, pagamento_lancamento)
+    alt conta = Caixa PDV
+        MS->>CB: registrarRetirada(sessão aberta)
+    end
+    R->>R: grava de-paras por descrição + estoque (itens resolvidos)
+    R-->>C: compra #, título #, link do painel, link para anexar comprovante
+    C->>U: "Lançado: compra #812, título #1934. Anexe a foto: <link>"
+```
+
+### 14.2 Classes
+
+- `App\Services\Compras\CompraAvulsaService` — `preparar(array $entrada, User $u): CompraRascunho`, `confirmar(CompraRascunho, User): Compra`, `descartar(...)`. Reaproveita `CustoAquisicaoCalculator` (sem tributos destacados: custo = valor do item − rateio do desconto), `ProdutoMatcher` (novo método `identificarPorDescricao(Fornecedor, string)`), `FinanceiroCompraService` (`gerarTitulo` com parcela única) e `MovimentacaoService`.
+- `App\Services\Compras\NormalizadorDescricao` — normalização usada no de-para por descrição.
+- Tools em `app/Mcp/Tools/Compras/Avulsa/`.
+- `App\Http\Controllers\Compras\AnexoComprovanteController` — página simples (Blade, mobile-first) aberta pelo link assinado para enviar a foto.
+
+### 14.3 Regras de negócio
+
+1. **Rascunho obrigatório**: nada é gravado em `compras`, `lancamentos`, movimentações ou estoque antes de `confirmar_compra_avulsa`. Rascunho expira em 30 min (`config('compras.avulsa.expiracao_rascunho_min')`); expirado → precisa preparar de novo (a prévia é recalculada com saldos e sessão de caixa atuais).
+2. **Só quem preparou confirma**: `rascunho.user_id` = usuário autenticado; caso contrário, 403.
+3. **Fornecedor**: `fornecedor_id` existente **ou** `fornecedor_novo` (criado na confirmação como `avulso = true`, sem CNPJ). Se `buscar_fornecedores` tiver um resultado parecido (mesmo nome normalizado), a prévia alerta `fornecedor_semelhante` para evitar duplicata.
+4. **Itens**: cada item precisa de `descricao`, `quantidade` > 0, `unidade` e `valor_total` ≥ 0. Reconhecimento: (a) `produto_id` informado pelo Claude (validado: existe e está ativo); (b) de-para por descrição normalizada do fornecedor; (c) `nao_identificado`. Item não identificado **não impede** a confirmação: a compra nasce `com_pendencias`, o título e a baixa são gravados normalmente e abre-se pendência `produto_nao_identificado` (resolvida depois pela tarefa agendada ou pela caixa de entrada) — o financeiro nunca fica esperando o estoque.
+5. **Aprendizado**: ao confirmar, todo item com produto definido grava/atualiza o de-para `tipo_chave = descricao` (fornecedor + descrição normalizada → produto + fator), com `origem = manual` e `confirmado_por` = usuário.
+6. **Totais**: soma dos `valor_total` − `desconto` = total da compra. Se `valor_total_informado` vier e diferir em mais de R$ 0,05 → alerta `total_divergente` e `pode_confirmar = false` até corrigir.
+7. **Pagamento**:
+   - `situacao_pagamento = pago` → título com 1 parcela vencendo em `data_compra` e **baixa** na confirmação com `conta_financeira_id` e `forma_pagamento` (padrão: parâmetros do fornecedor; senão o Claude pergunta).
+   - `a_pagar` → título em aberto com `vencimento` obrigatório; sem baixa (cai em "Pagamentos a confirmar").
+8. **Caixa PDV**: só com sessão de caixa **aberta** e `data_compra` = hoje; a retirada é gravada na sessão pelo `CaixaPdvBridge` vinculada à movimentação. Sessão fechada ou data passada → alerta `caixa_pdv_fechado`, `pode_confirmar = false`; o Claude oferece outra conta (Cofre). Saldo insuficiente segue a regra das contas financeiras (`permite_saldo_negativo`).
+9. **Duplicidade**: compra avulsa do mesmo fornecedor, mesmo total e mesma `data_compra` nas últimas 48 h → alerta `possivel_duplicidade` (não bloqueia; o resumo pede atenção explícita).
+10. **Datas**: `data_compra` não pode ser futura nem anterior a 30 dias (`config('compras.avulsa.dias_retroativos')`); fora disso, só pelo painel.
+11. **Plano de despesa**: `plano_despesa_id` informado → parâmetros do fornecedor → `config('compras.avulsa.plano_despesa_padrao')` ("Insumos").
+12. **Estoque**: entrada imediata dos itens resolvidos (quantidade × fator, custo unitário de aquisição); itens não identificados entram quando a pendência for resolvida. Alerta `preco_fora_padrao` segue §8.14.
+13. **Comprovante**: a confirmação devolve um link assinado (`URL::temporarySignedRoute`, 24 h) para anexar a foto em `compra_anexos`. O MCP não recebe a imagem (o Claude lê a foto na conversa; o arquivo original é enviado pelo link). Anexo é opcional.
+14. **Correção depois de confirmada**: não há tool de edição/estorno. Correção pelo painel (estorno da movimentação conforme o módulo de contas financeiras + cancelamento da compra), por admin/gerente.
+15. **Auditoria**: `compras.registrado_por`, movimentação `registrado_por` e de-paras `confirmado_por` = usuário humano autenticado; o rascunho guarda a `entrada` original do Claude para conferência.
+
+### 14.4 Transação de confirmação
+
+`DB::transaction` + `lockForUpdate` no rascunho e na conta: (1) revalida rascunho (dono, status, validade) e recalcula a prévia — se algum alerta bloqueante surgir (ex.: caixa fechou), aborta com mensagem; (2) cria fornecedor avulso, se for o caso; (3) cria compra + itens; (4) cria título (lançamento a pagar, parcela única); (5) se `pago`, baixa via fluxo existente → `MovimentacaoService` (+ `CaixaPdvBridge` se Caixa PDV); (6) grava de-paras; (7) entrada de estoque dos itens resolvidos; (8) pendências dos não resolvidos; (9) marca rascunho `confirmado` com `compra_id`. Qualquer falha → rollback completo.
+
+### 14.5 Filament
+
+- Lista de compras: filtro e badge por `origem` (NF-e / manual / **avulsa**), coluna "Registrado por", indicador de comprovante anexado.
+- Na compra avulsa: aba "Comprovante" (imagem) e aba "Entrada original" (texto do rascunho, somente leitura).
+- Widget `ComprasHojeWidget`: contador de compras avulsas do dia e total pago em dinheiro.
+
+### 14.6 Testes (Pest)
+
+- Preparar não grava compra/título/movimentação/estoque; confirmar grava tudo uma vez; confirmar 2× devolve a mesma compra.
+- Pago do Cofre: 1 movimentação no Cofre, sessão de caixa intocada, título pago.
+- Pago do Caixa PDV com sessão aberta: retirada na sessão vinculada; fechamento bate. Sessão fechada: `pode_confirmar = false`, confirmar → erro, nada gravado.
+- `a_pagar` sem vencimento → erro de validação; com vencimento → título aberto, sem baixa.
+- Fornecedor novo criado só na confirmação, `avulso = true`, sem CNPJ; nome semelhante → alerta.
+- Item com `produto_id` + fator → de-para por descrição criado; segunda compra com a mesma descrição → reconhecido automaticamente.
+- Item não identificado → compra `com_pendencias`, título e baixa gravados, pendência aberta, estoque só dos resolvidos.
+- Total divergente > R$ 0,05 → não confirma.
+- Duplicidade em 48 h → alerta presente.
+- Rascunho expirado ou de outro usuário → erro; usuário `Agente Compras` não vê nem chama as tools de avulsa (403).
+- Link de comprovante expira em 24 h e só aceita imagem até 10 MB.
+- Usuário de outro perfil (ex.: caixa) não vê as tools de avulsa e recebe 403; `Agente Compras` nunca passa em `compras.avulsa`/`compras.pagamentos.confirmar`.
