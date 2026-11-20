@@ -81,7 +81,7 @@
                 const alertas = (d) => {
                     const lista = [];
                     (d.caixa?.sessoes ?? []).filter((s) => Math.abs(s.diferenca ?? 0) >= 0.01).forEach((s) =>
-                        lista.push([`Caixa ${s.caixa} (${s.operador ?? '—'}): diferença de ${moeda.format(s.diferenca)}`, Math.abs(s.diferenca) >= 20]));
+                        lista.push([`${/^caixa/i.test(s.caixa ?? '') ? s.caixa : 'Caixa ' + (s.caixa ?? '')} (${s.operador ?? '—'}): diferença de ${moeda.format(s.diferenca)}`, Math.abs(s.diferenca) >= 20]));
                     if (d.fiscal?.com_falha) lista.push([`${d.fiscal.com_falha} NFC-e com falha`, true]);
                     if (d.fiscal?.pendentes_de_envio) lista.push([`${d.fiscal.pendentes_de_envio} NFC-e pendente(s) de envio`, false]);
                     if (d.stone_travadas_7_dias) lista.push([`${d.stone_travadas_7_dias} pagamento(s) Stone travado(s) nos últimos 7 dias`, true]);
