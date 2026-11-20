@@ -7,6 +7,7 @@ use App\Enums\Compras\TipoPendenciaCompra;
 use App\Enums\Gestao\StatusAcaoClaude;
 use App\Enums\StatusLancamento;
 use App\Enums\TipoLancamento;
+use App\Filament\Resources\ClaudeAcoes\Pages\ViewClaudeAcao;
 use App\Mcp\Servers\GestaoServer;
 use App\Mcp\Tools\Gestao\Acoes\ConfirmarAcao;
 use App\Mcp\Tools\Gestao\Acoes\PrepararAprovacaoSugestoes;
@@ -28,7 +29,9 @@ use App\Models\PromocaoRelampago;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Laravel\Passport\Passport;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -244,6 +247,24 @@ class ClaudeGestaoAcoesTest extends TestCase
 
         $this->assertSame(StatusLancamento::Pago, Lancamento::query()->where('descricao', 'Gás — botijão')->sole()->status);
         $this->assertEquals(880, $banco->fresh()->saldo_atual);
+    }
+
+    public function test_tela_da_acao_mostra_o_resumo_em_linhas_e_escapa_o_texto(): void
+    {
+        $gerente = User::factory()->gerente()->create(['name_first' => 'Gerente']);
+        $acao = ClaudeAcao::create([
+            'uuid' => (string) Str::uuid(), 'user_id' => $gerente->id, 'tipo' => 'despesa', 'entrada' => [],
+            'previa' => ['resumo_texto' => "Energia — outubro\nFavorecido: <b>Equatorial</b>", 'pode_confirmar' => true, 'alertas' => []],
+            'status' => StatusAcaoClaude::Confirmada, 'expira_em' => now()->addMinutes(30), 'resultado' => ['lancamento_id' => 912],
+        ]);
+
+        $this->actingAs($gerente);
+        Livewire::test(ViewClaudeAcao::class, ['record' => $acao->getKey()])
+            ->assertSeeHtml('Energia — outubro<br />')
+            ->assertSeeHtml('&lt;b&gt;Equatorial&lt;/b&gt;')
+            ->assertDontSeeHtml('<b>Equatorial</b>')
+            ->assertSeeHtml('<pre class="text-xs whitespace-pre-wrap font-mono">')
+            ->assertSee('lancamento_id');
     }
 
     /** @param  array<string, mixed>  $attrs */

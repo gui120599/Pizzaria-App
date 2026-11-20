@@ -15,6 +15,7 @@ class CatalogoManuais
     private const TITULOS = [
         'Manual-Checklists-Equipe.pdf' => ['titulo' => 'Checklists — Equipe', 'descricao' => 'Como preencher os checklists do turno.'],
         'Manual-Checklists-Gerencia.pdf' => ['titulo' => 'Checklists — Gerência', 'descricao' => 'Modelos, aprovação e acompanhamento dos checklists.'],
+        'Manual-Claude-MCP-Agente.pdf' => ['titulo' => 'Claude no PizzariaAPP — Conectores e agente de compras', 'descricao' => 'Conectar o Claude, agente de compras, compras sem nota, perguntas de gestão, rotinas, ações pelo chat, atalhos e o cartão do painel do dia.'],
         'Manual-Compras-Condicoes-Fornecedor.pdf' => ['titulo' => 'Compras — Condições do fornecedor', 'descricao' => 'Prazo, forma de pagamento e data de entrada pré-preenchidos no Confirmar compra.'],
         'Manual-Cozinha-Equipe.pdf' => ['titulo' => 'Cozinha (KDS) — Equipe', 'descricao' => 'Uso do tablet de produção pelos setores da cozinha.'],
         'Manual-Notificacoes-Equipe.pdf' => ['titulo' => 'Notificações no celular — Equipe', 'descricao' => 'Como ativar as notificações e atender cada aviso do salão.'],

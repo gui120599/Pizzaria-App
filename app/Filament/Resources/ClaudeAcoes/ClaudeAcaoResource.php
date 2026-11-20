@@ -77,13 +77,14 @@ class ClaudeAcaoResource extends Resource
             TextEntry::make('created_at')->label('Preparada em')->dateTime('d/m/Y H:i'),
             TextEntry::make('confirmada_em')->label('Confirmada em')->dateTime('d/m/Y H:i')->placeholder('—'),
             TextEntry::make('previa.resumo_texto')->label('Resumo mostrado ao usuário')
-                ->state(fn (ClaudeAcao $record): ?string => $record->previa['resumo_texto'] ?? null)
-                ->extraAttributes(['class' => 'whitespace-pre-line'])
+                ->state(fn (ClaudeAcao $record): ?string => isset($record->previa['resumo_texto']) ? nl2br(e($record->previa['resumo_texto'])) : null)
+                ->html()
                 ->columnSpanFull(),
             TextEntry::make('resultado')->label('O que foi gravado')
-                ->state(fn (ClaudeAcao $record): ?string => $record->resultado ? json_encode($record->resultado, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : null)
-                ->fontFamily('mono')
-                ->extraAttributes(['class' => 'whitespace-pre-wrap text-xs'])
+                ->state(fn (ClaudeAcao $record): ?string => $record->resultado
+                    ? '<pre class="text-xs whitespace-pre-wrap font-mono">'.e(json_encode($record->resultado, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)).'</pre>'
+                    : null)
+                ->html()
                 ->placeholder('Nada gravado.')
                 ->columnSpanFull(),
         ])->columns(5);
