@@ -182,3 +182,58 @@ Cada etapa vira uma fase com checkpoint, no padrão dos planos de `docs/planos/`
 - "Alguma cobrança da Stone travada?"
 
 A G1 está completa. A próxima etapa é a **G2**: rotinas automáticas (resumo do dia, sugestão de compras, anomalias e relatórios no Cowork).
+
+---
+
+## G2 — rotinas automáticas: implementado (2026-11-22)
+
+**No sistema:**
+- **`App\Services\Gestao\RotinasGestaoService`:** monta os pacotes de dados de cada rotina. Cada seção reaproveita o serviço da tela correspondente: `IndicadoresVendas`, `RelatorioFechamentoCaixaService`, `RelatorioExcecoesPedidosService`, `Venda::scopeSituacaoNfe`, `PagamentosAConfirmar::consulta` e o de-para/compras.
+- **Tools novas no conector "PizzariaAPP Gestão":**
+  - `resumo_do_dia(data)`: vendas × mesmo dia da semana passada + top 5, caixa, exceções, NFC-e, Stone, compras e contas. Cada seção só aparece com a permissão da tela.
+  - `sugestao_compras(cobertura_dias, janela_dias)`: consumo médio diário (saídas de venda, produção, consumo interno, perda e cortesia) × saldo → quanto comprar para N dias. Agrupa pelo fornecedor da última compra confirmada e dá a quantidade na unidade de compra e o custo estimado. Permissão: `view_any:compra`.
+  - `anomalias(data)`: cancelamentos, cortesias e descontos acima de média × 2 do mesmo dia da semana nas últimas 4 semanas (com valor mínimo), diferença de caixa acima de R$ 20, NFC-e com problema, Stone travada e estoque negativo.
+  - `registrar_relatorio(tipo, titulo, conteudo, referencia)`: grava o texto final em **Indicadores › Relatórios do Claude** (tabela `claude_relatorios`). Não altera nenhum outro dado.
+- **Configuração:** limites em `config/gestao.php` (variáveis `GESTAO_*` no `.env`).
+- **Tela "Relatórios do Claude":** só leitura, com o Markdown renderizado. Vê quem tem `usar:claude_gestao`.
+- **Testes:** `tests/Feature/ClaudeGestaoRotinasTest.php`.
+
+**Deploy:** `git pull`, `php artisan migrate --force` (cria `claude_relatorios`), `config:cache` e reset do OPcache.
+
+### Rotinas para criar no Claude
+
+Em **claude.ai/code/routines**, crie uma rotina para cada item abaixo, com **só o conector "PizzariaAPP Gestão"**. Ele deve estar logado com o seu usuário, porque as seções seguem o seu perfil. Horários em Brasília; o cron é em UTC.
+
+**1. Resumo do dia** — todo dia às 08:00 (`0 11 * * *`)
+```
+Use somente o conector "PizzariaAPP Gestão". Não altere nenhum arquivo do repositório.
+1. Chame resumo_do_dia (sem data: é ontem) e anomalias (sem data).
+2. Escreva um resumo em português, curto, em Markdown:
+   - Vendas: faturamento, nº de vendas e ticket, com a variação contra o mesmo dia da semana passada; os 3 produtos que mais venderam.
+   - Caixa: recebido, fiado e se algum fechamento teve diferença.
+   - Pontos de atenção: cada alerta de anomalias numa linha, do mais grave para o menos grave; NFC-e com falha; pagamentos de compra a confirmar; contas vencidas ou vencendo hoje/amanhã.
+   - Se estiver tudo normal, diga isso numa frase.
+3. Termine com registrar_relatorio (tipo resumo_dia, título "Resumo de <dia da semana>, <dd/mm>", referencia = a data do resumo).
+```
+
+**2. Sugestão de compras** — segundas e quintas às 09:00 (`0 12 * * 1,4`)
+```
+Use somente o conector "PizzariaAPP Gestão". Não altere nenhum arquivo do repositório.
+1. Chame sugestao_compras (padrão: 7 dias de cobertura).
+2. Monte a lista em Markdown, um bloco por fornecedor (maior valor primeiro): item, quantidade na unidade de compra (ex.: 2 SC), dias de estoque que restam e custo estimado; total por fornecedor e total geral.
+3. Destaque no topo os itens com menos de 2 dias de estoque.
+4. Termine com registrar_relatorio (tipo sugestao_compras, título "Sugestão de compras — <dd/mm>").
+Não faça pedido nenhum: é só a sugestão.
+```
+
+**3. (Opcional) Anomalias à noite** — todo dia às 23:30 (`30 2 * * *`), olhando o dia que está acabando
+```
+Use somente o conector "PizzariaAPP Gestão". Chame anomalias com data = hoje (AAAA-MM-DD). Se total_alertas for 0, não registre nada. Senão, liste os alertas em Markdown (mais grave primeiro) e registre com registrar_relatorio (tipo anomalias, título "Alertas de <dd/mm>").
+```
+
+### Relatório mensal no Cowork (planilha Google)
+
+No Cowork, com os conectores "PizzariaAPP Gestão" e Google Sheets/Drive ativos, peça no dia 1 de cada mês:
+> "Monte o fechamento de <mês>: use resumo_vendas e fechamento_caixa do mês inteiro, ranking_produtos (top 20), desempenho_promocoes, excecoes_pedidos e contas_a_pagar_receber. Crie a planilha 'Fechamento <mês>/<ano>' no meu Drive com uma aba de resumo (faturamento, ticket, CMV, margem, cancelamentos, comparando com o mês anterior), uma aba de produtos e uma de promoções. No fim, registre um resumo com registrar_relatorio (tipo outro) com o link da planilha."
+
+**Próxima etapa:** G3, ações confirmadas pelo chat (despesa avulsa, pausar produto, promoção relâmpago, aprovar sugestões e contagem de estoque).
