@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\TemVigenciaRecorrente;
+use App\Enums\StatusPedidoEnum;
 use App\Enums\TipoBeneficioComboEnum;
 use Carbon\CarbonInterface;
 use Database\Factories\PromocaoComboFactory;
@@ -50,6 +51,7 @@ class PromocaoCombo extends Model
         'promocombo_cumula_promo_adicional',
         'promocombo_sugerir',
         'promocombo_limite_por_pedido',
+        'promocombo_qtd_total',
         'promocombo_prioridade',
     ];
 
@@ -74,6 +76,7 @@ class PromocaoCombo extends Model
             'promocombo_cumula_promo_adicional' => 'boolean',
             'promocombo_sugerir' => 'boolean',
             'promocombo_limite_por_pedido' => 'integer',
+            'promocombo_qtd_total' => 'integer',
             'promocombo_prioridade' => 'integer',
         ];
     }
@@ -214,9 +217,65 @@ class PromocaoCombo extends Model
         return $this->promocombo_ultimo_reset_em;
     }
 
-    /** Sem quantidade limitada por enquanto (Fase 4 do plano). */
     protected function vigEsgotada(): bool
     {
-        return false;
+        return $this->combosRestantes() === 0;
+    }
+
+    /**
+     * Combos que ainda podem ser concedidos (null = sem quantidade limitada).
+     *
+     * @param  int|null  $excetoPedidoId  pedido sendo recalculado: os combos dele não contam como usados
+     */
+    public function combosRestantes(?int $excetoPedidoId = null): ?int
+    {
+        if ($this->promocombo_qtd_total === null) {
+            return null;
+        }
+
+        $usados = self::combosUsados([$this->id], $excetoPedidoId)[$this->id] ?? 0;
+
+        return max(0, $this->promocombo_qtd_total - $usados);
+    }
+
+    /**
+     * Combos já concedidos por promoção, contados no histórico: aplicações
+     * de pedidos não cancelados. Por isso o cancelamento devolve o saldo sem
+     * estorno explícito, e a reaplicação do zero a cada mudança do pedido não
+     * desconta duas vezes. Na recorrente, só conta a ocorrência atual
+     * (pedidos criados depois do último reset).
+     *
+     * @param  list<int>  $promocaoIds
+     * @return array<int, int> promoção => combos usados
+     */
+    public static function combosUsados(array $promocaoIds, ?int $excetoPedidoId = null): array
+    {
+        if ($promocaoIds === []) {
+            return [];
+        }
+
+        $resets = self::withTrashed()->whereKey($promocaoIds)
+            ->where('promocombo_recorrente', true)
+            ->whereNotNull('promocombo_ultimo_reset_em')
+            ->pluck('promocombo_ultimo_reset_em', 'id');
+
+        return PedidoComboAplicacao::query()
+            ->join('pedidos', 'pedidos.id', '=', 'pedido_combo_aplicacoes.pca_pedido_id')
+            ->whereIn('pca_promocao_combo_id', $promocaoIds)
+            ->whereNull('pedidos.deleted_at')
+            ->where('pedidos.pedido_status', '!=', StatusPedidoEnum::CANCELADO->value)
+            ->when($excetoPedidoId !== null, fn (Builder $q) => $q->where('pca_pedido_id', '!=', $excetoPedidoId))
+            ->when($resets->isNotEmpty(), fn (Builder $q) => $q->where(function (Builder $q) use ($resets): void {
+                $q->whereNotIn('pca_promocao_combo_id', $resets->keys()->all());
+
+                foreach ($resets as $id => $reset) {
+                    $q->orWhere(fn (Builder $q) => $q->where('pca_promocao_combo_id', $id)->where('pedidos.created_at', '>=', $reset));
+                }
+            }))
+            ->selectRaw('pca_promocao_combo_id, COUNT(*) as usados')
+            ->groupBy('pca_promocao_combo_id')
+            ->pluck('usados', 'pca_promocao_combo_id')
+            ->map(fn ($usados): int => (int) $usados)
+            ->all();
     }
 }

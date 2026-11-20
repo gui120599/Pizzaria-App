@@ -93,6 +93,13 @@ class PromocaoComboForm
                         ->helperText('Em branco = sem limite.')
                         ->numeric()
                         ->minValue(1),
+                    TextInput::make('promocombo_qtd_total')
+                        ->label('Quantidade limitada')
+                        ->helperText('Total de combos que a promoção concede (na recorrente, por ocorrência). Em branco = sem limite. Pedido cancelado devolve o combo.')
+                        ->numeric()
+                        ->integer()
+                        ->minValue(1)
+                        ->suffix('combos'),
                 ]),
 
             Section::make('Vigência')

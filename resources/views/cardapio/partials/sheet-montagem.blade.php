@@ -57,6 +57,17 @@
                                       :class="$store.cart.adicionalMarcado(adicional.id) ? 'border-brasa bg-brasa' : 'border-farinha/60'">
                                     <i x-show="$store.cart.adicionalMarcado(adicional.id)" class='bx bx-check text-sm text-white' aria-hidden="true"></i>
                                 </span>
+                                {{-- Foto só quando algum adicional da lista tem; os sem foto ganham um quadro neutro para alinhar. --}}
+                                <template x-if="$store.cart.montagemModal.adicionais.some(a => a.foto)">
+                                    <span class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-forno-3">
+                                        <template x-if="adicional.foto">
+                                            <img :src="adicional.foto" :alt="adicional.nome" width="64" height="64" loading="lazy" decoding="async" class="size-full object-cover">
+                                        </template>
+                                        <template x-if="!adicional.foto">
+                                            <i class='bx bx-plus-circle text-2xl text-farinha/60' aria-hidden="true"></i>
+                                        </template>
+                                    </span>
+                                </template>
                                 <span class="text-[15px]" x-text="adicional.nome"></span>
                             </span>
                             <span class="num shrink-0 text-sm font-semibold text-farinha" x-text="'+' + $store.cart.formatar(adicional.valor)"></span>

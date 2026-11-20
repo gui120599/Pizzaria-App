@@ -1565,6 +1565,7 @@ class ComposerStaticInit5ab1db59f69ab376e1219686675b6f06
         'App\\Filament\\Resources\\PromocoesCombo\\Pages\\CreatePromocaoCombo' => __DIR__ . '/../..' . '/app/Filament/Resources/PromocoesCombo/Pages/CreatePromocaoCombo.php',
         'App\\Filament\\Resources\\PromocoesCombo\\Pages\\EditPromocaoCombo' => __DIR__ . '/../..' . '/app/Filament/Resources/PromocoesCombo/Pages/EditPromocaoCombo.php',
         'App\\Filament\\Resources\\PromocoesCombo\\Pages\\ListPromocoesCombo' => __DIR__ . '/../..' . '/app/Filament/Resources/PromocoesCombo/Pages/ListPromocoesCombo.php',
+        'App\\Filament\\Resources\\PromocoesCombo\\Pages\\RelatorioPromocoesCombo' => __DIR__ . '/../..' . '/app/Filament/Resources/PromocoesCombo/Pages/RelatorioPromocoesCombo.php',
         'App\\Filament\\Resources\\PromocoesCombo\\PromocaoComboResource' => __DIR__ . '/../..' . '/app/Filament/Resources/PromocoesCombo/PromocaoComboResource.php',
         'App\\Filament\\Resources\\PromocoesCombo\\Schemas\\PromocaoComboForm' => __DIR__ . '/../..' . '/app/Filament/Resources/PromocoesCombo/Schemas/PromocaoComboForm.php',
         'App\\Filament\\Resources\\PromocoesCombo\\Tables\\PromocoesComboTable' => __DIR__ . '/../..' . '/app/Filament/Resources/PromocoesCombo/Tables/PromocoesComboTable.php',

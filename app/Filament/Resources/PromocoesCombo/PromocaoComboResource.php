@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PromocoesCombo;
 use App\Filament\Resources\PromocoesCombo\Pages\CreatePromocaoCombo;
 use App\Filament\Resources\PromocoesCombo\Pages\EditPromocaoCombo;
 use App\Filament\Resources\PromocoesCombo\Pages\ListPromocoesCombo;
+use App\Filament\Resources\PromocoesCombo\Pages\RelatorioPromocoesCombo;
 use App\Filament\Resources\PromocoesCombo\Schemas\PromocaoComboForm;
 use App\Filament\Resources\PromocoesCombo\Tables\PromocoesComboTable;
 use App\Models\PromocaoCombo;
@@ -58,6 +59,7 @@ class PromocaoComboResource extends Resource
         return [
             'index' => ListPromocoesCombo::route('/'),
             'create' => CreatePromocaoCombo::route('/create'),
+            'relatorio' => RelatorioPromocoesCombo::route('/relatorio'),
             'edit' => EditPromocaoCombo::route('/{record}/edit'),
         ];
     }

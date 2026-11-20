@@ -72,6 +72,15 @@ class PromocoesComboTable
                     ->label('Combos aplicados')
                     ->badge()
                     ->color('success'),
+
+                TextColumn::make('restam')
+                    ->label('Restam')
+                    ->state(fn (PromocaoCombo $record): ?string => $record->promocombo_qtd_total === null
+                        ? null
+                        : $record->combosRestantes().' de '.$record->promocombo_qtd_total)
+                    ->placeholder('Sem limite')
+                    ->badge()
+                    ->color(fn (PromocaoCombo $record): string => $record->combosRestantes() === 0 ? 'danger' : 'gray'),
             ])
             ->filters([
                 Filter::make('vigentes')

@@ -567,6 +567,7 @@ return array(
     'App\\Filament\\Resources\\PromocoesCombo\\Pages\\CreatePromocaoCombo' => $baseDir . '/app/Filament/Resources/PromocoesCombo/Pages/CreatePromocaoCombo.php',
     'App\\Filament\\Resources\\PromocoesCombo\\Pages\\EditPromocaoCombo' => $baseDir . '/app/Filament/Resources/PromocoesCombo/Pages/EditPromocaoCombo.php',
     'App\\Filament\\Resources\\PromocoesCombo\\Pages\\ListPromocoesCombo' => $baseDir . '/app/Filament/Resources/PromocoesCombo/Pages/ListPromocoesCombo.php',
+    'App\\Filament\\Resources\\PromocoesCombo\\Pages\\RelatorioPromocoesCombo' => $baseDir . '/app/Filament/Resources/PromocoesCombo/Pages/RelatorioPromocoesCombo.php',
     'App\\Filament\\Resources\\PromocoesCombo\\PromocaoComboResource' => $baseDir . '/app/Filament/Resources/PromocoesCombo/PromocaoComboResource.php',
     'App\\Filament\\Resources\\PromocoesCombo\\Schemas\\PromocaoComboForm' => $baseDir . '/app/Filament/Resources/PromocoesCombo/Schemas/PromocaoComboForm.php',
     'App\\Filament\\Resources\\PromocoesCombo\\Tables\\PromocoesComboTable' => $baseDir . '/app/Filament/Resources/PromocoesCombo/Tables/PromocoesComboTable.php',

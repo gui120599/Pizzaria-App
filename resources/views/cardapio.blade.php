@@ -1,7 +1,7 @@
 <x-cardapio-layout :titulo="$mesaCliente ? 'Pedir na mesa · Empório da Pizza' : 'Empório da Pizza · Cardápio'">
     {{--
         Cardápio público (delivery) e página da mesa pelo QR ($mesaCliente):
-        mesma tela, mesmo carrinho (Alpine.store('cart') em cardapio/script).
+        mesma tela, mesmo carrinho (Alpine.store('cart') em resources/js/cardapio; dados em cardapio/script).
         Identidade "Forno aceso" — ver docs/plano/redesign-cardapio-online-emporio-da-pizza.md.
     --}}
     <div x-data="cardapioPagina" x-effect="travarRolagem()" class="min-h-dvh">

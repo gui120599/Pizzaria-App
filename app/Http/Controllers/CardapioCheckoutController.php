@@ -26,6 +26,7 @@ use App\Services\CupomService;
 use App\Services\ItemSolicitado;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
+use App\Services\PromocaoCombo\PlanoCombo;
 use App\Services\PromocaoCombo\PromocaoComboService;
 use App\Services\PromocaoRelampagoService;
 use App\Support\Telefone;
@@ -77,7 +78,7 @@ class CardapioCheckoutController extends Controller
 
             $cliente = app(ClienteResolverService::class)->buscarPorCelular((string) $request->string('telefone'));
 
-            $resultado = $cupomService->validar((string) $request->string('codigo_cupom'), $this->somaLiquido($linhas) - $this->descontoCombo($linhas), $cliente);
+            $resultado = $cupomService->validar((string) $request->string('codigo_cupom'), $this->somaLiquido($linhas) - $this->planoCombo($linhas)->descontoTotalCentavos() / 100, $cliente);
         } catch (CupomInvalidoException|ItemIndisponivelException|ComboSaboresInvalidoException|PerguntaNaoRespondidaException|PromocaoIndisponivelException) {
             return response()->json(['message' => self::MENSAGEM_CUPOM_INVALIDO], 422);
         }
@@ -89,12 +90,12 @@ class CardapioCheckoutController extends Controller
     }
 
     /**
-     * Desconto das promoções combo sobre as linhas precificadas (prévia, sem
-     * gravar): o cupom e o frete mínimo olham o líquido já com ele.
+     * Promoções combo sobre as linhas precificadas (prévia, sem gravar): o
+     * cupom e o frete mínimo olham o líquido já com o desconto delas.
      *
      * @param  array<int, LinhaPrecificada>  $linhas
      */
-    private function descontoCombo(array $linhas, ?int $opcaoEntregaId = null): float
+    private function planoCombo(array $linhas, ?int $opcaoEntregaId = null): PlanoCombo
     {
         $previas = [];
 
@@ -104,7 +105,31 @@ class CardapioCheckoutController extends Controller
             $previas[(string) $indice] = $previa;
         }
 
-        return app(PromocaoComboService::class)->planejar($previas, opcaoEntregaId: $opcaoEntregaId)->descontoTotalCentavos() / 100;
+        return app(PromocaoComboService::class)->planejar($previas, opcaoEntregaId: $opcaoEntregaId);
+    }
+
+    /**
+     * Combo da prévia que não entrou no pedido gravado: a quantidade limitada
+     * acabou enquanto o cliente finalizava. Vale o pedido gravado; o cliente
+     * é avisado na tela de sucesso e na mensagem do WhatsApp.
+     *
+     * @return list<string>
+     */
+    private function avisosComboEsgotado(PlanoCombo $previsto, Pedido $pedido): array
+    {
+        $gravados = $pedido->combosAplicados()->get()->countBy('pca_promocao_combo_id');
+        $avisos = [];
+
+        foreach (collect($previsto->aplicacoes)->groupBy('promocaoId') as $promocaoId => $aplicacoes) {
+            $faltaram = $aplicacoes->count() - ($gravados[$promocaoId] ?? 0);
+
+            if ($faltaram > 0) {
+                $avisos[] = "A promoção \"{$aplicacoes->first()->nome}\" esgotou enquanto você finalizava: "
+                    .($faltaram === 1 ? '1 combo saiu' : "{$faltaram} combos saíram").' pelo preço normal.';
+            }
+        }
+
+        return $avisos;
     }
 
     /**
@@ -305,7 +330,8 @@ class CardapioCheckoutController extends Controller
         // Promoção combo: o desconto é rateado nas linhas quando elas são
         // gravadas (TotaisPedidoService::recalcular); aqui só entra na base do
         // cupom e do frete mínimo.
-        $descontoCombo = $this->descontoCombo($linhas, (int) $request->opcao_entrega_id);
+        $comboPrevisto = $this->planoCombo($linhas, (int) $request->opcao_entrega_id);
+        $descontoCombo = $comboPrevisto->descontoTotalCentavos() / 100;
         $somaLiquido = round($this->somaLiquido($linhas) - $descontoCombo, 2);
         $totalDesconto = round(array_sum(array_map(fn (LinhaPrecificada $linha) => $linha->desconto(), $linhas)) + $descontoCombo, 2);
         $totalBruto = round($somaLiquido + $totalDesconto, 2);
@@ -446,7 +472,7 @@ class CardapioCheckoutController extends Controller
             ])->values(),
             // Itens (índice do carrinho) que seguiram sem o brinde, e por quê.
             'itens_sem_brinde' => array_keys($semBrinde),
-            'avisos' => array_values(array_unique($semBrinde)),
+            'avisos' => array_values(array_unique([...array_values($semBrinde), ...$this->avisosComboEsgotado($comboPrevisto, $pedido)])),
             'valor_desconto_cupom' => (float) $pedido->pedido_valor_desconto_cupom,
             'valor_frete' => (float) $pedido->pedido_valor_frete,
             'total_final' => (float) $pedido->pedido_valor_total,

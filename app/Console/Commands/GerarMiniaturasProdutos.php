@@ -2,15 +2,17 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Adicional;
 use App\Models\Produto;
 use App\Services\MiniaturaProdutoService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Gera as miniaturas WebP das fotos de produto que ainda não têm (fotos
- * antigas, anteriores à geração automática no upload). Não altera nem apaga
- * nenhuma foto original. Seguro para rodar de novo: só gera o que falta.
+ * Gera as miniaturas WebP das fotos de produto e de adicional que ainda não
+ * têm (fotos antigas, anteriores à geração automática no upload). Não altera
+ * nem apaga nenhuma foto original. Seguro para rodar de novo: só gera o que
+ * falta.
  */
 class GerarMiniaturasProdutos extends Command
 {
@@ -18,7 +20,7 @@ class GerarMiniaturasProdutos extends Command
         {--dry-run : Só lista quantas fotos seriam processadas, sem gravar}
         {--forcar : Regera mesmo as miniaturas que já existem}';
 
-    protected $description = 'Gera miniaturas WebP das fotos de produto (cardápio e seletores)';
+    protected $description = 'Gera miniaturas WebP das fotos de produto e de adicional (cardápio e seletores)';
 
     public function handle(MiniaturaProdutoService $miniaturas): int
     {
@@ -40,6 +42,8 @@ class GerarMiniaturasProdutos extends Command
             $existentes->count(),
             $pendentes->count(),
         ));
+
+        $this->gerarAdicionais($miniaturas);
 
         if ($this->option('dry-run') || $pendentes->isEmpty()) {
             return self::SUCCESS;
@@ -63,5 +67,40 @@ class GerarMiniaturasProdutos extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    private function gerarAdicionais(MiniaturaProdutoService $miniaturas): void
+    {
+        $adicionais = Adicional::withTrashed()
+            ->whereNotNull('adicional_foto')
+            ->where('adicional_foto', '!=', '')
+            ->get()
+            ->filter(fn (Adicional $adicional) => $adicional->temFoto());
+
+        $pendentes = $this->option('forcar')
+            ? $adicionais
+            : $adicionais->reject(fn (Adicional $adicional) => Storage::disk('public')
+                ->exists($miniaturas->caminhoAdicional($adicional->adicional_foto)));
+
+        $this->info(sprintf('Adicionais: %d com foto no disco, %d a processar.', $adicionais->count(), $pendentes->count()));
+
+        if ($this->option('dry-run')) {
+            return;
+        }
+
+        $falhas = 0;
+
+        foreach ($pendentes as $adicional) {
+            try {
+                $adicional->gerarMiniatura((bool) $this->option('forcar'));
+            } catch (\Throwable $e) {
+                $falhas++;
+                report($e);
+            }
+        }
+
+        if ($falhas > 0) {
+            $this->warn("{$falhas} foto(s) de adicional não puderam ser processadas (ver log). O cardápio usa a original nesses casos.");
+        }
     }
 }

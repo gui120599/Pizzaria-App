@@ -36,8 +36,15 @@
                         <p class="mt-1 text-[13.5px] text-farinha">{{ $combo['descricao'] }}</p>
                     @endif
                 </div>
+                {{-- Quantidade limitada: quantos combos ainda saem (a esgotada nem chega aqui). --}}
+                @if (($combo['restam'] ?? null) !== null)
+                    <span class="ml-auto flex shrink-0 flex-col items-center self-start rounded-xl bg-ouro px-2.5 py-1 text-forno">
+                        <span class="num text-lg font-extrabold leading-none">{{ number_format($combo['restam'], 0, ',', '.') }}</span>
+                        <span class="text-[10px] font-bold uppercase tracking-wide">restam</span>
+                    </span>
+                @endif
                 {{-- Setas do trilho (só no desktop, como em x-cardapio.carrossel; no celular é arrastar). --}}
-                <div x-show="podeVoltar || podeAvancar" class="ml-auto hidden shrink-0 gap-2 lg:flex">
+                <div x-show="podeVoltar || podeAvancar" @class(['hidden shrink-0 gap-2 lg:flex', 'ml-auto' => ($combo['restam'] ?? null) === null])>
                     <button type="button" @click="rolar(-1)" :disabled="!podeVoltar"
                             class="grid size-9 place-items-center rounded-full border border-linha text-xl text-farinha hover:text-creme disabled:opacity-30" aria-label="Anteriores">
                         <i class='bx bx-chevron-left' aria-hidden="true"></i>

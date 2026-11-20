@@ -64,7 +64,7 @@ Route::get('/', function () {
 });
 
 Route::get('/Cardapio', [CardapioController::class, 'index'])->name('cardapio');
-Route::get('/cardapio/lookup-cliente', [CardapioCheckoutController::class, 'lookupCliente'])->name('cardapio.lookup_cliente');
+Route::get('/cardapio/lookup-cliente', [CardapioCheckoutController::class, 'lookupCliente'])->middleware('throttle:cardapio-lookup-cliente')->name('cardapio.lookup_cliente');
 Route::post('/cardapio/checkout', [CardapioCheckoutController::class, 'checkout'])->middleware('throttle:cardapio-checkout')->name('cardapio.checkout');
 Route::middleware('auth')->group(function () {
     Route::get('/resgates-carteira/{resgate}/recibo', [ResgateCarteiraDocumentoController::class, 'recibo'])->name('resgates-carteira.recibo');
