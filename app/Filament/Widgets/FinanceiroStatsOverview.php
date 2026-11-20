@@ -3,13 +3,12 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\InteractsComPeriodo;
-use App\Models\Venda;
+use App\Support\IndicadoresVendas;
 use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Carbon\Carbon;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Support\Facades\DB;
 
 class FinanceiroStatsOverview extends BaseWidget
 {
@@ -79,69 +78,14 @@ class FinanceiroStatsOverview extends BaseWidget
     }
 
     /**
-     * Indicadores de um período, com os filtros do painel (tipo de entrega,
-     * categoria e produto). O período atual e o anterior passam por aqui, então
-     * a comparação usa a mesma regra.
+     * Indicadores do período (ver App\Support\IndicadoresVendas, que o
+     * conector "PizzariaAPP Gestão" do Claude também usa: o número é o mesmo).
      *
-     * @return array{vendas: int, faturamento: float, ticket: float, cmv: float, cmv_pct: float, margem: float, margem_pct: float, descontos: float, desconto_pct: float, qtd_produtos: float, canceladas: int, taxa_cancelamento: float}
+     * @return array<string, float|int>
      */
     private function indicadores(Carbon $inicio, Carbon $fim): array
     {
-        $tipos = $this->tiposEntregaSelecionados();
-        $filtrandoProduto = $this->filtrandoPorProduto();
-
-        $vendas = $this->vendasFiltradasQuery($inicio, $fim);
-        $numVendas = (clone $vendas)->count();
-        $descontos = (float) (clone $vendas)->sum('venda_valor_desconto');
-
-        // Quando há filtro de categoria/produto, faturamento e CMV vêm da
-        // receita/custo dos itens que batem no filtro — não do total da venda,
-        // que pode incluir outros produtos fora do recorte.
-        $itens = $this->itensFiltradosQuery($inicio, $fim);
-
-        $faturamento = $filtrandoProduto
-            ? (float) (clone $itens)->sum('itens_vendas.item_venda_valor')
-            : (float) (clone $vendas)->sum('venda_valor_total');
-
-        $ticket = $numVendas > 0 ? $faturamento / $numVendas : 0.0;
-
-        // CMV: usa o custo congelado no momento da venda (item_venda_custo_unitario,
-        // preenchido pelo ItensVendaObserver). Fiel ao período mesmo que o custo mude.
-        $cmv = (float) (clone $itens)->sum(DB::raw('itens_vendas.item_venda_quantidade * itens_vendas.item_venda_custo_unitario'));
-
-        $margem = $faturamento - $cmv;
-
-        // Soma de unidades vendidas no período (itens filtrados por categoria/produto,
-        // se houver), independente do filtro de categoria/produto para faturamento/CMV.
-        $qtdProdutos = (float) (clone $itens)->sum('itens_vendas.item_venda_quantidade');
-
-        // Cancelamentos no período (usa a data de início, pois canceladas não têm finalização).
-        // Não é filtrado por categoria/produto: cancelamento é um evento da venda inteira.
-        $canceladasQuery = Venda::query()
-            ->where('venda_status', 'CANCELADA')
-            ->whereBetween('venda_datahora_iniciada', [$inicio, $fim]);
-
-        if ($tipos !== []) {
-            $canceladasQuery->whereHas('pedidos', fn ($q) => $q->whereIn('pedido_opcaoentrega_id', $tipos));
-        }
-
-        $canceladas = $canceladasQuery->count();
-        $totalTentativas = $numVendas + $canceladas;
-
-        return [
-            'vendas' => $numVendas,
-            'faturamento' => $faturamento,
-            'ticket' => $ticket,
-            'cmv' => $cmv,
-            'cmv_pct' => $faturamento > 0 ? $cmv / $faturamento * 100 : 0.0,
-            'margem' => $margem,
-            'margem_pct' => $faturamento > 0 ? $margem / $faturamento * 100 : 0.0,
-            'descontos' => $descontos,
-            'desconto_pct' => $faturamento > 0 ? $descontos / ($faturamento + $descontos) * 100 : 0.0,
-            'qtd_produtos' => $qtdProdutos,
-            'canceladas' => $canceladas,
-            'taxa_cancelamento' => $totalTentativas > 0 ? $canceladas / $totalTentativas * 100 : 0.0,
-        ];
+        return (new IndicadoresVendas($this->pageFilters ?? []))->indicadores($inicio, $fim);
     }
 
     /**

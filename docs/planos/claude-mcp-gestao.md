@@ -104,3 +104,51 @@ Cada etapa vira uma fase com checkpoint, no padrão dos planos de `docs/planos/`
   - papel Agente recusado no servidor humano.
 - `php artisan route:list` com a rota nova; `curl` com `Accept: application/json, text/event-stream` deve dar 401 com `WWW-Authenticate`.
 - Em produção: cadastrar o conector "PizzariaAPP Gestão" no Claude logado com o seu usuário e fazer 3 a 5 perguntas reais, conferindo com as telas.
+
+---
+
+## G1 — conector "PizzariaAPP Gestão": implementado (2026-11-21), primeiro lote
+
+**Servidor:** `GestaoServer` em `/mcp/gestao` (`auth:api` + `GarantirUsuarioGestao` + `throttle:60,1`).
+- O middleware recusa o papel Agente e exige `usar:claude_gestao` (Admin e Gerente; a migration `2026_11_21_100001` já dá ao Gerente).
+- Depois de autenticar pelo Passport, o usuário passa a valer no guard `web` da requisição. Assim as permissões e as policies são avaliadas exatamente como no painel.
+
+**Tools (todas só leitura).** Cada uma aparece só para quem tem a permissão da tela de onde o número vem:
+
+| Tool | O que responde | Mesma conta de | Permissão |
+|---|---|---|---|
+| `resumo_vendas(inicio, fim)` | faturamento, vendas, ticket, CMV, margem, descontos e cancelamentos + comparativo com o período anterior | Painel Financeiro (`FinanceiroStatsOverview`) | `view:financeiro_dashboard` |
+| `ranking_produtos(inicio, fim, limite, ordenar_por)` | produtos mais vendidos (sabor por fração), com receita, custo e margem | tabela "Produtos mais vendidos" | `view:financeiro_dashboard` |
+| `situacao_caixa_agora()` | sessões abertas, operador, vendas da sessão e esperado por forma (dinheiro na gaveta) | `FechamentoCaixaService::calcularEsperado` | `view:relatorio_fechamento_caixa` |
+| `fechamento_caixa(inicio, fim)` | resumo, conferência por sessão (esperado × apurado) e recebimentos por forma | `RelatorioFechamentoCaixaService` | `view:relatorio_fechamento_caixa` |
+| `contas_a_pagar_receber(dias, tipo)` | totais em aberto e vencidos, saldo projetado por faixa e títulos até N dias | `RelatorioContasPagarReceberService` | `view:relatorio_contas_pagar_receber` |
+| `saldos_contas()` | saldo de cada conta financeira e o total | contas financeiras | `view:relatorio_contas_pagar_receber` |
+| `debitos_clientes(somente_vencidos, busca, limite)` | fiado por cliente (total, vencido, títulos, vencimento mais antigo), com telefone mascarado | `DebitosClienteService` | ver clientes (`viewAny` Cliente) |
+
+**Refatoração:** o cálculo dos indicadores de vendas saiu de `FinanceiroStatsOverview` para `App\Support\IndicadoresVendas`, sem mudar a conta. Widget e tool usam a mesma classe, e um teste confere o widget.
+
+**Log:** `storage/logs/claude-gestao-*.log` registra quem perguntou o quê.
+
+**Testes:** `tests/Feature/ClaudeGestaoMcpTest.php`, com acesso, filtro por perfil e números iguais aos das telas.
+
+**Hoje, com as permissões de produção:**
+- o **Gerente** vê vendas, caixa e fiado;
+- **contas a pagar/receber** e **saldos** ficam só com o Admin, como no painel (o Gerente não tem `view:relatorio_contas_pagar_receber`). Para liberar, basta dar a permissão no Shield.
+
+**Ativação:**
+1. No servidor: `git pull`, `php artisan migrate --force`, `config:cache` e reset do OPcache.
+2. No Claude, adicione o conector "PizzariaAPP Gestão" com a URL `https://emporiodapizzago.com.br/mcp/gestao`. Cada pessoa loga com o próprio usuário.
+3. Perguntas para testar:
+   - "Como foram as vendas de ontem comparadas a anteontem?"
+   - "Quais os 5 produtos que mais venderam este mês?"
+   - "Tem caixa aberto agora? Quanto deveria ter na gaveta?"
+   - "O fechamento de sábado bateu?"
+   - "O que vence esta semana e quanto tenho nas contas?"
+   - "Quem me deve fiado há mais tempo?"
+
+**Próximo lote da G1** (mesmo padrão):
+- estoque e CMV (`saldo_estoque`, `custo_insumo_historico`, `margem_produto`);
+- exceções (`excecoes_pedidos`, `cortesias_periodo`);
+- equipe (ponto e checklists);
+- promoções e influenciadores;
+- fiscal e Stone.

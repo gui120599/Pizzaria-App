@@ -82,6 +82,15 @@ return [
         ],
 
         // Toda chamada do agente de compras ao servidor MCP (tool, argumentos, resultado).
+        // Perguntas de gestão feitas no Claude (/mcp/gestao): quem perguntou o quê.
+        'claude_gestao' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/claude-gestao.log'),
+            'level' => 'info',
+            'days' => 90,
+            'replace_placeholders' => true,
+        ],
+
         // Compras avulsas lançadas pelos usuários no Claude (/mcp/compras-avulsa).
         'compras_avulsa' => [
             'driver' => 'daily',

@@ -31,6 +31,8 @@ class PermissionSeeder extends Seeder
             'resolver:pendencia_compra', 'confirmar:pagamento_compra',
             // Compra avulsa pelo Claude (/mcp/compras-avulsa), Fase 5.
             'lancar:compra_avulsa',
+            // Perguntas de gestão no Claude (/mcp/gestao); cada tool exige também a permissão da tela.
+            'usar:claude_gestao',
             'corrigir:movimentacao_estoque',
             'abrir:sessao_caixa', 'fechar:sessao_caixa', 'sangrar:sessao_caixa', 'view:relatorio_financeiro',
             'importar_caixa:lancamento', 'liquidar_recebivel:lancamento', 'conciliar:lancamento', 'view:recebiveis_adquirentes_widget', 'view:fechamento_caixa_contabilizacao_widget',

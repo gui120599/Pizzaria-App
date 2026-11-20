@@ -2,8 +2,10 @@
 
 use App\Http\Middleware\GarantirAgenteCompras;
 use App\Http\Middleware\GarantirUsuarioCompraAvulsa;
+use App\Http\Middleware\GarantirUsuarioGestao;
 use App\Mcp\Servers\CompraAvulsaServer;
 use App\Mcp\Servers\ComprasServer;
+use App\Mcp\Servers\GestaoServer;
 use Laravel\Mcp\Facades\Mcp;
 
 /*
@@ -31,3 +33,11 @@ Mcp::web('/mcp/compras', ComprasServer::class)
 Mcp::web('/mcp/compras-avulsa', CompraAvulsaServer::class)
     ->middleware(['auth:api', GarantirUsuarioCompraAvulsa::class, 'throttle:60,1'])
     ->name('mcp.compras-avulsa');
+
+/*
+| Gestão (roteiro claude-mcp-gestao.md, G1): dono e gerentes, só leitura.
+| Cada tool segue a permissão da tela correspondente; papel Agente recebe 403.
+*/
+Mcp::web('/mcp/gestao', GestaoServer::class)
+    ->middleware(['auth:api', GarantirUsuarioGestao::class, 'throttle:60,1'])
+    ->name('mcp.gestao');
