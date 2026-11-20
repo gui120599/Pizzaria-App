@@ -82,6 +82,15 @@ return [
         ],
 
         // Toda chamada do agente de compras ao servidor MCP (tool, argumentos, resultado).
+        // Compras avulsas lançadas pelos usuários no Claude (/mcp/compras-avulsa).
+        'compras_avulsa' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/compras-avulsa.log'),
+            'level' => 'info',
+            'days' => 365,
+            'replace_placeholders' => true,
+        ],
+
         'agente_compras' => [
             'driver' => 'daily',
             'path' => storage_path('logs/agente-compras.log'),

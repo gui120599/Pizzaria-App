@@ -19,6 +19,7 @@ class Prestador extends Model
     protected $fillable = [
         'tipo',
         'categoria',
+        'avulso',
         'cliente_id',
         'colaborador_id',
         'razao_social',
@@ -46,6 +47,7 @@ class Prestador extends Model
         'categoria' => PrestadorCategoriaEnum::class,
         'tipo_chave_pix' => TipoChavePix::class,
         'chave_pix' => 'encrypted',
+        'avulso' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',

@@ -24,10 +24,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ComprasTable
 {
+    /** @var array<string, string> */
+    private const ORIGENS = ['xml' => 'NF-e (XML)', 'manual' => 'Manual', Compra::ORIGEM_AVULSA => 'Avulsa (Claude)'];
+
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with('prestador')->withCount('itens'))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['prestador', 'user'])->withCount(['itens', 'anexos']))
             ->defaultSort('compra_data_entrada', 'desc')
             ->columns([
                 TextColumn::make('compra_numero')
@@ -80,8 +83,18 @@ class ComprasTable
                 TextColumn::make('compra_origem')
                     ->label('Origem')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => $state === 'xml' ? 'XML' : 'Manual')
-                    ->color(fn (string $state): string => $state === 'xml' ? 'info' : 'gray')
+                    ->formatStateUsing(fn (string $state): string => self::ORIGENS[$state] ?? $state)
+                    ->color(fn (string $state): string => match ($state) {
+                        'xml' => 'info',
+                        Compra::ORIGEM_AVULSA => 'warning',
+                        default => 'gray',
+                    })
+                    ->icon(fn (Compra $record): ?string => $record->anexos_count > 0 ? 'heroicon-m-paper-clip' : null)
+                    ->tooltip(fn (Compra $record): ?string => $record->anexos_count > 0 ? 'Com comprovante anexado' : null),
+
+                TextColumn::make('user.name')
+                    ->label('Registrado por')
+                    ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('credito_fornecedor')
@@ -95,6 +108,9 @@ class ComprasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('compra_origem')
+                    ->label('Origem')
+                    ->options(self::ORIGENS),
                 SelectFilter::make('compra_status')
                     ->label('Status')
                     ->options(

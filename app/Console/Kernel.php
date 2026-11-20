@@ -96,6 +96,12 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // Rascunhos de compra avulsa (Claude) vencidos ou abandonados.
+        $schedule->command('compras:limpar-rascunhos-avulsa')
+            ->dailyAt('03:20')
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // Extrato do Banco do Brasil (D-3 até hoje) e conciliação dos boletos
         // "por conciliação". Sem conta com integração, não faz nada.
         $schedule->command('financeiro:importar-extrato-bb')

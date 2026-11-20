@@ -2,6 +2,7 @@
 
 namespace App\Services\Compras;
 
+use App\Enums\Compras\TipoChaveVinculo;
 use App\Models\FornecedorProduto;
 use App\Models\Produto;
 use App\Services\Compras\Dto\ResultadoMatch;
@@ -23,6 +24,7 @@ class ProdutoMatcher
         if (filled($codigoFornecedor)) {
             $vinculo = FornecedorProduto::query()
                 ->where('fp_prestador_id', $prestadorId)
+                ->where('fp_tipo_chave', TipoChaveVinculo::Codigo->value)
                 ->where('fp_codigo_fornecedor', $codigoFornecedor)
                 ->first();
 
@@ -48,6 +50,28 @@ class ProdutoMatcher
 
         return $produtoId !== null
             ? new ResultadoMatch((int) $produtoId, 1.0, null, ResultadoMatch::EAN_PRODUTO)
+            : null;
+    }
+
+    /**
+     * Compra avulsa: de-para pela descrição normalizada que o fornecedor (ou
+     * o cupom) usa para o item. Cada confirmação ensina a próxima compra.
+     */
+    public function identificarPorDescricao(int $prestadorId, ?string $descricao): ?ResultadoMatch
+    {
+        $chave = NormalizadorDescricao::normalizar($descricao);
+        if ($chave === '') {
+            return null;
+        }
+
+        $vinculo = FornecedorProduto::query()
+            ->where('fp_prestador_id', $prestadorId)
+            ->where('fp_tipo_chave', TipoChaveVinculo::Descricao->value)
+            ->where('fp_codigo_fornecedor', $chave)
+            ->first();
+
+        return $vinculo !== null
+            ? new ResultadoMatch((int) $vinculo->fp_produto_id, $this->fator($vinculo), $vinculo, ResultadoMatch::DESCRICAO)
             : null;
     }
 

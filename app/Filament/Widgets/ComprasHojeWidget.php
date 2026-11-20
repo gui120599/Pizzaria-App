@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\Compras\TipoPendenciaCompra;
 use App\Enums\Financeiro\StatusConciliacaoExtrato;
+use App\Enums\FormaPagamento;
 use App\Enums\StatusLancamento;
 use App\Models\Compra;
 use App\Models\CompraPendencia;
@@ -43,6 +44,16 @@ class ComprasHojeWidget extends StatsOverviewWidget
             ->get()
             ->sum(fn (Lancamento $titulo): float => (float) $titulo->valorRestante);
 
+        // Compras avulsas lançadas pelo Claude (Fase 5) com data de hoje.
+        $avulsasHoje = Compra::query()
+            ->where('compra_origem', Compra::ORIGEM_AVULSA)
+            ->whereDate('compra_data_emissao', today())
+            ->with('lancamentos')
+            ->get();
+        $dinheiroAvulsasHoje = $avulsasHoje->flatMap->lancamentos
+            ->filter(fn (Lancamento $titulo): bool => $titulo->forma_pagamento === FormaPagamento::Dinheiro && $titulo->status === StatusLancamento::Pago)
+            ->sum(fn (Lancamento $titulo): float => (float) $titulo->valor);
+
         return [
             Stat::make('Notas importadas hoje', $automatizadas()->whereDate('created_at', today())->count()),
             Stat::make('Sem intervenção (30 dias)', $total30 > 0 ? Number::percentage($semIntervencao / $total30 * 100, locale: 'pt_BR') : '—')
@@ -51,6 +62,8 @@ class ComprasHojeWidget extends StatsOverviewWidget
                 ->color('warning'),
             Stat::make('A pagar em 7 dias', Number::currency($aPagar, 'BRL', 'pt_BR'))
                 ->description('Compras automatizadas, inclui vencidos'),
+            Stat::make('Compras avulsas hoje', $avulsasHoje->count())
+                ->description('Pago em dinheiro: '.Number::currency($dinheiroAvulsasHoje, 'BRL', 'pt_BR')),
             Stat::make('Boletos conciliados hoje', ExtratoBancarioItem::query()
                 ->where('status_conciliacao', StatusConciliacaoExtrato::Conciliado)
                 ->whereDate('updated_at', today())

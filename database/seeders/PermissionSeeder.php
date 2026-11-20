@@ -29,6 +29,8 @@ class PermissionSeeder extends Seeder
             // Automação de compras: tratar pendências e confirmar pagamentos. Configurar a automação do
             // fornecedor (configurar:automacao_compra) fica só com o Admin.
             'resolver:pendencia_compra', 'confirmar:pagamento_compra',
+            // Compra avulsa pelo Claude (/mcp/compras-avulsa), Fase 5.
+            'lancar:compra_avulsa',
             'corrigir:movimentacao_estoque',
             'abrir:sessao_caixa', 'fechar:sessao_caixa', 'sangrar:sessao_caixa', 'view:relatorio_financeiro',
             'importar_caixa:lancamento', 'liquidar_recebivel:lancamento', 'conciliar:lancamento', 'view:recebiveis_adquirentes_widget', 'view:fechamento_caixa_contabilizacao_widget',

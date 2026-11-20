@@ -26,6 +26,9 @@ class Compra extends Model
 
     protected $table = 'compras';
 
+    /** compra_origem de compra sem NF-e lançada pelo Claude (Fase 5). */
+    public const ORIGEM_AVULSA = 'avulsa';
+
     protected static function booted(): void
     {
         // Rascunho com título pago não pode ser excluído; o resto é limpo
@@ -54,6 +57,7 @@ class Compra extends Model
         'compra_valor_total',
         'compra_status',
         'compra_origem',
+        'compra_origem_informacao',
         'compra_centro_custo_id',
         'compra_observacao',
         'compra_user_id',
@@ -145,6 +149,22 @@ class Compra extends Model
     }
 
     /** Pendências da automação de compras (ver PendenciaService). */
+    public function anexos(): HasMany
+    {
+        return $this->hasMany(CompraAnexo::class);
+    }
+
+    /** Rascunho de origem de uma compra avulsa (entrada original do Claude). */
+    public function rascunhoAvulso(): HasOne
+    {
+        return $this->hasOne(CompraRascunho::class);
+    }
+
+    public function ehAvulsa(): bool
+    {
+        return $this->compra_origem === self::ORIGEM_AVULSA;
+    }
+
     public function pendencias(): HasMany
     {
         return $this->hasMany(CompraPendencia::class, 'compra_id');

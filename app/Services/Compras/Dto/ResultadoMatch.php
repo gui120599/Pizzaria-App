@@ -13,6 +13,8 @@ final readonly class ResultadoMatch
 
     public const EAN_PRODUTO = 'ean_produto';
 
+    public const DESCRICAO = 'vinculo_descricao';
+
     public function __construct(
         public int $produtoId,
         public float $fatorConversao,

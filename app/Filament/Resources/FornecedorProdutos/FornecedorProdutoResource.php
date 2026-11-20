@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\FornecedorProdutos;
 
 use App\Enums\Compras\OrigemVinculo;
+use App\Enums\Compras\TipoChaveVinculo;
 use App\Filament\Resources\FornecedorProdutos\Pages\ManageFornecedorProdutos;
 use App\Models\FornecedorProduto;
 use App\Models\Prestador;
@@ -66,14 +67,18 @@ class FornecedorProdutoResource extends Resource
                 ->required(),
 
             TextInput::make('fp_codigo_fornecedor')
-                ->label('Código no fornecedor (cProd)')
+                ->label(fn (?FornecedorProduto $record): string => $record?->fp_tipo_chave === TipoChaveVinculo::Descricao
+                    ? 'Descrição normalizada (compra avulsa)'
+                    : 'Código no fornecedor (cProd)')
                 ->required()
-                ->maxLength(60)
+                ->maxLength(255)
                 ->unique(
                     table: FornecedorProduto::class,
                     column: 'fp_codigo_fornecedor',
                     ignoreRecord: true,
-                    modifyRuleUsing: fn (Unique $rule, Get $get): Unique => $rule->where('fp_prestador_id', $get('fp_prestador_id')),
+                    modifyRuleUsing: fn (Unique $rule, Get $get, ?FornecedorProduto $record): Unique => $rule
+                        ->where('fp_prestador_id', $get('fp_prestador_id'))
+                        ->where('fp_tipo_chave', ($record?->fp_tipo_chave ?? TipoChaveVinculo::Codigo)->value),
                 )
                 ->validationMessages(['unique' => 'Este código já está vinculado para este fornecedor (confira também os excluídos).']),
 
@@ -110,7 +115,8 @@ class FornecedorProdutoResource extends Resource
                     ->label('Fornecedor')
                     ->state(fn (FornecedorProduto $record): string => $record->prestador?->nome_exibicao ?? '—')
                     ->searchable(['razao_social', 'nome_fantasia', 'nome']),
-                TextColumn::make('fp_codigo_fornecedor')->label('Cód. forn.')->searchable(),
+                TextColumn::make('fp_codigo_fornecedor')->label('Cód. forn.')->searchable()
+                    ->description(fn (FornecedorProduto $record): ?string => $record->fp_tipo_chave === TipoChaveVinculo::Descricao ? 'Descrição (compra avulsa)' : null),
                 TextColumn::make('fp_descricao_fornecedor')->label('Descrição na nota')->searchable()->placeholder('—')->wrap(),
                 TextColumn::make('produto.produto_descricao')->label('Produto')->searchable(),
                 TextColumn::make('fp_unidade_compra')->label('Un.')->placeholder('—'),
