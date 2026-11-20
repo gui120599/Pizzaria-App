@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Adicional;
 use App\Models\AvaliacaoLink;
+use App\Models\BannerCardapio;
 use App\Models\Categoria;
 use App\Models\HorarioFuncionamento;
 use App\Models\OpcoesEntregas;
@@ -379,7 +380,19 @@ class CardapioService
             $mesa,
         );
 
-        return compact('promocoesCombo', 'campanhasExigencia', 'produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
+        // Carrossel do topo (Cardápio › Banners do cardápio): só os no ar
+        // agora, na ordem do painel, com o destino do toque já validado.
+        $banners = BannerCardapio::noArPara($mesa)
+            ->map(fn (BannerCardapio $banner): array => [
+                'id' => $banner->id,
+                'titulo' => $banner->banner_titulo,
+                'imagem' => $banner->urlImagem(),
+                'imagem_mobile' => $banner->urlImagemMobile(),
+                'destino' => $banner->destino(),
+            ])
+            ->all();
+
+        return compact('banners', 'promocoesCombo', 'campanhasExigencia', 'produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
     }
 
     /**

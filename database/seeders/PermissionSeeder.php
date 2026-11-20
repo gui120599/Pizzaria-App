@@ -56,6 +56,9 @@ class PermissionSeeder extends Seeder
             'create:empresa', 'update:empresa', 'delete:empresa',
             'create:caixa', 'update:caixa', 'delete:caixa',
             'view_any:adicional', 'view:adicional', 'create:adicional', 'update:adicional', 'delete:adicional', 'restore:adicional',
+            // Banners do carrossel do cardápio (também criadas na migration da tabela).
+            'view_any:banner_cardapio', 'view:banner_cardapio', 'create:banner_cardapio', 'update:banner_cardapio',
+            'delete:banner_cardapio', 'delete_any:banner_cardapio', 'restore:banner_cardapio', 'reorder:banner_cardapio',
             // Bloco verde: create:cliente/update:cliente também já existem via
             // Shield. view_any:nota_fiscal/view:nota_fiscal são novas (sem
             // Resource no Filament) — dado fiscal, mesmo racional de
