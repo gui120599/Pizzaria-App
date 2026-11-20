@@ -11,13 +11,21 @@ use Intervention\Image\ImageManager;
  * é alterada: as miniaturas são arquivos à parte em
  * fotos_produtos/miniaturas/{lado}/{nome}.webp, e quem não achar a miniatura
  * usa a original.
+ *
+ * As fotos de adicional (modal de montagem do cardápio) usam o mesmo
+ * processo, com um tamanho só, em fotos_adicionais/miniaturas/{lado}/.
  */
 class MiniaturaProdutoService
 {
     /** Lado menor de cada miniatura, em pixels. */
     public const LADOS = [160, 320, 640];
 
+    /** Adicional aparece só como ícone (56 px) no modal de montagem. */
+    public const LADO_ADICIONAL = 160;
+
     private const DIRETORIO = 'fotos_produtos/miniaturas';
+
+    private const DIRETORIO_ADICIONAIS = 'fotos_adicionais/miniaturas';
 
     private const QUALIDADE = 80;
 
@@ -25,6 +33,12 @@ class MiniaturaProdutoService
     public function caminho(string $foto, int $lado): string
     {
         return self::DIRETORIO.'/'.$lado.'/'.pathinfo($foto, PATHINFO_FILENAME).'.webp';
+    }
+
+    /** Caminho (no disk public) da miniatura de uma foto de adicional. */
+    public function caminhoAdicional(string $foto): string
+    {
+        return self::DIRETORIO_ADICIONAIS.'/'.self::LADO_ADICIONAL.'/'.pathinfo($foto, PATHINFO_FILENAME).'.webp';
     }
 
     /**
@@ -62,31 +76,49 @@ class MiniaturaProdutoService
             return [];
         }
 
-        $pendentes = array_values(array_filter(
-            self::LADOS,
-            fn (int $lado) => $forcar || ! $disco->exists($this->caminho($foto, $lado)),
-        ));
-
-        if ($pendentes === []) {
-            return [];
-        }
-
         $gravados = [];
 
-        foreach ($pendentes as $lado) {
-            $imagem = ImageManager::gd()->read($disco->path($foto));
-
-            if ($imagem->width() <= $imagem->height()) {
-                $imagem->scaleDown(width: $lado);
-            } else {
-                $imagem->scaleDown(height: $lado);
-            }
-
+        foreach (self::LADOS as $lado) {
             $caminho = $this->caminho($foto, $lado);
-            $disco->put($caminho, (string) $imagem->toWebp(quality: self::QUALIDADE));
-            $gravados[] = $caminho;
+
+            if ($forcar || ! $disco->exists($caminho)) {
+                $this->gravar($disco->path($foto), $caminho, $lado);
+                $gravados[] = $caminho;
+            }
         }
 
         return $gravados;
+    }
+
+    /**
+     * Miniatura de uma foto de adicional. A origem vem resolvida pelo model
+     * (fotos novas no disk public, antigas em public/img/fotos_adicionais).
+     *
+     * @return string|null caminho gravado, ou null se já existia
+     */
+    public function gerarAdicional(string $origemAbsoluta, string $foto, bool $forcar = false): ?string
+    {
+        $caminho = $this->caminhoAdicional($foto);
+
+        if (! $forcar && Storage::disk('public')->exists($caminho)) {
+            return null;
+        }
+
+        $this->gravar($origemAbsoluta, $caminho, self::LADO_ADICIONAL);
+
+        return $caminho;
+    }
+
+    private function gravar(string $origemAbsoluta, string $caminho, int $lado): void
+    {
+        $imagem = ImageManager::gd()->read($origemAbsoluta);
+
+        if ($imagem->width() <= $imagem->height()) {
+            $imagem->scaleDown(width: $lado);
+        } else {
+            $imagem->scaleDown(height: $lado);
+        }
+
+        Storage::disk('public')->put($caminho, (string) $imagem->toWebp(quality: self::QUALIDADE));
     }
 }

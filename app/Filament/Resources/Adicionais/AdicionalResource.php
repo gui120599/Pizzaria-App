@@ -12,6 +12,7 @@ use App\Models\Adicional;
 use App\Models\Categoria;
 use App\Models\Produto;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -119,7 +120,11 @@ class AdicionalResource extends Resource
     {
         return $table
             ->recordTitleAttribute('adicional_nome')
-            ->defaultSort('adicional_nome')
+            // Ordem geral: a do cardápio, do garçom e do balcão, salvo nos
+            // produtos que têm ordem própria (aba Adicionais do produto).
+            ->defaultSort('adicional_ordem')
+            ->reorderable('adicional_ordem')
+            ->reorderRecordsTriggerAction(fn (Action $action, bool $isReordering): Action => $action->label($isReordering ? 'Concluir ordem' : 'Ordenar'))
             ->columns([
                 ImageColumn::make('adicional_foto')
                     ->label('')

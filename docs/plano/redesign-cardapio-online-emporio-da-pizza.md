@@ -765,3 +765,11 @@ textos verificados pelos testes, modo mesa.
 `ProdutoCardapio`, `MiniaturaProdutoService`, os tokens e os componentes `x-cardapio.foto`
 e `x-cardapio.preco` foram escritos sem dependência do cardápio público, para serem
 reutilizados nessas telas.
+
+---
+
+## 17. Pendências fechadas (20/11/2026)
+- **Etapa 8 (carrinho em módulo Vite):** o JS saiu de `cardapio/script.blade.php` para `resources/js/cardapio/` (`index.js` registra no `alpine:init`; `carrinho.js` = `Alpine.store('cart')`; `pagina.js` = `trilhoRolavel` e `cardapioPagina`; `dados.js` lê os blocos JSON). A view só entrega os dados em `<script type="application/json" id="cardapio-dados">` e `id="cardapio-produtos"`. O código do carrinho ficou igual, só reindentado; o desenho da pizza é importado de `pizza-svg.js`. O módulo (≈ 10 KB comprimido) passa a ficar em cache no navegador. A mesa (`mesa-cliente/modais`) lê o CSRF da meta tag, não mais da variável global.
+- **D8 (privacidade do `lookup-cliente`):** decisão do usuário: só limitar tentativas. Throttle `cardapio-lookup-cliente`: 10/min e 60/hora por IP sem login; logado (telas internas que usam a mesma rota), 120/min por usuário. O carrinho trata o 429 como "não encontrado" (o cliente digita os dados).
+- **Fotos dos adicionais no modal de montagem:** miniatura WebP de 160 px (`fotos_adicionais/miniaturas/160/`), gerada ao salvar o adicional e pelo `produtos:miniaturas`, que agora também cobre os adicionais. Sem foto, o adicional não mostra imagem padrão; se algum da lista tem foto, os outros ganham um quadro neutro para alinhar.
+- **Ordem dos adicionais (dois níveis):** `adicionais.adicional_ordem` é a ordem geral (Cardápio › Adicionais › "Ordenar"; a migration preencheu pela ordem de cadastro; adicional novo entra no fim). `adicionais_produtos.ap_ordem` é a ordem própria do produto (aba Adicionais do produto › "Ordenar"), vazia por padrão. `Produto::adicionais()` ordena por `ap_ordem` (vazios por último), depois pela geral e pelo nome; vínculo novo num produto com ordem própria entra no fim. "Usar a ordem geral" esvazia o `ap_ordem` do produto. Vale no cardápio, no QR da mesa, no garçom e no Atender Pedido (o seletor passou a usar `Produto::adicionais` em vez de `ap_produto_id`); na pizza de sabores, os adicionais comuns seguem a ordem do primeiro sabor. Testes: `AdicionalOrdemTest`.

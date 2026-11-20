@@ -152,7 +152,7 @@ class CardapioPromocaoComboTest extends TestCase
             ->assertOk()
             ->assertSee('Que tal aproveitar nossa promoção?')
             ->assertSee('Parabéns! Você ganhou uma promoção!')
-            ->assertSee('const _comboRoute', false);
+            ->assertSee('"combo":"'.route('cardapio.carrinho.precificar').'"', false);
     }
 
     public function test_checkout_grava_o_combo_nas_linhas_e_ignora_preco_do_navegador(): void

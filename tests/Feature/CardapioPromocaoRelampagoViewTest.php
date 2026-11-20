@@ -143,9 +143,9 @@ class CardapioPromocaoRelampagoViewTest extends TestCase
         // Produto em promoção "só inteira" agora é selecionável como sabor.
         $this->assertStringContainsString('$store.cart.abrirSabores(', $html);
         // A lista de sabores leva o preço promocional (inteiro) e o preço de
-        // fração de volta ao normal (venda). O @js escapa aspas como ".
-        $this->assertStringContainsString('preco\u0022:39.9', $html);
-        $this->assertStringContainsString('precoFracao\u0022:55', $html);
+        // fração de volta ao normal (venda), no JSON de dados do carrinho.
+        $this->assertStringContainsString('"preco":39.9', $html);
+        $this->assertStringContainsString('"precoFracao":55', $html);
     }
 
     public function test_promocao_que_permite_sabores_mantem_meia_a_meia(): void

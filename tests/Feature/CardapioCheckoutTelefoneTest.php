@@ -9,6 +9,7 @@ use App\Models\HorarioFuncionamento;
 use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
 use App\Models\Produto;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -35,6 +36,33 @@ class CardapioCheckoutTelefoneTest extends TestCase
         $this->getJson(route('cardapio.lookup_cliente', ['telefone' => '81234567']))
             ->assertOk()
             ->assertExactJson(['encontrado' => false]);
+    }
+
+    public function test_busca_pelo_whatsapp_limita_tentativas_por_ip(): void
+    {
+        $this->clienteAntigo('62981234567');
+
+        for ($tentativa = 0; $tentativa < 10; $tentativa++) {
+            $this->getJson(route('cardapio.lookup_cliente', ['telefone' => '6299999'.str_pad((string) $tentativa, 4, '0', STR_PAD_LEFT)]))
+                ->assertOk();
+        }
+
+        $this->getJson(route('cardapio.lookup_cliente', ['telefone' => '62981234567']))
+            ->assertTooManyRequests();
+    }
+
+    public function test_busca_pelo_whatsapp_logado_nao_usa_o_limite_do_cardapio(): void
+    {
+        $this->actingAs(User::factory()->create(['name_first' => 'Atendente']));
+        $id = $this->clienteAntigo('62981234567');
+
+        for ($tentativa = 0; $tentativa < 10; $tentativa++) {
+            $this->getJson(route('cardapio.lookup_cliente', ['telefone' => '6299999'.str_pad((string) $tentativa, 4, '0', STR_PAD_LEFT)]));
+        }
+
+        $this->getJson(route('cardapio.lookup_cliente', ['telefone' => '62981234567']))
+            ->assertOk()
+            ->assertJson(['encontrado' => true, 'cliente_id' => $id]);
     }
 
     public function test_pedido_com_whatsapp_em_outro_formato_usa_o_cadastro_existente(): void

@@ -10,6 +10,7 @@ use App\Exceptions\ItemIndisponivelException;
 use App\Exceptions\PerguntaNaoRespondidaException;
 use App\Exceptions\PromocaoIndisponivelException;
 use App\Livewire\Concerns\ConvidaPromocaoCombo;
+use App\Models\Adicional;
 use App\Models\Categoria;
 use App\Models\ItensPedido;
 use App\Models\Pedido;
@@ -325,7 +326,7 @@ class PedidoProdutoSelector extends Component
 
     public function selecionarProduto(int $produtoId): void
     {
-        $produto = Produto::with(['ap_produto_id.adicional', 'categoria'])->find($produtoId);
+        $produto = Produto::with(['adicionais', 'categoria'])->find($produtoId);
         if (! $produto) {
             return;
         }
@@ -371,13 +372,13 @@ class PedidoProdutoSelector extends Component
         $this->quantidade = 1;
         $this->observacao = '';
         $this->adicionaisSelecionados = [];
-        $this->adicionaisDisponiveis = $produto->ap_produto_id
-            ->filter(fn ($ap) => $ap->adicional !== null)
-            ->map(fn ($ap) => [
-                'id' => $ap->adicional->id,
-                'nome' => $ap->adicional->adicional_nome,
-                'valor' => (float) $ap->adicional->adicional_valor,
+        $this->adicionaisDisponiveis = $produto->adicionais
+            ->map(fn (Adicional $adicional) => [
+                'id' => $adicional->id,
+                'nome' => $adicional->adicional_nome,
+                'valor' => (float) $adicional->adicional_valor,
             ])
+            ->values()
             ->toArray();
         $this->perguntasDisponiveis = $produto->perguntasAplicaveis()->map->paraTela()->values()->all();
         $this->respostas = [];
@@ -867,7 +868,7 @@ class PedidoProdutoSelector extends Component
         $categoria = $produtoBase->categoria;
         $tiposVenda = [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value];
 
-        $produtos = Produto::with(['categoria', 'ap_produto_id.adicional'])
+        $produtos = Produto::with(['categoria', 'adicionais'])
             ->where('produto_categoria_id', $categoria->id)
             ->whereIn('produto_tipo', $tiposVenda)
             ->where('produto_cardapio_garcom', true)
@@ -880,12 +881,11 @@ class PedidoProdutoSelector extends Component
                 'foto' => $p->getMiniaturaUrl(56),
                 'fotoPizza' => $p->getMiniaturaUrl(64),
                 // Adicionais vinculados ao sabor: a pizza só leva os comuns a todos os sabores (regra do servidor).
-                'adicionais' => $p->ap_produto_id
-                    ->filter(fn ($ap) => $ap->adicional !== null)
-                    ->map(fn ($ap) => [
-                        'id' => $ap->adicional->id,
-                        'nome' => $ap->adicional->adicional_nome,
-                        'valor' => (float) $ap->adicional->adicional_valor,
+                'adicionais' => $p->adicionais
+                    ->map(fn (Adicional $adicional) => [
+                        'id' => $adicional->id,
+                        'nome' => $adicional->adicional_nome,
+                        'valor' => (float) $adicional->adicional_valor,
                     ])
                     ->values()
                     ->all(),
@@ -1402,15 +1402,16 @@ class PedidoProdutoSelector extends Component
             ? array_column($item['sabores'] ?? [], 'produto_id')
             : [$item['produto_id']];
 
-        $this->editAdicionaisDisponiveis = Produto::with('ap_produto_id.adicional')
+        // Comuns na ordem do primeiro sabor (intersectByKeys mantém a ordem dele).
+        $this->editAdicionaisDisponiveis = Produto::with('adicionais')
             ->whereIn('id', $produtoIds)
             ->get()
-            ->map(fn (Produto $produto) => $produto->ap_produto_id
-                ->filter(fn ($ap) => $ap->adicional !== null)
-                ->mapWithKeys(fn ($ap) => [$ap->adicional->id => [
-                    'id' => $ap->adicional->id,
-                    'nome' => $ap->adicional->adicional_nome,
-                    'valor' => (float) $ap->adicional->adicional_valor,
+            ->sortBy(fn (Produto $produto) => array_search($produto->id, $produtoIds))
+            ->map(fn (Produto $produto) => $produto->adicionais
+                ->mapWithKeys(fn (Adicional $adicional) => [$adicional->id => [
+                    'id' => $adicional->id,
+                    'nome' => $adicional->adicional_nome,
+                    'valor' => (float) $adicional->adicional_valor,
                 ]]))
             ->reduce(fn ($comuns, $doProduto) => $comuns === null ? $doProduto : $comuns->intersectByKeys($doProduto))
             ?->values()

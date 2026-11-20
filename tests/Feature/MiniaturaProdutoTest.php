@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Enums\ProdutoTipoEnum;
+use App\Models\Adicional;
 use App\Models\Categoria;
 use App\Models\Produto;
+use App\Services\CardapioService;
 use App\Services\MiniaturaProdutoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -12,9 +14,9 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
- * Miniaturas WebP das fotos de produto: geradas no upload e pelo comando
- * produtos:miniaturas, sem nunca alterar a foto original; sem miniatura, a
- * tela usa a original.
+ * Miniaturas WebP das fotos de produto e de adicional: geradas no upload e
+ * pelo comando produtos:miniaturas, sem nunca alterar a foto original; sem
+ * miniatura, a tela usa a original.
  */
 class MiniaturaProdutoTest extends TestCase
 {
@@ -132,5 +134,55 @@ class MiniaturaProdutoTest extends TestCase
             Storage::disk('public')->assertExists($this->miniaturas->caminho($foto, $lado));
         }
         $this->assertSame($foto, $produto->fresh()->produto_foto);
+    }
+
+    public function test_salvar_adicional_com_foto_gera_a_miniatura_e_o_cardapio_usa_ela(): void
+    {
+        $foto = $this->fotoNoDisco('fotos_adicionais/bacon.jpg');
+        $original = Storage::disk('public')->get($foto);
+
+        $adicional = Adicional::factory()->create(['adicional_foto' => $foto, 'adicional_nome' => 'Bacon']);
+        $produto = $this->produto();
+        $produto->adicionais()->attach($adicional->id);
+
+        $caminho = $this->miniaturas->caminhoAdicional($foto);
+        Storage::disk('public')->assertExists($caminho);
+        [$largura, $altura, $tipo] = getimagesize(Storage::disk('public')->path($caminho));
+        $this->assertSame(MiniaturaProdutoService::LADO_ADICIONAL, min($largura, $altura));
+        $this->assertSame(IMAGETYPE_WEBP, $tipo);
+        $this->assertSame($original, Storage::disk('public')->get($foto));
+
+        $adicionaisProdutos = app(CardapioService::class)->dados()['adicionaisProdutos'];
+        $this->assertSame(Storage::disk('public')->url($caminho), $adicionaisProdutos[$produto->id][0]['foto']);
+    }
+
+    public function test_adicional_sem_foto_nao_manda_a_imagem_padrao_ao_cardapio(): void
+    {
+        $adicional = Adicional::factory()->create();
+
+        $this->assertFalse($adicional->temFoto());
+        $this->assertNull($adicional->getMiniaturaUrl());
+    }
+
+    public function test_adicional_sem_miniatura_usa_a_foto_original(): void
+    {
+        $foto = $this->fotoNoDisco('fotos_adicionais/cheddar.jpg');
+        $adicional = Adicional::factory()->create(['adicional_foto' => $foto]);
+        Storage::disk('public')->delete($this->miniaturas->caminhoAdicional($foto));
+
+        $this->assertSame(Storage::disk('public')->url($foto), $adicional->getMiniaturaUrl());
+    }
+
+    public function test_comando_gera_a_miniatura_das_fotos_antigas_de_adicional(): void
+    {
+        $foto = $this->fotoNoDisco('fotos_adicionais/catupiry.jpg');
+        $adicional = Adicional::factory()->create();
+        $adicional->forceFill(['adicional_foto' => $foto])->saveQuietly();
+
+        $this->artisan('produtos:miniaturas')
+            ->expectsOutputToContain('Adicionais: 1 com foto no disco, 1 a processar.')
+            ->assertSuccessful();
+
+        Storage::disk('public')->assertExists($this->miniaturas->caminhoAdicional($foto));
     }
 }

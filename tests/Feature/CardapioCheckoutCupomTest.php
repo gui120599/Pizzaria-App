@@ -190,8 +190,10 @@ class CardapioCheckoutCupomTest extends TestCase
     {
         $this->get(route('cardapio', ['cupom' => 'JOAO10']))
             ->assertOk()
-            ->assertSee('const _cupomRoute', false)
-            ->assertSee("get('cupom')", false);
+            ->assertSee('"cupom":"'.route('cardapio.cupom.validar').'"', false);
+
+        // O carrinho (módulo Vite) lê o cupom da query ao abrir.
+        $this->assertStringContainsString("get('cupom')", file_get_contents(resource_path('js/cardapio/carrinho.js')));
     }
 
     public function test_cupom_de_influenciador_inativo_e_recusado_no_checkout(): void

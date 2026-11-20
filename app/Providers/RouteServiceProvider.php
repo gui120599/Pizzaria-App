@@ -50,6 +50,16 @@ class RouteServiceProvider extends ServiceProvider
         // Link rastreável do influenciador: por IP, contra inflar cliques.
         RateLimiter::for('referencia-influenciador', fn (Request $request) => Limit::perMinute(30)->by('ref:'.$request->ip()));
 
+        // Busca do cliente pelo WhatsApp: devolve nome e endereço, então limita
+        // quem tenta números em sequência. Logado (telas internas que usam a
+        // mesma rota), o limite é por usuário e mais folgado.
+        RateLimiter::for('cardapio-lookup-cliente', fn (Request $request) => $request->user()
+            ? Limit::perMinute(120)->by('lookup-cliente:user:'.$request->user()->id)
+            : [
+                Limit::perMinute(10)->by('lookup-cliente:min:'.$request->ip()),
+                Limit::perHour(60)->by('lookup-cliente:hora:'.$request->ip()),
+            ]);
+
         // Checkout público: por IP, contra pedido em massa.
         RateLimiter::for('cardapio-checkout', fn (Request $request) => Limit::perMinute(20)->by('checkout:'.$request->ip()));
 

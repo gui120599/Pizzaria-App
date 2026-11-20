@@ -10,6 +10,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/css/cardapio.css',
                 'resources/js/app.js',
+                'resources/js/cardapio/index.js',
                 'resources/js/pizza-svg-painel.js',
                 'resources/js/garcom-push.js',
                 'resources/css/filament/admin/theme.css',

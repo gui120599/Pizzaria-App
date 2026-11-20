@@ -234,7 +234,7 @@ class CardapioCheckoutLancamentoTest extends TestCase
 
         $this->get(route('cardapio'))
             ->assertOk()
-            ->assertViewHas('adicionaisProdutos', fn ($porProduto) => $porProduto[$lanche->id] === [['id' => $bacon->id, 'nome' => 'Bacon', 'valor' => 6.0]]);
+            ->assertViewHas('adicionaisProdutos', fn ($porProduto) => $porProduto[$lanche->id] === [['id' => $bacon->id, 'nome' => 'Bacon', 'valor' => 6.0, 'foto' => null]]);
     }
 
     private function adicionalDoProduto(Produto $produto, string $nome, float $valor): Adicional

@@ -531,11 +531,33 @@ class Produto extends Model
         return $daCategoria->concat($proprias)->values();
     }
 
+    /**
+     * Adicionais vinculados, na ordem de exibição: a ordem própria do produto
+     * (ap_ordem, quando alguém ordenou o produto) e, depois dela, a ordem
+     * geral. Vínculo novo num produto com ordem própria entra no fim.
+     */
     public function adicionais(): BelongsToMany
     {
         return $this->belongsToMany(Adicional::class, 'adicionais_produtos', 'ap_produto_id', 'ap_adicional_id')
             ->wherePivotNull('deleted_at')
-            ->withTimestamps();
+            ->withPivot('ap_ordem')
+            ->withTimestamps()
+            ->orderByRaw('adicionais_produtos.ap_ordem IS NULL')
+            ->orderBy('adicionais_produtos.ap_ordem')
+            ->orderBy('adicionais.adicional_ordem')
+            ->orderBy('adicionais.adicional_nome');
+    }
+
+    /** O produto tem ordem própria de adicionais (alguém ordenou na aba Adicionais). */
+    public function temOrdemPropriaDeAdicionais(): bool
+    {
+        return $this->adicionais()->whereNotNull('adicionais_produtos.ap_ordem')->exists();
+    }
+
+    /** Volta o produto para a ordem geral dos adicionais. */
+    public function usarOrdemGeralDeAdicionais(): void
+    {
+        $this->adicionais()->newPivotQuery()->update(['ap_ordem' => null]);
     }
 
     public function balancos()

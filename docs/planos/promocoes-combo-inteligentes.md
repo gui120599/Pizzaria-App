@@ -1,7 +1,7 @@
 # Promoções Combo Inteligentes ("2 pizzas grandes por R$ 87,99")
 
 > Origem: pedido do usuário em 19/11/2026. A promoção deve reconhecer sozinha quando o carrinho tem itens participantes, sugerir o item que falta e aplicar o preço promocional com uma tela de comemoração, no Cardápio Web e no atendimento (Filament).
-> Status: **aprovado em 19/11/2026 (decisões na seção 2). Fases 1 (`f0b105fd`), 2 (`4544923a`) e 3 implementadas; Fase 4 (quantidade limitada) pendente.**
+> Status: **aprovado em 19/11/2026 (decisões na seção 2). Fases 1 (`f0b105fd`), 2 (`4544923a`), 3 e 4 (quantidade limitada, 20/11/2026) implementadas.**
 > Execução: por fases (seção 10). **Cada fase é uma entrega independente**, com testes e commit próprios. Não comece a fase seguinte sem que a anterior esteja verde e homologada.
 
 ---
@@ -392,6 +392,14 @@ Celular primeiro: bottom-sheet como os modais atuais, botões de 48 px, lista co
 
 ### Fase 4: saldo (Q7) e relatório
 - Quantidade limitada com UPDATE condicional + estorno nos pontos de cancelamento, limite por pedido no checkout, relatório de combos por período e reset da recorrência no `promocoes:resetar-recorrentes`.
+
+**Como ficou (20/11/2026):**
+- Só a coluna `promocombo_qtd_total` (nula = sem limite). **Sem `_qtd_vendida`:** os combos usados são contados no histórico (`pedido_combo_aplicacoes` de pedidos não cancelados, `PromocaoCombo::combosUsados()`). Como o combo é refeito do zero a cada mudança do pedido, um contador teria de ser acertado em cada reaplicação e em cada ponto de cancelamento; contando no histórico, o cancelamento devolve o combo sozinho e não há como o contador divergir.
+- O saldo entra no motor como teto de combos do pedido (`min(saldo, combos por pedido)`), sem contar os combos do próprio pedido. Na gravação (`reaplicar`), a linha da promoção fica travada (`lockForUpdate`) até o fim da transação, para dois pedidos não levarem o último combo.
+- Recorrente: `promocoes:resetar-recorrentes` só marca `promocombo_ultimo_reset_em`; contam os pedidos criados depois dele.
+- Cardápio: promoção esgotada sai da vitrine e do convite; com limite, o card mostra "restam X". Se o combo esgota entre a prévia e a gravação, o checkout avisa o cliente (tela de sucesso e WhatsApp).
+- Filament: campo "Quantidade limitada", coluna "Restam" e página **Relatório de combos** (Promoção Combo › Relatório de combos): combos por período e promoção, De/Por/desconto com totais, cancelados à parte.
+- Testes: `PromocaoComboQuantidadeLimitadaTest`.
 
 Estimativa grosseira: F1 1–1,5 dia, F2 1 dia, F3 1 dia, F4 0,5–1 dia.
 

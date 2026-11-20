@@ -29,7 +29,7 @@
     "isEntry": true
   },
   "resources/css/cardapio.css": {
-    "file": "assets/cardapio-BB4m4X3j.css",
+    "file": "assets/cardapio-CD4IU821.css",
     "src": "resources/css/cardapio.css",
     "isEntry": true
   },
@@ -52,6 +52,15 @@
     "file": "assets/app-BId1WUGD.js",
     "name": "app",
     "src": "resources/js/app.js",
+    "isEntry": true,
+    "imports": [
+      "_pizza-svg-D5Qpga6C.js"
+    ]
+  },
+  "resources/js/cardapio/index.js": {
+    "file": "assets/index-Dd4dKk5w.js",
+    "name": "index",
+    "src": "resources/js/cardapio/index.js",
     "isEntry": true,
     "imports": [
       "_pizza-svg-D5Qpga6C.js"

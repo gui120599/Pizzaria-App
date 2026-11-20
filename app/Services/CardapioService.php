@@ -285,16 +285,24 @@ class CardapioService
         // Adicionais vinculados a cada produto, para o carrinho oferecer na
         // montagem do item. Na pizza de sabores valem só os vinculados a todos
         // os sabores (o carrinho cruza as listas; o servidor revalida).
+        // A foto é resolvida uma vez por adicional (o mesmo adicional se repete
+        // em muitos produtos e cada resolução consulta o disco).
+        $fotosAdicionais = [];
         $adicionaisProdutos = Produto::visivelCardapio()
             ->whereHas('adicionais')
             ->with('adicionais')
             ->get()
             ->mapWithKeys(fn (Produto $produto) => [$produto->id => $produto->adicionais
-                ->map(fn (Adicional $adicional) => [
-                    'id' => $adicional->id,
-                    'nome' => $adicional->adicional_nome,
-                    'valor' => (float) $adicional->adicional_valor,
-                ])
+                ->map(function (Adicional $adicional) use (&$fotosAdicionais) {
+                    $fotosAdicionais[$adicional->id] ??= ['url' => $adicional->getMiniaturaUrl()];
+
+                    return [
+                        'id' => $adicional->id,
+                        'nome' => $adicional->adicional_nome,
+                        'valor' => (float) $adicional->adicional_valor,
+                        'foto' => $fotosAdicionais[$adicional->id]['url'],
+                    ];
+                })
                 ->values()
                 ->all()]);
 

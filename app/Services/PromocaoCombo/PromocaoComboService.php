@@ -27,6 +27,11 @@ use Illuminate\Support\Collection;
  *    que a contém também;
  *  - promoção que já está no pedido continua valendo para ele mesmo depois
  *    de sair da vigência (o pedido editado às 20h30 não perde o combo das 19h55).
+ *
+ * Quantidade limitada (promocombo_qtd_total): o saldo é o total menos os
+ * combos dos outros pedidos (PromocaoCombo::combosUsados) e entra no motor
+ * como teto de combos por pedido. Na gravação, a linha da promoção fica
+ * travada até o fim da transação, para dois pedidos não levarem o último.
  */
 class PromocaoComboService
 {
@@ -116,11 +121,18 @@ class PromocaoComboService
 
         $livres = $itens->whereNull('item_pedido_venda_id')->mapWithKeys(fn (ItensPedido $item): array => [(string) $item->id => $item])->all();
 
+        $limitadas = $promocoes->whereNotNull('promocombo_qtd_total')->modelKeys();
+
+        if ($travar && $limitadas !== []) {
+            PromocaoCombo::withTrashed()->whereKey($limitadas)->orderBy('id')->lockForUpdate()->get();
+        }
+
         $plano = $this->planejar(
             $livres,
             $promocoes->values(),
             jaAplicadas: $congeladas->countBy('pca_promocao_combo_id')->all(),
             unidadesOcupadas: array_combine(array_map('strval', array_keys($unidadesCongeladas)), $unidadesCongeladas),
+            pedidoId: $pedido->id,
         );
 
         return compact('plano', 'aplicacoes', 'congeladas', 'livres', 'descontoCongelado');
@@ -133,6 +145,7 @@ class PromocaoComboService
      * @param  Collection<int, PromocaoCombo>|null  $promocoes  null = as vigentes, filtradas pela opção de entrega
      * @param  array<int, int>  $jaAplicadas  promoção => aplicações congeladas (contam no limite por pedido)
      * @param  array<string, int>  $unidadesOcupadas  chave => unidades já presas em aplicação congelada
+     * @param  int|null  $pedidoId  pedido gravado: os combos dele não contam no saldo da quantidade limitada
      */
     public function planejar(
         array $linhas,
@@ -141,6 +154,7 @@ class PromocaoComboService
         bool $ehMesa = false,
         array $jaAplicadas = [],
         array $unidadesOcupadas = [],
+        ?int $pedidoId = null,
     ): PlanoCombo {
         $promocoes ??= PromocaoCombo::query()->vigente()->get()
             ->filter(fn (PromocaoCombo $p): bool => $p->entregaPermitida($opcaoEntregaId, $ehMesa));
@@ -149,7 +163,7 @@ class PromocaoComboService
             return new PlanoCombo;
         }
 
-        $regras = $this->regras($promocoes);
+        $regras = $this->regras($promocoes, $this->saldos($promocoes, $pedidoId));
         $categorias = $this->categoriasDosProdutos($linhas);
         $entrada = [];
         $ordem = 0;
@@ -172,7 +186,7 @@ class PromocaoComboService
      * R$ X"). Só exibição: quem decide o preço é planejar().
      *
      * @param  array<int, array{categoria_id: ?int, relampago: bool}>  $produtos  produto exibido => categoria e se está em relâmpago
-     * @return list<array{promocaoId: int, nome: string, descricao: ?string, imagem: ?string, imagem_mobile: ?string, quantidade: int, composicao: string, preco: float, sugerir: bool, produtos: list<int>, grupos: list<array{id: int, nome: string, quantidade: int, produtos: list<int>}>}>
+     * @return list<array{promocaoId: int, nome: string, descricao: ?string, imagem: ?string, imagem_mobile: ?string, quantidade: int, composicao: string, preco: float, restam: ?int, sugerir: bool, produtos: list<int>, grupos: list<array{id: int, nome: string, quantidade: int, produtos: list<int>}>}>
      */
     public function paraCardapio(array $produtos, bool $mesa = false): array
     {
@@ -183,11 +197,19 @@ class PromocaoComboService
             return [];
         }
 
+        // Esgotada sai do cardápio; com quantidade limitada, a vitrine mostra "restam X".
+        $saldos = $this->saldos($promocoes);
+        $promocoes = $promocoes->reject(fn (PromocaoCombo $p): bool => ($saldos[$p->id] ?? 1) <= 0);
+
+        if ($promocoes->isEmpty()) {
+            return [];
+        }
+
         $descricoes = $promocoes->pluck('promocombo_descricao', 'id');
         $imagens = $promocoes->mapWithKeys(fn (PromocaoCombo $p): array => [$p->id => ['desktop' => $p->urlImagem(), 'mobile' => $p->urlImagemMobile()]]);
 
-        return collect($this->regras($promocoes))
-            ->map(function (RegraCombo $regra) use ($produtos, $descricoes, $imagens): array {
+        return collect($this->regras($promocoes, $saldos))
+            ->map(function (RegraCombo $regra) use ($produtos, $descricoes, $imagens, $saldos): array {
                 $participantes = [];
                 $porGrupo = array_fill_keys(array_keys($regra->grupos), []);
 
@@ -213,6 +235,7 @@ class PromocaoComboService
                     'quantidade' => $regra->quantidade(),
                     'composicao' => self::composicao($regra),
                     'preco' => $regra->precoCentavos / 100,
+                    'restam' => $saldos[$regra->promocaoId] ?? null,
                     'sugerir' => $regra->sugerir,
                     // Intercalados entre os grupos: a vitrine do destaque mostra um de cada.
                     'produtos' => self::intercalar($porGrupo, $participantes),
@@ -301,10 +324,33 @@ class PromocaoComboService
     }
 
     /**
+     * Combos que ainda cabem por promoção com quantidade limitada (as sem
+     * limite ficam fora do array).
+     *
      * @param  Collection<int, PromocaoCombo>  $promocoes
+     * @return array<int, int>
+     */
+    private function saldos(Collection $promocoes, ?int $pedidoId = null): array
+    {
+        $limitadas = $promocoes->whereNotNull('promocombo_qtd_total');
+
+        if ($limitadas->isEmpty()) {
+            return [];
+        }
+
+        $usados = PromocaoCombo::combosUsados($limitadas->modelKeys(), $pedidoId);
+
+        return $limitadas->mapWithKeys(fn (PromocaoCombo $p): array => [
+            $p->id => max(0, (int) $p->promocombo_qtd_total - ($usados[$p->id] ?? 0)),
+        ])->all();
+    }
+
+    /**
+     * @param  Collection<int, PromocaoCombo>  $promocoes
+     * @param  array<int, int>  $saldos  promoção => combos que ainda cabem (quantidade limitada)
      * @return list<RegraCombo>
      */
-    private function regras(Collection $promocoes): array
+    private function regras(Collection $promocoes, array $saldos = []): array
     {
         $participantes = PromocaoComboParticipante::whereIn('pcp_promocao_combo_id', $promocoes->modelKeys())->get()
             ->groupBy('pcp_promocao_combo_id');
@@ -312,7 +358,7 @@ class PromocaoComboService
             ->orderBy('pcg_ordem')->orderBy('id')->get()
             ->groupBy('pcg_promocao_combo_id');
 
-        return $promocoes->map(function (PromocaoCombo $promocao) use ($participantes, $grupos): RegraCombo {
+        return $promocoes->map(function (PromocaoCombo $promocao) use ($participantes, $grupos, $saldos): RegraCombo {
             $lista = $participantes->get($promocao->id, collect());
             // Participante sem grupo vale para a promoção inteira (inclusive exclusões).
             $globais = $lista->whereNull('pcp_grupo_id');
@@ -333,7 +379,9 @@ class PromocaoComboService
                 precoCentavos: self::centavos($promocao->promocombo_preco),
                 grupos: $gruposDaRegra,
                 prioridade: (int) $promocao->promocombo_prioridade,
-                limitePorPedido: $promocao->promocombo_limite_por_pedido,
+                limitePorPedido: isset($saldos[$promocao->id])
+                    ? min($saldos[$promocao->id], $promocao->promocombo_limite_por_pedido ?? PHP_INT_MAX)
+                    : $promocao->promocombo_limite_por_pedido,
                 aplicaFracionado: (bool) $promocao->promocombo_aplica_fracionado,
                 cumulaRelampago: (bool) $promocao->promocombo_cumula_relampago,
                 cumulaPromoAdicional: (bool) $promocao->promocombo_cumula_promo_adicional,

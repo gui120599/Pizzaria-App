@@ -141,7 +141,8 @@ class CardapioPromocaoAdicionalViewTest extends TestCase
 
         $this->get(route('cardapio'))
             ->assertOk()
-            ->assertSee('const _promocoesAdicionais', false);
+            ->assertSee('id="cardapio-dados"', false)
+            ->assertSee('"promocoesAdicionais":{', false);
     }
 
     public function test_campanha_ativa_aparece_na_secao_informativa(): void

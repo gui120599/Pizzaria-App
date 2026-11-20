@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\PromocaoAdicional;
+use App\Models\PromocaoCombo;
 use App\Models\PromocaoRelampago;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,10 @@ use Illuminate\Support\Facades\DB;
  * Também zera o teto de brindes (promoad_qtd_vendida) das campanhas de
  * promoção adicional recorrentes com quantidade limitada. O saldo por oferta
  * (pao_qtd_vendida) continua como sempre foi: não reseta.
+ *
+ * Na Promoção Combo recorrente com quantidade limitada não há contador: o
+ * reset só marca promocombo_ultimo_reset_em, e os combos usados passam a
+ * contar a partir dele (PromocaoCombo::combosUsados).
  */
 class ResetarPromocoesRecorrentes extends Command
 {
@@ -67,6 +72,22 @@ class ResetarPromocoesRecorrentes extends Command
 
             $resetadas++;
             $this->info("Promoção adicional #{$campanha->id} ({$campanha->promoad_nome}) resetada para nova ocorrência.");
+        }
+
+        $combos = PromocaoCombo::where('promocombo_ativa', true)
+            ->where('promocombo_recorrente', true)
+            ->whereNotNull('promocombo_qtd_total')
+            ->get();
+
+        foreach ($combos as $combo) {
+            if (! $combo->deveResetarAgora($agora)) {
+                continue;
+            }
+
+            $combo->update(['promocombo_ultimo_reset_em' => $agora]);
+
+            $resetadas++;
+            $this->info("Promoção combo #{$combo->id} ({$combo->promocombo_nome}) resetada para nova ocorrência.");
         }
 
         if ($resetadas === 0) {
