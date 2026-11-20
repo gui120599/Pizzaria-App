@@ -96,6 +96,12 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // Produtos pausados pelo chat do Claude voltam no horário combinado (G3).
+        $schedule->command('produtos:retomar-pausas')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // Rascunhos de compra avulsa (Claude) vencidos ou abandonados.
         $schedule->command('compras:limpar-rascunhos-avulsa')
             ->dailyAt('03:20')

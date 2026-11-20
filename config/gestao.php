@@ -28,4 +28,14 @@ return [
         // Diferença de caixa (apurado − esperado) que vira alerta, em reais.
         'diferenca_caixa' => (float) env('GESTAO_ANOMALIAS_DIFERENCA_CAIXA', 20.0),
     ],
+
+    // Ações confirmadas pelo chat (G3).
+    'acoes' => [
+        // Validade da prévia: depois disso é preciso preparar de novo.
+        'validade_minutos' => (int) env('GESTAO_ACOES_VALIDADE_MINUTOS', 30),
+        // Contagem de estoque: diferença acima deste % do saldo vira alerta (não bloqueia).
+        'contagem_diferenca_pct' => (float) env('GESTAO_CONTAGEM_DIFERENCA_PCT', 30.0),
+        // Itens por contagem enviada de uma vez.
+        'contagem_max_itens' => 150,
+    ],
 ];
