@@ -4,6 +4,47 @@
  * sheet aberto.
  */
 export function registrarPagina(Alpine) {
+    /**
+     * Carrossel de banners do topo: troca sozinho a cada 6 s, pausa quando o
+     * cliente toca ou passa o mouse e não anda com a aba escondida nem com
+     * "reduzir movimento" ligado.
+     */
+    Alpine.data('carrosselBanners', (total) => ({
+        atual: 0,
+        timer: null,
+        retomarEm: null,
+        init() {
+            if (total < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            this.retomar();
+            document.addEventListener('visibilitychange', () => (document.hidden ? this.pausar() : this.retomar()));
+        },
+        destroy() {
+            clearInterval(this.timer);
+            clearTimeout(this.retomarEm);
+        },
+        ir(indice) {
+            const trilho = this.$refs.trilho;
+            this.atual = (indice + total) % total;
+            trilho.scrollTo({ left: this.atual * trilho.clientWidth, behavior: 'smooth' });
+        },
+        aoRolar() {
+            const trilho = this.$refs.trilho;
+            this.atual = Math.round(trilho.scrollLeft / Math.max(1, trilho.clientWidth));
+        },
+        pausar() {
+            clearInterval(this.timer);
+            this.timer = null;
+            clearTimeout(this.retomarEm);
+            // Depois de mexer, volta a andar sozinho em 10 s.
+            if (total > 1) this.retomarEm = setTimeout(() => this.retomar(), 10000);
+        },
+        retomar() {
+            if (total < 2 || this.timer || document.hidden || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            clearTimeout(this.retomarEm);
+            this.timer = setInterval(() => this.ir(this.atual + 1), 6000);
+        },
+    }));
+
     /** Trilho horizontal: sabe se ainda há conteúdo à esquerda/direita para mostrar setas. */
     Alpine.data('trilhoRolavel', () => ({
         podeVoltar: false,

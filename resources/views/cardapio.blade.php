@@ -8,6 +8,10 @@
 
         @include('cardapio.partials.cabecalho')
 
+        @if (! empty($banners))
+            @include('cardapio.partials.banners')
+        @endif
+
         @unless ($mesaCliente)
             @include('cardapio.partials.apresentacao')
         @endunless
