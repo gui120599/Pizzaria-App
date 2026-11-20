@@ -16,6 +16,7 @@ use App\Models\Lancamento;
 use App\Models\LancamentoDespesa;
 use App\Models\PlanoDespesa;
 use App\Models\PrestadorCredito;
+use App\Services\Compras\ChaveVinculo;
 use App\Services\Compras\CompraFiscalService;
 use App\Services\Compras\CustoAquisicaoCalculator;
 use App\Services\Compras\PendenciaService;
@@ -605,16 +606,15 @@ class CompraService
     /** Grava/atualiza o de-para código do fornecedor ↔ insumo para futuras NFs/XML. */
     private function atualizarDePara(Compra $compra, CompraItem $item): void
     {
-        if (! $compra->compra_prestador_id || blank($item->ci_codigo_fornecedor)) {
+        // Código da NF-e ou, na compra avulsa, a descrição normalizada.
+        $chave = ChaveVinculo::atributos($item, $compra);
+        if ($chave === null) {
             return;
         }
 
-        // withTrashed: a unique (fornecedor, código) vale também para vínculos
-        // excluídos; confirmar a compra com esse código restaura o vínculo.
-        $vinculo = FornecedorProduto::withTrashed()->firstOrNew([
-            'fp_prestador_id' => $compra->compra_prestador_id,
-            'fp_codigo_fornecedor' => $item->ci_codigo_fornecedor,
-        ]);
+        // withTrashed: a unique (fornecedor, tipo, chave) vale também para
+        // vínculos excluídos; confirmar a compra restaura o vínculo.
+        $vinculo = FornecedorProduto::withTrashed()->firstOrNew($chave);
         $vinculo->deleted_at = null;
 
         $vinculo->fill([

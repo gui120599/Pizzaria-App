@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Compras\OrigemVinculo;
+use App\Enums\Compras\TipoChaveVinculo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,7 @@ class FornecedorProduto extends Model
 
     protected $fillable = [
         'fp_prestador_id',
+        'fp_tipo_chave',
         'fp_produto_id',
         'fp_codigo_fornecedor',
         'fp_descricao_fornecedor',
@@ -34,6 +36,7 @@ class FornecedorProduto extends Model
             'fp_fator_conversao' => 'decimal:4',
             'fp_ultimo_custo_unitario' => 'decimal:4',
             'fp_origem' => OrigemVinculo::class,
+            'fp_tipo_chave' => TipoChaveVinculo::class,
         ];
     }
 

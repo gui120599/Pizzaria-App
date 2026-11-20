@@ -24,7 +24,11 @@ abstract class FerramentaCompras extends Tool
 
     public function handle(Request $request): Response
     {
-        Cache::add(self::CACHE_INICIO_RODADA, now()->toIso8601String(), now()->addDay());
+        // Só o agente tem "rodada"; buscar_produtos também atende usuários humanos
+        // no servidor de compra avulsa.
+        if ($this->chamadaDoAgente($request)) {
+            Cache::add(self::CACHE_INICIO_RODADA, now()->toIso8601String(), now()->addDay());
+        }
 
         try {
             $resposta = $this->executar($request);
@@ -52,9 +56,16 @@ abstract class FerramentaCompras extends Tool
         return $usuario instanceof User ? $usuario : null;
     }
 
+    private function chamadaDoAgente(Request $request): bool
+    {
+        $usuario = $request->user();
+
+        return $usuario instanceof User && $usuario->hasRole('Agente');
+    }
+
     private function registrar(Request $request, string $resultado, ?string $detalhe = null): void
     {
-        Log::channel('agente_compras')->info('mcp.'.$this->name(), [
+        Log::channel($this->chamadaDoAgente($request) ? 'agente_compras' : 'compras_avulsa')->info('mcp.'.$this->name(), [
             'usuario_id' => $request->user()?->getAuthIdentifier(),
             'argumentos' => Str::limit(json_encode($request->all(), JSON_UNESCAPED_UNICODE) ?: '', 2000),
             'resultado' => $resultado,

@@ -3,6 +3,7 @@
 namespace App\Services\Compras;
 
 use App\Enums\Compras\OrigemVinculo;
+use App\Enums\Compras\TipoChaveVinculo;
 use App\Enums\Compras\TipoPendenciaCompra;
 use App\Enums\OperacaoEntradaEnum;
 use App\Exceptions\NfeDestinatarioDivergenteException;
@@ -258,6 +259,7 @@ class CompraImportacaoService
         // Vínculo excluído pelo usuário com o mesmo código: não recria sozinho.
         $existente = FornecedorProduto::withTrashed()
             ->where('fp_prestador_id', $compra->compra_prestador_id)
+            ->where('fp_tipo_chave', TipoChaveVinculo::Codigo->value)
             ->where('fp_codigo_fornecedor', $item->ci_codigo_fornecedor)
             ->first();
         if ($existente !== null) {
@@ -266,6 +268,7 @@ class CompraImportacaoService
 
         $vinculo = FornecedorProduto::query()->create([
             'fp_prestador_id' => $compra->compra_prestador_id,
+            'fp_tipo_chave' => TipoChaveVinculo::Codigo->value,
             'fp_codigo_fornecedor' => $item->ci_codigo_fornecedor,
             'fp_produto_id' => $item->ci_produto_id,
             'fp_descricao_fornecedor' => $item->ci_descricao_fornecedor,

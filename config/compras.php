@@ -47,4 +47,17 @@ return [
         'limite_confianca' => 0.90,
     ],
 
+    /*
+    | Compra avulsa sem NF-e pelo Claude (Fase 5, /mcp/compras-avulsa).
+    */
+    'avulsa' => [
+        'expiracao_rascunho_min' => 30,
+        'dias_retroativos' => 30,
+        'tolerancia_total' => 0.05,
+        'janela_duplicidade_horas' => 48,
+        // Plano de despesa usado quando nem o item nem o fornecedor definem um.
+        'plano_despesa_padrao' => env('COMPRAS_AVULSA_PLANO_DESPESA_ID'),
+        'anexo_max_kb' => 10240,
+        'anexo_link_horas' => 24,
+    ],
 ];

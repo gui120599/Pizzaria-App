@@ -8,6 +8,7 @@ use App\Enums\StatusLancamento;
 use App\Exceptions\FinanceiroException;
 use App\Filament\Components\ContaFinanceiraSelect;
 use App\Filament\Resources\Compras\CompraResource;
+use App\Models\Compra;
 use App\Models\Lancamento;
 use App\Models\Prestador;
 use App\Services\Compras\FinanceiroCompraService;
@@ -74,16 +75,22 @@ class PagamentosAConfirmar extends Page implements HasTable
         return Lancamento::query()
             ->pagar()
             ->whereIn('status', [StatusLancamento::Pendente, StatusLancamento::Parcial])
-            ->whereHas('compra', fn (Builder $compra): Builder => $compra->where('compra_importacao_automatica', true))
-            ->where(fn (Builder $titulo): Builder => $titulo
+            ->where(fn (Builder $titulos): Builder => $titulos
+                // Compra avulsa "a pagar" (fiado): entra a partir do vencimento (decisão Q4 da Fase 5).
+                ->where(fn (Builder $avulsa): Builder => $avulsa
+                    ->whereHas('compra', fn (Builder $compra): Builder => $compra->where('compra_origem', Compra::ORIGEM_AVULSA))
+                    ->whereDate('vencimento', '<=', today()))
+                ->orWhere(fn (Builder $automatizada): Builder => $automatizada
+                    ->whereHas('compra', fn (Builder $compra): Builder => $compra->where('compra_importacao_automatica', true))
+                    ->where(fn (Builder $titulo): Builder => $titulo
                 // Sem parâmetros, regra manual (ou vazia) e baixa na emissão que não deu certo.
-                ->whereDoesntHave('compra.prestador.condicaoCompra')
-                ->orWhereHas('compra.prestador.condicaoCompra', fn (Builder $condicao): Builder => $condicao->whereNull('fcc_regra_baixa'))
-                ->orWhereHas('compra.prestador.condicaoCompra', $regra([RegraBaixaCompra::Manual->value, RegraBaixaCompra::AutomaticaNaEmissao->value]))
+                        ->whereDoesntHave('compra.prestador.condicaoCompra')
+                        ->orWhereHas('compra.prestador.condicaoCompra', fn (Builder $condicao): Builder => $condicao->whereNull('fcc_regra_baixa'))
+                        ->orWhereHas('compra.prestador.condicaoCompra', $regra([RegraBaixaCompra::Manual->value, RegraBaixaCompra::AutomaticaNaEmissao->value]))
                 // Por conciliação vencida além da janela: o débito não apareceu no extrato.
-                ->orWhere(fn (Builder $vencida): Builder => $vencida
-                    ->whereDate('vencimento', '<', $limiteConciliacao)
-                    ->whereHas('compra.prestador.condicaoCompra', $regra([RegraBaixaCompra::PorConciliacao->value]))));
+                        ->orWhere(fn (Builder $vencida): Builder => $vencida
+                            ->whereDate('vencimento', '<', $limiteConciliacao)
+                            ->whereHas('compra.prestador.condicaoCompra', $regra([RegraBaixaCompra::PorConciliacao->value]))))));
     }
 
     public function table(Table $table): Table

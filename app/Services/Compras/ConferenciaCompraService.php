@@ -50,7 +50,17 @@ class ConferenciaCompraService
     /** Data em que a compra entra no estoque sozinha, ou null se não entra. */
     public function dataDeEntrada(Compra $compra): ?Carbon
     {
-        if (! $compra->compra_importacao_automatica || $compra->compra_status !== CompraStatusEnum::RASCUNHO) {
+        if ($compra->compra_status !== CompraStatusEnum::RASCUNHO) {
+            return null;
+        }
+
+        // Compra avulsa com item pendente: entra inteira, na data da compra,
+        // quando a última pendência for resolvida (decisão Q2 da Fase 5).
+        if ($compra->ehAvulsa()) {
+            return $compra->compra_data_entrada?->copy()->startOfDay();
+        }
+
+        if (! $compra->compra_importacao_automatica) {
             return null;
         }
 

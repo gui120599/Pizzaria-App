@@ -445,16 +445,12 @@ class PendenciaService
 
     private function gravarVinculo(CompraItem $item, int $produtoId, float $fator, ?User $usuario, OrigemVinculo $origem): ?FornecedorProduto
     {
-        $prestadorId = $item->compra->compra_prestador_id;
-
-        if ($prestadorId === null || blank($item->ci_codigo_fornecedor)) {
+        $chave = ChaveVinculo::atributos($item);
+        if ($chave === null) {
             return null;
         }
 
-        $vinculo = FornecedorProduto::withTrashed()->firstOrNew([
-            'fp_prestador_id' => $prestadorId,
-            'fp_codigo_fornecedor' => $item->ci_codigo_fornecedor,
-        ]);
+        $vinculo = FornecedorProduto::withTrashed()->firstOrNew($chave);
 
         $vinculo->fill([
             'fp_produto_id' => $produtoId,

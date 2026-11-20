@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\Compras\Schemas;
 
+use App\Enums\Compras\OrigemInformacaoAvulsa;
 use App\Enums\PrestadorCategoriaEnum;
 use App\Filament\Resources\CentroCustos\CentroCustoResource;
 use App\Filament\Resources\Compras\Support\OperacaoFiscalView;
 use App\Filament\Resources\Fornecedores\FornecedorResource;
 use App\Models\CentroCusto;
 use App\Models\Compra;
+use App\Models\CompraAnexo;
 use App\Models\Prestador;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -16,6 +18,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Illuminate\Support\HtmlString;
 use Leandrocfe\FilamentPtbrFormFields\Money;
@@ -165,7 +169,46 @@ class CompraForm
                             ->visible(fn (?Compra $record): bool => $record !== null && OperacaoFiscalView::avisoDivergenciaValor($record) !== null)
                             ->content(fn (?Compra $record): HtmlString => OperacaoFiscalView::avisoDivergenciaValor($record)),
                     ]),
+
+                Section::make('4. Compra avulsa (lançada pelo Claude)')
+                    ->description(fn (?Compra $record): string => 'Registrada por '.($record?->user?->name ?? '—')
+                        .($record?->compra_origem_informacao ? ' · a partir de: '.(OrigemInformacaoAvulsa::tryFrom($record->compra_origem_informacao)?->getLabel() ?? $record->compra_origem_informacao) : ''))
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->columnSpanFull()
+                    ->collapsible()
+                    ->visible(fn (?Compra $record): bool => $record?->ehAvulsa() ?? false)
+                    ->schema([
+                        Tabs::make('avulsa')->tabs([
+                            Tab::make('Comprovante')->schema([
+                                Placeholder::make('avulsa_comprovantes')
+                                    ->hiddenLabel()
+                                    ->content(fn (?Compra $record): HtmlString => self::comprovantes($record)),
+                            ]),
+                            Tab::make('Entrada original')->schema([
+                                Placeholder::make('avulsa_entrada')
+                                    ->hiddenLabel()
+                                    ->content(fn (?Compra $record): HtmlString => new HtmlString('<pre style="white-space:pre-wrap;font-size:.8rem">'
+                                        .e(json_encode($record?->rascunhoAvulso?->entrada ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))
+                                        .'</pre>')),
+                            ]),
+                        ]),
+                    ]),
             ])
             ->columns(9);
+    }
+
+    /** Miniaturas das fotos do comprovante (abrem em outra aba). */
+    private static function comprovantes(?Compra $record): HtmlString
+    {
+        $anexos = $record?->anexos()->latest()->get() ?? collect();
+
+        if ($anexos->isEmpty()) {
+            return new HtmlString('<span style="color:#6b7280">Nenhuma foto anexada. O link para anexar é enviado pelo Claude ao confirmar a compra.</span>');
+        }
+
+        return new HtmlString('<div style="display:flex;flex-wrap:wrap;gap:12px">'.$anexos->map(fn (CompraAnexo $anexo): string => sprintf(
+            '<a href="%1$s" target="_blank" rel="noopener"><img src="%1$s" alt="Comprovante" style="height:160px;border-radius:8px;object-fit:cover"></a>',
+            e(route('compras.anexo.ver', $anexo)),
+        ))->implode('').'</div>');
     }
 }
