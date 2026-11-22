@@ -15,7 +15,7 @@
             {{-- Desktop (≥ lg): cardápio à esquerda, painel fixo à direita com
                  tipo, cliente, carrinho e envio. No celular a ordem é a do DOM. --}}
             <div class="space-y-4 lg:grid lg:grid-cols-12 lg:items-start lg:gap-6 lg:space-y-0">
-            <div class="space-y-4 lg:sticky lg:top-4 lg:order-2 lg:col-span-5 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 2xl:col-span-4">
+            <div class="space-y-4 lg:sticky lg:top-4 lg:has-[[data-stone-modal]]:z-40 lg:order-2 lg:col-span-5 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 2xl:col-span-4">
             <div class="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1 dark:bg-white/5">
                 @foreach (['retirada' => 'Retirada', 'entrega' => 'Entrega'] as $valor => $rotulo)
                     <button type="button" wire:click="usarTipo('{{ $valor }}')"

@@ -100,7 +100,7 @@
                 </div>
 
                 {{-- Painel lateral (desktop) + abas Rodadas/Conta do celular --}}
-                <div class="space-y-4 lg:sticky lg:top-4 lg:col-span-5 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 2xl:col-span-4">
+                <div class="space-y-4 lg:sticky lg:top-4 lg:has-[[data-stone-modal]]:z-40 lg:col-span-5 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 2xl:col-span-4">
                     <div class="hidden grid-cols-3 gap-1 rounded-2xl bg-gray-100 p-1 lg:grid dark:bg-white/5">
                         @foreach (['rodada' => 'Rodada atual', 'rodadas' => 'Rodadas', 'conta' => 'Conta'] as $valor => $rotulo)
                             <button type="button" wire:click="$set('abaPainel', '{{ $valor }}')"
