@@ -1,4 +1,14 @@
 <div>
+    @php($vendaAberta = $this->resumoDaVenda())
+    @if ($vendaAberta && $vendaAberta['pago'] > 0)
+        <div class="mb-2 space-y-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+            <p class="font-semibold">Pago na maquininha: R$ {{ number_format($vendaAberta['pago'], 2, ',', '.') }} de R$ {{ number_format($vendaAberta['total'], 2, ',', '.') }}</p>
+            @if ($vendaAberta['falta'] > 0)
+                <p>Falta <strong>R$ {{ number_format($vendaAberta['falta'], 2, ',', '.') }}</strong>: cobre aqui na maquininha (cartão ou PIX) ou receba em dinheiro no caixa (venda #{{ $vendaAberta['id'] }}).</p>
+            @endif
+        </div>
+    @endif
+
     @if ($this->podeCobrar)
         <x-secondary-button type="button" wire:click="abrirModal" class="dark:border-white/10 dark:bg-white/10 dark:text-gray-100 dark:hover:bg-white/20">
             Cobrar na maquininha
@@ -36,7 +46,7 @@
                         </div>
 
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ $pedidoId ? 'Pedido #'.$pedidoId : 'Conta da mesa' }}: faltam
+                            {{ $vendaAberta && $vendaAberta['falta'] > 0 ? 'Venda #'.$vendaAberta['id'] : ($pedidoId ? 'Pedido #'.$pedidoId : 'Conta da mesa') }}: faltam
                             <strong class="text-gray-700 dark:text-gray-200">R$ {{ number_format($this->totalAberto, 2, ',', '.') }}</strong>
                             (já descontado o que foi pago ou está aguardando na maquininha).
                             O pedido entra na lista do POS e o tipo (crédito, débito ou PIX) é escolhido na própria maquininha.

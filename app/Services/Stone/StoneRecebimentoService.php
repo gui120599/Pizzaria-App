@@ -312,6 +312,49 @@ class StoneRecebimentoService
     }
 
     /**
+     * Venda ainda aberta que um pagamento Stone da conta da mesa (ou do pedido
+     * avulso) já criou: o webhook lança os itens nela, então depois de um
+     * pagamento parcial a conta da mesa zera e o restante só existe aqui.
+     */
+    public function vendaAbertaDaStone(SessaoMesa|Pedido $alvo): ?Venda
+    {
+        $cobranca = StonePedido::query()
+            ->when(
+                $alvo instanceof SessaoMesa,
+                fn ($query) => $query->where('stp_origem', StonePedidoOrigem::SessaoMesa->value)->where('stp_sessao_mesa_id', $alvo->id),
+                fn ($query) => $query->where('stp_origem', StonePedidoOrigem::Pedido->value)->where('stp_pedido_id', $alvo->id),
+            )
+            ->whereNotNull('stp_venda_id')
+            ->whereHas('venda', fn ($query) => $query->where('venda_status', 'INICIADA'))
+            ->latest('id')
+            ->first();
+
+        return $cobranca?->venda;
+    }
+
+    /**
+     * Cobra na maquininha o que falta de uma venda criada por cobrança da
+     * mesa/pedido (cartão ou PIX, escolhido na própria maquininha). A nova
+     * cobrança herda a origem da primeira: ao ser paga por inteiro, a venda
+     * finaliza a conta e libera a mesa como no primeiro pagamento.
+     *
+     * @throws StoneConnectException
+     */
+    public function iniciarCobrancaDoRestante(Venda $venda, Maquininha $maquininha, ?float $valor = null): StonePedido
+    {
+        $origem = StonePedido::where('stp_venda_id', $venda->id)
+            ->where('stp_origem', '!=', StonePedidoOrigem::Venda->value)
+            ->oldest('id')
+            ->first();
+
+        if (! $origem) {
+            throw new StoneConnectException('Esta venda não nasceu de uma cobrança da mesa ou do pedido: receba o restante pelo PDV.');
+        }
+
+        return $this->enviar($venda, null, $maquininha, $valor, StonePedidoModo::Listado, $origem);
+    }
+
+    /**
      * Envia vários pedidos de uma vez para a mesma maquininha (envio em lote do
      * painel). Os elegíveis precisam caber nas vagas da maquininha: se não
      * couberem, NENHUM é enviado. A checagem e a criação dos registros acontecem
@@ -379,7 +422,7 @@ class StoneRecebimentoService
      * então fala com a Stone: nenhum HTTP dentro de transação, e uma segunda
      * tentativa já enxerga a linha pendente.
      */
-    private function enviar(Pedido|SessaoMesa|Venda $alvo, ?OpcoesPagamento $opcao, Maquininha $maquininha, ?float $valor, StonePedidoModo $modo): StonePedido
+    private function enviar(Pedido|SessaoMesa|Venda $alvo, ?OpcoesPagamento $opcao, Maquininha $maquininha, ?float $valor, StonePedidoModo $modo, ?StonePedido $herdaDe = null): StonePedido
     {
         $modoEfetivo = $this->validarFormaEMaquininha($opcao, $maquininha, $modo);
 
@@ -389,7 +432,7 @@ class StoneRecebimentoService
             ]);
         }
 
-        $stonePedido = DB::transaction(function () use ($alvo, $opcao, $maquininha, $valor, $modoEfetivo): StonePedido {
+        $stonePedido = DB::transaction(function () use ($alvo, $opcao, $maquininha, $valor, $modoEfetivo, $herdaDe): StonePedido {
             $maquininhaTravada = $this->travarMaquininha($maquininha);
             $alvoTravado = $this->travarAlvo($alvo);
 
@@ -398,7 +441,7 @@ class StoneRecebimentoService
                 throw new StoneConnectException($elegibilidade['motivo']);
             }
 
-            return $this->criarRegistroPendente($alvoTravado, $opcao, $maquininhaTravada, $valor, $modoEfetivo);
+            return $this->criarRegistroPendente($alvoTravado, $opcao, $maquininhaTravada, $valor, $modoEfetivo, $herdaDe);
         });
 
         return $this->enviarParaStone($stonePedido);
@@ -459,7 +502,7 @@ class StoneRecebimentoService
      * único de stp_chave_pendente é a última barreira contra duas cobranças
      * Direto no mesmo alvo.
      */
-    private function criarRegistroPendente(Pedido|SessaoMesa|Venda $alvo, ?OpcoesPagamento $opcao, Maquininha $maquininha, ?float $valor, StonePedidoModo $modo): StonePedido
+    private function criarRegistroPendente(Pedido|SessaoMesa|Venda $alvo, ?OpcoesPagamento $opcao, Maquininha $maquininha, ?float $valor, StonePedidoModo $modo, ?StonePedido $herdaDe = null): StonePedido
     {
         $devido = $this->valorDevido($alvo);
         $valorCobrado = $valor === null ? $devido : round($valor, 2);
@@ -477,11 +520,16 @@ class StoneRecebimentoService
                 'stp_venda_id' => $alvo instanceof Venda ? $alvo->id : null,
                 'stp_pedido_id' => match (true) {
                     $alvo instanceof Pedido => $alvo->id,
-                    $alvo instanceof Venda => $this->pedidoVinculadoAVenda($alvo),
+                    $alvo instanceof Venda => $herdaDe ? $herdaDe->stp_pedido_id : $this->pedidoVinculadoAVenda($alvo),
                     default => null,
                 },
-                'stp_sessao_mesa_id' => $alvo instanceof SessaoMesa ? $alvo->id : null,
-                'stp_origem' => $this->origemDoAlvo($alvo),
+                'stp_sessao_mesa_id' => match (true) {
+                    $alvo instanceof SessaoMesa => $alvo->id,
+                    default => $herdaDe?->stp_sessao_mesa_id,
+                },
+                // Restante de uma venda que a própria cobrança da mesa/pedido criou: segue com a
+                // origem dela para a venda finalizar sozinha quando o saldo for pago.
+                'stp_origem' => $herdaDe ? $herdaDe->stp_origem : $this->origemDoAlvo($alvo),
                 'stp_usuario_id' => Auth::id(),
                 'stp_maquininha_id' => $maquininha->id,
                 'stp_opcaopagamento_id' => $opcao?->id,
