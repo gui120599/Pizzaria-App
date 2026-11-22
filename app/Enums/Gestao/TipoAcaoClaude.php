@@ -9,6 +9,8 @@ use Filament\Support\Contracts\HasLabel;
 enum TipoAcaoClaude: string implements HasIcon, HasLabel
 {
     case Despesa = 'despesa';
+    case Receita = 'receita';
+    case BaixaTitulos = 'baixa_titulos';
     case PausaProduto = 'pausa_produto';
     case Promocao = 'promocao';
     case AprovarSugestoes = 'aprovar_sugestoes';
@@ -18,6 +20,8 @@ enum TipoAcaoClaude: string implements HasIcon, HasLabel
     {
         return match ($this) {
             self::Despesa => 'Despesa avulsa',
+            self::Receita => 'Receita avulsa',
+            self::BaixaTitulos => 'Pagamento/recebimento de títulos',
             self::PausaProduto => 'Pausa de produto',
             self::Promocao => 'Promoção relâmpago',
             self::AprovarSugestoes => 'Aprovar sugestões do agente',
@@ -29,6 +33,8 @@ enum TipoAcaoClaude: string implements HasIcon, HasLabel
     {
         return match ($this) {
             self::Despesa => 'heroicon-o-banknotes',
+            self::Receita => 'heroicon-o-arrow-down-tray',
+            self::BaixaTitulos => 'heroicon-o-check-circle',
             self::PausaProduto => 'heroicon-o-pause-circle',
             self::Promocao => 'heroicon-o-bolt',
             self::AprovarSugestoes => 'heroicon-o-check-badge',

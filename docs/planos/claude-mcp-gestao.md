@@ -261,12 +261,18 @@ No Cowork, com os conectores "PizzariaAPP Gestão" e Google Sheets/Drive ativos,
 | Promoção relâmpago | `preparar_promocao` | `update:promocao_relampago` | Liga uma promoção já cadastrada numa janela (início/fim) ou encerra. A recorrente liga na própria agenda. Opcionalmente zera os vendidos (nova rodada). |
 | Aprovar sugestões do agente | `sugestoes_agente`, `preparar_aprovacao_sugestoes` | `resolver:pendencia_compra` | O mesmo "Aprovar" da tela Pendências de compras (`PendenciaService::aprovarSugestao`), uma a uma, com os erros listados. |
 | Contagem de estoque | `preparar_contagem_estoque` | `create:movimentacao_balanco` | Um balanço por item com diferença (`BalancoEstoqueService`), como a tela Balanços. A prévia mostra a diferença em quantidade e em R$. |
+| Receita avulsa | `preparar_receita`, `opcoes_receita` | `create:lancamento` (já recebida: também `approve:lancamento`) | Título a receber com plano de receita, cliente opcional, competência e documento — parcelado se preciso. Se já recebida: a entrada na conta. |
+| Pagamento/recebimento de títulos | `preparar_baixa_titulos`, `buscar_titulos` | `approve:lancamento` | O mesmo "Registrar pagamento" de Contas a pagar/receber, para um ou vários títulos (mesma data, forma e conta); parcial se o valor for menor; a pagar aceita juros/multa. Título de compra resolve as pendências de pagamento a confirmar. |
 
 **Alertas que bloqueiam a confirmação:**
 - **Despesa:** documento/código de barras já lançado; plano que é grupo; saldo insuficiente; Caixa PDV fechado ou de outro dia; perfil sem `approve:lancamento` para despesa já paga.
 - **Pausa:** horário de volta no passado ou a mais de 30 dias; nada a mudar.
 - **Promoção:** sem produtos; já ligada/desligada; janela inválida.
 - **Contagem:** produto não identificado ou repetido; produto sem controle de estoque; tudo batendo com o sistema.
+- **Receita:** documento já lançado; plano que é grupo; Caixa PDV fechado ou de outro dia; perfil sem `approve:lancamento` para receita já recebida.
+- **Baixa de títulos:** título já pago/cancelado ou recebível de maquininha; recebimento acima do que falta; saldo insuficiente para os pagamentos; Caixa PDV fechado ou de outro dia; data no futuro.
+
+**Parcelamento (despesa e receita, 2026-11-24):** `numero_parcelas` (mensais iguais a partir do vencimento, centavos na 1ª) ou `parcelas` com vencimento e valor de cada uma (precisam somar o total). Cada parcela vira um título "Descrição — Parcela n/N" com `parcela_numero`/`parcela_total`. Já pago/recebido não é parcelado: lance a pagar/receber e dê baixa na 1ª com `preparar_baixa_titulos`.
 
 **Painel:**
 - **Indicadores › Ações do Claude:** trilha de cada ação, com quem preparou, o resumo que foi confirmado e o que foi gravado. Só leitura; vê quem tem `usar:claude_gestao`.
@@ -303,6 +309,8 @@ No Claude, o conector "PizzariaAPP Gestão" já existente passa a listar as tool
 | Produto acabou (`produto`, `ate`) | Gestão | ação Pausa | acha os produtos → preparar_pausa_produto → "sim" |
 | Contagem de estoque | Gestão | ação Contagem | foto da folha → confere unidades → preparar_contagem_estoque → "sim" |
 | Revisar sugestões do agente | Gestão | ação Aprovar sugestões | sugestoes_agente em tabela → escolhe → preparar_aprovacao_sugestoes → "sim" |
+| Lançar receita | Gestão | ação Receita | opcoes_receita → preparar_receita → "sim" |
+| Registrar pagamento ou recebimento (`o_que`) | Gestão | ação Baixa | buscar_titulos → confirma data/conta → preparar_baixa_titulos → "sim" |
 | Lançar compra avulsa | Compras Avulsas | `compras.avulsa` | cupom → preparar_compra_avulsa → "sim" → link do comprovante |
 
 **Cartão "Painel do dia" (MCP App).**

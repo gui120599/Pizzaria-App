@@ -60,7 +60,7 @@ class DebitosClientes extends FerramentaGestao
     }
 
     /** LGPD: só os 4 últimos dígitos. */
-    private static function mascarar(?string $telefone): ?string
+    public static function mascarar(?string $telefone): ?string
     {
         $digitos = preg_replace('/\D/', '', (string) $telefone);
 
