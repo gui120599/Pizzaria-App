@@ -24,6 +24,10 @@ use Livewire\Component;
  * prévia; o webhook charge.paid cria a Venda quando o pagamento chegar (ver
  * StoneVendaAutomaticaService). Espelha o modal Stone de OperarVenda/
  * AtenderPedido/PainelEntregador.
+ *
+ * Mesa que divide a conta: o garçom informa só o valor que passa na maquininha
+ * (o resto é dinheiro) e, se o envio já tinha ido inteiro, encerra a cobrança
+ * parcialmente paga para o restante não ficar listado no POS.
  */
 class MesaStoneCobranca extends Component
 {
@@ -36,7 +40,13 @@ class MesaStoneCobranca extends Component
 
     public ?int $maquininhaId = null;
 
-    /** form|aguardando|pago|erro|cancelado|indeterminado */
+    /**
+     * Valor a enviar à maquininha, como o garçom digita (pt-BR). Começa no valor
+     * devido da conta: quem vai pagar em dinheiro fica de fora do envio.
+     */
+    public ?string $valor = null;
+
+    /** form|aguardando|pago|erro|cancelado|indeterminado|encerrado */
     public string $status = 'form';
 
     public ?string $erro = null;
@@ -127,7 +137,14 @@ class MesaStoneCobranca extends Component
 
         $this->status = $elegibilidade['elegivel'] ? 'form' : 'erro';
         $this->erro = $elegibilidade['elegivel'] ? null : $elegibilidade['motivo'];
+        $this->valor = $this->formatarValor($this->totalAberto);
         $this->modalAberta = true;
+    }
+
+    /** Cobrança em acompanhamento no modal (valores sempre lidos do banco). */
+    public function cobrancaAtual(): ?StonePedido
+    {
+        return $this->stonePedidoId ? StonePedido::find($this->stonePedidoId) : null;
     }
 
     public function fecharModal(): void
@@ -164,12 +181,20 @@ class MesaStoneCobranca extends Component
 
         session(['stone_ultima_maquininha_id.'.Auth::id() => $this->maquininhaId]);
 
+        $valor = $this->valorDigitado();
+        if ($valor === null || $valor <= 0) {
+            $this->addError('valor', 'Informe o valor a cobrar na maquininha.');
+
+            return;
+        }
+
         // O garçom escolhe o tipo (crédito/débito/PIX) na própria maquininha
-        // — modo Listado, igual ao botão "Lançar total" do PDV. Sem valor: o
-        // serviço cobra o valor devido da conta.
+        // — modo Listado, igual ao botão "Lançar total" do PDV. O valor não
+        // passa do devido da conta (o serviço recusa): quem paga em dinheiro
+        // fica fora do envio, senão o saldo dele ficaria aberto no POS.
         try {
             $stonePedido = app(StoneRecebimentoService::class)->iniciarCobrancaDePedido(
-                $alvo, null, $maquininha, modo: StonePedidoModo::Listado,
+                $alvo, null, $maquininha, $valor, StonePedidoModo::Listado,
             );
             $this->stonePedidoId = $stonePedido->id;
             $this->status = 'aguardando';
@@ -228,6 +253,40 @@ class MesaStoneCobranca extends Component
         $this->verificarStatus();
     }
 
+    /** Já há cobrança aberta e ainda sobra saldo: volta ao formulário para enviar outro valor (ex.: outro grupo da mesa). */
+    public function novoEnvio(): void
+    {
+        if ($this->totalAberto <= 0) {
+            return;
+        }
+
+        $this->stonePedidoId = null;
+        $this->erro = null;
+        $this->status = 'form';
+        $this->valor = $this->formatarValor($this->totalAberto);
+    }
+
+    /** O restante foi pago em dinheiro: fecha o pedido na Stone e a conta volta a ter esse saldo a receber. */
+    public function encerrarRestante(): void
+    {
+        $stonePedido = $this->cobrancaAtual();
+        if (! $stonePedido) {
+            return;
+        }
+
+        try {
+            app(StoneRecebimentoService::class)->encerrarRestante($stonePedido);
+        } catch (StoneConnectException $e) {
+            $this->status = 'erro';
+            $this->erro = $e->getMessage();
+
+            return;
+        }
+
+        $this->status = 'encerrado';
+        unset($this->totalAberto, $this->podeCobrar);
+    }
+
     public function cancelarCobranca(): void
     {
         if ($this->stonePedidoId) {
@@ -250,6 +309,24 @@ class MesaStoneCobranca extends Component
     public function render()
     {
         return view('livewire.mesa-stone-cobranca');
+    }
+
+    /** "12,50", "1.200,50" ou "12.5" → float; null quando não é número. */
+    private function valorDigitado(): ?float
+    {
+        $texto = trim((string) $this->valor);
+        if ($texto === '') {
+            return null;
+        }
+
+        $texto = str_contains($texto, ',') ? str_replace(',', '.', str_replace('.', '', $texto)) : $texto;
+
+        return is_numeric($texto) ? round((float) $texto, 2) : null;
+    }
+
+    private function formatarValor(float $valor): string
+    {
+        return number_format($valor, 2, ',', '.');
     }
 
     /** Pedido avulso ainda cobrável: não cancelado/finalizado e sem item lançado em venda. */

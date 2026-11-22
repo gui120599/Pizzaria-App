@@ -677,11 +677,69 @@ class StoneRecebimentoService
             throw new StoneConnectException('O resultado desta cobrança é desconhecido: reconsulte na Stone antes de cancelar.');
         }
 
+        if ((float) $pedido->stp_valor_pago > 0) {
+            throw new StoneConnectException('Esta cobrança já recebeu R$ '.number_format((float) $pedido->stp_valor_pago, 2, ',', '.').' na maquininha e não pode ser cancelada. Se o restante foi pago em dinheiro, use "Encerrar cobrança".');
+        }
+
         if (filled($pedido->stp_order_id)) {
             $this->connect->cancelarPedido($pedido->stp_order_id);
         }
 
         $pedido->update(['stp_status' => StonePedidoStatus::Cancelado]);
+    }
+
+    /** Parte do pedido já paga na maquininha e o restante aberto: o que "Encerrar cobrança" resolve. */
+    public function podeEncerrarRestante(StonePedido $pedido): bool
+    {
+        return $pedido->stp_status === StonePedidoStatus::PagoParcial
+            && filled($pedido->stp_order_id)
+            && $pedido->stp_fechado_em === null
+            && (float) $pedido->stp_valor_pago > 0;
+    }
+
+    /**
+     * Mesa que dividiu a conta: parte passou na maquininha e o resto foi pago
+     * em dinheiro, então o pedido seguiria aberto (e listado) no POS para
+     * sempre. Fecha o pedido na Stone como pago e reduz o valor solicitado ao
+     * que de fato passou na maquininha, para o saldo voltar a ser da conta
+     * (receber em dinheiro no caixa). A chamada à Stone fica fora de transação.
+     *
+     * @throws StoneConnectException
+     */
+    public function encerrarRestante(StonePedido $pedido): StonePedido
+    {
+        $atual = $pedido->fresh();
+
+        if (! $atual || ! $this->podeEncerrarRestante($atual)) {
+            throw new StoneConnectException('Só se encerra uma cobrança que recebeu parte do valor e segue aberta na maquininha.');
+        }
+
+        $this->connect->fecharPedido($atual->stp_order_id, 'paid');
+
+        DB::transaction(function () use ($atual): void {
+            $travado = StonePedido::whereKey($atual->id)->lockForUpdate()->first();
+
+            if ($travado->stp_fechado_em !== null) {
+                return;
+            }
+
+            $original = (float) $travado->stp_valor_solicitado;
+
+            // Um charge.paid que chegou durante o fechamento já está em stp_valor_pago.
+            $travado->update([
+                'stp_valor_solicitado' => $travado->stp_valor_pago,
+                'stp_status' => StonePedidoStatus::Pago,
+                'stp_fechado_em' => now(),
+            ]);
+
+            Log::channel('stone')->info('Cobrança encerrada com o restante recebido fora da maquininha', [
+                'stone_pedido_id' => $travado->id, 'order_id' => $travado->stp_order_id,
+                'valor_solicitado_original' => $original, 'valor_pago' => (float) $travado->stp_valor_pago,
+                'usuario_id' => Auth::id(),
+            ]);
+        });
+
+        return $atual->fresh();
     }
 
     /** Status em que o pedido pode seguir aberto na lista do POS sem pagamento recebido. */

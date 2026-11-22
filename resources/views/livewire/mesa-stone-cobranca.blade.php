@@ -26,11 +26,23 @@
                             @enderror
                         </div>
 
+                        <div>
+                            <label class="text-xs font-medium text-gray-500">Valor a cobrar na maquininha (R$)</label>
+                            <input type="text" inputmode="decimal" wire:model="valor" autocomplete="off"
+                                class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            @error('valor')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         <p class="text-xs text-gray-500">
-                            Envia {{ $pedidoId ? 'o pedido #'.$pedidoId : 'a conta inteira da mesa' }}
-                            (<strong class="text-gray-700">R$ {{ number_format($this->totalAberto, 2, ',', '.') }}</strong>)
-                            pra lista do POS — o tipo (crédito, débito ou PIX) é escolhido na própria maquininha.
-                            O valor desconta o que já foi pago ou está aguardando na maquininha.
+                            {{ $pedidoId ? 'Pedido #'.$pedidoId : 'Conta da mesa' }}: faltam
+                            <strong class="text-gray-700">R$ {{ number_format($this->totalAberto, 2, ',', '.') }}</strong>
+                            (já descontado o que foi pago ou está aguardando na maquininha).
+                            O pedido entra na lista do POS e o tipo (crédito, débito ou PIX) é escolhido na própria maquininha.
+                        </p>
+                        <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            Parte da mesa vai pagar em dinheiro? Informe só o valor que passa na maquininha. O que sobrar fica para receber no caixa e não fica aberto no POS.
                         </p>
 
                         <div class="flex gap-2">
@@ -42,25 +54,66 @@
                             </button>
                         </div>
                     @elseif ($status === 'aguardando')
-                        <div wire:poll.3s="verificarStatus" class="flex flex-col items-center gap-3 py-4 text-center">
+                        @php($cobranca = $this->cobrancaAtual())
+                        <div wire:poll.3s="verificarStatus" class="flex flex-col items-center gap-3 py-2 text-center">
                             <svg class="animate-spin h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                             </svg>
                             <p class="text-sm text-gray-600">Aguardando o pagamento na maquininha…</p>
                         </div>
-                        <div class="flex gap-2">
-                            <button wire:click="cancelarCobranca" wire:loading.attr="disabled" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50">
-                                Cancelar cobrança
-                            </button>
-                            <button wire:click="fecharModal" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50">
+                        @if ($cobranca)
+                            @php($pago = (float) $cobranca->stp_valor_pago)
+                            @php($emAberto = max(0, (float) $cobranca->stp_valor_solicitado - $pago))
+                            <dl class="space-y-1 text-sm">
+                                <div class="flex justify-between"><dt class="text-gray-500">Enviado</dt><dd class="font-medium text-gray-700">R$ {{ number_format((float) $cobranca->stp_valor_solicitado, 2, ',', '.') }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">Já pago na maquininha</dt><dd class="font-medium text-gray-700">R$ {{ number_format($pago, 2, ',', '.') }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">Em aberto no POS</dt><dd class="font-semibold text-amber-700">R$ {{ number_format($emAberto, 2, ',', '.') }}</dd></div>
+                            </dl>
+                        @endif
+                        <div class="flex flex-col gap-2">
+                            @if ($this->totalAberto > 0)
+                                <button wire:click="novoEnvio" type="button" class="w-full py-2 rounded-lg text-sm font-semibold border border-primary-300 text-primary-700 hover:bg-primary-50">
+                                    Enviar outro valor (faltam R$ {{ number_format($this->totalAberto, 2, ',', '.') }})
+                                </button>
+                            @endif
+                            @if ($cobranca && (float) $cobranca->stp_valor_pago > 0)
+                                <button wire:click="encerrarRestante" wire:confirm="Encerrar a cobrança na maquininha? O que falta será recebido em dinheiro no caixa." wire:loading.attr="disabled" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50">
+                                    Encerrar: o restante foi pago em dinheiro
+                                </button>
+                            @else
+                                <button wire:click="cancelarCobranca" wire:confirm="Cancelar a cobrança na maquininha?" wire:loading.attr="disabled" type="button" class="w-full py-2 rounded-lg text-sm font-semibold border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50">
+                                    Cancelar cobrança
+                                </button>
+                            @endif
+                            <button wire:click="fecharModal" type="button" class="w-full py-2 rounded-lg text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50">
                                 Fechar
                             </button>
                         </div>
+                    @elseif ($status === 'encerrado')
+                        <div class="flex flex-col items-center gap-2 py-2 text-center">
+                            <p class="text-sm font-medium text-gray-700">Cobrança encerrada na maquininha.</p>
+                            <p class="text-xs text-gray-500">
+                                @if ($this->totalAberto > 0)
+                                    Restam <strong>R$ {{ number_format($this->totalAberto, 2, ',', '.') }}</strong> da conta: receba em dinheiro e finalize no caixa.
+                                @else
+                                    Não resta valor a receber nesta conta.
+                                @endif
+                            </p>
+                        </div>
+                        <button wire:click="fecharModal" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
+                            Concluir
+                        </button>
                     @elseif ($status === 'pago')
                         <div class="flex flex-col items-center gap-2 py-2 text-center">
                             <p class="text-sm font-medium text-gray-700">✅ Pagamento confirmado!</p>
-                            <p class="text-xs text-gray-400">A conta já foi finalizada automaticamente.</p>
+                            <p class="text-xs text-gray-400">
+                                @if ($this->totalAberto > 0)
+                                    Restam R$ {{ number_format($this->totalAberto, 2, ',', '.') }} da conta: receba em dinheiro e finalize no caixa.
+                                @else
+                                    A conta já foi finalizada automaticamente.
+                                @endif
+                            </p>
                         </div>
                         <button wire:click="fecharModal" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
                             Concluir

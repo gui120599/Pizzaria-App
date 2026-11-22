@@ -192,6 +192,23 @@ class StonePedidosTable
                         }
                     }),
 
+                Action::make('encerrarRestante')
+                    ->label('Encerrar (restante em dinheiro)')
+                    ->icon('heroicon-o-banknotes')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Encerrar cobrança parcialmente paga')
+                    ->modalDescription('Fecha o pedido na maquininha com o que já foi pago no cartão. O restante deve ser recebido em dinheiro no caixa.')
+                    ->visible(fn (StonePedido $record): bool => app(StoneRecebimentoService::class)->podeEncerrarRestante($record))
+                    ->action(function (StonePedido $record): void {
+                        try {
+                            app(StoneRecebimentoService::class)->encerrarRestante($record);
+                            Notification::make()->success()->title('Cobrança encerrada na Stone.')->send();
+                        } catch (StoneConnectException $e) {
+                            Notification::make()->danger()->title('Falha ao encerrar a cobrança')->body($e->getMessage())->send();
+                        }
+                    }),
+
                 // Recuperação manual pro caso do R6: o pagamento chegou mas a
                 // Venda não pôde ser criada sozinha (ver stp_erro) — o back
                 // office escolhe a sessão de caixa e o sistema tenta de novo.
