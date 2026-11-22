@@ -26,10 +26,13 @@ use Illuminate\Validation\ValidationException;
  * título a pagar com favorecido, plano de despesa e vencimento — e, se já
  * foi paga, a baixa na conta escolhida (Caixa PDV vira retirada da sessão,
  * como o "Pagamento de despesa" do caixa). Permissão: criar lançamento; para
- * já pago, também registrar pagamento (approve:lancamento).
+ * já pago, também registrar pagamento (approve:lancamento). A pagar pode
+ * ser parcelada (parcelas mensais iguais ou a lista de vencimentos).
  */
 class DespesaAvulsaAcao extends AcaoBase
 {
+    use ConfereTitulosFinanceiros;
+
     public function __construct(
         private readonly CaixaPdvBridge $caixa,
         private readonly DespesaCaixaService $despesaCaixa,
@@ -42,8 +45,6 @@ class DespesaAvulsaAcao extends AcaoBase
 
     public function preparar(array $entrada, User $usuario): array
     {
-        $formas = collect(FormaPagamento::cases())->reject(fn (FormaPagamento $f): bool => $f === FormaPagamento::Compensacao)->map->value->all();
-
         $dados = Validator::make($entrada, [
             'descricao' => ['required', 'string', 'max:255'],
             'valor' => ['required', 'numeric', 'gt:0', 'max:1000000'],
@@ -53,15 +54,16 @@ class DespesaAvulsaAcao extends AcaoBase
             'favorecido_novo.nome' => ['required_with:favorecido_novo', 'string', 'max:150'],
             'favorecido_novo.telefone' => ['nullable', 'string', 'max:30'],
             'situacao_pagamento' => ['required', Rule::in(['pago', 'a_pagar'])],
-            'vencimento' => ['nullable', 'date_format:Y-m-d', 'required_if:situacao_pagamento,a_pagar'],
+            'vencimento' => ['nullable', 'date_format:Y-m-d', Rule::requiredIf(($entrada['situacao_pagamento'] ?? null) === 'a_pagar' && blank($entrada['parcelas'] ?? null))],
             'data_pagamento' => ['nullable', 'date_format:Y-m-d'],
             'competencia' => ['nullable', 'date_format:Y-m'],
-            'forma_pagamento' => ['nullable', Rule::in($formas)],
+            'forma_pagamento' => ['nullable', Rule::in(self::formasAceitas())],
             'conta_financeira_id' => ['nullable', 'integer', 'required_if:situacao_pagamento,pago'],
             'numero_documento' => ['nullable', 'string', 'max:120'],
             'observacao' => ['nullable', 'string', 'max:1000'],
+            ...self::regrasParcelas(),
         ], [
-            'vencimento.required_if' => 'Informe o vencimento (AAAA-MM-DD) da despesa a pagar.',
+            'vencimento.required' => 'Informe o vencimento (AAAA-MM-DD) da despesa a pagar.',
             'conta_financeira_id.required_if' => 'Despesa já paga precisa da conta de onde saiu o dinheiro (conta_financeira_id).',
             'plano_despesa_id.required' => 'Informe o plano de despesa (use opcoes_despesa).',
         ])->validate();
@@ -78,7 +80,13 @@ class DespesaAvulsaAcao extends AcaoBase
         $pago = $dados['situacao_pagamento'] === 'pago';
         $valor = round((float) $dados['valor'], 2);
         $dataPagamento = $pago ? Carbon::parse($dados['data_pagamento'] ?? today()->toDateString()) : null;
-        $vencimento = Carbon::parse($dados['vencimento'] ?? $dataPagamento->toDateString());
+        $vencimento = Carbon::parse($dados['parcelas'][0]['vencimento'] ?? $dados['vencimento'] ?? $dataPagamento->toDateString());
+        $parcelas = $this->montarParcelas($dados, $valor, $vencimento);
+        $vencimento = Carbon::parse($parcelas[0]['vencimento']);
+
+        if ($pago && count($parcelas) > 1) {
+            throw ValidationException::withMessages(['numero_parcelas' => 'Despesa já paga não é parcelada: lance as parcelas como a pagar e registre o pagamento da primeira com preparar_baixa_titulos.']);
+        }
         $competencia = filled($dados['competencia'] ?? null) ? Carbon::createFromFormat('Y-m', $dados['competencia'])->startOfMonth() : $vencimento->copy()->startOfMonth();
         $conta = filled($dados['conta_financeira_id'] ?? null) ? ContaFinanceira::query()->find($dados['conta_financeira_id']) : null;
         $alertas = [];
@@ -113,6 +121,9 @@ class DespesaAvulsaAcao extends AcaoBase
                 $alertas[] = $this->alerta('pagamento_futuro', 'Data de pagamento no futuro: lance como a pagar.', bloqueia: true);
             }
             $sessaoId = $this->conferirConta($conta, $valor, $dataPagamento, $alertas);
+            if ($conta !== null && ! $conta->ehCaixaPdv() && $dataPagamento->lt(today()->subDays(60))) {
+                $alertas[] = $this->alerta('pagamento_antigo', 'Data de pagamento com mais de 60 dias: confira.');
+            }
         }
 
         $previa = [
@@ -123,6 +134,7 @@ class DespesaAvulsaAcao extends AcaoBase
                 ? ['favorecido_id' => $favorecido->id, 'nome' => $favorecido->nome_exibicao, 'novo' => false]
                 : (filled($dados['favorecido_novo'] ?? null) ? ['favorecido_id' => null, 'nome' => $dados['favorecido_novo']['nome'], 'novo' => true] : null),
             'vencimento' => $vencimento->toDateString(),
+            'parcelas' => $parcelas,
             'competencia' => $competencia->format('Y-m'),
             'numero_documento' => $dados['numero_documento'] ?? null,
             'pagamento' => [
@@ -170,19 +182,23 @@ class DespesaAvulsaAcao extends AcaoBase
                 $titulo = $baixa->lancamento;
                 $titulo->forceFill(['numero_documento' => $previa['numero_documento'], 'competencia' => $previa['competencia'].'-01'])->save();
             } else {
-                $titulo = Lancamento::create([
+                $parcelas = $previa['parcelas'] ?? [['numero' => 1, 'vencimento' => $previa['vencimento'], 'valor' => $previa['valor']]];
+                $titulos = collect($parcelas)->map(fn (array $parcela): Lancamento => Lancamento::create([
                     'tipo' => TipoLancamento::Pagar,
-                    'descricao' => $previa['descricao'],
+                    'descricao' => self::descricaoParcela($previa['descricao'], $parcela['numero'], count($parcelas)),
                     'plano_despesa_id' => $previa['plano_despesa']['plano_despesa_id'],
                     'favorecido_id' => $favorecidoId,
                     'numero_documento' => $previa['numero_documento'],
-                    'valor' => $previa['valor'],
-                    'vencimento' => $previa['vencimento'],
+                    'valor' => $parcela['valor'],
+                    'vencimento' => $parcela['vencimento'],
+                    'parcela_numero' => count($parcelas) > 1 ? $parcela['numero'] : null,
+                    'parcela_total' => count($parcelas) > 1 ? count($parcelas) : null,
                     'competencia' => $previa['competencia'].'-01',
                     'status' => StatusLancamento::Pendente,
                     'forma_pagamento' => $forma,
                     'observacoes' => $observacoes,
-                ]);
+                ]));
+                $titulo = $titulos->first();
 
                 if ($pagamento['situacao'] === 'pago') {
                     $titulo->registrarPagamento(
@@ -197,59 +213,18 @@ class DespesaAvulsaAcao extends AcaoBase
             throw ValidationException::withMessages(['pagamento' => $e->getMessage()]);
         }
 
-        $titulo->refresh();
+        $titulos = isset($titulos) ? $titulos->map->refresh() : collect([$titulo->refresh()]);
 
         return [
-            'lancamento_id' => $titulo->id,
-            'valor' => (float) $titulo->valor,
-            'vencimento' => $titulo->vencimento?->toDateString(),
-            'status' => $titulo->status->getLabel(),
+            'lancamento_id' => $titulos->first()->id,
+            'titulos' => $titulos->map(fn (Lancamento $t): array => [
+                'lancamento_id' => $t->id,
+                'valor' => (float) $t->valor,
+                'vencimento' => $t->vencimento?->toDateString(),
+                'status' => $t->status->getLabel(),
+            ])->all(),
             'favorecido_id' => $favorecidoId,
         ];
-    }
-
-    /**
-     * Mesma conferência da compra avulsa: Caixa PDV só hoje, com sessão
-     * aberta e dinheiro na gaveta; outras contas, saldo (salvo se a conta
-     * aceita negativo).
-     *
-     * @param  list<array<string, mixed>>  $alertas
-     */
-    private function conferirConta(?ContaFinanceira $conta, float $valor, Carbon $data, array &$alertas): ?int
-    {
-        if ($conta === null) {
-            $alertas[] = $this->alerta('conta_nao_encontrada', 'Conta financeira não encontrada: use opcoes_despesa.', bloqueia: true);
-
-            return null;
-        }
-
-        if (! $conta->ehCaixaPdv()) {
-            if ((float) $conta->saldo_atual < $valor && ! $conta->permite_saldo_negativo) {
-                $alertas[] = $this->alerta('saldo_insuficiente', "A conta {$conta->nome} tem ".$this->moeda((float) $conta->saldo_atual).', menos que a despesa.', bloqueia: true);
-            }
-
-            return null;
-        }
-
-        if (! $data->isToday()) {
-            $alertas[] = $this->alerta('caixa_pdv_fechado', 'Dinheiro do Caixa PDV só para despesa paga hoje, com o caixa aberto. Escolha outra conta.', bloqueia: true);
-
-            return null;
-        }
-
-        try {
-            $sessao = $this->caixa->sessaoParaMovimentar();
-        } catch (FinanceiroException $e) {
-            $alertas[] = $this->alerta('caixa_pdv_fechado', $e->getMessage(), bloqueia: true);
-
-            return null;
-        }
-
-        if ($this->caixa->dinheiroDisponivel($sessao) < $valor - 0.001) {
-            $alertas[] = $this->alerta('saldo_insuficiente', 'A gaveta do caixa tem '.$this->moeda($this->caixa->dinheiroDisponivel($sessao)).', menos que a despesa.', bloqueia: true);
-        }
-
-        return $sessao->id;
     }
 
     /** @return list<array{id: int, nome: string}> */
@@ -274,8 +249,10 @@ class DespesaAvulsaAcao extends AcaoBase
         $pagamento = $previa['pagamento'];
         $situacao = $pagamento['situacao'] === 'pago'
             ? 'pago em '.Carbon::parse($pagamento['data'])->format('d/m/Y').($pagamento['conta'] ? " de {$pagamento['conta']}" : '')
-                .($pagamento['forma_pagamento'] ? ' ('.(FormaPagamento::tryFrom($pagamento['forma_pagamento'])?->getLabel() ?? $pagamento['forma_pagamento']).')' : '')
-            : 'a pagar, vence '.Carbon::parse($previa['vencimento'])->format('d/m/Y');
+                .$this->rotuloForma($pagamento['forma_pagamento'])
+            : (count($previa['parcelas']) > 1
+                ? 'a pagar em '.count($previa['parcelas']).' parcelas'
+                : 'a pagar, vence '.Carbon::parse($previa['vencimento'])->format('d/m/Y'));
 
         $linhas = [
             "{$previa['descricao']} · ".$this->moeda($previa['valor'])." · {$situacao}",
@@ -285,6 +262,7 @@ class DespesaAvulsaAcao extends AcaoBase
         if ($previa['numero_documento']) {
             $linhas[] = "Documento: {$previa['numero_documento']}";
         }
+        array_push($linhas, ...$this->linhasParcelas($previa['parcelas']));
 
         foreach ($previa['alertas'] as $alerta) {
             $linhas[] = ($alerta['bloqueia'] ? '⛔ ' : '⚠️ ').$alerta['mensagem'];

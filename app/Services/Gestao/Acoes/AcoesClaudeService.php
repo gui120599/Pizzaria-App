@@ -26,6 +26,8 @@ class AcoesClaudeService
     {
         return app(match ($tipo) {
             TipoAcaoClaude::Despesa => DespesaAvulsaAcao::class,
+            TipoAcaoClaude::Receita => ReceitaAvulsaAcao::class,
+            TipoAcaoClaude::BaixaTitulos => BaixaTitulosAcao::class,
             TipoAcaoClaude::PausaProduto => PausaProdutoAcao::class,
             TipoAcaoClaude::Promocao => PromocaoRelampagoAcao::class,
             TipoAcaoClaude::AprovarSugestoes => AprovarSugestoesAcao::class,

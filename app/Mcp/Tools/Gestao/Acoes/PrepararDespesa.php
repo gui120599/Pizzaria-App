@@ -8,7 +8,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('preparar_despesa')]
-#[Description('PRÉVIA (nada é gravado) de uma despesa avulsa (boleto, conta de luz/água/gás, recibo, serviço): título a pagar com favorecido, plano de despesa e vencimento; se já foi paga, a baixa na conta escolhida. Para compra de mercadoria use o conector de compras avulsas. Use opcoes_despesa para planos, contas e favorecidos. Grave com confirmar_acao após o "sim" do usuário.')]
+#[Description('PRÉVIA (nada é gravado) de uma despesa avulsa (boleto, conta de luz/água/gás, recibo, serviço): título a pagar com favorecido, plano de despesa e vencimento — parcelado se preciso; se já foi paga, a baixa na conta escolhida. Para compra de mercadoria use o conector de compras avulsas. Use opcoes_despesa para planos, contas e favorecidos. Grave com confirmar_acao após o "sim" do usuário.')]
 class PrepararDespesa extends FerramentaAcao
 {
     protected function tipo(): TipoAcaoClaude
@@ -29,7 +29,12 @@ class PrepararDespesa extends FerramentaAcao
                 'telefone' => $s->string(),
             ])->description('Favorecido que ainda não existe: cadastrado só na confirmação.'),
             'situacao_pagamento' => $schema->string()->enum(['pago', 'a_pagar'])->required(),
-            'vencimento' => $schema->string()->description('AAAA-MM-DD. Obrigatório se a_pagar.'),
+            'vencimento' => $schema->string()->description('AAAA-MM-DD. Obrigatório se a_pagar (com parcelas: o da 1ª).'),
+            'numero_parcelas' => $schema->integer()->min(1)->max(36)->description('Parcelas mensais iguais a partir do vencimento (só a_pagar). Ex.: 3.'),
+            'parcelas' => $schema->array()->items($schema->object(fn (JsonSchema $s): array => [
+                'vencimento' => $s->string()->description('AAAA-MM-DD')->required(),
+                'valor' => $s->number()->required(),
+            ]))->description('Parcelas com datas/valores diferentes (no lugar de numero_parcelas); precisam somar o valor total.'),
             'data_pagamento' => $schema->string()->description('AAAA-MM-DD, se pago. Padrão: hoje.'),
             'competencia' => $schema->string()->description('Mês da despesa, AAAA-MM (ex.: conta de outubro paga em novembro). Padrão: mês do vencimento.'),
             'forma_pagamento' => $schema->string()->enum(['dinheiro', 'pix', 'pix_cnpj', 'cartao_credito', 'cartao_debito', 'boleto', 'transferencia']),
