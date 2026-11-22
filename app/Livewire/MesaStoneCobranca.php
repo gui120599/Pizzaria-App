@@ -11,6 +11,7 @@ use App\Models\Maquininha;
 use App\Models\Pedido;
 use App\Models\SessaoMesa;
 use App\Models\StonePedido;
+use App\Models\Venda;
 use App\Services\Stone\StoneRecebimentoService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -74,6 +75,51 @@ class MesaStoneCobranca extends Component
         return $this->pedidoId ? $this->pedidoAvulso() : SessaoMesa::find($this->sessaoMesaId);
     }
 
+    /**
+     * Venda que a primeira cobrança paga em parte criou: os itens da conta passam
+     * para ela, então a conta da mesa zera e o restante só existe na venda.
+     */
+    private function vendaEmAberto(): ?Venda
+    {
+        $base = $this->pedidoId ? Pedido::find($this->pedidoId) : SessaoMesa::find($this->sessaoMesaId);
+
+        return $base ? app(StoneRecebimentoService::class)->vendaAbertaDaStone($base) : null;
+    }
+
+    /**
+     * O que a próxima cobrança atinge: o restante da venda aberta, se houver,
+     * senão a conta da mesa / o pedido avulso.
+     */
+    private function alvoDeCobranca(): Pedido|SessaoMesa|Venda|null
+    {
+        $venda = $this->vendaEmAberto();
+
+        if ($venda && app(StoneRecebimentoService::class)->valorDevido($venda) > 0) {
+            return $venda;
+        }
+
+        return $this->alvo();
+    }
+
+    /**
+     * Parte já recebida e o que falta de uma venda aberta por pagamento Stone, para
+     * o garçom saber o que resta (dinheiro no caixa ou nova cobrança aqui).
+     *
+     * @return array{id: int, total: float, pago: float, falta: float}|null
+     */
+    public function resumoDaVenda(): ?array
+    {
+        $venda = $this->vendaEmAberto();
+        if (! $venda) {
+            return null;
+        }
+
+        $total = round((float) $venda->venda_valor_total, 2);
+        $pago = round((float) $venda->venda_valor_pago, 2);
+
+        return ['id' => $venda->id, 'total' => $total, 'pago' => $pago, 'falta' => max(0.0, round($total - $pago, 2))];
+    }
+
     /** Cobrança da maquininha ainda em aberto neste alvo, se houver. */
     private function cobrancaPendente(): ?StonePedido
     {
@@ -100,7 +146,7 @@ class MesaStoneCobranca extends Component
             return true;
         }
 
-        $alvo = $this->alvo();
+        $alvo = $this->alvoDeCobranca();
 
         return $alvo !== null
             && ! app(StoneRecebimentoService::class)->elegibilidade($alvo, haMaquininhaConnect: true)['oculto'];
@@ -110,7 +156,7 @@ class MesaStoneCobranca extends Component
     #[Computed]
     public function totalAberto(): float
     {
-        $alvo = $this->alvo();
+        $alvo = $this->alvoDeCobranca();
 
         return $alvo ? app(StoneRecebimentoService::class)->valorDevido($alvo) : 0.0;
     }
@@ -132,7 +178,7 @@ class MesaStoneCobranca extends Component
             return;
         }
 
-        $alvo = $this->alvo();
+        $alvo = $this->alvoDeCobranca();
         $elegibilidade = $alvo ? app(StoneRecebimentoService::class)->elegibilidade($alvo) : ['elegivel' => false, 'motivo' => 'Conta ou pedido indisponível para cobrança.'];
 
         $this->status = $elegibilidade['elegivel'] ? 'form' : 'erro';
@@ -170,7 +216,7 @@ class MesaStoneCobranca extends Component
         }
 
         $maquininha = Maquininha::find($this->maquininhaId);
-        $alvo = $this->alvo();
+        $alvo = $this->alvoDeCobranca();
 
         if (! $maquininha || ! $alvo) {
             $this->erro = 'Conta ou valor inválido para envio.';
@@ -193,9 +239,10 @@ class MesaStoneCobranca extends Component
         // passa do devido da conta (o serviço recusa): quem paga em dinheiro
         // fica fora do envio, senão o saldo dele ficaria aberto no POS.
         try {
-            $stonePedido = app(StoneRecebimentoService::class)->iniciarCobrancaDePedido(
-                $alvo, null, $maquininha, $valor, StonePedidoModo::Listado,
-            );
+            $recebimento = app(StoneRecebimentoService::class);
+            $stonePedido = $alvo instanceof Venda
+                ? $recebimento->iniciarCobrancaDoRestante($alvo, $maquininha, $valor)
+                : $recebimento->iniciarCobrancaDePedido($alvo, null, $maquininha, $valor, StonePedidoModo::Listado);
             $this->stonePedidoId = $stonePedido->id;
             $this->status = 'aguardando';
         } catch (StoneResultadoDesconhecidoException $e) {
