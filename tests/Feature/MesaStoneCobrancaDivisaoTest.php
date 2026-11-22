@@ -277,4 +277,16 @@ class MesaStoneCobrancaDivisaoTest extends TestCase
         $this->assertSame(80.0, (float) $stonePedido->stp_valor_solicitado);
         $this->assertSame(40.0, $tela->instance()->totalAberto);
     }
+
+    public function test_modal_segue_o_tema_escuro_e_se_marca_para_ficar_acima_do_catalogo(): void
+    {
+        $pedido = $this->pedidoComTotal(100, 'PRONTO');
+
+        Livewire::test(MesaStoneCobranca::class, ['pedidoId' => $pedido->id])
+            ->call('abrirModal')
+            ->assertSeeHtml('data-stone-modal')
+            ->assertSeeHtml('dark:bg-gray-900')
+            ->assertSeeHtml('dark:text-gray-200')
+            ->assertSeeHtml('dark:bg-gray-800');
+    }
 }
