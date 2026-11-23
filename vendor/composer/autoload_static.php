@@ -1031,6 +1031,7 @@ class ComposerStaticInit5ab1db59f69ab376e1219686675b6f06
         'App\\Console\\Commands\\CozinhaRecalcularStatus' => __DIR__ . '/../..' . '/app/Console/Commands/CozinhaRecalcularStatus.php',
         'App\\Console\\Commands\\CozinhaReconstruir' => __DIR__ . '/../..' . '/app/Console/Commands/CozinhaReconstruir.php',
         'App\\Console\\Commands\\DiagnosticarFiadoComPagamentoDePedido' => __DIR__ . '/../..' . '/app/Console/Commands/DiagnosticarFiadoComPagamentoDePedido.php',
+        'App\\Console\\Commands\\FinanceiroCorrigirEstornosForaDoPeriodo' => __DIR__ . '/../..' . '/app/Console/Commands/FinanceiroCorrigirEstornosForaDoPeriodo.php',
         'App\\Console\\Commands\\FinanceiroImportarExtratoBb' => __DIR__ . '/../..' . '/app/Console/Commands/FinanceiroImportarExtratoBb.php',
         'App\\Console\\Commands\\FinanceiroRecalcularSaldos' => __DIR__ . '/../..' . '/app/Console/Commands/FinanceiroRecalcularSaldos.php',
         'App\\Console\\Commands\\GerarMiniaturasProdutos' => __DIR__ . '/../..' . '/app/Console/Commands/GerarMiniaturasProdutos.php',

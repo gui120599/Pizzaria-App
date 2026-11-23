@@ -33,6 +33,7 @@ return array(
     'App\\Console\\Commands\\CozinhaRecalcularStatus' => $baseDir . '/app/Console/Commands/CozinhaRecalcularStatus.php',
     'App\\Console\\Commands\\CozinhaReconstruir' => $baseDir . '/app/Console/Commands/CozinhaReconstruir.php',
     'App\\Console\\Commands\\DiagnosticarFiadoComPagamentoDePedido' => $baseDir . '/app/Console/Commands/DiagnosticarFiadoComPagamentoDePedido.php',
+    'App\\Console\\Commands\\FinanceiroCorrigirEstornosForaDoPeriodo' => $baseDir . '/app/Console/Commands/FinanceiroCorrigirEstornosForaDoPeriodo.php',
     'App\\Console\\Commands\\FinanceiroImportarExtratoBb' => $baseDir . '/app/Console/Commands/FinanceiroImportarExtratoBb.php',
     'App\\Console\\Commands\\FinanceiroRecalcularSaldos' => $baseDir . '/app/Console/Commands/FinanceiroRecalcularSaldos.php',
     'App\\Console\\Commands\\GerarMiniaturasProdutos' => $baseDir . '/app/Console/Commands/GerarMiniaturasProdutos.php',
