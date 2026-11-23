@@ -12,13 +12,21 @@ use App\Models\MovimentacaoFinanceira;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\Summarizers\Sum;
+use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
+/**
+ * Extrato: o resumo do valor mostra entradas, saídas e o líquido da página e
+ * de tudo que os filtros selecionam (estorno e original se anulam).
+ */
 class MovimentacoesFinanceirasTable
 {
     public static function configure(Table $table): Table
@@ -50,7 +58,23 @@ class MovimentacoesFinanceirasTable
                     ->state(fn (MovimentacaoFinanceira $record): string => ($record->tipo === TipoMovimentacao::Saida ? '− ' : '+ ')
                         .'R$ '.number_format((float) $record->valor, 2, ',', '.'))
                     ->color(fn (MovimentacaoFinanceira $record): string => $record->tipo->getColor())
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->summarize([
+                        Sum::make('entradas')
+                            ->label('Entradas')
+                            ->query(fn (QueryBuilder $query): QueryBuilder => $query->where('tipo', TipoMovimentacao::Entrada->value))
+                            ->money('BRL'),
+                        Sum::make('saidas')
+                            ->label('Saídas')
+                            ->query(fn (QueryBuilder $query): QueryBuilder => $query->where('tipo', TipoMovimentacao::Saida->value))
+                            ->money('BRL'),
+                        Summarizer::make('saldo')
+                            ->label('Entradas − saídas')
+                            ->using(fn (QueryBuilder $query): float => round((float) $query->sum(DB::raw(
+                                "CASE WHEN tipo = '".TipoMovimentacao::Entrada->value."' THEN valor ELSE -valor END"
+                            )), 2))
+                            ->money('BRL'),
+                    ]),
                 TextColumn::make('origem')
                     ->label('Origem')
                     ->state(fn (MovimentacaoFinanceira $record): ?string => match (true) {
