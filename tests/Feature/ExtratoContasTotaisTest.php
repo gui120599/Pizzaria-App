@@ -14,7 +14,7 @@ class ExtratoContasTotaisTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_totais_do_extrato_somam_entradas_e_saidas_da_pagina_e_de_tudo_que_o_filtro_seleciona(): void
+    public function test_colunas_de_entradas_saidas_e_liquido_totalizam_a_pagina_e_tudo_que_o_filtro_seleciona(): void
     {
         $this->actingAs(User::factory()->admin()->create(['name_first' => 'Admin']));
         $banco = ContaFinanceira::factory()->banco()->create();
@@ -29,13 +29,12 @@ class ExtratoContasTotaisTest extends TestCase
         Livewire::test(ListMovimentacoesFinanceiras::class)
             ->filterTable('conta_financeira_id', $banco->id)
             ->set('tableRecordsPerPage', 5)
-            ->assertTableColumnSummarySet('valor', 'entradas', 300)
-            ->assertTableColumnSummarySet('valor', 'saidas', 380)
+            ->assertTableColumnSummarySet('entrada', 'entradas', 300)
+            ->assertTableColumnSummarySet('saida', 'saidas', 380)
             ->assertTableColumnSummarySet('valor', 'saldo', -80)
-            ->assertTableColumnSummarySet('valor', 'entradas', 300, isCurrentPaginationPageOnly: true)
-            ->assertTableColumnSummarySet('valor', 'saidas', 80, isCurrentPaginationPageOnly: true)
+            ->assertTableColumnSummarySet('entrada', 'entradas', 300, isCurrentPaginationPageOnly: true)
+            ->assertTableColumnSummarySet('saida', 'saidas', 80, isCurrentPaginationPageOnly: true)
             ->assertTableColumnSummarySet('valor', 'saldo', 220, isCurrentPaginationPageOnly: true)
-            ->assertSee('Esta página')
-            ->assertSee('Entradas − saídas');
+            ->assertSee('Esta página');
     }
 }
