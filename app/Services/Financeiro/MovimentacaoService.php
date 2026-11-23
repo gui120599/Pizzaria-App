@@ -103,6 +103,13 @@ class MovimentacaoService
      * `$sessao` só fica registrada na movimentação, como referência. Com
      * `$validarSaldo` = false a saída também não confere o saldo da origem.
      *
+     * A data não pode ser anterior ao saldo inicial de nenhuma das contas: o
+     * saldo inicial já inclui o que aconteceu antes, e a ponta fora do
+     * período ficaria fora do saldo (ou só uma das pontas contaria).
+     *
+     * Com `$permitirRepetida` = false, recusa se já houver transferência
+     * efetiva igual (mesmas contas, valor e data) — o usuário confirma na tela.
+     *
      * @return array{saida: MovimentacaoFinanceira, entrada: MovimentacaoFinanceira}
      *
      * @throws FinanceiroException
@@ -117,16 +124,34 @@ class MovimentacaoService
         ?SessaoCaixa $sessao = null,
         bool $tocarSessao = true,
         bool $validarSaldo = true,
+        bool $permitirRepetida = true,
     ): array {
         if ($origem->is($destino)) {
             throw new FinanceiroException('Escolha contas diferentes para a transferência.');
         }
 
+        self::garantirValor($valor);
+        $valor = round($valor, 2);
         $descricao = filled($descricao) ? trim($descricao) : "Transferência {$origem->nome} → {$destino->nome}";
 
-        return DB::transaction(function () use ($origem, $destino, $valor, $data, $descricao, $usuario, $sessao, $tocarSessao, $validarSaldo): array {
+        return DB::transaction(function () use ($origem, $destino, $valor, $data, $descricao, $usuario, $sessao, $tocarSessao, $validarSaldo, $permitirRepetida): array {
             // Lock das duas pontas em ordem de id, para duas transferências cruzadas não travarem uma à outra.
-            ContaFinanceira::query()->whereKey([$origem->id, $destino->id])->orderBy('id')->lockForUpdate()->get();
+            $contas = ContaFinanceira::query()->whereKey([$origem->id, $destino->id])->orderBy('id')->lockForUpdate()->get();
+
+            foreach ($contas as $conta) {
+                self::garantirDentroDoPeriodo($conta, $data);
+            }
+
+            if (! $permitirRepetida && ($repetida = $this->transferenciaIgual($origem, $destino, $valor, $data)) !== null) {
+                throw new FinanceiroException(sprintf(
+                    'Já existe uma transferência igual (R$ %s de %s para %s em %s), registrada em %s. Se for outra transferência, marque a confirmação e envie de novo.',
+                    self::moeda($valor),
+                    $origem->nome,
+                    $destino->nome,
+                    $data->format('d/m/Y'),
+                    $repetida->created_at->format('d/m/Y H:i'),
+                ));
+            }
 
             $uuid = (string) Str::uuid();
 
@@ -200,7 +225,23 @@ class MovimentacaoService
         self::garantirMotivo($motivo);
 
         return DB::transaction(function () use ($movimentacao, $motivo, $usuario): Collection {
-            $movimentacao = MovimentacaoFinanceira::query()->lockForUpdate()->findOrFail($movimentacao->id);
+            $uuid = MovimentacaoFinanceira::query()->whereKey($movimentacao->id)->value('transferencia_uuid');
+
+            // Transferência: lock de todas as pontas de uma vez, em ordem de id. Estornar
+            // a saída e a entrada ao mesmo tempo não pode travar uma à outra.
+            $pernas = $uuid === null
+                ? collect([MovimentacaoFinanceira::query()->lockForUpdate()->findOrFail($movimentacao->id)])
+                : MovimentacaoFinanceira::query()
+                    ->where('transferencia_uuid', $uuid)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->whereNull('estorno_de_id')
+                    ->values();
+
+            $movimentacao = $pernas->firstWhere('id', $movimentacao->id)
+                ?? MovimentacaoFinanceira::query()->findOrFail($movimentacao->id);
+
             $this->garantirEstornavel($movimentacao);
 
             if ($movimentacao->lancamento_pagamento_id !== null) {
@@ -211,22 +252,48 @@ class MovimentacaoService
                 return MovimentacaoFinanceira::query()->where('estorno_de_id', $movimentacao->id)->get();
             }
 
-            $pernas = $movimentacao->transferencia_uuid === null
-                ? collect([$movimentacao])
-                : MovimentacaoFinanceira::query()
-                    ->where('transferencia_uuid', $movimentacao->transferencia_uuid)
-                    ->whereNull('estorno_de_id')
-                    ->lockForUpdate()
-                    ->get();
+            if ($uuid !== null && ($pernas->count() !== 2 || $pernas->pluck('tipo')->unique()->count() !== 2)) {
+                throw new FinanceiroException('Esta transferência não tem exatamente uma saída e uma entrada; estorne pelo suporte.');
+            }
+
+            $pernas->each(fn (MovimentacaoFinanceira $perna) => $this->garantirEstornavel($perna));
 
             return $pernas->map(fn (MovimentacaoFinanceira $perna): MovimentacaoFinanceira => $this->reverter($perna, $motivo, $usuario));
         });
     }
 
     /**
+     * Saída efetiva de uma transferência igual (mesmas contas, valor e data),
+     * para o usuário confirmar que não está lançando a mesma duas vezes.
+     */
+    public function transferenciaIgual(ContaFinanceira $origem, ContaFinanceira $destino, float $valor, CarbonInterface $data): ?MovimentacaoFinanceira
+    {
+        return MovimentacaoFinanceira::query()
+            ->efetivas()
+            ->where('natureza', NaturezaMovimentacao::Transferencia)
+            ->where('tipo', TipoMovimentacao::Saida)
+            ->where('conta_financeira_id', $origem->id)
+            ->where('valor', round($valor, 2))
+            ->whereDate('data_movimento', $data->toDateString())
+            ->whereExists(fn ($query) => $query->selectRaw('1')
+                ->from('movimentacoes_financeiras as entrada')
+                ->whereColumn('entrada.transferencia_uuid', 'movimentacoes_financeiras.transferencia_uuid')
+                ->where('entrada.tipo', TipoMovimentacao::Entrada->value)
+                ->where('entrada.conta_financeira_id', $destino->id)
+                ->whereNull('entrada.estorno_de_id'))
+            ->latest('id')
+            ->first();
+    }
+
+    /**
      * Movimentação inversa (estorno_de_id → original), sem validar saldo: o
      * estorno corrige um registro. Se a original passou pela sessão de caixa,
      * a retirada/suprimento dela é desfeita.
+     *
+     * O estorno é datado de hoje, salvo quando a original é anterior ao saldo
+     * inicial da conta: aí ela nunca entrou no saldo, e o estorno leva a data
+     * dela para também ficar fora (senão o estorno mexeria num saldo que a
+     * original não mexeu).
      *
      * @throws FinanceiroException
      */
@@ -238,12 +305,14 @@ class MovimentacaoService
 
             $this->caixaPdv->desfazer($original);
 
+            $conta = ContaFinanceira::withTrashed()->findOrFail($original->conta_financeira_id);
+
             return $this->movimentar(
-                ContaFinanceira::withTrashed()->findOrFail($original->conta_financeira_id),
+                $conta,
                 $original->tipo->inverso(),
                 (float) $original->valor,
                 NaturezaMovimentacao::Estorno,
-                now(),
+                self::dataDoEstorno($original, $conta),
                 Str::limit("Estorno: {$original->descricao} — ".trim($motivo), 255, ''),
                 [
                     'lancamento_id' => $original->lancamento_id,
@@ -374,6 +443,27 @@ class MovimentacaoService
                 $conta->nome,
                 self::moeda((float) $conta->saldo_atual),
                 self::moeda($valor),
+            ));
+        }
+    }
+
+    public static function dataDoEstorno(MovimentacaoFinanceira $original, ContaFinanceira $conta): CarbonInterface
+    {
+        return $original->data_movimento->lt($conta->data_saldo_inicial)
+            ? $original->data_movimento->copy()
+            : now();
+    }
+
+    /** @throws FinanceiroException */
+    private static function garantirDentroDoPeriodo(ContaFinanceira $conta, CarbonInterface $data): void
+    {
+        if ($data->toDateString() < $conta->data_saldo_inicial->toDateString()) {
+            throw new FinanceiroException(sprintf(
+                'A data %s é anterior ao saldo inicial da conta %s (%s), que já inclui o que aconteceu antes dessa data. Use uma data a partir de %s ou corrija a data do saldo inicial da conta.',
+                $data->format('d/m/Y'),
+                $conta->nome,
+                $conta->data_saldo_inicial->format('d/m/Y'),
+                $conta->data_saldo_inicial->format('d/m/Y'),
             ));
         }
     }

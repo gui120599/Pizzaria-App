@@ -8,9 +8,11 @@ use App\Models\ContaFinanceira;
 use App\Models\SessaoCaixa;
 use App\Services\Financeiro\MovimentacaoService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
 use Leandrocfe\FilamentPtbrFormFields\Money;
@@ -18,7 +20,8 @@ use Leandrocfe\FilamentPtbrFormFields\Money;
 /**
  * Sangria para o cofre, depósito no banco, saque: duas movimentações com o
  * mesmo transferencia_uuid, sem lançamento. Ponta no Caixa PDV vira
- * sangria/suprimento na sessão aberta.
+ * sangria/suprimento na sessão aberta. Transferência igual a uma já
+ * registrada (mesmas contas, valor e data) só passa com a confirmação marcada.
  */
 class TransferirEntreContasAction
 {
@@ -51,11 +54,16 @@ class TransferirEntreContasAction
                     ->displayFormat('d/m/Y')
                     ->default(today())
                     ->maxDate(today())
+                    ->helperText('Não pode ser anterior à data do saldo inicial das contas.')
                     ->required(),
                 TextInput::make('descricao')
                     ->label('Descrição')
                     ->placeholder('Ex.: Sangria para o cofre')
                     ->maxLength(255),
+                Checkbox::make('permitir_repetida')
+                    ->label('Confirmo que é outra transferência, não a mesma lançada de novo')
+                    ->helperText('Já existe uma transferência igual: mesmas contas, valor e data.')
+                    ->visible(fn (Get $get): bool => self::existeIgual($get)),
             ])
             ->action(function (array $data, MovimentacaoService $movimentacoes, Action $action): void {
                 try {
@@ -67,6 +75,7 @@ class TransferirEntreContasAction
                         $data['descricao'] ?? null,
                         auth()->user(),
                         filled($data['sessao_caixa_id'] ?? null) ? SessaoCaixa::query()->find($data['sessao_caixa_id']) : null,
+                        permitirRepetida: (bool) ($data['permitir_repetida'] ?? false),
                     );
                 } catch (FinanceiroException $e) {
                     Notification::make()->title('Transferência não feita')->body($e->getMessage())->danger()->send();
@@ -75,5 +84,18 @@ class TransferirEntreContasAction
 
                 Notification::make()->title('Transferência registrada')->success()->send();
             });
+    }
+
+    private static function existeIgual(Get $get): bool
+    {
+        $origem = ContaFinanceiraSelect::conta($get('conta_financeira_id'));
+        $destino = ContaFinanceiraSelect::conta($get('destino_id'));
+        $valor = ValorMonetario::normalizar($get('valor'));
+
+        if ($origem === null || $destino === null || $origem->is($destino) || $valor <= 0 || blank($get('data'))) {
+            return false;
+        }
+
+        return app(MovimentacaoService::class)->transferenciaIgual($origem, $destino, $valor, Carbon::parse($get('data'))) !== null;
     }
 }
