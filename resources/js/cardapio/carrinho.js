@@ -26,6 +26,9 @@ export function registrarCarrinho(Alpine, dados) {
     // Promoção Combo ("2 grandes por R$ 87,99"): produtos participantes de
     // cada uma, para o convite de completar. O preço vem do servidor.
     const _promocoesCombo       = dados.promocoesCombo;
+    // Aviso ao abrir o cardápio: promoções em destaque (combo, relâmpago,
+    // "leve outro produto"), na ordem da página. Ver CardapioService::anunciosPromocoes().
+    const _anunciosPromocoes    = dados.anunciosPromocoes ?? [];
     // Perguntas do item (borda, ponto da carne): por produto (item comum e
     // pizza inteira) e por categoria (pizza de sabores). O servidor revalida.
     const _perguntasProdutos    = dados.perguntasProdutos;
@@ -75,7 +78,7 @@ export function registrarCarrinho(Alpine, dados) {
             this.atualizarCombo(true);
             const produtoId = Number(new URLSearchParams(window.location.search).get('produto'));
             if (produtoId) this.abrirDetalhe(produtoId);
-            else this.anunciarCombo();
+            else this.anunciarPromocoes();
         },
 
         // ── Cupom ──
@@ -138,8 +141,8 @@ export function registrarCarrinho(Alpine, dados) {
         _comboUnidades: {},
         comboOportunidade: { open: false, promocao: null, faltam: 0, grupos: [], combosFechados: 0 },
         comboConquista: { open: false, aplicacao: null },
-        // Aviso da promoção ao abrir o cardápio (uma vez por sessão).
-        comboAnuncio: { open: false, promocao: null },
+        // Aviso da promoção ao abrir o cardápio (uma vez por sessão); 'outras' = as demais vigentes.
+        anuncio: { open: false, promocao: null, outras: [] },
 
         // ── Estado do formulário ──
         form: {
@@ -569,7 +572,7 @@ export function registrarCarrinho(Alpine, dados) {
         /** Convite e comemoração esperam o cliente terminar o que está fazendo (sabores, montagem, oferta). */
         quandoLivre(mostrar, tentativas = 0) {
             const ocupado = this.saboresModal.open || this.montagemModal.open || this.ofertaModal.open || this.sugestaoModal.open
-                || this.trocoModal.open || this.comboOportunidade.open || this.comboConquista.open || this.comboAnuncio.open || !!this.detalhe;
+                || this.trocoModal.open || this.comboOportunidade.open || this.comboConquista.open || this.anuncio.open || !!this.detalhe;
             if (!ocupado) { mostrar(); return; }
             if (tentativas < 40) setTimeout(() => this.quandoLivre(mostrar, tentativas + 1), 500);
         },
@@ -634,26 +637,29 @@ export function registrarCarrinho(Alpine, dados) {
         fecharConquista() {
             this.comboConquista = { open: false, aplicacao: null };
         },
-        /** Ao abrir o cardápio: apresenta a promoção de maior prioridade, uma vez por sessão. */
-        anunciarCombo() {
-            const promocao = _promocoesCombo[0];
-            if (!promocao || !this.estaAbertoAgora()) return;
+        /**
+         * Ao abrir o cardápio (loja aberta): apresenta a primeira promoção ainda
+         * não anunciada nesta sessão e lista as demais. Mostrar marca todas como
+         * vistas: o aviso só volta quando entrar uma promoção nova.
+         */
+        anunciarPromocoes() {
+            if (_anunciosPromocoes.length === 0 || !this.estaAbertoAgora()) return;
+            let vistas = [];
+            try { vistas = JSON.parse(sessionStorage.getItem('promocoes_anunciadas') || '[]'); } catch (_) {}
+            const promocao = _anunciosPromocoes.find(a => !vistas.includes(a.chave));
+            if (!promocao) return;
             try {
-                const vistas = JSON.parse(sessionStorage.getItem('combo_anunciadas') || '[]');
-                if (vistas.includes(promocao.promocaoId)) return;
-                sessionStorage.setItem('combo_anunciadas', JSON.stringify([...vistas, promocao.promocaoId]));
+                sessionStorage.setItem('promocoes_anunciadas', JSON.stringify([...new Set([...vistas, ..._anunciosPromocoes.map(a => a.chave)])]));
             } catch (_) {}
-            this.comboAnuncio = { open: true, promocao };
+            this.anuncio = { open: true, promocao, outras: _anunciosPromocoes.filter(a => a.chave !== promocao.chave) };
         },
-        fecharAnuncioCombo() {
-            this.comboAnuncio = { open: false, promocao: null };
+        fecharAnuncio() {
+            this.anuncio = { open: false, promocao: null, outras: [] };
         },
-        /** "Ver pizzas da promoção": fecha e rola até o card de destaque. */
-        verPromocaoCombo() {
-            const indice = _promocoesCombo.findIndex(c => c.promocaoId === this.comboAnuncio.promocao?.promocaoId);
-            this.fecharAnuncioCombo();
-            const alvo = document.getElementById(indice <= 0 ? 'secao_combo' : 'secao_combo_' + _promocoesCombo[indice].promocaoId);
-            alvo?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        /** "Ver" no aviso: fecha e rola até a seção da promoção. */
+        verPromocaoAnunciada(promocao) {
+            this.fecharAnuncio();
+            document.getElementById(promocao?.secao)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         },
 
         // ── Frete grátis: mesma conta do getter valorFrete ──

@@ -20,6 +20,7 @@
         'promocoesAdicionais' => $promocoesAdicionais,
         'campanhasExigencia' => $campanhasExigencia ?? [],
         'promocoesCombo' => $promocoesCombo ?? [],
+        'anunciosPromocoes' => $anunciosPromocoes ?? [],
         'perguntasProdutos' => $perguntasProdutos,
         'perguntasCombos' => $perguntasCombos,
         'adicionaisProdutos' => $adicionaisProdutos,
