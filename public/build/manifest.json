@@ -24,12 +24,12 @@
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-Dw7RwedX.css",
+    "file": "assets/app-DzWU9yqv.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/cardapio.css": {
-    "file": "assets/cardapio-B7DbXJ7n.css",
+    "file": "assets/cardapio-TysJ7cTp.css",
     "src": "resources/css/cardapio.css",
     "isEntry": true
   },
@@ -58,7 +58,7 @@
     ]
   },
   "resources/js/cardapio/index.js": {
-    "file": "assets/index-CjaN2-Yz.js",
+    "file": "assets/index-B23WWFYW.js",
     "name": "index",
     "src": "resources/js/cardapio/index.js",
     "isEntry": true,

@@ -191,8 +191,15 @@ class CardapioService
                     : collect();
 
                 return [
+                    'promocaoId' => $promocao->id,
                     'nome' => $promocao->promoad_nome,
                     'descricao' => $promocao->promoad_descricao,
+                    'categoriaExigida' => $promocao->categoriaExigida?->categoria_nome,
+                    // Brindes que a campanha oferece agora (anúncio ao abrir o cardápio).
+                    'brindes' => $regras
+                        ->flatMap(fn (PromocaoAdicionalRegra $regra) => $promocoesAdicionais[$regra->par_produto_gatilho_id]['ofertas'] ?? [])
+                        ->unique('produtoId')
+                        ->values(),
                     // Brindes restantes no teto da campanha; null = sem limite (não exibe).
                     'saldo' => $promocao->saldoDisponivel(),
                     'produtos' => $exigidos->isNotEmpty() ? $exigidos->values() : $regras
@@ -392,7 +399,87 @@ class CardapioService
             ])
             ->all();
 
-        return compact('banners', 'promocoesCombo', 'campanhasExigencia', 'produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
+        $anunciosPromocoes = $this->anunciosPromocoes($promocoesCombo, $promocoesRelampago, $campanhasAdicionaisAtivas);
+
+        return compact('banners', 'anunciosPromocoes', 'promocoesCombo', 'campanhasExigencia', 'produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
+    }
+
+    /**
+     * Aviso ao abrir o cardápio: uma entrada por promoção em destaque, na ordem
+     * em que aparecem na página (combo por prioridade, relâmpago, "leve outro
+     * produto"). `secao` é o id da seção para o botão "Ver" rolar até ela.
+     *
+     * @param  list<array<string, mixed>>  $combos
+     * @param  Collection<int, array<string, mixed>>  $relampagos
+     * @param  Collection<int, array<string, mixed>>  $campanhas
+     * @return list<array{chave: string, tipo: string, nome: string, descricao: ?string, destaque: string, nota: ?string, imagem: ?string, imagem_mobile: ?string, saldo: float|int|null, secao: string}>
+     */
+    private function anunciosPromocoes(array $combos, Collection $relampagos, Collection $campanhas): array
+    {
+        $dinheiro = fn (float $valor): string => 'R$ '.number_format($valor, 2, ',', '.');
+        $anuncios = [];
+
+        foreach (array_values($combos) as $indice => $combo) {
+            $anuncios[] = [
+                'chave' => 'combo-'.$combo['promocaoId'],
+                'tipo' => 'combo',
+                'nome' => $combo['nome'],
+                'descricao' => $combo['descricao'],
+                'destaque' => 'Leve '.$combo['composicao'].' por '.$dinheiro((float) $combo['preco']),
+                'nota' => 'Bordas e adicionais são cobrados à parte.',
+                'imagem' => $combo['imagem'],
+                'imagem_mobile' => $combo['imagem_mobile'],
+                'saldo' => $combo['restam'],
+                'secao' => $indice === 0 ? 'secao_combo' : 'secao_combo_'.$combo['promocaoId'],
+            ];
+        }
+
+        foreach ($relampagos->values() as $indice => $promo) {
+            $menor = $promo['produtos']->map(fn (Produto $produto): float => $produto->precoResolvido()->precoFinal())->min();
+
+            $anuncios[] = [
+                'chave' => 'relampago-'.$promo['id'],
+                'tipo' => 'relampago',
+                'nome' => $promo['nome'],
+                'descricao' => $promo['descricao'],
+                'destaque' => $promo['produtos']->count() === 1
+                    ? $promo['produtos']->first()->produto_descricao.' por '.$dinheiro((float) $menor)
+                    : 'Preços a partir de '.$dinheiro((float) $menor),
+                'nota' => $promo['saldo'] !== null ? 'Quantidade limitada.' : null,
+                'imagem' => null,
+                'imagem_mobile' => null,
+                'saldo' => $promo['exibe_contador'] ? $promo['saldo'] : null,
+                'secao' => $indice === 0 ? 'secao_relampago' : 'secao_relampago_'.$promo['id'],
+            ];
+        }
+
+        foreach ($campanhas->values() as $indice => $campanha) {
+            $brindes = collect($campanha['brindes']);
+            $gratis = $brindes->every(fn (array $b): bool => (float) $b['valorAdicional'] <= 0);
+            $menorValor = (float) $brindes->min('valorAdicional');
+
+            $destaque = match (true) {
+                $brindes->count() === 1 && $gratis => 'Ganhe '.$brindes->first()['nomeExibicao'].' grátis',
+                $brindes->count() === 1 => 'Leve '.$brindes->first()['nomeExibicao'].' por +'.$dinheiro($menorValor),
+                $gratis => 'Ganhe um brinde grátis à sua escolha',
+                default => 'Leve outro produto a partir de +'.$dinheiro($menorValor),
+            };
+
+            $anuncios[] = [
+                'chave' => 'adicional-'.$campanha['promocaoId'],
+                'tipo' => 'adicional',
+                'nome' => $campanha['nome'],
+                'descricao' => $campanha['descricao'],
+                'destaque' => $destaque,
+                'nota' => $campanha['categoriaExigida'] ? 'Válido na compra de 1 '.$campanha['categoriaExigida'].'.' : null,
+                'imagem' => null,
+                'imagem_mobile' => null,
+                'saldo' => $campanha['saldo'],
+                'secao' => $indice === 0 ? 'secao_promocao_adicional' : 'secao_promocao_adicional_'.$indice,
+            ];
+        }
+
+        return $anuncios;
     }
 
     /**

@@ -171,7 +171,7 @@ export function registrarPagina(Alpine) {
         travarRolagem() {
             const c = Alpine.store('cart');
             const aberto = c.saboresModal.open || c.montagemModal.open || c.ofertaModal.open || c.sugestaoModal.open || c.trocoModal.open || !!c.detalhe
-                || c.comboOportunidade.open || c.comboConquista.open || c.comboAnuncio.open
+                || c.comboOportunidade.open || c.comboConquista.open || c.anuncio.open
                 || (c.drawerOpen && window.innerWidth < 1024) || (c.drawerOpen && c.step !== 'cart');
             document.documentElement.style.overflow = aberto ? 'hidden' : '';
         },
