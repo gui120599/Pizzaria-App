@@ -146,6 +146,7 @@ class CardapioAnuncioPromocoesTest extends TestCase
         $this->get(route('cardapio'))
             ->assertOk()
             ->assertSee('id="titulo-anuncio-promocao"', false)
+            ->assertSee('Estamos fechados agora.', false)
             ->assertSee('"anunciosPromocoes":[{"chave":"relampago-', false);
     }
 

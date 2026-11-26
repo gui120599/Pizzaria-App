@@ -142,7 +142,7 @@ export function registrarCarrinho(Alpine, dados) {
         comboOportunidade: { open: false, promocao: null, faltam: 0, grupos: [], combosFechados: 0 },
         comboConquista: { open: false, aplicacao: null },
         // Aviso da promoção ao abrir o cardápio (uma vez por sessão); 'outras' = as demais vigentes.
-        anuncio: { open: false, promocao: null, outras: [] },
+        anuncio: { open: false, promocao: null, outras: [], fechada: false, abreEm: null },
 
         // ── Estado do formulário ──
         form: {
@@ -638,23 +638,33 @@ export function registrarCarrinho(Alpine, dados) {
             this.comboConquista = { open: false, aplicacao: null };
         },
         /**
-         * Ao abrir o cardápio (loja aberta): apresenta a primeira promoção ainda
-         * não anunciada nesta sessão e lista as demais. Mostrar marca todas como
-         * vistas: o aviso só volta quando entrar uma promoção nova.
+         * Ao abrir o cardápio: apresenta a primeira promoção ainda não anunciada
+         * nesta sessão e lista as demais. Mostrar marca todas como vistas: o
+         * aviso só volta com uma promoção nova. Com a loja fechada também
+         * anuncia (com "abrimos às"), contado à parte: quem viu fechado vê de
+         * novo quando a loja abrir.
          */
         anunciarPromocoes() {
-            if (_anunciosPromocoes.length === 0 || !this.estaAbertoAgora()) return;
+            if (_anunciosPromocoes.length === 0) return;
+            const fechada = !this.estaAbertoAgora();
+            const chave = a => a.chave + (fechada ? ':fechada' : '');
             let vistas = [];
             try { vistas = JSON.parse(sessionStorage.getItem('promocoes_anunciadas') || '[]'); } catch (_) {}
-            const promocao = _anunciosPromocoes.find(a => !vistas.includes(a.chave));
+            const promocao = _anunciosPromocoes.find(a => !vistas.includes(chave(a)));
             if (!promocao) return;
             try {
-                sessionStorage.setItem('promocoes_anunciadas', JSON.stringify([...new Set([...vistas, ..._anunciosPromocoes.map(a => a.chave)])]));
+                sessionStorage.setItem('promocoes_anunciadas', JSON.stringify([...new Set([...vistas, ..._anunciosPromocoes.map(chave)])]));
             } catch (_) {}
-            this.anuncio = { open: true, promocao, outras: _anunciosPromocoes.filter(a => a.chave !== promocao.chave) };
+            this.anuncio = {
+                open: true,
+                promocao,
+                outras: _anunciosPromocoes.filter(a => a.chave !== promocao.chave),
+                fechada,
+                abreEm: fechada ? this.proximoHorarioAgora() : null,
+            };
         },
         fecharAnuncio() {
-            this.anuncio = { open: false, promocao: null, outras: [] };
+            this.anuncio = { open: false, promocao: null, outras: [], fechada: false, abreEm: null };
         },
         /** "Ver" no aviso: fecha e rola até a seção da promoção. */
         verPromocaoAnunciada(promocao) {
