@@ -25,6 +25,7 @@ use App\Services\MovimentacaoCaixaService;
 use App\Services\VendaService;
 use App\Support\ContaMesa;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -45,9 +46,6 @@ class StoneRecebimentoService
 {
     /** Diferença de centavos tolerada nas comparações de valor. */
     private const TOLERANCIA = 0.005;
-
-    /** A Pagar.me guarda a Idempotency-Key por 24 h: dentro disso o reenvio do mesmo POST devolve o mesmo pedido. */
-    private const JANELA_IDEMPOTENCIA_HORAS = 24;
 
     /** Aliases de scheme_name da Stone que não normalizam igual ao valor na coluna. */
     private const ALIAS_BANDEIRA = [
@@ -582,12 +580,12 @@ class StoneRecebimentoService
 
     /**
      * Resolve uma cobrança de resultado desconhecido (ou Aguardando que ficou
-     * sem order_id):
+     * sem order_id), SEM NUNCA reenviar o pedido:
      *  1. com order_id → GET /orders/{id} e aplica o que a Stone responde;
-     *  2. sem order_id → repete o POST com a MESMA Idempotency-Key, dentro das 24 h
-     *     em que a Pagar.me guarda a chave: se o pedido já existe, devolve o mesmo.
-     * Passadas as 24 h sem order_id, mantém Indeterminado e pede conferência no
-     * dashboard Pagar.me pelo code rf-{id}.
+     *  2. sem order_id → procura pelo code rf-{id} (só leitura) e adota o
+     *     pedido quando há exatamente um em aberto.
+     * Reenviar não é seguro: quando a Pagar.me responde 500, a Idempotency-Key
+     * não impede a duplicação e cada tentativa cria outro pedido na maquininha.
      *
      * @throws StoneConnectException
      */
@@ -605,14 +603,102 @@ class StoneRecebimentoService
             return $stonePedido->fresh();
         }
 
-        if ($stonePedido->created_at->lt(now()->subHours(self::JANELA_IDEMPOTENCIA_HORAS))) {
-            // Sem order_id e fora da janela: segue como Indeterminado (nunca vira Falha sozinho).
-            $stonePedido->update(['stp_status' => StonePedidoStatus::Indeterminado]);
+        // Sem order_id o resultado é desconhecido (nunca vira Falha sozinho).
+        $stonePedido->update(['stp_status' => StonePedidoStatus::Indeterminado]);
 
-            throw new StoneConnectException('Passaram mais de '.self::JANELA_IDEMPOTENCIA_HORAS.' h sem resposta da Stone: confira no dashboard Pagar.me o pedido de code '.StoneConnectService::codigoDoPedido($stonePedido).' antes de enviar de novo.');
+        $codigo = StoneConnectService::codigoDoPedido($stonePedido);
+        $pedidos = collect($this->connect->buscarPedidosPorCodigo($codigo));
+        $emAberto = $pedidos->reject(fn (array $order): bool => in_array($order['status'] ?? null, ['canceled', 'failed'], true));
+
+        if ($emAberto->count() === 1) {
+            $this->adotarPedidoDaStone($stonePedido, $emAberto->first());
+
+            return $stonePedido->fresh();
         }
 
-        return $this->enviarParaStone($stonePedido);
+        throw new StoneConnectException(match (true) {
+            $emAberto->count() > 1 => "A Stone tem {$emAberto->count()} pedidos abertos com o code {$codigo} (".$emAberto->pluck('id')->implode(', ').'). Cancele os repetidos no painel da Pagar.me e informe o Order ID que ficar em Pedidos Stone.',
+            $pedidos->isNotEmpty() => "Os pedidos de code {$codigo} na Stone estão cancelados ou com falha: confira no painel da Pagar.me e use \"Liberar cobrança\" em Pedidos Stone.",
+            default => "A Stone não devolveu nenhum pedido com o code {$codigo}: confira no painel da Pagar.me. Se existir, informe o Order ID em Pedidos Stone; se não, use \"Liberar cobrança\".",
+        });
+    }
+
+    /** Sem order_id e ainda pendente: o único caso em que se informa o id à mão. */
+    public function podeInformarOrderId(StonePedido $pedido): bool
+    {
+        return in_array($pedido->stp_status, [StonePedidoStatus::Indeterminado, StonePedidoStatus::Aguardando], true)
+            && blank($pedido->stp_order_id);
+    }
+
+    /**
+     * Grava o Order ID copiado do painel da Pagar.me, para a cobrança poder ser
+     * cancelada ou conciliada pela tela. Confere o code e o valor na Stone; se a
+     * consulta falhar (pedido defeituoso do lado dela), grava mesmo assim e
+     * avisa quem informou.
+     *
+     * @return bool true quando a Stone confirmou o pedido
+     *
+     * @throws StoneConnectException
+     */
+    public function informarOrderId(StonePedido $stonePedido, string $orderId): bool
+    {
+        $stonePedido = $stonePedido->fresh();
+        $orderId = trim($orderId);
+
+        if (! $stonePedido || ! $this->podeInformarOrderId($stonePedido)) {
+            throw new StoneConnectException('Só se informa o Order ID de uma cobrança pendente que ainda não tem um. Atualize a tela.');
+        }
+
+        if (! preg_match('/^or_[A-Za-z0-9]{10,}$/', $orderId)) {
+            throw new StoneConnectException('Order ID inválido: copie o código que começa com "or_" no painel da Pagar.me.');
+        }
+
+        if (StonePedido::where('stp_order_id', $orderId)->exists()) {
+            throw new StoneConnectException('Este Order ID já está ligado a outra cobrança.');
+        }
+
+        try {
+            $order = $this->connect->consultarPedido($orderId);
+        } catch (StoneConnectException|ConnectionException $e) {
+            $order = null;
+        }
+
+        if ($order !== null) {
+            $codigo = StoneConnectService::codigoDoPedido($stonePedido);
+
+            if (($order['code'] ?? null) !== $codigo) {
+                throw new StoneConnectException('Esse pedido na Stone tem o code '.($order['code'] ?? '—').", e não {$codigo}: confira o Order ID.");
+            }
+
+            if ((int) ($order['amount'] ?? 0) !== (int) round((float) $stonePedido->stp_valor_solicitado * 100)) {
+                throw new StoneConnectException('O valor desse pedido na Stone é diferente do valor da cobrança: confira o Order ID.');
+            }
+        }
+
+        Log::channel('stone')->warning('Order ID informado manualmente', [
+            'stone_pedido_id' => $stonePedido->id, 'order_id' => $orderId, 'conferido_na_stone' => $order !== null, 'usuario_id' => Auth::id(),
+        ]);
+
+        $this->adotarPedidoDaStone($stonePedido, $order ?? ['id' => $orderId]);
+
+        return $order !== null;
+    }
+
+    /**
+     * Liga à cobrança o pedido que existe na Stone e aplica o estado dele.
+     *
+     * @param  array<string, mixed>  $order
+     */
+    private function adotarPedidoDaStone(StonePedido $stonePedido, array $order): void
+    {
+        $stonePedido->update([
+            'stp_status' => StonePedidoStatus::Aguardando,
+            'stp_order_id' => $order['id'],
+            'stp_order_code' => $order['code'] ?? $stonePedido->stp_order_code,
+            'stp_erro' => null,
+        ]);
+
+        $this->aplicarPedidoDaStone($stonePedido, $order);
     }
 
     /**

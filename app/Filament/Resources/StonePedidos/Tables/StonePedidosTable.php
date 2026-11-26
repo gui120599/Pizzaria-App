@@ -15,6 +15,7 @@ use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -208,6 +209,39 @@ class StonePedidosTable
                         } catch (StoneConnectException $e) {
                             Notification::make()->danger()->title('Falha ao encerrar a cobrança')->body($e->getMessage())->send();
                         }
+                    }),
+
+                Action::make('informarOrderId')
+                    ->label('Informar Order ID')
+                    ->icon('heroicon-o-link')
+                    ->color('warning')
+                    ->authorize(fn (): bool => auth()->user()?->can('operar:venda') ?? false)
+                    ->visible(fn (StonePedido $record): bool => app(StoneRecebimentoService::class)->podeInformarOrderId($record))
+                    ->modalHeading('Informar Order ID da Stone')
+                    ->modalDescription(fn (StonePedido $record): string => 'No painel da Pagar.me, procure o pedido de code '.StoneConnectService::codigoDoPedido($record)
+                        .' (R$ '.number_format((float) $record->stp_valor_solicitado, 2, ',', '.').') e copie o ID que começa com "or_". Depois disso, a cobrança pode ser cancelada por aqui.')
+                    ->modalSubmitActionLabel('Gravar Order ID')
+                    ->schema([
+                        TextInput::make('order_id')
+                            ->label('Order ID')
+                            ->placeholder('or_...')
+                            ->required()
+                            ->maxLength(60),
+                    ])
+                    ->action(function (StonePedido $record, array $data): void {
+                        try {
+                            $conferido = app(StoneRecebimentoService::class)->informarOrderId($record, $data['order_id']);
+                        } catch (StoneConnectException $e) {
+                            Notification::make()->danger()->title('Não foi possível gravar o Order ID')->body($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Order ID gravado.')
+                            ->body($conferido ? null : 'A Stone não respondeu à conferência: confirme no painel que o ID é deste pedido antes de cancelar.')
+                            ->color($conferido ? 'success' : 'warning')
+                            ->send();
                     }),
 
                 Action::make('liberarCobranca')

@@ -11,9 +11,7 @@ use App\Services\Nfe\EmissaoNfeAutomaticaService;
 use App\Services\Stone\StoneConnectService;
 use App\Services\Stone\StoneRecebimentoService;
 use App\Services\Stone\StoneVendaAutomaticaService;
-use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -28,12 +26,10 @@ use Illuminate\Support\Facades\Log;
  *      sessão de caixa que gerou stp_erro pode ter se resolvido sozinha —
  *      ver StoneVendaAutomaticaService::recuperarVendaEPagamento());
  *   5. pedidos de RESULTADO DESCONHECIDO (timeout/5xx no POST) e AGUARDANDO
- *      sem order_id: reconsulta/reenvia o MESMO registro com a mesma
- *      Idempotency-Key (ver StoneRecebimentoService::reconsultar()). Nunca
- *      viram Falha sozinhos: o pedido pode existir na maquininha. O reenvio
- *      automático para depois de --minutos-reenvio (a Stone pode devolver o
- *      mesmo 500 por horas); daí em diante é manual: "Reconsultar na Stone" ou
- *      "Liberar cobrança";
+ *      sem order_id: procura na Stone pelo code rf-{id}, SEM reenviar (ver
+ *      StoneRecebimentoService::reconsultar()). Nunca viram Falha sozinhos: o
+ *      pedido pode existir na maquininha. A procura vale por 24 h; depois é
+ *      manual ("Informar Order ID" ou "Liberar cobrança");
  *   6. vendas FINALIZADAS pelo webhook (origem Pedido/SessaoMesa) que ficaram
  *      sem NFC-e automática: emite direto, sem fila (ver emitirNfcesPendentes()).
  */
@@ -41,8 +37,7 @@ class StoneConciliarPedidos extends Command
 {
     protected $signature = 'stone:conciliar-pedidos
         {--minutos-perdido=10 : Idade mínima (min) de um pedido AGUARDANDO para consultar a Stone}
-        {--minutos-sem-order=2 : Idade mínima (min) de um pedido AGUARDANDO sem order_id para ser reenviado}
-        {--minutos-reenvio=30 : Por quanto tempo (min) após a criação um pedido sem order_id é reenviado sozinho}
+        {--minutos-sem-order=2 : Idade mínima (min) de um pedido AGUARDANDO sem order_id para ser procurado na Stone}
         {--horas-expira=2 : Idade (h) para marcar um pedido AGUARDANDO como FALHA}';
 
     protected $description = 'Fecha pedidos Stone pendentes e recupera webhooks charge.paid perdidos';
@@ -150,15 +145,12 @@ class StoneConciliarPedidos extends Command
 
     /**
      * Resultado desconhecido e AGUARDANDO sem order_id (o POST pode ter chegado
-     * à Stone sem que a resposta fosse gravada): reconsulta o mesmo registro.
-     * Quando a Stone ainda não responde, o registro segue como está.
+     * à Stone sem que a resposta fosse gravada): só consulta, nunca reenvia.
+     * Quando a Stone não devolve o pedido, o registro segue como está.
      */
     private function resolverIndeterminados(StoneRecebimentoService $recebimento): int
     {
         $limite = now()->subMinutes((int) $this->option('minutos-sem-order'));
-        $fimDoReenvio = now()->subMinutes((int) $this->option('minutos-reenvio'));
-
-        $this->encerrarReenvios($fimDoReenvio);
 
         $pedidos = StonePedido::query()
             ->where(fn ($query) => $query
@@ -167,8 +159,7 @@ class StoneConciliarPedidos extends Command
                     ->where('stp_status', StonePedidoStatus::Aguardando->value)
                     ->whereNull('stp_order_id')
                     ->where('created_at', '<', $limite)))
-            // Com order_id a reconsulta é só leitura; sem ele é um novo POST, que tem prazo.
-            ->where(fn ($query) => $query->whereNotNull('stp_order_id')->orWhere('created_at', '>=', $fimDoReenvio))
+            ->where(fn ($query) => $query->whereNotNull('stp_order_id')->orWhere('created_at', '>=', now()->subDay()))
             ->get();
 
         $resolvidos = 0;
@@ -187,31 +178,6 @@ class StoneConciliarPedidos extends Command
         }
 
         return $resolvidos;
-    }
-
-    /**
-     * AGUARDANDO sem order_id além do prazo de reenvio vira resultado
-     * desconhecido (sem novo POST), para aparecer e poder ser liberado.
-     */
-    private function encerrarReenvios(CarbonInterface $fimDoReenvio): void
-    {
-        $pedidos = StonePedido::where('stp_status', StonePedidoStatus::Aguardando->value)
-            ->whereNull('stp_order_id')
-            ->where('created_at', '<', $fimDoReenvio)
-            ->get();
-
-        foreach ($pedidos as $pedido) {
-            try {
-                $pedido->update([
-                    'stp_status' => StonePedidoStatus::Indeterminado,
-                    'stp_erro' => $pedido->stp_erro ?: 'Sem Order ID da Stone e fora do prazo de reenvio automático: use "Reconsultar na Stone" ou "Liberar cobrança".',
-                ]);
-            } catch (UniqueConstraintViolationException) {
-                Log::channel('stone')->warning('Conciliação: já há outra cobrança de resultado desconhecido para o mesmo alvo', [
-                    'stone_pedido_id' => $pedido->id,
-                ]);
-            }
-        }
     }
 
     /** Só expira o que tem order_id: sem ele a cobrança pode existir na Stone, e vira Indeterminado (não Falha) em reconsultar(). */

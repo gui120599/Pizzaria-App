@@ -159,7 +159,7 @@ class StoneConnectService
     /** O motivo (HTTP devolvido ou falha de conexão) vai junto para aparecer na tela, não só no log. */
     private static function mensagemResultadoDesconhecido(string $motivo): string
     {
-        return "Não foi possível confirmar se a cobrança chegou à maquininha ({$motivo}). NÃO envie de novo: o sistema reconsulta por alguns minutos; depois use \"Reconsultar na Stone\" ou, em Pedidos Stone, \"Liberar cobrança\".";
+        return "Não foi possível confirmar se a cobrança chegou à maquininha ({$motivo}). NÃO envie de novo. O sistema procura o pedido na Stone pelo código; se não achar, use \"Informar Order ID\" ou \"Liberar cobrança\" em Pedidos Stone.";
     }
 
     /** Identificador do nosso StonePedido no pedido da Stone (máx. 52 caracteres no Pagar.me). */
@@ -217,6 +217,38 @@ class StoneConnectService
         }
 
         return $response->json() ?? [];
+    }
+
+    /**
+     * Pedidos da Stone com o nosso code (só leitura). A lista é filtrada de novo
+     * aqui para nunca adotar um pedido de outro code.
+     *
+     * @return list<array<string, mixed>>
+     *
+     * @throws StoneConnectException
+     */
+    public function buscarPedidosPorCodigo(string $codigo): array
+    {
+        ['base_url' => $base] = $this->config();
+
+        try {
+            $response = $this->client()->get("{$base}/orders", ['code' => $codigo, 'size' => 30]);
+        } catch (ConnectionException $e) {
+            throw new StoneConnectException("Sem resposta da Stone ao procurar o pedido {$codigo}: tente de novo mais tarde.");
+        }
+
+        if ($response->failed()) {
+            $this->logErro('buscarPedidosPorCodigo', $response->status(), $response->json(), ['code' => $codigo]);
+            throw new StoneConnectException(
+                "A Stone respondeu HTTP {$response->status()} ao procurar o pedido {$codigo}: confira no painel da Pagar.me e informe o Order ID em Pedidos Stone.",
+                $response->json()
+            );
+        }
+
+        return collect($response->json('data') ?? [])
+            ->where('code', $codigo)
+            ->values()
+            ->all();
     }
 
     private function logErro(string $operacao, int $status, ?array $corpo, array $contexto = []): void
