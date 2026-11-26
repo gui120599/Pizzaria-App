@@ -1,5 +1,6 @@
 {{--
-    Aviso ao abrir o cardápio (uma vez por sessão): a primeira promoção em
+    Aviso ao abrir o cardápio (uma vez por sessão; com a loja fechada, avisa
+    quando abre): a primeira promoção em
     destaque (combo, relâmpago ou "leve outro produto"), com o banner quando
     cadastrado, e as demais vigentes logo abaixo. Dados em
     CardapioService::anunciosPromocoes(); lógica em carrinho.js (anunciarPromocoes).
@@ -53,6 +54,11 @@
                 <p class="mt-1.5 text-[15px] font-semibold text-creme" x-text="$store.cart.anuncio.promocao?.destaque"></p>
                 <p x-show="$store.cart.anuncio.promocao?.descricao" class="mt-1.5 text-[14px] leading-snug text-farinha" x-text="$store.cart.anuncio.promocao?.descricao"></p>
                 <p x-show="$store.cart.anuncio.promocao?.nota" class="mt-2 text-[12px] text-farinha" x-text="$store.cart.anuncio.promocao?.nota"></p>
+                {{-- Loja fechada: a promoção já está no ar, os pedidos começam no horário de abertura. --}}
+                <p x-show="$store.cart.anuncio.fechada" class="mt-3 flex items-center gap-2 rounded-xl border border-ouro/30 bg-ouro/10 px-3 py-2 text-[13px] font-semibold text-creme">
+                    <i class='bx bx-time-five shrink-0 text-lg text-ouro' aria-hidden="true"></i>
+                    <span x-text="'Estamos fechados agora.' + ($store.cart.anuncio.abreEm ? ' Abrimos ' + $store.cart.anuncio.abreEm + '.' : '')"></span>
+                </p>
                 <button type="button" @click="$store.cart.verPromocaoAnunciada($store.cart.anuncio.promocao)" class="botao-brasa mt-5 h-12 w-full text-base">Ver itens da promoção</button>
 
                 {{-- Demais promoções vigentes: um toque fecha o aviso e rola até a seção. --}}
