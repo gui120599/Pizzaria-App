@@ -1900,6 +1900,64 @@ class OperarVenda extends Page
         }
     }
 
+    /** Cobranças na maquininha ainda abertas nesta venda (aguardando, pagas em parte ou de resultado desconhecido). */
+    #[Computed]
+    public function cobrancasStoneAbertas(): \Illuminate\Database\Eloquent\Collection
+    {
+        return StonePedido::where('stp_venda_id', $this->vendaId)
+            ->whereIn('stp_status', StonePedidoStatus::valoresPendentes())
+            ->with('maquininha')
+            ->latest('id')
+            ->get();
+    }
+
+    /** Cobrança em acompanhamento no modal, lida do banco a cada renderização. */
+    public function cobrancaStoneAtual(): ?StonePedido
+    {
+        return $this->stonePedidoId ? StonePedido::with('maquininha')->find($this->stonePedidoId) : null;
+    }
+
+    /** Reabre o modal de uma cobrança aberta (o caixa fechou o modal e precisa concluir, cancelar ou encerrar). */
+    public function abrirCobrancaStone(int $stonePedidoId): void
+    {
+        $pedido = StonePedido::where('stp_venda_id', $this->vendaId)->whereKey($stonePedidoId)->first();
+
+        if (! $pedido || ! $pedido->stp_status->pendente()) {
+            return;
+        }
+
+        $indeterminado = $pedido->stp_status === StonePedidoStatus::Indeterminado;
+
+        $this->stonePedidoId = $pedido->id;
+        $this->stoneStatusModal = $indeterminado ? 'indeterminado' : 'aguardando';
+        $this->stoneErroModal = $indeterminado ? $pedido->stp_erro : null;
+        $this->modalStoneAberta = true;
+    }
+
+    /**
+     * Parte já passou na maquininha e o restante foi pago em outra forma (dinheiro,
+     * outra maquininha): fecha o pedido na Stone com o que foi pago, para a venda
+     * poder ser finalizada e o pedido não ficar listado no POS.
+     */
+    public function encerrarRestanteStone(): void
+    {
+        $pedido = $this->cobrancaStoneAtual();
+        if (! $pedido) {
+            return;
+        }
+
+        try {
+            app(StoneRecebimentoService::class)->encerrarRestante($pedido);
+        } catch (StoneConnectException $e) {
+            $this->definirErroStone($e->getMessage());
+
+            return;
+        }
+
+        $this->recarregarPagamentos();
+        $this->stoneStatusModal = 'encerrado';
+    }
+
     /** Resultado desconhecido: pergunta à Stone (ou repete o envio com a mesma chave) e volta ao acompanhamento normal. */
     public function reconsultarCobrancaStone(): void
     {
@@ -1957,7 +2015,7 @@ class OperarVenda extends Page
 
     private function recarregarPagamentos(): void
     {
-        unset($this->pagamentosLancados, $this->venda);
+        unset($this->pagamentosLancados, $this->venda, $this->valorRestante, $this->cobrancasStoneAbertas);
     }
 
     /**

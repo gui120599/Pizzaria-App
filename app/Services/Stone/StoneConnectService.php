@@ -131,14 +131,18 @@ class StoneConnectService
                 'stone_pedido_id' => $pedido->id, 'erro' => $e->getMessage(),
             ]);
 
-            throw new StoneResultadoDesconhecidoException(self::MENSAGEM_RESULTADO_DESCONHECIDO);
+            throw new StoneResultadoDesconhecidoException(self::mensagemResultadoDesconhecido('sem resposta da Stone: falha de conexão'));
         }
 
         // 5xx e 408: o servidor pode ter processado o pedido antes de falhar.
         if ($response->serverError() || $response->status() === 408) {
             $this->logErro('criarPedido', $response->status(), $response->json(), ['stone_pedido_id' => $pedido->id]);
 
-            throw new StoneResultadoDesconhecidoException(self::MENSAGEM_RESULTADO_DESCONHECIDO, $response->json());
+            $detalhe = $response->json('message');
+
+            throw new StoneResultadoDesconhecidoException(self::mensagemResultadoDesconhecido(
+                'a Stone respondeu HTTP '.$response->status().($detalhe ? ": {$detalhe}" : '')
+            ), $response->json());
         }
 
         if ($response->failed()) {
@@ -152,7 +156,11 @@ class StoneConnectService
         return $response->json() ?? [];
     }
 
-    private const MENSAGEM_RESULTADO_DESCONHECIDO = 'Não foi possível confirmar se a cobrança chegou à maquininha (a Stone não respondeu). NÃO envie de novo: o sistema reconsulta sozinho, ou use "Reconsultar na Stone".';
+    /** O motivo (HTTP devolvido ou falha de conexão) vai junto para aparecer na tela, não só no log. */
+    private static function mensagemResultadoDesconhecido(string $motivo): string
+    {
+        return "Não foi possível confirmar se a cobrança chegou à maquininha ({$motivo}). NÃO envie de novo: o sistema reconsulta por alguns minutos; depois use \"Reconsultar na Stone\" ou, em Pedidos Stone, \"Liberar cobrança\".";
+    }
 
     /** Identificador do nosso StonePedido no pedido da Stone (máx. 52 caracteres no Pagar.me). */
     public static function codigoDoPedido(StonePedido $pedido): string

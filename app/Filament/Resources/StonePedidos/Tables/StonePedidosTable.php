@@ -13,6 +13,7 @@ use App\Services\Stone\StoneVendaAutomaticaService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -206,6 +207,32 @@ class StonePedidosTable
                             Notification::make()->success()->title('Cobrança encerrada na Stone.')->send();
                         } catch (StoneConnectException $e) {
                             Notification::make()->danger()->title('Falha ao encerrar a cobrança')->body($e->getMessage())->send();
+                        }
+                    }),
+
+                Action::make('liberarCobranca')
+                    ->label('Liberar cobrança')
+                    ->icon('heroicon-o-lock-open')
+                    ->color('danger')
+                    ->authorize(fn (): bool => auth()->user()?->can('operar:venda') ?? false)
+                    ->visible(fn (StonePedido $record): bool => app(StoneRecebimentoService::class)->podeLiberar($record))
+                    ->modalHeading('Liberar cobrança sem resposta da Stone')
+                    ->modalDescription(fn (StonePedido $record): string => 'Use só quando a reconsulta na Stone não resolver. Cancela a cobrança de R$ '
+                        .number_format((float) $record->stp_valor_solicitado, 2, ',', '.')
+                        .' (code '.StoneConnectService::codigoDoPedido($record).') só no sistema: o pedido pode continuar na maquininha até a Stone removê-lo.')
+                    ->modalSubmitActionLabel('Liberar cobrança')
+                    ->schema([
+                        Checkbox::make('conferido')
+                            ->label('Conferi que este pedido não foi pago e a equipe não vai recebê-lo na maquininha')
+                            ->accepted()
+                            ->validationMessages(['accepted' => 'Confirme a conferência para liberar.']),
+                    ])
+                    ->action(function (StonePedido $record): void {
+                        try {
+                            app(StoneRecebimentoService::class)->liberar($record);
+                            Notification::make()->success()->title('Cobrança liberada.')->send();
+                        } catch (StoneConnectException $e) {
+                            Notification::make()->danger()->title('Não foi possível liberar')->body($e->getMessage())->send();
                         }
                     }),
 
