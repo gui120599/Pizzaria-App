@@ -105,9 +105,9 @@ class StoneUxCobrancaTest extends TestCase
             ->assertTableColumnStateSet('stone', 'indeterminado', $pedido);
     }
 
-    public function test_reconsultar_pelo_painel_reenvia_o_mesmo_registro_e_tira_do_indeterminado(): void
+    public function test_reconsultar_pelo_painel_acha_o_pedido_pelo_code_e_tira_do_indeterminado(): void
     {
-        $this->fakeStoneCriaPedidos('or_rec');
+        $this->fakeStoneAchaPorCodigo('or_rec');
         $pedido = $this->pedidoComTotal(80);
         $stonePedido = $this->cobrancaDoPedido($pedido, $this->sunmi, ['stp_status' => StonePedidoStatus::Indeterminado, 'stp_order_id' => null]);
 
@@ -239,7 +239,7 @@ class StoneUxCobrancaTest extends TestCase
 
     public function test_atendimento_reabre_resultado_desconhecido_para_reconsultar(): void
     {
-        $this->fakeStoneCriaPedidos('or_rec');
+        $this->fakeStoneAchaPorCodigo('or_rec');
         $pedido = $this->pedidoComTotal(80);
         $stonePedido = $this->cobrancaDoPedido($pedido, $this->sunmi, ['stp_status' => StonePedidoStatus::Indeterminado, 'stp_order_id' => null]);
 

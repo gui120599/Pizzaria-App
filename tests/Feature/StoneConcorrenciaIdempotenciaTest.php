@@ -30,7 +30,7 @@ use Tests\TestCase;
  * Etapa 3: o envio é seguro contra duplo clique, duas abas e timeout.
  *  - lock + elegibilidade rechecada + índice único (Direto e resultado desconhecido);
  *  - POST /orders com `code` rf-{id} e Idempotency-Key estável;
- *  - timeout/rede/5xx viram "indeterminado" e o MESMO registro é reenviado;
+ *  - timeout/rede/5xx viram "indeterminado" e o pedido é procurado pelo code, sem reenvio;
  *  - limite de pedidos abertos por maquininha, também no lote.
  */
 class StoneConcorrenciaIdempotenciaTest extends TestCase
@@ -408,11 +408,11 @@ class StoneConcorrenciaIdempotenciaTest extends TestCase
 
     // ── #5 Resultado desconhecido ────────────────────────────────────────────
 
-    public function test_timeout_na_criacao_vira_indeterminado_bloqueia_novo_envio_e_a_reconsulta_reenvia_o_mesmo_registro(): void
+    public function test_timeout_na_criacao_vira_indeterminado_bloqueia_novo_envio_e_a_reconsulta_acha_pelo_code_sem_reenviar(): void
     {
-        Http::fake(['api.pagar.me/core/v5/orders' => Http::sequence()
-            ->pushFailedConnection('timeout')
-            ->push(['id' => 'or_recuperado', 'code' => 'rf-1', 'status' => 'pending'], 200)]);
+        Http::fake(['api.pagar.me/*' => fn (Request $request) => $request->method() === 'POST'
+            ? Http::failedConnection('timeout')($request)
+            : Http::response(['data' => [['id' => 'or_recuperado', 'code' => $request->data()['code'], 'status' => 'pending', 'charges' => []]]], 200)]);
         $pedido = $this->pedidoComTotal(80);
 
         try {
@@ -443,12 +443,9 @@ class StoneConcorrenciaIdempotenciaTest extends TestCase
         $this->assertSame('or_recuperado', $recuperado->stp_order_id);
         $this->assertSame(1, StonePedido::count());
 
-        // O reenvio usou a MESMA Idempotency-Key e o mesmo code.
-        $posts = $this->postsDeCriacao();
-        $this->assertCount(2, $posts);
-        $this->assertSame($posts[0]->header('Idempotency-Key'), $posts[1]->header('Idempotency-Key'));
-        $this->assertSame("stone-pedido-{$indeterminado->id}", $posts[1]->header('Idempotency-Key')[0]);
-        $this->assertSame("rf-{$indeterminado->id}", $posts[1]['code']);
+        // Nunca há um segundo POST: a reconsulta só procura pelo code.
+        $this->assertCount(1, $this->postsDeCriacao());
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'GET' && $request->data()['code'] === "rf-{$indeterminado->id}");
     }
 
     public function test_erro_5xx_na_criacao_tambem_e_resultado_desconhecido_e_nao_falha(): void
@@ -476,20 +473,50 @@ class StoneConcorrenciaIdempotenciaTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request->method() === 'GET');
     }
 
-    public function test_passadas_24h_sem_order_id_continua_indeterminado_e_pede_conferencia_manual(): void
+    public function test_sem_pedido_na_stone_continua_indeterminado_e_orienta_a_resolucao_manual(): void
     {
+        $this->fakeStoneAchaPorCodigo();
         $stonePedido = $this->cobrancaDoPedido($this->pedidoComTotal(80), $this->sunmi, ['stp_status' => StonePedidoStatus::Indeterminado, 'stp_order_id' => null]);
-        StonePedido::whereKey($stonePedido->id)->update(['created_at' => now()->subHours(25)]);
 
         try {
             $this->stone->reconsultar($stonePedido);
-            $this->fail('Fora da janela da Idempotency-Key não se reenvia.');
+            $this->fail('Sem pedido na Stone não há o que adotar nem reenviar.');
         } catch (StoneConnectException $e) {
             $this->assertStringContainsString("rf-{$stonePedido->id}", $e->getMessage());
+            $this->assertStringContainsString('informe o Order ID', $e->getMessage());
         }
 
         $this->assertSame('indeterminado', $stonePedido->fresh()->stp_status->value);
-        Http::assertNothingSent();
+        $this->assertCount(0, $this->postsDeCriacao());
+    }
+
+    public function test_varios_pedidos_abertos_com_o_mesmo_code_nao_sao_adotados(): void
+    {
+        $this->fakeStoneAchaPorCodigo('or_duplicado_1', 'or_duplicado_2');
+        $stonePedido = $this->cobrancaDoPedido($this->pedidoComTotal(80), $this->sunmi, ['stp_status' => StonePedidoStatus::Indeterminado, 'stp_order_id' => null]);
+
+        try {
+            $this->stone->reconsultar($stonePedido);
+            $this->fail('Duplicados precisam de decisão humana.');
+        } catch (StoneConnectException $e) {
+            $this->assertStringContainsString('or_duplicado_1, or_duplicado_2', $e->getMessage());
+        }
+
+        $this->assertNull($stonePedido->fresh()->stp_order_id);
+    }
+
+    public function test_pedido_de_outro_code_na_resposta_nunca_e_adotado(): void
+    {
+        Http::fake(['api.pagar.me/*' => Http::response(['data' => [['id' => 'or_alheio', 'code' => 'rf-999999', 'status' => 'pending']]], 200)]);
+        $stonePedido = $this->cobrancaDoPedido($this->pedidoComTotal(80), $this->sunmi, ['stp_status' => StonePedidoStatus::Indeterminado, 'stp_order_id' => null]);
+
+        try {
+            $this->stone->reconsultar($stonePedido);
+            $this->fail('O pedido de outro code não é nosso.');
+        } catch (StoneConnectException) {
+        }
+
+        $this->assertNull($stonePedido->fresh()->stp_order_id);
     }
 
     public function test_cobranca_de_resultado_desconhecido_sem_order_id_nao_se_cancela(): void
@@ -541,28 +568,25 @@ class StoneConcorrenciaIdempotenciaTest extends TestCase
 
     public function test_resposta_do_envio_que_chega_depois_do_webhook_nao_regride_o_status_pago(): void
     {
-        $pedido = $this->pedidoComTotal(80);
-        $stonePedido = $this->cobrancaDoPedido($pedido, $this->sunmi, ['stp_order_id' => null, 'stp_status' => StonePedidoStatus::Indeterminado]);
-
         // O webhook charge.paid é processado enquanto o POST ainda está em andamento.
-        Http::fake(['api.pagar.me/core/v5/orders' => function () use ($stonePedido) {
-            StonePedido::whereKey($stonePedido->id)->update(['stp_status' => 'pago', 'stp_valor_pago' => 80]);
+        Http::fake(['api.pagar.me/core/v5/orders' => function () {
+            StonePedido::query()->update(['stp_status' => 'pago', 'stp_valor_pago' => 80]);
 
-            return Http::response(['id' => 'or_tardio', 'code' => "rf-{$stonePedido->id}"], 200);
+            return Http::response(['id' => 'or_tardio', 'code' => 'rf-1'], 200);
         }]);
 
-        $this->stone->reconsultar($stonePedido);
+        $this->stone->iniciarCobrancaDePedido($this->pedidoComTotal(80), null, $this->sunmi, modo: StonePedidoModo::Listado);
 
-        $atual = $stonePedido->fresh();
+        $atual = StonePedido::sole();
         $this->assertSame('pago', $atual->stp_status->value);
         $this->assertSame('or_tardio', $atual->stp_order_id);
     }
 
     // ── Conciliação (stone:conciliar-pedidos) ────────────────────────────────
 
-    public function test_conciliacao_resolve_indeterminado_sem_order_id_reenviando_o_mesmo_registro(): void
+    public function test_conciliacao_resolve_indeterminado_sem_order_id_procurando_pelo_code_sem_reenviar(): void
     {
-        Http::fake(['api.pagar.me/core/v5/orders' => Http::response(['id' => 'or_conc', 'code' => 'rf-1'], 200)]);
+        $this->fakeStoneAchaPorCodigo('or_conc');
         $stonePedido = $this->cobrancaDoPedido($this->pedidoComTotal(80), $this->sunmi, ['stp_status' => StonePedidoStatus::Indeterminado, 'stp_order_id' => null]);
 
         $this->artisan('stone:conciliar-pedidos')->assertSuccessful();
@@ -571,12 +595,12 @@ class StoneConcorrenciaIdempotenciaTest extends TestCase
         $this->assertSame('aguardando', $atual->stp_status->value);
         $this->assertSame('or_conc', $atual->stp_order_id);
         $this->assertSame(1, StonePedido::count());
-        $this->assertSame("stone-pedido-{$stonePedido->id}", $this->postsDeCriacao()[0]->header('Idempotency-Key')[0]);
+        $this->assertCount(0, $this->postsDeCriacao());
     }
 
     public function test_conciliacao_trata_aguardando_sem_order_id_como_resultado_desconhecido_e_nunca_expira_para_falha(): void
     {
-        Http::fake(['api.pagar.me/core/v5/orders' => Http::response(['message' => 'fora do ar'], 503)]);
+        Http::fake(['api.pagar.me/*' => Http::response(['message' => 'fora do ar'], 503)]);
         $stonePedido = $this->cobrancaDoPedido($this->pedidoComTotal(80), $this->sunmi, ['stp_status' => StonePedidoStatus::Aguardando, 'stp_order_id' => null]);
         StonePedido::whereKey($stonePedido->id)->update(['created_at' => now()->subHours(3)]);
 

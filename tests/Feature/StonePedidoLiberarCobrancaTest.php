@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\StonePedidoStatus;
+use App\Exceptions\StoneConnectException;
 use App\Exceptions\StoneResultadoDesconhecidoException;
 use App\Filament\Resources\StonePedidos\Pages\ManageStonePedidos;
 use App\Models\Maquininha;
@@ -19,9 +20,9 @@ use Tests\Support\CenarioStone;
 use Tests\TestCase;
 
 /**
- * A Stone devolve 500 na criação e em toda consulta: a cobrança fica como
- * resultado desconhecido, sem Order ID, travando a venda. O motivo aparece na
- * tela, o reenvio automático tem prazo e há uma liberação manual auditada.
+ * A Stone devolve 500 na criação: a cobrança fica como resultado desconhecido,
+ * sem Order ID, travando a venda. O motivo aparece na tela, o pedido nunca é
+ * reenviado, e há como informar o Order ID do painel ou liberar manualmente.
  */
 class StonePedidoLiberarCobrancaTest extends TestCase
 {
@@ -76,48 +77,145 @@ class StonePedidoLiberarCobrancaTest extends TestCase
         $this->assertStringContainsString('sem resposta da Stone: falha de conexão', StonePedido::sole()->stp_erro);
     }
 
-    public function test_conciliacao_reenvia_dentro_do_prazo_e_para_depois_dele(): void
+    public function test_conciliacao_nunca_reenvia_so_procura_pelo_code(): void
     {
         Http::fake(['api.pagar.me/*' => Http::response(['message' => 'Internal Server Error'], 500)]);
-        $recente = $this->desconhecida(minutosAtras: 10);
-        $this->desconhecida(minutosAtras: 45);
+        $this->desconhecida(minutosAtras: 10);
+
+        $this->artisan('stone:conciliar-pedidos')->assertSuccessful();
+        $this->artisan('stone:conciliar-pedidos')->assertSuccessful();
+
+        Http::assertNotSent(fn ($request) => $request->method() === 'POST');
+        Http::assertSentCount(2);
+    }
+
+    public function test_conciliacao_para_de_procurar_depois_de_24h(): void
+    {
+        Http::fake();
+        $this->desconhecida(minutosAtras: 25 * 60);
 
         $this->artisan('stone:conciliar-pedidos')->assertSuccessful();
 
-        Http::assertSentCount(1);
-        Http::assertSent(fn ($request) => $request->header('Idempotency-Key')[0] === "stone-pedido-{$recente->id}");
+        Http::assertNothingSent();
     }
 
-    public function test_prazo_de_reenvio_e_configuravel(): void
+    public function test_aguardando_sem_order_id_nao_encontrado_vira_desconhecido(): void
     {
-        Http::fake(['api.pagar.me/*' => Http::response(['message' => 'erro'], 500)]);
-        $this->desconhecida(minutosAtras: 45);
-
-        $this->artisan('stone:conciliar-pedidos', ['--minutos-reenvio' => 60])->assertSuccessful();
-
-        Http::assertSentCount(1);
-    }
-
-    public function test_aguardando_sem_order_id_fora_do_prazo_vira_desconhecido_sem_novo_envio(): void
-    {
-        Http::fake();
+        $this->fakeStoneAchaPorCodigo();
         $cobranca = $this->desconhecida(['stp_status' => StonePedidoStatus::Aguardando], minutosAtras: 45);
 
         $this->artisan('stone:conciliar-pedidos')->assertSuccessful();
 
         $this->assertSame(StonePedidoStatus::Indeterminado, $cobranca->fresh()->stp_status);
-        $this->assertStringContainsString('Liberar cobrança', $cobranca->fresh()->stp_erro);
-        Http::assertNothingSent();
+        Http::assertNotSent(fn ($request) => $request->method() === 'POST');
     }
 
-    public function test_desconhecido_com_order_id_continua_sendo_consultado_depois_do_prazo(): void
+    public function test_desconhecido_com_order_id_continua_sendo_consultado_depois_de_24h(): void
     {
-        Http::fake(['api.pagar.me/*' => Http::response(['id' => 'or_1', 'status' => 'pending', 'charges' => []], 200)]);
-        $this->desconhecida(['stp_order_id' => 'or_1'], minutosAtras: 600);
+        Http::fake(['api.pagar.me/core/v5/orders/or_1' => Http::response(['id' => 'or_1', 'status' => 'pending', 'charges' => []], 200)]);
+        $this->desconhecida(['stp_order_id' => 'or_1'], minutosAtras: 30 * 60);
 
         $this->artisan('stone:conciliar-pedidos')->assertSuccessful();
 
         Http::assertSent(fn ($request) => $request->method() === 'GET' && str_ends_with($request->url(), '/orders/or_1'));
+    }
+
+    // ── Informar Order ID (copiado do painel da Pagar.me) ────────────────────
+
+    private function fakePedidoNaStone(array $order, int $status = 200): void
+    {
+        Http::fake(['api.pagar.me/core/v5/orders/*' => fn ($request) => $request->method() === 'PATCH'
+            ? Http::response(['status' => 'canceled'], 200)
+            : Http::response($order, $status)]);
+    }
+
+    public function test_informar_order_id_conferido_libera_o_cancelamento_pela_tela(): void
+    {
+        $cobranca = $this->desconhecida();
+        $this->fakePedidoNaStone(['id' => 'or_q3ZY033UEJsnLaXK', 'code' => "rf-{$cobranca->id}", 'amount' => 8000, 'status' => 'pending', 'charges' => []]);
+
+        Livewire::test(ManageStonePedidos::class)
+            ->assertTableActionHidden('cancelarPedido', $cobranca)
+            ->callAction(TestAction::make('informarOrderId')->table($cobranca), ['order_id' => ' or_q3ZY033UEJsnLaXK '])
+            ->assertNotified('Order ID gravado.')
+            ->assertTableActionVisible('cancelarPedido', $cobranca)
+            ->callAction(TestAction::make('cancelarPedido')->table($cobranca));
+
+        $cobranca->refresh();
+        $this->assertSame('or_q3ZY033UEJsnLaXK', $cobranca->stp_order_id);
+        $this->assertSame(StonePedidoStatus::Cancelado, $cobranca->stp_status);
+        Http::assertSent(fn ($request) => $request->method() === 'PATCH' && str_ends_with($request->url(), '/orders/or_q3ZY033UEJsnLaXK/closed'));
+    }
+
+    public function test_informar_order_id_recusa_pedido_de_outro_code_ou_outro_valor(): void
+    {
+        $cobranca = $this->desconhecida();
+        $servico = app(StoneRecebimentoService::class);
+
+        foreach ([
+            ['code' => 'rf-999999', 'amount' => 8000],
+            ['code' => "rf-{$cobranca->id}", 'amount' => 9999],
+        ] as $indice => $diferenca) {
+            $id = "or_errado000000{$indice}";
+            Http::fake(["api.pagar.me/core/v5/orders/{$id}" => Http::response($diferenca + ['id' => $id, 'status' => 'pending'], 200)]);
+
+            try {
+                $servico->informarOrderId($cobranca, $id);
+                $this->fail('O pedido não confere com a cobrança.');
+            } catch (StoneConnectException $e) {
+                $this->assertStringContainsString($indice === 0 ? 'code' : 'valor', $e->getMessage());
+            }
+        }
+
+        $this->assertNull($cobranca->fresh()->stp_order_id);
+    }
+
+    public function test_informar_order_id_grava_com_aviso_quando_a_stone_nao_responde(): void
+    {
+        $cobranca = $this->desconhecida();
+        $this->fakePedidoNaStone(['message' => 'Internal Server Error'], 500);
+
+        $conferido = app(StoneRecebimentoService::class)->informarOrderId($cobranca, 'or_semConferencia01');
+
+        $this->assertFalse($conferido);
+        $this->assertSame('or_semConferencia01', $cobranca->fresh()->stp_order_id);
+        $this->assertSame(StonePedidoStatus::Aguardando, $cobranca->fresh()->stp_status);
+    }
+
+    public function test_informar_order_id_recusa_formato_invalido_e_id_ja_usado(): void
+    {
+        Http::fake();
+        $this->desconhecida(['stp_order_id' => 'or_jaUsado000001']);
+        $cobranca = $this->desconhecida();
+        $servico = app(StoneRecebimentoService::class);
+
+        foreach (['rf-432', 'or_', 'or_abc/closed', 'or_jaUsado000001'] as $invalido) {
+            try {
+                $servico->informarOrderId($cobranca, $invalido);
+                $this->fail("Deveria recusar {$invalido}.");
+            } catch (StoneConnectException) {
+            }
+        }
+
+        $this->assertNull($cobranca->fresh()->stp_order_id);
+        Http::assertNothingSent();
+    }
+
+    public function test_informar_order_id_so_aparece_sem_order_id_e_exige_permissao(): void
+    {
+        $semOrder = $this->desconhecida();
+        $comOrder = $this->desconhecida(['stp_order_id' => 'or_x']);
+
+        Livewire::test(ManageStonePedidos::class)
+            ->assertTableActionVisible('informarOrderId', $semOrder)
+            ->assertTableActionHidden('informarOrderId', $comOrder);
+
+        $semPermissao = User::factory()->create(['name_first' => 'Sem']);
+        $semPermissao->givePermissionTo(Permission::firstOrCreate(['name' => 'view_any:venda', 'guard_name' => 'web']));
+        $this->actingAs($semPermissao);
+
+        Livewire::test(ManageStonePedidos::class)
+            ->assertTableActionHidden('informarOrderId', $semOrder);
     }
 
     public function test_libera_a_cobranca_exigindo_confirmacao_e_registrando_quem_liberou(): void

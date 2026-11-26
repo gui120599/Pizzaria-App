@@ -14,6 +14,7 @@ use App\Models\PagamentosPedido;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\StonePedido;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -140,5 +141,16 @@ trait CenarioStone
             'api.pagar.me/core/v5/orders' => $sequencia,
             'api.pagar.me/*' => Http::response([], 200),
         ]);
+    }
+
+    /**
+     * GET /orders?code=… devolve um pedido aberto para cada id indicado, com o
+     * code procurado; as demais rotas da Stone devolvem 200 vazio.
+     */
+    protected function fakeStoneAchaPorCodigo(string ...$orderIds): void
+    {
+        Http::fake(['api.pagar.me/*' => fn (Request $request) => $request->method() === 'GET' && str_contains($request->url(), '/orders?')
+            ? Http::response(['data' => array_map(fn (string $id): array => ['id' => $id, 'code' => $request->data()['code'], 'status' => 'pending', 'charges' => []], $orderIds)], 200)
+            : Http::response([], 200)]);
     }
 }
