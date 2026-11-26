@@ -1357,6 +1357,7 @@ return array(
     'App\\Services\\PromocaoCombo\\PromocaoComboService' => $baseDir . '/app/Services/PromocaoCombo/PromocaoComboService.php',
     'App\\Services\\PromocaoCombo\\RegraCombo' => $baseDir . '/app/Services/PromocaoCombo/RegraCombo.php',
     'App\\Services\\PromocaoRelampagoService' => $baseDir . '/app/Services/PromocaoRelampagoService.php',
+    'App\\Services\\PromocoesVigentesAtendimentoService' => $baseDir . '/app/Services/PromocoesVigentesAtendimentoService.php',
     'App\\Services\\Push\\AvisoResolvidoService' => $baseDir . '/app/Services/Push/AvisoResolvidoService.php',
     'App\\Services\\Push\\DestinatariosGarcom' => $baseDir . '/app/Services/Push/DestinatariosGarcom.php',
     'App\\Services\\Push\\DispositivoPushService' => $baseDir . '/app/Services/Push/DispositivoPushService.php',

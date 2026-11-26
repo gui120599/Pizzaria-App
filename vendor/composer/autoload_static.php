@@ -2355,6 +2355,7 @@ class ComposerStaticInit5ab1db59f69ab376e1219686675b6f06
         'App\\Services\\PromocaoCombo\\PromocaoComboService' => __DIR__ . '/../..' . '/app/Services/PromocaoCombo/PromocaoComboService.php',
         'App\\Services\\PromocaoCombo\\RegraCombo' => __DIR__ . '/../..' . '/app/Services/PromocaoCombo/RegraCombo.php',
         'App\\Services\\PromocaoRelampagoService' => __DIR__ . '/../..' . '/app/Services/PromocaoRelampagoService.php',
+        'App\\Services\\PromocoesVigentesAtendimentoService' => __DIR__ . '/../..' . '/app/Services/PromocoesVigentesAtendimentoService.php',
         'App\\Services\\Push\\AvisoResolvidoService' => __DIR__ . '/../..' . '/app/Services/Push/AvisoResolvidoService.php',
         'App\\Services\\Push\\DestinatariosGarcom' => __DIR__ . '/../..' . '/app/Services/Push/DestinatariosGarcom.php',
         'App\\Services\\Push\\DispositivoPushService' => __DIR__ . '/../..' . '/app/Services/Push/DispositivoPushService.php',

@@ -55,6 +55,37 @@ trait TemVigenciaRecorrente
         return $this->vigInicio() <= $momento && $this->vigFim() >= $momento;
     }
 
+    /**
+     * Vigência em texto curto para o atendimento: "até 22:50" (hoje),
+     * "até 25/11 22:50" ou, na recorrente, "Ter/Qui, 18:00-20:00".
+     */
+    public function textoVigencia(?CarbonInterface $momento = null): string
+    {
+        $momento ??= now();
+
+        if (! $this->vigRecorrente()) {
+            $fim = $this->vigFim();
+
+            if (! $fim) {
+                return '';
+            }
+
+            return 'até '.($fim->isSameDay($momento) ? $fim->format('H:i') : $fim->format('d/m H:i'));
+        }
+
+        $nomesDias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        $dias = $this->vigDiasSemana();
+        $diasTexto = $dias === [] || count($dias) === 7
+            ? 'Todo dia'
+            : collect($dias)->map(fn ($dia) => (int) $dia)->sort()->map(fn (int $dia) => $nomesDias[$dia] ?? '')->implode('/');
+
+        $horario = $this->vigHoraInicio() && $this->vigHoraFim()
+            ? $this->vigHoraInicio()->format('H:i').'-'.$this->vigHoraFim()->format('H:i')
+            : 'dia inteiro';
+
+        return $diasTexto.', '.$horario;
+    }
+
     public function status(?CarbonInterface $momento = null): PromocaoStatusEnum
     {
         $momento ??= now();

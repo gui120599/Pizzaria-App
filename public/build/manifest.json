@@ -24,7 +24,7 @@
     "src": "node_modules/boxicons/fonts/boxicons.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CPBNiijE.css",
+    "file": "assets/app-Dw7RwedX.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -34,17 +34,17 @@
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-uPOq0pcE.css",
+    "file": "assets/theme-C87SqML7.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
   "resources/css/filament/cozinha/theme.css": {
-    "file": "assets/theme-BSW0Nrv0.css",
+    "file": "assets/theme-P5s0WsRb.css",
     "src": "resources/css/filament/cozinha/theme.css",
     "isEntry": true
   },
   "resources/css/filament/garcom/theme.css": {
-    "file": "assets/theme-DU8-xP5I.css",
+    "file": "assets/theme-BhlB64g4.css",
     "src": "resources/css/filament/garcom/theme.css",
     "isEntry": true
   },

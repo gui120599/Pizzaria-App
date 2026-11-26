@@ -38,7 +38,7 @@
     <fieldset @disabled($somenteLeitura) class="m-0 min-w-0 border-0 p-0 [&_:disabled]:cursor-not-allowed">
     <div class="grid grid-cols-1 xl:grid-cols-5 gap-4">
         <div class="xl:col-span-3">
-            @livewire('pedido-produto-selector', ['pedidoId' => $pedidoId, 'itensIniciais' => $itensCarrinho, 'carrinhoTopo' => true, 'mensagemWhatsapp' => true, 'nomeClienteCombo' => ($clienteData['semCliente'] ?? false) ? null : ($clienteData['nome'] ?? null)], key('selector-'.($pedidoId ?? 'novo')))
+            @livewire('pedido-produto-selector', ['pedidoId' => $pedidoId, 'itensIniciais' => $itensCarrinho, 'carrinhoTopo' => true, 'mensagemWhatsapp' => true, 'abaPromocoes' => true, 'nomeClienteCombo' => ($clienteData['semCliente'] ?? false) ? null : ($clienteData['nome'] ?? null)], key('selector-'.($pedidoId ?? 'novo')))
         </div>
 
         <div class="xl:col-span-2 space-y-4">
