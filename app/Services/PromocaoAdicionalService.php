@@ -220,18 +220,31 @@ class PromocaoAdicionalService
     }
 
     /**
-     * Nomes das campanhas com oferta aceita neste pedido que NÃO valem para a
-     * opção de entrega escolhida. Estrito: sem opção escolhida também barra.
+     * Nomes das campanhas usadas neste pedido (oferta aceita ou gatilho
+     * lançado pelo preço da campanha) que NÃO valem para a opção de entrega
+     * escolhida. Estrito: sem opção escolhida também barra.
      *
      * @return list<string>
      */
     public function campanhasForaDaEntrega(int $pedidoId, ?int $opcaoEntregaId, bool $ehMesa): array
     {
-        return PromocaoAdicionalConsumo::where('pac_pedido_id', $pedidoId)
+        $dasOfertas = PromocaoAdicionalConsumo::where('pac_pedido_id', $pedidoId)
             ->whereNull('pac_revertido_em')
             ->with('regra.promocao')
             ->get()
-            ->map(fn (PromocaoAdicionalConsumo $consumo) => $consumo->regra?->promocao)
+            ->toBase()
+            ->map(fn (PromocaoAdicionalConsumo $consumo) => $consumo->regra?->promocao);
+
+        $dosGatilhos = ItensPedido::where('item_pedido_pedido_id', $pedidoId)
+            ->where('item_pedido_status', 'INSERIDO')
+            ->whereNull('item_pedido_promocao_adicional_oferta_id')
+            ->whereNotNull('item_pedido_promocao_adicional_regra_id')
+            ->with('promocaoAdicionalRegra.promocao')
+            ->get()
+            ->toBase()
+            ->map(fn (ItensPedido $item) => $item->promocaoAdicionalRegra?->promocao);
+
+        return $dasOfertas->merge($dosGatilhos)
             ->filter()
             ->unique('id')
             ->filter(fn (PromocaoAdicional $promocao) => $promocao->restringeEntrega()

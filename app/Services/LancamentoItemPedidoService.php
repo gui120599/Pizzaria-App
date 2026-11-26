@@ -51,6 +51,9 @@ class LancamentoItemPedidoService
      *                              (prévia sem pedido gravado, onde não há como registrar o consumo)
      * @param  ?bool  $comRelampago  relâmpago à parte de $comPromocoes (null = segue $comPromocoes). A
      *                               prévia do Atender Pedido usa true: o saldo é consumido no save.
+     * @param  ?bool  $comPromoAdicional  preço do gatilho da promoção adicional à parte de $comPromocoes
+     *                                    (null = segue $comPromocoes). A prévia do Atender Pedido usa
+     *                                    true: o preço vale já, a oferta segue fora (não há consumo).
      *
      * @throws ItemIndisponivelException|ComboSaboresInvalidoException|PerguntaNaoRespondidaException
      */
@@ -60,8 +63,10 @@ class LancamentoItemPedidoService
         ?int $opcaoPagamentoId = null,
         bool $comPromocoes = true,
         ?bool $comRelampago = null,
+        ?bool $comPromoAdicional = null,
     ): LinhaPrecificada {
         $comRelampago ??= $comPromocoes;
+        $comPromoAdicional ??= $comPromocoes;
 
         $ids = $item->ehMultiSabor() ? $item->saboresIds : [$item->produtoId];
         $produtos = $this->produtosNaOrdem($ids, $canal);
@@ -95,7 +100,7 @@ class LancamentoItemPedidoService
                 (int) $item->quantidade,
                 $this->precificador->opcaoDoCombo($produtos),
                 $opcaoPagamentoId,
-                $comPromocoes,
+                $comPromoAdicional,
                 $comRelampago,
             );
 
@@ -120,7 +125,7 @@ class LancamentoItemPedidoService
         $preco = $this->precificador->resolver(
             $produto,
             considerarRelampago: $comRelampago,
-            considerarPromoAdicional: $comPromocoes,
+            considerarPromoAdicional: $comPromoAdicional,
             opcaoPagamentoId: $opcaoPagamentoId,
         );
         $linha = ItensPedido::calcularLinha($item->quantidade, $preco->valorUnitario, $preco->descontoUnitario, $valorAdicionais);

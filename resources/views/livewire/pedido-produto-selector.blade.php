@@ -61,13 +61,27 @@
         </div>
 
         {{-- Categorias: ícones circulares (estilo cardápio) --}}
+        @php $promocoesAba = $abaPromocoes ? $this->promocoesVigentes : []; @endphp
         <div class="flex gap-3 overflow-x-auto pb-1">
+
+            {{-- Promoções vigentes (Atender Pedido) --}}
+            @if (count($promocoesAba) > 0)
+                <button wire:click="abrirPromocoes" type="button"
+                        class="flex flex-col items-center gap-1 shrink-0 w-[4.5rem] focus:outline-none">
+                    <div class="relative w-14 h-14 rounded-xl border-2 transition-colors duration-150 bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center
+                        {{ $verPromocoes ? 'border-orange-500' : 'border-orange-200 dark:border-orange-500/30 hover:border-orange-400' }}">
+                        <i class='bx bxs-purchase-tag text-3xl text-orange-500'></i>
+                        <span class="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-orange-500 text-white text-[11px] font-bold flex items-center justify-center">{{ count($promocoesAba) }}</span>
+                    </div>
+                    <span class="text-xs text-orange-600 dark:text-orange-400 font-semibold uppercase text-center">Promoções</span>
+                </button>
+            @endif
 
             {{-- Todos --}}
             <button wire:click="$set('categoriaId', null)" type="button"
                     class="flex flex-col items-center gap-1 shrink-0 w-[4.5rem] focus:outline-none">
                 <div class="w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors duration-150 bg-gray-100 dark:bg-gray-900 flex items-center justify-center
-                    {{ $categoriaId === null ? 'border-orange-500' : 'border-gray-300 dark:border-white/10 hover:border-gray-400 dark:hover:border-white/20' }}">
+                    {{ $categoriaId === null && ! $verPromocoes ? 'border-orange-500' : 'border-gray-300 dark:border-white/10 hover:border-gray-400 dark:hover:border-white/20' }}">
                     <svg class="w-7 h-7 text-gray-500 dark:text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
                     </svg>
@@ -92,6 +106,82 @@
         </div>
     </div>
 
+    {{-- ── Aba Promoções: cartões das promoções vigentes ──────────────────────
+         Só consulta e atalho: tocar no produto segue o fluxo normal
+         (selecionarProduto), que mostra o preço, o brinde e o combo. --}}
+    @if ($verPromocoes)
+        <div class="overflow-y-auto p-3 space-y-3" style="max-height: clamp(18rem, 60vh, 48rem)">
+            @forelse ($promocoesAba as $promo)
+                @php
+                    $selo = match ($promo['tipo']) {
+                        'relampago' => ['Relâmpago', 'bxs-bolt', 'bg-red-600'],
+                        'adicional' => ['Leve +', 'bxs-gift', 'bg-pink-600'],
+                        default => ['Combo', 'bxs-layer', 'bg-emerald-600'],
+                    };
+                @endphp
+                <div wire:key="promo-{{ $promo['chave'] }}" class="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-800 overflow-hidden">
+                    <div class="px-3 pt-3 pb-2 space-y-1">
+                        <div class="flex items-start gap-2">
+                            <span class="inline-flex items-center gap-0.5 text-[11px] font-bold text-white {{ $selo[2] }} rounded px-1.5 py-0.5 shrink-0 uppercase">
+                                <i class='bx {{ $selo[1] }} text-xs'></i> {{ $selo[0] }}
+                            </span>
+                            <p class="flex-1 text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">{{ $promo['nome'] }}</p>
+                            @if ($promo['vigencia'] !== '')
+                                <span class="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 flex items-center gap-0.5"><i class='bx bx-time-five'></i>{{ $promo['vigencia'] }}</span>
+                            @endif
+                        </div>
+                        @if ($promo['destaque'])
+                            <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{{ $promo['destaque'] }}</p>
+                        @endif
+                        @if (filled($promo['descricao']))
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ $promo['descricao'] }}</p>
+                        @endif
+                        @if ($promo['brindes'] !== [])
+                            <p class="text-xs text-pink-700 dark:text-pink-400">
+                                <i class='bx bxs-gift'></i> Ganha:
+                                {{ collect($promo['brindes'])->map(fn ($b) => $b['nome'].' '.($b['valor'] > 0 ? '+R$ '.number_format($b['valor'], 2, ',', '.') : '(grátis)'))->implode(' · ') }}
+                            </p>
+                        @endif
+                        @if ($promo['restricoes'] !== [])
+                            <div class="flex flex-wrap gap-1 pt-0.5">
+                                @foreach ($promo['restricoes'] as $restricao)
+                                    <span class="text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-full px-2 py-0.5">{{ $restricao }}</span>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 border-t border-gray-100 dark:border-white/10 divide-y sm:divide-y-0 divide-gray-100 dark:divide-white/10">
+                        @foreach ($promo['produtos'] as $produtoPromo)
+                            <button type="button" wire:key="promo-{{ $promo['chave'] }}-{{ $produtoPromo['id'] }}"
+                                    wire:click="selecionarProduto({{ $produtoPromo['id'] }})"
+                                    class="flex items-center gap-2 px-3 py-2 text-left hover:bg-orange-50 dark:hover:bg-white/5 transition-colors">
+                                @if ($produtoPromo['foto'])
+                                    <img src="{{ $produtoPromo['foto'] }}" alt="" width="36" height="36" loading="lazy" class="w-9 h-9 rounded-lg object-cover shrink-0">
+                                @else
+                                    <div class="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-900 shrink-0"></div>
+                                @endif
+                                <span class="flex-1 text-sm text-gray-800 dark:text-gray-200 leading-tight line-clamp-2">{{ $produtoPromo['nome'] }}</span>
+                                <span class="text-right shrink-0">
+                                    @if ($produtoPromo['preco'] < $produtoPromo['preco_original'])
+                                        <span class="block text-[11px] text-gray-400 line-through">R$ {{ number_format($produtoPromo['preco_original'], 2, ',', '.') }}</span>
+                                        <span class="block text-sm font-bold text-green-600 dark:text-green-400">R$ {{ number_format($produtoPromo['preco'], 2, ',', '.') }}</span>
+                                    @else
+                                        <span class="block text-sm font-bold text-gray-700 dark:text-gray-300">R$ {{ number_format($produtoPromo['preco'], 2, ',', '.') }}</span>
+                                    @endif
+                                </span>
+                                <i class='bx bx-plus-circle text-xl text-primary-600 shrink-0'></i>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            @empty
+                <div class="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500">
+                    <i class='bx bx-purchase-tag text-4xl mb-2'></i>
+                    <p class="text-sm">Nenhuma promoção vigente agora</p>
+                </div>
+            @endforelse
+        </div>
+    @else
     {{-- ── Grid de produtos ────────────────────────────────────────────────── --}}
     {{-- layoutDesktop (Painel do Garçom, tema próprio): altura e grade por
          classe para o lg poder sobrescrever; as demais telas mantêm o estilo
@@ -107,10 +197,8 @@
                 // vigente com saldo (ver Produto::precoResolvido()). O balcão vende
                 // pelo mesmo preço exibido: confirmarItem()/confirmarSabores() debitam
                 // o contador da promoção ao gravar o item. Sem pedido gravado (prévia
-                // do Atender Pedido) vale só a relâmpago, consumida no save.
-                $preco        = $pedidoId
-                    ? $produto->precoResolvido()
-                    : app(\App\Services\PrecificadorService::class)->resolver($produto, considerarPromoAdicional: false);
+                // do Atender Pedido), o save consome e revalida.
+                $preco        = $produto->precoResolvido();
                 $precoVenda   = $preco->valorUnitario;
                 $precoExibido = $preco->precoFinal();
                 $temDesconto  = $preco->descontoUnitario > 0;
@@ -185,6 +273,7 @@
             </div>
         @endforelse
     </div>
+    @endif
 
 
     @unless ($carrinhoTopo)
@@ -699,7 +788,7 @@
                 ids: [],
                 adicionaisMarcados: [],
                 etapaAdicionais: false,
-                sabores: @js(array_map(fn ($s) => ['id' => (int) $s['id'], 'nome' => $s['nome'], 'foto' => $s['fotoPizza'] ?? $s['foto'], 'preco' => (float) $s['preco'], 'adicionais' => $s['adicionais'] ?? []], $saboresProdutos)),
+                sabores: @js(array_map(fn ($s) => ['id' => (int) $s['id'], 'nome' => $s['nome'], 'foto' => $s['fotoPizza'] ?? $s['foto'], 'preco' => (float) $s['preco'], 'precoInteira' => (float) ($s['precoInteira'] ?? $s['preco']), 'adicionais' => $s['adicionais'] ?? []], $saboresProdutos)),
                 regra: @js($saboresRegraPreco),
                 formato: @js($saboresFormato),
                 init() {
@@ -744,7 +833,7 @@
                 },
                 get previa() {
                     if (! this.escolhidos.length) { return null; }
-                    const centavos = this.escolhidos.map(s => Math.round(s.preco * 100));
+                    const centavos = this.escolhidos.map(s => Math.round((this.modo === 1 ? s.precoInteira : s.preco) * 100));
                     return ((this.regra === 'MAIOR' ? Math.max(...centavos) : Math.round(centavos.reduce((a, b) => a + b, 0) / this.escolhidos.length)) + Math.round(this.valorAdicionais * 100)) / 100;
                 },
                 get regraTexto() {
@@ -892,12 +981,14 @@
                                 @if (!empty($sabor['codimentacao']))
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ $sabor['codimentacao'] }}</p>
                                 @endif
+                                {{-- Pizza inteira: preço com o do gatilho da promoção adicional; sabores: o da fração. --}}
+                                @php $precoSabor = $saboresModo === 1 ? (float) ($sabor['precoInteira'] ?? $sabor['preco']) : (float) $sabor['preco']; @endphp
                                 <div class="flex items-baseline gap-1.5 mt-0.5">
-                                    @if ($sabor['preco'] < $sabor['precoOriginal'])
+                                    @if ($precoSabor < $sabor['precoOriginal'])
                                         <span class="text-gray-400 dark:text-gray-500 text-xs line-through">R$ {{ number_format($sabor['precoOriginal'], 2, ',', '.') }}</span>
-                                        <span class="text-green-600 dark:text-green-400 text-sm font-bold">R$ {{ number_format($sabor['preco'], 2, ',', '.') }}</span>
+                                        <span class="text-green-600 dark:text-green-400 text-sm font-bold">R$ {{ number_format($precoSabor, 2, ',', '.') }}</span>
                                     @else
-                                        <span class="text-gray-700 dark:text-gray-300 text-sm font-bold">R$ {{ number_format($sabor['preco'], 2, ',', '.') }}</span>
+                                        <span class="text-gray-700 dark:text-gray-300 text-sm font-bold">R$ {{ number_format($precoSabor, 2, ',', '.') }}</span>
                                     @endif
                                 </div>
                                 @if (!empty($sabor['controlaEstoque']))

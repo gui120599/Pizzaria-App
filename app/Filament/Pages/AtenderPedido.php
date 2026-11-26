@@ -29,6 +29,7 @@ use App\Models\Pedido;
 use App\Models\Produto;
 use App\Models\PromocaoAdicional;
 use App\Models\PromocaoAdicionalOferta;
+use App\Models\PromocaoAdicionalRegra;
 use App\Models\PromocaoRelampago;
 use App\Models\StonePedido;
 use App\Services\ClienteResolverService;
@@ -40,6 +41,7 @@ use App\Services\FiadoPedidoService;
 use App\Services\LancamentoItemPedidoService;
 use App\Services\LinhaPrecificada;
 use App\Services\PagamentosCombinadosService;
+use App\Services\PrecificadorService;
 use App\Services\PromocaoAdicionalService;
 use App\Services\PromocaoCombo\PromocaoComboService;
 use App\Services\PromocaoRelampagoService;
@@ -55,6 +57,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -666,7 +669,7 @@ class AtenderPedido extends Page
                 $opcaoEntrega?->id,
                 Pedido::whereKey($this->pedidoId)->whereNotNull('pedido_sessao_mesa_id')->exists(),
             )
-            : PromocaoAdicional::whereIn('id', collect($this->itensCarrinho)->pluck('promocao_adicional_id')->filter()->unique())
+            : PromocaoAdicional::whereIn('id', $this->campanhasAdicionaisDaPrevia())
                 ->get()
                 ->filter(fn (PromocaoAdicional $promocao) => $promocao->restringeEntrega()
                     && ($opcaoEntrega === null || ! $promocao->entregaPermitida($opcaoEntrega->id)))
@@ -692,6 +695,12 @@ class AtenderPedido extends Page
 
         if (! $this->pedidoId && ($limite = $this->limiteDaRelampagoExcedido()) !== null) {
             $this->notificarErro($limite, titulo: 'Promoção');
+
+            return null;
+        }
+
+        if (! $this->pedidoId && ($encerrada = $this->precoDeGatilhoEncerrado()) !== null) {
+            $this->notificarErro($encerrada, titulo: 'Promoção');
 
             return null;
         }
@@ -1060,6 +1069,59 @@ class AtenderPedido extends Page
         return null;
     }
 
+    /**
+     * Campanhas de promoção adicional presentes na prévia: as das ofertas
+     * escolhidas e as dos gatilhos lançados pelo preço da campanha.
+     *
+     * @return Collection<int, int>
+     */
+    private function campanhasAdicionaisDaPrevia(): Collection
+    {
+        $regrasDosGatilhos = collect($this->itensCarrinho)
+            ->filter(fn (array $item) => empty($item['oferta_id']) && ! empty($item['promocao_adicional_regra_id']))
+            ->pluck('promocao_adicional_regra_id')
+            ->unique();
+
+        $dosGatilhos = $regrasDosGatilhos->isEmpty()
+            ? collect()
+            : PromocaoAdicionalRegra::whereIn('id', $regrasDosGatilhos)->pluck('par_promocao_id');
+
+        return collect($this->itensCarrinho)
+            ->pluck('promocao_adicional_id')
+            ->merge($dosGatilhos)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+    }
+
+    /**
+     * Gatilho da prévia lançado pelo preço da promoção adicional cuja campanha
+     * não vale mais (encerrou, esgotou as ofertas ou mudou a regra) entre o
+     * lançamento e o save: o pedido não é gravado com um preço que acabou.
+     */
+    private function precoDeGatilhoEncerrado(): ?string
+    {
+        $precificador = app(PrecificadorService::class);
+        $precificador->esquecerPromocoes();
+
+        foreach ($this->itensCarrinho as $item) {
+            if (! empty($item['oferta_id']) || empty($item['promocao_adicional_regra_id'])) {
+                continue;
+            }
+
+            $vigente = $precificador->regraAdicionalDoProduto((int) $item['produto_id']);
+
+            if ($vigente?->id !== (int) $item['promocao_adicional_regra_id'] || $vigente->par_preco_gatilho_override === null) {
+                $nome = PromocaoAdicionalRegra::with('promocao')->find($item['promocao_adicional_regra_id'])?->promocao?->promoad_nome ?? 'da promoção';
+
+                return "O preço da promoção \"{$nome}\" não vale mais para {$item['produto_nome']}. Remova o item e lance de novo.";
+            }
+        }
+
+        return null;
+    }
+
     private function sincronizarItens(Pedido $pedido, bool $souNovo): void
     {
         if (! $souNovo) {
@@ -1088,6 +1150,8 @@ class AtenderPedido extends Page
                 'item_pedido_valor_adicionais' => $item['adicionais_valor'] ?? 0,
                 'item_pedido_desconto_unitario' => $item['desconto_unit'] ?? null,
                 'item_pedido_promocao_id' => $item['promocao_id'] ?? null,
+                // Preço do gatilho da promoção adicional (congela o item, como na edição).
+                'item_pedido_promocao_adicional_regra_id' => $item['promocao_adicional_regra_id'] ?? null,
                 'item_pedido_observacao' => ($item['observacao'] ?? '') !== '' ? $item['observacao'] : null,
                 // Pizza de sabores: uma linha com os sabores congelados.
                 'item_pedido_sabores' => $item['sabores'] ?? null,
