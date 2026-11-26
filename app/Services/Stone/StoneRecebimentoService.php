@@ -866,6 +866,55 @@ class StoneRecebimentoService
         return ['cancelados' => $cancelados, 'recusados' => $recusados];
     }
 
+    /**
+     * Resultado desconhecido sem order_id e sem nenhum pagamento recebido: o
+     * único caso que não se cancela pela API, porque não há id do pedido.
+     */
+    public function podeLiberar(StonePedido $pedido): bool
+    {
+        return $pedido->stp_status === StonePedidoStatus::Indeterminado
+            && blank($pedido->stp_order_id)
+            && (float) $pedido->stp_valor_pago <= 0
+            && ! StoneWebhook::where('stw_evento', 'charge.paid')
+                ->where('stw_payload->data->order->code', StoneConnectService::codigoDoPedido($pedido))
+                ->exists();
+    }
+
+    /**
+     * Saída manual para quando a Stone não devolve o pedido (ex.: HTTP 500 em
+     * toda consulta): marca a cobrança como cancelada SÓ no sistema, para a venda
+     * poder ser finalizada. Quem libera confirma que o pedido não foi pago; ele
+     * pode continuar listado na maquininha até a Stone removê-lo. Um charge.paid
+     * posterior ainda é reconhecido pelo code rf-{id}.
+     *
+     * @throws StoneConnectException
+     */
+    public function liberar(StonePedido $pedido): void
+    {
+        DB::transaction(function () use ($pedido): void {
+            $travado = StonePedido::whereKey($pedido->id)->lockForUpdate()->first();
+
+            if (! $travado || ! $this->podeLiberar($travado)) {
+                throw new StoneConnectException('Só se libera uma cobrança de resultado desconhecido, sem Order ID e sem pagamento recebido. Atualize a tela e confira o status.');
+            }
+
+            $erroOriginal = $travado->stp_erro;
+            $usuario = Auth::user()?->name ?? 'sistema';
+
+            $travado->update([
+                'stp_status' => StonePedidoStatus::Cancelado,
+                'stp_erro' => "Liberada manualmente por {$usuario} em ".now()->format('d/m/Y H:i').': confira se o pedido saiu da lista da maquininha.',
+            ]);
+
+            Log::channel('stone')->warning('Cobrança de resultado desconhecido liberada manualmente', [
+                'stone_pedido_id' => $travado->id, 'code' => StoneConnectService::codigoDoPedido($travado),
+                'valor' => (float) $travado->stp_valor_solicitado, 'usuario_id' => Auth::id(), 'erro_original' => $erroOriginal,
+            ]);
+        });
+
+        $pedido->refresh();
+    }
+
     /** Ponto de entrada do webhook: encaminha por tipo de evento. */
     public function processarWebhook(StoneWebhook $webhook): void
     {

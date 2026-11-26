@@ -490,6 +490,19 @@
                         <button wire:click="abrirModalPagamento" type="button" class="text-xs font-semibold text-primary-700 dark:text-primary-400 hover:underline">Adicionar</button>
                     </div>
                 </div>
+                @foreach ($this->cobrancasStoneAbertas as $cobrancaAberta)
+                    @php $pagoNaCobranca = (float) $cobrancaAberta->stp_valor_pago; @endphp
+                    <div wire:key="cobranca-stone-{{ $cobrancaAberta->id }}" class="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                        <span class="min-w-0">
+                            Cobrança aberta na maquininha {{ $cobrancaAberta->maquininha?->nome }}:
+                            R$ {{ number_format((float) $cobrancaAberta->stp_valor_solicitado, 2, ',', '.') }}
+                            @if ($pagoNaCobranca > 0)
+                                (já pago R$ {{ number_format($pagoNaCobranca, 2, ',', '.') }})
+                            @endif
+                        </span>
+                        <button wire:click="abrirCobrancaStone({{ $cobrancaAberta->id }})" type="button" class="shrink-0 font-semibold underline">Acompanhar</button>
+                    </div>
+                @endforeach
                 <div class="divide-y divide-gray-100 dark:divide-white/10">
                     @forelse ($this->pagamentosLancados as $pagamento)
                         <div wire:key="pagamento-{{ $pagamento->id }}" class="px-4 py-2 flex items-center justify-between gap-2">
@@ -658,7 +671,11 @@
                 </div>
                 <div class="p-4 space-y-3">
                     @if ($stoneStatusModal === 'aguardando')
-                        <div wire:poll.3s="verificarStatusStone" class="flex flex-col items-center gap-3 py-4 text-center">
+                        @php
+                            $cobrancaAtual = $this->cobrancaStoneAtual();
+                            $pagoAtual = (float) ($cobrancaAtual?->stp_valor_pago ?? 0);
+                        @endphp
+                        <div wire:poll.3s="verificarStatusStone" class="flex flex-col items-center gap-3 py-2 text-center">
                             <svg class="animate-spin h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
@@ -666,14 +683,38 @@
                             <p class="text-sm text-gray-600 dark:text-gray-300">Aguardando o pagamento na maquininha…</p>
                             <p class="text-xs text-gray-400 dark:text-gray-500">No Pedido Direto a maquininha já abriu a tela de pagamento. No Listado, selecione o pedido na lista do POS.</p>
                         </div>
-                        <div class="flex gap-2">
-                            <button wire:click="cancelarCobrancaStone" wire:loading.attr="disabled" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-50">
-                                Cancelar cobrança
-                            </button>
-                            <button wire:click="fecharModalStone" type="button" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+                        @if ($cobrancaAtual)
+                            <dl class="space-y-1 text-sm">
+                                <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Enviado</dt><dd class="font-medium text-gray-700 dark:text-gray-200">R$ {{ number_format((float) $cobrancaAtual->stp_valor_solicitado, 2, ',', '.') }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Já pago na maquininha</dt><dd class="font-medium text-gray-700 dark:text-gray-200">R$ {{ number_format($pagoAtual, 2, ',', '.') }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Em aberto no POS</dt><dd class="font-semibold text-amber-700 dark:text-amber-400">R$ {{ number_format(max(0, (float) $cobrancaAtual->stp_valor_solicitado - $pagoAtual), 2, ',', '.') }}</dd></div>
+                            </dl>
+                        @endif
+                        <div class="flex flex-col gap-2">
+                            @if ($pagoAtual > 0)
+                                <button wire:click="encerrarRestanteStone" wire:confirm="Encerrar a cobrança na maquininha? O que falta deve ser recebido em outra forma de pagamento." wire:loading.attr="disabled" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50">
+                                    Encerrar: o restante foi pago em outra forma
+                                </button>
+                            @else
+                                <button wire:click="cancelarCobrancaStone" wire:confirm="Cancelar a cobrança na maquininha?" wire:loading.attr="disabled" type="button" class="w-full py-2 rounded-lg text-sm font-semibold border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-50">
+                                    Cancelar cobrança
+                                </button>
+                            @endif
+                            <button wire:click="fecharModalStone" type="button" class="w-full py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
                                 Fechar
                             </button>
                         </div>
+                    @elseif ($stoneStatusModal === 'encerrado')
+                        <div class="flex flex-col items-center gap-2 py-2 text-center">
+                            <x-filament::icon icon="heroicon-o-check-circle" class="h-8 w-8 text-emerald-500" />
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-200">Cobrança encerrada na maquininha.</p>
+                            @if ($this->valorRestante > 0)
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Faltam R$ {{ number_format($this->valorRestante, 2, ',', '.') }}: lance o pagamento em outra forma para finalizar a venda.</p>
+                            @endif
+                        </div>
+                        <button wire:click="fecharModalStone" type="button" class="w-full py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700">
+                            Concluir
+                        </button>
                     @elseif ($stoneStatusModal === 'pago')
                         <div class="flex flex-col items-center gap-2 py-2 text-center">
                             <x-filament::icon icon="heroicon-o-check-circle" class="h-8 w-8 text-emerald-500" />
