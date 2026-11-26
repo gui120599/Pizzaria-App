@@ -20,7 +20,7 @@ use Illuminate\Support\Collection;
  * com as regras em texto curto e os produtos que o seletor consegue lançar.
  * Só leitura: o lançamento segue o fluxo normal do produto, que reprecifica.
  *
- * @phpstan-type ProdutoCartao array{id: int, nome: string, foto: ?string, preco: float, preco_original: float}
+ * @phpstan-type ProdutoCartao array{id: int, nome: string, categoria: ?string, foto: ?string, preco: float, preco_original: float}
  * @phpstan-type Cartao array{tipo: string, chave: string, nome: string, descricao: ?string, destaque: ?string, vigencia: string, restricoes: list<string>, brindes: list<array{nome: string, valor: float}>, produtos: list<ProdutoCartao>}
  */
 class PromocoesVigentesAtendimentoService
@@ -183,6 +183,8 @@ class PromocoesVigentesAtendimentoService
             ->map(fn (Produto $produto): array => [
                 'id' => $produto->id,
                 'nome' => $produto->produto_descricao,
+                // Mesmo nome de produto em categorias diferentes (Grande, Média, Brotinho).
+                'categoria' => $produto->categoria?->categoria_nome,
                 'foto' => $produto->getMiniaturaUrl(56),
                 'preco' => round($this->precificador->resolver($produto)->precoFinal(), 2),
                 'preco_original' => round((float) $produto->produto_preco_venda, 2),

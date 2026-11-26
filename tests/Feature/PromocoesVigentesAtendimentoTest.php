@@ -104,8 +104,8 @@ class PromocoesVigentesAtendimentoTest extends TestCase
         $relampago = $cartoes['relampago'];
         $this->assertSame(['Máx. 2 por pedido', 'Restam 15', 'Só Retirada'], $relampago['restricoes']);
         $this->assertSame(
-            [['id' => $this->frango->id, 'preco' => 39.9, 'preco_original' => 50.1]],
-            array_map(fn (array $p) => array_intersect_key($p, array_flip(['id', 'preco', 'preco_original'])), $relampago['produtos']),
+            [['id' => $this->frango->id, 'categoria' => 'Pizza Grande', 'preco' => 39.9, 'preco_original' => 50.1]],
+            array_map(fn (array $p) => array_intersect_key($p, array_flip(['id', 'categoria', 'preco', 'preco_original'])), $relampago['produtos']),
         );
 
         $adicional = $cartoes['adicional'];

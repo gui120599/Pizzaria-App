@@ -160,7 +160,12 @@
                                 @else
                                     <div class="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-900 shrink-0"></div>
                                 @endif
-                                <span class="flex-1 text-sm text-gray-800 dark:text-gray-200 leading-tight line-clamp-2">{{ $produtoPromo['nome'] }}</span>
+                                <span class="flex-1 min-w-0 leading-tight">
+                                    <span class="block text-sm text-gray-800 dark:text-gray-200 line-clamp-2">{{ $produtoPromo['nome'] }}</span>
+                                    @if (filled($produtoPromo['categoria'] ?? null))
+                                        <span class="block text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400 truncate">{{ $produtoPromo['categoria'] }}</span>
+                                    @endif
+                                </span>
                                 <span class="text-right shrink-0">
                                     @if ($produtoPromo['preco'] < $produtoPromo['preco_original'])
                                         <span class="block text-[11px] text-gray-400 line-through">R$ {{ number_format($produtoPromo['preco_original'], 2, ',', '.') }}</span>
