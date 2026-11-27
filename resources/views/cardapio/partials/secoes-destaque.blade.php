@@ -97,6 +97,41 @@
 @foreach ($promocoesRelampago as $promo)
     <x-cardapio.carrossel :id="$loop->first ? 'secao_relampago' : 'secao_relampago_'.$promo['id']"
                           :titulo="$promo['nome']" :subtitulo="$promo['descricao']" icone="bxs-bolt raio-uma-vez">
+        {{-- Arte da promoção (opcional): celular quadrada, computador 21:8; sem uma, vale a outra. --}}
+        @if ($promo['imagem'] || $promo['imagem_mobile'])
+            <x-slot:topo>
+                <div class="mb-3 px-4 lg:px-0">
+                    <picture>
+                        @if ($promo['imagem'] && $promo['imagem_mobile'])
+                            <source media="(min-width: 1024px)" srcset="{{ $promo['imagem'] }}" width="1680" height="640">
+                        @endif
+                        <img src="{{ $promo['imagem_mobile'] ?? $promo['imagem'] }}" alt="{{ $promo['nome'] }}"
+                             width="{{ $promo['imagem_mobile'] ? 1080 : 1680 }}" height="{{ $promo['imagem_mobile'] ? 1080 : 640 }}"
+                             @if (! $loop->first) loading="lazy" @endif
+                             class="{{ $promo['imagem_mobile'] ? 'aspect-square' : 'aspect-[21/8]' }} w-full rounded-card bg-forno-3 object-cover lg:aspect-[21/8]">
+                    </picture>
+                </div>
+            </x-slot:topo>
+        @endif
+        @if ($promo['segundos_restantes'] !== null || $promo['pagamentos'] !== '')
+            <x-slot:extras>
+                <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                    @if ($promo['segundos_restantes'] !== null)
+                        <span x-data="cronometro({{ (int) $promo['segundos_restantes'] }})"
+                              class="num inline-flex items-center gap-1 rounded-full bg-tomate/15 px-2.5 py-1 text-[12.5px] font-bold text-creme">
+                            <i class='bx bx-time-five text-sm text-tomate' aria-hidden="true"></i>
+                            <span x-text="encerrada ? 'Promoção encerrada' : 'Termina em ' + texto">Termina em breve</span>
+                        </span>
+                    @endif
+                    @if ($promo['pagamentos'] !== '')
+                        <span class="inline-flex items-center gap-1 rounded-full border border-ouro/40 bg-ouro/10 px-2.5 py-1 text-[12.5px] font-semibold text-creme">
+                            <i class='bx bx-wallet text-sm text-ouro' aria-hidden="true"></i>
+                            Pagamento: {{ $promo['pagamentos'] }}
+                        </span>
+                    @endif
+                </div>
+            </x-slot:extras>
+        @endif
         @if ($promo['exibe_contador'])
             <x-slot:acoes>
                 <span class="ml-auto flex shrink-0 flex-col items-center rounded-xl bg-ouro px-2.5 py-1 text-forno lg:ml-4">

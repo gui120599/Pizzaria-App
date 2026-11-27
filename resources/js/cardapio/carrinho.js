@@ -29,6 +29,9 @@ export function registrarCarrinho(Alpine, dados) {
     // Aviso ao abrir o cardápio: promoções em destaque (combo, relâmpago,
     // "leve outro produto"), na ordem da página. Ver CardapioService::anunciosPromocoes().
     const _anunciosPromocoes    = dados.anunciosPromocoes ?? [];
+    // "Leve também": produtoId => ids sugeridos (Produto::leveTambem), só os
+    // que estão na tela. Pelo preço normal; o servidor precifica no checkout.
+    const _leveTambem           = dados.leveTambem ?? {};
     // Perguntas do item (borda, ponto da carne): por produto (item comum e
     // pizza inteira) e por categoria (pizza de sabores). O servidor revalida.
     const _perguntasProdutos    = dados.perguntasProdutos;
@@ -143,6 +146,8 @@ export function registrarCarrinho(Alpine, dados) {
         comboConquista: { open: false, aplicacao: null },
         // Aviso da promoção ao abrir o cardápio (uma vez por sessão); 'outras' = as demais vigentes.
         anuncio: { open: false, promocao: null, outras: [], fechada: false, abreEm: null },
+        // Sugestões do produto que acabou de entrar na sacola.
+        leveTambem: { open: false, origem: '', produtos: [] },
 
         // ── Estado do formulário ──
         form: {
@@ -216,6 +221,7 @@ export function registrarCarrinho(Alpine, dados) {
             if (idx >= 0) {
                 this.items[idx].qty++;
                 this.save();
+                this.sugerirLeveTambem(id);
                 return;
             }
             this.adicionarOuOferecer(itemData);
@@ -322,6 +328,7 @@ export function registrarCarrinho(Alpine, dados) {
             }
             this.items.push(itemData);
             this.save();
+            this.sugerirLeveTambem(itemData.id);
             // Gatilho antes da categoria exigida: avisa o que falta. Quando
             // ela entrar, verificarExigencias() oferece para esta linha.
             if (promo && promo.ofertas.length > 0 && promo.produtosExigidos) {
@@ -387,16 +394,17 @@ export function registrarCarrinho(Alpine, dados) {
             }
             if (!existente) this.items.push(itemData);
             this.save();
+            if (!existente) this.sugerirLeveTambem(itemData.id);
         },
         /**
-         * Chamado ao escolher forma de pagamento: remove a oferta (e
-         * volta o item ao preço normal) de qualquer item do carrinho
-         * cuja campanha não aceita a forma escolhida — guardando o
-         * que foi removido em item._promoBackup. Ao voltar pra uma
-         * forma válida, restaura o preço/oferta de onde ficaram. O
-         * servidor também revalida isso de forma independente no
-         * checkout — isto é só pra manter a UI coerente antes de
-         * finalizar.
+         * Chamado ao escolher forma de pagamento: volta ao preço normal
+         * (e tira a oferta da campanha adicional) todo item cuja promoção
+         * não aceita a forma escolhida — promoção adicional ou relâmpago
+         * (ex.: "só Pix ou Dinheiro") — guardando o que foi removido em
+         * item._promoBackup. Ao voltar pra uma forma válida, restaura o
+         * preço/oferta de onde ficaram. O servidor também revalida isso de
+         * forma independente no checkout — isto é só pra manter a UI
+         * coerente antes de finalizar.
          */
         revalidarOfertasContraPagamento() {
             const pagamentoId = this.form.pagamentoId;
@@ -404,13 +412,13 @@ export function registrarCarrinho(Alpine, dados) {
             const restaurados = [];
             this.items.forEach(item => {
                 const promo = _promocoesAdicionais[item.id];
-                if (!promo) return;
-                const permitidas = promo.opcoesPagamentoPermitidas ?? [];
-                const permitido = permitidas.length === 0 || permitidas.includes(pagamentoId);
-                if (!permitido) {
+                const permitidas = promo?.opcoesPagamentoPermitidas ?? [];
+                const adicionalBarrado = !!promo && permitidas.length > 0 && !permitidas.includes(pagamentoId);
+                const relampagoBarrado = this.relampagoRecusaPagamento(item, pagamentoId);
+                if (adicionalBarrado || relampagoBarrado) {
                     if (!item._promoBackup) {
                         item._promoBackup = { oferta: item.oferta, preco: item.preco };
-                        item.oferta = null;
+                        if (adicionalBarrado) item.oferta = null;
                         item.preco = item.precoOriginal ?? item.preco;
                     }
                     removidos.push(item.nome);
@@ -425,6 +433,15 @@ export function registrarCarrinho(Alpine, dados) {
             this.avisoPagamentoRestaurado = restaurados;
             if (removidos.length > 0 || restaurados.length > 0) this.save();
             else this.agendarCombo();
+        },
+        /** O item (ou algum sabor dele) está numa relâmpago que não aceita esta forma de pagamento. */
+        relampagoRecusaPagamento(item, pagamentoId) {
+            if (!pagamentoId) return false;
+            const ids = item.sabores?.length ? item.sabores.map(s => s.id) : [item.id];
+            return ids.some(id => {
+                const aceitas = _produtosTela[id]?.relampagoPagamentos ?? [];
+                return aceitas.length > 0 && !aceitas.includes(pagamentoId);
+            });
         },
         increment(cartKey) {
             const item = this.items.find(i => i.cartKey === String(cartKey));
@@ -572,7 +589,7 @@ export function registrarCarrinho(Alpine, dados) {
         /** Convite e comemoração esperam o cliente terminar o que está fazendo (sabores, montagem, oferta). */
         quandoLivre(mostrar, tentativas = 0) {
             const ocupado = this.saboresModal.open || this.montagemModal.open || this.ofertaModal.open || this.sugestaoModal.open
-                || this.trocoModal.open || this.comboOportunidade.open || this.comboConquista.open || this.anuncio.open || !!this.detalhe;
+                || this.trocoModal.open || this.comboOportunidade.open || this.comboConquista.open || this.anuncio.open || this.leveTambem.open || !!this.detalhe;
             if (!ocupado) { mostrar(); return; }
             if (tentativas < 40) setTimeout(() => this.quandoLivre(mostrar, tentativas + 1), 500);
         },
@@ -670,6 +687,41 @@ export function registrarCarrinho(Alpine, dados) {
         verPromocaoAnunciada(promocao) {
             this.fecharAnuncio();
             document.getElementById(promocao?.secao)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        },
+
+        // ── Leve também (Produto::leveTambem) ──
+        /**
+         * Toda vez que o produto entra na sacola (linha nova ou mais uma
+         * unidade), sugere os produtos configurados nele — inclusive os que já
+         * estão na sacola (o sheet mostra quantos). Espera os outros modais
+         * (oferta, combo, montagem) fecharem.
+         */
+        sugerirLeveTambem(produtoId) {
+            const produtos = (_leveTambem[produtoId] ?? []).map(id => _produtosTela[id]).filter(Boolean);
+            if (produtos.length === 0) return;
+            const origem = _produtosTela[produtoId]?.nome ?? '';
+            this.quandoLivre(() => { this.leveTambem = { open: true, origem, produtos }; });
+        },
+        /**
+         * Escolha segue o fluxo normal do produto (sabores, montagem, oferta).
+         * As outras sugestões voltam quando ele terminar (ex.: dois refrigerantes).
+         */
+        escolherLeveTambem(produto) {
+            const restantes = this.leveTambem.produtos.filter(p => p.id !== produto.id);
+            this.leveTambem = { open: false, origem: this.leveTambem.origem, produtos: restantes };
+            if (produto.permiteSabores) {
+                this.abrirSabores(produto.categoriaId, produto.categoriaNome, produto.maxSabores, produto.id);
+            } else {
+                this.add(produto.id, produto.nome, produto.preco, produto.precoVenda, produto.foto ?? '');
+            }
+            if (restantes.length > 0) {
+                this.quandoLivre(() => {
+                    if (!this.leveTambem.open && this.leveTambem.produtos.length > 0) this.leveTambem = { ...this.leveTambem, open: true };
+                });
+            }
+        },
+        fecharLeveTambem() {
+            this.leveTambem = { open: false, origem: '', produtos: [] };
         },
 
         // ── Frete grátis: mesma conta do getter valorFrete ──
@@ -891,6 +943,7 @@ export function registrarCarrinho(Alpine, dados) {
                 } else {
                     this.items.push(item);
                     this.save();
+                    this.sugerirLeveTambem(item.id);
                 }
             };
             this.saboresModal.open = false;

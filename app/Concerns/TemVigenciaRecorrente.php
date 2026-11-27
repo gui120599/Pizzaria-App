@@ -205,6 +205,57 @@ trait TemVigenciaRecorrente
         return true;
     }
 
+    /**
+     * Quando termina a ocorrência vigente agora (cronômetro do cardápio):
+     * janela única = fim; recorrente com horário = o horário de fim de hoje
+     * (ou de amanhã, na janela que atravessa a meia-noite); recorrente sem
+     * horário = fim do último dia seguido marcado. Limitado pela data final
+     * da recorrência. Null quando não está vigente ou não tem fim (todo dia,
+     * sem horário e sem data final).
+     */
+    public function fimDaOcorrencia(?CarbonInterface $momento = null): ?CarbonInterface
+    {
+        $momento ??= now();
+
+        if (! $this->vigente($momento)) {
+            return null;
+        }
+
+        if (! $this->vigRecorrente()) {
+            return $this->vigFim();
+        }
+
+        $limite = $this->vigDataFinalRecorrencia()?->copy()->endOfDay();
+
+        if ($this->vigHoraInicio() && $this->vigHoraFim()) {
+            $inicio = $this->vigHoraInicio()->format('H:i:s');
+            $fimHora = $this->vigHoraFim()->format('H:i:s');
+            $fim = $momento->copy()->setTimeFromTimeString($fimHora);
+
+            // Atravessa a meia-noite e ainda é a noite de hoje: termina amanhã.
+            if ($inicio > $fimHora && $momento->format('H:i:s') >= $inicio) {
+                $fim = $fim->addDay();
+            }
+
+            return $limite && $fim->gt($limite) ? $limite : $fim;
+        }
+
+        // Dia inteiro: vai até o fim do último dia seguido que também vale.
+        $fim = $momento->copy()->endOfDay();
+
+        for ($i = 0; $i < 7; $i++) {
+            $amanha = $fim->copy()->addDay();
+
+            if (($limite && $amanha->gt($limite)) || ! $this->diaDaSemanaBate($amanha)) {
+                return $fim;
+            }
+
+            $fim = $amanha;
+        }
+
+        return $limite;
+    }
+
     /** Vazio = todos os dias. */
     private function diaDaSemanaBate(CarbonInterface $momento): bool
     {

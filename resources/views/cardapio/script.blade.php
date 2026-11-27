@@ -21,6 +21,7 @@
         'campanhasExigencia' => $campanhasExigencia ?? [],
         'promocoesCombo' => $promocoesCombo ?? [],
         'anunciosPromocoes' => $anunciosPromocoes ?? [],
+        'leveTambem' => (object) ($leveTambem ?? []),
         'perguntasProdutos' => $perguntasProdutos,
         'perguntasCombos' => $perguntasCombos,
         'adicionaisProdutos' => $adicionaisProdutos,

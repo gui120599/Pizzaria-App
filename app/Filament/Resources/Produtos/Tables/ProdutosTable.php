@@ -631,6 +631,69 @@ class ProdutosTable
                                 ->send();
                         })
                         ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('definir_leve_tambem')
+                        ->label('Definir "Leve também"')
+                        ->icon('heroicon-o-shopping-bag')
+                        ->color('info')
+                        ->authorize(fn (): bool => (bool) auth()->user()?->can('update:produto'))
+                        ->modalHeading('Leve também')
+                        ->modalDescription('Os produtos escolhidos (soltos ou de categorias inteiras) passam a ser sugeridos depois de lançar cada produto selecionado — ex.: a categoria Bebidas para todas as pizzas. As sugestões que eles já tinham continuam.')
+                        ->modalWidth('lg')
+                        ->schema([
+                            Select::make('categorias')
+                                ->label('Sugerir categorias inteiras')
+                                ->helperText('Todos os produtos vendidos da categoria (e das subcategorias) hoje. Produto cadastrado depois não entra sozinho.')
+                                ->multiple()
+                                ->searchable()
+                                ->preload()
+                                ->required(fn (Get $get): bool => blank($get('sugeridos')))
+                                ->validationMessages(['required' => 'Escolha ao menos uma categoria ou um produto.'])
+                                ->options(fn (): array => Categoria::with('pai')
+                                    ->orderBy('categoria_nome')
+                                    ->get()
+                                    ->mapWithKeys(fn (Categoria $c): array => [$c->id => $c->pai ? $c->pai->categoria_nome.' › '.$c->categoria_nome : $c->categoria_nome])
+                                    ->all()),
+                            Select::make('sugeridos')
+                                ->label('Sugerir produtos')
+                                ->multiple()
+                                ->searchable()
+                                ->preload()
+                                ->required(fn (Get $get): bool => blank($get('categorias')))
+                                ->validationMessages(['required' => 'Escolha ao menos uma categoria ou um produto.'])
+                                ->options(fn (): array => Produto::with('categoria')
+                                    ->whereIn('produto_tipo', [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value])
+                                    ->orderBy('produto_descricao')
+                                    ->get()
+                                    ->mapWithKeys(fn (Produto $p): array => [$p->id => $p->produto_descricao.($p->categoria ? ' ('.$p->categoria->categoria_nome.')' : '')])
+                                    ->all()),
+                        ])
+                        ->action(function ($records, array $data): void {
+                            $categorias = array_map('intval', $data['categorias'] ?? []);
+                            $categorias = array_merge($categorias, Categoria::whereIn('categoria_pai_id', $categorias)->pluck('id')->all());
+
+                            // Da categoria, só o que é vendido (cardápio ou garçom), na ordem do cardápio.
+                            $daCategoria = $categorias === [] ? [] : Produto::whereIn('produto_categoria_id', $categorias)
+                                ->whereIn('produto_tipo', [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value])
+                                ->where(fn (Builder $q) => $q->where('produto_cardapio', true)->orWhere('produto_cardapio_garcom', true))
+                                ->orderBy('produto_ordem')
+                                ->orderBy('produto_descricao')
+                                ->pluck('id')
+                                ->all();
+
+                            $sugeridos = array_values(array_unique([...array_map('intval', $data['sugeridos'] ?? []), ...$daCategoria]));
+
+                            foreach ($records as $produto) {
+                                // Sem sugerir o próprio produto; os já vinculados ficam como estão.
+                                $produto->leveTambem()->syncWithoutDetaching(array_values(array_diff($sugeridos, [$produto->id])));
+                            }
+
+                            Notification::make()
+                                ->title('"Leve também" definido em '.count($records).' produto(s).')
+                                ->body(count($sugeridos).' produto(s) sugerido(s).')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     BulkAction::make('edicao_em_lote')
                         ->label('Edição em Lote')
                         ->icon('heroicon-o-pencil-square')

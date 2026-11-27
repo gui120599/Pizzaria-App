@@ -148,6 +148,9 @@ class AtenderPedido extends Page
 
     public ?int $stonePedidoId = null;
 
+    /** Quem chamou persistir() (save ou salvarECobrar): é refeito depois da confirmação da relâmpago. */
+    public string $salvarOrigem = 'save';
+
     /** Fotografia do formulário no último salvamento — base de "alterações não salvas" (ver formularioSujo()). */
     public string $estadoSalvo = '';
 
@@ -705,6 +708,14 @@ class AtenderPedido extends Page
             return null;
         }
 
+        // Relâmpago que só vale para algumas formas de pagamento (ex.: Pix ou
+        // Dinheiro): o atendente confirma que os itens voltam ao preço normal.
+        if (($foraDoPagamento = $this->relampagoForaDoPagamento()) !== null) {
+            $this->mountAction('confirmarPrecoNormalRelampago', $foraDoPagamento + ['depois' => $this->salvarOrigem]);
+
+            return null;
+        }
+
         $bloqueios = $this->verificarEstoque();
         if ($bloqueios !== []) {
             $this->notificarErro(implode(' | ', $bloqueios), titulo: 'Estoque insuficiente');
@@ -836,6 +847,8 @@ class AtenderPedido extends Page
 
     public function save(): void
     {
+        $this->salvarOrigem = 'save';
+
         if (! $this->persistir()) {
             return;
         }
@@ -1067,6 +1080,168 @@ class AtenderPedido extends Page
         }
 
         return null;
+    }
+
+    /**
+     * Itens da relâmpago cuja promoção não aceita as formas de pagamento
+     * escolhidas (ou fiado). Null quando não há o que confirmar.
+     *
+     * @return array{itens: list<string>, promocoes: list<string>, formas: string}|null
+     */
+    private function relampagoForaDoPagamento(): ?array
+    {
+        $itens = $this->itensDaRelampago();
+
+        if ($itens->isEmpty()) {
+            return null;
+        }
+
+        $fora = app(PromocaoRelampagoService::class)->promocoesForaDoPagamento(
+            $itens->pluck('promocao_id'),
+            collect($this->entregaPagamentoData['pagamentos'] ?? [])->pluck('opcaoPagamentoId'),
+            (bool) ($this->entregaPagamentoData['fiado'] ?? false),
+        );
+
+        if ($fora->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'itens' => $itens->whereIn('promocao_id', $fora->modelKeys())->pluck('nome')->unique()->values()->all(),
+            'promocoes' => $fora->pluck('promocao_nome')->values()->all(),
+            'formas' => $fora->map(fn (PromocaoRelampago $promocao) => $promocao->textoPagamentos())->unique()->implode('; '),
+        ];
+    }
+
+    /**
+     * Itens com preço da relâmpago: os gravados (edição) ou os da prévia (pedido novo).
+     *
+     * @return Collection<int, array{nome: string, promocao_id: int}>
+     */
+    private function itensDaRelampago(): Collection
+    {
+        if ($this->pedidoId) {
+            return ItensPedido::with('produto')
+                ->where('item_pedido_pedido_id', $this->pedidoId)
+                ->where('item_pedido_status', 'INSERIDO')
+                ->whereNotNull('item_pedido_promocao_id')
+                ->get()
+                ->map(fn (ItensPedido $item): array => [
+                    'nome' => $item->ehMultiSabor() ? $item->descricaoSabores() : ($item->produto?->produto_descricao ?? 'item'),
+                    'promocao_id' => (int) $item->item_pedido_promocao_id,
+                ]);
+        }
+
+        return collect($this->itensCarrinho)
+            ->filter(fn (array $item): bool => empty($item['oferta_id']) && ! empty($item['promocao_id']))
+            ->map(fn (array $item): array => ['nome' => (string) ($item['produto_nome'] ?? 'item'), 'promocao_id' => (int) $item['promocao_id']])
+            ->values();
+    }
+
+    /** Confirmação: os itens da relâmpago fora da forma de pagamento voltam ao preço normal e o salvar é refeito. */
+    public function confirmarPrecoNormalRelampagoAction(): Action
+    {
+        return Action::make('confirmarPrecoNormalRelampago')
+            ->modalHeading('Promoção relâmpago')
+            ->modalIcon(Heroicon::OutlinedExclamationTriangle)
+            ->modalIconColor('warning')
+            ->modalDescription(fn (array $arguments): string => sprintf(
+                '%s %s ao preço normal, porque a promoção "%s" só vale para pagamento em %s. Deseja prosseguir?',
+                implode(', ', $arguments['itens'] ?? []),
+                count($arguments['itens'] ?? []) > 1 ? 'voltarão' : 'voltará',
+                implode('", "', $arguments['promocoes'] ?? []),
+                $arguments['formas'] ?? '',
+            ))
+            ->modalWidth('md')
+            ->modalSubmitActionLabel('Prosseguir com preço normal')
+            ->modalCancelActionLabel('Voltar e trocar o pagamento')
+            ->color('warning')
+            ->action(function (array $arguments): void {
+                $this->voltarRelampagoAoPrecoNormal();
+
+                ($arguments['depois'] ?? 'save') === 'salvarECobrar' ? $this->salvarECobrar() : $this->save();
+            });
+    }
+
+    /** Tira a relâmpago (e devolve o saldo, na edição) dos itens cuja promoção não aceita o pagamento escolhido. */
+    private function voltarRelampagoAoPrecoNormal(): void
+    {
+        $servico = app(PromocaoRelampagoService::class);
+        $fora = $servico->promocoesForaDoPagamento(
+            $this->itensDaRelampago()->pluck('promocao_id'),
+            collect($this->entregaPagamentoData['pagamentos'] ?? [])->pluck('opcaoPagamentoId'),
+            (bool) ($this->entregaPagamentoData['fiado'] ?? false),
+        )->modelKeys();
+
+        if ($fora === []) {
+            return;
+        }
+
+        if ($this->pedidoId) {
+            ItensPedido::where('item_pedido_pedido_id', $this->pedidoId)
+                ->where('item_pedido_status', 'INSERIDO')
+                ->whereIn('item_pedido_promocao_id', $fora)
+                ->get()
+                ->each(fn (ItensPedido $item) => $servico->voltarAoPrecoNormal($item));
+
+            app(TotaisPedidoService::class)->recalcular($this->pedidoId);
+            $this->aposMudarCortesia();
+            $this->ajustarPagamentosAoTotal();
+
+            return;
+        }
+
+        $this->itensCarrinho = collect($this->itensCarrinho)->map(function (array $item) use ($servico, $fora): array {
+            if (! empty($item['oferta_id']) || ! in_array((int) ($item['promocao_id'] ?? 0), $fora, true)) {
+                return $item;
+            }
+
+            $novo = $servico->precoSemRelampago(
+                (int) $item['produto_id'],
+                (float) $item['quantidade'],
+                collect($item['sabores'] ?? [])->pluck('produto_id')->filter()->map(fn ($id): int => (int) $id)->values()->all(),
+                (float) ($item['adicionais_valor'] ?? 0),
+            );
+
+            return array_merge($item, [
+                'valor_unitario' => $novo['item_pedido_valor_unitario'],
+                'desconto_unit' => $novo['item_pedido_desconto_unitario'],
+                'desconto' => $novo['item_pedido_desconto'],
+                'valor' => $novo['item_pedido_valor'],
+                'desconto_combo' => 0,
+                'promocao_id' => null,
+            ], $novo['item_pedido_sabores'] !== null ? ['sabores' => $novo['item_pedido_sabores']] : []);
+        })->all();
+
+        unset($this->resumoTotais, $this->totalPreview);
+        $this->ajustarPagamentosAoTotal();
+        // O seletor mostra a prévia: passa a exibir o preço normal também.
+        $this->dispatch('pedido-previa-substituir', itens: $this->itensCarrinho)->to(PedidoProdutoSelector::class);
+    }
+
+    /**
+     * Depois de mudar o total (itens de volta ao preço normal), a forma de
+     * pagamento acompanha — mesma regra do EntregaPagamentoPicker: a última
+     * linha ainda não paga absorve a diferença. Sem isso o save, refeito na
+     * mesma requisição, recusaria a soma dos pagamentos.
+     */
+    private function ajustarPagamentosAoTotal(): void
+    {
+        $pagamentos = $this->entregaPagamentoData['pagamentos'] ?? [];
+
+        if ($pagamentos === [] || ($this->entregaPagamentoData['fiado'] ?? false)) {
+            return;
+        }
+
+        $ultimo = array_key_last($pagamentos);
+
+        if (! empty($pagamentos[$ultimo]['pago'])) {
+            return;
+        }
+
+        $outros = collect($pagamentos)->except($ultimo)->sum(fn (array $p): float => $this->parseValor($p['valor'] ?? '0'));
+        $pagamentos[$ultimo]['valor'] = number_format(max(0, $this->totalPreview - $outros), 2, ',', '.');
+        $this->entregaPagamentoData['pagamentos'] = $pagamentos;
     }
 
     /**
@@ -1377,6 +1552,7 @@ class AtenderPedido extends Page
         }
 
         $eraNovo = $this->pedidoId === null;
+        $this->salvarOrigem = 'salvarECobrar';
 
         if ($this->persistir() === null) {
             return;

@@ -7,6 +7,7 @@ use App\Filament\Resources\Produtos\Pages\EditProduto;
 use App\Filament\Resources\Produtos\Pages\ListProdutos;
 use App\Filament\Resources\Produtos\RelationManagers\AdicionaisRelationManager;
 use App\Filament\Resources\Produtos\RelationManagers\FichaItensRelationManager;
+use App\Filament\Resources\Produtos\RelationManagers\LeveTambemRelationManager;
 use App\Filament\Resources\Produtos\RelationManagers\LotesRelationManager;
 use App\Filament\Resources\Produtos\RelationManagers\PerguntasRelationManager;
 use App\Filament\Resources\Produtos\Schemas\ProdutoForm;
@@ -52,6 +53,7 @@ class ProdutoResource extends Resource
             LotesRelationManager::class,
             AdicionaisRelationManager::class,
             PerguntasRelationManager::class,
+            LeveTambemRelationManager::class,
         ];
     }
 

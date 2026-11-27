@@ -6,7 +6,9 @@ use App\Enums\ProdutoTipoEnum;
 use App\Filament\Resources\PromocoesRelampago\Pages\CreatePromocaoRelampago;
 use App\Filament\Resources\PromocoesRelampago\Pages\EditPromocaoRelampago;
 use App\Filament\Resources\PromocoesRelampago\Pages\ListPromocoesRelampago;
+use App\Filament\Resources\PromocoesRelampago\Schemas\PromocaoRelampagoForm;
 use App\Models\Categoria;
+use App\Models\OpcoesPagamento;
 use App\Models\Produto;
 use App\Models\PromocaoRelampago;
 use App\Models\User;
@@ -64,7 +66,7 @@ class PromocaoRelampagoFilamentSmokeTest extends TestCase
     public function test_opcao_do_select_de_produto_mostra_imagem_e_categoria_sem_saldo(): void
     {
         $reflexao = new \ReflectionMethod(
-            \App\Filament\Resources\PromocoesRelampago\Schemas\PromocaoRelampagoForm::class,
+            PromocaoRelampagoForm::class,
             'renderOpcaoProduto',
         );
         $reflexao->setAccessible(true);
@@ -138,5 +140,20 @@ class PromocaoRelampagoFilamentSmokeTest extends TestCase
         $this->assertNull($promocao->promocao_fim);
         $this->assertSame([2], $promocao->promocao_dias_semana);
         $this->assertSame(39.90, (float) $promocao->promocaoProdutos()->first()->prp_preco_promocional);
+    }
+
+    public function test_edicao_grava_formas_de_pagamento_aceitas(): void
+    {
+        $promocao = $this->promocao();
+        $pix = OpcoesPagamento::create(['opcaopag_nome' => 'Pix', 'opcaopag_desc_nfe' => 'InstantPayment']);
+        OpcoesPagamento::create(['opcaopag_nome' => 'Cartão', 'opcaopag_desc_nfe' => 'creditCard']);
+
+        Livewire::test(EditPromocaoRelampago::class, ['record' => $promocao->id])
+            ->fillForm(['opcoesPagamento' => [$pix->id]])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame([$pix->id], $promocao->fresh()->opcoesPagamento->pluck('id')->all());
+        $this->assertSame('Pix', $promocao->fresh()->textoPagamentos());
     }
 }

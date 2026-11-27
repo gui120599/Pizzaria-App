@@ -45,6 +45,38 @@ export function registrarPagina(Alpine) {
         },
     }));
 
+    /**
+     * Cronômetro da promoção: o servidor manda quantos segundos faltavam ao
+     * montar a página, e a contagem parte do carregamento (não depende do
+     * relógio do celular). Recalcula pelo horário de término, então não
+     * atrasa com a aba em segundo plano.
+     */
+    const carregadoEm = Date.now();
+    Alpine.data('cronometro', (segundos) => ({
+        fim: carregadoEm + Number(segundos || 0) * 1000,
+        restante: Number(segundos || 0),
+        timer: null,
+        init() {
+            this.atualizar();
+            this.timer = setInterval(() => this.atualizar(), 1000);
+        },
+        destroy() { clearInterval(this.timer); },
+        atualizar() {
+            this.restante = Math.max(0, Math.round((this.fim - Date.now()) / 1000));
+            if (this.restante === 0) clearInterval(this.timer);
+        },
+        get encerrada() { return this.restante <= 0; },
+        get texto() {
+            const r = this.restante;
+            const dois = n => String(n).padStart(2, '0');
+            const dias = Math.floor(r / 86400);
+            const horas = Math.floor((r % 86400) / 3600);
+            const minutos = Math.floor((r % 3600) / 60);
+            if (dias > 0) return `${dias}d ${dois(horas)}h ${dois(minutos)}min`;
+            return `${dois(horas)}:${dois(minutos)}:${dois(r % 60)}`;
+        },
+    }));
+
     /** Trilho horizontal: sabe se ainda há conteúdo à esquerda/direita para mostrar setas. */
     Alpine.data('trilhoRolavel', () => ({
         podeVoltar: false,
@@ -171,7 +203,7 @@ export function registrarPagina(Alpine) {
         travarRolagem() {
             const c = Alpine.store('cart');
             const aberto = c.saboresModal.open || c.montagemModal.open || c.ofertaModal.open || c.sugestaoModal.open || c.trocoModal.open || !!c.detalhe
-                || c.comboOportunidade.open || c.comboConquista.open || c.anuncio.open
+                || c.comboOportunidade.open || c.comboConquista.open || c.anuncio.open || c.leveTambem.open
                 || (c.drawerOpen && window.innerWidth < 1024) || (c.drawerOpen && c.step !== 'cart');
             document.documentElement.style.overflow = aberto ? 'hidden' : '';
         },

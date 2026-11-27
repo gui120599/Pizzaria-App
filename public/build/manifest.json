@@ -29,7 +29,7 @@
     "isEntry": true
   },
   "resources/css/cardapio.css": {
-    "file": "assets/cardapio-TysJ7cTp.css",
+    "file": "assets/cardapio-BcJ_ZyKI.css",
     "src": "resources/css/cardapio.css",
     "isEntry": true
   },
@@ -39,12 +39,12 @@
     "isEntry": true
   },
   "resources/css/filament/cozinha/theme.css": {
-    "file": "assets/theme-P5s0WsRb.css",
+    "file": "assets/theme-BL9sHckP.css",
     "src": "resources/css/filament/cozinha/theme.css",
     "isEntry": true
   },
   "resources/css/filament/garcom/theme.css": {
-    "file": "assets/theme-BhlB64g4.css",
+    "file": "assets/theme-w_kFSSFS.css",
     "src": "resources/css/filament/garcom/theme.css",
     "isEntry": true
   },
@@ -58,7 +58,7 @@
     ]
   },
   "resources/js/cardapio/index.js": {
-    "file": "assets/index-H81Lwnp8.js",
+    "file": "assets/index-BmOKTtDi.js",
     "name": "index",
     "src": "resources/js/cardapio/index.js",
     "isEntry": true,

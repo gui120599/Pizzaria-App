@@ -97,7 +97,7 @@ class CardapioService
         $promocoesRelampago = PromocaoRelampago::query()
             ->vigente()
             ->comSaldo()
-            ->with(['promocaoProdutos.produto.categoria.quantidadesSabores', 'promocaoProdutos.produto.categoria.pai.quantidadesSabores'])
+            ->with(['opcoesPagamento', 'promocaoProdutos.produto.categoria.quantidadesSabores', 'promocaoProdutos.produto.categoria.pai.quantidadesSabores'])
             ->orderBy('promocao_ordem')
             ->orderBy('promocao_nome')
             ->get()
@@ -108,6 +108,13 @@ class CardapioService
                 'descricao' => $promo->promocao_descricao,
                 'exibe_contador' => $promo->deveExibirContador(),
                 'saldo' => $promo->saldoDisponivel(),
+                'imagem' => $promo->urlImagem(),
+                'imagem_mobile' => $promo->urlImagemMobile(),
+                // "Pix ou Dinheiro"; vazio = aceita todas as formas.
+                'pagamentos' => $promo->textoPagamentos(),
+                // Cronômetro do card: contado a partir do carregamento da página
+                // (não depende do relógio do celular). Null = sem fim definido.
+                'segundos_restantes' => ($fim = $promo->fimDaOcorrencia()) ? max(0, (int) now()->diffInSeconds($fim, false)) : null,
                 'produtos' => $promo->promocaoProdutos
                     ->map(fn ($prp) => $prp->produto)
                     ->filter(fn ($p) => $p && $p->visivelNoCardapio())
@@ -401,7 +408,22 @@ class CardapioService
 
         $anunciosPromocoes = $this->anunciosPromocoes($promocoesCombo, $promocoesRelampago, $campanhasAdicionaisAtivas);
 
-        return compact('banners', 'anunciosPromocoes', 'promocoesCombo', 'campanhasExigencia', 'produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
+        // "Leve também" (Produto::leveTambem): produtoId => ids sugeridos na
+        // ordem do cadastro, só os que estão na tela (têm card e preço).
+        $leveTambem = Produto::whereIn('id', $produtosTela->keys())
+            ->whereHas('leveTambem')
+            ->with('leveTambem:produtos.id')
+            ->get()
+            ->mapWithKeys(fn (Produto $produto): array => [
+                $produto->id => $produto->leveTambem->pluck('id')
+                    ->filter(fn (int $id): bool => $produtosTela->has($id) && $id !== $produto->id)
+                    ->values()
+                    ->all(),
+            ])
+            ->filter(fn (array $ids): bool => $ids !== [])
+            ->all();
+
+        return compact('banners', 'anunciosPromocoes', 'leveTambem', 'promocoesCombo', 'campanhasExigencia', 'produtosTela', 'categorias', 'promocoesRelampago', 'promocoesAdicionais', 'campanhasAdicionaisAtivas', 'promocoes', 'maisVendidos', 'top10Ids', 'opcoesEntregas', 'opcoesPagamento', 'categoriasComSabores', 'perguntasProdutos', 'perguntasCombos', 'adicionaisProdutos', 'estaAberto', 'proximoHorario', 'horarios', 'avaliacaoLinks');
     }
 
     /**
@@ -412,7 +434,7 @@ class CardapioService
      * @param  list<array<string, mixed>>  $combos
      * @param  Collection<int, array<string, mixed>>  $relampagos
      * @param  Collection<int, array<string, mixed>>  $campanhas
-     * @return list<array{chave: string, tipo: string, nome: string, descricao: ?string, destaque: string, nota: ?string, imagem: ?string, imagem_mobile: ?string, saldo: float|int|null, secao: string}>
+     * @return list<array{chave: string, tipo: string, nome: string, descricao: ?string, destaque: string, nota: ?string, imagem: ?string, imagem_mobile: ?string, saldo: float|int|null, secao: string, segundos_restantes?: ?int}>
      */
     private function anunciosPromocoes(array $combos, Collection $relampagos, Collection $campanhas): array
     {
@@ -445,10 +467,14 @@ class CardapioService
                 'destaque' => $promo['produtos']->count() === 1
                     ? $promo['produtos']->first()->produto_descricao.' por '.$dinheiro((float) $menor)
                     : 'Preços a partir de '.$dinheiro((float) $menor),
-                'nota' => $promo['saldo'] !== null ? 'Quantidade limitada.' : null,
-                'imagem' => null,
-                'imagem_mobile' => null,
+                'nota' => implode(' ', array_filter([
+                    $promo['pagamentos'] !== '' ? 'Válido para pagamento em '.$promo['pagamentos'].'.' : null,
+                    $promo['saldo'] !== null ? 'Quantidade limitada.' : null,
+                ])) ?: null,
+                'imagem' => $promo['imagem'],
+                'imagem_mobile' => $promo['imagem_mobile'],
                 'saldo' => $promo['exibe_contador'] ? $promo['saldo'] : null,
+                'segundos_restantes' => $promo['segundos_restantes'],
                 'secao' => $indice === 0 ? 'secao_relampago' : 'secao_relampago_'.$promo['id'],
             ];
         }
