@@ -105,14 +105,14 @@
         <template x-if="$store.cart.avisoPagamentoRemovido.length > 0">
             <p class="mt-2 rounded-xl border border-ouro/30 bg-ouro/10 px-3 py-2 text-xs leading-snug">
                 <i class='bx bx-error-circle text-ouro' aria-hidden="true"></i>
-                Como a forma de pagamento escolhida não vale para a oferta especial, os seguintes produtos voltaram ao preço normal e as ofertas foram removidas:
+                A forma de pagamento escolhida não vale para a promoção destes produtos, que voltaram ao preço normal (e sem o brinde, quando havia):
                 <span x-text="$store.cart.avisoPagamentoRemovido.join(', ')" class="font-semibold"></span>.
             </p>
         </template>
         <template x-if="$store.cart.avisoPagamentoRestaurado.length > 0">
             <p class="mt-2 rounded-xl border border-manjericao/30 bg-manjericao/5 px-3 py-2 text-xs leading-snug">
                 <i class='bx bx-check-circle text-manjericao' aria-hidden="true"></i>
-                Forma de pagamento válida pra promoção — a oferta especial voltou pro pedido:
+                Forma de pagamento válida para a promoção — o preço promocional voltou para:
                 <span x-text="$store.cart.avisoPagamentoRestaurado.join(', ')" class="font-semibold"></span>.
             </p>
         </template>

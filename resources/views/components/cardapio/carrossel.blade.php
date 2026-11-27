@@ -2,6 +2,8 @@
 
 {{-- Seção com trilho horizontal (vitrine). Setas só no desktop; no celular é arrastar. --}}
 <section id="{{ $id }}" data-secao data-ocultar-na-busca x-data="trilhoRolavel" class="pt-6">
+    {{-- Arte da seção (ex.: banner da promoção relâmpago), acima do título. --}}
+    {{ $topo ?? '' }}
     <div class="flex items-end gap-3 px-4 lg:px-0">
         <div class="min-w-0">
             <h2 class="flex items-center gap-2 font-display text-2xl font-bold tracking-tight lg:text-[26px]">
@@ -11,6 +13,8 @@
             @if ($subtitulo)
                 <p class="mt-0.5 text-[13.5px] text-farinha">{{ $subtitulo }}</p>
             @endif
+            {{-- Selos sob o título (ex.: cronômetro e formas de pagamento da relâmpago). --}}
+            {{ $extras ?? '' }}
         </div>
         {{ $acoes ?? '' }}
         <div x-show="podeVoltar || podeAvancar" class="ml-auto hidden gap-2 lg:flex">

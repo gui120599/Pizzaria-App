@@ -3,6 +3,7 @@
 namespace App\Support\Cardapio;
 
 use App\Models\Produto;
+use App\Services\PrecificadorService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -38,6 +39,14 @@ final class ProdutoCardapio
 
     public readonly bool $relampago;
 
+    /**
+     * Formas de pagamento aceitas pela relâmpago do preço exibido (ids; vazio =
+     * todas ou sem relâmpago). Com outra forma, a sacola volta ao preço normal.
+     *
+     * @var list<int>
+     */
+    public readonly array $relampagoPagamentos;
+
     public readonly bool $permiteSabores;
 
     public readonly int $maxSabores;
@@ -63,6 +72,10 @@ final class ProdutoCardapio
         $this->economia = (float) $preco->descontoUnitario;
         $this->precoVenda = (float) $produto->produto_preco_venda;
         $this->relampago = $preco->temPromocaoRelampago();
+        $this->relampagoPagamentos = $preco->promocaoId
+            ? app(PrecificadorService::class)->promocoesVigentes()->firstWhere('id', $preco->promocaoId)?->opcoesPagamento
+                ->pluck('id')->map(fn ($id): int => (int) $id)->values()->all() ?? []
+            : [];
         $this->permiteSabores = $produto->permiteSaboresCardapio();
         $this->maxSabores = $produto->maxSaboresCardapio();
         $this->categoriaId = $produto->categoria?->id;
@@ -122,6 +135,7 @@ final class ProdutoCardapio
             'maxSabores' => $this->maxSabores,
             'categoriaId' => $this->categoriaId,
             'categoriaNome' => $this->categoriaNome,
+            'relampagoPagamentos' => $this->relampagoPagamentos,
         ];
     }
 }

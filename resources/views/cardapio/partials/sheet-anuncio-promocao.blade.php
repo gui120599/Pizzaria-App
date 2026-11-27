@@ -52,6 +52,14 @@
                     @endif
                 </div>
                 <p class="mt-1.5 text-[15px] font-semibold text-creme" x-text="$store.cart.anuncio.promocao?.destaque"></p>
+                {{-- Relâmpago: quanto falta para acabar (contado desde o carregamento da página). --}}
+                <template x-if="$store.cart.anuncio.promocao?.segundos_restantes !== null && $store.cart.anuncio.promocao?.segundos_restantes !== undefined">
+                    <span x-data="cronometro($store.cart.anuncio.promocao.segundos_restantes)"
+                          class="num mt-2 inline-flex items-center gap-1 rounded-full bg-tomate/15 px-2.5 py-1 text-[12.5px] font-bold text-creme">
+                        <i class='bx bx-time-five text-sm text-tomate' aria-hidden="true"></i>
+                        <span x-text="encerrada ? 'Promoção encerrada' : 'Termina em ' + texto"></span>
+                    </span>
+                </template>
                 <p x-show="$store.cart.anuncio.promocao?.descricao" class="mt-1.5 text-[14px] leading-snug text-farinha" x-text="$store.cart.anuncio.promocao?.descricao"></p>
                 <p x-show="$store.cart.anuncio.promocao?.nota" class="mt-2 text-[12px] text-farinha" x-text="$store.cart.anuncio.promocao?.nota"></p>
                 {{-- Loja fechada: a promoção já está no ar, os pedidos começam no horário de abertura. --}}

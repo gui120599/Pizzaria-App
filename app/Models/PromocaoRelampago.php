@@ -22,6 +22,8 @@ class PromocaoRelampago extends Model
     protected $fillable = [
         'promocao_nome',
         'promocao_descricao',
+        'promocao_imagem',
+        'promocao_imagem_mobile',
         'promocao_ativa',
         'promocao_recorrente',
         'promocao_inicio',
@@ -83,6 +85,54 @@ class PromocaoRelampago extends Model
     public function consumos(): HasMany
     {
         return $this->hasMany(PromocaoConsumo::class, 'consumo_promocao_id');
+    }
+
+    /** Formas de pagamento aceitas; vazio = todas. */
+    public function opcoesPagamento(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            OpcoesPagamento::class,
+            'promocao_relampago_opcoes_pagamento',
+            'promocao_id',
+            'opcaopag_id',
+        );
+    }
+
+    /**
+     * Sem restrição (relação vazia) todas as formas valem. Com restrição, a
+     * forma precisa estar na lista; null (forma ainda não escolhida: card do
+     * cardápio, sacola, balcão antes de salvar) passa — o preço promocional
+     * aparece e o checkout/save confere com a forma escolhida.
+     */
+    public function pagamentoPermitido(?int $opcaoPagamentoId): bool
+    {
+        if ($opcaoPagamentoId === null || $this->opcoesPagamento->isEmpty()) {
+            return true;
+        }
+
+        return $this->opcoesPagamento->contains('id', $opcaoPagamentoId);
+    }
+
+    /** "Pix ou Dinheiro" (vazio quando aceita todas as formas). */
+    public function textoPagamentos(): string
+    {
+        $nomes = $this->opcoesPagamento->pluck('opcaopag_nome')->filter()->values();
+
+        return $nomes->count() <= 1
+            ? (string) $nomes->first()
+            : $nomes->slice(0, -1)->implode(', ').' ou '.$nomes->last();
+    }
+
+    /** URL pública da arte de computador (disco public), ou null sem imagem. */
+    public function urlImagem(): ?string
+    {
+        return filled($this->promocao_imagem) ? asset('storage/'.$this->promocao_imagem) : null;
+    }
+
+    /** URL pública da arte de celular (quadrada), ou null sem imagem. */
+    public function urlImagemMobile(): ?string
+    {
+        return filled($this->promocao_imagem_mobile) ? asset('storage/'.$this->promocao_imagem_mobile) : null;
     }
 
     /**

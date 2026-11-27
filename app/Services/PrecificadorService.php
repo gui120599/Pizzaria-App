@@ -80,7 +80,7 @@ class PrecificadorService
         return $this->vigentes ??= PromocaoRelampago::query()
             ->vigente()
             ->comSaldo()
-            ->with(['promocaoProdutos'])
+            ->with(['promocaoProdutos', 'opcoesPagamento'])
             ->orderBy('promocao_ordem')
             ->get()
             ->reject(fn (PromocaoRelampago $promocao) => $this->contextoMesa && $promocao->restringeEntrega())
@@ -172,9 +172,10 @@ class PrecificadorService
      *
      * @return Collection<int, PromocaoRelampago>
      */
-    public function promocoesVigentesDoProduto(int $produtoId): Collection
+    public function promocoesVigentesDoProduto(int $produtoId, ?int $opcaoPagamentoId = null): Collection
     {
         return $this->promocoesVigentes()
+            ->filter(fn (PromocaoRelampago $promocao) => $promocao->pagamentoPermitido($opcaoPagamentoId))
             ->filter(fn (PromocaoRelampago $promocao) => $promocao->promocaoProdutos
                 ->contains(fn (PromocaoRelampagoProduto $prp) => (int) $prp->prp_produto_id === $produtoId && ! $prp->esgotado()))
             ->values();
@@ -184,9 +185,11 @@ class PrecificadorService
      * Melhor oferta relâmpago para um produto: entre as promoções vigentes com
      * saldo (pool e sublimite), a de menor preço.
      */
-    public function promocaoDoProduto(int $produtoId): ?PromocaoRelampagoProduto
+    public function promocaoDoProduto(int $produtoId, ?int $opcaoPagamentoId = null): ?PromocaoRelampagoProduto
     {
         return $this->promocoesVigentes()
+            // Forma de pagamento fora da promoção (ex.: cartão numa "só Pix"): preço normal.
+            ->filter(fn (PromocaoRelampago $promocao) => $promocao->pagamentoPermitido($opcaoPagamentoId))
             ->flatMap(fn (PromocaoRelampago $promocao) => $promocao->promocaoProdutos)
             ->filter(fn (PromocaoRelampagoProduto $prp) => (int) $prp->prp_produto_id === $produtoId && ! $prp->esgotado())
             ->sortBy('prp_preco_promocional')
@@ -225,7 +228,7 @@ class PrecificadorService
             );
         }
 
-        if ($considerarRelampago && ($prp = $this->promocaoDoProduto($produto->id)) !== null) {
+        if ($considerarRelampago && ($prp = $this->promocaoDoProduto($produto->id, $opcaoPagamentoId)) !== null) {
             $preco = (float) $prp->prp_preco_promocional;
 
             return new PrecoResolvido(
@@ -280,7 +283,7 @@ class PrecificadorService
      *
      * @param  array<int, Produto>  $produtos
      */
-    public function promocaoDoCombo(array $produtos): ?PromocaoRelampago
+    public function promocaoDoCombo(array $produtos, ?int $opcaoPagamentoId = null): ?PromocaoRelampago
     {
         $total = count($produtos);
 
@@ -289,7 +292,7 @@ class PrecificadorService
         }
 
         foreach ($this->promocoesVigentes() as $promocao) {
-            if (! $promocao->promocao_permite_sabores) {
+            if (! $promocao->promocao_permite_sabores || ! $promocao->pagamentoPermitido($opcaoPagamentoId)) {
                 continue;
             }
 
@@ -418,7 +421,7 @@ class PrecificadorService
     {
         $produtos = array_values($produtos);
         $numSabores = count($produtos);
-        $promocao = ($considerarRelampago ?? $considerarPromocoes) ? $this->promocaoDoCombo($produtos) : null;
+        $promocao = ($considerarRelampago ?? $considerarPromocoes) ? $this->promocaoDoCombo($produtos, $opcaoPagamentoId) : null;
         // Só entra em jogo quando não há combo relâmpago cobrindo os mesmos
         // sabores — relâmpago tem prioridade, igual ao item avulso.
         $regrasAdicionais = $considerarPromocoes && $promocao === null ? $this->regrasAdicionaisDoCombo($produtos, $opcaoPagamentoId) : null;

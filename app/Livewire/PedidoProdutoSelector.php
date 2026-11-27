@@ -163,6 +163,15 @@ class PedidoProdutoSelector extends Component
     /** Itens-gatilho cuja oferta foi recusada no modal: não pergunta de novo. */
     public array $ofertasRecusadasItens = [];
 
+    /**
+     * "Leve também" do último produto lançado (Produto::leveTambem). Fica
+     * guardado e só aparece quando os modais de promoção/combo e do produto
+     * fecham. Null = nada a sugerir.
+     *
+     * @var array{origem: string, produtos: list<array{id: int, nome: string, categoria: ?string, foto: ?string, preco: float}>}|null
+     */
+    public ?array $leveTambemModal = null;
+
     /** Aviso informativo de promoção (ex.: "adicione 1 Pizza Grande para ganhar"). */
     public ?string $avisoPromocao = null;
 
@@ -815,6 +824,67 @@ class PedidoProdutoSelector extends Component
         }
     }
 
+    /**
+     * Toda vez que um produto é lançado: monta as sugestões dele (vendáveis
+     * no seletor), inclusive as que já estão no pedido — o modal mostra
+     * quantas.
+     */
+    protected function sugerirLeveTambem(?int $produtoId): void
+    {
+        $produto = $produtoId ? Produto::find($produtoId) : null;
+
+        if (! $produto) {
+            return;
+        }
+
+        $precificador = app(PrecificadorService::class);
+
+        $sugeridos = $produto->leveTambem()
+            ->with('categoria')
+            ->whereIn('produto_tipo', [ProdutoTipoEnum::PRODUZIDO->value, ProdutoTipoEnum::REVENDA->value])
+            ->where('produto_cardapio_garcom', true)
+            ->get();
+
+        if ($sugeridos->isEmpty()) {
+            return;
+        }
+
+        $this->leveTambemModal = [
+            'origem' => $produto->produto_descricao,
+            'produtos' => $sugeridos->map(fn (Produto $p): array => [
+                'id' => $p->id,
+                'nome' => $p->produto_descricao,
+                'categoria' => $p->categoria?->categoria_nome,
+                'foto' => $p->getMiniaturaUrl(56),
+                'preco' => $precificador->resolver($p)->precoFinal(),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * Escolheu uma sugestão do "Leve também": segue o fluxo normal do produto.
+     * As outras sugestões voltam quando o modal do produto fechar (ex.: levar
+     * dois refrigerantes diferentes); "Agora não" encerra.
+     */
+    public function escolherLeveTambem(int $produtoId): void
+    {
+        $produtos = collect($this->leveTambemModal['produtos'] ?? []);
+
+        if (! $produtos->contains('id', $produtoId)) {
+            return;
+        }
+
+        $restantes = $produtos->reject(fn (array $p): bool => $p['id'] === $produtoId)->values()->all();
+        $this->leveTambemModal = $restantes === [] ? null : ['origem' => $this->leveTambemModal['origem'], 'produtos' => $restantes];
+
+        $this->selecionarProduto($produtoId);
+    }
+
+    public function fecharLeveTambem(): void
+    {
+        $this->leveTambemModal = null;
+    }
+
     /** Fechou o modal da promoção sem escolher: oferta pendente recusada não volta. */
     public function fecharPromoModal(): void
     {
@@ -1151,7 +1221,9 @@ class PedidoProdutoSelector extends Component
 
         $this->fecharSaboresModal();
         $this->notificarPai();
+        $lancado = $this->ultimoLancadoProdutoId;
         $this->verificarPromocoesExigencia();
+        $this->sugerirLeveTambem($lancado);
     }
 
     /**
@@ -1252,7 +1324,9 @@ class PedidoProdutoSelector extends Component
 
         $this->fecharModal();
         $this->notificarPai();
+        $lancado = $this->ultimoLancadoProdutoId;
         $this->verificarPromocoesExigencia();
+        $this->sugerirLeveTambem($lancado);
     }
 
     /** Dispensa o toast de erro/aviso de estoque exibido dentro dos modais. */
@@ -1380,6 +1454,23 @@ class PedidoProdutoSelector extends Component
     {
         $this->carregarItensDB();
         $this->notificarPai();
+    }
+
+    /**
+     * Atender Pedido (pedido novo) tirou a relâmpago de itens da prévia
+     * porque a forma de pagamento não vale para ela: a lista passa a mostrar o
+     * preço normal. Pedido gravado relê do banco (pedido-recarregar-itens).
+     */
+    #[On('pedido-previa-substituir')]
+    public function onSubstituirPrevia(array $itens): void
+    {
+        if ($this->pedidoId) {
+            return;
+        }
+
+        $this->itens = array_values($itens);
+        $this->sincronizarPromocaoCombo(convidar: false);
+        $this->dispatch('itens-pedido-atualizados', itens: $this->itens);
     }
 
     #[On('pedido-abrir-edicao-item')]

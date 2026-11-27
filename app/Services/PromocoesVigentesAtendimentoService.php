@@ -62,6 +62,7 @@ class PromocoesVigentesAtendimentoService
                     $promocao->promocao_limite_por_pedido ? 'Máx. '.$this->numero($promocao->promocao_limite_por_pedido).' por pedido' : null,
                     $promocao->promocao_qtd_total !== null ? 'Restam '.$this->numero($promocao->saldoDisponivel()) : null,
                     $this->textoEntrega((array) $promocao->promocao_opcoes_entrega),
+                    $promocao->textoPagamentos() !== '' ? 'Pagamento: '.$promocao->textoPagamentos() : null,
                 ])),
                 'brindes' => [],
                 'produtos' => $this->cartoesDeProdutos(

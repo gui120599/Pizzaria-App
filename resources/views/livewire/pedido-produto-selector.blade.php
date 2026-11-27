@@ -683,6 +683,50 @@
     @endif
 
 
+    {{-- ══ MODAL: Leve também (sugestões do produto lançado) ═══════════════════
+         Espera os modais de promoção, combo e do próprio produto fecharem. --}}
+    @if ($leveTambemModal && ! $promoModal && ! $comboModal && ! $modalAberta && ! $saboresModalAberta)
+        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" wire:keydown.escape="fecharLeveTambem">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" wire:click="fecharLeveTambem"></div>
+
+            <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md z-10 max-h-[90vh] overflow-y-auto p-5 space-y-3">
+                <p class="text-xs font-semibold text-primary-600 dark:text-primary-400 flex items-center gap-1">
+                    <i class='bx bxs-shopping-bag'></i> Leve também
+                </p>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Ofereça junto com {{ $leveTambemModal['origem'] }}</h3>
+
+                <div class="max-h-72 overflow-y-auto pr-1 space-y-1.5">
+                    @foreach ($leveTambemModal['produtos'] as $sugerido)
+                        <button type="button" wire:key="leve-tambem-{{ $sugerido['id'] }}" wire:click="escolherLeveTambem({{ $sugerido['id'] }})"
+                            class="w-full flex items-center gap-3 p-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 text-left transition-colors hover:border-primary-500">
+                            @if ($sugerido['foto'])
+                                <img src="{{ $sugerido['foto'] }}" alt="" width="40" height="40" class="w-10 h-10 rounded-lg object-cover shrink-0">
+                            @endif
+                            <span class="flex-1 min-w-0">
+                                <span class="block text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{{ $sugerido['nome'] }}</span>
+                                @if ($sugerido['categoria'])
+                                    <span class="block text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400 truncate">{{ $sugerido['categoria'] }}</span>
+                                @endif
+                                @php $noPedido = (float) collect($itens)->where('produto_id', $sugerido['id'])->sum('quantidade'); @endphp
+                                @if ($noPedido > 0)
+                                    <span class="block text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">No pedido: {{ rtrim(rtrim(number_format($noPedido, 3, ',', ''), '0'), ',') }}</span>
+                                @endif
+                            </span>
+                            <span class="text-sm font-bold text-gray-700 dark:text-gray-300 shrink-0">R$ {{ number_format($sugerido['preco'], 2, ',', '.') }}</span>
+                            <i class='bx bx-plus-circle text-xl text-primary-600 shrink-0'></i>
+                        </button>
+                    @endforeach
+                </div>
+
+                <button type="button" wire:click="fecharLeveTambem"
+                    class="w-full py-2.5 border border-gray-300 dark:border-white/10 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                    Agora não
+                </button>
+            </div>
+        </div>
+    @endif
+
+
     {{-- ══ MODAL: editar item existente ══════════════════════════════════════ --}}
     @if ($editModalAberta && $editItemId)
         @php $editItem = collect($itens)->firstWhere('id', $editItemId); @endphp

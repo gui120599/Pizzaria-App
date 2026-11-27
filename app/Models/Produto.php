@@ -548,6 +548,30 @@ class Produto extends Model
             ->orderBy('adicionais.adicional_nome');
     }
 
+    /**
+     * "Leve também": produtos sugeridos depois de lançar este (ex.: a pizza
+     * sugere refrigerantes), pelo preço normal. Ordem própria (plt_ordem) e,
+     * sem ela, a do cardápio.
+     */
+    public function leveTambem(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'produto_leve_tambem', 'plt_produto_id', 'plt_sugerido_id')
+            ->withPivot('plt_ordem')
+            ->withTimestamps()
+            ->orderByRaw('produto_leve_tambem.plt_ordem IS NULL')
+            ->orderBy('produto_leve_tambem.plt_ordem')
+            ->orderBy('produtos.produto_ordem')
+            ->orderBy('produtos.produto_descricao');
+    }
+
+    /** Inversa de leveTambem(): produtos que sugerem este (o Filament exige a inversa no vínculo). */
+    public function sugeridoPor(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'produto_leve_tambem', 'plt_sugerido_id', 'plt_produto_id')
+            ->withPivot('plt_ordem')
+            ->withTimestamps();
+    }
+
     /** O produto tem ordem própria de adicionais (alguém ordenou na aba Adicionais). */
     public function temOrdemPropriaDeAdicionais(): bool
     {

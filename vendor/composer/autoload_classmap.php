@@ -568,6 +568,7 @@ return array(
     'App\\Filament\\Resources\\Produtos\\ProdutoResource' => $baseDir . '/app/Filament/Resources/Produtos/ProdutoResource.php',
     'App\\Filament\\Resources\\Produtos\\RelationManagers\\AdicionaisRelationManager' => $baseDir . '/app/Filament/Resources/Produtos/RelationManagers/AdicionaisRelationManager.php',
     'App\\Filament\\Resources\\Produtos\\RelationManagers\\FichaItensRelationManager' => $baseDir . '/app/Filament/Resources/Produtos/RelationManagers/FichaItensRelationManager.php',
+    'App\\Filament\\Resources\\Produtos\\RelationManagers\\LeveTambemRelationManager' => $baseDir . '/app/Filament/Resources/Produtos/RelationManagers/LeveTambemRelationManager.php',
     'App\\Filament\\Resources\\Produtos\\RelationManagers\\LotesRelationManager' => $baseDir . '/app/Filament/Resources/Produtos/RelationManagers/LotesRelationManager.php',
     'App\\Filament\\Resources\\Produtos\\RelationManagers\\PerguntasRelationManager' => $baseDir . '/app/Filament/Resources/Produtos/RelationManagers/PerguntasRelationManager.php',
     'App\\Filament\\Resources\\Produtos\\Schemas\\ProdutoForm' => $baseDir . '/app/Filament/Resources/Produtos/Schemas/ProdutoForm.php',

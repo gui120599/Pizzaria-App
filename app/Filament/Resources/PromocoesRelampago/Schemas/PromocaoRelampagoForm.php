@@ -7,6 +7,7 @@ use App\Models\Produto;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -43,6 +44,40 @@ class PromocaoRelampagoForm
                         ->label('Ativa')
                         ->helperText('Desligue para encerrar a promoção imediatamente, sem apagá-la.')
                         ->default(true),
+                ]),
+
+            Section::make('Imagens')
+                ->description('Opcional. Com imagem, a seção da promoção no cardápio e o aviso ao abrir o cardápio mostram a arte.')
+                ->columns(2)
+                ->columnSpanFull()
+                ->collapsible()
+                ->schema([
+                    FileUpload::make('promocao_imagem')
+                        ->label('Imagem para computador')
+                        ->helperText('1680 × 640 px (faixa larga, 21:8). JPG ou PNG, até 5MB.')
+                        ->disk('public')
+                        ->directory('promocoes_relampago')
+                        ->visibility('public')
+                        ->image()
+                        ->imageEditor()
+                        ->imageResizeMode('cover')
+                        ->imageCropAspectRatio('21:8')
+                        ->imageResizeTargetWidth(1680)
+                        ->imageResizeTargetHeight(640)
+                        ->maxSize(5120),
+                    FileUpload::make('promocao_imagem_mobile')
+                        ->label('Imagem para celular')
+                        ->helperText('1080 × 1080 px (quadrada, 1:1). Celular e aviso ao abrir o cardápio. Sem ela, vale a de computador (e vice-versa).')
+                        ->disk('public')
+                        ->directory('promocoes_relampago')
+                        ->visibility('public')
+                        ->image()
+                        ->imageEditor()
+                        ->imageResizeMode('cover')
+                        ->imageCropAspectRatio('1:1')
+                        ->imageResizeTargetWidth(1080)
+                        ->imageResizeTargetHeight(1080)
+                        ->maxSize(5120),
                 ]),
 
             Section::make('Vigência')
@@ -116,6 +151,13 @@ class PromocaoRelampagoForm
                         ->helperText('Em branco = todas. Com restrição, pedido de mesa sai pelo preço normal e as outras opções são recusadas no envio.')
                         ->options(fn (): array => OpcoesEntregas::whereNull('deleted_at')->pluck('opcaoentrega_nome', 'id')->all())
                         ->columns(3)
+                        ->columnSpanFull(),
+                    CheckboxList::make('opcoesPagamento')
+                        ->relationship('opcoesPagamento', 'opcaopag_nome')
+                        ->label('Formas de pagamento aceitas')
+                        ->helperText('Em branco = todas. Com outra forma, o item sai pelo preço normal: no cardápio o cliente é avisado no checkout; no Atender Pedido o atendente confirma ao salvar.')
+                        ->columns(3)
+                        ->bulkToggleable()
                         ->columnSpanFull(),
                 ]),
 

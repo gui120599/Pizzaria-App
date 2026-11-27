@@ -1566,6 +1566,7 @@ class ComposerStaticInit5ab1db59f69ab376e1219686675b6f06
         'App\\Filament\\Resources\\Produtos\\ProdutoResource' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/ProdutoResource.php',
         'App\\Filament\\Resources\\Produtos\\RelationManagers\\AdicionaisRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/RelationManagers/AdicionaisRelationManager.php',
         'App\\Filament\\Resources\\Produtos\\RelationManagers\\FichaItensRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/RelationManagers/FichaItensRelationManager.php',
+        'App\\Filament\\Resources\\Produtos\\RelationManagers\\LeveTambemRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/RelationManagers/LeveTambemRelationManager.php',
         'App\\Filament\\Resources\\Produtos\\RelationManagers\\LotesRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/RelationManagers/LotesRelationManager.php',
         'App\\Filament\\Resources\\Produtos\\RelationManagers\\PerguntasRelationManager' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/RelationManagers/PerguntasRelationManager.php',
         'App\\Filament\\Resources\\Produtos\\Schemas\\ProdutoForm' => __DIR__ . '/../..' . '/app/Filament/Resources/Produtos/Schemas/ProdutoForm.php',

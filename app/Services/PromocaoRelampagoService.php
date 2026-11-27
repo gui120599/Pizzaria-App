@@ -6,9 +6,11 @@ use App\Exceptions\PromocaoIndisponivelException;
 use App\Models\ItensPedido;
 use App\Models\OpcoesEntregas;
 use App\Models\Pedido;
+use App\Models\Produto;
 use App\Models\PromocaoConsumo;
 use App\Models\PromocaoRelampago;
 use App\Models\PromocaoRelampagoProduto;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -178,6 +180,97 @@ class PromocaoRelampagoService
             ->map(fn (PromocaoRelampago $promocao) => $promocao->promocao_nome)
             ->values()
             ->all();
+    }
+
+    /**
+     * Promoções (dos itens informados) que não aceitam as formas de pagamento
+     * escolhidas — ex.: "só Pix ou Dinheiro" e o pedido tem cartão. Fiado
+     * nunca está na lista de uma promoção com restrição. Sem forma escolhida
+     * (e sem fiado) nada é recusado: a forma ainda vai ser definida.
+     *
+     * @param  iterable<int|null>  $promocaoIds  item_pedido_promocao_id dos itens
+     * @param  iterable<int|null>  $opcoesPagamentoIds  formas escolhidas no pedido
+     * @return Collection<int, PromocaoRelampago>
+     */
+    public function promocoesForaDoPagamento(iterable $promocaoIds, iterable $opcoesPagamentoIds, bool $fiado = false): Collection
+    {
+        $ids = collect($promocaoIds)->filter()->unique()->values();
+        $formas = collect($opcoesPagamentoIds)->filter()->map(fn ($id): int => (int) $id)->unique()->values();
+
+        if ($ids->isEmpty() || ($formas->isEmpty() && ! $fiado)) {
+            return collect();
+        }
+
+        return PromocaoRelampago::withTrashed()
+            ->with('opcoesPagamento')
+            ->whereIn('id', $ids)
+            ->get()
+            ->filter(fn (PromocaoRelampago $promocao) => $promocao->opcoesPagamento->isNotEmpty()
+                && ($fiado || $formas->contains(fn (int $forma) => ! $promocao->pagamentoPermitido($forma))))
+            ->values();
+    }
+
+    /**
+     * Preço da linha sem a promoção relâmpago (preço de tabela, ou o
+     * promocional do produto). Adicionais e respostas seguem como estavam.
+     * Pizza de sabores refaz o rateio dos sabores sem a relâmpago.
+     *
+     * @param  list<int>  $saboresIds  vazio = item comum / pizza inteira
+     * @return array{item_pedido_valor_unitario: float, item_pedido_desconto_unitario: float, item_pedido_desconto: float, item_pedido_valor: float, item_pedido_sabores: ?array}
+     */
+    public function precoSemRelampago(int $produtoId, float $quantidade, array $saboresIds, float $valorAdicionais): array
+    {
+        $precificador = app(PrecificadorService::class);
+
+        if (count($saboresIds) > 1) {
+            $produtos = Produto::with('categoria')->whereIn('id', $saboresIds)->get()->keyBy('id');
+            $produtos = array_values(array_filter(array_map(fn (int $id) => $produtos->get($id), $saboresIds)));
+            $combo = $precificador->precificarCombo($produtos, (int) $quantidade, $precificador->opcaoDoCombo($produtos), null, considerarPromocoes: false, considerarRelampago: false);
+
+            return [
+                'item_pedido_valor_unitario' => $combo['valor_unitario'],
+                'item_pedido_desconto_unitario' => $combo['desconto_unitario'],
+                'item_pedido_desconto' => $combo['desconto'],
+                'item_pedido_valor' => round($combo['valor'] + $valorAdicionais, 2),
+                'item_pedido_sabores' => $combo['sabores'],
+            ];
+        }
+
+        $preco = ItensPedido::precoUnitario(Produto::findOrFail($produtoId));
+        $linha = ItensPedido::calcularLinha($quantidade, $preco['valor_unitario'], $preco['desconto_unitario'], $valorAdicionais);
+
+        return [
+            'item_pedido_valor_unitario' => $linha['valor_unitario'],
+            'item_pedido_desconto_unitario' => $preco['desconto_unitario'],
+            'item_pedido_desconto' => $linha['desconto'],
+            'item_pedido_valor' => $linha['valor'],
+            'item_pedido_sabores' => null,
+        ];
+    }
+
+    /**
+     * Item já gravado volta ao preço normal: devolve o saldo da promoção e
+     * regrava o preço sem a relâmpago (quem chama recalcula os totais).
+     */
+    public function voltarAoPrecoNormal(ItensPedido $item): void
+    {
+        DB::transaction(function () use ($item) {
+            $this->estornarItem($item);
+
+            $sabores = collect($item->item_pedido_sabores ?? [])->pluck('produto_id')->filter()->map(fn ($id): int => (int) $id)->values()->all();
+            $novo = $this->precoSemRelampago(
+                (int) $item->item_pedido_produto_id,
+                (float) $item->item_pedido_quantidade,
+                $sabores,
+                (float) $item->item_pedido_valor_adicionais,
+            );
+
+            if ($novo['item_pedido_sabores'] === null) {
+                unset($novo['item_pedido_sabores']);
+            }
+
+            $item->update($novo + ['item_pedido_promocao_id' => null]);
+        });
     }
 
     /**
